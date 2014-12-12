@@ -1,0 +1,50 @@
+# A Dockerfile to run all the the Amazon EC2 Container Service's Container
+# Agent's tests.
+#
+# Because the Agent's tests include starting docker containers, it is necessary
+# to have both go and docker available in the testing environment.
+# It's easier to get go, so start with docker-in-docker and add go on top
+FROM jpetazzo/dind
+MAINTAINER euank <euank@amazon.com>
+
+# The following code is taken, in part, from the docker-library/golang
+# repository under a BSD 3-clause license. The license file is reproduced in the
+# NOTICES file at the root of this repository in accordance.
+# https://github.com/docker-library/golang/blob/b13bdad8632705cd56f887ffe7320076b1b56754/1.3/Dockerfile
+
+# SCMs for "go get", gcc for cgo
+RUN apt-get update && apt-get install -y \
+		ca-certificates curl gcc libc6-dev make \
+		bzr git mercurial \
+		--no-install-recommends \
+	&& rm -rf /var/lib/apt/lists/*
+
+ENV GOLANG_VERSION 1.3.3
+
+RUN curl -sSL https://golang.org/dl/go$GOLANG_VERSION.src.tar.gz \
+		| tar -v -C /usr/src -xz
+
+RUN cd /usr/src/go/src && ./make.bash --no-clean 2>&1
+
+ENV PATH /usr/src/go/bin:$PATH
+
+RUN mkdir -p /go/src
+ENV GOPATH /go
+ENV PATH /go/bin:$PATH
+WORKDIR /go
+
+
+# End docker-library/golang sourced data
+
+# Once https://github.com/docker/docker/issues/735 is resolved, this and
+# Dockerfile.build should INCLUDE a common source. Same is true for the above
+# section.
+RUN mkdir -p /go/src/github.com/aws/
+RUN go get github.com/tools/godep
+
+
+COPY . /go/src/github.com/aws/amazon-ecs-agent
+
+WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
+
+ENTRYPOINT ../scripts/test

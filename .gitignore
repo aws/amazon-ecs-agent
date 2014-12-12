@@ -1,0 +1,3 @@
+misc/certs/ca-certificates.crt
+out/
+coverage/

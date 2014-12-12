@@ -1,0 +1,17 @@
+#!/bin/bash
+
+export GOPATH=`godep path`:$GOPATH
+
+# Statically link to ensure we can run in scratch
+CGO_ENABLED=0 go build -a -x -ldflags '-s' -o amazon-ecs-agent
+
+
+buildErr=$?
+if [[ $buildErr != 0 ]]; then
+	echo "Agent build exited with error: $buildErr"
+	exit $buildErr
+fi
+
+
+# Put it in the shared volume
+cp amazon-ecs-agent /out/amazon-ecs-agent

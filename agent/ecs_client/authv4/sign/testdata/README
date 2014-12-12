@@ -1,0 +1,10 @@
+
+All examples in the test suite use the following credential scope:
+
+AKIDEXAMPLE/20110909/us-east-1/host/aws4_request
+
+The example secret key used for signing is:
+
+wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY
+
+The "Date:" is "Mon, 09 Sep 2011 23:36:00 GMT"
