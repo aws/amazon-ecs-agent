@@ -1,0 +1,97 @@
+#!/bin/sh
+#
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the
+# "License"). You may not use this file except in compliance
+# with the License. A copy of the License is located at
+#
+#     http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and
+# limitations under the License.
+#
+# description: Starts an Amazon EC2 Container Service Agent container
+# config: /etc/ecs/ecs.config
+
+
+ecs_config="/etc/ecs/ecs.config"
+docker="/usr/bin/docker"
+agent_tarball="/var/cache/ecs/ecs-agent.tar"
+image_name="amazon/amazon-ecs-agent"
+logdir="/var/log/ecs"
+initlogfile="$logdir/ecs-init.log"
+agentlogfile="ecs-agent.log"
+
+printt() {
+	[ -d $logdir ] || mkdir -p $logdir
+	echo "ecs-init [$(date)]: $1" | tee -a $initlogfile
+}
+
+throw_error() {
+	printt "ERROR $1"
+	exit 1
+}
+
+pre_start() {
+	printt "pre-start"
+	[ -x $docker ] || return 3
+	[ -r $agent_tarball ] || return 4
+
+	if [ "$(docker images -q $image_name | wc -l)" -eq "0" ]; then
+		printt "Loading Amazon EC2 Container Service Agent from file $agent_tarball"
+		docker load <$agent_tarball
+		if [ "$?" -ne "0" ]; then
+			throw_error "Cannot load Amazon EC2 Container Service Agent $agent_tarball into docker"
+		fi
+	fi
+}
+
+start() {
+	printt "start"
+	[ -e $ecs_config ] || touch $ecs_config
+	[ -d $logdir ] || mkdir -p $logdir
+	[ -r $ecs_config ] || return 2
+	[ -x $docker ] || return 3
+
+	printt "Starting Amazon EC2 Container Service Agent"
+	docker rm ecs-agent &>/dev/null
+	docker run \
+		--name ecs-agent \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $logdir:/log \
+		-p 127.0.0.1:51678:51678 \
+		--env-file $ecs_config \
+		-e ECS_LOGFILE=/log/$agentlogfile \
+		$image_name:latest
+
+	printt "Exited $?"
+}
+
+pre_stop() {
+	printt "pre-stop"
+	[ -x $docker ] || return 3
+
+	printt "Stopping Amazon EC2 Container Service Agent"
+	docker stop ecs-agent
+}
+
+case "$1" in
+	pre-start)
+		pre_start
+		;;
+	start)
+		start
+		;;
+	pre-stop)
+		pre_stop
+		;;
+	*)
+		echo "Usage: $0 {pre-start|start|pre-stop}"
+		exit 1
+esac
+
+exit $?
