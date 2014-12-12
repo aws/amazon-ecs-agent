@@ -10,7 +10,7 @@ It runs on Container Instances and starts containers on behalf of Amazon ECS.
 
 The Amazon ECS Container Agent should be run in a docker container and may be
 downloaded from our [Docker Hub
-Repository](https://registry.hub.docker.com/u/amazon/ecs-container-agent/).
+Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
 Documentation on running it properly may be found on the Repository page.
 
 tl;dr: *On an Amazon ECS Container Instance* `docker run -d -p 51678:51678 -v /var/run/docker.sock:/var/run/docker.sock
