@@ -52,7 +52,6 @@ test-in-docker: checkdockerfile
 
 coverage:
 
-
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -f out/amazon-ecs-agent &> /dev/null
