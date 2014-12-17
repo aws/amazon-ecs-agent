@@ -17,7 +17,7 @@
 %define cache_dir /var/cache/ecs
 Name:           ecs-init
 Version:        0.2
-Release:        0
+Release:        1
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -31,6 +31,10 @@ Source1:	ecs-init
 Requires:	docker
 Requires:	/bin/sh
 Requires:	upstart
+Requires:	coreutils
+Requires:	grep
+Requires:	sed
+Requires:	curl
 
 %description
 ecs-init is init scripts for Amazon ECS-Optimized instances. The scripts
@@ -62,5 +66,7 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
+- Naive update functionality
 * Thu Dec 11 2014 Samuel Karp <skarp@amazon.com> - 0.2-0
 - Initial version

@@ -21,14 +21,16 @@
 ecs_config="/etc/ecs/ecs.config"
 docker="/usr/bin/docker"
 agent_tarball="/var/cache/ecs/ecs-agent.tar"
+agent_remote_tarball="https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-latest.tar"
+agent_remote_tarball_md5="https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-latest.tar.md5"
 image_name="amazon/amazon-ecs-agent"
 logdir="/var/log/ecs"
-initlogfile="$logdir/ecs-init.log"
+initlogfile="${logdir}/ecs-init.log"
 agentlogfile="ecs-agent.log"
 
 printt() {
-	[ -d $logdir ] || mkdir -p $logdir
-	echo "ecs-init [$(date)]: $1" | tee -a $initlogfile
+	[ -d ${logdir} ] || mkdir -p ${logdir}
+	echo "ecs-init [$(date)]: $1" | tee -a "${initlogfile}"
 }
 
 throw_error() {
@@ -36,47 +38,84 @@ throw_error() {
 	exit 1
 }
 
+download_tarball() {
+	printt "Downloading Amazon EC2 Container Service Agent from ${agent_remote_tarball}"
+	tmp_tarball="$(mktemp)"
+	tmp_md5="$(mktemp)"
+	curl "${agent_remote_tarball}" -o "${tmp_tarball}"
+	curl "${agent_remote_tarball_md5}" -o "${tmp_md5}"
+	download_md5="$(md5sum ${tmp_tarball} | sed 's/ .*//')"
+	expected_md5="$(cat ${tmp_md5})"
+	if [ ! "${download_md5}" = "${expected_md5}" ]; then
+		rm ${tmp_tarball}
+		rm ${tmp_md5}
+		throw_error "Downloaded tarball with md5sum ${download_md5} did not match ${expected_md5}"
+	fi
+	mv ${tmp_tarball} ${agent_tarball}
+	rm ${tmp_md5}
+	return "$?"
+}
+
+check_latest() {
+	agent_md5="$(md5sum ${agent_tarball} | sed 's/ .*//')"
+	curl -I "${agent_remote_tarball}" -H "If-None-Match:${agent_md5}" | grep '304 Not Modified'
+	return "$?"
+}
+
 pre_start() {
 	printt "pre-start"
-	[ -x $docker ] || return 3
-	[ -r $agent_tarball ] || return 4
+	[ -x ${docker} ] || return 3
 
-	if [ "$(docker images -q $image_name | wc -l)" -eq "0" ]; then
-		printt "Loading Amazon EC2 Container Service Agent from file $agent_tarball"
-		docker load <$agent_tarball
-		if [ "$?" -ne "0" ]; then
-			throw_error "Cannot load Amazon EC2 Container Service Agent $agent_tarball into docker"
-		fi
+	if [ -z "$(docker images -q ${image_name})" ]; then
+		[ -e $agent_tarball ] || download_tarball
+		printt "Loading Amazon EC2 Container Service Agent from file ${agent_tarball}"
+		docker load <${agent_tarball}
+		[ "$?" -eq "0" ] || throw_error "Cannot load Amazon EC2 Container Service Agent ${agent_tarball} into docker"
 	fi
 }
 
 start() {
 	printt "start"
-	[ -e $ecs_config ] || touch $ecs_config
-	[ -d $logdir ] || mkdir -p $logdir
-	[ -r $ecs_config ] || return 2
-	[ -x $docker ] || return 3
+	[ -e ${ecs_config} ] || touch ${ecs_config}
+	[ -d ${logdir} ] || mkdir -p ${logdir}
+	[ -r ${ecs_config} ] || return 2
+	[ -x ${docker} ] || return 3
 
 	printt "Starting Amazon EC2 Container Service Agent"
 	docker rm ecs-agent &>/dev/null
 	docker run \
 		--name ecs-agent \
 		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v $logdir:/log \
+		-v ${logdir}:/log \
 		-p 127.0.0.1:51678:51678 \
-		--env-file $ecs_config \
-		-e ECS_LOGFILE=/log/$agentlogfile \
-		$image_name:latest
+		--env-file ${ecs_config} \
+		-e ECS_LOGFILE=/log/${agentlogfile} \
+		${image_name}:latest
 
 	printt "Exited $?"
 }
 
 pre_stop() {
 	printt "pre-stop"
-	[ -x $docker ] || return 3
+	[ -x ${docker} ] || return 3
 
 	printt "Stopping Amazon EC2 Container Service Agent"
 	docker stop ecs-agent
+}
+
+update_cache() {
+	printt "update-cache"
+	if [ ! -r ${agent_tarball} ]; then
+		printt "Could not find cached Amazon EC2 Container Service Agent"
+		download_tarball
+		return "$?"
+	fi
+	check_latest
+	if [ "$?" -ne "0" ]; then
+		printt "Cached Amazon EC2 Container Service Agent does not match latest at ${agent_remote_tarball}"
+		download_tarball
+	fi
+	return "$?"
 }
 
 case "$1" in
@@ -89,8 +128,11 @@ case "$1" in
 	pre-stop)
 		pre_stop
 		;;
+	update-cache)
+		update_cache
+		;;
 	*)
-		echo "Usage: $0 {pre-start|start|pre-stop}"
+		echo "Usage: $0 {pre-start|start|pre-stop|update-cache}"
 		exit 1
 esac
 

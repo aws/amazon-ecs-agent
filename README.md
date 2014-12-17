@@ -17,6 +17,16 @@ The upstart script installed by the Amazon EC2 Container Service RPM can be star
 * `sudo start ecs`
 * `sudo stop ecs`
 
+### Updates
+A naive update method exists to pull tarballs from S3.  Updating at present is very manual, and requires the following
+steps:
+
+1. `sudo stop ecs`
+2. `sudo /etc/ecs/ecs-init update-cache`
+3. `docker rm ecs-agent`
+4. `docker rmi amazon/amazon-ecs-agent:latest`
+5. `sudo start ecs`
+
 ## License
 
 The Amazon EC2 Container Service RPM is licensed under the Apache 2.0 License.
