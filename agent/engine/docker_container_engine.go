@@ -191,7 +191,7 @@ func (dg *DockerGoClient) DescribeDockerImages() (string, error) {
 		return "", err
 	}
 
-	imgs, err := client.ListImages(true)
+	imgs, err := client.ListImages(docker.ListImagesOptions{All: true})
 	if err != nil {
 		return "", err
 	}
