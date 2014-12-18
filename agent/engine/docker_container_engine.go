@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -36,6 +37,9 @@ type DockerGoClient struct{}
 
 // dockerClient is a singleton
 var dockerclient *docker.Client
+
+// pullLock is a temporary workaround for a devicemapper issue. See: https://github.com/docker/docker/issues/9718
+var pullLock sync.Mutex
 
 type DockerImageResponse struct {
 	Images []docker.APIImages
@@ -79,6 +83,11 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	// TODO, authconfig
 
 	// End of docker-attributed code
+
+	// Workaround for devicemapper bug. See:
+	// https://github.com/docker/docker/issues/9718
+	pullLock.Lock()
+	defer pullLock.Unlock()
 
 	pullDebugOut, pullWriter := io.Pipe()
 	opts := docker.PullImageOptions{
