@@ -201,6 +201,76 @@ func TestPortForward(t *testing.T) {
 	}
 }
 
+// TestMultiplePortForwards tests that two links containers in the same task can
+// both expose ports successfully
+func TestMultiplePortForwards(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	taskEngine := MustTaskEngine()
+	task_events, errs := taskEngine.TaskEvents()
+	go func() {
+		t.Fatal(<-errs)
+	}()
+
+	// Forward it and make sure that works
+	testArn := "testMultiplePortForwards"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n "ecs test container1" | nc -l -p 24751`}
+	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers = append(testTask.Containers, createTestContainer())
+	testTask.Containers[1].Command = []string{"sh", "-c", `echo -n "ecs test container2" | nc -l -p 24751`}
+	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24752}}
+
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskRunning {
+			break
+		} else if task_event.TaskStatus > api.TaskRunning {
+			t.Fatal("Task went straight to " + task_event.TaskStatus.String() + " without running")
+		}
+	}
+
+	time.Sleep(10 * time.Millisecond) // Give nc time to liseten
+
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 20*time.Millisecond)
+	if err != nil {
+		t.Fatal("Error dialing simple container 1 " + err.Error())
+	}
+	response, _ := ioutil.ReadAll(conn)
+	if string(response) != "ecs test container1" {
+		t.Error("Got response: " + string(response) + " instead of 'ecs test container1'")
+	}
+	conn, err = net.DialTimeout("tcp", "127.0.0.1:24752", 20*time.Millisecond)
+	if err != nil {
+		t.Fatal("Error dialing simple container 2 " + err.Error())
+	}
+	response, _ = ioutil.ReadAll(conn)
+	if string(response) != "ecs test container2" {
+		t.Error("Got response: " + string(response) + " instead of 'ecs test container2'")
+	}
+
+	// Kill the existing container now
+	testTask.DesiredStatus = api.TaskDead
+	go taskEngine.AddTask(testTask)
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskDead {
+			break
+		}
+	}
+}
+
 // TestDynamicPortForward runs a container serving data on a port chosen by the
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
