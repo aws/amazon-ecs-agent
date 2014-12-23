@@ -163,21 +163,18 @@ func TestSendsEvents(t *testing.T) {
 	AddTaskEvent(contEvent("3"), client)
 	go func() {
 		contError <- retriable
-		contError <- retriable
 		contError <- nil
 	}()
-	for i := 0; i < 2; i++ {
-		select {
-		case <-contStatus:
-			t.Error("Should not have sent a container status if there was a retriable error")
-		default:
-		}
+	select {
+	case <-contStatus:
+		t.Error("Should not have sent a container status if there was a retriable error")
+	default:
 	}
 	sent = <-contStatus
 	if sent.TaskArn != "3" {
 		t.Error("Wrong task submitted")
 	}
-	if contRetriableErrors != 2 && contErrors != 3 {
+	if contRetriableErrors != 1 && contErrors != 2 {
 		t.Error("Didn't get the expected number of errors")
 	}
 
@@ -215,22 +212,27 @@ func TestSendsEvents(t *testing.T) {
 		t.Error("Somehow extra concurrenct calls appeared from nowhere")
 	}
 
-	// Test container event replacement
-
-	AddTaskEvent(contEvent("replaceme"), client)
-	replacement := contEvent("replaceme")
-	replacement.Status = api.ContainerStopped
-	AddTaskEvent(replacement, client)
-	// Expect to only get one event after a retriable error and then nil
-	// error
+	// Test container event replacement doesn't happen
+	AddTaskEvent(contEvent("notreplaced1"), client)
+	sortaRedundant := contEvent("notreplaced1")
+	sortaRedundant.Status = api.ContainerStopped
+	AddTaskEvent(sortaRedundant, client)
 	go func() {
+		contError <- nil
 		contError <- retriable
 		contError <- nil
 	}()
 
 	time.Sleep(20 * time.Millisecond)
 	sent = <-contStatus
-	if sent.TaskArn != "replaceme" {
+	if sent.TaskArn != "notreplaced1" {
+		t.Error("Wrong arn, got " + sent.TaskArn)
+	}
+	if sent.Status != api.ContainerRunning {
+		t.Error("Wrong status, got " + sent.Status.String() + " instead of RUNNING")
+	}
+	sent = <-contStatus
+	if sent.TaskArn != "notreplaced1" {
 		t.Error("Wrong arn")
 	}
 	if sent.Status != api.ContainerStopped {
@@ -240,38 +242,46 @@ func TestSendsEvents(t *testing.T) {
 	select {
 	case <-contStatus:
 		t.Error("event should have been replaced")
+	case <-taskStatus:
+		t.Error("There should be no pending taskStatus events")
 	default:
 	}
 
-	// Test task event replacement
-	AddTaskEvent(taskEvent("replaceme"), client)
-	replacement = taskEvent("replaceme")
-	replacement.Status = api.ContainerStopped
-	replacement.TaskStatus = api.TaskStopped
-	AddTaskEvent(replacement, client)
+	// Test task event replacement doesn't happen
+	AddTaskEvent(taskEvent("notreplaced2"), client)
+	sortaRedundant = taskEvent("notreplaced2")
+	sortaRedundant.Status = api.ContainerStopped
+	sortaRedundant.TaskStatus = api.TaskStopped
+	AddTaskEvent(sortaRedundant, client)
 
-	// Expect, after a couple retries, for there to only be one event
 	go func() {
-		taskError <- retriable
+		taskError <- nil
 		taskError <- nil
 	}()
 	go func() {
-		contError <- retriable
+		contError <- nil
 		contError <- nil
 	}()
 
 	time.Sleep(20 * time.Millisecond)
 	sent = <-contStatus
-	if sent.TaskArn != "replaceme" {
-		t.Error("Wrong arn")
+	if sent.TaskArn != "notreplaced2" {
+		t.Error("Lost a task or task out of order")
 	}
-	if sent.Status != api.ContainerStopped {
+	sent = <-taskStatus
+	if sent.TaskArn != "notreplaced2" {
+		t.Error("Lost a task or task out of order")
+	}
+	if sent.TaskStatus != api.TaskRunning {
 		t.Error("Wrong status")
 	}
-
+	sent = <-contStatus
+	if sent.TaskArn != "notreplaced2" {
+		t.Error("Lost a task or task out of order")
+	}
 	sent = <-taskStatus
-	if sent.TaskArn != "replaceme" {
-		t.Error("Wrong arn")
+	if sent.TaskArn != "notreplaced2" {
+		t.Error("Lost a task or task out of order")
 	}
 	if sent.TaskStatus != api.TaskStopped {
 		t.Error("Wrong status")
@@ -279,9 +289,9 @@ func TestSendsEvents(t *testing.T) {
 
 	select {
 	case <-contStatus:
-		t.Error("event should have been replaced")
+		t.Error("Read all events")
 	case <-taskStatus:
-		t.Error("event should have been replaced")
+		t.Error("Read all events")
 	default:
 	}
 }

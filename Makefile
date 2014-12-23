@@ -41,7 +41,7 @@ misc/certs/ca-certificates.crt:
 
 
 test:
-	cd agent && godep go test -v -cover ./...
+	cd agent && godep go test -timeout=35s -v -cover ./...
 
 test-in-docker: checkdockerfile
 	@ln -s scripts/dockerfiles/Dockerfile.test Dockerfile

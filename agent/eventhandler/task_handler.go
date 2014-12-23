@@ -50,25 +50,6 @@ func AddTaskEvent(change api.ContainerStateChange, client api.ECSClient) {
 	taskList.Lock()
 	defer taskList.Unlock()
 
-	// Trim events this event will make redundant; only do so if it already
-	// existed (otherwise we're the only event)
-	var next *list.Element
-	for el := taskList.Front(); el != nil; el = next {
-		existing := el.Value.(*sendableEvent)
-		next = el.Next()
-
-		// Justification: We can only replace container events if they have the
-		// same Arn.
-		// We can only replace an existing container-event that triggered a
-		// task-event if we also trigger a task-event because otherwise we lose
-		// the task-event.
-		// This simplifies to the below
-		if existing.TaskArn == change.TaskArn && (existing.TaskStatus == api.TaskStatusNone || change.TaskStatus != api.TaskStatusNone) {
-			log.Debug("Trimming element", "existing", existing)
-			taskList.Remove(el)
-		}
-	}
-
 	// Update taskEvent
 	taskList.PushBack(newSendableEvent(change))
 
@@ -116,42 +97,43 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 
 			eventToSubmit := events.Front()
 			event := eventToSubmit.Value.(*sendableEvent)
+			llog := log.New("event", event)
 
 			var contErr, taskErr utils.RetriableError
 			if !event.containerSent {
-				log.Info("Sending container change", "change", event.ContainerStateChange)
+				llog.Info("Sending container change", "change", event.ContainerStateChange)
 				contErr = client.SubmitContainerStateChange(event.ContainerStateChange)
 				if contErr == nil || !contErr.Retry() {
 					// submitted or can't be retried; ensure we don't retry it
 					event.containerSent = true
 				}
-				log.Debug("Submitted container")
+				llog.Debug("Submitted container")
 			}
 			if !event.taskSent && event.TaskStatus != api.TaskStatusNone {
-				log.Info("Sending task change", "change", event.ContainerStateChange.TaskStatus)
+				llog.Info("Sending task change", "change", event.ContainerStateChange.TaskStatus)
 				taskErr = client.SubmitTaskStateChange(event.ContainerStateChange)
 				if taskErr == nil || !taskErr.Retry() {
 					// submitted or can't be retried; ensure we don't retry it
 					event.taskSent = true
 				}
-				log.Debug("Submitted task")
+				llog.Debug("Submitted task")
 			}
 
 			if contErr == nil && taskErr == nil {
-				log.Debug("Successfully submitted event")
+				llog.Debug("Successfully submitted event")
 				events.Remove(eventToSubmit)
 				// We had a success so reset our backoff
 				backoff.Reset()
 			} else if (contErr == nil || !contErr.Retry()) && (taskErr == nil || !taskErr.Retry()) {
 				// Error, but not retriable
-				log.Debug("Unretriable error for event", "status", event.ContainerStateChange)
+				llog.Debug("Unretriable error for event", "status", event.ContainerStateChange)
 				events.Remove(eventToSubmit)
 			} else {
 				retErr = utils.NewMultiError(contErr, taskErr)
 			}
 
 			if events.Len() == 0 {
-				log.Debug("Removed the last element, no longer sending")
+				llog.Debug("Removed the last element, no longer sending")
 				events.sending = false
 				done = true
 				return nil
