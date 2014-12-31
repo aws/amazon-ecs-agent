@@ -123,3 +123,24 @@ func Uint16SliceToStringSlice(slice []uint16) []*string {
 	}
 	return stringSlice
 }
+
+func StrSliceEqual(s1, s2 []string) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+
+	for i := 0; i < len(s1); i++ {
+		if s1[i] != s2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func ParseBool(str string, default_ bool) bool {
+	res, err := strconv.ParseBool(str)
+	if err != nil {
+		return default_
+	}
+	return res
+}

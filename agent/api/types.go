@@ -135,3 +135,10 @@ type DockerContainer struct {
 
 	Container *Container
 }
+
+func (dc *DockerContainer) String() string {
+	if dc == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("Id: %s, Name: %s, Container: %s", dc.DockerId, dc.DockerName, dc.Container.String())
+}

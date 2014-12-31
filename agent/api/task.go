@@ -21,7 +21,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
-func (task *Task) ContainersByName() map[string]*Container {
+func (task *Task) _containersByName() map[string]*Container {
 	task.containersByNameLock.Lock()
 	defer task.containersByNameLock.Unlock()
 
@@ -36,7 +36,7 @@ func (task *Task) ContainersByName() map[string]*Container {
 }
 
 func (task *Task) ContainerByName(name string) (*Container, bool) {
-	container, ok := task.ContainersByName()[name]
+	container, ok := task._containersByName()[name]
 	return container, ok
 }
 

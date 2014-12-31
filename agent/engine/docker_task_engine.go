@@ -13,15 +13,17 @@
 
 // The DockerTaskEngine is an abstraction over the DockerGoClient so that
 // it does not have to know about tasks, only containers
-
 package engine
 
 import (
 	"errors"
+	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
@@ -32,45 +34,130 @@ const (
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 )
 
-// The DockerTaskEngine interacts with docker to implement an task
+// The DockerTaskEngine interacts with docker to implement a task
 // engine
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
 	state *dockerstate.DockerTaskEngineState
 
+	events           <-chan DockerContainerChangeEvent
 	container_events chan api.ContainerStateChange
-	event_errors     chan error
+	saver            statemanager.Saver
 
 	client DockerClient
 }
 
-// Singleton instance
-var dockerTaskEngine *DockerTaskEngine
+// NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
+// The distinction between created and initialized is that when created it may
+// be serialized/deserialized, but it will not communicate with docker until it
+// is also initialized.
+func NewDockerTaskEngine() *DockerTaskEngine {
+	dockerTaskEngine := &DockerTaskEngine{
+		client: nil,
+		saver:  statemanager.NewNoopStateManager(),
 
-// InitDockerTaskEngine returns the singleton instance of the DockerTaskEngine
-// after, if necessary, initializing it
-func InitDockerTaskEngine() (*DockerTaskEngine, error) {
-	// Instantiate within the getter instead of e.g. init so that we can be sure
-	// our logger is ready
-	if dockerTaskEngine == nil {
-		client, err := NewDockerGoClient()
-		if err != nil {
-			return nil, err
-		}
+		state: dockerstate.NewDockerTaskEngineState(),
 
-		dockerTaskEngine = &DockerTaskEngine{
-			client: client,
-
-			state: dockerstate.NewDockerTaskEngineState(),
-
-			container_events: make(chan api.ContainerStateChange),
-			event_errors:     make(chan error),
-		}
-		dockerTaskEngine.listenForEvents()
+		container_events: make(chan api.ContainerStateChange),
 	}
 
-	return dockerTaskEngine, nil
+	return dockerTaskEngine
+}
+
+// UnmarshalJSON restores a previously marshaled task-engine state from json
+func (engine *DockerTaskEngine) UnmarshalJSON(data []byte) error {
+	return engine.state.UnmarshalJSON(data)
+}
+
+// MarshalJSON marshals into state directly
+func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
+	return engine.state.MarshalJSON()
+}
+
+// Init initializes a DockerTaskEngine such that it may communicate with docker
+// and operate normally.
+// This function must be called before any other function, except serializing and deserializing, can succeed without error.
+func (engine *DockerTaskEngine) Init() error {
+	if engine.client == nil {
+		client, err := NewDockerGoClient()
+		if err != nil {
+			return err
+		}
+		engine.client = client
+	}
+	// Open the event stream before we sync state so that e.g. if a container
+	// goes from running to stopped after we sync with it as "running" we still
+	// have the "went to stopped" event pending so we can be up to date.
+	err := engine.openEventstream()
+	if err != nil {
+		return err
+	}
+	engine.synchronizeState()
+	// Now catch up and start processing new events per normal
+	go engine.handleDockerEvents()
+	return nil
+}
+
+// MustInit blocks and retries until an engine can be initialized.
+func (engine *DockerTaskEngine) MustInit() {
+	if engine.client != nil {
+		return
+	}
+
+	errorOnce := sync.Once{}
+	taskEngineConnectBackoff := utils.NewSimpleBackoff(200*time.Millisecond, 2*time.Second, 0.20, 1.5)
+	utils.RetryWithBackoff(taskEngineConnectBackoff, func() error {
+		err := engine.Init()
+		if err != nil {
+			errorOnce.Do(func() {
+				log.Error("Could not connect to docker daemon", "err", err)
+			})
+		}
+		return err
+	})
+}
+
+func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
+	engine.saver = saver
+}
+
+// synchronizeState explicitly goes through each docker container stored in
+// "state" and updates its KnownStatus appropriately, as well as queueing up
+// events to push upstream.
+func (engine *DockerTaskEngine) synchronizeState() {
+	tasks := engine.state.AllTasks()
+	for _, task := range tasks {
+		conts, ok := engine.state.ContainerMapByArn(task.Arn)
+		if !ok {
+			continue
+		}
+		for _, cont := range conts {
+			var reason string
+			dockerId := cont.DockerId
+			currentState, err := engine.client.DescribeContainer(dockerId)
+			if err != nil {
+				currentState = api.ContainerDead
+				if !cont.Container.KnownTerminal() {
+					log.Warn("Could not describe previously known container; assuming dead", "err", err)
+					reason = "Docker did not recognize container id after an ECS Agent restart."
+				}
+			}
+			if currentState > cont.Container.KnownStatus {
+				cont.Container.KnownStatus = currentState
+			}
+			// Even if the state didn't change, we send it upstream;
+			// there's no truly reliable way to be sure we have or haven't sent
+			// it already currently and there's no harm in re-sending an
+			// accurate status; TODO, store that we've sent some status so we
+			// can at least reduce the number of messages safely
+			// We cannot actually emit an event yet because nothing is handling
+			// events; just throw it in a goroutine so this doesn't block
+			// forever.
+			go engine.emitEvent(task, cont, reason)
+		}
+	}
+	engine.saver.Save()
 }
 
 // updateTaskState updates the given task's status based on its container's status.
@@ -149,15 +236,24 @@ func updateTaskState(task *api.Task) api.TaskStatus {
 	return api.TaskStatusNone
 }
 
-// emitEvent passes a given event up through the task_event and container_event
-// channels
-func (engine *DockerTaskEngine) emitEvent(event api.ContainerStateChange) {
-	task, ok := engine.state.TaskByArn(event.TaskArn)
-	if !ok {
-		engine.event_errors <- errors.New("Event for an unknown task: " + event.TaskArn)
-		return
+// emitEvent passes a given event up through the container_event channel.
+// It also will update the task's knownStatus to match the container's
+// knownStatus
+func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerContainer, reason string) {
+	err := engine.updateContainerMetadata(task, container)
+	// Collect additional info we need for our StateChanges
+	if err != nil {
+		log.Crit("Error updating container metadata", "err", err)
 	}
-
+	cont := container.Container
+	event := api.ContainerStateChange{
+		TaskArn:       task.Arn,
+		ContainerName: cont.Name,
+		Status:        cont.KnownStatus,
+		ExitCode:      cont.KnownExitCode,
+		PortBindings:  cont.KnownPortBindings,
+		Reason:        reason,
+	}
 	if task_change := updateTaskState(task); task_change != api.TaskStatusNone {
 		log.Info("Task change event", "state", task_change)
 		event.TaskStatus = task_change
@@ -170,38 +266,41 @@ func (engine *DockerTaskEngine) emitEvent(event api.ContainerStateChange) {
 	engine.ApplyTaskState(task)
 }
 
-func (engine *DockerTaskEngine) listenForEvents() {
-	events, errs := engine.client.ContainerEvents()
-	go func() {
-		for {
-			select {
-			case event := <-events:
-				log.Info("Handling an event", "event", event)
+// openEventstream opens, but does not consume, the docker event stream
+func (engine *DockerTaskEngine) openEventstream() error {
+	events, err := engine.client.ContainerEvents()
+	if err != nil {
+		return err
+	}
+	engine.events = events
+	return nil
+}
 
-				task, task_found := engine.state.TaskById(event.DockerId)
-				cont, container_found := engine.state.ContainerById(event.DockerId)
-				if !task_found || !container_found {
-					log.Debug("Event for container not managed", "dockerId", event.DockerId)
-					continue
-				}
-				// Update the status to what we now know to be the true status
-				cont.Container.KnownStatus = event.Status
+// handleDockerEvents must be called after openEventstream; it processes each
+// event that it reads from the docker eventstream
+func (engine *DockerTaskEngine) handleDockerEvents() {
+	for event := range engine.events {
+		log.Info("Handling an event", "event", event)
 
-				// Collect additional info we need for our StateChanges
-				err := engine.updateContainerMetadata(task, cont)
-				if err != nil {
-					// TODO, this is critical so we should stop the task
-					// immediately and bubble a reason up
-					log.Crit("Error updating container metadata", "err", err)
-				}
-
-				engine.emitEvent(api.ContainerStateChange{TaskArn: task.Arn, ContainerName: cont.Container.Name, Status: event.Status, ExitCode: cont.Container.KnownExitCode, PortBindings: cont.Container.KnownPortBindings})
-
-			case err := <-errs:
-				engine.event_errors <- err
+		task, task_found := engine.state.TaskById(event.DockerId)
+		cont, container_found := engine.state.ContainerById(event.DockerId)
+		if !task_found || !container_found {
+			log.Debug("Event for container not managed", "dockerId", event.DockerId)
+			continue
+		}
+		// Update the status to what we now know to be the true status
+		if cont.Container.KnownStatus < event.Status {
+			cont.Container.KnownStatus = event.Status
+			engine.emitEvent(task, cont, "")
+		} else if cont.Container.KnownStatus == event.Status {
+			log.Warn("Redundant docker event; unusual but not critical", "event", event, "cont", cont)
+		} else {
+			if !cont.Container.KnownTerminal() {
+				log.Crit("Docker container went backwards in state! This container will no longer be managed", "cont", cont, "event", event)
 			}
 		}
-	}()
+	}
+	log.Crit("Docker event stream closed unexpectedly")
 }
 
 // updateContainerMetadata updates a minor set of metadata about a container
@@ -245,8 +344,8 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 // TaskEvents returns channels to read task and container state changes. These
 // changes should be read as soon as possible as them not being read will block
 // processing tasks and events.
-func (engine *DockerTaskEngine) TaskEvents() (<-chan api.ContainerStateChange, <-chan error) {
-	return engine.container_events, engine.event_errors
+func (engine *DockerTaskEngine) TaskEvents() <-chan api.ContainerStateChange {
+	return engine.container_events
 }
 
 // TaskCompleted evaluates if a task is at a steady state; that is that all the
@@ -294,17 +393,9 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 	// DesiredStatus yet; appliy a step towards it now
 	var err error
 
-	// PullImage is a special case since it's blocking and has no event in
-	// the stream
-	if container.AppliedStatus < api.ContainerPulled {
-		err = engine.PullContainer(task, container)
-		container.AppliedStatus = api.ContainerPulled
-		container.KnownStatus = api.ContainerPulled
-	}
-
 	// Terminal cases are special. If our desired status is terminal, then
 	// immediately go there with no regard to creating or starting the container
-	if container.DesiredStatus >= api.ContainerStopped {
+	if container.DesiredTerminal() {
 		if container.AppliedStatus < api.ContainerStopped {
 			err = engine.StopContainer(task, container)
 			container.AppliedStatus = api.ContainerStopped
@@ -312,7 +403,19 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 			err = engine.KillContainer(task, container)
 			container.AppliedStatus = api.ContainerDead
 		}
-	} else {
+	} else if container.AppliedStatus < api.ContainerPulled {
+		// PullImage is a special case since it has no event on the stream that
+		// we can reliably resolve back to the container. Always do something
+		// after PullContainer in an attempt to not get stuck pulled, but with
+		// no dockerid
+		err = engine.PullContainer(task, container)
+		if err != nil {
+			container.AppliedStatus = api.ContainerPulled
+			container.KnownStatus = api.ContainerPulled
+		}
+	}
+
+	if !container.DesiredTerminal() {
 		if container.AppliedStatus < api.ContainerCreated {
 			err = engine.CreateContainer(task, container)
 			container.AppliedStatus = api.ContainerCreated
@@ -320,10 +423,15 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 			err = engine.StartContainer(task, container)
 			container.AppliedStatus = api.ContainerRunning
 		} else if container.AppliedStatus < api.ContainerStopped {
+			// Terminal and shouldn't happen unless PullContainer decides this
+			// can't proceed and should just be removed; can't happen now, but
+			// might soon
 			err = engine.StopContainer(task, container)
 			container.AppliedStatus = api.ContainerStopped
 		}
 	}
+
+	engine.saver.Save()
 
 	if err != nil {
 		clog.Warn("Error processing container", "err", err)
@@ -435,4 +543,11 @@ func (engine *DockerTaskEngine) KillContainer(task *api.Task, container *api.Con
 	// TODO, add a cleanup trigger here so we know to delete this container
 	// soon. This should also occur at some time after stop
 	return nil
+}
+
+// State is a function primarily meant for testing usage; it is explicitly not
+// part of the TaskEngine interface and should not be relied upon.
+// It returns an internal representation of the state of this DockerTaskEngine.
+func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
+	return engine.state
 }

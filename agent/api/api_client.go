@@ -52,8 +52,6 @@ type ApiECSClient struct {
 
 const (
 	ECS_SERVICE = "ecs"
-
-	DEFAULT_CLUSTER_NAME = "default"
 )
 
 // serviceClient recreates a new service clent and signer with each request.
@@ -146,17 +144,16 @@ func (client *ApiECSClient) describeCluster(clusterName string) (clusterArn stri
 
 func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 	clusterArn := client.config.ClusterArn
-	// If they don't give us a clusterArn, assume we should register to the
-	// default cluster
+	// If our clusterArn is empty, we should try to create the default
 	if clusterArn == "" {
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(DEFAULT_CLUSTER_NAME)
+		containerInstanceArn, err := client.registerContainerInstance(config.DEFAULT_CLUSTER_NAME)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
 		// If trying to register fails, see if the cluster exists and is active
-		clusterArn, clusterStatus, err := client.describeCluster(DEFAULT_CLUSTER_NAME)
+		clusterArn, clusterStatus, err := client.describeCluster(config.DEFAULT_CLUSTER_NAME)
 		if err != nil {
 			return "", err
 		}
@@ -166,7 +163,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 			log.Error(message, "cluster", clusterArn)
 			return "", errors.New(message)
 		}
-		clusterArn, err = client.CreateCluster(DEFAULT_CLUSTER_NAME)
+		clusterArn, err = client.CreateCluster(config.DEFAULT_CLUSTER_NAME)
 		if err != nil {
 			return "", err
 		}
@@ -242,7 +239,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterArn string) (string
 func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError {
 	if change.TaskStatus == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return NewStateChangeError("SubmitTaskStateChange called with an invalid change", false)
+		return NewStateChangeError(errors.New("SubmitTaskStateChange called with an invalid change"))
 	}
 
 	stat := change.TaskStatus.String()
@@ -250,7 +247,7 @@ func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) u
 		stat = "STOPPED"
 	}
 	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Info("Not submitting unsupported upstream task state", "state", stat)
+		log.Debug("Not submitting unsupported upstream task state", "state", stat)
 		// Not really an error
 		return nil
 	}
@@ -262,12 +259,12 @@ func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) u
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	_, err = c.SubmitTaskStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	return nil
 }
@@ -304,12 +301,12 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	_, err = c.SubmitContainerStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a container state change", "change", change, "err", err)
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	return nil
 }

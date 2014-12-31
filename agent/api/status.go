@@ -65,3 +65,10 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 	}
 	return ContainerStatusUnknown
 }
+
+func (cs *ContainerStatus) Terminal() bool {
+	if cs == nil {
+		return false
+	}
+	return *cs == ContainerStopped || *cs == ContainerDead
+}

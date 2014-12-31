@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
@@ -36,7 +37,7 @@ func init() {
 }
 
 func main() {
-	insecureCert := flag.Bool("k", false, "Do not verify ssl certs")
+	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
 	flag.Parse()
 	logger.SetLevel(*logLevel)
@@ -51,33 +52,56 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Connecting to docker daemon")
-	taskEngine := engine.MustTaskEngine()
-	log.Info("Connected to docker daemon")
+	containerInstanceArn := ""
+	taskEngine := engine.NewTaskEngine()
 
-	credentialProvider := auth.NewBasicAWSCredentialProvider()
-	client := api.NewECSClient(credentialProvider, cfg, *insecureCert)
-
-	var containerInstanceArn string
-
-	log.Info("Registering Instance with ECS")
-	containerInstanceArn, err = client.RegisterContainerInstance()
+	// Load any state from disk *before* talking to the docker daemon or any
+	// network services such that the information we get from them is applied to
+	// the correct state
+	var state_manager statemanager.StateManager
+	if !cfg.Checkpoint {
+		state_manager = statemanager.NewNoopStateManager()
+	} else {
+		state_manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
+		if err != nil {
+			log.Crit("Error creating state manager", "err", err)
+			os.Exit(1)
+		}
+	}
+	err = state_manager.Load()
 	if err != nil {
-		log.Crit("Error registering", "err", err)
+		log.Crit("Error loading initial state", "err", err)
 		os.Exit(1)
 	}
-	log.Info("Registration Completed Successfully. Running as: " + containerInstanceArn)
 
-	sighandlers.StartTerminationHandler(containerInstanceArn, client)
+	// Begin listening to the docker daemon and saving changes
+	taskEngine.SetSaver(state_manager)
+	taskEngine.MustInit()
+
+	credentialProvider := auth.NewBasicAWSCredentialProvider()
+	client := api.NewECSClient(credentialProvider, cfg, *acceptInsecureCert)
+
+	if containerInstanceArn == "" {
+		log.Info("Registering Instance with ECS")
+		containerInstanceArn, err = client.RegisterContainerInstance()
+		if err != nil {
+			log.Error("Error registering", "err", err)
+			os.Exit(1)
+		}
+		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
+		// Save our shiny new containerInstanceArn
+		state_manager.Save()
+	} else {
+		log.Info("Restored State", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
+	}
+
+	sighandlers.StartTerminationHandler(state_manager)
 
 	// Agent introspection api
 	go handlers.ServeHttp(&containerInstanceArn, taskEngine, cfg)
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client)
-
-	// TODO load known state from disk
-	// taskEngine.LoadState()
+	go eventhandler.HandleEngineEvents(taskEngine, client, state_manager)
 
 	log.Info("Beginning Polling for updates")
 	// Todo, split into separate package
@@ -92,7 +116,7 @@ func main() {
 			log.Info("Discovered poll endpoint", "endpoint", acsEndpoint)
 			acsObj := acs.NewAgentCommunicationClient(acsEndpoint, cfg, credentialProvider, containerInstanceArn)
 
-			state_changes, errc, err := acsObj.Poll(*insecureCert)
+			state_changes, errc, err := acsObj.Poll(*acceptInsecureCert)
 			if err != nil {
 				log.Error("Error polling; retrying", "err", err)
 				return err
@@ -106,11 +130,15 @@ func main() {
 						backoff.Reset()
 
 						go func(payload *acs.Payload) {
-							// TODO, write state to disk here
-							acsObj.Ack(payload)
 							for _, task := range payload.Tasks {
 								taskEngine.AddTask(task)
 							}
+
+							err = state_manager.Save()
+							if err != nil {
+								log.Error("Error saving state", "err", err)
+							}
+							acsObj.Ack(payload)
 						}(state)
 					} else {
 						// Break out of the loop to reconnect

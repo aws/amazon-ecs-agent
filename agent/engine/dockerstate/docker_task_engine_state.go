@@ -79,6 +79,7 @@ func (state *DockerTaskEngineState) ContainersByImage(image string) []*api.Docke
 	return conts
 }
 
+// TaskById retrieves the task of a given docker container id
 func (state *DockerTaskEngineState) TaskById(cid string) (*api.Task, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -126,7 +127,7 @@ func (state *DockerTaskEngineState) AddTask(task *api.Task) {
 // Users should aquire a lock before using this
 func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer, task *api.Task) {
 	if task == nil || container == nil {
-		log.Crit("Addtask called with nil task/container! This should not happen")
+		log.Crit("Addcontainer called with nil task/container")
 		return
 	}
 

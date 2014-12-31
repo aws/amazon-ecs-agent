@@ -20,7 +20,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -262,7 +261,6 @@ func TestBadUrl(t *testing.T) {
 	badclient := testClient()
 	badclient.endpoint = "https://example.com"
 	_, _, err := badclient.Poll(true)
-	fmt.Println(err)
 	if err == nil {
 		t.Error("Could poll against example.com")
 	}

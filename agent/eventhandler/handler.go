@@ -17,13 +17,21 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
 var log = logger.ForModule("eventhandler")
 
-func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient) {
+// statemanager should always be set before calling AddTaskEvent
+// TODO, use statemanager to store whether or not we have sent an event and do a
+// limited cache of events we have sent so we know we don't need to send some
+// event again.
+var statesaver statemanager.Saver
+
+func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
+	statesaver = saver
 	for {
-		task_events, task_errc := taskEngine.TaskEvents()
+		task_events := taskEngine.TaskEvents()
 
 		for task_events != nil {
 			select {
@@ -35,8 +43,6 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient) {
 				}
 
 				go AddTaskEvent(event, client)
-			case err, _ := <-task_errc:
-				log.Error("Error with task events", "err", err)
 			}
 		}
 	}

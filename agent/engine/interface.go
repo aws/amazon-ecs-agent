@@ -13,12 +13,22 @@
 
 package engine
 
-import "github.com/aws/amazon-ecs-agent/agent/api"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+)
 
 type TaskEngine interface {
-	TaskEvents() (<-chan api.ContainerStateChange, <-chan error)
+	Init() error
+	MustInit()
+
+	TaskEvents() <-chan api.ContainerStateChange
+	SetSaver(statemanager.Saver)
 
 	AddTask(*api.Task)
 
 	ListTasks() ([]*api.Task, error)
+
+	UnmarshalJSON([]byte) error
+	MarshalJSON() ([]byte, error)
 }

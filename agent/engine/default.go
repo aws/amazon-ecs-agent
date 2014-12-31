@@ -11,40 +11,23 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+// The 'engine' package contains code for interacting with container-running backends and handling events from them.
+// It supports Docker as the sole task engine type.
 package engine
 
-import (
-	"sync"
-	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-)
+import "github.com/aws/amazon-ecs-agent/agent/logger"
 
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine() (TaskEngine, error) {
-	return InitDockerTaskEngine()
+func NewTaskEngine() TaskEngine {
+	return NewDockerTaskEngine()
 }
 
-// MustTaskEngine tries to create a task engine until it succeeds without
-// error. It will print a error message for the first error.
+// MustTaskEngine creates and initializes a taskEngine, retrying until it
+// succeeds
 func MustTaskEngine() TaskEngine {
-	errorOnce := sync.Once{}
-
-	var taskEngine TaskEngine
-	taskEngineConnectBackoff := utils.NewSimpleBackoff(200*time.Millisecond, 2*time.Second, 0.20, 1.5)
-	utils.RetryWithBackoff(taskEngineConnectBackoff, func() error {
-		var err error
-		taskEngine, err = NewTaskEngine()
-		if err != nil {
-			errorOnce.Do(func() {
-				log.Error("Could not connect to docker daemon", "err", err)
-			})
-		}
-		return err
-	})
-
+	taskEngine := NewDockerTaskEngine()
+	taskEngine.MustInit()
 	return taskEngine
 }

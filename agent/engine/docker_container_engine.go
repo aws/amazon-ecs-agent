@@ -32,7 +32,7 @@ import (
 
 // Interface to make testing it easier
 type DockerClient interface {
-	ContainerEvents() (<-chan DockerContainerChangeEvent, <-chan error)
+	ContainerEvents() (<-chan DockerContainerChangeEvent, error)
 
 	PullImage(image string) error
 	CreateContainer(*docker.Config, string) (string, error)
@@ -41,6 +41,7 @@ type DockerClient interface {
 	GetContainerName(string) (string, error)
 
 	InspectContainer(string) (*docker.Container, error)
+	DescribeContainer(string) (api.ContainerStatus, error)
 
 	client() (*docker.Client, error)
 }
@@ -266,21 +267,19 @@ func (dg *DockerGoClient) client() (*docker.Client, error) {
 }
 
 // Listen to the docker event stream for container changes and pass them up
-func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, <-chan error) {
-	errc := make(chan error)
-
+func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, error) {
 	client, err := dg.client()
 	if err != nil {
-		errc <- err
-		return nil, errc
+		log.Error("Unable to communicate with docker daemon", "err", err)
+		return nil, err
 	}
 
 	events := make(chan *docker.APIEvents)
 
 	err = client.AddEventListener(events)
 	if err != nil {
-		errc <- errors.New("Unable to listen for docker events: " + err.Error())
-		return nil, errc
+		log.Error("Unable to add a docker event listener", "err", err)
+		return nil, err
 	}
 
 	changedContainers := make(chan DockerContainerChangeEvent)
@@ -318,5 +317,5 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 		}
 	}()
 
-	return changedContainers, errc
+	return changedContainers, nil
 }

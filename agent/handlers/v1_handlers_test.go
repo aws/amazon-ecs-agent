@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
@@ -50,11 +51,16 @@ func TestMetadataHandler(t *testing.T) {
 
 type mockTaskEngine struct{}
 
-func (*mockTaskEngine) TaskEvents() (<-chan api.ContainerStateChange, <-chan error) {
-	return nil, nil
+func (*mockTaskEngine) TaskEvents() <-chan api.ContainerStateChange {
+	return nil
 }
 
-func (*mockTaskEngine) AddTask(*api.Task) {}
+func (*mockTaskEngine) Init() error                  { return nil }
+func (*mockTaskEngine) MustInit()                    {}
+func (*mockTaskEngine) AddTask(*api.Task)            {}
+func (*mockTaskEngine) MarshalJSON() ([]byte, error) { return []byte{}, errors.New("Mock") }
+func (*mockTaskEngine) UnmarshalJSON([]byte) error   { return errors.New("Mock") }
+func (*mockTaskEngine) SetSaver(statemanager.Saver)   {}
 func (*mockTaskEngine) ListTasks() ([]*api.Task, error) {
 	return []*api.Task{}, errors.New("Mock")
 }

@@ -29,7 +29,6 @@ func TestTaskOverridden(t *testing.T) {
 	if overridden.Containers[0] == testTask.Containers[0] {
 		t.Error("Containers were pointer-equal, not overridden")
 	}
-
 }
 
 func TestDockerHostConfigPortBinding(t *testing.T) {

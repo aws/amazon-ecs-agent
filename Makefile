@@ -1,4 +1,17 @@
-.PHONY: all gobuild static checkdockerfile docker release certs test coverage clean
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# 	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+
+.PHONY: all gobuild static checkdockerfile docker release certs test clean
 
 all: release
 
@@ -24,6 +37,7 @@ docker: checkdockerfile
 
 # Release packages our agent into a "scratch" based dockerfile
 release: checkdockerfile certs out/amazon-ecs-agent
+	@cd scripts && ./create-amazon-ecs-scratch
 	@ln -s scripts/dockerfiles/Dockerfile.release Dockerfile
 	docker build -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
@@ -50,8 +64,7 @@ test-in-docker: checkdockerfile
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 	@rm -f Dockerfile
 
-coverage:
-
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -f out/amazon-ecs-agent &> /dev/null
+	rm -rf agent/Godeps/_workspace/pkg/

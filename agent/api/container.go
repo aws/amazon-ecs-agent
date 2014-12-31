@@ -34,6 +34,14 @@ func (c *Container) Overridden() *Container {
 	return &result
 }
 
+func (c *Container) KnownTerminal() bool {
+	return c.KnownStatus.Terminal()
+}
+
+func (c *Container) DesiredTerminal() bool {
+	return c.DesiredStatus.Terminal()
+}
+
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
 func (container *Container) DockerConfig() (*docker.Config, error) {

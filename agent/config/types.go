@@ -20,4 +20,7 @@ type Config struct {
 	DockerEndpoint string
 	AWSRegion      string `missing:"warn"`
 	ReservedPorts  []uint16
+
+	DataDir    string
+	Checkpoint bool
 }

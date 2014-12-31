@@ -56,6 +56,9 @@ func runningContainer(name, image string, links, volumes []string) *api.Containe
 	}
 }
 
+var taskEngine = MustTaskEngine()
+var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
+
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
@@ -80,11 +83,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	testTask.Containers[0].Command = []string{"echo", "hello world"}
 	testTask.Containers[0].Image = "scratch:latest"
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	go taskEngine.AddTask(testTask)
 
@@ -116,16 +115,11 @@ func TestPortForward(t *testing.T) {
 		t.Skip("Docker not running")
 	}
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
-	// Busybox nc doesn't respond to sigterm so in order to speed things up we exit ourselves rather than wait for the sigkill
-	testTask.Containers[0].Command = []string{"sh", "-c", `trap "exit 0" TERM; echo -n \"hello world\" | nc -l -p 24751 & while true; do sleep 1; done`}
+	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n \"hello world\" | nc -l -p 24751 & while true; do sleep 1; done`}
 
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
@@ -145,9 +139,14 @@ func TestPortForward(t *testing.T) {
 		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
 	}
 
-	// Kill the existing container now
-	testTask.DesiredStatus = api.TaskDead
-	go taskEngine.AddTask(testTask)
+	// Kill the existing container now to make the test run more quickly.
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerId
+	client, _ := docker.NewClient(endpoint)
+	err = client.KillContainer(docker.KillContainerOptions{ID: cid})
+	if err != nil {
+		t.Error("Could not kill container", err)
+	}
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
@@ -211,11 +210,7 @@ func TestMultiplePortForwards(t *testing.T) {
 		t.Skip("Docker not running")
 	}
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
@@ -281,11 +276,7 @@ func TestDynamicPortForward(t *testing.T) {
 		t.Skip("Docker not running")
 	}
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	testArn := "testDynamicPortForward"
 	testTask := createTestTask(testArn)
@@ -354,11 +345,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 		t.Skip("Docker not running")
 	}
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	testArn := "testDynamicPortForward2"
 	testTask := createTestTask(testArn)
@@ -460,11 +447,7 @@ func TestLinking(t *testing.T) {
 
 	testTask.Containers = []*api.Container{linkee, linker}
 
-	taskEngine := MustTaskEngine()
-	task_events, errs := taskEngine.TaskEvents()
-	go func() {
-		t.Fatal(<-errs)
-	}()
+	task_events := taskEngine.TaskEvents()
 
 	go taskEngine.AddTask(testTask)
 

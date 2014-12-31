@@ -79,7 +79,7 @@ func (acc *AgentCommunicationClient) createAcsUrl() string {
 // Poll contacts the agent communication service and opens a websocket to
 // wait for updates. It emits each state update to the Payload channel it
 // returns
-func (acc *AgentCommunicationClient) Poll(insecureCert bool) (<-chan *Payload, <-chan error, error) {
+func (acc *AgentCommunicationClient) Poll(acceptInvalidCert bool) (<-chan *Payload, <-chan error, error) {
 	cfg := acc.cfg
 	credentialProvider := acc.credentialProvider
 
@@ -101,7 +101,7 @@ func (acc *AgentCommunicationClient) Poll(insecureCert bool) (<-chan *Payload, <
 
 	timeoutDialer := &net.Dialer{Timeout: CONNECT_TIMEOUT}
 	log.Info("Creating poll dialer", "host", parsedAcsUrl.Host)
-	acsConn, err := tls.DialWithDialer(timeoutDialer, "tcp", net.JoinHostPort(parsedAcsUrl.Host, strconv.Itoa(acc.port)), &tls.Config{InsecureSkipVerify: insecureCert})
+	acsConn, err := tls.DialWithDialer(timeoutDialer, "tcp", net.JoinHostPort(parsedAcsUrl.Host, strconv.Itoa(acc.port)), &tls.Config{InsecureSkipVerify: acceptInvalidCert})
 	if err != nil {
 		return nil, nil, err
 	}

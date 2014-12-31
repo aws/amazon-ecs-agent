@@ -37,6 +37,8 @@ const (
 	SSH_PORT = 22
 
 	AGENT_INTROSPECTION_PORT = 51678
+
+	DEFAULT_CLUSTER_NAME = "default"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -104,6 +106,7 @@ func DefaultConfig() Config {
 		DockerEndpoint: "unix:///var/run/docker.sock",
 		AWSRegion:      awsRegion,
 		ReservedPorts:  []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		DataDir:        "/data/",
 	}
 }
 
@@ -133,6 +136,17 @@ func EnvironmentConfig() Config {
 
 	dockerEndpoint := os.Getenv("DOCKER_HOST")
 
+	var checkpoint bool
+	dataDir := os.Getenv("ECS_DATADIR")
+	if dataDir != "" {
+		// if we have a directory to checkpoint to, default it to be on
+		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
+	} else {
+		// if the directory is not set, default to checkpointing off for
+		// backwards compatibility
+		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
+	}
+
 	// Format: json array, e.g. [1,2,3]
 	reservedPortEnv := os.Getenv("ECS_RESERVED_PORTS")
 	portDecoder := json.NewDecoder(strings.NewReader(reservedPortEnv))
@@ -153,6 +167,8 @@ func EnvironmentConfig() Config {
 		AWSRegion:      awsRegion,
 		DockerEndpoint: dockerEndpoint,
 		ReservedPorts:  reservedPorts,
+		DataDir:        dataDir,
+		Checkpoint:     checkpoint,
 	}
 }
 

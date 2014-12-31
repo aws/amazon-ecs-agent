@@ -41,6 +41,13 @@ func (ts *TaskStatus) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (ts *TaskStatus) MarshalJSON() ([]byte, error) {
+	if ts == nil {
+		return nil, nil
+	}
+	return []byte(`"` + ts.String() + `"`), nil
+}
+
 func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
 		*cs = ContainerStatusNone
@@ -48,7 +55,7 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
 		*cs = ContainerStatusUnknown
-		return errors.New("ContainerStatus must be a string or null")
+		return errors.New("ContainerStatus must be a string or null; Got " + string(b))
 	}
 	strStatus := string(b[1 : len(b)-1])
 
@@ -59,6 +66,13 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	}
 	*cs = stat
 	return nil
+}
+
+func (cs *ContainerStatus) MarshalJSON() ([]byte, error) {
+	if cs == nil {
+		return nil, nil
+	}
+	return []byte(`"` + cs.String() + `"`), nil
 }
 
 // A type alias that doesn't have a custom unmarshaller so we can unmarshal into
