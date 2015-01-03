@@ -245,16 +245,18 @@ func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) u
 		return NewStateChangeError("SubmitTaskStateChange called with an invalid change", false)
 	}
 
-	req := svc.NewSubmitTaskStateChangeRequest()
-	req.SetTask(&change.TaskArn)
 	stat := change.TaskStatus.String()
 	if stat == "DEAD" {
 		stat = "STOPPED"
 	}
 	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Info("Not submitting not supported upstream task state", "state", stat)
-		return NewStateChangeError("State change not supported upstream", false)
+		log.Info("Not submitting unsupported upstream task state", "state", stat)
+		// Not really an error
+		return nil
 	}
+
+	req := svc.NewSubmitTaskStateChangeRequest()
+	req.SetTask(&change.TaskArn)
 	req.SetStatus(&stat)
 	req.SetCluster(&client.config.ClusterArn)
 
