@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/tls"
+	"errors"
 	"runtime"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/awsjson/codec"
@@ -104,12 +105,54 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 
 }
 
+func (client *ApiECSClient) describeCluster(clusterName string) (clusterArn string, clusterStatus string, err error) {
+	svcRequest := svc.NewDescribeClustersRequest()
+	clusterNames := []*string{&clusterName}
+	svcRequest.SetClusters(clusterNames)
+
+	svcClient, err := client.serviceClient()
+	if err != nil {
+		log.Error("Unable to get service client for frontend", "err", err)
+		return
+	}
+
+	resp, err := svcClient.DescribeClusters(svcRequest)
+	if err != nil {
+		log.Error("Unable to describe cluster", "cluster", clusterName, "err", err)
+		return
+	}
+	for _, cluster := range resp.Clusters() {
+		if *cluster.ClusterName() == clusterName {
+			clusterArn = *cluster.ClusterArn()
+			clusterStatus = *cluster.Status()
+			return
+		}
+	}
+	return
+}
+
 func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 	clusterArn := client.config.ClusterArn
 	// If they don't give us a clusterArn, assume we should register to the
 	// default cluster
 	if clusterArn == "" {
-		var err error
+		// Attempt to register without checking existence of the cluster so we don't require
+		// excess permissions in the case where the cluster already exists and is active
+		containerInstanceArn, err := client.registerContainerInstance(DEFAULT_CLUSTER_NAME)
+		if err == nil {
+			return containerInstanceArn, nil
+		}
+		// If trying to register fails, see if the cluster exists and is active
+		clusterArn, clusterStatus, err := client.describeCluster(DEFAULT_CLUSTER_NAME)
+		if err != nil {
+			return "", err
+		}
+		// Assume that an inactive cluster is intentional and do not recreate it
+		if clusterStatus != "" && clusterStatus != "ACTIVE" {
+			message := "Cluster is not available for registration"
+			log.Error(message, "cluster", clusterArn)
+			return "", errors.New(message)
+		}
 		clusterArn, err = client.CreateCluster(DEFAULT_CLUSTER_NAME)
 		if err != nil {
 			return "", err
@@ -117,7 +160,10 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 		// Update it since we just overrode it with a default
 		client.config.ClusterArn = clusterArn
 	}
+	return client.registerContainerInstance(clusterArn)
+}
 
+func (client *ApiECSClient) registerContainerInstance(clusterArn string) (string, error) {
 	svcRequest := svc.NewRegisterContainerInstanceRequest()
 	svcRequest.SetCluster(&clusterArn)
 
@@ -173,7 +219,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 
 	resp, err := ecs.RegisterContainerInstance(svcRequest)
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		log.Error("Could not register", "err", err)
 		return "", err
 	}
 	log.Info("Registered!")

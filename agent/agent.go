@@ -50,7 +50,7 @@ func main() {
 	log.Info("Registering Instance with ECS")
 	containerInstanceArn, err = client.RegisterContainerInstance()
 	if err != nil {
-		log.Error("Error registering", "err", err)
+		log.Crit("Error registering", "err", err)
 		os.Exit(1)
 	}
 	log.Info("Registration Completed Successfully. Running as: " + containerInstanceArn)
