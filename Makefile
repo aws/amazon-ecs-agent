@@ -19,7 +19,7 @@ checkdockerfile:
 docker: checkdockerfile
 	@ln -s scripts/dockerfiles/Dockerfile.build Dockerfile
 	docker build -t "amazon/amazon-ecs-agent-build:make" .
-	docker run -v "$(shell pwd)/out:/out" "amazon/amazon-ecs-agent-build:make"
+	docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
 	@rm -f Dockerfile
 
 # Release packages our agent into a "scratch" based dockerfile
@@ -47,7 +47,7 @@ test-in-docker: checkdockerfile
 	@ln -s scripts/dockerfiles/Dockerfile.test Dockerfile
 	docker build -t "amazon/amazon-ecs-agent-test:make" .
 	# Privileged needed for docker-in-docker so integ tests pass
-	docker run --privileged "amazon/amazon-ecs-agent-test:make"
+	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 	@rm -f Dockerfile
 
 coverage:

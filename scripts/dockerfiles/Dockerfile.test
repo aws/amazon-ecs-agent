@@ -5,7 +5,7 @@
 # to have both go and docker available in the testing environment.
 # It's easier to get go, so start with docker-in-docker and add go on top
 FROM jpetazzo/dind
-MAINTAINER euank <euank@amazon.com>
+MAINTAINER Amazon Web Services, Inc.
 
 # The following code is taken, in part, from the docker-library/golang
 # repository under a BSD 3-clause license. The license file is reproduced in the
@@ -41,9 +41,6 @@ WORKDIR /go
 # section.
 RUN mkdir -p /go/src/github.com/aws/
 RUN go get github.com/tools/godep
-
-
-COPY . /go/src/github.com/aws/amazon-ecs-agent
 
 WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
 
