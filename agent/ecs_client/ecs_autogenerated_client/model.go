@@ -10,6 +10,7 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
+
 package frontend
 
 import (
@@ -18,26 +19,26 @@ import (
 )
 
 type AmazonEC2ContainerServiceV20141113 interface {
+	DescribeClusters(DescribeClustersRequest) (DescribeClustersResponse, error)
+	DeregisterContainerInstance(DeregisterContainerInstanceRequest) (DeregisterContainerInstanceResponse, error)
+	DeregisterTaskDefinition(DeregisterTaskDefinitionRequest) (DeregisterTaskDefinitionResponse, error)
+	ListTasks(ListTasksRequest) (ListTasksResponse, error)
+	SubmitTaskStateChange(SubmitTaskStateChangeRequest) (SubmitTaskStateChangeResponse, error)
+	CreateCluster(CreateClusterRequest) (CreateClusterResponse, error)
+	DeleteCluster(DeleteClusterRequest) (DeleteClusterResponse, error)
+	RegisterContainerInstance(RegisterContainerInstanceRequest) (RegisterContainerInstanceResponse, error)
+	DiscoverPollEndpoint(DiscoverPollEndpointRequest) (DiscoverPollEndpointResponse, error)
+	ListClusters(ListClustersRequest) (ListClustersResponse, error)
+	RunTask(RunTaskRequest) (RunTaskResponse, error)
 	SubmitContainerStateChange(SubmitContainerStateChangeRequest) (SubmitContainerStateChangeResponse, error)
 	DescribeContainerInstances(DescribeContainerInstancesRequest) (DescribeContainerInstancesResponse, error)
-	RunTask(RunTaskRequest) (RunTaskResponse, error)
+	RegisterTaskDefinition(RegisterTaskDefinitionRequest) (RegisterTaskDefinitionResponse, error)
 	DescribeTaskDefinition(DescribeTaskDefinitionRequest) (DescribeTaskDefinitionResponse, error)
 	ListTaskDefinitions(ListTaskDefinitionsRequest) (ListTaskDefinitionsResponse, error)
 	StartTask(StartTaskRequest) (StartTaskResponse, error)
 	DescribeTasks(DescribeTasksRequest) (DescribeTasksResponse, error)
 	StopTask(StopTaskRequest) (StopTaskResponse, error)
 	ListContainerInstances(ListContainerInstancesRequest) (ListContainerInstancesResponse, error)
-	RegisterTaskDefinition(RegisterTaskDefinitionRequest) (RegisterTaskDefinitionResponse, error)
-	DeregisterContainerInstance(DeregisterContainerInstanceRequest) (DeregisterContainerInstanceResponse, error)
-	DeregisterTaskDefinition(DeregisterTaskDefinitionRequest) (DeregisterTaskDefinitionResponse, error)
-	ListTasks(ListTasksRequest) (ListTasksResponse, error)
-	SubmitTaskStateChange(SubmitTaskStateChangeRequest) (SubmitTaskStateChangeResponse, error)
-	CreateCluster(CreateClusterRequest) (CreateClusterResponse, error)
-	DescribeClusters(DescribeClustersRequest) (DescribeClustersResponse, error)
-	RegisterContainerInstance(RegisterContainerInstanceRequest) (RegisterContainerInstanceResponse, error)
-	DiscoverPollEndpoint(DiscoverPollEndpointRequest) (DiscoverPollEndpointResponse, error)
-	ListClusters(ListClustersRequest) (ListClustersResponse, error)
-	DeleteCluster(DeleteClusterRequest) (DeleteClusterResponse, error)
 }
 type ClientException interface {
 	error
@@ -77,9 +78,9 @@ type Cluster interface {
 	Status() *string
 }
 type _Cluster struct {
+	Status_      *string `awsjson:"status"`
 	ClusterArn_  *string `awsjson:"clusterArn"`
 	ClusterName_ *string `awsjson:"clusterName"`
-	Status_      *string `awsjson:"status"`
 }
 
 func (this *_Cluster) ClusterArn() *string {
@@ -191,16 +192,14 @@ func init() {
 }
 
 type ContainerDefinition interface {
-	SetPortMappings(p []PortMapping)
-	PortMappings() []PortMapping
 	SetEssential(b *bool)
 	Essential() *bool
 	SetEntryPoint(s []*string)
 	EntryPoint() []*string
 	SetCpu(i *int32)
 	Cpu() *int32
-	SetImage(s *string)
-	Image() *string
+	SetPortMappings(p []PortMapping)
+	PortMappings() []PortMapping
 	SetMemory(i *int32)
 	Memory() *int32
 	SetLinks(s []*string)
@@ -211,18 +210,20 @@ type ContainerDefinition interface {
 	Environment() []KeyValuePair
 	SetName(s *string)
 	Name() *string
+	SetImage(s *string)
+	Image() *string
 }
 type _ContainerDefinition struct {
 	Cpu_          *int32         `awsjson:"cpu"`
 	PortMappings_ []PortMapping  `awsjson:"portMappings"`
 	Essential_    *bool          `awsjson:"essential"`
 	EntryPoint_   []*string      `awsjson:"entryPoint"`
+	Command_      []*string      `awsjson:"command"`
 	Environment_  []KeyValuePair `awsjson:"environment"`
 	Name_         *string        `awsjson:"name"`
 	Image_        *string        `awsjson:"image"`
 	Memory_       *int32         `awsjson:"memory"`
 	Links_        []*string      `awsjson:"links"`
-	Command_      []*string      `awsjson:"command"`
 }
 
 func (this *_ContainerDefinition) Command() []*string {
@@ -373,8 +374,8 @@ type ContainerOverride interface {
 	Command() []*string
 }
 type _ContainerOverride struct {
-	Name_    *string   `awsjson:"name"`
 	Command_ []*string `awsjson:"command"`
+	Name_    *string   `awsjson:"name"`
 }
 
 func (this *_ContainerOverride) Command() []*string {
@@ -509,9 +510,9 @@ type DeregisterContainerInstanceRequest interface {
 	Force() *bool
 }
 type _DeregisterContainerInstanceRequest struct {
+	Force_             *bool   `awsjson:"force"`
 	Cluster_           *string `awsjson:"cluster"`
 	ContainerInstance_ *string `awsjson:"containerInstance"`
-	Force_             *bool   `awsjson:"force"`
 }
 
 func (this *_DeregisterContainerInstanceRequest) Cluster() *string {
@@ -796,10 +797,10 @@ func init() {
 }
 
 type DescribeTasksRequest interface {
-	SetCluster(s *string)
-	Cluster() *string
 	SetTasks(s []*string)
 	Tasks() []*string
+	SetCluster(s *string)
+	Cluster() *string
 }
 type _DescribeTasksRequest struct {
 	Cluster_ *string   `awsjson:"cluster"`
@@ -866,11 +867,20 @@ func init() {
 type DiscoverPollEndpointRequest interface {
 	SetContainerInstance(s *string)
 	ContainerInstance() *string
+	SetCluster(s *string)
+	Cluster() *string
 }
 type _DiscoverPollEndpointRequest struct {
 	ContainerInstance_ *string `awsjson:"containerInstance"`
+	Cluster_           *string `awsjson:"cluster"`
 }
 
+func (this *_DiscoverPollEndpointRequest) Cluster() *string {
+	return this.Cluster_
+}
+func (this *_DiscoverPollEndpointRequest) SetCluster(s *string) {
+	this.Cluster_ = s
+}
 func (this *_DiscoverPollEndpointRequest) ContainerInstance() *string {
 	return this.ContainerInstance_
 }
@@ -1016,10 +1026,10 @@ func init() {
 }
 
 type ListClustersResponse interface {
-	SetClusterArns(s []*string)
-	ClusterArns() []*string
 	SetNextToken(s *string)
 	NextToken() *string
+	SetClusterArns(s []*string)
+	ClusterArns() []*string
 }
 type _ListClustersResponse struct {
 	ClusterArns_ []*string `awsjson:"clusterArns"`
@@ -1058,9 +1068,9 @@ type ListContainerInstancesRequest interface {
 	MaxResults() *int32
 }
 type _ListContainerInstancesRequest struct {
-	Cluster_    *string `awsjson:"cluster"`
 	NextToken_  *string `awsjson:"nextToken"`
 	MaxResults_ *int32  `awsjson:"maxResults"`
+	Cluster_    *string `awsjson:"cluster"`
 }
 
 func (this *_ListContainerInstancesRequest) Cluster() *string {
@@ -1204,16 +1214,16 @@ func init() {
 }
 
 type ListTasksRequest interface {
+	SetNextToken(s *string)
+	NextToken() *string
+	SetMaxResults(b *int32)
+	MaxResults() *int32
 	SetCluster(s *string)
 	Cluster() *string
 	SetContainerInstance(s *string)
 	ContainerInstance() *string
 	SetFamily(s *string)
 	Family() *string
-	SetNextToken(s *string)
-	NextToken() *string
-	SetMaxResults(b *int32)
-	MaxResults() *int32
 }
 type _ListTasksRequest struct {
 	Cluster_           *string `awsjson:"cluster"`
@@ -1299,17 +1309,17 @@ func init() {
 }
 
 type NetworkBinding interface {
+	SetHostPort(b *int32)
+	HostPort() *int32
 	SetBindIP(s *string)
 	BindIP() *string
 	SetContainerPort(b *int32)
 	ContainerPort() *int32
-	SetHostPort(b *int32)
-	HostPort() *int32
 }
 type _NetworkBinding struct {
+	BindIP_        *string `awsjson:"bindIP"`
 	ContainerPort_ *int32  `awsjson:"containerPort"`
 	HostPort_      *int32  `awsjson:"hostPort"`
-	BindIP_        *string `awsjson:"bindIP"`
 }
 
 func (this *_NetworkBinding) BindIP() *string {
@@ -1342,10 +1352,10 @@ func init() {
 }
 
 type PortMapping interface {
-	SetHostPort(i *int32)
-	HostPort() *int32
 	SetContainerPort(i *int32)
 	ContainerPort() *int32
+	SetHostPort(i *int32)
+	HostPort() *int32
 }
 type _PortMapping struct {
 	ContainerPort_ *int32 `awsjson:"containerPort"`
@@ -1386,10 +1396,10 @@ type RegisterContainerInstanceRequest interface {
 	TotalResources() []Resource
 }
 type _RegisterContainerInstanceRequest struct {
+	Cluster_                           *string    `awsjson:"cluster"`
 	InstanceIdentityDocument_          *string    `awsjson:"instanceIdentityDocument"`
 	InstanceIdentityDocumentSignature_ *string    `awsjson:"instanceIdentityDocumentSignature"`
 	TotalResources_                    []Resource `awsjson:"totalResources"`
-	Cluster_                           *string    `awsjson:"cluster"`
 }
 
 func (this *_RegisterContainerInstanceRequest) Cluster() *string {
@@ -1459,8 +1469,8 @@ type RegisterTaskDefinitionRequest interface {
 	ContainerDefinitions() []ContainerDefinition
 }
 type _RegisterTaskDefinitionRequest struct {
-	ContainerDefinitions_ []ContainerDefinition `awsjson:"containerDefinitions"`
 	Family_               *string               `awsjson:"family"`
+	ContainerDefinitions_ []ContainerDefinition `awsjson:"containerDefinitions"`
 }
 
 func (this *_RegisterTaskDefinitionRequest) ContainerDefinitions() []ContainerDefinition {
@@ -1512,26 +1522,26 @@ func init() {
 }
 
 type Resource interface {
-	SetType(s *string)
-	Type() *string
-	SetDoubleValue(d *float64)
-	DoubleValue() *float64
-	SetLongValue(l *int64)
-	LongValue() *int64
 	SetIntegerValue(i *int32)
 	IntegerValue() *int32
 	SetStringSetValue(s []*string)
 	StringSetValue() []*string
 	SetName(s *string)
 	Name() *string
+	SetType(s *string)
+	Type() *string
+	SetDoubleValue(d *float64)
+	DoubleValue() *float64
+	SetLongValue(l *int64)
+	LongValue() *int64
 }
 type _Resource struct {
+	Name_           *string   `awsjson:"name"`
+	Type_           *string   `awsjson:"type"`
 	DoubleValue_    *float64  `awsjson:"doubleValue"`
 	LongValue_      *int64    `awsjson:"longValue"`
 	IntegerValue_   *int32    `awsjson:"integerValue"`
 	StringSetValue_ []*string `awsjson:"stringSetValue"`
-	Name_           *string   `awsjson:"name"`
-	Type_           *string   `awsjson:"type"`
 }
 
 func (this *_Resource) DoubleValue() *float64 {
@@ -1582,14 +1592,14 @@ func init() {
 }
 
 type RunTaskRequest interface {
-	SetCluster(s *string)
-	Cluster() *string
-	SetTaskDefinition(s *string)
-	TaskDefinition() *string
 	SetOverrides(t TaskOverride)
 	Overrides() TaskOverride
 	SetCount(b *int32)
 	Count() *int32
+	SetCluster(s *string)
+	Cluster() *string
+	SetTaskDefinition(s *string)
+	TaskDefinition() *string
 }
 type _RunTaskRequest struct {
 	Cluster_        *string      `awsjson:"cluster"`
@@ -1697,20 +1707,20 @@ func init() {
 }
 
 type StartTaskRequest interface {
-	SetCluster(s *string)
-	Cluster() *string
-	SetTaskDefinition(s *string)
-	TaskDefinition() *string
 	SetOverrides(t TaskOverride)
 	Overrides() TaskOverride
 	SetContainerInstances(s []*string)
 	ContainerInstances() []*string
+	SetCluster(s *string)
+	Cluster() *string
+	SetTaskDefinition(s *string)
+	TaskDefinition() *string
 }
 type _StartTaskRequest struct {
-	TaskDefinition_     *string      `awsjson:"taskDefinition"`
-	Overrides_          TaskOverride `awsjson:"overrides"`
 	ContainerInstances_ []*string    `awsjson:"containerInstances"`
 	Cluster_            *string      `awsjson:"cluster"`
+	TaskDefinition_     *string      `awsjson:"taskDefinition"`
+	Overrides_          TaskOverride `awsjson:"overrides"`
 }
 
 func (this *_StartTaskRequest) Cluster() *string {
@@ -1749,10 +1759,10 @@ func init() {
 }
 
 type StartTaskResponse interface {
-	SetFailures(f []Failure)
-	Failures() []Failure
 	SetTasks(t []Task)
 	Tasks() []Task
+	SetFailures(f []Failure)
+	Failures() []Failure
 }
 type _StartTaskResponse struct {
 	Tasks_    []Task    `awsjson:"tasks"`
@@ -1946,20 +1956,20 @@ func init() {
 }
 
 type SubmitTaskStateChangeRequest interface {
-	SetCluster(s *string)
-	Cluster() *string
-	SetTask(s *string)
-	Task() *string
 	SetStatus(s *string)
 	Status() *string
 	SetReason(s *string)
 	Reason() *string
+	SetCluster(s *string)
+	Cluster() *string
+	SetTask(s *string)
+	Task() *string
 }
 type _SubmitTaskStateChangeRequest struct {
+	Reason_  *string `awsjson:"reason"`
 	Cluster_ *string `awsjson:"cluster"`
 	Task_    *string `awsjson:"task"`
 	Status_  *string `awsjson:"status"`
-	Reason_  *string `awsjson:"reason"`
 }
 
 func (this *_SubmitTaskStateChangeRequest) Cluster() *string {
@@ -2023,8 +2033,6 @@ func init() {
 }
 
 type Task interface {
-	SetTaskDefinitionArn(s *string)
-	TaskDefinitionArn() *string
 	SetContainerInstanceArn(s *string)
 	ContainerInstanceArn() *string
 	SetOverrides(t TaskOverride)
@@ -2039,16 +2047,18 @@ type Task interface {
 	TaskArn() *string
 	SetClusterArn(s *string)
 	ClusterArn() *string
+	SetTaskDefinitionArn(s *string)
+	TaskDefinitionArn() *string
 }
 type _Task struct {
+	ClusterArn_           *string      `awsjson:"clusterArn"`
+	TaskDefinitionArn_    *string      `awsjson:"taskDefinitionArn"`
+	ContainerInstanceArn_ *string      `awsjson:"containerInstanceArn"`
 	Overrides_            TaskOverride `awsjson:"overrides"`
 	LastStatus_           *string      `awsjson:"lastStatus"`
 	DesiredStatus_        *string      `awsjson:"desiredStatus"`
 	Containers_           []Container  `awsjson:"containers"`
 	TaskArn_              *string      `awsjson:"taskArn"`
-	ClusterArn_           *string      `awsjson:"clusterArn"`
-	TaskDefinitionArn_    *string      `awsjson:"taskDefinitionArn"`
-	ContainerInstanceArn_ *string      `awsjson:"containerInstanceArn"`
 }
 
 func (this *_Task) ClusterArn() *string {
