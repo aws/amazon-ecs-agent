@@ -317,6 +317,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
 	req := svc.NewDiscoverPollEndpointRequest()
 	req.SetContainerInstance(&containerInstanceArn)
+	req.SetCluster(&client.config.ClusterArn)
 
 	c, err := client.serviceClient()
 	if err != nil {
