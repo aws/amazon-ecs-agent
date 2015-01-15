@@ -13,6 +13,8 @@
 
 package config
 
+import "encoding/json"
+
 type Config struct {
 	ClusterArn     string
 	APIEndpoint    string
@@ -23,4 +25,7 @@ type Config struct {
 
 	DataDir    string
 	Checkpoint bool
+
+	EngineAuthType string
+	EngineAuthData json.RawMessage
 }

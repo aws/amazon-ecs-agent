@@ -54,7 +54,8 @@ WORKDIR /go
 # section.
 RUN mkdir -p /go/src/github.com/aws/
 RUN go get github.com/tools/godep
+RUN go get code.google.com/p/go.tools/cmd/cover
 
 WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
 
-ENTRYPOINT ../scripts/test
+ENTRYPOINT /go/src/github.com/aws/amazon-ecs-agent/scripts/test

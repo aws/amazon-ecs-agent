@@ -14,24 +14,39 @@
 package engine
 
 import (
+	"encoding/base64"
+	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
+var testRegistryHost = "127.0.0.1:51670"
+var testRegistryImage = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
+var testAuthRegistryHost = "127.0.0.1:51671"
+var testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
+var testAuthUser = "user"
+var testAuthPass = "swordfish"
+
 func createTestContainer() *api.Container {
 	return &api.Container{
-		Name:          "busybox",
-		Image:         "busybox:latest",
+		Name:          "netcat",
+		Image:         testRegistryImage,
+		Command:       []string{},
 		Essential:     true,
 		DesiredStatus: api.ContainerRunning,
+		Cpu:           100,
+		Memory:        80,
 	}
 }
 
@@ -45,18 +60,62 @@ func createTestTask(arn string) *api.Task {
 	}
 }
 
-func runningContainer(name, image string, links, volumes []string) *api.Container {
-	return &api.Container{
-		Name:          name,
-		Image:         image,
-		Links:         links,
-		Essential:     true,
-		VolumesFrom:   volumes,
-		DesiredStatus: api.ContainerRunning,
-	}
+func runProxyAuthRegistry() {
+	// Run a basic-auth registry that proxies through to the regular registry
+	// Only need to proxy through gets (at least for now)
+	http.ListenAndServe(testAuthRegistryHost, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/_ping" {
+			w.Write([]byte(`true`))
+			return
+		}
+
+		token := r.Header.Get("Authorization")
+		validToken := "123abc"
+		if !strings.Contains(token, validToken) {
+			// No token, check basicauth
+			// Don't use .BasicAuth method to be go1.3 compatible
+			user := ""
+			pass := ""
+			basicAuth := r.Header.Get("Authorization")
+			decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(basicAuth, "Basic "))
+			if err == nil {
+				parts := strings.Split(string(decoded), ":")
+				user = parts[0]
+				if len(parts) > 1 {
+					pass = parts[1]
+				}
+			}
+			if user != testAuthUser || pass != testAuthPass {
+				w.WriteHeader(403)
+				w.Write([]byte(`permission denied`))
+				return
+			}
+			// Regular auth fine, set token
+			tokenString := "signature=123abc,access=read"
+			w.Header().Set("WWW-Authenticate", "Token "+tokenString)
+			w.Header().Set("X-Docker-Token", tokenString)
+		}
+
+		// Else, proxy through
+		resp, err := http.Get("http://" + testRegistryHost + r.URL.Path)
+		if err != nil {
+			w.WriteHeader(404)
+			return
+		}
+		io.Copy(w, resp.Body)
+	}))
 }
 
-var taskEngine = MustTaskEngine()
+var taskEngine TaskEngine
+var cfg *config.Config
+
+func init() {
+	cfg, _ = config.NewConfig()
+	taskEngine = NewTaskEngine(cfg)
+	taskEngine.Init()
+	go runProxyAuthRegistry()
+}
+
 var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -73,15 +132,9 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 	client, _ := docker.NewClient(endpoint)
 
-	// Removing and pulling scratch should be very quick :)
-	client.RemoveImage("scratch:latest")
+	client.RemoveImage(testRegistryImage)
 
-	// This is going to fail hard because scratch doesn't have the entrypoint,
-	// but if we see a "create" event we know it at least pulled the image
-	// correctly
 	testTask := createTestTask("testStartUnpulled")
-	testTask.Containers[0].Command = []string{"echo", "hello world"}
-	testTask.Containers[0].Image = "scratch:latest"
 
 	task_events := taskEngine.TaskEvents()
 
@@ -119,7 +172,7 @@ func TestPortForward(t *testing.T) {
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n \"hello world\" | nc -l -p 24751 & while true; do sleep 1; done`}
+	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
@@ -159,7 +212,7 @@ func TestPortForward(t *testing.T) {
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n "ecs test container" | nc -l -p 24751`}
+	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
 
 	go taskEngine.AddTask(testTask)
@@ -182,7 +235,10 @@ func TestPortForward(t *testing.T) {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
-	response, _ := ioutil.ReadAll(conn)
+	response, err := ioutil.ReadAll(conn)
+	if err != nil {
+		t.Error("Error reading response", err)
+	}
 	if string(response) != "ecs test container" {
 		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
 	}
@@ -215,10 +271,11 @@ func TestMultiplePortForwards(t *testing.T) {
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n "ecs test container1" | nc -l -p 24751`}
+	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container1"}
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
 	testTask.Containers = append(testTask.Containers, createTestContainer())
-	testTask.Containers[1].Command = []string{"sh", "-c", `echo -n "ecs test container2" | nc -l -p 24751`}
+	testTask.Containers[1].Name = "nc2"
+	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
 	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24752}}
 
 	go taskEngine.AddTask(testTask)
@@ -280,7 +337,7 @@ func TestDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n "ecs test container" | nc -l -p 24751`}
+	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 	// No HostPort = docker should pick
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}}
 
@@ -349,9 +406,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward2"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"sh", "-c", `echo -n "ecs test container" | nc -l -p 24751; echo -n "ecs test container" | nc -l -p 24751`}
-	// No HostPort = docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}, api.PortBinding{ContainerPort: 24751}}
+	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container", `-loop`}
+	// No HostPort or 0 hostport; docker should pick two ports for us
+	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}, api.PortBinding{ContainerPort: 24751, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -439,13 +496,12 @@ func TestLinking(t *testing.T) {
 	}
 
 	testTask := createTestTask("TestLinking")
-	linkee := runningContainer("linkee", "busybox:latest", []string{}, []string{})
-	linkee.Command = []string{"sh", "-c", `trap "exit 0" TERM; echo -n "hello linker" | nc -l -p 80; sleep 1`}
-	linker := runningContainer("linker", "busybox:latest", []string{"linkee:linkee_alias"}, []string{})
-	linker.Command = []string{"sh", "-c", `trap "exit 0" TERM; nc -l -p 24751 -e nc linkee_alias 80`}
-	linker.Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
-
-	testTask.Containers = []*api.Container{linkee, linker}
+	testTask.Containers = append(testTask.Containers, createTestContainer())
+	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
+	testTask.Containers[0].Name = "linkee"
+	testTask.Containers[1].Command = []string{"-l=24751", "linkee_alias:80"}
+	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
+	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
 
 	task_events := taskEngine.TaskEvents()
 
@@ -485,6 +541,107 @@ func TestLinking(t *testing.T) {
 			continue
 		}
 		if task_event.TaskStatus == api.TaskDead {
+			break
+		}
+	}
+}
+
+func TestDockerCfgAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
+	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`)
+	cfg.EngineAuthType = "dockercfg"
+	defer func() {
+		cfg.EngineAuthData = nil
+		cfg.EngineAuthType = ""
+	}()
+
+	testTask := createTestTask("testDockerCfgAuth")
+	testTask.Containers[0].Image = testAuthRegistryImage
+
+	task_events := taskEngine.TaskEvents()
+
+	go taskEngine.AddTask(testTask)
+
+	expected_events := []api.TaskStatus{api.TaskCreated, api.TaskRunning}
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		expected_event := expected_events[0]
+		expected_events = expected_events[1:]
+		if task_event.TaskStatus != expected_event {
+			t.Error("Got event " + task_event.TaskStatus.String() + " but expected " + expected_event.String())
+		}
+		if len(expected_events) == 0 {
+			break
+		}
+	}
+
+	testTask.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(testTask)
+	for task_event := range task_events {
+		if task_event.TaskArn == testTask.Arn {
+			if !(task_event.TaskStatus >= api.TaskStopped) {
+				t.Error("Expected only terminal events; got " + task_event.TaskStatus.String())
+			}
+			break
+		}
+	}
+}
+
+func TestDockerAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`)
+	cfg.EngineAuthType = "docker"
+	defer func() {
+		cfg.EngineAuthData = nil
+		cfg.EngineAuthType = ""
+	}()
+
+	testTask := createTestTask("testDockerAuth")
+	testTask.Containers[0].Image = testAuthRegistryImage
+
+	task_events := taskEngine.TaskEvents()
+
+	go taskEngine.AddTask(testTask)
+
+	expected_events := []api.TaskStatus{api.TaskCreated, api.TaskRunning}
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		expected_event := expected_events[0]
+		expected_events = expected_events[1:]
+		if task_event.TaskStatus != expected_event {
+			t.Error("Got event " + task_event.TaskStatus.String() + " but expected " + expected_event.String())
+		}
+		if len(expected_events) == 0 {
+			break
+		}
+	}
+
+	testTask.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(testTask)
+	for task_event := range task_events {
+		if task_event.TaskArn == testTask.Arn {
+			if !(task_event.TaskStatus >= api.TaskStopped) {
+				t.Error("Expected only terminal events; got " + task_event.TaskStatus.String())
+			}
 			break
 		}
 	}

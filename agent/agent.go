@@ -53,7 +53,7 @@ func main() {
 	}
 
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine()
+	taskEngine := engine.NewTaskEngine(cfg)
 
 	// Load any state from disk *before* talking to the docker daemon or any
 	// network services such that the information we get from them is applied to

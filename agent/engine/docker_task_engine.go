@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -52,7 +54,7 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine() *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		client: nil,
 		saver:  statemanager.NewNoopStateManager(),
@@ -61,6 +63,7 @@ func NewDockerTaskEngine() *DockerTaskEngine {
 
 		container_events: make(chan api.ContainerStateChange),
 	}
+	dockerauth.SetConfig(cfg)
 
 	return dockerTaskEngine
 }
@@ -409,7 +412,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 		// after PullContainer in an attempt to not get stuck pulled, but with
 		// no dockerid
 		err = engine.PullContainer(task, container)
-		if err != nil {
+		if err == nil {
 			container.AppliedStatus = api.ContainerPulled
 			container.KnownStatus = api.ContainerPulled
 		}

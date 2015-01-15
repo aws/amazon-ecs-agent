@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,11 +10,8 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM amazon/amazon-ecs-netkitten:premake
 
-# Start docker for our tests..
-DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.0.0.1:51670" wrapdocker &> /dev/null
+MAINTAINER Amazon Web Services, Inc.
 
-sleep 2
-
-export GOPATH=`godep path`:$GOPATH
-cd ..; make test
+ENTRYPOINT ["/netkitten"]

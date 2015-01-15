@@ -135,6 +135,8 @@ func EnvironmentConfig() Config {
 	awsRegion := os.Getenv("AWS_DEFAULT_REGION")
 
 	dockerEndpoint := os.Getenv("DOCKER_HOST")
+	engineAuthType := os.Getenv("ECS_ENGINE_AUTH_TYPE")
+	engineAuthData := os.Getenv("ECS_ENGINE_AUTH_DATA")
 
 	var checkpoint bool
 	dataDir := os.Getenv("ECS_DATADIR")
@@ -169,6 +171,8 @@ func EnvironmentConfig() Config {
 		ReservedPorts:  reservedPorts,
 		DataDir:        dataDir,
 		Checkpoint:     checkpoint,
+		EngineAuthType: engineAuthType,
+		EngineAuthData: []byte(engineAuthData),
 	}
 }
 

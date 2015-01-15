@@ -61,7 +61,7 @@ func getResponseBodyFromLocalHost(url string, t *testing.T) []byte {
 }
 
 func TestServeHttp(t *testing.T) {
-	taskEngine := engine.NewTaskEngine()
+	taskEngine := engine.NewTaskEngine(&config.Config{})
 	taskEngine.MustInit()
 	containers := []*api.Container{
 		&api.Container{

@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	dockerparsers "github.com/docker/docker/pkg/parsers"
@@ -94,9 +95,9 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	if err != nil {
 		return err
 	}
-	// TODO, authconfig
-
 	// End of docker-attributed code
+
+	authConfig := dockerauth.GetAuthconfig(hostname)
 
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
@@ -123,7 +124,7 @@ func (dg *DockerGoClient) PullImage(image string) error {
 			log.Error("Error reading pull image status", "image", image, "err", err)
 		}
 	}()
-	err = client.PullImage(opts, docker.AuthConfiguration{})
+	err = client.PullImage(opts, authConfig)
 
 	return err
 }

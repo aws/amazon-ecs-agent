@@ -12,10 +12,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# Start docker for our tests..
-DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.0.0.1:51670" wrapdocker &> /dev/null
-
-sleep 2
-
-export GOPATH=`godep path`:$GOPATH
-cd ..; make test
+if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-netkitten:make" > /dev/null ; then
+	tar --owner=0 --group=0 --mtime="1970-01-01 00:00:00" --no-acls -c netkitten | docker import - "amazon/amazon-ecs-netkitten:premake"
+	docker build -t "amazon/amazon-ecs-netkitten:make" .
+	docker rmi "amazon/amazon-ecs-netkitten:premake"
+fi

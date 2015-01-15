@@ -15,19 +15,22 @@
 // It supports Docker as the sole task engine type.
 package engine
 
-import "github.com/aws/amazon-ecs-agent/agent/logger"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+)
 
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine() TaskEngine {
-	return NewDockerTaskEngine()
+func NewTaskEngine(cfg *config.Config) TaskEngine {
+	return NewDockerTaskEngine(cfg)
 }
 
-// MustTaskEngine creates and initializes a taskEngine, retrying until it
-// succeeds
-func MustTaskEngine() TaskEngine {
-	taskEngine := NewDockerTaskEngine()
+// mustTaskEngine creates and initializes a taskEngine, retrying until it
+// succeeds.
+func mustTaskEngine() TaskEngine {
+	taskEngine := NewDockerTaskEngine(&config.Config{})
 	taskEngine.MustInit()
 	return taskEngine
 }

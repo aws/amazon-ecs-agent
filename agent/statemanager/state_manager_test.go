@@ -47,7 +47,7 @@ func TestStateManager(t *testing.T) {
 
 	// Now let's make some state to save
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine()
+	taskEngine := engine.NewTaskEngine(&config.Config{})
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	if err != nil {
@@ -65,7 +65,7 @@ func TestStateManager(t *testing.T) {
 	}
 
 	// Now make sure we can load that state sanely
-	loadedTaskEngine := engine.NewTaskEngine()
+	loadedTaskEngine := engine.NewTaskEngine(&config.Config{})
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))

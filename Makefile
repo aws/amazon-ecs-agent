@@ -11,7 +11,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static checkdockerfile docker release certs test clean
+.PHONY: all gobuild static checkdockerfile docker release certs test clean netkitten test-registry
 
 all: release
 
@@ -27,7 +27,7 @@ static:
 # Phony target to make sure we never clobber someone's dockerfile. TODO, better
 # cleaning up of the dockerfile we ln so that this doesn't trigger incorrectly
 checkdockerfile:
-	@if [[ -e Dockerfile ]]; then echo "Dockerfile exists; please remove or rename it before building"; exit 1; fi
+	@if [ -e Dockerfile ]; then echo "Dockerfile exists; please remove or rename it before building"; exit 1; fi
 
 docker: checkdockerfile
 	@ln -s scripts/dockerfiles/Dockerfile.build Dockerfile
@@ -53,9 +53,15 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
+# Run our 'test' registry needed for integ tests
+short-test:
+	cd agent && godep go test -short -timeout=5s -v -cover ./...
 
-test:
-	cd agent && godep go test -timeout=35s -v -cover ./...
+test-registry: netkitten
+	@./scripts/setup-test-registry
+
+test: test-registry
+	cd agent && godep go test -timeout=120s -v -cover ./...
 
 test-in-docker: checkdockerfile
 	@ln -s scripts/dockerfiles/Dockerfile.test Dockerfile
@@ -64,7 +70,11 @@ test-in-docker: checkdockerfile
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 	@rm -f Dockerfile
 
+netkitten:
+	cd misc/netkitten; $(MAKE) $(MFLAGS)
+
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -f out/amazon-ecs-agent &> /dev/null
 	rm -rf agent/Godeps/_workspace/pkg/
+	cd misc/netkitten; $(MAKE) $(MFLAGS) clean

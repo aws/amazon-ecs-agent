@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,11 +10,19 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+.PHONY: all clean docker image
 
-# Start docker for our tests..
-DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.0.0.1:51670" wrapdocker &> /dev/null
+all: netkitten image
 
-sleep 2
+netkitten:
+	# Build in a go 1.3 container explicitly so static compiling works as
+	# expected
+	docker run -v $(shell pwd):/out -v $(shell pwd)/netkitten.go:/in/netkitten.go -e CGO_ENABLED=0 golang:1.3 go build -a -x -ldflags '-s' -o /out/netkitten /in/netkitten.go
 
-export GOPATH=`godep path`:$GOPATH
-cd ..; make test
+image: netkitten
+	@./docker-image
+
+
+clean:
+	rm -f netkitten
+	docker rmi "amazon/amazon-ecs-netkitten:make"
