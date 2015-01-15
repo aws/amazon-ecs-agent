@@ -15,9 +15,10 @@
 %define	init_dir /etc/init
 %define	conf_dir /etc/ecs
 %define cache_dir /var/cache/ecs
+%define data_dir /var/lib/ecs/data
 Name:           ecs-init
 Version:        0.2
-Release:        1
+Release:        2
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -49,10 +50,12 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{init_dir}
 mkdir -p $RPM_BUILD_ROOT/%{conf_dir}
 mkdir -p $RPM_BUILD_ROOT/%{cache_dir}
+mkdir -p $RPM_BUILD_ROOT/%{data_dir}
 
 install %{SOURCE0} $RPM_BUILD_ROOT/%{init_dir}/ecs.conf
 install %{SOURCE1} $RPM_BUILD_ROOT/%{conf_dir}/ecs-init
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
+touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
 touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 
 %files
@@ -60,12 +63,17 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 %{init_dir}/ecs.conf
 %{conf_dir}/ecs-init
 %config(noreplace) %ghost %{conf_dir}/ecs.config
+%config(noreplace) %ghost %{conf_dir}/ecs.config.json
 %ghost %{cache_dir}/ecs-agent.tar
+%dir %{data_dir}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Thu Jan 15 2015 Samuel Karp <skarp@amazon.com> - 0.2-2
+- Mount data directory for state persistence
+- Enable JSON-based configuration
 * Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
 - Naive update functionality
 * Thu Dec 11 2014 Samuel Karp <skarp@amazon.com> - 0.2-0
