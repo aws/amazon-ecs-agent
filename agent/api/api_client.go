@@ -146,14 +146,19 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 	clusterArn := client.config.ClusterArn
 	// If our clusterArn is empty, we should try to create the default
 	if clusterArn == "" {
+		clusterArn = config.DEFAULT_CLUSTER_NAME
+		defer func() {
+			// Update the config value to reflect the cluster we end up in
+			client.config.ClusterArn = clusterArn
+		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(config.DEFAULT_CLUSTER_NAME)
+		containerInstanceArn, err := client.registerContainerInstance(clusterArn)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
 		// If trying to register fails, see if the cluster exists and is active
-		clusterArn, clusterStatus, err := client.describeCluster(config.DEFAULT_CLUSTER_NAME)
+		clusterArn, clusterStatus, err := client.describeCluster(clusterArn)
 		if err != nil {
 			return "", err
 		}
@@ -163,12 +168,10 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 			log.Error(message, "cluster", clusterArn)
 			return "", errors.New(message)
 		}
-		clusterArn, err = client.CreateCluster(config.DEFAULT_CLUSTER_NAME)
+		clusterArn, err = client.CreateCluster(clusterArn)
 		if err != nil {
 			return "", err
 		}
-		// Update it since we just overrode it with a default
-		client.config.ClusterArn = clusterArn
 	}
 	return client.registerContainerInstance(clusterArn)
 }

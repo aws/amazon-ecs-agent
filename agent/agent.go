@@ -92,7 +92,7 @@ func main() {
 		// Save our shiny new containerInstanceArn
 		state_manager.Save()
 	} else {
-		log.Info("Restored State", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
+		log.Info("Restored state", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
 	}
 
 	sighandlers.StartTerminationHandler(state_manager)
