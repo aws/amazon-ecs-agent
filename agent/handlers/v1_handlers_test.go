@@ -15,7 +15,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -24,15 +23,15 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-const TEST_CONTAINER_INSTANCE_ARN = "test_container_instance_arn"
-const TEST_CLUSTER_ARN = "test_cluster_arn"
+const TestContainerInstanceArn = "test_container_instance_arn"
+const TestClusterArn = "test_cluster_arn"
 
 func TestMetadataHandler(t *testing.T) {
-	metadataHandler := MetadataV1RequestHandlerMaker(utils.Strptr(TEST_CONTAINER_INSTANCE_ARN), &config.Config{ClusterArn: TEST_CLUSTER_ARN})
+	metadataHandler := MetadataV1RequestHandlerMaker(utils.Strptr(TestContainerInstanceArn), &config.Config{ClusterArn: TestClusterArn})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AGENT_INTROSPECTION_PORT), nil)
@@ -41,32 +40,35 @@ func TestMetadataHandler(t *testing.T) {
 	var resp MetadataResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
 
-	if resp.ClusterArn != TEST_CLUSTER_ARN {
+	if resp.ClusterArn != TestClusterArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
-	if *resp.ContainerInstanceArn != TEST_CONTAINER_INSTANCE_ARN {
+	if *resp.ContainerInstanceArn != TestContainerInstanceArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
-}
-
-type mockTaskEngine struct{}
-
-func (*mockTaskEngine) TaskEvents() <-chan api.ContainerStateChange {
-	return nil
-}
-
-func (*mockTaskEngine) Init() error                  { return nil }
-func (*mockTaskEngine) MustInit()                    {}
-func (*mockTaskEngine) AddTask(*api.Task)            {}
-func (*mockTaskEngine) MarshalJSON() ([]byte, error) { return []byte{}, errors.New("Mock") }
-func (*mockTaskEngine) UnmarshalJSON([]byte) error   { return errors.New("Mock") }
-func (*mockTaskEngine) SetSaver(statemanager.Saver)   {}
-func (*mockTaskEngine) ListTasks() ([]*api.Task, error) {
-	return []*api.Task{}, errors.New("Mock")
 }
 
 func TestServeHttp(t *testing.T) {
-	go ServeHttp(utils.Strptr(TEST_CONTAINER_INSTANCE_ARN), &mockTaskEngine{}, &config.Config{ClusterArn: TEST_CLUSTER_ARN})
+	taskEngine := engine.NewTaskEngine()
+	taskEngine.MustInit()
+	containers := []*api.Container{
+		&api.Container{
+			Name: "c1",
+		},
+	}
+	testTask := api.Task{
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskRunning,
+		Family:        "test",
+		Version:       "1",
+		Containers:    containers,
+	}
+	// Populate Tasks and Container map in the engine.
+	taskEngine.AddTask(&testTask)
+	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
+	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{ClusterArn: TestClusterArn})
 
 	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/metadata")
 	if err != nil {
@@ -76,10 +78,32 @@ func TestServeHttp(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	json.Unmarshal(body, &metadata)
 
-	if metadata.ClusterArn != TEST_CLUSTER_ARN {
+	if metadata.ClusterArn != TestClusterArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
-	if *metadata.ContainerInstanceArn != TEST_CONTAINER_INSTANCE_ARN {
+	if *metadata.ContainerInstanceArn != TestContainerInstanceArn {
 		t.Error("Metadata returned the wrong cluster arn")
+	}
+	var tasksResponse TasksResponse
+	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err = ioutil.ReadAll(resp.Body)
+	json.Unmarshal(body, &tasksResponse)
+	tasks := tasksResponse.Tasks
+
+	if len(tasks) != 1 {
+		t.Error("Incorrect number of tasks in response: ", len(tasks))
+	}
+	if tasks[0].Arn != "task1" {
+		t.Error("Incorrect task arn in response: ", tasks[0].Arn)
+	}
+	containersResponse := tasks[0].Containers
+	if len(containersResponse) != 1 {
+		t.Error("Incorrect number of containers in response: ", len(containersResponse))
+	}
+	if containersResponse[0].Name != "c1" {
+		t.Error("Incorrect container name in response: ", containersResponse[0].Name)
 	}
 }

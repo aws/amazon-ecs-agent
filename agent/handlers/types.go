@@ -17,3 +17,22 @@ type MetadataResponse struct {
 	ClusterArn           string
 	ContainerInstanceArn *string
 }
+
+type TaskResponse struct {
+	Arn           string
+	DesiredStatus string
+	KnownStatus   string
+	Family        string
+	Version       string
+	Containers    []ContainerResponse
+}
+
+type TasksResponse struct {
+	Tasks []*TaskResponse
+}
+
+type ContainerResponse struct {
+	DockerId   string
+	DockerName string
+	Name       string
+}

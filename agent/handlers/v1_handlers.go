@@ -17,13 +17,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
 var log = logger.ForModule("Handlers")
@@ -41,20 +42,65 @@ func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 		ClusterArn:           cfg.ClusterArn,
 		ContainerInstanceArn: containerInstanceArn,
 	}
-	responseJson, _ := json.Marshal(resp)
+	responseJSON, _ := json.Marshal(resp)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write(responseJson)
+		w.Write(responseJSON)
+	}
+}
+
+func NewTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
+	containers := make([]ContainerResponse, len(containerMap))
+	ndx := 0
+	for containerName, container := range containerMap {
+		containers[ndx] = ContainerResponse{container.DockerId, container.DockerName, containerName}
+		ndx++
+	}
+
+	return &TaskResponse{
+		Arn:           task.Arn,
+		DesiredStatus: task.DesiredStatus.String(),
+		KnownStatus:   task.KnownStatus.String(),
+		Family:        task.Family,
+		Version:       task.Version,
+		Containers:    containers,
+	}
+}
+
+func NewTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
+	allTasks := state.AllTasks()
+	taskResponses := make([]*TaskResponse, len(allTasks))
+	for ndx, task := range allTasks {
+		containerMap, _ := state.ContainerMapByArn(task.Arn)
+		taskResponses[ndx] = NewTaskResponse(task, containerMap)
+	}
+
+	return &TasksResponse{Tasks: taskResponses}
+}
+
+func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var tasksResponse *TasksResponse
+		dockerTaskEngine, ok := taskEngine.(*engine.DockerTaskEngine)
+		if ok != true {
+			log.Warn("Unable to get DockerTaskEngine from TaskEngine")
+			tasksResponse = &TasksResponse{}
+		} else {
+			tasksResponse = NewTasksResponse(dockerTaskEngine.State())
+		}
+		responseJSON, _ := json.Marshal(tasksResponse)
+		w.Write(responseJSON)
 	}
 }
 
 func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *config.Config) {
 	serverFunctions := map[string]func(w http.ResponseWriter, r *http.Request){
 		"/v1/metadata": MetadataV1RequestHandlerMaker(containerInstanceArn, cfg),
+		"/v1/tasks":    TasksV1RequestHandlerMaker(taskEngine),
 	}
 
 	paths := make([]string, 0, len(serverFunctions))
-	for path, _ := range serverFunctions {
+	for path := range serverFunctions {
 		paths = append(paths, path)
 	}
 	availableCommands := &RootResponse{paths}
