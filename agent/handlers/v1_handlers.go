@@ -32,6 +32,7 @@ var log = logger.ForModule("Handlers")
 const statusBadRequest = 400
 const statusNotImplemented = 501
 const statusOK = 200
+const statusInternalServerError = 500
 
 type RootResponse struct {
 	AvailableCommands []string
@@ -82,11 +83,12 @@ func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.Response
 	return func(w http.ResponseWriter, r *http.Request) {
 		var tasksResponse *TasksResponse
 		dockerTaskEngine, ok := taskEngine.(*engine.DockerTaskEngine)
-		if ok != true {
-			log.Warn("Unable to get DockerTaskEngine from TaskEngine")
-			tasksResponse = &TasksResponse{}
-		} else {
+		if ok {
 			tasksResponse = NewTasksResponse(dockerTaskEngine.State())
+		} else {
+			log.Warn("Unable to get DockerTaskEngine from TaskEngine")
+			w.WriteHeader(statusInternalServerError)
+			tasksResponse = &TasksResponse{}
 		}
 		responseJSON, _ := json.Marshal(tasksResponse)
 		w.Write(responseJSON)
@@ -108,6 +110,7 @@ func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *
 	availableCommandResponse, _ := json.Marshal(&availableCommands)
 
 	defaultHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(statusNotImplemented)
 		w.Write(availableCommandResponse)
 	}
 
