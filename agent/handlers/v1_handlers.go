@@ -34,6 +34,9 @@ const statusNotImplemented = 501
 const statusOK = 200
 const statusInternalServerError = 500
 
+const dockerIdQueryField = "dockerid"
+const taskArnQueryField = "taskarn"
+
 type RootResponse struct {
 	AvailableCommands []string
 }
@@ -79,18 +82,67 @@ func NewTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
 	return &TasksResponse{Tasks: taskResponses}
 }
 
+// Returns the value of a field in the http request. The boolean value is
+// set to true if the field exists in the query.
+func valueFromRequest(r *http.Request, field string) (string, bool) {
+	values := r.URL.Query()
+	_, exists := values[field]
+	return values.Get(field), exists
+}
+
+// Creates JSON response and sets the http status code for the task queried.
+func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state *dockerstate.DockerTaskEngineState) ([]byte, int) {
+	var responseJSON []byte
+	status := statusOK
+	if found {
+		containerMap, _ := state.ContainerMapByArn(task.Arn)
+		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap))
+	} else {
+		log.Warn("Could not find", resourceId)
+		responseJSON, _ = json.Marshal(&TaskResponse{})
+		status = statusBadRequest
+	}
+	return responseJSON, status
+}
+
+// Creates response for the 'v1/tasks' API. Lists all tasks if the request
+// doesn't contain any fields. Returns a Task if either of 'dockerid' or
+// 'taskarn' are specified in the request.
 func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var tasksResponse *TasksResponse
+		var responseJSON []byte
 		dockerTaskEngine, ok := taskEngine.(*engine.DockerTaskEngine)
-		if ok {
-			tasksResponse = NewTasksResponse(dockerTaskEngine.State())
-		} else {
-			log.Warn("Unable to get DockerTaskEngine from TaskEngine")
+		if !ok {
+			// Could not load docker task engine.
 			w.WriteHeader(statusInternalServerError)
-			tasksResponse = &TasksResponse{}
+			responseJSON, _ = json.Marshal(&TasksResponse{})
+			w.Write(responseJSON)
+			return
 		}
-		responseJSON, _ := json.Marshal(tasksResponse)
+		dockerTaskEngineState := dockerTaskEngine.State()
+		dockerId, dockerIdExists := valueFromRequest(r, dockerIdQueryField)
+		taskArn, taskArnExists := valueFromRequest(r, taskArnQueryField)
+		var status int
+		if dockerIdExists && taskArnExists {
+			log.Warn("Request contains both ", dockerIdQueryField, " and ", taskArnQueryField, ". Expect at most one of these.")
+			w.WriteHeader(statusBadRequest)
+			w.Write(responseJSON)
+			return
+		}
+		if dockerIdExists {
+			// Create TaskResponse for the docker id in the query.
+			task, found := dockerTaskEngineState.TaskById(dockerId)
+			responseJSON, status = createTaskJSONResponse(task, found, dockerId, dockerTaskEngineState)
+			w.WriteHeader(status)
+		} else if taskArnExists {
+			// Create TaskResponse for the task arn in the query.
+			task, found := dockerTaskEngineState.TaskByArn(taskArn)
+			responseJSON, status = createTaskJSONResponse(task, found, taskArn, dockerTaskEngineState)
+			w.WriteHeader(status)
+		} else {
+			// List all tasks.
+			responseJSON, _ = json.Marshal(NewTasksResponse(dockerTaskEngineState))
+		}
 		w.Write(responseJSON)
 	}
 }

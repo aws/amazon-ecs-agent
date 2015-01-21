@@ -15,16 +15,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
-
-	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const TestContainerInstanceArn = "test_container_instance_arn"
@@ -46,6 +45,18 @@ func TestMetadataHandler(t *testing.T) {
 	if *resp.ContainerInstanceArn != TestContainerInstanceArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
+}
+
+func getResponseBodyFromLocalHost(url string, t *testing.T) []byte {
+	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return body
 }
 
 func TestServeHttp(t *testing.T) {
@@ -70,12 +81,8 @@ func TestServeHttp(t *testing.T) {
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{ClusterArn: TestClusterArn})
 
-	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/metadata")
-	if err != nil {
-		t.Fatal(err)
-	}
+	body := getResponseBodyFromLocalHost("/v1/metadata", t)
 	var metadata MetadataResponse
-	body, err := ioutil.ReadAll(resp.Body)
 	json.Unmarshal(body, &metadata)
 
 	if metadata.ClusterArn != TestClusterArn {
@@ -85,11 +92,7 @@ func TestServeHttp(t *testing.T) {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
 	var tasksResponse TasksResponse
-	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks")
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err = ioutil.ReadAll(resp.Body)
+	body = getResponseBodyFromLocalHost("/v1/tasks", t)
 	json.Unmarshal(body, &tasksResponse)
 	tasks := tasksResponse.Tasks
 
@@ -105,5 +108,46 @@ func TestServeHttp(t *testing.T) {
 	}
 	if containersResponse[0].Name != "c1" {
 		t.Error("Incorrect container name in response: ", containersResponse[0].Name)
+	}
+	var taskResponse TaskResponse
+	body = getResponseBodyFromLocalHost("/v1/tasks?dockerid=docker1", t)
+	json.Unmarshal(body, &taskResponse)
+	if taskResponse.Arn != "task1" {
+		t.Error("Incorrect task arn in response")
+	}
+	if taskResponse.Containers[0].Name != "c1" {
+		t.Error("Incorrect task arn in response")
+	}
+
+	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?dockerid=docker2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("API did not return bad request status for invalid docker id")
+	}
+
+	body = getResponseBodyFromLocalHost("/v1/tasks?taskarn=task1", t)
+	json.Unmarshal(body, &taskResponse)
+	if taskResponse.Arn != "task1" {
+		t.Error("Incorrect task arn in response")
+	}
+
+	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=task2")
+	if resp.StatusCode != 400 {
+		t.Error("API did not return bad request status for invalid task id")
+	}
+
+	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=")
+	if resp.StatusCode != 400 {
+		t.Error("API did not return bad request status for invalid task id")
+	}
+
+	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=task1&dockerid=docker1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("API did not return bad request status when both dockerid and taskarn are specified.")
 	}
 }
