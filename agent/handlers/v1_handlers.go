@@ -124,7 +124,7 @@ func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.Response
 		taskArn, taskArnExists := valueFromRequest(r, taskArnQueryField)
 		var status int
 		if dockerIdExists && taskArnExists {
-			log.Warn("Request contains both ", dockerIdQueryField, " and ", taskArnQueryField, ". Expect at most one of these.")
+			log.Info("Request contains both ", dockerIdQueryField, " and ", taskArnQueryField, ". Expect at most one of these.")
 			w.WriteHeader(statusBadRequest)
 			w.Write(responseJSON)
 			return
