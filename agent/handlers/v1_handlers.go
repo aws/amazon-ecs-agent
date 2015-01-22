@@ -17,14 +17,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var log = logger.ForModule("Handlers")
@@ -115,7 +116,6 @@ func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.Response
 		if !ok {
 			// Could not load docker task engine.
 			w.WriteHeader(statusInternalServerError)
-			responseJSON, _ = json.Marshal(&TasksResponse{})
 			w.Write(responseJSON)
 			return
 		}
@@ -162,7 +162,6 @@ func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *
 	availableCommandResponse, _ := json.Marshal(&availableCommands)
 
 	defaultHandler := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(statusNotImplemented)
 		w.Write(availableCommandResponse)
 	}
 
