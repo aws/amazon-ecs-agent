@@ -53,6 +53,7 @@ func main() {
 	}
 
 	containerInstanceArn := ""
+	configuredCluster := cfg.ClusterArn // Save a copy of the cluster so we can verify the loaded one matches
 	taskEngine := engine.NewTaskEngine(cfg)
 
 	// Load any state from disk *before* talking to the docker daemon or any
@@ -62,7 +63,11 @@ func main() {
 	if !cfg.Checkpoint {
 		state_manager = statemanager.NewNoopStateManager()
 	} else {
-		state_manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
+		state_manager, err = statemanager.NewStateManager(cfg,
+			statemanager.AddSaveable("TaskEngine", taskEngine),
+			statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+			statemanager.AddSaveable("ClusterArn", &cfg.ClusterArn),
+		)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
 			os.Exit(1)
@@ -71,6 +76,11 @@ func main() {
 	err = state_manager.Load()
 	if err != nil {
 		log.Crit("Error loading initial state", "err", err)
+		os.Exit(1)
+	}
+
+	if cfg.Checkpoint && configuredCluster != "" && configuredCluster != cfg.ClusterArn {
+		log.Crit("Cluster mismatch; saved cluster does not match configured cluster", "configured", configuredCluster, "saved", cfg.ClusterArn)
 		os.Exit(1)
 	}
 
