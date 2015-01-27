@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
@@ -74,7 +75,7 @@ func (cfg *Config) Complete() bool {
 // missing:STRING and acts based on that string. Current options are: fatal,
 // warn. Fatal will result in a fatal error, warn will result in a warning that
 // the field is missing being logged
-func (cfg *Config) CheckMissing() {
+func (cfg *Config) CheckMissingAndDepreciated() {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
 
@@ -94,6 +95,13 @@ func (cfg *Config) CheckMissing() {
 			default:
 				log.Warn("Unexpected `missing` tag value", "tag", missingTag)
 			}
+		} else {
+			// present
+			deprecatedTag := cfgStructField.Field(i).Tag.Get("deprecated")
+			if len(deprecatedTag) == 0 {
+				continue
+			}
+			log.Warn("Use of deprecated configuration key", "key", cfgStructField.Field(i).Name, "message", deprecatedTag)
 		}
 	}
 }
@@ -117,11 +125,22 @@ func FileConfig() Config {
 	if err != nil {
 		return Config{}
 	}
-
-	decoder := json.NewDecoder(file)
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Error("Unable to read config file", "err", err)
+		return Config{}
+	}
 
 	config := Config{}
-	decoder.Decode(&config)
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		log.Error("Error reading config json data", "err", err)
+	}
+
+	// Handle any deprecated keys correctly here
+	if utils.ZeroOrNil(config.Cluster) && !utils.ZeroOrNil(config.ClusterArn) {
+		config.Cluster = config.ClusterArn
+	}
 	return config
 }
 
@@ -131,7 +150,7 @@ func EnvironmentConfig() Config {
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
 	port, _ := strconv.Atoi(os.Getenv("ECS_BACKEND_PORT"))
 
-	clusterArn := os.Getenv("ECS_CLUSTER")
+	clusterRef := os.Getenv("ECS_CLUSTER")
 	awsRegion := os.Getenv("AWS_DEFAULT_REGION")
 
 	dockerEndpoint := os.Getenv("DOCKER_HOST")
@@ -163,7 +182,7 @@ func EnvironmentConfig() Config {
 	}
 
 	return Config{
-		ClusterArn:     clusterArn,
+		Cluster:     clusterRef,
 		APIEndpoint:    endpoint,
 		APIPort:        uint16(port),
 		AWSRegion:      awsRegion,
@@ -194,7 +213,7 @@ func NewConfig() (*Config, error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
 	config := &ctmp
 	defer func() {
-		config.CheckMissing()
+		config.CheckMissingAndDepreciated()
 		config.Merge(DefaultConfig())
 	}()
 

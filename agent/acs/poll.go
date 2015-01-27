@@ -70,7 +70,7 @@ func NewAgentCommunicationClient(endpoint string, cfg *config.Config, credential
 func (acc *AgentCommunicationClient) createAcsUrl() string {
 	acsUrl := acc.endpoint + "/ws"
 	query := url.Values{}
-	query.Set("clusterArn", acc.cfg.ClusterArn)
+	query.Set("clusterArn", acc.cfg.Cluster)
 	query.Set("containerInstanceArn", acc.containerInstanceArn)
 
 	return acsUrl + "?" + query.Encode()
@@ -161,7 +161,7 @@ func (acc *AgentCommunicationClient) Ack(message *Payload) bool {
 	}
 
 	log.Info("Acking a message", "messageId", message.MessageId)
-	ackRequest := AckRequest{ClusterArn: acc.cfg.ClusterArn, ContainerInstanceArn: acc.containerInstanceArn, MessageId: message.MessageId}
+	ackRequest := AckRequest{ClusterArn: acc.cfg.Cluster, ContainerInstanceArn: acc.containerInstanceArn, MessageId: message.MessageId}
 	result, err := json.Marshal(ackRequest)
 	if err != nil {
 		log.Error("Unable to marshal ack; this is odd", "err", err)

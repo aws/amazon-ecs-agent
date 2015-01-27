@@ -52,7 +52,7 @@ var serveHandler http.Handler
 
 func testClient() *AgentCommunicationClient {
 	testc := NewAgentCommunicationClient("https://"+TEST_ACS_ENDPOINT,
-		&config.Config{ClusterArn: TEST_CLUSTER_ARN, AWSRegion: "test"},
+		&config.Config{Cluster: TEST_CLUSTER_ARN, AWSRegion: "test"},
 		auth.TestCredentialProvider{},
 		TEST_INSTANCE_ARN)
 

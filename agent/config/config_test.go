@@ -16,13 +16,13 @@ package config
 import "testing"
 
 func TestMerge(t *testing.T) {
-	conf1 := &Config{ClusterArn: "Foo"}
-	conf2 := Config{ClusterArn: "ignored", APIEndpoint: "Bar"}
+	conf1 := &Config{Cluster: "Foo"}
+	conf2 := Config{Cluster: "ignored", APIEndpoint: "Bar"}
 	conf3 := Config{APIPort: 99}
 
 	conf1.Merge(conf2).Merge(conf3)
 
-	if conf1.ClusterArn != "Foo" {
+	if conf1.Cluster != "Foo" {
 		t.Error("The cluster should not have been overridden")
 	}
 	if conf1.APIEndpoint != "Bar" {

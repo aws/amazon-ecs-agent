@@ -31,7 +31,7 @@ const TestContainerInstanceArn = "test_container_instance_arn"
 const TestClusterArn = "test_cluster_arn"
 
 func TestMetadataHandler(t *testing.T) {
-	metadataHandler := MetadataV1RequestHandlerMaker(utils.Strptr(TestContainerInstanceArn), &config.Config{ClusterArn: TestClusterArn})
+	metadataHandler := MetadataV1RequestHandlerMaker(utils.Strptr(TestContainerInstanceArn), &config.Config{Cluster: TestClusterArn})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AGENT_INTROSPECTION_PORT), nil)
@@ -40,7 +40,7 @@ func TestMetadataHandler(t *testing.T) {
 	var resp MetadataResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
 
-	if resp.ClusterArn != TestClusterArn {
+	if resp.Cluster != TestClusterArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
 	if *resp.ContainerInstanceArn != TestContainerInstanceArn {
@@ -80,13 +80,13 @@ func TestServeHttp(t *testing.T) {
 	taskEngine.AddTask(&testTask)
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
-	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{ClusterArn: TestClusterArn})
+	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
 
 	body := getResponseBodyFromLocalHost("/v1/metadata", t)
 	var metadata MetadataResponse
 	json.Unmarshal(body, &metadata)
 
-	if metadata.ClusterArn != TestClusterArn {
+	if metadata.Cluster != TestClusterArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
 	if *metadata.ContainerInstanceArn != TestContainerInstanceArn {

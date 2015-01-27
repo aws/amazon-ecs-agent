@@ -112,11 +112,11 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 		return "", err
 	}
 	log.Info("Created a cluster!", "clusterName", clusterName)
-	return *resp.Cluster().ClusterArn(), nil
+	return *resp.Cluster().ClusterName(), nil
 
 }
 
-func (client *ApiECSClient) describeCluster(clusterName string) (clusterArn string, clusterStatus string, err error) {
+func (client *ApiECSClient) describeCluster(clusterName string) (clusterRef string, clusterStatus string, err error) {
 	svcRequest := svc.NewDescribeClustersRequest()
 	clusterNames := []*string{&clusterName}
 	svcRequest.SetClusters(clusterNames)
@@ -134,7 +134,7 @@ func (client *ApiECSClient) describeCluster(clusterName string) (clusterArn stri
 	}
 	for _, cluster := range resp.Clusters() {
 		if *cluster.ClusterName() == clusterName {
-			clusterArn = *cluster.ClusterArn()
+			clusterRef = *cluster.ClusterName()
 			clusterStatus = *cluster.Status()
 			return
 		}
@@ -143,42 +143,42 @@ func (client *ApiECSClient) describeCluster(clusterName string) (clusterArn stri
 }
 
 func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
-	clusterArn := client.config.ClusterArn
-	// If our clusterArn is empty, we should try to create the default
-	if clusterArn == "" {
-		clusterArn = config.DEFAULT_CLUSTER_NAME
+	clusterRef := client.config.Cluster
+	// If our clusterRef is empty, we should try to create the default
+	if clusterRef == "" {
+		clusterRef = config.DEFAULT_CLUSTER_NAME
 		defer func() {
 			// Update the config value to reflect the cluster we end up in
-			client.config.ClusterArn = clusterArn
+			client.config.Cluster = clusterRef
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(clusterArn)
+		containerInstanceArn, err := client.registerContainerInstance(clusterRef)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
 		// If trying to register fails, see if the cluster exists and is active
-		clusterArn, clusterStatus, err := client.describeCluster(clusterArn)
+		clusterRef, clusterStatus, err := client.describeCluster(clusterRef)
 		if err != nil {
 			return "", err
 		}
 		// Assume that an inactive cluster is intentional and do not recreate it
 		if clusterStatus != "" && clusterStatus != "ACTIVE" {
 			message := "Cluster is not available for registration"
-			log.Error(message, "cluster", clusterArn)
+			log.Error(message, "cluster", clusterRef)
 			return "", errors.New(message)
 		}
-		clusterArn, err = client.CreateCluster(clusterArn)
+		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
 			return "", err
 		}
 	}
-	return client.registerContainerInstance(clusterArn)
+	return client.registerContainerInstance(clusterRef)
 }
 
-func (client *ApiECSClient) registerContainerInstance(clusterArn string) (string, error) {
+func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string, error) {
 	svcRequest := svc.NewRegisterContainerInstanceRequest()
-	svcRequest.SetCluster(&clusterArn)
+	svcRequest.SetCluster(&clusterRef)
 
 	ec2MetadataClient := ec2.NewEC2MetadataClient()
 	instanceIdentityDoc, err := ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
@@ -258,7 +258,7 @@ func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) u
 	req := svc.NewSubmitTaskStateChangeRequest()
 	req.SetTask(&change.TaskArn)
 	req.SetStatus(&stat)
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 
 	c, err := client.serviceClient()
 	if err != nil {
@@ -285,7 +285,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		return nil
 	}
 	req.SetStatus(&stat)
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 	if change.ExitCode != nil {
 		exitCode := int32(*change.ExitCode)
 		req.SetExitCode(&exitCode)
@@ -317,7 +317,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
 	req := svc.NewDiscoverPollEndpointRequest()
 	req.SetContainerInstance(&containerInstanceArn)
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 
 	c, err := client.serviceClient()
 	if err != nil {
@@ -334,7 +334,7 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 
 func (client *ApiECSClient) DeregisterContainerInstance(containerInstanceArn string) error {
 	req := svc.NewDeregisterContainerInstanceRequest()
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 	req.SetContainerInstance(&containerInstanceArn)
 
 	c, err := client.serviceClient()

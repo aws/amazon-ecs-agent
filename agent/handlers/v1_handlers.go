@@ -44,7 +44,7 @@ type RootResponse struct {
 
 func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	resp := &MetadataResponse{
-		ClusterArn:           cfg.ClusterArn,
+		Cluster:           cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
 	}
 	responseJSON, _ := json.Marshal(resp)

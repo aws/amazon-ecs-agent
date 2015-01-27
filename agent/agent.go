@@ -53,7 +53,7 @@ func main() {
 	}
 
 	containerInstanceArn := ""
-	configuredCluster := cfg.ClusterArn // Save a copy of the cluster so we can verify the loaded one matches
+	configuredCluster := cfg.Cluster // Save a copy of the cluster so we can verify the loaded one matches
 	taskEngine := engine.NewTaskEngine(cfg)
 
 	// Load any state from disk *before* talking to the docker daemon or any
@@ -66,7 +66,7 @@ func main() {
 		state_manager, err = statemanager.NewStateManager(cfg,
 			statemanager.AddSaveable("TaskEngine", taskEngine),
 			statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
-			statemanager.AddSaveable("ClusterArn", &cfg.ClusterArn),
+			statemanager.AddSaveable("Cluster", &cfg.Cluster),
 		)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
@@ -79,8 +79,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if cfg.Checkpoint && configuredCluster != "" && configuredCluster != cfg.ClusterArn {
-		log.Crit("Cluster mismatch; saved cluster does not match configured cluster", "configured", configuredCluster, "saved", cfg.ClusterArn)
+	if cfg.Checkpoint && configuredCluster != "" && configuredCluster != cfg.Cluster {
+		log.Crit("Cluster mismatch; saved cluster does not match configured cluster", "configured", configuredCluster, "saved", cfg.Cluster)
 		os.Exit(1)
 	}
 
@@ -98,11 +98,11 @@ func main() {
 			log.Error("Error registering", "err", err)
 			os.Exit(1)
 		}
-		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
+		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 		// Save our shiny new containerInstanceArn
 		state_manager.Save()
 	} else {
-		log.Info("Restored state", "containerInstance", containerInstanceArn, "cluster", cfg.ClusterArn)
+		log.Info("Restored state", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 	}
 
 	sighandlers.StartTerminationHandler(state_manager)
