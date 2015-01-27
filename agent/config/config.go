@@ -130,6 +130,10 @@ func FileConfig() Config {
 		log.Error("Unable to read config file", "err", err)
 		return Config{}
 	}
+	if strings.TrimSpace(string(data)) == "" {
+		// empty file, not an error
+		return Config{}
+	}
 
 	config := Config{}
 	err = json.Unmarshal(data, &config)
@@ -182,7 +186,7 @@ func EnvironmentConfig() Config {
 	}
 
 	return Config{
-		Cluster:     clusterRef,
+		Cluster:        clusterRef,
 		APIEndpoint:    endpoint,
 		APIPort:        uint16(port),
 		AWSRegion:      awsRegion,
