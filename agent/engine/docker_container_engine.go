@@ -39,6 +39,7 @@ type DockerClient interface {
 	CreateContainer(*docker.Config, string) (string, error)
 	StartContainer(string, *docker.HostConfig) error
 	StopContainer(string) error
+	RemoveContainer(string) error
 	GetContainerName(string) (string, error)
 
 	InspectContainer(string) (*docker.Container, error)
@@ -225,6 +226,14 @@ func (dg *DockerGoClient) StopContainer(dockerId string) error {
 		return err
 	}
 	return client.StopContainer(dockerId, DEFAULT_TIMEOUT_SECONDS)
+}
+
+func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
+	client, err := dg.client()
+	if err != nil {
+		return err
+	}
+	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
 }
 
 func (dg *DockerGoClient) StopContainerById(id string) error {

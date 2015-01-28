@@ -56,7 +56,7 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 	clean := NewDockerTaskEngineState()
 
 	for _, task := range saved.Tasks {
-		clean.AddTask(task)
+		clean.AddOrUpdateTask(task)
 	}
 	for id, container := range saved.IdToContainer {
 		taskArn, ok := saved.IdToTask[id]

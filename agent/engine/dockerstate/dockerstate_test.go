@@ -30,10 +30,6 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should not have a test task")
 	}
 
-	if len(state.ContainersByImage("test")) != 0 {
-		t.Error("Empty state should have no images")
-	}
-
 	if _, ok := state.TaskById("test"); ok {
 		t.Error("Empty state should not have a test taskid")
 	}
@@ -47,7 +43,7 @@ func TestAddTask(t *testing.T) {
 	state := NewDockerTaskEngineState()
 
 	testTask := &api.Task{Arn: "test"}
-	state.AddTask(testTask)
+	state.AddOrUpdateTask(testTask)
 
 	if len(state.AllTasks()) != 1 {
 		t.Error("Should have 1 task")

@@ -16,6 +16,7 @@ package api
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type TaskStatus int32
@@ -39,6 +40,8 @@ const (
 	ContainerRunning
 	ContainerStopped
 	ContainerDead
+
+	ContainerZombie // Impossible status to use as a virtual 'max'
 )
 
 type PortBinding struct {
@@ -58,6 +61,7 @@ type Task struct {
 
 	DesiredStatus TaskStatus
 	KnownStatus   TaskStatus
+	KnownTime     time.Time
 
 	containersByNameLock sync.Mutex
 	containersByName     map[string]*Container
@@ -104,8 +108,11 @@ type Container struct {
 	Overrides   ContainerOverrides `json:"overrides"`
 
 	DesiredStatus ContainerStatus `json:"desiredStatus"`
-	AppliedStatus ContainerStatus
 	KnownStatus   ContainerStatus
+
+	AppliedStatus ContainerStatus
+	AppliedTime   time.Time
+	ApplyingError error
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding

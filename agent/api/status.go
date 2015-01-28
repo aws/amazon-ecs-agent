@@ -50,6 +50,22 @@ func (cs *ContainerStatus) String() string {
 	return "UNKNOWN"
 }
 
+func (cs *ContainerStatus) TaskStatus() TaskStatus {
+	switch *cs {
+	case ContainerStatusNone:
+		return TaskStatusNone
+	case ContainerCreated:
+		return TaskCreated
+	case ContainerRunning:
+		return TaskRunning
+	case ContainerStopped:
+		return TaskStopped
+	case ContainerDead:
+		return TaskDead
+	}
+	return TaskStatusUnknown
+}
+
 func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 	switch *ts {
 	case TaskStatusNone:
@@ -71,4 +87,11 @@ func (cs *ContainerStatus) Terminal() bool {
 		return false
 	}
 	return *cs == ContainerStopped || *cs == ContainerDead
+}
+
+func (ts *TaskStatus) Terminal() bool {
+	if ts == nil {
+		return false
+	}
+	return *ts == TaskStopped || *ts == TaskDead
 }

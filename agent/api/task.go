@@ -17,6 +17,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -56,6 +57,78 @@ func (task *Task) maxStatus() *TaskStatus {
 		return &task.KnownStatus
 	}
 	return &task.DesiredStatus
+}
+
+// UpdateTaskState updates the given task's status based on its container's status.
+// For example, if an essential container stops, it will set the task to
+// stopped.
+// It returns a TaskStatus indicating what change occured or TaskStatusNone if
+// there was no change
+func (task *Task) UpdateTaskStatus() (newStatus TaskStatus) {
+	//The task is the minimum status of all its essential containers unless the
+	//status is terminal in which case it's that status
+	log.Debug("Updating task", "task", task)
+	defer func() {
+		if newStatus != TaskStatusNone {
+			task.KnownTime = time.Now()
+		}
+	}()
+
+	// Set to a large 'impossible' status that can't be the min
+	essentialContainersEarliestStatus := ContainerZombie
+	allContainersEarliestStatus := ContainerZombie
+	for _, cont := range task.Containers {
+		log.Debug("On container", "cont", cont)
+		if cont.KnownStatus < allContainersEarliestStatus {
+			allContainersEarliestStatus = cont.KnownStatus
+		}
+		if !cont.Essential {
+			continue
+		}
+
+		if cont.KnownStatus.Terminal() && !task.KnownStatus.Terminal() {
+			// Any essential & terminal container brings down the whole task
+			task.KnownStatus = TaskStopped
+			return task.KnownStatus
+		}
+		// Non-terminal
+		if cont.KnownStatus < essentialContainersEarliestStatus {
+			essentialContainersEarliestStatus = cont.KnownStatus
+		}
+	}
+
+	if essentialContainersEarliestStatus == ContainerZombie {
+		log.Warn("Task with no essential containers; all properly formed tasks should have at least one essential container", "task", task)
+
+		// If there are no essential containers, assume the container with the
+		// earliest status is essential and proceed.
+		essentialContainersEarliestStatus = allContainersEarliestStatus
+	}
+
+	log.Debug("Earliest essential status is " + essentialContainersEarliestStatus.String())
+
+	if essentialContainersEarliestStatus == ContainerCreated {
+		if task.KnownStatus < TaskCreated {
+			task.KnownStatus = TaskCreated
+			return task.KnownStatus
+		}
+	} else if essentialContainersEarliestStatus == ContainerRunning {
+		if task.KnownStatus < TaskRunning {
+			task.KnownStatus = TaskRunning
+			return task.KnownStatus
+		}
+	} else if essentialContainersEarliestStatus == ContainerStopped {
+		if task.KnownStatus < TaskStopped {
+			task.KnownStatus = TaskStopped
+			return task.KnownStatus
+		}
+	} else if essentialContainersEarliestStatus == ContainerDead {
+		if task.KnownStatus < TaskDead {
+			task.KnownStatus = TaskDead
+			return task.KnownStatus
+		}
+	}
+	return TaskStatusNone
 }
 
 // Overridden returns a copy of the task with all container's overridden and

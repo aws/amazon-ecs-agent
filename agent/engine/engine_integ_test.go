@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -37,6 +38,12 @@ var testAuthRegistryHost = "127.0.0.1:51671"
 var testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
 var testAuthUser = "user"
 var testAuthPass = "swordfish"
+
+var test_time = ttime.NewTestTime()
+
+func init() {
+	ttime.SetTime(test_time)
+}
 
 func createTestContainer() *api.Container {
 	return &api.Container{
@@ -144,7 +151,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskCreated, api.TaskRunning, api.TaskDead}
+	expected_events := []api.TaskStatus{api.TaskCreated, api.TaskRunning, api.TaskStopped}
 
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
@@ -208,7 +215,7 @@ func TestPortForward(t *testing.T) {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus >= api.TaskStopped {
 			break
 		}
 	}
@@ -247,14 +254,14 @@ func TestPortForward(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
 	}
 
-	// Kill the existing container now
-	testTask.DesiredStatus = api.TaskDead
+	// Stop the existing container now
+	testTask.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(testTask)
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
@@ -315,13 +322,13 @@ func TestMultiplePortForwards(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	testTask.DesiredStatus = api.TaskDead
+	testTask.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(testTask)
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
@@ -386,13 +393,13 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	testTask.DesiredStatus = api.TaskDead
+	testTask.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(testTask)
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
@@ -475,13 +482,13 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	testTask.DesiredStatus = api.TaskDead
+	testTask.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(testTask)
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
@@ -537,14 +544,14 @@ func TestLinking(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")
 	}
 
-	testTask.DesiredStatus = api.TaskDead
+	testTask.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(testTask)
 
 	for task_event := range task_events {
 		if task_event.TaskArn != testTask.Arn {
 			continue
 		}
-		if task_event.TaskStatus == api.TaskDead {
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
@@ -650,5 +657,53 @@ func TestDockerAuth(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestSweepContainer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	task_events := taskEngine.TaskEvents()
+
+	testTask := createTestTask("testSweepContainer")
+
+	go taskEngine.AddTask(testTask)
+
+	expected_events := []api.TaskStatus{api.TaskCreated, api.TaskRunning, api.TaskStopped}
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		expected_event := expected_events[0]
+		expected_events = expected_events[1:]
+		if task_event.TaskStatus != expected_event {
+			t.Error("Got event " + task_event.TaskStatus.String() + " but expected " + expected_event.String())
+		}
+		if len(expected_events) == 0 {
+			break
+		}
+	}
+
+	// Should be stopped, let's verify it's still listed...
+	_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+	if !ok {
+		t.Error("Expected task to be present still, but wasn't")
+	}
+	test_time.Warp(4 * time.Hour)
+	for i := 0; i < 60; i++ {
+		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+		if !ok {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if ok {
+		t.Error("Expected container to have been sweept but was not")
 	}
 }

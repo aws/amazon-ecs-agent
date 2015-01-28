@@ -21,9 +21,9 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
 
 var log = logger.ForModule("util")
@@ -109,8 +109,27 @@ func RetryWithBackoff(backoff Backoff, fn func() error) {
 			return
 		}
 
-		time.Sleep(backoff.Duration())
+		ttime.Sleep(backoff.Duration())
 	}
+}
+
+// RetryNWithBackoff takes a Backoff, a maximum number of tries 'n', and a
+// function that returns an error. The function is called until either it does
+// not return an error or the maximum tries have been reached.
+// If the error returned is Retriable, the Retriability of it will be respected.
+// If the number of tries is exhausted, the last error will be returned.
+func RetryNWithBackoff(backoff Backoff, n int, fn func() error) error {
+	var err error
+	RetryWithBackoff(backoff, func() error {
+		err = fn()
+		n--
+		if n == 0 {
+			// Break out after n tries
+			return nil
+		}
+		return err
+	})
+	return err
 }
 
 // Uint16SliceToStringSlice converts a slice of type uint16 to a slice of type

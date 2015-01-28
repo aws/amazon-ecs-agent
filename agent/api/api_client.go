@@ -54,6 +54,8 @@ const (
 	ECS_SERVICE = "ecs"
 )
 
+const EcsMaxReasonLength = 255
+
 // serviceClient recreates a new service clent and signer with each request.
 // This is because there is some question of whether the connection pool used by
 // the client is valid.
@@ -289,6 +291,10 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 	if change.ExitCode != nil {
 		exitCode := int32(*change.ExitCode)
 		req.SetExitCode(&exitCode)
+	}
+	if change.Reason != "" {
+		reason := change.Reason[:EcsMaxReasonLength]
+		req.SetReason(&reason)
 	}
 	networkBindings := make([]svc.NetworkBinding, len(change.PortBindings))
 	for i, binding := range change.PortBindings {
