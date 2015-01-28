@@ -54,9 +54,9 @@ func GetAuthconfig(hostname string) docker.AuthConfiguration {
 
 func getDockerConfig(hostname string) docker.AuthConfiguration {
 	dockerConfigs := make(map[string]registryauth.AuthConfig)
-	err := json.Unmarshal(cfg.EngineAuthData, dockerConfigs)
+	err := json.Unmarshal(cfg.EngineAuthData, &dockerConfigs)
 	if err != nil {
-		log.Error("Error decoding auth configuration", "err", err, "type", "dockercfg", "host", hostname)
+		log.Error("Error decoding auth configuration", "err", err, "type", "docker", "host", hostname)
 		return docker.AuthConfiguration{}
 	}
 	tmpConfig := &registryauth.ConfigFile{Configs: dockerConfigs}
