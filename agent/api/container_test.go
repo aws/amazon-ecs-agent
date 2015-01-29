@@ -16,6 +16,9 @@ package api
 import (
 	"reflect"
 	"testing"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/fsouza/go-dockerclient"
 )
 
 func TestOverridden(t *testing.T) {
@@ -45,5 +48,79 @@ func TestOverridden(t *testing.T) {
 
 	if container.Name != "name" {
 		t.Error("Should make a copy")
+	}
+}
+
+type configPair struct {
+	Container *Container
+	Config    *docker.Config
+}
+
+func (pair configPair) Equal() bool {
+	conf := pair.Config
+	cont := pair.Container
+
+	if (conf.Memory / 1024 / 1024) != int64(cont.Memory) {
+		return false
+	}
+	if conf.CPUShares != int64(cont.Cpu) {
+		return false
+	}
+	if conf.Image != cont.Image {
+		return false
+	}
+	if cont.EntryPoint == nil && !utils.StrSliceEqual(conf.Entrypoint, []string{}) {
+		return false
+	}
+	if cont.EntryPoint != nil && !utils.StrSliceEqual(conf.Entrypoint, *cont.EntryPoint) {
+		return false
+	}
+	if !utils.StrSliceEqual(cont.Command, conf.Cmd) {
+		return false
+	}
+	// TODO, Volumes, VolumesFrom, ExposedPorts
+
+	return true
+}
+
+func TestDockerConfig(t *testing.T) {
+	equalPairs := []configPair{
+		configPair{
+			&Container{Image: "image"},
+			&docker.Config{Image: "image"},
+		},
+		configPair{
+			&Container{Memory: 100},
+			&docker.Config{Memory: 100 * 1024 * 1024},
+		},
+		configPair{
+			&Container{Cpu: 100},
+			&docker.Config{CPUShares: 100},
+		},
+		configPair{
+			&Container{EntryPoint: &[]string{"entrypoint"}},
+			&docker.Config{Entrypoint: []string{"entrypoint"}},
+		},
+		configPair{
+			&Container{Command: []string{"command"}},
+			&docker.Config{Cmd: []string{"command"}},
+		},
+	}
+
+	for ndx, pair := range equalPairs {
+		if !pair.Equal() {
+			t.Errorf("Expected pair to be equal: #%v - %v", ndx, pair)
+		}
+		derived, err := pair.Container.DockerConfig()
+		if err != nil {
+			t.Errorf("Could not convert to docker config: %v", err)
+		}
+		constructedPair := configPair{
+			pair.Container,
+			derived,
+		}
+		if !constructedPair.Equal() {
+			t.Errorf("Expected constructing the dockerconfig to end up being equal as well: #%v - %v", ndx, pair)
+		}
 	}
 }

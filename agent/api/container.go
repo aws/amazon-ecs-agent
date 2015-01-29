@@ -67,9 +67,14 @@ func (container *Container) dockerConfig() (*docker.Config, error) {
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 
+	entryPoint := []string{}
+	if container.EntryPoint != nil {
+		entryPoint = *container.EntryPoint
+	}
 	config := &docker.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
+		Entrypoint:   entryPoint,
 		ExposedPorts: dockerExposedPorts,
 		Env:          dockerEnv,
 		Memory:       dockerMem,
