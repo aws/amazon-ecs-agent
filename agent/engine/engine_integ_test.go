@@ -118,6 +118,13 @@ func init() {
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 
+func removeImage(img string) {
+	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
+	client, _ := docker.NewClient(endpoint)
+
+	client.RemoveImage(img)
+}
+
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
@@ -129,10 +136,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	}
 
 	// Ensure this image isn't pulled by deleting it
-	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
-	client, _ := docker.NewClient(endpoint)
-
-	client.RemoveImage(testRegistryImage)
+	removeImage(testRegistryImage)
 
 	testTask := createTestTask("testStartUnpulled")
 
@@ -553,6 +557,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		t.Skip("Docker not running")
 	}
+	removeImage(testAuthRegistryImage)
 
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
 	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`)
@@ -604,6 +609,7 @@ func TestDockerAuth(t *testing.T) {
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		t.Skip("Docker not running")
 	}
+	removeImage(testAuthRegistryImage)
 
 	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`)
 	cfg.EngineAuthType = "docker"
