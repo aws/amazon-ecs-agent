@@ -31,13 +31,13 @@ The two currently supported auth types are "docker" and "dockercfg".
 Docker:
 
 The auth type "docker" is intended to work most naturally with a JSON
-configuration file. The "AuthData" is a structures JSON object which specifies
+configuration file. The "AuthData" is a structured JSON object which specifies
 values for the docker "AuthConfig" structure. The "AuthData" should be an object
 similar to the following:
 	{
 		"my.registry.example.com": {
 			"username": "myUsername",
-			"password": "myPassword",
+			"password": "myPassword"
 		},
 		"https://index.docker.io/v1/user": {
 			"username": "my-dockerhub-username",
