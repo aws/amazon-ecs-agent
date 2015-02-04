@@ -96,7 +96,7 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 
 	resp, err := svcClient.CreateCluster(svcRequest)
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		log.Crit("Could not create cluster", "err", err)
 		return "", err
 	}
 	log.Info("Created a cluster!", "clusterName", clusterName)
@@ -151,6 +151,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 	cpuResource.SetName(utils.Strptr("CPU"))
 	cpuResource.SetType(&integerStr)
 	cpuResource.SetIntegerValue(&cpu)
+
 	memResource := svc.NewResource()
 	memResource.SetName(utils.Strptr("MEMORY"))
 	memResource.SetType(&integerStr)
