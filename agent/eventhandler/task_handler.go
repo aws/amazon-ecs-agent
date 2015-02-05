@@ -100,24 +100,25 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 			llog := log.New("event", event)
 
 			var contErr, taskErr utils.RetriableError
-			if !event.containerSent {
+			if event.containerShouldBeSent() {
 				llog.Info("Sending container change", "change", event.ContainerStateChange)
 				contErr = client.SubmitContainerStateChange(event.ContainerStateChange)
 				if contErr == nil || !contErr.Retry() {
 					// submitted or can't be retried; ensure we don't retry it
 					event.containerSent = true
+					event.Container.SentStatus = event.Status
 					llog.Debug("Submitted container")
 				} else {
 					llog.Error("Unretriable error submitting container state change", "err", contErr)
 				}
 			}
-			if !event.taskSent && event.TaskStatus != api.TaskStatusNone {
+			if event.taskShouldBeSent() {
 				llog.Info("Sending task change", "change", event.ContainerStateChange.TaskStatus)
 				taskErr = client.SubmitTaskStateChange(event.ContainerStateChange)
 				if taskErr == nil || !taskErr.Retry() {
 					// submitted or can't be retried; ensure we don't retry it
 					event.taskSent = true
-					llog.Debug("Submitted task")
+					event.Task.SentStatus = event.TaskStatus
 				} else {
 					llog.Error("Error submitting task state change", "err", taskErr)
 				}

@@ -223,6 +223,8 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 		ExitCode:      cont.KnownExitCode,
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,
+		Task:          task,
+		Container:     cont,
 	}
 	if task_change := task.UpdateTaskStatus(); task_change != api.TaskStatusNone {
 		log.Info("Task change event", "state", task_change)

@@ -41,6 +41,23 @@ func newSendableEvent(event api.ContainerStateChange) *sendableEvent {
 	}
 }
 
+func (event *sendableEvent) taskShouldBeSent() bool {
+	if event.TaskStatus == api.TaskStatusNone {
+		return false // container only event
+	}
+	if event.taskSent || event.Task.SentStatus >= event.TaskStatus {
+		return false // redundant event
+	}
+	return true
+}
+
+func (event *sendableEvent) containerShouldBeSent() bool {
+	if event.containerSent || event.Container.SentStatus >= event.Status {
+		return false
+	}
+	return true
+}
+
 type eventList struct {
 	sending    bool // whether the list is already being handled
 	sync.Mutex      // Locks both the list and sending bool

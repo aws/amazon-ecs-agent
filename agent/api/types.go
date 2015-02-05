@@ -63,6 +63,8 @@ type Task struct {
 	KnownStatus   TaskStatus
 	KnownTime     time.Time
 
+	SentStatus TaskStatus
+
 	containersByNameLock sync.Mutex
 	containersByName     map[string]*Container
 }
@@ -77,6 +79,9 @@ type ContainerStateChange struct {
 	PortBindings []PortBinding
 
 	TaskStatus TaskStatus // TaskStatusNone if this does not result in a task state change
+
+	Task      *Task
+	Container *Container
 }
 
 func (t *Task) String() string {
@@ -111,8 +116,9 @@ type Container struct {
 	KnownStatus   ContainerStatus
 
 	AppliedStatus ContainerStatus
-	AppliedTime   time.Time
 	ApplyingError error
+
+	SentStatus ContainerStatus
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding

@@ -60,10 +60,13 @@ func mockClient(task, cont changeFn) api.ECSClient {
 }
 
 func contEvent(arn string) api.ContainerStateChange {
-	return api.ContainerStateChange{TaskArn: arn, Status: api.ContainerRunning}
+	cont := &api.Container{SentStatus: api.ContainerStatusNone}
+	return api.ContainerStateChange{TaskArn: arn, Status: api.ContainerRunning, Container: cont}
 }
 func taskEvent(arn string) api.ContainerStateChange {
-	return api.ContainerStateChange{TaskArn: arn, Status: api.ContainerRunning, TaskStatus: api.TaskRunning}
+	cont := &api.Container{SentStatus: api.ContainerStatusNone}
+	task := &api.Task{SentStatus: api.TaskStatusNone}
+	return api.ContainerStateChange{TaskArn: arn, Status: api.ContainerRunning, TaskStatus: api.TaskRunning, Task: task, Container: cont}
 }
 
 func TestSendsEvents(t *testing.T) {
@@ -186,7 +189,7 @@ func TestSendsEvents(t *testing.T) {
 		AddTaskEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
 	// N events should be waiting for potential errors; verify this is so
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	if contErrors != CONCURRENT_EVENT_CALLS {
 		t.Error("Too many event calls got through concurrently")
 	}
@@ -196,7 +199,7 @@ func TestSendsEvents(t *testing.T) {
 	}()
 	<-contStatus
 
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	if contErrors != CONCURRENT_EVENT_CALLS+1 {
 		t.Error("Another concurrent call didn't start when expected")
 	}
@@ -207,7 +210,7 @@ func TestSendsEvents(t *testing.T) {
 		}()
 		<-contStatus
 	}
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	if contErrors != CONCURRENT_EVENT_CALLS+1 {
 		t.Error("Somehow extra concurrenct calls appeared from nowhere")
 	}
@@ -223,7 +226,7 @@ func TestSendsEvents(t *testing.T) {
 		contError <- nil
 	}()
 
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	sent = <-contStatus
 	if sent.TaskArn != "notreplaced1" {
 		t.Error("Wrong arn, got " + sent.TaskArn)
@@ -263,7 +266,7 @@ func TestSendsEvents(t *testing.T) {
 		contError <- nil
 	}()
 
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	sent = <-contStatus
 	if sent.TaskArn != "notreplaced2" {
 		t.Error("Lost a task or task out of order")
@@ -287,11 +290,53 @@ func TestSendsEvents(t *testing.T) {
 		t.Error("Wrong status")
 	}
 
+	// Verify that a task doesn't get sent if we already have 'sent' it
+	task := taskEvent("alreadySent")
+	task.Task.SentStatus = api.TaskRunning
+	task.Container.SentStatus = api.ContainerRunning
+	AddTaskEvent(task, client)
+	time.Sleep(5 * time.Millisecond)
+	select {
+	case <-contStatus:
+		t.Error("Did not expect container change; already sent")
+	case <-taskStatus:
+		t.Error("Did not expect task change; already sent")
+	case taskError <- nil:
+		t.Error("Did not expect to be able to write to taskError")
+	case contError <- nil:
+		t.Error("Did not expect to be able to write to contError")
+	default:
+	}
+
+	task = taskEvent("containerSent")
+	task.Task.SentStatus = api.TaskStatusNone
+	task.Container.SentStatus = api.ContainerRunning
+	AddTaskEvent(task, client)
+	// Expect to send a task status but not a container status
+	go func() {
+		taskError <- nil
+	}()
+	sent = <-taskStatus
+	time.Sleep(5 * time.Millisecond)
+	if sent.TaskArn != "containerSent" {
+		t.Error("Wrong arn")
+	}
+	if sent.TaskStatus != api.TaskRunning {
+		t.Error("Wrong status")
+	}
+	if task.Task.SentStatus != api.TaskRunning {
+		t.Error("Status not updated: ", task.Task.SentStatus.String())
+	}
+
 	select {
 	case <-contStatus:
 		t.Error("Read all events")
 	case <-taskStatus:
 		t.Error("Read all events")
+	case taskError <- nil:
+		t.Error("Task error channel read pending")
+	case contError <- nil:
+		t.Error("Container error channel read pending")
 	default:
 	}
 }
