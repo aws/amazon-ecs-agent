@@ -48,6 +48,9 @@ type ApiECSClient struct {
 	credentialProvider credentials.AWSCredentialProvider
 	config             *config.Config
 	insecureSkipVerify bool
+
+	// Swappable impl for testing
+	serviceClientFn func() (svc.AmazonEC2ContainerServiceV20141113, error)
 }
 
 const (
@@ -56,10 +59,24 @@ const (
 
 const EcsMaxReasonLength = 255
 
-// serviceClient recreates a new service clent and signer with each request.
-// This is because there is some question of whether the connection pool used by
-// the client is valid.
-func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV20141113Client, error) {
+func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
+	client := &ApiECSClient{credentialProvider: credentialProvider,
+		config:             config,
+		insecureSkipVerify: insecureSkipVerify,
+	}
+	client.serviceClientFn = func() (svc.AmazonEC2ContainerServiceV20141113, error) {
+		return client.serviceClientImpl()
+	}
+	return client
+}
+
+// serviceClient provides a client for interacting with the ECS service apis
+func (client *ApiECSClient) serviceClient() (svc.AmazonEC2ContainerServiceV20141113, error) {
+	return client.serviceClientFn()
+}
+
+// serviceClientImpl is the default serviceClient provider.
+func (client *ApiECSClient) serviceClientImpl() (svc.AmazonEC2ContainerServiceV20141113, error) {
 	config := client.config
 
 	signer := authv4.NewHttpSigner(config.AWSRegion, ECS_SERVICE, client.CredentialProvider(), nil)
@@ -75,10 +92,6 @@ func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV2014
 
 	ecs := svc.NewAmazonEC2ContainerServiceV20141113Client(d, c)
 	return ecs, nil
-}
-
-func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
-	return &ApiECSClient{credentialProvider: credentialProvider, config: config, insecureSkipVerify: insecureSkipVerify}
 }
 
 func (client *ApiECSClient) CredentialProvider() credentials.AWSCredentialProvider {
@@ -286,6 +299,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		log.Info("Not submitting not supported upstream container state", "state", stat)
 		return nil
 	}
+
 	req.SetStatus(&stat)
 	req.SetCluster(&client.config.Cluster)
 	if change.ExitCode != nil {
@@ -293,7 +307,10 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		req.SetExitCode(&exitCode)
 	}
 	if change.Reason != "" {
-		reason := change.Reason[:EcsMaxReasonLength]
+		reason := change.Reason
+		if len(reason) > EcsMaxReasonLength {
+			reason = reason[:EcsMaxReasonLength]
+		}
 		req.SetReason(&reason)
 	}
 	networkBindings := make([]svc.NetworkBinding, len(change.PortBindings))
