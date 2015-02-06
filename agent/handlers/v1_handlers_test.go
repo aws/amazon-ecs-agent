@@ -62,7 +62,6 @@ func getResponseBodyFromLocalHost(url string, t *testing.T) []byte {
 
 func TestServeHttp(t *testing.T) {
 	taskEngine := engine.NewTaskEngine(&config.Config{})
-	taskEngine.MustInit()
 	containers := []*api.Container{
 		&api.Container{
 			Name: "c1",
@@ -77,8 +76,8 @@ func TestServeHttp(t *testing.T) {
 		Containers:    containers,
 	}
 	// Populate Tasks and Container map in the engine.
-	taskEngine.AddTask(&testTask)
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
+	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
 
