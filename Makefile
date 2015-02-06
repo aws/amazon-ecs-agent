@@ -53,10 +53,10 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-# Run our 'test' registry needed for integ tests
 short-test:
-	cd agent && godep go test -short -timeout=5s -v -cover ./...
+	cd agent && godep go test -short -timeout=25s -v -cover ./...
 
+# Run our 'test' registry needed for integ tests
 test-registry: netkitten
 	@./scripts/setup-test-registry
 
@@ -72,6 +72,10 @@ test-in-docker: checkdockerfile
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)
+
+get-deps:
+	go get github.com/tools/godep
+	go get golang.org/x/tools/cover
 
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
