@@ -18,7 +18,7 @@ tl;dr: *On an Amazon ECS Container Instance*
 1. `touch /etc/ecs/ecs.config`
 2. `mkdir -p /var/log/ecs`
 3. `docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -p
-127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log amazon/amazon-ecs-agent`.
+127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log amazon/amazon-ecs-agent`
 
 See also the Advanced Usage section below.
 
@@ -78,7 +78,7 @@ configure them as something other than the defaults.
 | `AWS_DEFAULT_REGION` | &lt;us-west-2&gt;&#124;&lt;us-east-1&gt;&#124;&hellip; | The region to be used in API requests as well as to infer the correct backend host. | Taken from EC2 Instance Metadata |
 | `AWS_ACCESS_KEY_ID` | AKIDEXAMPLE             | The [Access Key](http://docs.aws.amazon.com/general/latest/gr/aws-security-credentials.html) used by the agent for all calls. | Taken from EC2 Instance Metadata |
 | `AWS_SECRET_ACCESS_KEY` | EXAMPLEKEY | The [Secret Key](http://docs.aws.amazon.com/general/latest/gr/aws-security-credentials.html) used by the agent for all calls. | Taken from EC2 Instance Metadata |
-| `DOCKER_HOST`   | unix:///var/run/docker.sock | Used to create a connection to the Docker daemon; behaves similarly to this environment variable as used by the Docker client | unix:///var/run/docker.sock |
+| `DOCKER_HOST`   | unix:///var/run/docker.sock | Used to create a connection to the Docker daemon; behaves similarly to this environment variable as used by the Docker client. | unix:///var/run/docker.sock |
 | `ECS_LOGLEVEL`  | &lt;crit&gt; &#124; &lt;error&gt; &#124; &lt;warn&gt; &#124; &lt;info&gt; &#124; &lt;debug&gt; | What level to log at on stdout. | warn |
 | `ECS_LOGFILE`   | /ecs-agent.log              | The path to output full debugging info to. If blank, no logs will be written to file. If set, logs at debug level (regardless of ECS\_LOGLEVEL) will be written to that file. | blank |
 | `ECS_BACKEND_HOST` | ecs.us-east-1.amazonaws.com | The host to make backend api calls against. | ecs.REGION.amazonaws.com |
