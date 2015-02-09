@@ -172,17 +172,8 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 		if err == nil {
 			return containerInstanceArn, nil
 		}
-		// If trying to register fails, see if the cluster exists and is active
-		clusterRef, clusterStatus, err := client.describeCluster(clusterRef)
-		if err != nil {
-			return "", err
-		}
-		// Assume that an inactive cluster is intentional and do not recreate it
-		if clusterStatus != "" && clusterStatus != "ACTIVE" {
-			message := "Cluster is not available for registration"
-			log.Error(message, "cluster", clusterRef)
-			return "", errors.New(message)
-		}
+		// If trying to register fails, try to create the cluster before calling
+		// register again
 		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
 			return "", err
