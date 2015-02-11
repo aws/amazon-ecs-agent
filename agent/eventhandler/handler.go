@@ -22,11 +22,9 @@ import (
 
 var log = logger.ForModule("eventhandler")
 
-// statemanager should always be set before calling AddTaskEvent
-// TODO, use statemanager to store whether or not we have sent an event and do a
-// limited cache of events we have sent so we know we don't need to send some
-// event again.
-var statesaver statemanager.Saver
+// statesaver is a package-wise statemanager which may be used to save any
+// changes to a task or container's SentStatus
+var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
 
 func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	statesaver = saver
