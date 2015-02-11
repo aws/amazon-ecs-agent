@@ -15,7 +15,6 @@ package api
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -79,7 +78,6 @@ func (container *Container) dockerConfig() (*docker.Config, error) {
 		Env:          dockerEnv,
 		Memory:       dockerMem,
 		CPUShares:    int64(container.Cpu),
-		VolumesFrom:  strings.Join(container.VolumesFrom, ","),
 	}
 	return config, nil
 }

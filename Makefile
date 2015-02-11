@@ -57,7 +57,7 @@ short-test:
 	cd agent && godep go test -short -timeout=25s -v -cover ./...
 
 # Run our 'test' registry needed for integ tests
-test-registry: netkitten
+test-registry: netkitten volumes-test
 	@./scripts/setup-test-registry
 
 test: test-registry
@@ -73,6 +73,9 @@ test-in-docker: checkdockerfile
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)
 
+volumes-test:
+	cd misc/volumes-test; $(MAKE) $(MFLAGS)
+
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
@@ -82,3 +85,4 @@ clean:
 	rm -f out/amazon-ecs-agent &> /dev/null
 	rm -rf agent/Godeps/_workspace/pkg/
 	cd misc/netkitten; $(MAKE) $(MFLAGS) clean
+	cd misc/volumes-test; $(MAKE) $(MFLAGS) clean

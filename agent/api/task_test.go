@@ -13,7 +13,18 @@
 
 package api
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
+
+func dockerMap(task *Task) map[string]*DockerContainer {
+	m := make(map[string]*DockerContainer)
+	for _, c := range task.Containers {
+		m[c.Name] = &DockerContainer{DockerId: "dockerid-" + c.Name, DockerName: "dockername-" + c.Name, Container: c}
+	}
+	return m
+}
 
 func TestTaskOverridden(t *testing.T) {
 	testTask := &Task{
@@ -41,7 +52,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], map[string]*DockerContainer{"c1": &DockerContainer{DockerId: "1", DockerName: "dc1", Container: testTask.Containers[0]}})
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
 	if err != nil {
 		t.Error(err)
 	}
@@ -58,5 +69,27 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 	if bindings[0].HostIP != "0.0.0.0" {
 		t.Error("Wrong hostIP")
+	}
+}
+
+func TestDockerHostConfigVolumesFrom(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+			},
+			&Container{
+				Name:        "c2",
+				VolumesFrom: []VolumeFrom{VolumeFrom{SourceContainer: "c1"}},
+			},
+		},
+	}
+
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
+	if err != nil {
+		t.Fatal("Error creating config: ", err)
+	}
+	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
+		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
 }

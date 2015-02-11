@@ -15,6 +15,7 @@ package engine
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -655,6 +656,125 @@ func TestDockerAuth(t *testing.T) {
 			if !(task_event.TaskStatus >= api.TaskStopped) {
 				t.Error("Expected only terminal events; got " + task_event.TaskStatus.String())
 			}
+			break
+		}
+	}
+}
+
+func TestVolumesFrom(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	task_events := taskEngine.TaskEvents()
+
+	testTask := createTestTask("testVolumeContainer")
+	testTask.Containers[0].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testTask.Containers = append(testTask.Containers, createTestContainer())
+	testTask.Containers[1].Name = "test2"
+	testTask.Containers[1].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
+	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 80, HostPort: 24751}}
+
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskRunning {
+			break
+		}
+	}
+	time.Sleep(10 * time.Millisecond)
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
+	if err != nil {
+		t.Error("Could not dial listening container" + err.Error())
+	}
+
+	response, err := ioutil.ReadAll(conn)
+	if err != nil {
+		t.Error(err)
+	}
+	if strings.TrimSpace(string(response)) != "test" {
+		t.Error("Got response: " + strings.TrimSpace(string(response)) + " instead of 'test'")
+	}
+
+	testTask.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskStopped {
+			break
+		}
+	}
+}
+
+func TestVolumesFromRO(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	task_events := taskEngine.TaskEvents()
+
+	testTask := createTestTask("testVolumeROContainer")
+	testTask.Containers[0].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	for i := 0; i < 3; i++ {
+		cont := createTestContainer()
+		cont.Name = "test" + strconv.Itoa(i)
+		cont.Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+		cont.Essential = false
+		testTask.Containers = append(testTask.Containers, cont)
+	}
+	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
+	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
+	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
+	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
+	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
+
+	go taskEngine.AddTask(testTask)
+
+WaitStopped:
+	for _ = range task_events {
+		for i := 1; i <= 3; i++ {
+			if testTask.Containers[i].KnownStatus < api.ContainerStopped {
+				fmt.Println(testTask.Containers[i].KnownStatus)
+				continue WaitStopped
+			}
+		}
+		break
+	}
+
+	if testTask.Containers[1].KnownExitCode == nil || *testTask.Containers[1].KnownExitCode != 42 {
+		fmt.Println(testTask.Containers[1].KnownExitCode)
+		t.Error("Didn't exit due to failure to touch ro fs as expected")
+	}
+	if testTask.Containers[2].KnownExitCode == nil || *testTask.Containers[2].KnownExitCode != 0 {
+		t.Error("Couldn't touch with default of rw")
+	}
+	if testTask.Containers[3].KnownExitCode == nil || *testTask.Containers[3].KnownExitCode != 0 {
+		t.Error("Couldn't touch with explicit rw")
+	}
+
+	testTask.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
 	}
