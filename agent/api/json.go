@@ -121,3 +121,32 @@ func (overrides *ContainerOverrides) UnmarshalJSON(b []byte) error {
 
 	return utils.NewMultiError(errors.New("Could not unmarshal ContainerOverrides in any supported way"), err, err2, err3)
 }
+
+// UnmarshalJSON for TaskVolume determines the name and volume type, and
+// unmarshals it into the appropriate HostVolume fulfilling interfaces
+func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
+	intermediate := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(b, &intermediate); err != nil {
+		return err
+	}
+	name, ok := intermediate["name"]
+	if !ok {
+		return errors.New("invalid Volume; must include a name")
+	}
+	if err := json.Unmarshal(name, &tv.Name); err != nil {
+		return err
+	}
+
+	if host, ok := intermediate["host"]; ok {
+		// fs host type volume, unmarshal as such
+		var hv FSHostVolume
+		err := json.Unmarshal(host, &hv)
+		if err != nil {
+			return err
+		}
+		tv.Volume = &hv
+		return nil
+	}
+
+	return errors.New("unrecognized volume type; try updating me")
+}

@@ -59,6 +59,7 @@ type Task struct {
 	Family     string
 	Version    string
 	Containers []*Container
+	Volumes    []TaskVolume `json:"volumes"`
 
 	DesiredStatus TaskStatus
 	KnownStatus   TaskStatus
@@ -68,6 +69,44 @@ type Task struct {
 
 	containersByNameLock sync.Mutex
 	containersByName     map[string]*Container
+}
+
+// TaskVolume is a definition of all the volumes available for containers to
+// reference within a task. It must have a name by which it may be referenced.
+// The volume itself may be anything that fulfills the Volume interface.
+type TaskVolume struct {
+	Name   string `json:"name"`
+	Volume HostVolume
+}
+
+// MountPoint describes the in-container location of a Volume and references
+// that Volume by name.
+type MountPoint struct {
+	SourceVolume  string `json:"sourceVolume"`
+	ContainerPath string `json:"containerPath"`
+	ReadOnly      bool   `json:"readOnly"`
+}
+
+// HostVolume is an interface for something that may be used as the host half of a
+// docker volume mount
+type HostVolume interface {
+	SourcePath() string
+}
+
+// FSHostVolume is a simple type of HostVolume which references an arbitrary
+// location on the host as the Volume. If the location is the empty string, a
+// location will be automatically chosen.
+type FSHostVolume struct {
+	FSSourcePath string `json:"sourcePath"`
+}
+
+// SourcePath returns the path on the host filesystem that should be mounted
+func (fs *FSHostVolume) SourcePath() string {
+	return fs.FSSourcePath
+}
+
+func (fs *FSHostVolume) String() string {
+	return fs.SourcePath()
 }
 
 type ContainerStateChange struct {
@@ -106,6 +145,7 @@ type Container struct {
 	Memory      uint
 	Links       []string
 	VolumesFrom []VolumeFrom  `json:"volumesFrom"`
+	MountPoints []MountPoint  `json:"mountPoints"`
 	Ports       []PortBinding `json:"portMappings"`
 	Essential   bool
 	EntryPoint  *[]string
@@ -134,11 +174,11 @@ type VolumeFrom struct {
 }
 
 func (c *Container) String() string {
-	res := fmt.Sprintf("%s(%s) - Status: %s", c.Name, c.Image, c.KnownStatus.String())
+	ret := fmt.Sprintf("%s(%s) - Status: %v", c.Name, c.Image, c.KnownStatus.String())
 	if c.KnownExitCode != nil {
-		res += "; Exited " + strconv.Itoa(*c.KnownExitCode)
+		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}
-	return res
+	return ret
 }
 
 type Resource struct {

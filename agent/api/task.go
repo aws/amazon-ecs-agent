@@ -41,6 +41,17 @@ func (task *Task) ContainerByName(name string) (*Container, bool) {
 	return container, ok
 }
 
+// HostVolumeByName returns the task Volume for the given a volume name in that
+// task. The second return value indicates the presense of that volume
+func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
+	for _, v := range task.Volumes {
+		if v.Name == name {
+			return v.Volume, true
+		}
+	}
+	return nil, false
+}
+
 // InferContainerDesiredStatus ensures that all container's desired statuses are
 // compatible with whatever status the task desires to be at or is at.
 // This is used both to initialize container statuses of new tasks and to force
@@ -203,6 +214,29 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	hostConfig := &docker.HostConfig{Links: dockerLinkArr, PortBindings: dockerPortMap, VolumesFrom: volumesFrom}
+	binds := make([]string, len(container.MountPoints))
+	for i, m := range container.MountPoints {
+		hv, ok := task.HostVolumeByName(m.SourceVolume)
+		if !ok {
+			return nil, errors.New("Invalid volume referenced: " + m.SourceVolume)
+		}
+		bind := ""
+		if hv.SourcePath() == "" {
+			bind = m.ContainerPath
+		} else {
+			bind = hv.SourcePath() + ":" + m.ContainerPath
+		}
+		if m.ReadOnly {
+			bind += ":ro"
+		}
+		binds[i] = bind
+	}
+
+	hostConfig := &docker.HostConfig{
+		Links:        dockerLinkArr,
+		Binds:        binds,
+		PortBindings: dockerPortMap,
+		VolumesFrom:  volumesFrom,
+	}
 	return hostConfig, nil
 }

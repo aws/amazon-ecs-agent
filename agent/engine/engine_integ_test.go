@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -37,6 +38,7 @@ var testRegistryHost = "127.0.0.1:51670"
 var testRegistryImage = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
 var testAuthRegistryHost = "127.0.0.1:51671"
 var testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
+var testVolumeImage = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 var testAuthUser = "user"
 var testAuthPass = "swordfish"
 
@@ -672,10 +674,10 @@ func TestVolumesFrom(t *testing.T) {
 	task_events := taskEngine.TaskEvents()
 
 	testTask := createTestTask("testVolumeContainer")
-	testTask.Containers[0].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
-	testTask.Containers[1].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testTask.Containers[1].Image = testVolumeImage
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
 	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 80, HostPort: 24751}}
@@ -728,11 +730,11 @@ func TestVolumesFromRO(t *testing.T) {
 	task_events := taskEngine.TaskEvents()
 
 	testTask := createTestTask("testVolumeROContainer")
-	testTask.Containers[0].Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testTask.Containers[0].Image = testVolumeImage
 	for i := 0; i < 3; i++ {
 		cont := createTestContainer()
 		cont.Name = "test" + strconv.Itoa(i)
-		cont.Image = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+		cont.Image = testVolumeImage
 		cont.Essential = false
 		testTask.Containers = append(testTask.Containers, cont)
 	}
@@ -777,6 +779,45 @@ WaitStopped:
 		if task_event.TaskStatus == api.TaskStopped {
 			break
 		}
+	}
+}
+
+func TestHostVolumeMount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	task_events := taskEngine.TaskEvents()
+
+	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
+	defer os.RemoveAll(tmpPath)
+	ioutil.WriteFile(filepath.Join(tmpPath, "test-file"), []byte("test-data"), 0644)
+
+	testTask := createTestTask("testHostVolumeMount")
+	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.FSHostVolume{FSSourcePath: tmpPath}}}
+	testTask.Containers[0].Image = testVolumeImage
+	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskStopped {
+			break
+		}
+	}
+
+	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
+		t.Error("Wrong exit code; file contents wrong or other error", *testTask.Containers[0].KnownExitCode)
+	}
+	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
+	if err != nil || string(data) != "hi" {
+		t.Error("Could not read file container wrote: ", err, string(data))
 	}
 }
 
