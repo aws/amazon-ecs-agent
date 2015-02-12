@@ -14,6 +14,7 @@
 package engine
 
 import (
+	"archive/tar"
 	"bufio"
 	"encoding/json"
 	"errors"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	dockerparsers "github.com/docker/docker/pkg/parsers"
@@ -57,6 +59,9 @@ var dockerclient *docker.Client
 // pullLock is a temporary workaround for a devicemapper issue. See: https://github.com/docker/docker/issues/9718
 var pullLock sync.Mutex
 
+// scratchCreateLock guards against multiple 'scratch' image creations at once
+var scratchCreateLock sync.Mutex
+
 type DockerImageResponse struct {
 	Images []docker.APIImages
 }
@@ -83,6 +88,13 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	if err != nil {
 		return err
 	}
+
+	// Special case; this image is not one that should be pulled, but rather
+	// should be created locally if necessary
+	if image == emptyvolume.Image+":"+emptyvolume.Tag {
+		return dg.createScratchImageIfNotExists()
+	}
+
 	// The following lines of code are taken, in whole or part, from the docker
 	// source code. Please see the NOTICE file in the root of the project for
 	// attribution
@@ -127,6 +139,39 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	}()
 	err = client.PullImage(opts, authConfig)
 
+	return err
+}
+
+func (dg *DockerGoClient) createScratchImageIfNotExists() error {
+	c, err := dg.client()
+	if err != nil {
+		return err
+	}
+
+	scratchCreateLock.Lock()
+	defer scratchCreateLock.Unlock()
+
+	_, err = c.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
+	if err == nil {
+		// Already exists; assume that it's okay to use it
+		return nil
+	}
+
+	reader, writer := io.Pipe()
+
+	emptytarball := tar.NewWriter(writer)
+	go func() {
+		emptytarball.Close()
+		writer.Close()
+	}()
+
+	// Create it from an empty tarball
+	err = c.ImportImage(docker.ImportImageOptions{
+		Repository:  emptyvolume.Image,
+		Tag:         emptyvolume.Tag,
+		Source:      "-",
+		InputStream: reader,
+	})
 	return err
 }
 

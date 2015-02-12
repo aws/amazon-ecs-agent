@@ -48,6 +48,9 @@ func ContainersEqual(lhs, rhs *api.Container) bool {
 	if !utils.SlicesDeepEqual(lhs.VolumesFrom, rhs.VolumesFrom) {
 		return false
 	}
+	if !utils.SlicesDeepEqual(lhs.MountPoints, rhs.MountPoints) {
+		return false
+	}
 	if !utils.SlicesDeepEqual(lhs.Ports, rhs.Ports) {
 		return false
 	}

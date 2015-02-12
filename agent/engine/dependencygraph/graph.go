@@ -99,7 +99,8 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 	}
 
 	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
-		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved)
+		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
+		verifyStatusResolveable(target, nameMap, target.CreateDependencies, onCreateIsResolved)
 }
 
 // verifyStatusResolveable validates that `target` can be resolved given that
@@ -165,5 +166,12 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	}
 
 	log.Error("Unexpected desired status", "target", target)
+	return false
+}
+
+func onCreateIsResolved(target *api.Container, create *api.Container) bool {
+	if target.DesiredStatus >= api.ContainerCreated {
+		return create.KnownStatus >= api.ContainerCreated
+	}
 	return false
 }
