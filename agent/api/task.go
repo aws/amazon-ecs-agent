@@ -52,6 +52,23 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 	return nil, false
 }
 
+func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
+	for _, m := range cont.MountPoints {
+		hostPath, ok := vols[m.ContainerPath]
+		if !ok {
+			// /path/ -> /path
+			hostPath, ok = vols[strings.TrimRight(m.ContainerPath, "/")]
+		}
+		if ok {
+			if hostVolume, exists := task.HostVolumeByName(m.SourceVolume); exists {
+				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
+					empty.SetSourcePath(hostPath)
+				}
+			}
+		}
+	}
+}
+
 // InferContainerDesiredStatus ensures that all container's desired statuses are
 // compatible with whatever status the task desires to be at or is at.
 // This is used both to initialize container statuses of new tasks and to force
@@ -160,6 +177,63 @@ func (task *Task) Overridden() *Task {
 	return &result
 }
 
+// DockerConfig converts the given container in this task to the format of
+// GoDockerClient's 'Config' struct
+func (task *Task) DockerConfig(container *Container) (*docker.Config, error) {
+	return task.Overridden().dockerConfig(container.Overridden())
+}
+
+func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
+	dockerEnv := make([]string, 0, len(container.Environment))
+	for envKey, envVal := range container.Environment {
+		dockerEnv = append(dockerEnv, envKey+"="+envVal)
+	}
+
+	// Convert MB to B
+	dockerMem := int64(container.Memory * 1024 * 1024)
+	if dockerMem != 0 && dockerMem < DOCKER_MINIMUM_MEMORY {
+		dockerMem = DOCKER_MINIMUM_MEMORY
+	}
+	dockerExposedPorts := make(map[docker.Port]struct{})
+
+	for _, portBinding := range container.Ports {
+		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/tcp")
+		dockerExposedPorts[dockerPort] = struct{}{}
+	}
+
+	volumeMap := make(map[string]struct{})
+	for _, m := range container.MountPoints {
+		vol, exists := task.HostVolumeByName(m.SourceVolume)
+		if !exists {
+			return nil, errors.New("Container references non-existent volume")
+		}
+		// you can handle most volume mount types in the HostConfig; empty
+		// mounts are the only type that need to go here
+		if empty, ok := vol.(*EmptyHostVolume); ok {
+			isCreator := empty.CreateOrWait(container)
+			if isCreator {
+				volumeMap[m.ContainerPath] = struct{}{}
+			}
+		}
+	}
+
+	entryPoint := []string{}
+	if container.EntryPoint != nil {
+		entryPoint = *container.EntryPoint
+	}
+	config := &docker.Config{
+		Image:        container.Image,
+		Cmd:          container.Command,
+		Entrypoint:   entryPoint,
+		ExposedPorts: dockerExposedPorts,
+		Volumes:      volumeMap,
+		Env:          dockerEnv,
+		Memory:       dockerMem,
+		CPUShares:    int64(container.Cpu),
+	}
+	return config, nil
+}
+
 func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
 	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
 }
@@ -214,22 +288,28 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	binds := make([]string, len(container.MountPoints))
-	for i, m := range container.MountPoints {
+	binds := []string{}
+	for _, m := range container.MountPoints {
 		hv, ok := task.HostVolumeByName(m.SourceVolume)
 		if !ok {
 			return nil, errors.New("Invalid volume referenced: " + m.SourceVolume)
 		}
-		bind := ""
-		if hv.SourcePath() == "" {
-			bind = m.ContainerPath
-		} else {
-			bind = hv.SourcePath() + ":" + m.ContainerPath
+		if empty, ok := hv.(*EmptyHostVolume); ok {
+			// EmptyHostVolume is a special case because it can be created by
+			// Config instead of HostConfig
+			isCreator := empty.CreateOrWait(container)
+			if isCreator {
+				// Special case; to be created by Config not us, and we need not
+				// map it
+				continue
+			}
 		}
+
+		bind := hv.SourcePath() + ":" + m.ContainerPath
 		if m.ReadOnly {
 			bind += ":ro"
 		}
-		binds[i] = bind
+		binds = append(binds, bind)
 	}
 
 	hostConfig := &docker.HostConfig{

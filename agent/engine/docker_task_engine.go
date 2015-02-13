@@ -285,6 +285,14 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 	}
 	llog := log.New("task", task, "container", container)
 	switch container.Container.KnownStatus {
+	case api.ContainerCreated:
+		containerInfo, err := engine.client.InspectContainer(container.DockerId)
+		if err != nil {
+			llog.Error("Error inspecting container", "err", err)
+			return err
+		}
+
+		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerRunning:
 		containerInfo, err := engine.client.InspectContainer(container.DockerId)
 		if err != nil {
@@ -487,7 +495,7 @@ func (engine *DockerTaskEngine) PullContainer(task *api.Task, container *api.Con
 
 func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.Container) error {
 	log.Info("Creating container", "task", task, "container", container)
-	config, err := container.DockerConfig()
+	config, err := task.DockerConfig(container)
 	if err != nil {
 		return err
 	}

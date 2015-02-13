@@ -15,7 +15,6 @@ package engine
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -751,7 +750,6 @@ WaitStopped:
 	for _ = range task_events {
 		for i := 1; i <= 3; i++ {
 			if testTask.Containers[i].KnownStatus < api.ContainerStopped {
-				fmt.Println(testTask.Containers[i].KnownStatus)
 				continue WaitStopped
 			}
 		}
@@ -759,7 +757,6 @@ WaitStopped:
 	}
 
 	if testTask.Containers[1].KnownExitCode == nil || *testTask.Containers[1].KnownExitCode != 42 {
-		fmt.Println(testTask.Containers[1].KnownExitCode)
 		t.Error("Didn't exit due to failure to touch ro fs as expected")
 	}
 	if testTask.Containers[2].KnownExitCode == nil || *testTask.Containers[2].KnownExitCode != 0 {
@@ -818,6 +815,43 @@ func TestHostVolumeMount(t *testing.T) {
 	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
 	if err != nil || string(data) != "hi" {
 		t.Error("Could not read file container wrote: ", err, string(data))
+	}
+}
+
+func TestEmptyHostVolumeMount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		t.Skip("Docker not running")
+	}
+
+	task_events := taskEngine.TaskEvents()
+
+	testTask := createTestTask("testEmptyHostVolumeMount")
+	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: api.NewEmptyHostVolume()}}
+	testTask.Containers[0].Image = testVolumeImage
+	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}
+	testTask.Containers = append(testTask.Containers, createTestContainer())
+	testTask.Containers[1].Name = "test2"
+	testTask.Containers[1].Image = testVolumeImage
+	testTask.Containers[1].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
+	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
+	testTask.Containers[1].Essential = false
+	go taskEngine.AddTask(testTask)
+
+	for task_event := range task_events {
+		if task_event.TaskArn != testTask.Arn {
+			continue
+		}
+		if task_event.TaskStatus == api.TaskStopped {
+			break
+		}
+	}
+
+	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
+		t.Error("Wrong exit code; file probably wasn't present")
 	}
 }
 

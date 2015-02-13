@@ -109,6 +109,60 @@ func (fs *FSHostVolume) String() string {
 	return fs.SourcePath()
 }
 
+type EmptyHostVolume struct {
+	hostPath string
+
+	creatorLock sync.Mutex
+	creator     string
+	setOnce     sync.Once
+	wg          sync.WaitGroup
+}
+
+func NewEmptyHostVolume() *EmptyHostVolume {
+	var wg sync.WaitGroup
+	// One container needs to create us; this waitgroup is for that one
+	// container
+	wg.Add(1)
+	return &EmptyHostVolume{wg: wg}
+}
+
+func (e *EmptyHostVolume) SourcePath() string {
+	return e.hostPath
+}
+
+func (e *EmptyHostVolume) SetSourcePath(source string) {
+	e.setOnce.Do(func() {
+		e.hostPath = source
+		// Anyone waiting for this volume to become available may now use it
+		e.wg.Done()
+	})
+}
+
+func (e *EmptyHostVolume) CreateOrWait(cont *Container) bool {
+	skip := func() bool {
+		// Lock Scope
+		e.creatorLock.Lock()
+		defer e.creatorLock.Unlock()
+		if e.creator == "" {
+			// This caller has been designated to create this emptyhostvolume; he or
+			// she may skip having to wait for it since he or she will create it
+			e.creator = cont.Name
+			return true
+		} else if e.creator == cont.Name {
+			// Was designated, probably in the CreateOrWait call; may happily skip
+			// along
+			return true
+		}
+		return false
+	}()
+	if skip {
+		return true
+	}
+
+	e.wg.Wait()
+	return false
+}
+
 type ContainerStateChange struct {
 	TaskArn       string
 	ContainerName string
