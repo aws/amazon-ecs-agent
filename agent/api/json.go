@@ -145,7 +145,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 			return err
 		}
 		if hv.FSSourcePath == "" {
-			tv.Volume = NewEmptyHostVolume()
+			tv.Volume = &EmptyHostVolume{}
 		} else {
 			tv.Volume = &hv
 		}

@@ -14,6 +14,7 @@
 package engine
 
 import (
+	"archive/tar"
 	"bufio"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/internal"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
@@ -77,12 +79,49 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 	return dg, err
 }
 
+func (dg *DockerGoClient) createScratchImageIfNotExists() error {
+	c, err := dg.client()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.InspectImage(internal.EcsBaseEmptyVolumeImage + ":" + internal.EcsBaseEmptyVolumeTag)
+	if err == nil {
+		// Already exists; assume that it's okay to use it
+		return nil
+	}
+
+	r, w := io.Pipe()
+
+	emptytarball := tar.NewWriter(w)
+	go func() {
+		emptytarball.Close()
+		w.Close()
+	}()
+
+	// Create it from an empty tarball
+	err = c.ImportImage(docker.ImportImageOptions{
+		Repository:  internal.EcsBaseEmptyVolumeImage,
+		Tag:         internal.EcsBaseEmptyVolumeTag,
+		Source:      "-",
+		InputStream: r,
+	})
+	return err
+}
+
 func (dg *DockerGoClient) PullImage(image string) error {
 	log.Info("Pulling image", "image", image)
 	client, err := dg.client()
 	if err != nil {
 		return err
 	}
+
+	// Special case; this image is not one that should be pulled, but rather
+	// should be created locally if necessary
+	if image == internal.EcsBaseEmptyVolumeImage+":"+internal.EcsBaseEmptyVolumeTag {
+		return dg.createScratchImageIfNotExists()
+	}
+
 	// The following lines of code are taken, in whole or part, from the docker
 	// source code. Please see the NOTICE file in the root of the project for
 	// attribution

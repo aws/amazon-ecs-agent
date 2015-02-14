@@ -829,7 +829,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	task_events := taskEngine.TaskEvents()
 
 	testTask := createTestTask("testEmptyHostVolumeMount")
-	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: api.NewEmptyHostVolume()}}
+	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}

@@ -19,8 +19,61 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/internal"
 	"github.com/fsouza/go-dockerclient"
 )
+
+const emptyHostVolumeName = "ecs-emptyvolume-source"
+
+// PostAddTask is run after a task has been unmarshalled, but before it has been
+// run. It is possible it will be subsequently called after that and should be
+// able to handle such an occurrence appropriately (e.g. behave idempotently).
+func (task *Task) PostAddTask() {
+	// TODO, add rudimentary plugin support and call any plugins that want to
+	// hook into this
+
+	usedEmptyVolumes := []string{}
+	for _, c := range task.Containers {
+		for _, mp := range c.MountPoints {
+			vol, ok := task.HostVolumeByName(mp.SourceVolume)
+			if !ok {
+				continue
+			}
+			if _, ok := vol.(*EmptyHostVolume); ok {
+				if c.CreateDependencies == nil {
+					c.CreateDependencies = []string{}
+				}
+				c.CreateDependencies = append(c.CreateDependencies, emptyHostVolumeName)
+				usedEmptyVolumes = append(usedEmptyVolumes, mp.SourceVolume)
+			}
+		}
+	}
+
+	if len(usedEmptyVolumes) == 0 {
+		return
+	}
+
+	// If we have used empty volumes, add an internal container that handles all
+	// of them
+	_, ok := task.ContainerByName(emptyHostVolumeName)
+	if !ok {
+		mountPoints := make([]MountPoint, len(usedEmptyVolumes))
+		for i, u := range usedEmptyVolumes {
+			containerPath := "/ecs-empty-volume/" + u
+			mountPoints[i] = MountPoint{SourceVolume: u, ContainerPath: containerPath}
+		}
+		sourceContainer := &Container{
+			Name:              emptyHostVolumeName,
+			Image:             internal.EcsBaseEmptyVolumeImage + ":" + internal.EcsBaseEmptyVolumeTag,
+			Command:           []string{"na"},
+			MountPoints:       mountPoints,
+			Essential:         false,
+			IsInternal:        true,
+			InternalMaxStatus: ContainerCreated,
+		}
+		task.Containers = append(task.Containers, sourceContainer)
+	}
+}
 
 func (task *Task) _containersByName() map[string]*Container {
 	task.containersByNameLock.Lock()
@@ -31,6 +84,9 @@ func (task *Task) _containersByName() map[string]*Container {
 	}
 	task.containersByName = make(map[string]*Container)
 	for _, container := range task.Containers {
+		if container.IsInternal {
+			continue
+		}
 		task.containersByName[container.Name] = container
 	}
 	return task.containersByName
@@ -62,7 +118,7 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 		if ok {
 			if hostVolume, exists := task.HostVolumeByName(m.SourceVolume); exists {
 				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
-					empty.SetSourcePath(hostPath)
+					empty.hostPath = hostPath
 				}
 			}
 		}
@@ -209,11 +265,13 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
 		}
 		// you can handle most volume mount types in the HostConfig; empty
 		// mounts are the only type that need to go here
-		if empty, ok := vol.(*EmptyHostVolume); ok {
-			isCreator := empty.CreateOrWait(container)
-			if isCreator {
-				volumeMap[m.ContainerPath] = struct{}{}
+		if container.Name == emptyHostVolumeName && container.IsInternal {
+			_, ok := vol.(*EmptyHostVolume)
+			if !ok {
+				return nil, errors.New("invalid state; internal emptyvolume container with non empty volume")
 			}
+
+			volumeMap[m.ContainerPath] = struct{}{}
 		}
 	}
 
@@ -293,16 +351,6 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		hv, ok := task.HostVolumeByName(m.SourceVolume)
 		if !ok {
 			return nil, errors.New("Invalid volume referenced: " + m.SourceVolume)
-		}
-		if empty, ok := hv.(*EmptyHostVolume); ok {
-			// EmptyHostVolume is a special case because it can be created by
-			// Config instead of HostConfig
-			isCreator := empty.CreateOrWait(container)
-			if isCreator {
-				// Special case; to be created by Config not us, and we need not
-				// map it
-				continue
-			}
 		}
 
 		bind := hv.SourcePath() + ":" + m.ContainerPath

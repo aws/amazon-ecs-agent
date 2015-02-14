@@ -96,6 +96,7 @@ func (engine *DockerTaskEngine) Init() error {
 		}
 		engine.client = client
 	}
+
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
@@ -208,11 +209,17 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 // knownStatus
 func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerContainer, reason string) {
 	err := engine.updateContainerMetadata(task, container)
+
+	// Every time something changes, make sure the state for the thing that
+	// changed is known about and move forwards if this change allows us to
+	defer engine.ApplyTaskState(task)
+
 	// Collect additional info we need for our StateChanges
 	if err != nil {
 		log.Crit("Error updating container metadata", "err", err)
 	}
 	cont := container.Container
+
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
@@ -231,11 +238,10 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 		event.TaskStatus = task_change
 	}
 	log.Info("Container change event", "event", event)
+	if cont.IsInternal {
+		return
+	}
 	engine.container_events <- event
-
-	// Every time something changes, make sure the state for the thing that
-	// changed is known about and move forwards if this change allows us to
-	engine.ApplyTaskState(task)
 }
 
 // openEventstream opens, but does not consume, the docker event stream
@@ -350,6 +356,8 @@ func TaskCompleted(task *api.Task) bool {
 func (engine *DockerTaskEngine) AddTask(task *api.Task) {
 	task = engine.state.AddOrUpdateTask(task)
 
+	task.PostAddTask()
+
 	engine.ApplyTaskState(task)
 }
 
@@ -371,6 +379,9 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 	defer container.StatusLock.Unlock()
 
 	clog := log.New("task", task, "container", container)
+	if container.IsInternal && container.AppliedStatus >= container.InternalMaxStatus {
+		return
+	}
 	if container.KnownStatus == container.DesiredStatus {
 		clog.Debug("Container at desired status", "desired", container.DesiredStatus)
 		return
