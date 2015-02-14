@@ -23,8 +23,8 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/api/internal"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	dockerparsers "github.com/docker/docker/pkg/parsers"
@@ -85,7 +85,7 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 		return err
 	}
 
-	_, err = c.InspectImage(internal.EcsBaseEmptyVolumeImage + ":" + internal.EcsBaseEmptyVolumeTag)
+	_, err = c.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
 	if err == nil {
 		// Already exists; assume that it's okay to use it
 		return nil
@@ -101,8 +101,8 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 
 	// Create it from an empty tarball
 	err = c.ImportImage(docker.ImportImageOptions{
-		Repository:  internal.EcsBaseEmptyVolumeImage,
-		Tag:         internal.EcsBaseEmptyVolumeTag,
+		Repository:  emptyvolume.Image,
+		Tag:         emptyvolume.Tag,
 		Source:      "-",
 		InputStream: r,
 	})
@@ -118,7 +118,7 @@ func (dg *DockerGoClient) PullImage(image string) error {
 
 	// Special case; this image is not one that should be pulled, but rather
 	// should be created locally if necessary
-	if image == internal.EcsBaseEmptyVolumeImage+":"+internal.EcsBaseEmptyVolumeTag {
+	if image == emptyvolume.Image+":"+emptyvolume.Tag {
 		return dg.createScratchImageIfNotExists()
 	}
 

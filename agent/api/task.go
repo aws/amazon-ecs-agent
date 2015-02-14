@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/internal"
+	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -64,7 +64,7 @@ func (task *Task) PostAddTask() {
 		}
 		sourceContainer := &Container{
 			Name:              emptyHostVolumeName,
-			Image:             internal.EcsBaseEmptyVolumeImage + ":" + internal.EcsBaseEmptyVolumeTag,
+			Image:             emptyvolume.Image + ":" + emptyvolume.Tag,
 			Command:           []string{"na"},
 			MountPoints:       mountPoints,
 			Essential:         false,
