@@ -23,49 +23,54 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
-const emptyHostVolumeName = "ecs-emptyvolume-source"
+const emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
 
-// PostAddTask is run after a task has been unmarshalled, but before it has been
+// PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
-func (task *Task) PostAddTask() {
+func (task *Task) PostUnmarshalTask() {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 
-	usedEmptyVolumes := []string{}
-	for _, c := range task.Containers {
-		for _, mp := range c.MountPoints {
-			vol, ok := task.HostVolumeByName(mp.SourceVolume)
+	task.initializeEmptyVolumes()
+}
+
+func (task *Task) initializeEmptyVolumes() {
+	requiredEmptyVolumes := []string{}
+	for _, container := range task.Containers {
+		for _, mountPoint := range container.MountPoints {
+			vol, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 			if !ok {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if c.CreateDependencies == nil {
-					c.CreateDependencies = []string{}
+				if container.CreateDependencies == nil {
+					container.CreateDependencies = make([]string, 0)
 				}
-				c.CreateDependencies = append(c.CreateDependencies, emptyHostVolumeName)
-				usedEmptyVolumes = append(usedEmptyVolumes, mp.SourceVolume)
+				container.CreateDependencies = append(container.CreateDependencies, emptyHostVolumeName)
+				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
 	}
 
-	if len(usedEmptyVolumes) == 0 {
+	if len(requiredEmptyVolumes) == 0 {
+		// No need to create the auxiliary 'empty-volumes' container
 		return
 	}
 
-	// If we have used empty volumes, add an internal container that handles all
+	// If we have required empty volumes, add an 'internal' container that handles all
 	// of them
 	_, ok := task.ContainerByName(emptyHostVolumeName)
 	if !ok {
-		mountPoints := make([]MountPoint, len(usedEmptyVolumes))
-		for i, u := range usedEmptyVolumes {
-			containerPath := "/ecs-empty-volume/" + u
-			mountPoints[i] = MountPoint{SourceVolume: u, ContainerPath: containerPath}
+		mountPoints := make([]MountPoint, len(requiredEmptyVolumes))
+		for i, volume := range requiredEmptyVolumes {
+			containerPath := "/ecs-empty-volume/" + volume
+			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
 			Name:              emptyHostVolumeName,
 			Image:             emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:           []string{"na"},
+			Command:           []string{"not-applicable"}, // Command required, but this only gets created so N/A
 			MountPoints:       mountPoints,
 			Essential:         false,
 			IsInternal:        true,
@@ -73,6 +78,7 @@ func (task *Task) PostAddTask() {
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
+
 }
 
 func (task *Task) _containersByName() map[string]*Container {
@@ -84,9 +90,6 @@ func (task *Task) _containersByName() map[string]*Container {
 	}
 	task.containersByName = make(map[string]*Container)
 	for _, container := range task.Containers {
-		if container.IsInternal {
-			continue
-		}
 		task.containersByName[container.Name] = container
 	}
 	return task.containersByName
@@ -109,14 +112,14 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 }
 
 func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
-	for _, m := range cont.MountPoints {
-		hostPath, ok := vols[m.ContainerPath]
+	for _, mountPoint := range cont.MountPoints {
+		hostPath, ok := vols[mountPoint.ContainerPath]
 		if !ok {
 			// /path/ -> /path
-			hostPath, ok = vols[strings.TrimRight(m.ContainerPath, "/")]
+			hostPath, ok = vols[strings.TrimRight(mountPoint.ContainerPath, "/")]
 		}
 		if ok {
-			if hostVolume, exists := task.HostVolumeByName(m.SourceVolume); exists {
+			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
 				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
 					empty.hostPath = hostPath
 				}
@@ -240,6 +243,11 @@ func (task *Task) DockerConfig(container *Container) (*docker.Config, error) {
 }
 
 func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
+	dockerVolumes, err := task.dockerConfigVolumes(container)
+	if err != nil {
+		return nil, err
+	}
+
 	dockerEnv := make([]string, 0, len(container.Environment))
 	for envKey, envVal := range container.Environment {
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
@@ -250,21 +258,45 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
 	if dockerMem != 0 && dockerMem < DOCKER_MINIMUM_MEMORY {
 		dockerMem = DOCKER_MINIMUM_MEMORY
 	}
+
+	entryPoint := []string{}
+	if container.EntryPoint != nil {
+		entryPoint = *container.EntryPoint
+	}
+
+	config := &docker.Config{
+		Image:        container.Image,
+		Cmd:          container.Command,
+		Entrypoint:   entryPoint,
+		ExposedPorts: task.dockerExposedPorts(container),
+		Volumes:      dockerVolumes,
+		Env:          dockerEnv,
+		Memory:       dockerMem,
+		CPUShares:    int64(container.Cpu),
+	}
+	return config, nil
+}
+
+func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struct{} {
 	dockerExposedPorts := make(map[docker.Port]struct{})
 
 	for _, portBinding := range container.Ports {
 		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/tcp")
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
+	return dockerExposedPorts
+}
 
+func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}, error) {
 	volumeMap := make(map[string]struct{})
 	for _, m := range container.MountPoints {
 		vol, exists := task.HostVolumeByName(m.SourceVolume)
 		if !exists {
 			return nil, errors.New("Container references non-existent volume")
 		}
-		// you can handle most volume mount types in the HostConfig; empty
-		// mounts are the only type that need to go here
+		// you can handle most volume mount types in the HostConfig at run-time;
+		// empty mounts are created by docker at create-time (Config) so set
+		// them here.
 		if container.Name == emptyHostVolumeName && container.IsInternal {
 			_, ok := vol.(*EmptyHostVolume)
 			if !ok {
@@ -274,22 +306,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
 			volumeMap[m.ContainerPath] = struct{}{}
 		}
 	}
-
-	entryPoint := []string{}
-	if container.EntryPoint != nil {
-		entryPoint = *container.EntryPoint
-	}
-	config := &docker.Config{
-		Image:        container.Image,
-		Cmd:          container.Command,
-		Entrypoint:   entryPoint,
-		ExposedPorts: dockerExposedPorts,
-		Volumes:      volumeMap,
-		Env:          dockerEnv,
-		Memory:       dockerMem,
-		CPUShares:    int64(container.Cpu),
-	}
-	return config, nil
+	return volumeMap, nil
 }
 
 func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
@@ -297,11 +314,38 @@ func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[
 }
 
 func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
-	dockerLinkArr := make([]string, 0, len(container.Links))
-	for _, link := range container.Links {
+	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
+	if err != nil {
+		return nil, err
+	}
+
+	dockerPortMap := task.dockerPortMap(container)
+
+	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
+	if err != nil {
+		return nil, err
+	}
+
+	binds, err := task.dockerHostBinds(container)
+	if err != nil {
+		return nil, err
+	}
+
+	hostConfig := &docker.HostConfig{
+		Links:        dockerLinkArr,
+		Binds:        binds,
+		PortBindings: dockerPortMap,
+		VolumesFrom:  volumesFrom,
+	}
+	return hostConfig, nil
+}
+
+func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
+	dockerLinkArr := make([]string, len(container.Links))
+	for i, link := range container.Links {
 		linkParts := strings.Split(link, ":")
 		if len(linkParts) > 2 {
-			return nil, errors.New("Invalid link format")
+			return []string{}, errors.New("Invalid link format")
 		}
 		linkName := linkParts[0]
 		var linkAlias string
@@ -309,18 +353,20 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		if len(linkParts) == 2 {
 			linkAlias = linkParts[1]
 		} else {
-			log.Warn("Warning, link with linkalias", "linkName", linkName, "task", task, "container", container)
+			log.Warn("Warning, link with no linkalias", "linkName", linkName, "task", task, "container", container)
 			linkAlias = linkName
 		}
 
 		targetContainer, ok := dockerContainerMap[linkName]
 		if !ok {
-			return nil, errors.New("Link target not available: " + linkName)
+			return []string{}, errors.New("Link target not available: " + linkName)
 		}
-		fixedLink := targetContainer.DockerName + ":" + linkAlias
-		dockerLinkArr = append(dockerLinkArr, fixedLink)
+		dockerLinkArr[i] = targetContainer.DockerName + ":" + linkAlias
 	}
+	return dockerLinkArr, nil
+}
 
+func (task *Task) dockerPortMap(container *Container) map[docker.Port][]docker.PortBinding {
 	dockerPortMap := make(map[docker.Port][]docker.PortBinding)
 
 	for _, portBinding := range container.Ports {
@@ -332,12 +378,15 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 			dockerPortMap[dockerPort] = []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0", HostPort: strconv.Itoa(int(portBinding.HostPort))}}
 		}
 	}
+	return dockerPortMap
+}
 
+func (task *Task) dockerVolumesFrom(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
 	volumesFrom := make([]string, len(container.VolumesFrom))
 	for i, volume := range container.VolumesFrom {
 		targetContainer, ok := dockerContainerMap[volume.SourceContainer]
 		if !ok {
-			return nil, errors.New("Volume target not available: " + volume.SourceContainer)
+			return []string{}, errors.New("Volume target not available: " + volume.SourceContainer)
 		}
 		if volume.ReadOnly {
 			volumesFrom[i] = targetContainer.DockerName + ":ro"
@@ -345,26 +394,23 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 			volumesFrom[i] = targetContainer.DockerName
 		}
 	}
+	return volumesFrom, nil
+}
 
-	binds := []string{}
-	for _, m := range container.MountPoints {
-		hv, ok := task.HostVolumeByName(m.SourceVolume)
+func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
+	binds := make([]string, len(container.MountPoints))
+	for i, mountPoint := range container.MountPoints {
+		hv, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 		if !ok {
-			return nil, errors.New("Invalid volume referenced: " + m.SourceVolume)
+			return []string{}, errors.New("Invalid volume referenced: " + mountPoint.SourceVolume)
 		}
 
-		bind := hv.SourcePath() + ":" + m.ContainerPath
-		if m.ReadOnly {
+		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
+		if mountPoint.ReadOnly {
 			bind += ":ro"
 		}
-		binds = append(binds, bind)
+		binds[i] = bind
 	}
 
-	hostConfig := &docker.HostConfig{
-		Links:        dockerLinkArr,
-		Binds:        binds,
-		PortBindings: dockerPortMap,
-		VolumesFrom:  volumesFrom,
-	}
-	return hostConfig, nil
+	return binds, nil
 }

@@ -79,36 +79,6 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 	return dg, err
 }
 
-func (dg *DockerGoClient) createScratchImageIfNotExists() error {
-	c, err := dg.client()
-	if err != nil {
-		return err
-	}
-
-	_, err = c.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
-	if err == nil {
-		// Already exists; assume that it's okay to use it
-		return nil
-	}
-
-	r, w := io.Pipe()
-
-	emptytarball := tar.NewWriter(w)
-	go func() {
-		emptytarball.Close()
-		w.Close()
-	}()
-
-	// Create it from an empty tarball
-	err = c.ImportImage(docker.ImportImageOptions{
-		Repository:  emptyvolume.Image,
-		Tag:         emptyvolume.Tag,
-		Source:      "-",
-		InputStream: r,
-	})
-	return err
-}
-
 func (dg *DockerGoClient) PullImage(image string) error {
 	log.Info("Pulling image", "image", image)
 	client, err := dg.client()
@@ -166,6 +136,36 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	}()
 	err = client.PullImage(opts, authConfig)
 
+	return err
+}
+
+func (dg *DockerGoClient) createScratchImageIfNotExists() error {
+	c, err := dg.client()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
+	if err == nil {
+		// Already exists; assume that it's okay to use it
+		return nil
+	}
+
+	reader, writer := io.Pipe()
+
+	emptytarball := tar.NewWriter(writer)
+	go func() {
+		emptytarball.Close()
+		writer.Close()
+	}()
+
+	// Create it from an empty tarball
+	err = c.ImportImage(docker.ImportImageOptions{
+		Repository:  emptyvolume.Image,
+		Tag:         emptyvolume.Tag,
+		Source:      "-",
+		InputStream: reader,
+	})
 	return err
 }
 

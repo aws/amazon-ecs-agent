@@ -154,3 +154,19 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 
 	return errors.New("unrecognized volume type; try updating me")
 }
+
+func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
+	result := make(map[string]interface{})
+
+	result["name"] = tv.Name
+
+	switch v := tv.Volume.(type) {
+	case *FSHostVolume:
+		result["host"] = v
+	case *EmptyHostVolume:
+		result["host"] = v
+	default:
+		log.Crit("Unknown task volume type in marshal")
+	}
+	return json.Marshal(result)
+}

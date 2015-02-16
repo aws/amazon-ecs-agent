@@ -354,9 +354,9 @@ func TaskCompleted(task *api.Task) bool {
 }
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) {
-	task = engine.state.AddOrUpdateTask(task)
+	task.PostUnmarshalTask()
 
-	task.PostAddTask()
+	task = engine.state.AddOrUpdateTask(task)
 
 	engine.ApplyTaskState(task)
 }
@@ -518,7 +518,16 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 		engine.state.Lock()
 		defer engine.state.Unlock()
 
-		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + container.Name + "-" + utils.RandHex()
+		name := ""
+		for i := 0; i < len(container.Name); i++ {
+			c := container.Name[i]
+			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
+				continue
+			}
+			name += string(c)
+		}
+
+		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 		containerId, err := engine.client.CreateContainer(config, containerName)
 		if err != nil {
 			return err

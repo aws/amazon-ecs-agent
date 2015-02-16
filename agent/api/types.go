@@ -72,8 +72,7 @@ type Task struct {
 }
 
 // TaskVolume is a definition of all the volumes available for containers to
-// reference within a task. It must have a name by which it may be referenced.
-// The volume itself may be anything that fulfills the Volume interface.
+// reference within a task. It must be named.
 type TaskVolume struct {
 	Name   string `json:"name"`
 	Volume HostVolume
@@ -94,8 +93,7 @@ type HostVolume interface {
 }
 
 // FSHostVolume is a simple type of HostVolume which references an arbitrary
-// location on the host as the Volume. If the location is the empty string, a
-// location will be automatically chosen.
+// location on the host as the Volume.
 type FSHostVolume struct {
 	FSSourcePath string `json:"sourcePath"`
 }
@@ -105,12 +103,8 @@ func (fs *FSHostVolume) SourcePath() string {
 	return fs.FSSourcePath
 }
 
-func (fs *FSHostVolume) String() string {
-	return fs.SourcePath()
-}
-
 type EmptyHostVolume struct {
-	hostPath string
+	hostPath string `json:"-"`
 }
 
 func (e *EmptyHostVolume) SourcePath() string {
