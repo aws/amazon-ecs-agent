@@ -159,11 +159,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			if currentState > cont.Container.KnownStatus {
 				cont.Container.KnownStatus = currentState
 			}
-			// Even if the state didn't change, we send it upstream;
-			// there's no truly reliable way to be sure we have or haven't sent
-			// it already currently and there's no harm in re-sending an
-			// accurate status; TODO, store that we've sent some status so we
-			// can at least reduce the number of messages safely
+			// Over-aggressively resend everything. The task handler will
+			// discard items that have already been sent.
 			// We cannot actually emit an event yet because nothing is handling
 			// events; just throw it in a goroutine so this doesn't block
 			// forever.
@@ -434,7 +431,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 	if err != nil {
 		// If we were unable to successfully accomplish a state transition,
 		// we should move that container to 'stopped'
-		container.ApplyingError = err
+		container.ApplyingError = api.NewApplyingError(err)
 		container.DesiredStatus = api.ContainerStopped
 		// Because our desired status is now stopped, we should call this
 		// function again to actually stop it

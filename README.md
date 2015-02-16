@@ -83,7 +83,7 @@ configure them as something other than the defaults.
 | `DOCKER_HOST`   | unix:///var/run/docker.sock | Used to create a connection to the Docker daemon; behaves similarly to this environment variable as used by the Docker client | unix:///var/run/docker.sock |
 | `ECS_LOGLEVEL`  | &lt;crit&gt; &#124; &lt;error&gt; &#124; &lt;warn&gt; &#124; &lt;info&gt; &#124; &lt;debug&gt; | What level to log at on stdout. | warn |
 | `ECS_LOGFILE`   | /ecs-agent.log              | The path to output full debugging info to. If blank, no logs will be written to file. If set, logs at debug level (regardless of ECS\_LOGLEVEL) will be written to that file. | blank |
-| `ECS_CHECKPOINT`   | &lt;true &#124; false&gt; | Whether to checkpoint state to the DATAFILE specified below | true if `ECS_DATADIR` is non-empty; false otherwise |
+| `ECS_CHECKPOINT`   | &lt;true &#124; false&gt; | Whether to checkpoint state to the DATADIR specified below | true if `ECS_DATADIR` is non-empty; false otherwise |
 | `ECS_DATADIR`      |   /data/                  | The container path where state is checkpointed for use across agent restarts. | /data/ |
 | `ECS_BACKEND_HOST` | ecs.us-east-1.amazonaws.com | The host to make backend api calls against. | ecs.REGION.amazonaws.com |
 | `ECS_BACKEND_PORT` | 443                         | The associated port to make backend api calls with. | 443 |
