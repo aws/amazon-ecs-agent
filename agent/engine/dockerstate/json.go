@@ -76,7 +76,6 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 		}
 		container.Container = taskContainer
 		//pointer matching now; everyone happy
-
 		clean.AddContainer(container, task)
 	}
 

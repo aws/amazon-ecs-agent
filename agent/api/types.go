@@ -97,6 +97,20 @@ type ContainerOverrides struct {
 	Command *[]string `json:"command"`
 }
 
+// ApplyingError is an error indicating something that went wrong transitioning
+// from one state to another. For now it's very simple (and exists in part to
+// ensure that there's a symetric marshal/unmarshal for the error).
+type ApplyingError struct {
+	Err string `json:"error"`
+}
+
+func (ae *ApplyingError) Error() string {
+	return ae.Err
+}
+func NewApplyingError(err error) *ApplyingError {
+	return &ApplyingError{err.Error()}
+}
+
 type Container struct {
 	Name        string
 	Image       string
@@ -116,7 +130,7 @@ type Container struct {
 	KnownStatus   ContainerStatus
 
 	AppliedStatus ContainerStatus
-	ApplyingError error
+	ApplyingError *ApplyingError
 
 	SentStatus ContainerStatus
 
