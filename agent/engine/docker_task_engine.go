@@ -288,14 +288,6 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 	}
 	llog := log.New("task", task, "container", container)
 	switch container.Container.KnownStatus {
-	case api.ContainerCreated:
-		containerInfo, err := engine.client.InspectContainer(container.DockerId)
-		if err != nil {
-			llog.Error("Error inspecting container", "err", err)
-			return err
-		}
-
-		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerRunning:
 		containerInfo, err := engine.client.InspectContainer(container.DockerId)
 		if err != nil {
@@ -312,6 +304,8 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 			}
 			container.Container.KnownPortBindings = bindings
 		}
+
+		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerStopped:
 		fallthrough
 	case api.ContainerDead:
@@ -376,9 +370,6 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 	defer container.StatusLock.Unlock()
 
 	clog := log.New("task", task, "container", container)
-	if container.IsInternal && container.AppliedStatus >= container.InternalMaxStatus {
-		return
-	}
 	if container.KnownStatus == container.DesiredStatus {
 		clog.Debug("Container at desired status", "desired", container.DesiredStatus)
 		return

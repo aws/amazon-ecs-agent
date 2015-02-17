@@ -44,10 +44,10 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.CreateDependencies == nil {
-					container.CreateDependencies = make([]string, 0)
+				if container.RunDependencies == nil {
+					container.RunDependencies = make([]string, 0)
 				}
-				container.CreateDependencies = append(container.CreateDependencies, emptyHostVolumeName)
+				container.RunDependencies = append(container.RunDependencies, emptyHostVolumeName)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -68,13 +68,13 @@ func (task *Task) initializeEmptyVolumes() {
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
-			Name:              emptyHostVolumeName,
-			Image:             emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:           []string{"not-applicable"}, // Command required, but this only gets created so N/A
-			MountPoints:       mountPoints,
-			Essential:         false,
-			IsInternal:        true,
-			InternalMaxStatus: ContainerCreated,
+			Name:          emptyHostVolumeName,
+			Image:         emptyvolume.Image + ":" + emptyvolume.Tag,
+			Command:       []string{"not-applicable"}, // Command required, but this only gets created so N/A
+			MountPoints:   mountPoints,
+			Essential:     false,
+			IsInternal:    true,
+			DesiredStatus: ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -398,11 +398,21 @@ func (task *Task) dockerVolumesFrom(container *Container, dockerContainerMap map
 }
 
 func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
+	if container.Name == emptyHostVolumeName {
+		// emptyHostVolumes are handled as a special case in config, not
+		// hostConfig
+		return []string{}, nil
+	}
+
 	binds := make([]string, len(container.MountPoints))
 	for i, mountPoint := range container.MountPoints {
 		hv, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 		if !ok {
 			return []string{}, errors.New("Invalid volume referenced: " + mountPoint.SourceVolume)
+		}
+
+		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
+			return []string{}, errors.New("Unable to resolve volume mounts; invalid path")
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath

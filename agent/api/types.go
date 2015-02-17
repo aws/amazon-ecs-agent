@@ -171,12 +171,11 @@ type Container struct {
 	DesiredStatus ContainerStatus `json:"desiredStatus"`
 	KnownStatus   ContainerStatus
 
-	// CreateDependencies is a list of containers that must be created before
-	// this one
-	CreateDependencies []string
+	// RunDependencies is a list of containers that must be run before
+	// this one is created
+	RunDependencies []string
 	// 'Internal' containers are ones that are not directly specified by task definitions, but created by the agent
-	IsInternal        bool
-	InternalMaxStatus ContainerStatus
+	IsInternal bool
 
 	AppliedStatus ContainerStatus
 	ApplyingError *ApplyingError
