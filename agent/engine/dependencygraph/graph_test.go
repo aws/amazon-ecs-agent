@@ -19,11 +19,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
+func volumeStrToVol(vols []string) []api.VolumeFrom {
+	ret := make([]api.VolumeFrom, len(vols))
+	for i, v := range vols {
+		ret[i] = api.VolumeFrom{SourceContainer: v, ReadOnly: false}
+	}
+	return ret
+}
+
 func runningContainer(name string, links, volumes []string) *api.Container {
 	return &api.Container{
 		Name:          name,
 		Links:         links,
-		VolumesFrom:   volumes,
+		VolumesFrom:   volumeStrToVol(volumes),
 		DesiredStatus: api.ContainerRunning,
 	}
 }
@@ -31,7 +39,7 @@ func createdContainer(name string, links, volumes []string) *api.Container {
 	return &api.Container{
 		Name:          name,
 		Links:         links,
-		VolumesFrom:   volumes,
+		VolumesFrom:   volumeStrToVol(volumes),
 		DesiredStatus: api.ContainerCreated,
 	}
 }

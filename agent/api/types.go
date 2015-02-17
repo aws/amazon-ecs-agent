@@ -15,6 +15,7 @@ package api
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -54,7 +55,7 @@ type TaskOverrides struct{}
 
 type Task struct {
 	Arn        string
-	Overrides  TaskOverrides `json:"ignore"` // No taskOverrides right now
+	Overrides  TaskOverrides `json:"-"`
 	Family     string
 	Version    string
 	Containers []*Container
@@ -118,8 +119,7 @@ type Container struct {
 	Cpu         uint
 	Memory      uint
 	Links       []string
-	BindMounts  []string
-	VolumesFrom []string
+	VolumesFrom []VolumeFrom  `json:"volumesFrom"`
 	Ports       []PortBinding `json:"portMappings"`
 	Essential   bool
 	EntryPoint  *[]string
@@ -141,8 +141,18 @@ type Container struct {
 	StatusLock sync.Mutex
 }
 
+// VolumeFrom is a volume which references another container as its source.
+type VolumeFrom struct {
+	SourceContainer string `json:"sourceContainer"`
+	ReadOnly        bool   `json:"readOnly"`
+}
+
 func (c *Container) String() string {
-	return fmt.Sprintf("%s - %s '%s' '%s', %d cpu, %d memory, Links: %s, Mounts: %s, Ports: %s, Essential: %s, Environment: %s, Overrides: %s, Status: %s(%s)", c.Name, c.Image, c.EntryPoint, c.Command, c.Cpu, c.Memory, c.Links, c.BindMounts, c.Ports, c.Essential, c.Environment, c.Overrides, c.KnownStatus.String(), c.DesiredStatus.String())
+	res := fmt.Sprintf("%s(%s) - Status: %s", c.Name, c.Image, c.KnownStatus.String())
+	if c.KnownExitCode != nil {
+		res += "; Exited " + strconv.Itoa(*c.KnownExitCode)
+	}
+	return res
 }
 
 type Resource struct {

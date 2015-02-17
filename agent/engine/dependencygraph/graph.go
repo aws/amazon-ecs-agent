@@ -76,8 +76,12 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
+	neededVolumeContainers := make([]string, len(target.VolumesFrom))
+	for i, volume := range target.VolumesFrom {
+		neededVolumeContainers[i] = volume.SourceContainer
+	}
 
-	return verifyStatusResolveable(target, nameMap, target.VolumesFrom, volumeCanResolve) &&
+	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
 		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
 }
 
@@ -89,8 +93,12 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
+	neededVolumeContainers := make([]string, len(target.VolumesFrom))
+	for i, volume := range target.VolumesFrom {
+		neededVolumeContainers[i] = volume.SourceContainer
+	}
 
-	return verifyStatusResolveable(target, nameMap, target.VolumesFrom, volumeIsResolved) &&
+	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
 		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved)
 }
 

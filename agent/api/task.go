@@ -190,6 +190,19 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	hostConfig := &docker.HostConfig{Links: dockerLinkArr, Binds: container.BindMounts, PortBindings: dockerPortMap}
+	volumesFrom := make([]string, len(container.VolumesFrom))
+	for i, volume := range container.VolumesFrom {
+		targetContainer, ok := dockerContainerMap[volume.SourceContainer]
+		if !ok {
+			return nil, errors.New("Volume target not available: " + volume.SourceContainer)
+		}
+		if volume.ReadOnly {
+			volumesFrom[i] = targetContainer.DockerName + ":ro"
+		} else {
+			volumesFrom[i] = targetContainer.DockerName
+		}
+	}
+
+	hostConfig := &docker.HostConfig{Links: dockerLinkArr, PortBindings: dockerPortMap, VolumesFrom: volumesFrom}
 	return hostConfig, nil
 }
