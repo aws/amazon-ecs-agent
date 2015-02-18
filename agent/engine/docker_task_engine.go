@@ -96,6 +96,7 @@ func (engine *DockerTaskEngine) Init() error {
 		}
 		engine.client = client
 	}
+
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
@@ -205,11 +206,17 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 // knownStatus
 func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerContainer, reason string) {
 	err := engine.updateContainerMetadata(task, container)
+
+	// Every time something changes, make sure the state for the thing that
+	// changed is known about and move forwards if this change allows us to
+	defer engine.ApplyTaskState(task)
+
 	// Collect additional info we need for our StateChanges
 	if err != nil {
 		log.Crit("Error updating container metadata", "err", err)
 	}
 	cont := container.Container
+
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
@@ -228,11 +235,10 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 		event.TaskStatus = task_change
 	}
 	log.Info("Container change event", "event", event)
+	if cont.IsInternal {
+		return
+	}
 	engine.container_events <- event
-
-	// Every time something changes, make sure the state for the thing that
-	// changed is known about and move forwards if this change allows us to
-	engine.ApplyTaskState(task)
 }
 
 // openEventstream opens, but does not consume, the docker event stream
@@ -298,6 +304,8 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 			}
 			container.Container.KnownPortBindings = bindings
 		}
+
+		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerStopped:
 		fallthrough
 	case api.ContainerDead:
@@ -337,6 +345,8 @@ func TaskCompleted(task *api.Task) bool {
 }
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) {
+	task.PostUnmarshalTask()
+
 	task = engine.state.AddOrUpdateTask(task)
 
 	engine.ApplyTaskState(task)
@@ -484,7 +494,7 @@ func (engine *DockerTaskEngine) PullContainer(task *api.Task, container *api.Con
 
 func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.Container) error {
 	log.Info("Creating container", "task", task, "container", container)
-	config, err := container.DockerConfig()
+	config, err := task.DockerConfig(container)
 	if err != nil {
 		return err
 	}
@@ -496,7 +506,16 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 		engine.state.Lock()
 		defer engine.state.Unlock()
 
-		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + container.Name + "-" + utils.RandHex()
+		name := ""
+		for i := 0; i < len(container.Name); i++ {
+			c := container.Name[i]
+			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
+				continue
+			}
+			name += string(c)
+		}
+
+		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 		containerId, err := engine.client.CreateContainer(config, containerName)
 		if err != nil {
 			return err

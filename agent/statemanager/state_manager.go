@@ -251,6 +251,7 @@ func (manager *basicStateManager) Load() error {
 	var intermediate intermediateState
 	err = json.Unmarshal(data, &intermediate)
 	if err != nil {
+		log.Debug("Could not unmarshal into intermediate")
 		return err
 	}
 
@@ -260,7 +261,11 @@ func (manager *basicStateManager) Load() error {
 			log.Error("Loading state: potentially malformed json key of " + key)
 			continue
 		}
-		json.Unmarshal(rawJSON, actualPointer)
+		err = json.Unmarshal(rawJSON, actualPointer)
+		if err != nil {
+			log.Debug("Could not unmarshal into actual")
+			return err
+		}
 	}
 
 	log.Debug("Loaded state!", "state", s)

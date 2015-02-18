@@ -170,3 +170,34 @@ func TestDependenciesAreResolved(t *testing.T) {
 		t.Error("Php should resolve")
 	}
 }
+
+func TestRunningependsOnDependencies(t *testing.T) {
+	c1 := &api.Container{
+		Name:        "a",
+		KnownStatus: api.ContainerStatusNone,
+	}
+	c2 := &api.Container{
+		Name:            "b",
+		KnownStatus:     api.ContainerStatusNone,
+		DesiredStatus:   api.ContainerCreated,
+		RunDependencies: []string{"a"},
+	}
+	task := &api.Task{Containers: []*api.Container{c1, c2}}
+
+	if DependenciesAreResolved(c2, task.Containers) {
+		t.Error("Dependencies should not be resolved")
+	}
+	task.Containers[1].DesiredStatus = api.ContainerRunning
+	if DependenciesAreResolved(c2, task.Containers) {
+		t.Error("Dependencies should not be resolved")
+	}
+	task.Containers[0].KnownStatus = api.ContainerRunning
+
+	if !DependenciesAreResolved(c2, task.Containers) {
+		t.Error("Dependencies should be resolved")
+	}
+	task.Containers[1].DesiredStatus = api.ContainerCreated
+	if !DependenciesAreResolved(c1, task.Containers) {
+		t.Error("Dependencies should be resolved")
+	}
+}

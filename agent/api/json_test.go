@@ -142,3 +142,47 @@ func TestUnmarshalContainerOverrides(t *testing.T) {
 		t.Error("No error when unmarshalling a really invalid json string")
 	}
 }
+
+func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
+	task := &Task{
+		Arn: "test",
+		Volumes: []TaskVolume{
+			TaskVolume{Name: "1", Volume: &EmptyHostVolume{}},
+			TaskVolume{Name: "2", Volume: &FSHostVolume{FSSourcePath: "/path"}},
+		},
+	}
+
+	marshal, err := json.Marshal(task)
+	if err != nil {
+		t.Fatal("Could not marshal: ", err)
+	}
+
+	var out Task
+	err = json.Unmarshal(marshal, &out)
+	if err != nil {
+		t.Fatal("Could not unmarshal: ", err)
+	}
+
+	if len(out.Volumes) != 2 {
+		t.Fatal("Incorrect number of volumes")
+	}
+
+	var v1, v2 TaskVolume
+
+	for _, v := range out.Volumes {
+		if v.Name == "1" {
+			v1 = v
+		} else {
+			v2 = v
+		}
+	}
+
+	if _, ok := v1.Volume.(*EmptyHostVolume); !ok {
+		t.Error("Expected v1 to be an empty volume")
+	}
+
+	fs, ok := v2.Volume.(*FSHostVolume)
+	if !ok || fs.FSSourcePath != "/path" {
+		t.Error("Unmarshaled v2 didn't match marshalled v2")
+	}
+}
