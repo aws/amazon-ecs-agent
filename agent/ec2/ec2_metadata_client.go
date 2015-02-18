@@ -135,3 +135,24 @@ func (c EC2MetadataClient) ReadResource(path string) ([]byte, error) {
 
 	return ioutil.ReadAll(resp.Body)
 }
+
+// DefaultClient is the client used for package level methods.
+var DefaultClient = NewEC2MetadataClient()
+
+// ReadResource reads a given path from the EC2 metadata service using the
+// default client
+func ReadResource(path string) ([]byte, error) {
+	return DefaultClient.ReadResource(path)
+}
+
+// GetInstanceIdentityDocument returns an InstanceIdentityDocument read using
+// the default client
+func GetInstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+	return DefaultClient.InstanceIdentityDocument()
+}
+
+// DefaultCredentials returns the instance's default role read using the default
+// client
+func DefaultCredentials() (*RoleCredentials, error) {
+	return DefaultClient.DefaultCredentials()
+}

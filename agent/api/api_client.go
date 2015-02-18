@@ -186,8 +186,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 	svcRequest := svc.NewRegisterContainerInstanceRequest()
 	svcRequest.SetCluster(&clusterRef)
 
-	ec2MetadataClient := ec2.NewEC2MetadataClient()
-	instanceIdentityDoc, err := ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	instanceIdentityDoc, err := ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
 		log.Error("Unable to get instance identity document", "err", err)
@@ -199,7 +198,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 
 	instanceIdentitySignature := []byte{}
 	if iidRetrieved {
-		instanceIdentitySignature, err = ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
+		instanceIdentitySignature, err = ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
 		if err != nil {
 			log.Error("Unable to get instance identity signature", "err", err)
 		}

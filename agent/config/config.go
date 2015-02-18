@@ -200,8 +200,7 @@ func EnvironmentConfig() Config {
 }
 
 func EC2MetadataConfig() Config {
-	metadataClient := ec2.NewEC2MetadataClient()
-	iid, err := metadataClient.InstanceIdentityDocument()
+	iid, err := ec2.GetInstanceIdentityDocument()
 	if err == nil {
 		return Config{AWSRegion: iid.Region, APIEndpoint: ecsEndpoint(iid.Region)}
 	}
