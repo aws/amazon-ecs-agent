@@ -53,46 +53,62 @@ func main() {
 		os.Exit(1)
 	}
 
-	var previousCluster, previousInstanceID, previousContainerInstanceArn string
-	previousTaskEngine := engine.NewTaskEngine(cfg)
-	// previousState is used to verify that our current runtime configuration is
-	// compatible with our past configuration as reflected by our state-file
-	previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousInstanceID)
-	if err != nil {
-		log.Crit("Error creating state manager", "err", err)
-		os.Exit(1)
-	}
-
-	err = previousState.Load()
-	if err != nil {
-		log.Crit("Error loading previously saved state", "err", err)
-		os.Exit(1)
-	}
-
-	if cfg.Checkpoint && previousCluster != "" && previousCluster != cfg.Cluster {
-		log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", cfg.Cluster)
-		os.Exit(1)
-	}
-
-	var currentInstanceID, containerInstanceArn string
+	var currentEc2InstanceID, containerInstanceArn string
 	var taskEngine engine.TaskEngine
-	if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
-		currentInstanceID = instanceIdentityDoc.InstanceId
+
+	if cfg.Checkpoint {
+		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
+		previousTaskEngine := engine.NewTaskEngine(cfg)
+		// previousState is used to verify that our current runtime configuration is
+		// compatible with our past configuration as reflected by our state-file
+		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID)
+		if err != nil {
+			log.Crit("Error creating state manager", "err", err)
+			os.Exit(1)
+		}
+
+		err = previousState.Load()
+		if err != nil {
+			log.Crit("Error loading previously saved state", "err", err)
+			os.Exit(1)
+		}
+
+		if previousCluster != "" {
+			// TODO Handle default cluster in a sane and unified way across the codebase
+			configuredCluster := cfg.Cluster
+			if configuredCluster == "" {
+				configuredCluster = config.DEFAULT_CLUSTER_NAME
+			}
+			if previousCluster != configuredCluster {
+				log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", configuredCluster)
+				os.Exit(1)
+			}
+			cfg.Cluster = previousCluster
+			log.Info("Restored cluster", "cluster", cfg.Cluster)
+		}
+
+		if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
+			currentEc2InstanceID = instanceIdentityDoc.InstanceId
+		} else {
+			log.Crit("Unable to access EC2 Metadata service to determine EC2 ID", "err", err)
+		}
+
+		if previousEc2InstanceID != "" && previousEc2InstanceID != currentEc2InstanceID {
+			log.Crit("Data mismatch; saved InstanceID does not match current InstanceID. Overwriting old datafile", "current", currentEc2InstanceID, "saved", previousEc2InstanceID)
+
+			// Reset taskEngine; all the other values are still default
+			taskEngine = engine.NewTaskEngine(cfg)
+		} else {
+			// Use the values we loaded if there's no issue
+			containerInstanceArn = previousContainerInstanceArn
+			taskEngine = previousTaskEngine
+		}
 	} else {
-		log.Crit("Unable to access EC2 Metadata service to determine EC2 ID", "err", err)
-	}
-
-	if cfg.Checkpoint && previousInstanceID != "" && previousInstanceID != currentInstanceID {
-		log.Crit("Data mismatch; saved InstanceID does not match current InstanceID. Overwriting old datafile", "current", currentInstanceID, "saved", previousInstanceID)
-
-		// Reset taskEngine; all the other values are still default
+		log.Info("Checkpointing disabled")
 		taskEngine = engine.NewTaskEngine(cfg)
-	} else {
-		// Use the values we loaded if there's no issue
-		containerInstanceArn = previousContainerInstanceArn
-		taskEngine = previousTaskEngine
 	}
-	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentInstanceID)
+
+	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
 	if err != nil {
 		log.Crit("Error creating state manager", "err", err)
 		os.Exit(1)
