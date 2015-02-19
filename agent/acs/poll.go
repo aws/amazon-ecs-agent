@@ -1,3 +1,16 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package acs
 
 import (
@@ -57,7 +70,7 @@ func NewAgentCommunicationClient(endpoint string, cfg *config.Config, credential
 func (acc *AgentCommunicationClient) createAcsUrl() string {
 	acsUrl := acc.endpoint + "/ws"
 	query := url.Values{}
-	query.Set("clusterArn", acc.cfg.ClusterArn)
+	query.Set("clusterArn", acc.cfg.Cluster)
 	query.Set("containerInstanceArn", acc.containerInstanceArn)
 
 	return acsUrl + "?" + query.Encode()
@@ -66,7 +79,7 @@ func (acc *AgentCommunicationClient) createAcsUrl() string {
 // Poll contacts the agent communication service and opens a websocket to
 // wait for updates. It emits each state update to the Payload channel it
 // returns
-func (acc *AgentCommunicationClient) Poll(insecureCert bool) (<-chan *Payload, <-chan error, error) {
+func (acc *AgentCommunicationClient) Poll(acceptInvalidCert bool) (<-chan *Payload, <-chan error, error) {
 	cfg := acc.cfg
 	credentialProvider := acc.credentialProvider
 
@@ -88,7 +101,7 @@ func (acc *AgentCommunicationClient) Poll(insecureCert bool) (<-chan *Payload, <
 
 	timeoutDialer := &net.Dialer{Timeout: CONNECT_TIMEOUT}
 	log.Info("Creating poll dialer", "host", parsedAcsUrl.Host)
-	acsConn, err := tls.DialWithDialer(timeoutDialer, "tcp", net.JoinHostPort(parsedAcsUrl.Host, strconv.Itoa(acc.port)), &tls.Config{InsecureSkipVerify: insecureCert})
+	acsConn, err := tls.DialWithDialer(timeoutDialer, "tcp", net.JoinHostPort(parsedAcsUrl.Host, strconv.Itoa(acc.port)), &tls.Config{InsecureSkipVerify: acceptInvalidCert})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -148,7 +161,7 @@ func (acc *AgentCommunicationClient) Ack(message *Payload) bool {
 	}
 
 	log.Info("Acking a message", "messageId", message.MessageId)
-	ackRequest := AckRequest{ClusterArn: acc.cfg.ClusterArn, ContainerInstanceArn: acc.containerInstanceArn, MessageId: message.MessageId}
+	ackRequest := AckRequest{ClusterArn: acc.cfg.Cluster, ContainerInstanceArn: acc.containerInstanceArn, MessageId: message.MessageId}
 	result, err := json.Marshal(ackRequest)
 	if err != nil {
 		log.Error("Unable to marshal ack; this is odd", "err", err)

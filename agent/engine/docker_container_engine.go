@@ -1,6 +1,20 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package engine
 
 import (
+	"archive/tar"
 	"bufio"
 	"encoding/json"
 	"errors"
@@ -9,6 +23,8 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	dockerparsers "github.com/docker/docker/pkg/parsers"
@@ -19,15 +35,17 @@ import (
 
 // Interface to make testing it easier
 type DockerClient interface {
-	ContainerEvents() (<-chan DockerContainerChangeEvent, <-chan error)
+	ContainerEvents() (<-chan DockerContainerChangeEvent, error)
 
 	PullImage(image string) error
 	CreateContainer(*docker.Config, string) (string, error)
 	StartContainer(string, *docker.HostConfig) error
 	StopContainer(string) error
+	RemoveContainer(string) error
 	GetContainerName(string) (string, error)
 
 	InspectContainer(string) (*docker.Container, error)
+	DescribeContainer(string) (api.ContainerStatus, error)
 
 	client() (*docker.Client, error)
 }
@@ -40,6 +58,9 @@ var dockerclient *docker.Client
 
 // pullLock is a temporary workaround for a devicemapper issue. See: https://github.com/docker/docker/issues/9718
 var pullLock sync.Mutex
+
+// scratchCreateLock guards against multiple 'scratch' image creations at once
+var scratchCreateLock sync.Mutex
 
 type DockerImageResponse struct {
 	Images []docker.APIImages
@@ -67,6 +88,13 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	if err != nil {
 		return err
 	}
+
+	// Special case; this image is not one that should be pulled, but rather
+	// should be created locally if necessary
+	if image == emptyvolume.Image+":"+emptyvolume.Tag {
+		return dg.createScratchImageIfNotExists()
+	}
+
 	// The following lines of code are taken, in whole or part, from the docker
 	// source code. Please see the NOTICE file in the root of the project for
 	// attribution
@@ -80,9 +108,9 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	if err != nil {
 		return err
 	}
-	// TODO, authconfig
-
 	// End of docker-attributed code
+
+	authConfig := dockerauth.GetAuthconfig(hostname)
 
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
@@ -109,8 +137,41 @@ func (dg *DockerGoClient) PullImage(image string) error {
 			log.Error("Error reading pull image status", "image", image, "err", err)
 		}
 	}()
-	err = client.PullImage(opts, docker.AuthConfiguration{})
+	err = client.PullImage(opts, authConfig)
 
+	return err
+}
+
+func (dg *DockerGoClient) createScratchImageIfNotExists() error {
+	c, err := dg.client()
+	if err != nil {
+		return err
+	}
+
+	scratchCreateLock.Lock()
+	defer scratchCreateLock.Unlock()
+
+	_, err = c.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
+	if err == nil {
+		// Already exists; assume that it's okay to use it
+		return nil
+	}
+
+	reader, writer := io.Pipe()
+
+	emptytarball := tar.NewWriter(writer)
+	go func() {
+		emptytarball.Close()
+		writer.Close()
+	}()
+
+	// Create it from an empty tarball
+	err = c.ImportImage(docker.ImportImageOptions{
+		Repository:  emptyvolume.Image,
+		Tag:         emptyvolume.Tag,
+		Source:      "-",
+		InputStream: reader,
+	})
 	return err
 }
 
@@ -212,6 +273,14 @@ func (dg *DockerGoClient) StopContainer(dockerId string) error {
 	return client.StopContainer(dockerId, DEFAULT_TIMEOUT_SECONDS)
 }
 
+func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
+	client, err := dg.client()
+	if err != nil {
+		return err
+	}
+	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
+}
+
 func (dg *DockerGoClient) StopContainerById(id string) error {
 	client, err := dg.client()
 	if err != nil {
@@ -253,21 +322,19 @@ func (dg *DockerGoClient) client() (*docker.Client, error) {
 }
 
 // Listen to the docker event stream for container changes and pass them up
-func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, <-chan error) {
-	errc := make(chan error)
-
+func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, error) {
 	client, err := dg.client()
 	if err != nil {
-		errc <- err
-		return nil, errc
+		log.Error("Unable to communicate with docker daemon", "err", err)
+		return nil, err
 	}
 
 	events := make(chan *docker.APIEvents)
 
 	err = client.AddEventListener(events)
 	if err != nil {
-		errc <- errors.New("Unable to listen for docker events: " + err.Error())
-		return nil, errc
+		log.Error("Unable to add a docker event listener", "err", err)
+		return nil, err
 	}
 
 	changedContainers := make(chan DockerContainerChangeEvent)
@@ -305,5 +372,5 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 		}
 	}()
 
-	return changedContainers, errc
+	return changedContainers, nil
 }

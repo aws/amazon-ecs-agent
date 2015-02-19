@@ -1,3 +1,16 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package dependencygraph
 
 import (
@@ -63,8 +76,12 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
+	neededVolumeContainers := make([]string, len(target.VolumesFrom))
+	for i, volume := range target.VolumesFrom {
+		neededVolumeContainers[i] = volume.SourceContainer
+	}
 
-	return verifyStatusResolveable(target, nameMap, target.VolumesFrom, volumeCanResolve) &&
+	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
 		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
 }
 
@@ -76,9 +93,14 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
+	neededVolumeContainers := make([]string, len(target.VolumesFrom))
+	for i, volume := range target.VolumesFrom {
+		neededVolumeContainers[i] = volume.SourceContainer
+	}
 
-	return verifyStatusResolveable(target, nameMap, target.VolumesFrom, volumeIsResolved) &&
-		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved)
+	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
+		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
+		verifyStatusResolveable(target, nameMap, target.RunDependencies, onRunIsResolved)
 }
 
 // verifyStatusResolveable validates that `target` can be resolved given that
@@ -144,5 +166,14 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	}
 
 	log.Error("Unexpected desired status", "target", target)
+	return false
+}
+
+// onRunIsResolved defines a relationship where a target cannot be created until
+// 'run' has reached a running state.
+func onRunIsResolved(target *api.Container, run *api.Container) bool {
+	if target.DesiredStatus >= api.ContainerCreated {
+		return run.KnownStatus >= api.ContainerRunning
+	}
 	return false
 }

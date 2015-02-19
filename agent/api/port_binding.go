@@ -1,7 +1,19 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package api
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/fsouza/go-dockerclient"
@@ -9,8 +21,6 @@ import (
 
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
-// It prefers to fail-hard rather than report incorrect information, so any
-// issues in docker's data will result in an error
 func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, error) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
@@ -20,9 +30,6 @@ func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docke
 			return nil, err
 		}
 		containerPort := intPort
-		if len(bindings) == 0 {
-			return nil, errors.New("Zero length port-bindings are not supported.")
-		}
 		for _, binding := range bindings {
 			hostPort, err := strconv.Atoi(binding.HostPort)
 			if err != nil {

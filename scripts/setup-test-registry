@@ -1,0 +1,52 @@
+#!/bin/bash
+# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# 	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+
+# Run a local registry on the 'well known' port 51670 if it is not running.
+# Also push images we will need to it.
+
+REGISTRY_CONTAINER_NAME=test-ecs-registry
+status=$(docker inspect -f "{{ .State.Running }}" "$REGISTRY_CONTAINER_NAME")
+if [[ "$status" == "false" ]]; then
+	docker rm -f "$REGISTRY_CONTAINER_NAME"
+fi
+
+# This will fail if we already have one running, but that's fine. We'll see it
+# running and push our image to it to make sure it's there
+if [[ "$status" != "true" ]]; then
+	docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p 127.0.0.1:51670:5000 registry
+fi
+
+# Wait for it to be started which might include downloading the image
+status="false"
+for try in $(seq 1 300); do
+	status=$(docker inspect -f "{{ .State.Running }}" $REGISTRY_CONTAINER_NAME)
+	if [[ "$status" == "true" ]]; then
+		break
+	fi
+	sleep 1
+done
+
+if [[ "$status" != "true" ]]; then
+	echo "Unable to start test registry"
+	exit 1
+fi
+
+sleep 2
+
+# Make sure our images are pushed to it
+
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test"; do
+	docker tag -f "$image:make" "127.0.0.1:51670/$image:latest"
+	docker push "127.0.0.1:51670/$image:latest"
+done

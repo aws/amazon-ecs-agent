@@ -1,3 +1,16 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package auth
 
 import (
@@ -18,17 +31,14 @@ const (
 )
 
 type InstanceMetadataCredentialProvider struct {
-	expiration     *time.Time
-	lastCheck      *time.Time
-	metadataClient *ec2.EC2MetadataClient
-	credentials    AWSCredentials
-	lock           sync.Mutex
+	expiration  *time.Time
+	lastCheck   *time.Time
+	credentials AWSCredentials
+	lock        sync.Mutex
 }
 
 func NewInstanceMetadataCredentialProvider() *InstanceMetadataCredentialProvider {
 	imcp := new(InstanceMetadataCredentialProvider)
-
-	imcp.metadataClient = ec2.NewEC2MetadataClient()
 	return imcp
 }
 
@@ -56,9 +66,9 @@ func (imcp *InstanceMetadataCredentialProvider) Credentials() (*AWSCredentials, 
 	defer imcp.lock.Unlock()
 
 	if imcp.shouldRefresh() {
-		now := time.Now() // can't &time.Now()
+		now := time.Now()
 		imcp.lastCheck = &now
-		credStruct, err := imcp.metadataClient.DefaultCredentials()
+		credStruct, err := ec2.DefaultCredentials()
 		if err != nil {
 			return &imcp.credentials, err
 		}

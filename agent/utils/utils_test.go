@@ -1,9 +1,24 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package utils
 
 import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
 
 func TestDefaultIfBlank(t *testing.T) {
@@ -80,7 +95,11 @@ func TestSlicesDeepEqual(t *testing.T) {
 }
 
 func TestRetryWithBackoff(t *testing.T) {
-	start := time.Now()
+	test_time := &ttime.TestTime{}
+	test_time.LudicrousSpeed(true)
+	ttime.SetTime(test_time)
+
+	start := ttime.Now()
 
 	counter := 3
 	RetryWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
@@ -93,18 +112,64 @@ func TestRetryWithBackoff(t *testing.T) {
 	if counter != 0 {
 		t.Error("Counter didn't go to 0; didn't get retried enough")
 	}
-	testTime := time.Since(start)
+	testTime := ttime.Since(start)
 
 	if testTime.Seconds() < .29 || testTime.Seconds() > .31 {
 		t.Error("Retry didn't backoff for as long as expected")
 	}
 
-	start = time.Now()
+	start = ttime.Now()
 	RetryWithBackoff(NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
 		return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
 	})
 
-	if time.Since(start).Seconds() > .1 {
+	if ttime.Since(start).Seconds() > .1 {
 		t.Error("Retry for the trivial function took too long")
+	}
+}
+
+func TestRetryNWithBackoff(t *testing.T) {
+	test_time := &ttime.TestTime{}
+	test_time.LudicrousSpeed(true)
+	ttime.SetTime(test_time)
+
+	start := ttime.Now()
+
+	counter := 3
+	err := RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 2, func() error {
+		counter--
+		return errors.New("err")
+	})
+	if counter != 1 {
+		t.Error("Should have stopped after two tries")
+	}
+	if err == nil {
+		t.Error("Should have returned appropriate error")
+	}
+	testTime := ttime.Since(start)
+	// Expect that it tried twice, sleeping once between them
+	if testTime.Seconds() < 0.09 || testTime.Seconds() > 0.11 {
+		t.Error("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
+	}
+
+	start = ttime.Now()
+	counter = 3
+	err = RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
+		counter--
+		if counter == 0 {
+			return nil
+		}
+		return errors.New("err")
+	})
+	testTime = ttime.Since(start)
+	if counter != 0 {
+		t.Errorf("Counter expected to be 0, was %v", counter)
+	}
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	// 3 tries; 2 backoffs
+	if testTime.Seconds() < 0.190 || testTime.Seconds() > 0.210 {
+		t.Error("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
 	}
 }

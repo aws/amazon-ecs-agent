@@ -1,3 +1,16 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package ec2
 
 import (
@@ -121,4 +134,25 @@ func (c EC2MetadataClient) ReadResource(path string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	return ioutil.ReadAll(resp.Body)
+}
+
+// DefaultClient is the client used for package level methods.
+var DefaultClient = NewEC2MetadataClient()
+
+// ReadResource reads a given path from the EC2 metadata service using the
+// default client
+func ReadResource(path string) ([]byte, error) {
+	return DefaultClient.ReadResource(path)
+}
+
+// GetInstanceIdentityDocument returns an InstanceIdentityDocument read using
+// the default client
+func GetInstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+	return DefaultClient.InstanceIdentityDocument()
+}
+
+// DefaultCredentials returns the instance's default role read using the default
+// client
+func DefaultCredentials() (*RoleCredentials, error) {
+	return DefaultClient.DefaultCredentials()
 }

@@ -1,7 +1,21 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package api
 
 import (
 	"crypto/tls"
+	"errors"
 	"runtime"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/awsjson/codec"
@@ -34,18 +48,35 @@ type ApiECSClient struct {
 	credentialProvider credentials.AWSCredentialProvider
 	config             *config.Config
 	insecureSkipVerify bool
+
+	// Swappable impl for testing
+	serviceClientFn func() (svc.AmazonEC2ContainerServiceV20141113, error)
 }
 
 const (
 	ECS_SERVICE = "ecs"
-
-	DEFAULT_CLUSTER_NAME = "default"
 )
 
-// serviceClient recreates a new service clent and signer with each request.
-// This is because there is some question of whether the connection pool used by
-// the client is valid.
-func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV20141113Client, error) {
+const EcsMaxReasonLength = 255
+
+func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
+	client := &ApiECSClient{credentialProvider: credentialProvider,
+		config:             config,
+		insecureSkipVerify: insecureSkipVerify,
+	}
+	client.serviceClientFn = func() (svc.AmazonEC2ContainerServiceV20141113, error) {
+		return client.serviceClientImpl()
+	}
+	return client
+}
+
+// serviceClient provides a client for interacting with the ECS service apis
+func (client *ApiECSClient) serviceClient() (svc.AmazonEC2ContainerServiceV20141113, error) {
+	return client.serviceClientFn()
+}
+
+// serviceClientImpl is the default serviceClient provider.
+func (client *ApiECSClient) serviceClientImpl() (svc.AmazonEC2ContainerServiceV20141113, error) {
 	config := client.config
 
 	signer := authv4.NewHttpSigner(config.AWSRegion, ECS_SERVICE, client.CredentialProvider(), nil)
@@ -61,10 +92,6 @@ func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV2014
 
 	ecs := svc.NewAmazonEC2ContainerServiceV20141113Client(d, c)
 	return ecs, nil
-}
-
-func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
-	return &ApiECSClient{credentialProvider: credentialProvider, config: config, insecureSkipVerify: insecureSkipVerify}
 }
 
 func (client *ApiECSClient) CredentialProvider() credentials.AWSCredentialProvider {
@@ -96,33 +123,70 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 
 	resp, err := svcClient.CreateCluster(svcRequest)
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		log.Crit("Could not create cluster", "err", err)
 		return "", err
 	}
 	log.Info("Created a cluster!", "clusterName", clusterName)
-	return *resp.Cluster().ClusterArn(), nil
+	return *resp.Cluster().ClusterName(), nil
 
 }
 
+func (client *ApiECSClient) describeCluster(clusterName string) (clusterRef string, clusterStatus string, err error) {
+	svcRequest := svc.NewDescribeClustersRequest()
+	clusterNames := []*string{&clusterName}
+	svcRequest.SetClusters(clusterNames)
+
+	svcClient, err := client.serviceClient()
+	if err != nil {
+		log.Error("Unable to get service client for frontend", "err", err)
+		return
+	}
+
+	resp, err := svcClient.DescribeClusters(svcRequest)
+	if err != nil {
+		log.Error("Unable to describe cluster", "cluster", clusterName, "err", err)
+		return
+	}
+	for _, cluster := range resp.Clusters() {
+		if *cluster.ClusterName() == clusterName {
+			clusterRef = *cluster.ClusterName()
+			clusterStatus = *cluster.Status()
+			return
+		}
+	}
+	return
+}
+
 func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
-	clusterArn := client.config.ClusterArn
-	// If they don't give us a clusterArn, assume we should register to the
-	// default cluster
-	if clusterArn == "" {
-		var err error
-		clusterArn, err = client.CreateCluster(DEFAULT_CLUSTER_NAME)
+	clusterRef := client.config.Cluster
+	// If our clusterRef is empty, we should try to create the default
+	if clusterRef == "" {
+		clusterRef = config.DEFAULT_CLUSTER_NAME
+		defer func() {
+			// Update the config value to reflect the cluster we end up in
+			client.config.Cluster = clusterRef
+		}()
+		// Attempt to register without checking existence of the cluster so we don't require
+		// excess permissions in the case where the cluster already exists and is active
+		containerInstanceArn, err := client.registerContainerInstance(clusterRef)
+		if err == nil {
+			return containerInstanceArn, nil
+		}
+		// If trying to register fails, try to create the cluster before calling
+		// register again
+		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
 			return "", err
 		}
-		// Update it since we just overrode it with a default
-		client.config.ClusterArn = clusterArn
 	}
+	return client.registerContainerInstance(clusterRef)
+}
 
+func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string, error) {
 	svcRequest := svc.NewRegisterContainerInstanceRequest()
-	svcRequest.SetCluster(&clusterArn)
+	svcRequest.SetCluster(&clusterRef)
 
-	ec2MetadataClient := ec2.NewEC2MetadataClient()
-	instanceIdentityDoc, err := ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	instanceIdentityDoc, err := ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
 		log.Error("Unable to get instance identity document", "err", err)
@@ -134,7 +198,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 
 	instanceIdentitySignature := []byte{}
 	if iidRetrieved {
-		instanceIdentitySignature, err = ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
+		instanceIdentitySignature, err = ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
 		if err != nil {
 			log.Error("Unable to get instance identity signature", "err", err)
 		}
@@ -151,6 +215,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 	cpuResource.SetName(utils.Strptr("CPU"))
 	cpuResource.SetType(&integerStr)
 	cpuResource.SetIntegerValue(&cpu)
+
 	memResource := svc.NewResource()
 	memResource.SetName(utils.Strptr("MEMORY"))
 	memResource.SetType(&integerStr)
@@ -172,7 +237,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 
 	resp, err := ecs.RegisterContainerInstance(svcRequest)
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		log.Error("Could not register", "err", err)
 		return "", err
 	}
 	log.Info("Registered!")
@@ -182,30 +247,32 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError {
 	if change.TaskStatus == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return NewStateChangeError("SubmitTaskStateChange called with an invalid change", false)
+		return NewStateChangeError(errors.New("SubmitTaskStateChange called with an invalid change"))
 	}
 
-	req := svc.NewSubmitTaskStateChangeRequest()
-	req.SetTask(&change.TaskArn)
 	stat := change.TaskStatus.String()
 	if stat == "DEAD" {
 		stat = "STOPPED"
 	}
 	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Info("Not submitting not supported upstream task state", "state", stat)
-		return NewStateChangeError("State change not supported upstream", false)
+		log.Debug("Not submitting unsupported upstream task state", "state", stat)
+		// Not really an error
+		return nil
 	}
+
+	req := svc.NewSubmitTaskStateChangeRequest()
+	req.SetTask(&change.TaskArn)
 	req.SetStatus(&stat)
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	_, err = c.SubmitTaskStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	return nil
 }
@@ -222,11 +289,19 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		log.Info("Not submitting not supported upstream container state", "state", stat)
 		return nil
 	}
+
 	req.SetStatus(&stat)
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 	if change.ExitCode != nil {
 		exitCode := int32(*change.ExitCode)
 		req.SetExitCode(&exitCode)
+	}
+	if change.Reason != "" {
+		reason := change.Reason
+		if len(reason) > EcsMaxReasonLength {
+			reason = reason[:EcsMaxReasonLength]
+		}
+		req.SetReason(&reason)
 	}
 	networkBindings := make([]svc.NetworkBinding, len(change.PortBindings))
 	for i, binding := range change.PortBindings {
@@ -242,12 +317,12 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	_, err = c.SubmitContainerStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a container state change", "change", change, "err", err)
-		return &StateChangeError{err, true}
+		return NewStateChangeError(err)
 	}
 	return nil
 }
@@ -255,6 +330,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
 	req := svc.NewDiscoverPollEndpointRequest()
 	req.SetContainerInstance(&containerInstanceArn)
+	req.SetCluster(&client.config.Cluster)
 
 	c, err := client.serviceClient()
 	if err != nil {
@@ -271,7 +347,7 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 
 func (client *ApiECSClient) DeregisterContainerInstance(containerInstanceArn string) error {
 	req := svc.NewDeregisterContainerInstanceRequest()
-	req.SetCluster(&client.config.ClusterArn)
+	req.SetCluster(&client.config.Cluster)
 	req.SetContainerInstance(&containerInstanceArn)
 
 	c, err := client.serviceClient()

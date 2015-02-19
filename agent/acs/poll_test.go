@@ -1,3 +1,16 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package acs
 
 import (
@@ -7,7 +20,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -40,7 +52,7 @@ var serveHandler http.Handler
 
 func testClient() *AgentCommunicationClient {
 	testc := NewAgentCommunicationClient("https://"+TEST_ACS_ENDPOINT,
-		&config.Config{ClusterArn: TEST_CLUSTER_ARN, AWSRegion: "test"},
+		&config.Config{Cluster: TEST_CLUSTER_ARN, AWSRegion: "test"},
 		auth.TestCredentialProvider{},
 		TEST_INSTANCE_ARN)
 
@@ -249,7 +261,6 @@ func TestBadUrl(t *testing.T) {
 	badclient := testClient()
 	badclient.endpoint = "https://example.com"
 	_, _, err := badclient.Poll(true)
-	fmt.Println(err)
 	if err == nil {
 		t.Error("Could poll against example.com")
 	}

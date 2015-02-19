@@ -1,9 +1,23 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package config
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
@@ -24,6 +38,8 @@ const (
 	SSH_PORT = 22
 
 	AGENT_INTROSPECTION_PORT = 51678
+
+	DEFAULT_CLUSTER_NAME = "default"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -59,7 +75,7 @@ func (cfg *Config) Complete() bool {
 // missing:STRING and acts based on that string. Current options are: fatal,
 // warn. Fatal will result in a fatal error, warn will result in a warning that
 // the field is missing being logged
-func (cfg *Config) CheckMissing() {
+func (cfg *Config) CheckMissingAndDepreciated() {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
 
@@ -79,6 +95,13 @@ func (cfg *Config) CheckMissing() {
 			default:
 				log.Warn("Unexpected `missing` tag value", "tag", missingTag)
 			}
+		} else {
+			// present
+			deprecatedTag := cfgStructField.Field(i).Tag.Get("deprecated")
+			if len(deprecatedTag) == 0 {
+				continue
+			}
+			log.Warn("Use of deprecated configuration key", "key", cfgStructField.Field(i).Name, "message", deprecatedTag)
 		}
 	}
 }
@@ -91,6 +114,7 @@ func DefaultConfig() Config {
 		DockerEndpoint: "unix:///var/run/docker.sock",
 		AWSRegion:      awsRegion,
 		ReservedPorts:  []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		DataDir:        "/data/",
 	}
 }
 
@@ -101,11 +125,26 @@ func FileConfig() Config {
 	if err != nil {
 		return Config{}
 	}
-
-	decoder := json.NewDecoder(file)
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Error("Unable to read config file", "err", err)
+		return Config{}
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		// empty file, not an error
+		return Config{}
+	}
 
 	config := Config{}
-	decoder.Decode(&config)
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		log.Error("Error reading config json data", "err", err)
+	}
+
+	// Handle any deprecated keys correctly here
+	if utils.ZeroOrNil(config.Cluster) && !utils.ZeroOrNil(config.ClusterArn) {
+		config.Cluster = config.ClusterArn
+	}
 	return config
 }
 
@@ -115,10 +154,23 @@ func EnvironmentConfig() Config {
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
 	port, _ := strconv.Atoi(os.Getenv("ECS_BACKEND_PORT"))
 
-	clusterArn := os.Getenv("ECS_CLUSTER")
+	clusterRef := os.Getenv("ECS_CLUSTER")
 	awsRegion := os.Getenv("AWS_DEFAULT_REGION")
 
 	dockerEndpoint := os.Getenv("DOCKER_HOST")
+	engineAuthType := os.Getenv("ECS_ENGINE_AUTH_TYPE")
+	engineAuthData := os.Getenv("ECS_ENGINE_AUTH_DATA")
+
+	var checkpoint bool
+	dataDir := os.Getenv("ECS_DATADIR")
+	if dataDir != "" {
+		// if we have a directory to checkpoint to, default it to be on
+		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
+	} else {
+		// if the directory is not set, default to checkpointing off for
+		// backwards compatibility
+		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
+	}
 
 	// Format: json array, e.g. [1,2,3]
 	reservedPortEnv := os.Getenv("ECS_RESERVED_PORTS")
@@ -134,18 +186,21 @@ func EnvironmentConfig() Config {
 	}
 
 	return Config{
-		ClusterArn:     clusterArn,
+		Cluster:        clusterRef,
 		APIEndpoint:    endpoint,
 		APIPort:        uint16(port),
 		AWSRegion:      awsRegion,
 		DockerEndpoint: dockerEndpoint,
 		ReservedPorts:  reservedPorts,
+		DataDir:        dataDir,
+		Checkpoint:     checkpoint,
+		EngineAuthType: engineAuthType,
+		EngineAuthData: []byte(engineAuthData),
 	}
 }
 
 func EC2MetadataConfig() Config {
-	metadataClient := ec2.NewEC2MetadataClient()
-	iid, err := metadataClient.InstanceIdentityDocument()
+	iid, err := ec2.GetInstanceIdentityDocument()
 	if err == nil {
 		return Config{AWSRegion: iid.Region, APIEndpoint: ecsEndpoint(iid.Region)}
 	}
@@ -161,7 +216,7 @@ func NewConfig() (*Config, error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
 	config := &ctmp
 	defer func() {
-		config.CheckMissing()
+		config.CheckMissingAndDepreciated()
 		config.Merge(DefaultConfig())
 	}()
 
