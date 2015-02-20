@@ -18,7 +18,7 @@
 %define data_dir /var/lib/ecs/data
 Name:           ecs-init
 Version:        0.2
-Release:        2
+Release:        3
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -36,6 +36,7 @@ Requires:	coreutils
 Requires:	grep
 Requires:	sed
 Requires:	curl
+Requires:	gawk
 
 %description
 ecs-init is init scripts for Amazon ECS-Optimized instances. The scripts
@@ -71,6 +72,8 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Tue Feb 17 2015 Eric Nordlund <ericn@amazon.com> - 0.2-3
+- Test for existing container agent and force remove it
 * Thu Jan 15 2015 Samuel Karp <skarp@amazon.com> - 0.2-2
 - Mount data directory for state persistence
 - Enable JSON-based configuration
