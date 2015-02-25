@@ -363,6 +363,7 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 			case "export":
 
 			// Image events
+			case "pull":
 			case "untag":
 			case "delete":
 			default:

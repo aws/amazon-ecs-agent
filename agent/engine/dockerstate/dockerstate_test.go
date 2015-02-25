@@ -121,3 +121,33 @@ func TestTwophaseAddContainer(t *testing.T) {
 		t.Fatal("Incorrect container fetched")
 	}
 }
+
+func TestRemoveTask(t *testing.T) {
+	state := NewDockerTaskEngineState()
+	testContainer := &api.Container{
+		Name: "c1",
+	}
+	testDockerContainer := &api.DockerContainer{
+		DockerId:  "did",
+		Container: testContainer,
+	}
+	testTask := &api.Task{
+		Arn:        "t1",
+		Containers: []*api.Container{testContainer},
+	}
+
+	state.AddOrUpdateTask(testTask)
+	state.AddContainer(testDockerContainer, testTask)
+
+	tasks := state.AllTasks()
+	if len(tasks) != 1 {
+		t.Error("Expected only 1 task")
+	}
+
+	state.RemoveTask(testTask)
+
+	tasks = state.AllTasks()
+	if len(tasks) != 0 {
+		t.Error("Expected task to be removed")
+	}
+}

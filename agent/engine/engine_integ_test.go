@@ -901,4 +901,9 @@ func TestSweepContainer(t *testing.T) {
 	if ok {
 		t.Error("Expected container to have been sweept but was not")
 	}
+
+	allTasks := taskEngine.(*DockerTaskEngine).State().AllTasks()
+	if len(allTasks) != 0 {
+		t.Error("Sweep did not remove all containers")
+	}
 }
