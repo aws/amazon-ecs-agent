@@ -22,7 +22,7 @@ gobuild:
 
 # Basic go build
 static:
-	cd agent && CGO_ENABLED=0 godep go build -a -x -ldflags '-s' -o ../out/amazon-ecs-agent .
+	cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -x -ldflags '-s' -o ../out/amazon-ecs-agent .
 
 # Phony target to make sure we never clobber someone's dockerfile. TODO, better
 # cleaning up of the dockerfile we ln so that this doesn't trigger incorrectly

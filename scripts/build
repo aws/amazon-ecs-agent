@@ -15,7 +15,7 @@
 export GOPATH=`godep path`:$GOPATH
 
 # Statically link to ensure we can run in scratch
-CGO_ENABLED=0 go build -a -x -ldflags '-s' -o amazon-ecs-agent
+CGO_ENABLED=0 go build -a -installsuffix cgo -x -ldflags '-s' -o amazon-ecs-agent
 
 
 buildErr=$?

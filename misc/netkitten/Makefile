@@ -15,9 +15,7 @@
 all: netkitten image
 
 netkitten:
-	# Build in a go 1.3 container explicitly so static compiling works as
-	# expected
-	docker run -v $(shell pwd):/out -v $(shell pwd)/netkitten.go:/in/netkitten.go -e CGO_ENABLED=0 golang:1.3 go build -a -x -ldflags '-s' -o /out/netkitten /in/netkitten.go
+	docker run -v $(shell pwd):/out -v $(shell pwd)/netkitten.go:/in/netkitten.go -e CGO_ENABLED=0 golang:1.4 go build -a -installsuffix cgo -x -ldflags '-s' -o /out/netkitten /in/netkitten.go
 
 image: netkitten
 	@./docker-image
