@@ -127,7 +127,8 @@ func main() {
 	}
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
-	client := api.NewECSClient(credentialProvider, cfg, *acceptInsecureCert)
+	awsCreds := auth.ToSDK(credentialProvider)
+	client := api.NewECSClient(awsCreds, cfg, *acceptInsecureCert)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")

@@ -16,15 +16,17 @@ package api
 import (
 	"errors"
 	"testing"
+
+	"github.com/awslabs/aws-sdk-go/aws"
 )
 
 func TestNewAPIError(t *testing.T) {
 	retriable := []error{
-		errors.New(`{"__type":"ServerException","message":"Clear skys"}`),
+		aws.APIError{Code: "ServerException"},
 		errors.New("Error"),
 	}
 	unretriable := []error{
-		errors.New(`{"__type":"ClientException","message":"Rainy day"}`),
+		aws.APIError{Code: "ClientException"},
 	}
 
 	for i, err := range retriable {

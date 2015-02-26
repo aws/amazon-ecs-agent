@@ -11,27 +11,29 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package model
+package auth
 
 import (
-	"reflect"
-	"testing"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
+	"github.com/awslabs/aws-sdk-go/aws"
 )
 
-type testShape struct {
+type toSdkProvider struct {
+	credentials credentials.AWSCredentialProvider
 }
 
-func TestRegisterShape(t *testing.T) {
-	var i testShape
-	typeOf := reflect.TypeOf(&i)
-	RegisterShape("testShape", typeOf, func() interface{} {
-		return testShape{}
-	})
-	shape, err := GetShapeFromType(reflect.Indirect(reflect.ValueOf(testShape{})).Type())
+func (t *toSdkProvider) Credentials() (*aws.Credentials, error) {
+	creds, err := t.credentials.Credentials()
 	if err != nil {
-		t.Errorf("%s", err)
+		return nil, err
 	}
-	if _, ok := shape.New().(testShape); !ok {
-		t.Errorf(`New("bar") = %t, expected %t`, shape, testShape{})
-	}
+	return &aws.Credentials{
+		AccessKeyID:     creds.AccessKey,
+		SecretAccessKey: creds.SecretKey,
+		SessionToken:    creds.Token,
+	}, nil
+}
+
+func ToSDK(creds credentials.AWSCredentialProvider) aws.CredentialsProvider {
+	return &toSdkProvider{creds}
 }

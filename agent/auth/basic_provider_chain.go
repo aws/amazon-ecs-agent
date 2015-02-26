@@ -30,7 +30,6 @@ func newBasicAWSCredentialProvider() *BasicAWSCredentialProvider {
 // NewBasicAWSCredentialProvider creates a credential provider chain with
 // commonly desired defaults. It pulls credentials from the environment and then
 // the instance metadata
-// TODO: Add the aws-cli's saved credentials format which reads from a file
 func NewBasicAWSCredentialProvider() *BasicAWSCredentialProvider {
 	provider := newBasicAWSCredentialProvider()
 

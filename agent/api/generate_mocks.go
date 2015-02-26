@@ -11,23 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//The codec package defines how to read and write data from the wire
-package codec
+package api
 
-import (
-	"io"
-)
-
-//A Codec defines how to read and write data from the wire
-type Codec interface {
-	RoundTrip(*Request, io.ReadWriter) error
-}
-type ShapeRef struct {
-	ShapeName string
-}
-type Request struct {
-	Service   ShapeRef
-	Operation ShapeRef
-	Input     interface{}
-	Output    interface{}
-}
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSClient mocks/api_mocks.go

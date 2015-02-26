@@ -28,7 +28,7 @@ const defaultTimeout = 10 * time.Minute
 
 // Default is the client used by this package; it should be overridden as
 // desired for testing
-var Default *http.Client = &http.Client{}
+var Default *http.Client
 
 // Transport is the transport requests will be made over
 var Transport = http.DefaultTransport
@@ -36,6 +36,7 @@ var Transport = http.DefaultTransport
 type ecsRoundTripper struct{}
 
 func init() {
+	Default = New(defaultTimeout)
 	Default.Transport = &ecsRoundTripper{}
 	Default.Timeout = defaultTimeout
 }
@@ -53,4 +54,14 @@ func (*ecsRoundTripper) CancelRequest(req *http.Request) {
 	if def, ok := http.DefaultTransport.(*http.Transport); ok {
 		def.CancelRequest(req)
 	}
+}
+
+// New returns an ECS httpClient with a roundtrip timeout of the given duration
+func New(timeout time.Duration) *http.Client {
+	client := &http.Client{
+		Transport: &ecsRoundTripper{},
+		Timeout:   timeout,
+	}
+
+	return client
 }
