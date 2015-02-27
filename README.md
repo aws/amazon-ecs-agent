@@ -29,7 +29,7 @@ See also the Advanced Usage section below.
 ### Docker Image
 
 The Amazon ECS Container Agent may be built by simply typing `make` with the [Docker
-daemon](https://docs.docker.com/installation/) running.
+daemon](https://docs.docker.com/installation/) (v1.5.0) running.
 
 This will produce an image tagged `amazon/ecs-container-agent:development` which
 you may run as described above.
