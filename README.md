@@ -104,7 +104,9 @@ agent will output on stdout at the given level. This is overridden by the
 ## Contributing
 
 Contributions and feedback are welcome! Proposals and Pull Requests will be
-considered and responded to.
+considered and responded to. Please see the
+[CONTRIBUTING.md](https://github.com/aws/amazon-ecs-agent/blob/master/CONTRIBUTING.md)
+file for more information.
 
 Amazon Web Services does not currently provide support for modified copies of
 this software.
