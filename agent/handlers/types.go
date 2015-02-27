@@ -14,8 +14,9 @@
 package handlers
 
 type MetadataResponse struct {
-	Cluster           string
+	Cluster              string
 	ContainerInstanceArn *string
+	Version              string
 }
 
 type TaskResponse struct {

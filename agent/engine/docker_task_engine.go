@@ -89,18 +89,15 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
 func (engine *DockerTaskEngine) Init() error {
-	if engine.client == nil {
-		client, err := NewDockerGoClient()
-		if err != nil {
-			return err
-		}
-		engine.client = client
+	err := engine.initDockerClient()
+	if err != nil {
+		return err
 	}
 
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
-	err := engine.openEventstream()
+	err = engine.openEventstream()
 	if err != nil {
 		return err
 	}
@@ -110,6 +107,17 @@ func (engine *DockerTaskEngine) Init() error {
 
 	go engine.sweepTasks()
 
+	return nil
+}
+
+func (engine *DockerTaskEngine) initDockerClient() error {
+	if engine.client == nil {
+		client, err := NewDockerGoClient()
+		if err != nil {
+			return err
+		}
+		engine.client = client
+	}
 	return nil
 }
 
@@ -583,4 +591,14 @@ func (engine *DockerTaskEngine) RemoveContainer(task *api.Task, container *api.C
 // It returns an internal representation of the state of this DockerTaskEngine.
 func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 	return engine.state
+}
+
+// Version returns the underlying docker version.
+func (engine *DockerTaskEngine) Version() (string, error) {
+	// Must be able to be called before Init()
+	err := engine.initDockerClient()
+	if err != nil {
+		return "", err
+	}
+	return engine.client.Version()
 }

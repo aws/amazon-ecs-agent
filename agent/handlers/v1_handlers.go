@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 var log = logger.ForModule("Handlers")
@@ -45,6 +46,7 @@ func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	resp := &MetadataResponse{
 		Cluster:              cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
+		Version:              version.String(),
 	}
 	responseJSON, _ := json.Marshal(resp)
 

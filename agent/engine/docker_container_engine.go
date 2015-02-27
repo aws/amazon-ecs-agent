@@ -47,7 +47,7 @@ type DockerClient interface {
 	InspectContainer(string) (*docker.Container, error)
 	DescribeContainer(string) (api.ContainerStatus, error)
 
-	client() (*docker.Client, error)
+	Version() (string, error)
 }
 
 // Implements DockerClient
@@ -373,4 +373,16 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 	}()
 
 	return changedContainers, nil
+}
+
+func (dg *DockerGoClient) Version() (string, error) {
+	client, err := dg.client()
+	if err != nil {
+		return "", err
+	}
+	info, err := client.Version()
+	if err != nil {
+		return "", err
+	}
+	return "DockerVersion: " + info.Get("Version"), nil
 }
