@@ -1,5 +1,7 @@
 # Amazon ECS Container Agent
 
+[![Build Status](https://travis-ci.org/aws/amazon-ecs-agent.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-agent)
+
 The Amazon ECS Container Agent is software developed for the [Amazon EC2 Container Service](http://aws.amazon.com/ecs/).
 
 It runs on Container Instances and starts containers on behalf of Amazon ECS.
@@ -31,7 +33,7 @@ See also the Advanced Usage section below.
 The Amazon ECS Container Agent may be built by simply typing `make` with the [Docker
 daemon](https://docs.docker.com/installation/) running.
 
-This will produce an image tagged `amazon/ecs-container-agent:development` which
+This will produce an image tagged `amazon/ecs-container-agent:make` which
 you may run as described above.
 
 ### Standalone
@@ -103,6 +105,9 @@ agent will output on stdout at the given level. This is overridden by the
 
 Contributions and feedback are welcome! Proposals and Pull Requests will be
 considered and responded to.
+
+Amazon Web Services does not currently provide support for modified copies of
+this software.
 
 
 ## License
