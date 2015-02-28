@@ -22,7 +22,7 @@ gobuild:
 
 # Basic go build
 static:
-	cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -x -ldflags '-s' -o ../out/amazon-ecs-agent .
+	cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -ldflags '-s' -o ../out/amazon-ecs-agent .
 
 docker:
 	docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
