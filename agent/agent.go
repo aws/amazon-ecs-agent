@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 func init() {
@@ -37,9 +39,11 @@ func init() {
 }
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
 	flag.Parse()
+
 	logger.SetLevel(*logLevel)
 	log := logger.ForModule("main")
 
@@ -52,41 +56,72 @@ func main() {
 		os.Exit(1)
 	}
 
-	containerInstanceArn := ""
-	configuredCluster := cfg.Cluster // Save a copy of the cluster so we can verify the loaded one matches
-	taskEngine := engine.NewTaskEngine(cfg)
+	if *versionFlag {
+		versionableEngine := engine.NewTaskEngine(cfg)
+		version.PrintVersion(versionableEngine)
+		os.Exit(0)
+	}
 
-	// Load any state from disk *before* talking to the docker daemon or any
-	// network services such that the information we get from them is applied to
-	// the correct state
-	var state_manager statemanager.StateManager
-	if !cfg.Checkpoint {
-		state_manager = statemanager.NewNoopStateManager()
-	} else {
-		state_manager, err = statemanager.NewStateManager(cfg,
-			statemanager.AddSaveable("TaskEngine", taskEngine),
-			statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
-			statemanager.AddSaveable("Cluster", &cfg.Cluster),
-		)
+	var currentEc2InstanceID, containerInstanceArn string
+	var taskEngine engine.TaskEngine
+
+	if cfg.Checkpoint {
+		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
+		previousTaskEngine := engine.NewTaskEngine(cfg)
+		// previousState is used to verify that our current runtime configuration is
+		// compatible with our past configuration as reflected by our state-file
+		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
 			os.Exit(1)
 		}
+
+		err = previousState.Load()
+		if err != nil {
+			log.Crit("Error loading previously saved state", "err", err)
+			os.Exit(1)
+		}
+
+		if previousCluster != "" {
+			// TODO Handle default cluster in a sane and unified way across the codebase
+			configuredCluster := cfg.Cluster
+			if configuredCluster == "" {
+				configuredCluster = config.DEFAULT_CLUSTER_NAME
+			}
+			if previousCluster != configuredCluster {
+				log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", configuredCluster)
+				os.Exit(1)
+			}
+			cfg.Cluster = previousCluster
+			log.Info("Restored cluster", "cluster", cfg.Cluster)
+		}
+
+		if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
+			currentEc2InstanceID = instanceIdentityDoc.InstanceId
+		} else {
+			log.Crit("Unable to access EC2 Metadata service to determine EC2 ID", "err", err)
+		}
+
+		if previousEc2InstanceID != "" && previousEc2InstanceID != currentEc2InstanceID {
+			log.Crit("Data mismatch; saved InstanceID does not match current InstanceID. Overwriting old datafile", "current", currentEc2InstanceID, "saved", previousEc2InstanceID)
+
+			// Reset taskEngine; all the other values are still default
+			taskEngine = engine.NewTaskEngine(cfg)
+		} else {
+			// Use the values we loaded if there's no issue
+			containerInstanceArn = previousContainerInstanceArn
+			taskEngine = previousTaskEngine
+		}
+	} else {
+		log.Info("Checkpointing disabled")
+		taskEngine = engine.NewTaskEngine(cfg)
 	}
-	err = state_manager.Load()
+
+	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
 	if err != nil {
-		log.Crit("Error loading initial state", "err", err)
+		log.Crit("Error creating state manager", "err", err)
 		os.Exit(1)
 	}
-
-	if cfg.Checkpoint && configuredCluster != "" && configuredCluster != cfg.Cluster {
-		log.Crit("Cluster mismatch; saved cluster does not match configured cluster", "configured", configuredCluster, "saved", cfg.Cluster)
-		os.Exit(1)
-	}
-
-	// Begin listening to the docker daemon and saving changes
-	taskEngine.SetSaver(state_manager)
-	taskEngine.MustInit()
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
 	client := api.NewECSClient(credentialProvider, cfg, *acceptInsecureCert)
@@ -100,18 +135,22 @@ func main() {
 		}
 		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 		// Save our shiny new containerInstanceArn
-		state_manager.Save()
+		stateManager.Save()
 	} else {
 		log.Info("Restored state", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 	}
 
-	sighandlers.StartTerminationHandler(state_manager)
+	// Begin listening to the docker daemon and saving changes
+	taskEngine.SetSaver(stateManager)
+	taskEngine.MustInit()
+
+	sighandlers.StartTerminationHandler(stateManager)
 
 	// Agent introspection api
 	go handlers.ServeHttp(&containerInstanceArn, taskEngine, cfg)
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, state_manager)
+	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
 	log.Info("Beginning Polling for updates")
 	// Todo, split into separate package
@@ -144,7 +183,7 @@ func main() {
 								taskEngine.AddTask(task)
 							}
 
-							err = state_manager.Save()
+							err = stateManager.Save()
 							if err != nil {
 								log.Error("Error saving state", "err", err)
 							}
@@ -171,4 +210,20 @@ func main() {
 			return nil
 		})
 	}
+}
+
+func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string) (statemanager.StateManager, error) {
+	if !cfg.Checkpoint {
+		return statemanager.NewNoopStateManager(), nil
+	}
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", containerInstanceArn),
+		statemanager.AddSaveable("Cluster", cluster),
+		statemanager.AddSaveable("EC2InstanceID", savedInstanceID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return stateManager, nil
 }

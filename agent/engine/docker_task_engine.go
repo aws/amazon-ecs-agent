@@ -89,17 +89,15 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
 func (engine *DockerTaskEngine) Init() error {
-	if engine.client == nil {
-		client, err := NewDockerGoClient()
-		if err != nil {
-			return err
-		}
-		engine.client = client
+	err := engine.initDockerClient()
+	if err != nil {
+		return err
 	}
+
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
-	err := engine.openEventstream()
+	err = engine.openEventstream()
 	if err != nil {
 		return err
 	}
@@ -109,6 +107,17 @@ func (engine *DockerTaskEngine) Init() error {
 
 	go engine.sweepTasks()
 
+	return nil
+}
+
+func (engine *DockerTaskEngine) initDockerClient() error {
+	if engine.client == nil {
+		client, err := NewDockerGoClient()
+		if err != nil {
+			return err
+		}
+		engine.client = client
+	}
 	return nil
 }
 
@@ -159,11 +168,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			if currentState > cont.Container.KnownStatus {
 				cont.Container.KnownStatus = currentState
 			}
-			// Even if the state didn't change, we send it upstream;
-			// there's no truly reliable way to be sure we have or haven't sent
-			// it already currently and there's no harm in re-sending an
-			// accurate status; TODO, store that we've sent some status so we
-			// can at least reduce the number of messages safely
+			// Over-aggressively resend everything. The task handler will
+			// discard items that have already been sent.
 			// We cannot actually emit an event yet because nothing is handling
 			// events; just throw it in a goroutine so this doesn't block
 			// forever.
@@ -208,11 +214,17 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 // knownStatus
 func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerContainer, reason string) {
 	err := engine.updateContainerMetadata(task, container)
+
+	// Every time something changes, make sure the state for the thing that
+	// changed is known about and move forwards if this change allows us to
+	defer engine.ApplyTaskState(task)
+
 	// Collect additional info we need for our StateChanges
 	if err != nil {
 		log.Crit("Error updating container metadata", "err", err)
 	}
 	cont := container.Container
+
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
@@ -231,11 +243,10 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 		event.TaskStatus = task_change
 	}
 	log.Info("Container change event", "event", event)
+	if cont.IsInternal {
+		return
+	}
 	engine.container_events <- event
-
-	// Every time something changes, make sure the state for the thing that
-	// changed is known about and move forwards if this change allows us to
-	engine.ApplyTaskState(task)
 }
 
 // openEventstream opens, but does not consume, the docker event stream
@@ -301,6 +312,8 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 			}
 			container.Container.KnownPortBindings = bindings
 		}
+
+		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerStopped:
 		fallthrough
 	case api.ContainerDead:
@@ -340,6 +353,8 @@ func TaskCompleted(task *api.Task) bool {
 }
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) {
+	task.PostUnmarshalTask()
+
 	task = engine.state.AddOrUpdateTask(task)
 
 	engine.ApplyTaskState(task)
@@ -434,7 +449,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 	if err != nil {
 		// If we were unable to successfully accomplish a state transition,
 		// we should move that container to 'stopped'
-		container.ApplyingError = err
+		container.ApplyingError = api.NewApplyingError(err)
 		container.DesiredStatus = api.ContainerStopped
 		// Because our desired status is now stopped, we should call this
 		// function again to actually stop it
@@ -487,7 +502,7 @@ func (engine *DockerTaskEngine) PullContainer(task *api.Task, container *api.Con
 
 func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.Container) error {
 	log.Info("Creating container", "task", task, "container", container)
-	config, err := container.DockerConfig()
+	config, err := task.DockerConfig(container)
 	if err != nil {
 		return err
 	}
@@ -499,7 +514,16 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 		engine.state.Lock()
 		defer engine.state.Unlock()
 
-		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + container.Name + "-" + utils.RandHex()
+		name := ""
+		for i := 0; i < len(container.Name); i++ {
+			c := container.Name[i]
+			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
+				continue
+			}
+			name += string(c)
+		}
+
+		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 		containerId, err := engine.client.CreateContainer(config, containerName)
 		if err != nil {
 			return err
@@ -567,4 +591,14 @@ func (engine *DockerTaskEngine) RemoveContainer(task *api.Task, container *api.C
 // It returns an internal representation of the state of this DockerTaskEngine.
 func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 	return engine.state
+}
+
+// Version returns the underlying docker version.
+func (engine *DockerTaskEngine) Version() (string, error) {
+	// Must be able to be called before Init()
+	err := engine.initDockerClient()
+	if err != nil {
+		return "", err
+	}
+	return engine.client.Version()
 }

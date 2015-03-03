@@ -1,0 +1,8 @@
+language: go
+go:
+    - 1.4
+before_install: ./scripts/hack/symlink-gopath-travisci
+install: make get-deps
+script:
+    # Full tests require building/running docker containers; short only for now
+    - make short-test

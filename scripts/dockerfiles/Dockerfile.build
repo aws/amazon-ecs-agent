@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.3
+FROM golang:1.4
 MAINTAINER Amazon Web Services, Inc.
 
 RUN mkdir /out
@@ -21,6 +21,7 @@ RUN mkdir -p /go/src/github.com/aws/
 RUN go get github.com/tools/godep
 
 
-WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
+COPY /scripts/build /scripts/build
+WORKDIR /go/src/github.com/aws/amazon-ecs-agent
 
-ENTRYPOINT ../scripts/build
+ENTRYPOINT /scripts/build

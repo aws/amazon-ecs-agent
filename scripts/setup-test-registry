@@ -46,5 +46,7 @@ sleep 2
 
 # Make sure our images are pushed to it
 
-docker tag -f "amazon/amazon-ecs-netkitten:make" "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
-docker push "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test"; do
+	docker tag -f "$image:make" "127.0.0.1:51670/$image:latest"
+	docker push "127.0.0.1:51670/$image:latest"
+done

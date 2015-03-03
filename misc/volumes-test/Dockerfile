@@ -1,4 +1,4 @@
-#!/bin/bash
+
 # Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,9 +11,13 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM busybox
+MAINTAINER Amazon Web Services, Inc.
 
-if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-netkitten:make" > /dev/null ; then
-	tar --owner=0 --group=0 --mtime="1970-01-01 00:00:00" --no-acls -c netkitten | docker import - "amazon/amazon-ecs-netkitten:premake"
-	docker build -q -t "amazon/amazon-ecs-netkitten:make" .
-	docker rmi "amazon/amazon-ecs-netkitten:premake"
-fi
+RUN mkdir /data
+RUN echo "test" > /data/test-file
+
+VOLUME ["/data"]
+
+ENTRYPOINT ["sh", "-c"]
+CMD ["trap \"exit 0\" SIGTERM SIGINT; while true; do sleep 1; done"]

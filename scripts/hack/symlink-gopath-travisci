@@ -12,8 +12,9 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-netkitten:make" > /dev/null ; then
-	tar --owner=0 --group=0 --mtime="1970-01-01 00:00:00" --no-acls -c netkitten | docker import - "amazon/amazon-ecs-netkitten:premake"
-	docker build -q -t "amazon/amazon-ecs-netkitten:make" .
-	docker rmi "amazon/amazon-ecs-netkitten:premake"
+# This script is meant to make all package available in the 'canonical' location
+# when running on travis-ci
+if [[ ! -d "$HOME/gopath/src/github.com/aws/amazon-ecs-agent" ]]; then
+	mkdir -p "$HOME/gopath/src/github.com/aws"
+	ln -s "$(pwd)" "$HOME/gopath/src/github.com/aws/amazon-ecs-agent"
 fi

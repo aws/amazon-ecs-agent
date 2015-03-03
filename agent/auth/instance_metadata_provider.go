@@ -31,17 +31,14 @@ const (
 )
 
 type InstanceMetadataCredentialProvider struct {
-	expiration     *time.Time
-	lastCheck      *time.Time
-	metadataClient *ec2.EC2MetadataClient
-	credentials    AWSCredentials
-	lock           sync.Mutex
+	expiration  *time.Time
+	lastCheck   *time.Time
+	credentials AWSCredentials
+	lock        sync.Mutex
 }
 
 func NewInstanceMetadataCredentialProvider() *InstanceMetadataCredentialProvider {
 	imcp := new(InstanceMetadataCredentialProvider)
-
-	imcp.metadataClient = ec2.NewEC2MetadataClient()
 	return imcp
 }
 
@@ -69,9 +66,9 @@ func (imcp *InstanceMetadataCredentialProvider) Credentials() (*AWSCredentials, 
 	defer imcp.lock.Unlock()
 
 	if imcp.shouldRefresh() {
-		now := time.Now() // can't &time.Now()
+		now := time.Now()
 		imcp.lastCheck = &now
-		credStruct, err := imcp.metadataClient.DefaultCredentials()
+		credStruct, err := ec2.DefaultCredentials()
 		if err != nil {
 			return &imcp.credentials, err
 		}

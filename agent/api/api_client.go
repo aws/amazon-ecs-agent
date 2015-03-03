@@ -48,6 +48,9 @@ type ApiECSClient struct {
 	credentialProvider credentials.AWSCredentialProvider
 	config             *config.Config
 	insecureSkipVerify bool
+
+	// Swappable impl for testing
+	serviceClientFn func() (svc.AmazonEC2ContainerServiceV20141113, error)
 }
 
 const (
@@ -56,10 +59,24 @@ const (
 
 const EcsMaxReasonLength = 255
 
-// serviceClient recreates a new service clent and signer with each request.
-// This is because there is some question of whether the connection pool used by
-// the client is valid.
-func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV20141113Client, error) {
+func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
+	client := &ApiECSClient{credentialProvider: credentialProvider,
+		config:             config,
+		insecureSkipVerify: insecureSkipVerify,
+	}
+	client.serviceClientFn = func() (svc.AmazonEC2ContainerServiceV20141113, error) {
+		return client.serviceClientImpl()
+	}
+	return client
+}
+
+// serviceClient provides a client for interacting with the ECS service apis
+func (client *ApiECSClient) serviceClient() (svc.AmazonEC2ContainerServiceV20141113, error) {
+	return client.serviceClientFn()
+}
+
+// serviceClientImpl is the default serviceClient provider.
+func (client *ApiECSClient) serviceClientImpl() (svc.AmazonEC2ContainerServiceV20141113, error) {
 	config := client.config
 
 	signer := authv4.NewHttpSigner(config.AWSRegion, ECS_SERVICE, client.CredentialProvider(), nil)
@@ -75,10 +92,6 @@ func (client *ApiECSClient) serviceClient() (*svc.AmazonEC2ContainerServiceV2014
 
 	ecs := svc.NewAmazonEC2ContainerServiceV20141113Client(d, c)
 	return ecs, nil
-}
-
-func NewECSClient(credentialProvider credentials.AWSCredentialProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
-	return &ApiECSClient{credentialProvider: credentialProvider, config: config, insecureSkipVerify: insecureSkipVerify}
 }
 
 func (client *ApiECSClient) CredentialProvider() credentials.AWSCredentialProvider {
@@ -159,17 +172,8 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 		if err == nil {
 			return containerInstanceArn, nil
 		}
-		// If trying to register fails, see if the cluster exists and is active
-		clusterRef, clusterStatus, err := client.describeCluster(clusterRef)
-		if err != nil {
-			return "", err
-		}
-		// Assume that an inactive cluster is intentional and do not recreate it
-		if clusterStatus != "" && clusterStatus != "ACTIVE" {
-			message := "Cluster is not available for registration"
-			log.Error(message, "cluster", clusterRef)
-			return "", errors.New(message)
-		}
+		// If trying to register fails, try to create the cluster before calling
+		// register again
 		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
 			return "", err
@@ -182,8 +186,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 	svcRequest := svc.NewRegisterContainerInstanceRequest()
 	svcRequest.SetCluster(&clusterRef)
 
-	ec2MetadataClient := ec2.NewEC2MetadataClient()
-	instanceIdentityDoc, err := ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	instanceIdentityDoc, err := ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
 		log.Error("Unable to get instance identity document", "err", err)
@@ -195,7 +198,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 
 	instanceIdentitySignature := []byte{}
 	if iidRetrieved {
-		instanceIdentitySignature, err = ec2MetadataClient.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
+		instanceIdentitySignature, err = ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
 		if err != nil {
 			log.Error("Unable to get instance identity signature", "err", err)
 		}
@@ -286,6 +289,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		log.Info("Not submitting not supported upstream container state", "state", stat)
 		return nil
 	}
+
 	req.SetStatus(&stat)
 	req.SetCluster(&client.config.Cluster)
 	if change.ExitCode != nil {
@@ -293,7 +297,10 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		req.SetExitCode(&exitCode)
 	}
 	if change.Reason != "" {
-		reason := change.Reason[:EcsMaxReasonLength]
+		reason := change.Reason
+		if len(reason) > EcsMaxReasonLength {
+			reason = reason[:EcsMaxReasonLength]
+		}
 		req.SetReason(&reason)
 	}
 	networkBindings := make([]svc.NetworkBinding, len(change.PortBindings))

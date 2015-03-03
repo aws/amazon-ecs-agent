@@ -11,8 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//Handlers for V1
-
+// Package handlers deals with the agent introspection api.
 package handlers
 
 import (
@@ -26,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 var log = logger.ForModule("Handlers")
@@ -44,8 +44,9 @@ type RootResponse struct {
 
 func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	resp := &MetadataResponse{
-		Cluster:           cfg.Cluster,
+		Cluster:              cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
+		Version:              version.String(),
 	}
 	responseJSON, _ := json.Marshal(resp)
 
@@ -55,11 +56,12 @@ func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 }
 
 func NewTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
-	containers := make([]ContainerResponse, len(containerMap))
-	ndx := 0
+	containers := []ContainerResponse{}
 	for containerName, container := range containerMap {
-		containers[ndx] = ContainerResponse{container.DockerId, container.DockerName, containerName}
-		ndx++
+		if container.Container.IsInternal {
+			continue
+		}
+		containers = append(containers, ContainerResponse{container.DockerId, container.DockerName, containerName})
 	}
 
 	return &TaskResponse{

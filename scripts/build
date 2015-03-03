@@ -12,18 +12,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-export GOPATH=`godep path`:$GOPATH
-
-# Statically link to ensure we can run in scratch
-CGO_ENABLED=0 go build -a -x -ldflags '-s' -o amazon-ecs-agent
-
+make static
+mv out/amazon-ecs-agent /out 2>/dev/null || true
 
 buildErr=$?
 if [[ $buildErr != 0 ]]; then
 	echo "Agent build exited with error: $buildErr"
 	exit $buildErr
 fi
-
-
-# Put it in the shared volume
-cp amazon-ecs-agent /out/amazon-ecs-agent
