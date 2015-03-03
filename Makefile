@@ -11,32 +11,48 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry gogenerate
 
-all: release
+all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
 # everything every time
-gobuild:
-	cd agent && godep go build -o ../out/amazon-ecs-agent .
+gobuild: gogenerate
+	@cd agent && godep go build -o ../out/amazon-ecs-agent .
+	@git checkout -- agent/version/version.go
 
 # Basic go build
-static:
-	cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -ldflags '-s' -o ../out/amazon-ecs-agent .
+static: gogenerate
+	@cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -ldflags '-s' -o ../out/amazon-ecs-agent .
+	@git checkout -- agent/version/version.go
 
-docker:
-	docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
-	docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
+# 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
+# directory
+build-in-docker:
+	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
+	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
 
-# Release packages our agent into a "scratch" based dockerfile
-release: certs out/amazon-ecs-agent
+# 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
+# or not
+docker: certs build-in-docker
 	@cd scripts && ./create-amazon-ecs-scratch
-	docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
+	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
 
-# There's two ways to build this; default to the docker way
-out/amazon-ecs-agent: docker
+# 'docker-release' builds the agent from a clean snapshot of the git repo in
+# 'RELEASE' mode
+docker-release:
+	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
+	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
 
+# Release packages our agent into a "scratch" based dockerfile
+release: certs docker-release
+	@cd scripts && ./create-amazon-ecs-scratch
+	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
+	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
+
+gogenerate:
+	@cd agent && go generate ./...
 
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt
@@ -44,8 +60,9 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-short-test:
+short-test: gogenerate
 	cd agent && godep go test -short -timeout=25s -v -cover ./...
+	@git checkout -- agent/version/version.go
 
 # Run our 'test' registry needed for integ tests
 test-registry: netkitten volumes-test

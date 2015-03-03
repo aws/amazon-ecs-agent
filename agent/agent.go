@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 func init() {
@@ -38,9 +39,11 @@ func init() {
 }
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
 	flag.Parse()
+
 	logger.SetLevel(*logLevel)
 	log := logger.ForModule("main")
 
@@ -51,6 +54,12 @@ func main() {
 	if err != nil {
 		log.Error("Error loading config", "err", err)
 		os.Exit(1)
+	}
+
+	if *versionFlag {
+		versionableEngine := engine.NewTaskEngine(cfg)
+		version.PrintVersion(versionableEngine)
+		os.Exit(0)
 	}
 
 	var currentEc2InstanceID, containerInstanceArn string

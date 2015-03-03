@@ -31,4 +31,6 @@ type TaskEngine interface {
 
 	UnmarshalJSON([]byte) error
 	MarshalJSON() ([]byte, error)
+
+	Version() (string, error)
 }

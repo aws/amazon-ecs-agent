@@ -21,6 +21,7 @@ RUN mkdir -p /go/src/github.com/aws/
 RUN go get github.com/tools/godep
 
 
-WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
+COPY /scripts/build /scripts/build
+WORKDIR /go/src/github.com/aws/amazon-ecs-agent
 
-ENTRYPOINT ../scripts/build
+ENTRYPOINT /scripts/build
