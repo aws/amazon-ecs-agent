@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs"
+	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -30,7 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -153,62 +152,10 @@ func main() {
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
 	log.Info("Beginning Polling for updates")
-	// Todo, split into separate package
-	for {
-		backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
-		utils.RetryWithBackoff(backoff, func() error {
-			acsEndpoint, err := client.DiscoverPollEndpoint(containerInstanceArn)
-			if err != nil {
-				log.Error("Could not discover poll endpoint", "err", err)
-				return err
-			}
-			log.Info("Discovered poll endpoint", "endpoint", acsEndpoint)
-			acsObj := acs.NewAgentCommunicationClient(acsEndpoint, cfg, credentialProvider, containerInstanceArn)
-
-			state_changes, errc, err := acsObj.Poll(*acceptInsecureCert)
-			if err != nil {
-				log.Error("Error polling; retrying", "err", err)
-				return err
-			}
-
-			var err_ok bool
-			for state_changes != nil {
-				select {
-				case state, state_ok := <-state_changes:
-					if state_ok {
-						backoff.Reset()
-
-						go func(payload *acs.Payload) {
-							for _, task := range payload.Tasks {
-								taskEngine.AddTask(task)
-							}
-
-							err = stateManager.Save()
-							if err != nil {
-								log.Error("Error saving state", "err", err)
-							}
-							acsObj.Ack(payload)
-						}(state)
-					} else {
-						// Break out of the loop to reconnect
-						state_changes = nil
-					}
-				case err, err_ok = <-errc:
-					if !err_ok {
-						log.Error("Error channel unexpectedly closed")
-
-						state_changes = nil // break out
-					}
-					log.Error("Error in state", "err", err)
-				}
-			}
-			if err != nil {
-				log.Warn("Error polling. Waiting and retrying")
-				return err
-			}
-			// Shouldn't happen
-			return nil
-		})
+	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
+	if err != nil {
+		log.Crit("Unretriable error starting communicating with ACS", "err", err)
+		os.Exit(1)
 	}
 }
 
