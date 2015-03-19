@@ -17,10 +17,10 @@
 package cache
 
 import (
+	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
 	os "os"
 	io "io"
-	gomock "code.google.com/p/gomock/gomock"
 )
 
 // Mock of httpGetter interface

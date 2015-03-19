@@ -14,41 +14,59 @@
 package main
 
 import (
-	"flag"
-	"fmt"
 	"os"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
+	"github.com/aws/amazon-ecs-init/ecs-init/docker"
 
 	log "github.com/cihub/seelog"
 )
 
-const (
-	configDirectory = "/tmp/etc/ecs"
-	ecsConfigFile   = configDirectory + "/ecs.config"
-	ecsJsonConfig   = configDirectory + "/ecs.config.json"
-	imageName       = "amazon/amazon-ecs-agent"
-	logDirectory    = "/tmp/var/log/ecs"
-	initLogFile     = logDirectory + "/ecs-init.log"
-	agentLogFile    = logDirectory + "/ecs-agent.log"
-	dataDirectory   = "/tmp/var/lib/ecs/data"
-)
-
 func main() {
 	defer log.Flush()
-	displayVersion := flag.Bool("v", false, "Version")
-	flag.Parse()
 
-	if *displayVersion {
-		fmt.Printf("Version %d\n", 1)
-	}
-
-	log.Info("Hello, world!")
-
-	err := cache.NewDownloader().DownloadAgent()
+	downloader := cache.NewDownloader()
+	err := downloader.DownloadAgent()
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 
+	agentImage, err := downloader.LoadCachedAgent()
+	if err != nil {
+		log.Error(err)
+		os.Exit(2)
+	}
+
+	docker, err := docker.NewClient()
+	if err != nil {
+		log.Error(err)
+		os.Exit(3)
+	}
+
+	loaded, err := docker.IsAgentImageLoaded()
+	if err != nil {
+		log.Error(err)
+		os.Exit(4)
+	}
+	log.Infof("Image loaded: %t", loaded)
+
+	err = docker.RemoveExistingAgentContainer()
+	if err != nil {
+		log.Error(err)
+		os.Exit(5)
+	}
+
+	err = docker.LoadImage(agentImage)
+	if err != nil {
+		log.Error(err)
+		os.Exit(6)
+	}
+
+	retval, err := docker.StartAgent()
+	if err != nil {
+		log.Error(err)
+		os.Exit(7)
+	}
+	log.Infof("Agent exited with code %d", retval)
 }
