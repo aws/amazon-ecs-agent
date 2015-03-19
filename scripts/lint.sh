@@ -1,4 +1,5 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#!/bin/bash
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -11,26 +12,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: gobuild generate lint static test sources rpm
 
-cwd:=$(shell pwd)
+export PATH="${GOPATH//://bin:}/bin:$PATH"
 
-gobuild:
-	cd ecs-init && go build -o ../amz-ecs-init
-
-generate:
-	PATH=$(PATH):$(cwd)/scripts go generate -v ./...
-
-lint:
-	$(cwd)/scripts/lint.sh
-
-static:
-	cd ecs-init && CGO_ENABLED=0 go build -a -x -ldflags '-s' -o ../amz-ecs-init
-
-test: generate lint
-	go test -v -cover ./...
-
-sources: static
-
-rpm: sources
-	rpmbuild -bb ecs-init.spec
+find . -name "*.go" | grep -v "_mock_test.go$" | xargs -n 1 golint -min_confidence 0.3

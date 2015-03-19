@@ -23,13 +23,15 @@ import (
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
+// Client enables business logic for running the Agent inside Docker
 type Client struct {
 	docker dockerclient
 	fs     fileSystem
 }
 
+// NewClient reutrns a new Client
 func NewClient() (*Client, error) {
-	client, err := NewDockerClient()
+	client, err := newDockerClient()
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +41,7 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
+// IsAgentImageLoaded returns true if the Agent image is loaded in Docker
 func (c *Client) IsAgentImageLoaded() (bool, error) {
 	images, err := c.docker.ListImages(godocker.ListImagesOptions{
 		All: true,
@@ -57,10 +60,13 @@ func (c *Client) IsAgentImageLoaded() (bool, error) {
 	return false, nil
 }
 
+// LoadImage loads an io.Reader into Docker
 func (c *Client) LoadImage(image io.Reader) error {
 	return c.docker.LoadImage(godocker.LoadImageOptions{image})
 }
 
+// RemoveExistingAgentContainer remvoes any existing container named
+// "ecs-agent" or returns without error if none is found
 func (c *Client) RemoveExistingAgentContainer() error {
 	// TODO pagination
 	containers, err := c.docker.ListContainers(godocker.ListContainersOptions{
@@ -94,6 +100,7 @@ func (c *Client) RemoveExistingAgentContainer() error {
 	return err
 }
 
+// StartAgent starts the Agent in Docker and returns the exit code from the container
 func (c *Client) StartAgent() (int, error) {
 	container, err := c.docker.CreateContainer(godocker.CreateContainerOptions{
 		Name:       config.AgentContainerName,

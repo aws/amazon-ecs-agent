@@ -17,7 +17,6 @@ package cache
 
 import (
 	"crypto/md5"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,6 +33,7 @@ const (
 	agentRemoteTarballMD5 = agentRemoteTarball + ".md5"
 )
 
+// Downloader is resposible for cache operations relating to downloading the agent
 type Downloader struct {
 	getter httpGetter
 	fs     fileSystem
@@ -67,19 +67,24 @@ func (d *Downloader) IsAgentLatest() bool {
 	}
 	defer file.Close()
 
+	md5hash := md5.New()
+	_, err = d.fs.Copy(md5hash, file)
+	if err != nil {
+		log.Error("Could not calculate md5sum", err)
+		return false
+	}
+
 	publishedMd5Sum, err := d.getPublishedMd5Sum()
 	if err != nil {
 		return false
 	}
 
-	md5hash := md5.New()
-	_, err = d.fs.Copy(md5hash, file)
 	calculatedMd5Sum := md5hash.Sum(nil)
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
 	log.Infof("Expected %s", publishedMd5Sum)
 	log.Infof("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = errors.New(fmt.Sprintf("Mismatched md5sum while checking if latest %s", agentTarball))
+		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", agentRemoteTarball)
 		return false
 	}
 	return true
@@ -135,7 +140,7 @@ func (d *Downloader) DownloadAgent() error {
 	log.Infof("Expected %s", publishedMd5Sum)
 	log.Infof("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = errors.New(fmt.Sprintf("Mismatched md5sum while downloading %s", agentRemoteTarball))
+		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
 		return err
 	}
 
@@ -168,7 +173,7 @@ func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Unexpected response code %d", resp.StatusCode))
+		return nil, fmt.Errorf("unexpected response code %d", resp.StatusCode)
 	}
 	return resp.Body, nil
 }

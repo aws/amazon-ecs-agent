@@ -13,6 +13,7 @@
 
 package config
 
+// Constants for running the agent
 const (
 	AgentConfigDirectory = "/tmp/etc/ecs"
 	AgentConfigFile      = AgentConfigDirectory + "/ecs.config"

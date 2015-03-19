@@ -86,6 +86,7 @@ func TestIsAgentLatestDownloadMD5Failure(t *testing.T) {
 	mockGetter := NewMockhttpGetter(mockCtrl)
 
 	mockFS.EXPECT().Open(agentTarball).Return(&os.File{}, nil)
+	mockFS.EXPECT().Copy(gomock.Any(), gomock.Any())
 	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(nil, errors.New("test error"))
 
 	d := &Downloader{

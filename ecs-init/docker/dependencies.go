@@ -39,7 +39,7 @@ type _dockerclient struct {
 	docker *godocker.Client
 }
 
-func NewDockerClient() (*_dockerclient, error) {
+func newDockerClient() (*_dockerclient, error) {
 	client, err := godocker.NewVersionedClient("unix://"+defaultDockerEndpoint, "1.15")
 	if err != nil {
 		return nil, err
