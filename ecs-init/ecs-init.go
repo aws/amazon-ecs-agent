@@ -14,59 +14,62 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/cache"
-	"github.com/aws/amazon-ecs-init/ecs-init/docker"
+	"github.com/aws/amazon-ecs-init/ecs-init/engine"
 
 	log "github.com/cihub/seelog"
 )
 
 func main() {
 	defer log.Flush()
+	flag.Parse()
+	actions := flag.Args()
 
-	downloader := cache.NewDownloader()
-	err := downloader.DownloadAgent()
-	if err != nil {
-		log.Error(err)
+	if len(actions) == 0 {
+		usage()
 		os.Exit(1)
 	}
 
-	agentImage, err := downloader.LoadCachedAgent()
+	init, err := engine.New()
 	if err != nil {
-		log.Error(err)
-		os.Exit(2)
+		die(err)
 	}
+	action := actions[0]
+	log.Info(action)
+	switch action {
+	case "pre-start":
+		err = init.PreStart()
+	case "pre-stop":
+		err = init.PreStop()
+	case "start":
+		err = init.Start()
+	case "update-cache":
+		err = init.UpdateCache()
+	default:
+		usage()
+		os.Exit(1)
+	}
+	if err != nil {
+		die(err)
+	}
+}
 
-	docker, err := docker.NewClient()
-	if err != nil {
-		log.Error(err)
-		os.Exit(3)
-	}
+func usage() {
+	fmt.Printf("Usage: %s ACTION\n", os.Args[0])
+	fmt.Println("")
+	fmt.Println(" Available actions:")
+	fmt.Println("  pre-start\tPrepare the ECS Agent for starting")
+	fmt.Println("  start\tStart the ECS Agent and wait for it to stop")
+	fmt.Println("  pre-stop\tStop the ECS Agent")
+	fmt.Println("  update-cache\tUpdate the cached image of the ECS Agent")
+	fmt.Println("")
+}
 
-	loaded, err := docker.IsAgentImageLoaded()
-	if err != nil {
-		log.Error(err)
-		os.Exit(4)
-	}
-	log.Infof("Image loaded: %t", loaded)
-
-	err = docker.RemoveExistingAgentContainer()
-	if err != nil {
-		log.Error(err)
-		os.Exit(5)
-	}
-
-	err = docker.LoadImage(agentImage)
-	if err != nil {
-		log.Error(err)
-		os.Exit(6)
-	}
-
-	retval, err := docker.StartAgent()
-	if err != nil {
-		log.Error(err)
-		os.Exit(7)
-	}
-	log.Infof("Agent exited with code %d", retval)
+func die(err error) {
+	log.Error(err.Error())
+	log.Flush()
+	os.Exit(-1)
 }

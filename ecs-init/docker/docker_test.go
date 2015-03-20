@@ -111,7 +111,7 @@ func TestRemoveExistingAgentContainerListContainersFailure(t *testing.T) {
 	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
 		All: true,
 		Filters: map[string][]string{
-			"status": []string{"exited"},
+			"status": []string{},
 		},
 	}).Return(nil, errors.New("test error"))
 
@@ -133,7 +133,7 @@ func TestRemoveExistingAgentContainerNoneFound(t *testing.T) {
 	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
 		All: true,
 		Filters: map[string][]string{
-			"status": []string{"exited"},
+			"status": []string{},
 		},
 	})
 
@@ -155,7 +155,7 @@ func TestRemoveExistingAgentContainer(t *testing.T) {
 	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
 		All: true,
 		Filters: map[string][]string{
-			"status": []string{"exited"},
+			"status": []string{},
 		},
 	}).Return([]godocker.APIContainers{
 		godocker.APIContainers{
@@ -312,4 +312,70 @@ func TestStartAgentEnvFile(t *testing.T) {
 	}
 
 	client.StartAgent()
+}
+
+func TestStopAgentError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
+		All: true,
+		Filters: map[string][]string{
+			"status": []string{},
+		},
+	}).Return(nil, errors.New("test error"))
+
+	client := &Client{
+		docker: mockDocker,
+	}
+
+	client.StopAgent()
+}
+
+func TestStopAgentNone(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
+		All: true,
+		Filters: map[string][]string{
+			"status": []string{},
+		},
+	}).Return([]godocker.APIContainers{godocker.APIContainers{}}, nil)
+
+	client := &Client{
+		docker: mockDocker,
+	}
+
+	client.StopAgent()
+}
+
+func TestStopAgent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
+		All: true,
+		Filters: map[string][]string{
+			"status": []string{},
+		},
+	}).Return([]godocker.APIContainers{
+		godocker.APIContainers{
+			Names: []string{"/" + config.AgentContainerName},
+			ID:    "id",
+		},
+	}, nil)
+	mockDocker.EXPECT().StopContainer("id", uint(10))
+
+	client := &Client{
+		docker: mockDocker,
+	}
+
+	client.StopAgent()
 }

@@ -24,7 +24,7 @@ echo "Generating mocks from ${inputfile} to ${outputfile} in package ${package}"
 export PATH="${GOPATH//://bin:}/bin:$PATH"
 
 tmp_gen="$(mktemp)"
-mockgen -source=$(pwd)/${inputfile} -package ${package} > "${tmp_gen}"
+mockgen -source=$(pwd)/${inputfile} -package ${package} | goimports > "${tmp_gen}"
 cat  > $(pwd)/${outputfile} << EOF
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //

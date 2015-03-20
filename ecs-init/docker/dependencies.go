@@ -33,6 +33,7 @@ type dockerclient interface {
 	CreateContainer(opts godocker.CreateContainerOptions) (*godocker.Container, error)
 	StartContainer(id string, hostConfig *godocker.HostConfig) error
 	WaitContainer(id string) (int, error)
+	StopContainer(id string, timeout uint) error
 }
 
 type _dockerclient struct {
@@ -76,6 +77,10 @@ func (d *_dockerclient) StartContainer(id string, hostConfig *godocker.HostConfi
 
 func (d *_dockerclient) WaitContainer(id string) (int, error) {
 	return d.docker.WaitContainer(id)
+}
+
+func (d *_dockerclient) StopContainer(id string, timeout uint) error {
+	return d.docker.StopContainer(id, timeout)
 }
 
 type fileSystem interface {

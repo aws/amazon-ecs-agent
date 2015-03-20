@@ -17,8 +17,8 @@
 package docker
 
 import (
-	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "code.google.com/p/gomock/gomock"
+	go_dockerclient "github.com/fsouza/go-dockerclient"
 )
 
 // Mock of dockerclient interface
@@ -114,6 +114,16 @@ func (_m *Mockdockerclient) WaitContainer(id string) (int, error) {
 
 func (_mr *_MockdockerclientRecorder) WaitContainer(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "WaitContainer", arg0)
+}
+
+func (_m *Mockdockerclient) StopContainer(id string, timeout uint) error {
+	ret := _m.ctrl.Call(_m, "StopContainer", id, timeout)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockdockerclientRecorder) StopContainer(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StopContainer", arg0, arg1)
 }
 
 // Mock of fileSystem interface

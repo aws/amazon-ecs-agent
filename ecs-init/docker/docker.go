@@ -49,9 +49,8 @@ func (c *Client) IsAgentImageLoaded() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for i, image := range images {
+	for _, image := range images {
 		for _, repoTag := range image.RepoTags {
-			log.Infof("Image %d tag %s", i, repoTag)
 			if repoTag == config.AgentImageName {
 				return true, nil
 			}
@@ -68,25 +67,9 @@ func (c *Client) LoadImage(image io.Reader) error {
 // RemoveExistingAgentContainer remvoes any existing container named
 // "ecs-agent" or returns without error if none is found
 func (c *Client) RemoveExistingAgentContainer() error {
-	// TODO pagination
-	containers, err := c.docker.ListContainers(godocker.ListContainersOptions{
-		All: true,
-		Filters: map[string][]string{
-			"status": []string{"exited"},
-		},
-	})
+	containerToRemove, err := c.findAgentContainer()
 	if err != nil {
 		return err
-	}
-	var containerToRemove string
-	agentContainerName := "/" + config.AgentContainerName
-	for _, container := range containers {
-		for _, name := range container.Names {
-			if name == agentContainerName {
-				containerToRemove = container.ID
-				break
-			}
-		}
 	}
 	if containerToRemove == "" {
 		log.Info("No existing agent container to remove.")
@@ -98,6 +81,29 @@ func (c *Client) RemoveExistingAgentContainer() error {
 		Force: true,
 	})
 	return err
+}
+
+func (c *Client) findAgentContainer() (string, error) {
+	// TODO pagination
+	containers, err := c.docker.ListContainers(godocker.ListContainersOptions{
+		All: true,
+		Filters: map[string][]string{
+			"status": []string{},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	agentContainerName := "/" + config.AgentContainerName
+	for _, container := range containers {
+		for _, name := range container.Names {
+			log.Infof("Container name: %s", name)
+			if name == agentContainerName {
+				return container.ID, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 // StartAgent starts the Agent in Docker and returns the exit code from the container
@@ -169,4 +175,18 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		Binds:        binds,
 		PortBindings: portBindings,
 	}
+}
+
+// StopAgent stops the Agent in docker if one is running
+func (c *Client) StopAgent() error {
+	id, err := c.findAgentContainer()
+	if err != nil {
+		return err
+	}
+	if id == "" {
+		log.Info("No running Agent to stop")
+		return nil
+	}
+	stopContainerTimeoutSeconds := uint(10)
+	return c.docker.StopContainer(id, stopContainerTimeoutSeconds)
 }

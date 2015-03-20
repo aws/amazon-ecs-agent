@@ -81,8 +81,8 @@ func (d *Downloader) IsAgentLatest() bool {
 
 	calculatedMd5Sum := md5hash.Sum(nil)
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
-	log.Infof("Expected %s", publishedMd5Sum)
-	log.Infof("Calculated %s", calculatedMd5SumString)
+	log.Debugf("Expected %s", publishedMd5Sum)
+	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
 		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", agentRemoteTarball)
 		return false
@@ -137,8 +137,8 @@ func (d *Downloader) DownloadAgent() error {
 
 	calculatedMd5Sum := md5hash.Sum(nil)
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
-	log.Infof("Expected %s", publishedMd5Sum)
-	log.Infof("Calculated %s", calculatedMd5SumString)
+	log.Debugf("Expected %s", publishedMd5Sum)
+	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
 		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
 		return err
@@ -149,7 +149,7 @@ func (d *Downloader) DownloadAgent() error {
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	log.Infof("Downloading published md5sum from %s", agentRemoteTarballMD5)
+	log.Debugf("Downloading published md5sum from %s", agentRemoteTarballMD5)
 	resp, err := d.getter.Get(agentRemoteTarballMD5)
 	if err != nil {
 		return "", err
@@ -167,7 +167,7 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 }
 
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
-	log.Infof("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
+	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
 	resp, err := d.getter.Get(agentRemoteTarball)
 	if err != nil {
 		return nil, err
