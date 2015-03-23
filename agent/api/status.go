@@ -31,6 +31,19 @@ func (ts *TaskStatus) String() string {
 	return "UNKNOWN"
 }
 
+// Mapping task status in the agent to that in the backend
+func BackEndStatus(ts *TaskStatus) string {
+	switch *ts {
+	case TaskRunning:
+		return "RUNNING"
+	case TaskStopped:
+		return "STOPPED"
+	case TaskDead:
+		return "STOPPED"
+	}
+	return "PENDING"
+}
+
 var containerStatusMap = map[string]ContainerStatus{
 	"NONE":    ContainerStatusNone,
 	"UNKNOWN": ContainerStatusUnknown,
