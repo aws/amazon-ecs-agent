@@ -200,7 +200,10 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 		fs:     mockFS,
 	}
 
-	client.StartAgent()
+	_, err := client.StartAgent()
+	if err != nil {
+		t.Error("Error should not be returned")
+	}
 }
 
 func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, t *testing.T) {
@@ -228,11 +231,6 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
 	}
-
-	expectKey(defaultDockerEndpoint, cfg.Volumes, t)
-	expectKey("/log", cfg.Volumes, t)
-	expectKey("/data", cfg.Volumes, t)
-	expectKey(config.AgentConfigDirectory, cfg.Volumes, t)
 
 	hostCfg := opts.HostConfig
 
@@ -311,7 +309,10 @@ func TestStartAgentEnvFile(t *testing.T) {
 		fs:     mockFS,
 	}
 
-	client.StartAgent()
+	_, err := client.StartAgent()
+	if err != nil {
+		t.Error("Error should not be returned")
+	}
 }
 
 func TestStopAgentError(t *testing.T) {
@@ -331,7 +332,10 @@ func TestStopAgentError(t *testing.T) {
 		docker: mockDocker,
 	}
 
-	client.StopAgent()
+	err := client.StopAgent()
+	if err == nil {
+		t.Error("Error should be returned")
+	}
 }
 
 func TestStopAgentNone(t *testing.T) {
@@ -351,7 +355,10 @@ func TestStopAgentNone(t *testing.T) {
 		docker: mockDocker,
 	}
 
-	client.StopAgent()
+	err := client.StopAgent()
+	if err != nil {
+		t.Error("Error should not be returned")
+	}
 }
 
 func TestStopAgent(t *testing.T) {
@@ -377,5 +384,8 @@ func TestStopAgent(t *testing.T) {
 		docker: mockDocker,
 	}
 
-	client.StopAgent()
+	err := client.StopAgent()
+	if err != nil {
+		t.Error("Error should not be returned")
+	}
 }

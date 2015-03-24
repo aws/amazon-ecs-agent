@@ -26,10 +26,10 @@ import (
 func main() {
 	defer log.Flush()
 	flag.Parse()
-	actions := flag.Args()
+	args := flag.Args()
 
-	if len(actions) == 0 {
-		usage()
+	if len(args) == 0 {
+		usage(actions(nil))
 		os.Exit(1)
 	}
 
@@ -37,34 +37,52 @@ func main() {
 	if err != nil {
 		die(err)
 	}
-	action := actions[0]
-	log.Info(action)
-	switch action {
-	case "pre-start":
-		err = init.PreStart()
-	case "pre-stop":
-		err = init.PreStop()
-	case "start":
-		err = init.Start()
-	case "update-cache":
-		err = init.UpdateCache()
-	default:
-		usage()
+	log.Info(args[0])
+	actions := actions(init)
+	action, ok := actions[args[0]]
+	if !ok {
+		usage(actions)
 		os.Exit(1)
 	}
+	err = action.function()
 	if err != nil {
 		die(err)
 	}
 }
 
-func usage() {
+type action struct {
+	function    func() error
+	description string
+}
+
+func actions(engine *engine.Engine) map[string]action {
+	return map[string]action{
+		"pre-start": action{
+			function:    engine.PreStart,
+			description: "Prepare the ECS Agent for starting",
+		},
+		"start": action{
+			function:    engine.Start,
+			description: "Start the ECS Agent and wait for it to stop",
+		},
+		"pre-stop": action{
+			function:    engine.PreStop,
+			description: "Stop the ECS Agent",
+		},
+		"update-cache": action{
+			function:    engine.UpdateCache,
+			description: "Update the cached image of the ECS Agent",
+		},
+	}
+}
+
+func usage(actions map[string]action) {
 	fmt.Printf("Usage: %s ACTION\n", os.Args[0])
 	fmt.Println("")
 	fmt.Println(" Available actions:")
-	fmt.Println("  pre-start\tPrepare the ECS Agent for starting")
-	fmt.Println("  start\tStart the ECS Agent and wait for it to stop")
-	fmt.Println("  pre-stop\tStop the ECS Agent")
-	fmt.Println("  update-cache\tUpdate the cached image of the ECS Agent")
+	for command, action := range actions {
+		fmt.Printf("  %-15s  %s\n", command, action.description)
+	}
 	fmt.Println("")
 }
 

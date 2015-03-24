@@ -23,6 +23,12 @@ import (
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
+const (
+	agentIntrospectionPort = "51678"
+	logDir                 = "/log"
+	dataDir                = "/data"
+)
+
 // Client enables business logic for running the Agent inside Docker
 type Client struct {
 	docker dockerclient
@@ -125,26 +131,18 @@ func (c *Client) StartAgent() (int, error) {
 
 func (c *Client) getContainerConfig() *godocker.Config {
 	env := append(c.loadEnvVariables(),
-		"ECS_LOGFILE=/log/"+config.AgentLogFile,
-		"ECS_DATADIR=/data",
+		"ECS_LOGFILE="+logDir+"/"+config.AgentLogFile,
+		"ECS_DATADIR="+dataDir,
 		"ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile)
 
 	exposedPorts := map[godocker.Port]struct{}{
-		"51678/tcp": struct{}{},
-	}
-
-	volumes := map[string]struct{}{
-		defaultDockerEndpoint:       struct{}{},
-		"/log":                      struct{}{},
-		"/data":                     struct{}{},
-		config.AgentConfigDirectory: struct{}{},
+		agentIntrospectionPort + "/tcp": struct{}{},
 	}
 
 	return &godocker.Config{
 		Env:          env,
 		ExposedPorts: exposedPorts,
 		Image:        config.AgentImageName,
-		Volumes:      volumes,
 	}
 }
 
@@ -159,15 +157,15 @@ func (c *Client) loadEnvVariables() []string {
 func (c *Client) getHostConfig() *godocker.HostConfig {
 	binds := []string{
 		defaultDockerEndpoint + ":" + defaultDockerEndpoint,
-		config.LogDirectory + ":/log",
-		config.AgentDataDirectory + ":/data",
+		config.LogDirectory + ":" + logDir,
+		config.AgentDataDirectory + ":" + dataDir,
 		config.AgentConfigDirectory + ":" + config.AgentConfigDirectory,
 	}
 	portBindings := map[godocker.Port][]godocker.PortBinding{
-		"51678/tcp": []godocker.PortBinding{
+		agentIntrospectionPort + "/tcp": []godocker.PortBinding{
 			godocker.PortBinding{
 				HostIP:   "127.0.0.1",
-				HostPort: "51678",
+				HostPort: agentIntrospectionPort,
 			},
 		},
 	}
