@@ -13,24 +13,26 @@
 # limitations under the License.
 .PHONY: dev generate lint static test sources rpm
 
-cwd:=$(shell pwd)
-
 dev:
-	scripts/gobuild.sh dev
+	./scripts/gobuild.sh dev
 
 generate:
-	PATH=$(PATH):$(cwd)/scripts go generate -v ./...
+	PATH=$(PATH):$(shell pwd)/scripts go generate -v ./...
 
 lint:
-	$(cwd)/scripts/lint.sh
+	./scripts/lint.sh
 
 static:
-	cd ecs-init && CGO_ENABLED=0 godep go build -a -x -ldflags '-s' -o ../amz-ecs-init
+	./scripts/gobuild.sh
 
 test: generate lint
 	go test -v -cover ./...
 
-sources: static
+sources:
+	tar -czf ./sources.tgz ecs-init scripts
+
+srpm: sources
+	rpmbuild -bs ecs-init.spec
 
 rpm: sources
 	rpmbuild -bb ecs-init.spec
@@ -38,3 +40,11 @@ rpm: sources
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
+
+clean:
+	-rm ./sources.tgz
+	-rm ./amazon-ecs-init
+	-rm ./ecs-init-*.src.rpm
+	-rm ./ecs-init-* -r
+	-rm ./BUILDROOT -r
+	-rm ./x86_64 -r

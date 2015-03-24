@@ -15,4 +15,4 @@
 
 export PATH="${GOPATH//://bin:}/bin:$PATH"
 
-find ecs-init -name "*.go" | grep -v "_mock_test.go$" | xargs -n 1 golint -min_confidence 0.3
+find ecs-init -name "*.go" ! -path "*/Godeps/_workspace/*" ! -name "*_mock_test.go" | xargs -n 1 golint -min_confidence 0.3

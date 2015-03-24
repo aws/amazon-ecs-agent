@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -22,8 +22,8 @@ mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"
 cd "${SRCPATH}/ecs-init"
 if [ "$1" = "dev" ]; then
-	go build -tags 'development' -o "${TOPWD}/amz-ecs-init"
+	go build -tags 'development' -o "${TOPWD}/amazon-ecs-init"
 else
-	CGO_ENABLED=0 go build -a -x -ldflags '-s' -o "${TOPWD}/amz-ecs-init"
+	CGO_ENABLED=0 go build -a -x -ldflags '-s' -o "${TOPWD}/amazon-ecs-init"
 fi
 rm -r "${BUILDDIR}"
