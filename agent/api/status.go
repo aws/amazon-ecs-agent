@@ -32,7 +32,7 @@ func (ts *TaskStatus) String() string {
 }
 
 // Mapping task status in the agent to that in the backend
-func BackEndStatus(ts *TaskStatus) string {
+func (ts *TaskStatus) BackendStatus() string {
 	switch *ts {
 	case TaskRunning:
 		return "RUNNING"

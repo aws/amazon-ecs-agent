@@ -62,8 +62,8 @@ func NewTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		containers = append(containers, ContainerResponse{container.DockerId, container.DockerName, containerName})
 	}
 
-	knownStatus := api.BackEndStatus(&task.KnownStatus)
-	desiredStatus := api.BackEndStatus(&task.DesiredStatus)
+	knownStatus := task.KnownStatus.BackendStatus()
+	desiredStatus := task.DesiredStatus.BackendStatus()
 
 	if (knownStatus == "STOPPED" && desiredStatus != "STOPPED") || (knownStatus == "RUNNING" && desiredStatus == "PENDING") {
 		desiredStatus = ""
