@@ -170,14 +170,14 @@ func backendMappingTestHelper(containers []*api.Container, testTask api.Task, de
 		t.Fatal(err)
 	}
 	var taskResponse TasksResponse
-        json.Unmarshal(body, &taskResponse)
-        tasks := taskResponse.Tasks
-        if tasks[0].DesiredStatus != desiredStatus {
-                 t.Error("Incorrect known status in response: ", tasks[0].DesiredStatus)
-        }
-        if tasks[0].KnownStatus != knownStatus {
-                 t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
-        }
+	json.Unmarshal(body, &taskResponse)
+	tasks := taskResponse.Tasks
+	if tasks[0].DesiredStatus != desiredStatus {
+		t.Error("Incorrect known status in response: ", tasks[0].DesiredStatus)
+	}
+	if tasks[0].KnownStatus != knownStatus {
+		t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
+	}
 }
 
 func TestBackendMapping(t *testing.T) {
@@ -195,15 +195,15 @@ func TestBackendMapping(t *testing.T) {
 		Containers:    containers,
 	}
 	backendMappingTestHelper(containers, testTask, "RUNNING", "RUNNING", t)
-	
+
 	testTask = api.Task{
-                Arn:           "task1",
-                DesiredStatus: api.TaskRunning,
-                KnownStatus:   api.TaskStopped,
-                Family:        "test",
-                Version:       "1",
-                Containers:    containers,
-        }
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskStopped,
+		Family:        "test",
+		Version:       "1",
+		Containers:    containers,
+	}
 	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
-        backendMappingTestHelper(containers, testTask, "", "STOPPED", t)
+	backendMappingTestHelper(containers, testTask, "", "STOPPED", t)
 }
