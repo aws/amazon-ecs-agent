@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/aws/amazon-ecs-init/ecs-init/engine"
 
 	log "github.com/cihub/seelog"
@@ -32,6 +33,12 @@ func main() {
 		usage(actions(nil))
 		os.Exit(1)
 	}
+
+	logger, err := log.LoggerFromConfigAsString(config.Logger)
+	if err != nil {
+		die(err)
+	}
+	log.ReplaceLogger(logger)
 
 	init, err := engine.New()
 	if err != nil {

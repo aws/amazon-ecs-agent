@@ -1,0 +1,11 @@
+<seelog type="asyncloop">
+	<outputs formatid="main">
+		<console formatid="console" />
+		<rollingfile filename="/tmp/var/log/ecs/ecs-init.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />
+	</outputs>
+	<formats>
+		<format id="main" format="%UTCDate(2006-01-02T15:04:05Z07:00) [%LEVEL] %Msg%n" />
+		<format id="console" format="%UTCDate(2006-01-02T15:04:05Z07:00) %EscM(46)[%LEVEL]%EscM(49) %Msg%n%EscM(0)" />
+	</formats>
+</seelog>
