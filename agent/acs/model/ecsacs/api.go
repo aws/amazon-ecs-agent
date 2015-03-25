@@ -183,7 +183,35 @@ type metadataPayloadMessage struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type PerformUpdateMessage struct {
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+
+	metadataPerformUpdateMessage `json:"-", xml:"-"`
+}
+
+type metadataPerformUpdateMessage struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type PerformUpdateOutput struct {
+	metadataPerformUpdateOutput `json:"-", xml:"-"`
+}
+
+type metadataPerformUpdateOutput struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type PollRequest struct {
+	AgentVersion *VersionInfo `locationName:"agentVersion" type:"structure"`
+
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
@@ -219,6 +247,32 @@ type metadataServerException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type StageUpdateMessage struct {
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+
+	metadataStageUpdateMessage `json:"-", xml:"-"`
+}
+
+type metadataStageUpdateMessage struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type StageUpdateOutput struct {
+	metadataStageUpdateOutput `json:"-", xml:"-"`
+}
+
+type metadataStageUpdateOutput struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type Task struct {
 	Arn *string `locationName:"arn" type:"string"`
 
@@ -240,6 +294,30 @@ type Task struct {
 }
 
 type metadataTask struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type UpdateInfo struct {
+	Command *string `locationName:"command" type:"string"`
+
+	metadataUpdateInfo `json:"-", xml:"-"`
+}
+
+type metadataUpdateInfo struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type VersionInfo struct {
+	AgentHash *string `locationName:"agentHash" type:"string"`
+
+	AgentVersion *string `locationName:"agentVersion" type:"string"`
+
+	DockerVersion *string `locationName:"dockerVersion" type:"string"`
+
+	metadataVersionInfo `json:"-", xml:"-"`
+}
+
+type metadataVersionInfo struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
