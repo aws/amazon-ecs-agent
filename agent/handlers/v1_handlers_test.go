@@ -67,7 +67,7 @@ func TestServeHttp(t *testing.T) {
 			Name: "c1",
 		},
 	}
-	testTask1 := api.Task{
+	testTask := api.Task{
 		Arn:           "task1",
 		DesiredStatus: api.TaskRunning,
 		KnownStatus:   api.TaskRunning,
@@ -75,19 +75,10 @@ func TestServeHttp(t *testing.T) {
 		Version:       "1",
 		Containers:    containers,
 	}
-	testTask2 := api.Task{
-                Arn:           "task2",
-                DesiredStatus: api.TaskRunning,
-                KnownStatus:   api.TaskStopped,
-                Family:        "test",
-                Version:       "1",
-                Containers:    containers,
-        }
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask1)
-	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask1)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask2)
+	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
 
 	body := getResponseBodyFromLocalHost("/v1/metadata", t)
@@ -105,27 +96,11 @@ func TestServeHttp(t *testing.T) {
 	json.Unmarshal(body, &tasksResponse)
 	tasks := tasksResponse.Tasks
 
-	if len(tasks) != 2 {
+	if len(tasks) != 1 {
 		t.Error("Incorrect number of tasks in response: ", len(tasks))
 	}
 	if tasks[0].Arn != "task1" {
 		t.Error("Incorrect task arn in response: ", tasks[0].Arn)
-	}
-	if tasks[1].Arn != "task2" {
-                t.Error("Incorrect task arn in response: ", tasks[1].Arn)
-        }
-	if tasks[0].KnownStatus != "RUNNING" {
-                t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
-        }
-	if tasks[0].DesiredStatus != "RUNNING" {
-                t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
-        }
-	if tasks[1].KnownStatus != "STOPPED" {
-		t.Error("Incorrect known status in response: ", tasks[1].KnownStatus)
-	}
-	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
-	if len(tasks[1].DesiredStatus) != 0 {
-		t.Error("Incorrect desired status in response: ", tasks[1].DesiredStatus)
 	}
 	containersResponse := tasks[0].Containers
 	if len(containersResponse) != 1 {
@@ -158,7 +133,7 @@ func TestServeHttp(t *testing.T) {
 		t.Error("Incorrect task arn in response")
 	}
 
-	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=invalidtaskarn")
+	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=task2")
 	if resp.StatusCode != 400 {
 		t.Error("API did not return bad request status for invalid task id")
 	}
@@ -175,4 +150,60 @@ func TestServeHttp(t *testing.T) {
 	if resp.StatusCode != 400 {
 		t.Error("API did not return bad request status when both dockerid and taskarn are specified.")
 	}
+}
+
+func backendMappingTestHelper(containers []*api.Container, testTask api.Task, desiredStatus string, knownStatus string, t *testing.T) {
+	taskEngine := engine.NewTaskEngine(&config.Config{})
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
+	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
+	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
+	server := httptest.NewServer(http.HandlerFunc(taskHandler))
+	defer server.Close()
+	resp, err := http.Get(server.URL+"/v1/tasks")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var taskResponse TasksResponse
+        json.Unmarshal(body, &taskResponse)
+        tasks := taskResponse.Tasks
+        if tasks[0].DesiredStatus != desiredStatus {
+                 t.Error("Incorrect known status in response: ", tasks[0].DesiredStatus)
+        }
+        if tasks[0].KnownStatus != knownStatus {
+                 t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
+        }
+}
+
+func TestBackendMapping(t *testing.T) {
+	containers := []*api.Container{
+		&api.Container{
+			Name: "c1",
+		},
+	}
+	testTask := api.Task{
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskRunning,
+		Family:        "test",
+		Version:       "1",
+		Containers:    containers,
+	}
+	backendMappingTestHelper(containers, testTask, "RUNNING", "RUNNING", t)
+	
+	testTask = api.Task{
+                Arn:           "task1",
+                DesiredStatus: api.TaskRunning,
+                KnownStatus:   api.TaskStopped,
+                Family:        "test",
+                Version:       "1",
+                Containers:    containers,
+        }
+	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
+        backendMappingTestHelper(containers, testTask, "", "STOPPED", t)
 }
