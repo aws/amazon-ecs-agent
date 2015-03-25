@@ -16,7 +16,7 @@
 cwd:=$(shell pwd)
 
 gobuild:
-	cd ecs-init && go build -o ../amz-ecs-init
+	cd ecs-init && godep go build -o ../amz-ecs-init
 
 generate:
 	PATH=$(PATH):$(cwd)/scripts go generate -v ./...
@@ -25,7 +25,7 @@ lint:
 	$(cwd)/scripts/lint.sh
 
 static:
-	cd ecs-init && CGO_ENABLED=0 go build -a -x -ldflags '-s' -o ../amz-ecs-init
+	cd ecs-init && CGO_ENABLED=0 godep go build -a -x -ldflags '-s' -o ../amz-ecs-init
 
 test: generate lint
 	go test -v -cover ./...
@@ -34,3 +34,7 @@ sources: static
 
 rpm: sources
 	rpmbuild -bb ecs-init.spec
+
+get-deps:
+	go get github.com/tools/godep
+	go get golang.org/x/tools/cover
