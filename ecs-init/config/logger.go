@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-// http://aws.amazon.com/apache2.0/
+//     http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -17,13 +17,23 @@ package config
 
 const (
 	Logger = `
+<!--
+Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with the
+License. A copy of the License is located at
+
+    http://aws.amazon.com/apache2.0/
+
+or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+and limitations under the License.
+-->
 <seelog type="asyncloop">
 	<outputs formatid="main">
 		<console formatid="console" />
-		<filter levels="info,warn,error,critical">
-			<rollingfile filename="/tmp/var/log/ecs/ecs-init.log" type="date"
-				 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />
-		</filter>
+		<rollingfile filename="/tmp/var/log/ecs/ecs-init.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />
 	</outputs>
 	<formats>
 		<format id="main" format="%UTCDate(2006-01-02T15:04:05Z07:00) [%LEVEL] %Msg%n" />
