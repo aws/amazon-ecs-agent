@@ -22,6 +22,7 @@ import (
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
@@ -55,6 +56,8 @@ func StartSession(containerInstanceArn string, credentialProvider credentials.AW
 
 		client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, containerInstanceArn, taskEngine, ecsclient, stateManager))
 		client.AddRequestHandler(heartbeatHandler(client))
+
+		updater.AddAgentUpdateHandlers(client, cfg, stateManager, taskEngine)
 
 		err = client.Connect()
 		if err != nil {
@@ -129,7 +132,12 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 				return
 			}
 			// Else, no error converting, add to engine
-			taskEngine.AddTask(apiTask)
+			err = taskEngine.AddTask(apiTask)
+			if err != nil {
+				log.Warn("Could not add task; taskengine probably disabled")
+				// Don't ack
+				return
+			}
 			err = stateManager.Save()
 			if err != nil {
 				log.Error("Error saving state!", "err", err)

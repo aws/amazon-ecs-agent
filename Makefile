@@ -85,6 +85,7 @@ volumes-test:
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
+	go get code.google.com/p/gomock/mockgen
 
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null

@@ -18,4 +18,4 @@ DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.
 sleep 2
 
 export GOPATH=`godep path`:$GOPATH
-cd ..; make test
+cd ..; make get-deps; make test

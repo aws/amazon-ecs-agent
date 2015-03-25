@@ -53,7 +53,15 @@ type Config struct {
 	// EngineAuthType configures what type of data is in EngineAuthData.
 	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/engine/dockerauth
 	EngineAuthType string
-	// EngineAuthType. Please see the documentation for EngineAuthType for more
-	// information.
+	// EngineAuthData contains authentication data. Please see the documentation
+	// for EngineAuthType for more information.
 	EngineAuthData json.RawMessage
+
+	// UpdatesEnabled specifies whether updates should be applied to this agent.
+	// Default true
+	UpdatesEnabled bool
+	// UpdateDownloadDir specifies where new agent versions should be placed
+	// within the container in order for the external updating process to
+	// correctly handle them. Default /updates/
+	UpdateDownloadDir string
 }

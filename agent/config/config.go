@@ -185,17 +185,22 @@ func EnvironmentConfig() Config {
 		log.Warn("Invalid format for \"ECS_RESERVED_PORTS\" environment variable; expected a JSON array like [1,2,3].", "err", err)
 	}
 
+	updateDownloadDir := os.Getenv("ECS_UPDATE_DOWNLOAD_DIR")
+	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
+
 	return Config{
-		Cluster:        clusterRef,
-		APIEndpoint:    endpoint,
-		APIPort:        uint16(port),
-		AWSRegion:      awsRegion,
-		DockerEndpoint: dockerEndpoint,
-		ReservedPorts:  reservedPorts,
-		DataDir:        dataDir,
-		Checkpoint:     checkpoint,
-		EngineAuthType: engineAuthType,
-		EngineAuthData: []byte(engineAuthData),
+		Cluster:           clusterRef,
+		APIEndpoint:       endpoint,
+		APIPort:           uint16(port),
+		AWSRegion:         awsRegion,
+		DockerEndpoint:    dockerEndpoint,
+		ReservedPorts:     reservedPorts,
+		DataDir:           dataDir,
+		Checkpoint:        checkpoint,
+		EngineAuthType:    engineAuthType,
+		EngineAuthData:    []byte(engineAuthData),
+		UpdatesEnabled:    updatesEnabled,
+		UpdateDownloadDir: updateDownloadDir,
 	}
 }
 

@@ -163,6 +163,22 @@ type metadataMountPoint struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type NackRequest struct {
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	Reason *string `locationName:"reason" type:"string"`
+
+	metadataNackRequest `json:"-", xml:"-"`
+}
+
+type metadataNackRequest struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type PayloadMessage struct {
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
@@ -190,22 +206,12 @@ type PerformUpdateMessage struct {
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
-
 	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
 
 	metadataPerformUpdateMessage `json:"-", xml:"-"`
 }
 
 type metadataPerformUpdateMessage struct {
-	SDKShapeTraits bool `type:"structure"`
-}
-
-type PerformUpdateOutput struct {
-	metadataPerformUpdateOutput `json:"-", xml:"-"`
-}
-
-type metadataPerformUpdateOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
@@ -254,22 +260,12 @@ type StageUpdateMessage struct {
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
-
 	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
 
 	metadataStageUpdateMessage `json:"-", xml:"-"`
 }
 
 type metadataStageUpdateMessage struct {
-	SDKShapeTraits bool `type:"structure"`
-}
-
-type StageUpdateOutput struct {
-	metadataStageUpdateOutput `json:"-", xml:"-"`
-}
-
-type metadataStageUpdateOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
@@ -297,8 +293,18 @@ type metadataTask struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type UpdateFailureOutput struct {
+	metadataUpdateFailureOutput `json:"-", xml:"-"`
+}
+
+type metadataUpdateFailureOutput struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type UpdateInfo struct {
-	Command *string `locationName:"command" type:"string"`
+	Location *string `locationName:"location" type:"string"`
+
+	Signature *string `locationName:"signature" type:"string"`
 
 	metadataUpdateInfo `json:"-", xml:"-"`
 }

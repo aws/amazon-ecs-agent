@@ -55,6 +55,10 @@ type DockerTaskEngine struct {
 	saver            statemanager.Saver
 
 	client DockerClient
+
+	// Disable before doing a final state save + exit. When disabled, no new
+	// tasks will be processed
+	disabled bool
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -144,6 +148,10 @@ func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
 	engine.saver = saver
 }
 
+func (engine *DockerTaskEngine) Disable() {
+	engine.disabled = true
+}
+
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
@@ -156,17 +164,30 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		}
 		for _, cont := range conts {
 			var reason string
-			dockerId := cont.DockerId
-			currentState, err := engine.client.DescribeContainer(dockerId)
-			if err != nil {
-				currentState = api.ContainerDead
-				if !cont.Container.KnownTerminal() {
-					log.Warn("Could not describe previously known container; assuming dead", "err", err)
-					reason = "Docker did not recognize container id after an ECS Agent restart."
+			if cont.DockerId == "" {
+				log.Debug("Found container created while we were down", "name", cont.DockerName)
+				// Figure out the dockerid
+				describedCont, err := engine.client.InspectContainer(cont.DockerName)
+				if err != nil {
+					log.Warn("Could not find matching container for expected", "name", cont.DockerName)
+				} else {
+					cont.DockerId = describedCont.ID
+					// update mappings that need dockerid
+					engine.state.AddContainer(cont, task)
 				}
 			}
-			if currentState > cont.Container.KnownStatus {
-				cont.Container.KnownStatus = currentState
+			if cont.DockerId != "" {
+				currentState, err := engine.client.DescribeContainer(cont.DockerId)
+				if err != nil {
+					currentState = api.ContainerDead
+					if !cont.Container.KnownTerminal() {
+						log.Warn("Could not describe previously known container; assuming dead", "err", err)
+						reason = "Docker did not recognize container id after an ECS Agent restart."
+					}
+				}
+				if currentState > cont.Container.KnownStatus {
+					cont.Container.KnownStatus = currentState
+				}
 			}
 			// Over-aggressively resend everything. The task handler will
 			// discard items that have already been sent.
@@ -352,12 +373,16 @@ func TaskCompleted(task *api.Task) bool {
 	return true
 }
 
-func (engine *DockerTaskEngine) AddTask(task *api.Task) {
+func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask()
+	if engine.disabled {
+		return errors.New("Cannot add a task to a disabled task engine")
+	}
 
 	task = engine.state.AddOrUpdateTask(task)
 
 	engine.ApplyTaskState(task)
+	return nil
 }
 
 type transitionApplyFunc (func(*api.Task, *api.Container) error)
@@ -374,6 +399,10 @@ func tryApplyTransition(task *api.Task, container *api.Container, to api.Contain
 }
 
 func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *api.Container) {
+	if engine.disabled {
+		log.Debug("Not applying a state change while disabled", "task", task, "container", container)
+		return
+	}
 	container.StatusLock.Lock()
 	defer container.StatusLock.Unlock()
 
@@ -508,12 +537,6 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 	}
 
 	err = func() error {
-		// Lock state for writing so that handleDockerEvents will block on
-		// resolving the 'create' event's dockerid until it is actually in the
-		// added to state.
-		engine.state.Lock()
-		defer engine.state.Unlock()
-
 		name := ""
 		for i := 0; i < len(container.Name); i++ {
 			c := container.Name[i]
@@ -524,6 +547,19 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 		}
 
 		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
+
+		// Lock state for writing so that handleDockerEvents will block on
+		// resolving the 'create' event's dockerid until it is actually in the
+		// added to state.
+		engine.state.Lock()
+		defer engine.state.Unlock()
+
+		// Pre-add the container in case we stop before the next, more useful,
+		// AddContainer call. This ensures we have a way to get the container if
+		// we die before 'createContainer' returns because we can inspect by
+		// name
+		engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
+
 		containerId, err := engine.client.CreateContainer(config, containerName)
 		if err != nil {
 			return err

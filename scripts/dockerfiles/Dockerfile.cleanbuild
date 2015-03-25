@@ -18,7 +18,6 @@ RUN mkdir /out
 VOLUME ['/out']
 
 RUN mkdir -p /go/src/github.com/aws/
-RUN go get github.com/tools/godep
 
 COPY ./scripts/cleanbuild /scripts/cleanbuild
 WORKDIR /go/src/github.com/aws/amazon-ecs-agent

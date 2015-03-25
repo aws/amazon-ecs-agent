@@ -33,7 +33,8 @@
         "method":"POST",
         "requestUri":"/"
       },
-      "input":{"shape":"PerformUpdateMessage"}
+      "input":{"shape":"PerformUpdateMessage"},
+      "output":{"shape":"AckRequest"}
     },
     "Poll":{
       "name":"Poll",
@@ -57,15 +58,15 @@
           "exception":true
         },
         {
+          "shape":"AccessDeniedException",
+          "exception":true
+        },
+        {
           "shape":"InvalidInstanceException",
           "exception":true
         },
         {
           "shape":"InactiveInstanceException",
-          "exception":true
-        },
-        {
-          "shape":"AccessDeniedException",
           "exception":true
         }
       ]
@@ -76,7 +77,16 @@
         "method":"POST",
         "requestUri":"/"
       },
-      "input":{"shape":"StageUpdateMessage"}
+      "input":{"shape":"StageUpdateMessage"},
+      "output":{"shape":"AckRequest"}
+    },
+    "UpdateFailure":{
+      "name":"UpdateFailure",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"NackRequest"}
     }
   },
   "shapes":{
@@ -183,6 +193,15 @@
       "type":"list",
       "member":{"shape":"MountPoint"}
     },
+    "NackRequest":{
+      "type":"structure",
+      "members":{
+        "cluster":{"shape":"String"},
+        "containerInstance":{"shape":"String"},
+        "messageId":{"shape":"String"},
+        "reason":{"shape":"String"}
+      }
+    },
     "PayloadMessage":{
       "type":"structure",
       "members":{
@@ -200,8 +219,7 @@
         "containerInstanceArn":{"shape":"String"},
         "clusterArn":{"shape":"String"},
         "updateInfo":{"shape":"UpdateInfo"},
-        "messageId":{"shape":"String"},
-        "seqNum":{"shape":"Integer"}
+        "messageId":{"shape":"String"}
       }
     },
     "PollRequest":{
@@ -237,8 +255,7 @@
         "containerInstanceArn":{"shape":"String"},
         "clusterArn":{"shape":"String"},
         "updateInfo":{"shape":"UpdateInfo"},
-        "messageId":{"shape":"String"},
-        "seqNum":{"shape":"Integer"}
+        "messageId":{"shape":"String"}
       }
     },
     "String":{"type":"string"},
@@ -266,7 +283,8 @@
     "UpdateInfo":{
       "type":"structure",
       "members":{
-        "command":{"shape":"String"}
+        "location":{"shape":"String"},
+        "signature":{"shape":"String"}
       }
     },
     "VersionInfo":{

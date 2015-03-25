@@ -21,11 +21,17 @@ import (
 type TaskEngine interface {
 	Init() error
 	MustInit()
+	// Disable *must* only be called when this engine will no longer be used
+	// (e.g. right before exiting down the process). It will irreversably stop
+	// this task engine from processing new tasks
+	Disable()
 
 	TaskEvents() <-chan api.ContainerStateChange
 	SetSaver(statemanager.Saver)
 
-	AddTask(*api.Task)
+	// AddTask adds a new task to the task engine and manages its container's
+	// lifecycle. If it returns an error, the task was not added.
+	AddTask(*api.Task) error
 
 	ListTasks() ([]*api.Task, error)
 

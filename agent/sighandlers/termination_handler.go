@@ -21,28 +21,29 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
 var log = logger.ForModule("TerminationHandler")
 
-func StartTerminationHandler(saver statemanager.Saver) {
+func StartTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) {
 	signalChannel := make(chan os.Signal, 2)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		sig := <-signalChannel
-		log.Debug("Received termination signal", "signal", sig.String())
-		var err error
-		if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
-			err = forceSaver.ForceSave()
-		} else {
-			err = saver.Save()
-		}
-		if err != nil {
-			log.Crit("Error saving state before final shutdown", "err", err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}()
+
+	sig := <-signalChannel
+	log.Debug("Received termination signal", "signal", sig.String())
+
+	var err error
+	if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
+		err = forceSaver.ForceSave()
+	} else {
+		err = saver.Save()
+	}
+	if err != nil {
+		log.Crit("Error saving state before final shutdown", "err", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

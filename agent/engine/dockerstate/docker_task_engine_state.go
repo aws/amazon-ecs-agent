@@ -137,6 +137,8 @@ func (state *DockerTaskEngineState) Unlock() {
 
 // AddContainer adds a container to the state. It is expected that the caller aquires the
 // write lock before calling this function.
+// If the container has been added with only a name and no docker-id, this
+// updates the state to include the docker id
 func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer, task *api.Task) {
 	if task == nil || container == nil {
 		log.Crit("Addcontainer called with nil task/container")
@@ -148,7 +150,9 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 		state.tasks[task.Arn] = task
 	}
 
-	state.idToTask[container.DockerId] = task.Arn
+	if container.DockerId != "" {
+		state.idToTask[container.DockerId] = task.Arn
+	}
 	existingMap, exists := state.taskToId[task.Arn]
 	if !exists {
 		existingMap = make(map[string]*api.DockerContainer, len(task.Containers))
@@ -156,7 +160,9 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 	}
 	existingMap[container.Container.Name] = container
 
-	state.idToContainer[container.DockerId] = container
+	if container.DockerId != "" {
+		state.idToContainer[container.DockerId] = container
+	}
 }
 
 func (state *DockerTaskEngineState) TaskByArn(arn string) (*api.Task, bool) {
