@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
@@ -13,6 +13,27 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-export PATH="${GOPATH//://bin:}/bin:$PATH"
+if [ -z "$1" ] || [ ! -z $(echo "$1" | tr -d "[:digit:]") ]; then
+	echo "Must provide numeric argument"
+	exit 1
+fi
 
-find ecs-init -name "*.go" ! -path "*/Godeps/_workspace/*" ! -name "*_mock_test.go" | xargs -n 1 golint -min_confidence 0.3
+exit_code="$1"
+
+die() {
+	exit $exit_code
+}
+
+start_wait() {
+	echo "Waiting for SIGTERM or SIGINT to exit"
+	while true
+	do
+		sleep 1 &
+		wait ${!}
+	done
+}
+
+SIGINT=2
+SIGTERM=15
+trap die $SIGINT $SIGTERM
+start_wait

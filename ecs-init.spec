@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:          ecs-init
-Version:       0.3
-Release:       0%{?dist}
+Version:       1.0
+Release:       1%{?dist}
 Group:         System Environment/Base
 Vendor:        Amazon.com
 License:       Apache 2.0
@@ -73,7 +73,10 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
-* Mon Mar 16 2015 Samuel Karp <skarp@amazon.com) - 0.3-0
+* Thu Mar 26 2015 Samuel Karp <skarp@amazon.com> - 1.0-1
+- Re-start Agent on non-terminal exit codes
+- Enable Agent self-updates
+* Mon Mar 16 2015 Samuel Karp <skarp@amazon.com> - 0.3-0
 - Migrate to statically-compiled Go binary
 * Tue Feb 17 2015 Eric Nordlund <ericn@amazon.com> - 0.2-3
 - Test for existing container agent and force remove it

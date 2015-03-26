@@ -222,6 +222,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_DATADIR=/data", envVariables, t)
 	expectKey("ECS_LOGFILE=/log/"+config.AgentLogFile, envVariables, t)
 	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(), envVariables, t)
+	expectKey("ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(), envVariables, t)
+	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
 
 	if len(cfg.ExposedPorts) != 1 {
 		t.Errorf("Expected exactly 1 element to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
@@ -234,8 +236,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 
 	hostCfg := opts.HostConfig
 
-	if len(hostCfg.Binds) != 4 {
-		t.Errorf("Expected exactly 4 elements to be in Binds, but was %d", len(hostCfg.Binds))
+	if len(hostCfg.Binds) != 5 {
+		t.Errorf("Expected exactly 5 elements to be in Binds, but was %d", len(hostCfg.Binds))
 	}
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
@@ -245,6 +247,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.LogDirectory()+":/log", binds, t)
 	expectKey(config.AgentDataDirectory()+":/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
+	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
 
 	if len(hostCfg.PortBindings) != 1 {
 		t.Errorf("Expected exactly 1 element to be in PortBindings, but was %d", len(hostCfg.PortBindings))

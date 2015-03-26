@@ -22,8 +22,9 @@ import (
 type downloader interface {
 	IsAgentCached() bool
 	IsAgentLatest() bool
-	LoadCachedAgent() (io.ReadCloser, error)
 	DownloadAgent() error
+	LoadCachedAgent() (io.ReadCloser, error)
+	LoadDesiredAgent() (io.ReadCloser, error)
 }
 
 type dockerClient interface {

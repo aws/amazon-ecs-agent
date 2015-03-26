@@ -18,6 +18,7 @@ import (
 	"code.google.com/p/gomock/gomock"
 	"errors"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -77,21 +78,7 @@ func TestPreStartImageNotLoadedNotCached(t *testing.T) {
 	engine.PreStart()
 }
 
-func TestStartCannotRemoveExisting(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockDocker := NewMockdockerClient(mockCtrl)
-
-	mockDocker.EXPECT().RemoveExistingAgentContainer().Return(errors.New("test error"))
-
-	engine := &Engine{
-		docker: mockDocker,
-	}
-	engine.Start()
-}
-
-func TestStartCannotStart(t *testing.T) {
+func TestStartSupervisedCannotStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -103,22 +90,139 @@ func TestStartCannotStart(t *testing.T) {
 	engine := &Engine{
 		docker: mockDocker,
 	}
-	engine.Start()
+	err := engine.StartSupervised()
+	if err == nil {
+		t.Error("Expected error to be returned but was nil")
+	}
 }
 
-func TestStart(t *testing.T) {
+func TestStartSupervisedExitsWhenTerminalFailure(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 
-	mockDocker.EXPECT().RemoveExistingAgentContainer()
-	mockDocker.EXPECT().StartAgent()
+	gomock.InOrder(
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(terminalFailureAgentExitCode, nil),
+	)
 
 	engine := &Engine{
 		docker: mockDocker,
 	}
-	engine.Start()
+	err := engine.StartSupervised()
+	if err == nil {
+		t.Error("Expected error to be returned but was nil")
+	}
+}
+
+func TestStartSupervisedExitsWhenTerminalSuccess(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+
+	gomock.InOrder(
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(1, nil),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
+	)
+
+	engine := &Engine{
+		docker: mockDocker,
+	}
+	err := engine.StartSupervised()
+	if err != nil {
+		t.Error("Expected error to be nil but was returned")
+	}
+}
+
+func TestStartSupervisedUpgradeOpenFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	gomock.InOrder(
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(upgradeAgentExitCode, nil),
+		mockDownloader.EXPECT().LoadDesiredAgent().Return(nil, errors.New("test error")),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
+	)
+
+	engine := &Engine{
+		downloader: mockDownloader,
+		docker:     mockDocker,
+	}
+	err := engine.StartSupervised()
+	if err != nil {
+		t.Error("Expected error to be nil but was returned")
+	}
+}
+
+func TestStartSupervisedUpgradeLoadFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	gomock.InOrder(
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(upgradeAgentExitCode, nil),
+		mockDownloader.EXPECT().LoadDesiredAgent().Return(&os.File{}, nil),
+		mockDocker.EXPECT().LoadImage(gomock.Any()).Return(errors.New("test error")),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
+	)
+
+	engine := &Engine{
+		downloader: mockDownloader,
+		docker:     mockDocker,
+	}
+	err := engine.StartSupervised()
+	if err != nil {
+		t.Error("Expected error to be nil but was returned")
+	}
+}
+
+func TestStartSupervisedUpgrade(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	gomock.InOrder(
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(upgradeAgentExitCode, nil),
+		mockDownloader.EXPECT().LoadDesiredAgent().Return(&os.File{}, nil),
+		mockDocker.EXPECT().LoadImage(gomock.Any()),
+		mockDocker.EXPECT().RemoveExistingAgentContainer(),
+		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
+	)
+
+	engine := &Engine{
+		downloader: mockDownloader,
+		docker:     mockDocker,
+	}
+	err := engine.StartSupervised()
+	if err != nil {
+		t.Error("Expected error to be nil but was returned")
+	}
 }
 
 func TestPreStop(t *testing.T) {

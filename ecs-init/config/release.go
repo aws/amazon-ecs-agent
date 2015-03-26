@@ -17,4 +17,5 @@ package config
 
 const (
 	directoryPrefix = ""
+	s3Bucket        = "amazon-ecs-agent"
 )

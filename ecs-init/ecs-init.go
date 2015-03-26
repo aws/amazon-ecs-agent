@@ -69,7 +69,7 @@ func actions(engine *engine.Engine) map[string]action {
 			description: "Prepare the ECS Agent for starting",
 		},
 		"start": action{
-			function:    engine.Start,
+			function:    engine.StartSupervised,
 			description: "Start the ECS Agent and wait for it to stop",
 		},
 		"pre-stop": action{

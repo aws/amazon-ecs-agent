@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -43,7 +44,8 @@ type fileSystem interface {
 	Copy(dst io.Writer, src io.Reader) (written int64, err error)
 	Rename(oldpath, newpath string) error
 	ReadAll(r io.Reader) ([]byte, error)
-	Open(name string) (file *os.File, err error)
+	Open(name string) (file io.ReadCloser, err error)
+	Base(path string) string
 }
 
 // standardFS delegates to the package-level functions
@@ -77,8 +79,12 @@ func (s *standardFS) ReadAll(r io.Reader) ([]byte, error) {
 	return ioutil.ReadAll(r)
 }
 
-func (s *standardFS) Open(name string) (*os.File, error) {
+func (s *standardFS) Open(name string) (io.ReadCloser, error) {
 	return os.Open(name)
+}
+
+func (s *standardFS) Base(path string) string {
+	return filepath.Base(path)
 }
 
 // customGetter is very similar to http.DefaultClient, but sets a shorter

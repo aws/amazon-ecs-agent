@@ -10,28 +10,36 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
+
 package config
 
 const (
-	AgentImageName        = "amazon/amazon-ecs-agent:latest"
-	AgentContainerName    = "ecs-agent"
-	AgentLogFile          = "ecs-agent.log"
-	AgentRemoteTarball    = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-latest.tar"
-	AgentRemoteTarballMD5 = AgentRemoteTarball + ".md5"
+	// AgentImageName is the name of the Docker image containing the Agent
+	AgentImageName = "amazon/amazon-ecs-agent:latest"
+
+	// AgentContainerName is the name of the Agent container started by this program
+	AgentContainerName = "ecs-agent"
+
+	// AgentLogFile is the name of the log file used by the Agent
+	AgentLogFile = "ecs-agent.log"
 )
 
+// AgentConfigDirectory returns the location on disk for configuration
 func AgentConfigDirectory() string {
 	return directoryPrefix + "/etc/ecs"
 }
 
+// AgentConfigFile returns the location of a file of environment variables passed to the Agent
 func AgentConfigFile() string {
 	return AgentConfigDirectory() + "/ecs.config"
 }
 
+// AgentJSONConfigFile returns the location of a file containing configuration expressed in JSON
 func AgentJSONConfigFile() string {
 	return AgentConfigDirectory() + "/ecs.config.json"
 }
 
+// LogDirectory returns the location on disk where logs should be placed
 func LogDirectory() string {
 	return directoryPrefix + "/var/log/ecs"
 }
@@ -40,14 +48,32 @@ func initLogFile() string {
 	return LogDirectory() + "/ecs-init.log"
 }
 
+// AgentDataDirectory returns the location on disk where state should be saved
 func AgentDataDirectory() string {
 	return directoryPrefix + "/var/lib/ecs/data"
 }
 
+// CacheDirectory returns the location on disk where Agent images should be cached
 func CacheDirectory() string {
 	return directoryPrefix + "/var/cache/ecs"
 }
 
+// AgentTarball returns the location on disk of the cached Agent image
 func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"
+}
+
+// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
+func AgentRemoteTarball() string {
+	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-latest.tar"
+}
+
+// AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
+func AgentRemoteTarballMD5() string {
+	return AgentRemoteTarball() + ".md5"
+}
+
+// DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
+func DesiredImageLocatorFile() string {
+	return CacheDirectory() + "/desired-image"
 }

@@ -14,11 +14,19 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
 	"github.com/aws/amazon-ecs-init/ecs-init/docker"
+	"io"
 
 	log "github.com/cihub/seelog"
+)
+
+const (
+	terminalSuccessAgentExitCode = 0
+	terminalFailureAgentExitCode = 5
+	upgradeAgentExitCode         = 42
 )
 
 // Engine contains methods invoked when ecs-init is run
@@ -44,7 +52,7 @@ func New() (*Engine, error) {
 func (e *Engine) PreStart() error {
 	loaded, err := e.docker.IsAgentImageLoaded()
 	if err != nil {
-		return engineError("Could not check if Agent is loaded", err)
+		return engineError("could not check if Agent is loaded", err)
 	}
 
 	if loaded {
@@ -60,32 +68,52 @@ func (e *Engine) PreStart() error {
 	}
 
 	log.Info("Loading Amazon EC2 Container Service Agent into Docker")
-	cachedAgent, err := e.downloader.LoadCachedAgent()
+	return e.load(e.downloader.LoadCachedAgent())
+}
+
+func (e *Engine) load(image io.ReadCloser, err error) error {
 	if err != nil {
-		return engineError("Could not load Amazon EC2 Container Service Agent from cache", err)
+		return engineError("could not load Amazon EC2 Container Service Agent from cache", err)
 	}
-	defer cachedAgent.Close()
-	err = e.docker.LoadImage(cachedAgent)
+	defer image.Close()
+	err = e.docker.LoadImage(image)
 	if err != nil {
-		return engineError("Could not load Amazon EC2 Container Service Agent into Docker", err)
+		return engineError("could not load Amazon EC2 Container Service Agent into Docker", err)
 	}
 	return nil
 }
 
-// Start starts the ECS Agent and waits for it to stop
-func (e *Engine) Start() error {
-	err := e.docker.RemoveExistingAgentContainer()
-	if err != nil {
-		return engineError("Could not remove existing Agent container", err)
-	}
+// StartSupervised starts the ECS Agent and ensures it stays running, except for terminal errors (indicated by an agent exit code of 5)
+func (e *Engine) StartSupervised() error {
+	agentExitCode := -1
+	for agentExitCode != terminalSuccessAgentExitCode && agentExitCode != terminalFailureAgentExitCode {
+		err := e.docker.RemoveExistingAgentContainer()
+		if err != nil {
+			return engineError("could not remove existing Agent container", err)
+		}
 
-	log.Info("Starting Amazon EC2 Container Service Agent")
-	retval, err := e.docker.StartAgent()
-	if err != nil {
-		return engineError("Could not start Agent", err)
+		log.Info("Starting Amazon EC2 Container Service Agent")
+		agentExitCode, err = e.docker.StartAgent()
+		if err != nil {
+			return engineError("could not start Agent", err)
+		}
+		log.Infof("Agent exited with code %d", agentExitCode)
+		if agentExitCode == upgradeAgentExitCode {
+			err = e.upgradeAgent()
+			if err != nil {
+				log.Error("could not upgrade agent", err)
+			}
+		}
 	}
-	log.Infof("Agent exited with code %d", retval)
+	if agentExitCode == terminalFailureAgentExitCode {
+		return errors.New("agent exited with terminal exit code")
+	}
 	return nil
+}
+
+func (e *Engine) upgradeAgent() error {
+	log.Info("Loading new desired Amazon EC2 Container Service Agent into Docker")
+	return e.load(e.downloader.LoadDesiredAgent())
 }
 
 // PreStop sends commands to Docker to stop the ECS Agent
@@ -93,7 +121,7 @@ func (e *Engine) PreStop() error {
 	log.Info("Stopping Amazon EC2 Container Service Agent")
 	err := e.docker.StopAgent()
 	if err != nil {
-		return engineError("Could not stop Amazon EC2 Container Service Agent", err)
+		return engineError("could not stop Amazon EC2 Container Service Agent", err)
 	}
 	return nil
 }
@@ -112,7 +140,7 @@ func (e *Engine) mustDownloadAgent() error {
 	log.Info("Downloading Amazon EC2 Container Service Agent")
 	err := e.downloader.DownloadAgent()
 	if err != nil {
-		return engineError("Could not download Amazon EC2 Container Serivce Agent", err)
+		return engineError("could not download Amazon EC2 Container Serivce Agent", err)
 	}
 	return nil
 }

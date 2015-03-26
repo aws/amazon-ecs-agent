@@ -20,18 +20,31 @@ import (
 	"os"
 )
 
-var directoryPrefix = getDirectoryPrefix()
+var directoryPrefix string
+var s3Bucket string
 
 func init() {
+	fmt.Println("****************")
 	fmt.Println("DEVELOPMENT MODE")
+	directoryPrefix = getDirectoryPrefix()
+	s3Bucket = getS3Bucket()
+	fmt.Println("****************")
 }
 
 func getDirectoryPrefix() string {
-	env := os.Getenv("PATH_PREFIX")
+	return getEnvWithDefault("PATH_PREFIX", "/tmp")
+}
+
+func getS3Bucket() string {
+	return getEnvWithDefault("S3_BUCKET_OVERRIDE", "amazon-ecs-agent")
+}
+
+func getEnvWithDefault(environmentVariable, defaultIfMissing string) string {
+	env := os.Getenv(environmentVariable)
 	if env == "" {
-		fmt.Println("PATH_PREFIX not set, using /tmp")
-		return "/tmp"
+		fmt.Printf("%s not set, using %s\n", environmentVariable, defaultIfMissing)
+		return defaultIfMissing
 	}
-	fmt.Printf("PATH_PREFIX set as %s\n", env)
+	fmt.Printf("%s set as %s\n", environmentVariable, env)
 	return env
 }

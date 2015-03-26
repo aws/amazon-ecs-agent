@@ -11,7 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: dev generate lint static test sources rpm
+.PHONY: dev generate lint static test build-mock-images sources rpm
 
 dev:
 	./scripts/gobuild.sh dev
@@ -26,7 +26,12 @@ static:
 	./scripts/gobuild.sh
 
 test: generate lint
-	go test -v -cover ./...
+	go test -short -v -cover ./...
+
+build-mock-images:
+	docker build -t "test.localhost/amazon/mock-ecs-agent" -f "scripts/dockerfiles/mock-agent.dockerfile" .
+	docker build -t "test.localhost/amazon/wants-update" -f "scripts/dockerfiles/wants-update.dockerfile" .
+	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
 sources:
 	tar -czf ./sources.tgz ecs-init scripts

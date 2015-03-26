@@ -27,10 +27,12 @@ cat > $(pwd)/logger.go <<EOF
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+// GENERATED FILE, DO NOT MODIFY BY HAND
 //go:generate bundle_log_config.sh
 
 package config
 
+// Logger holds the bundled log configuration for seelog
 func Logger() string {
 	return \`
 $(cat ../../seelog.xml)

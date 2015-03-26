@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
@@ -13,6 +13,6 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-export PATH="${GOPATH//://bin:}/bin:$PATH"
+FROM test.localhost/amazon/mock-ecs-agent
 
-find ecs-init -name "*.go" ! -path "*/Godeps/_workspace/*" ! -name "*_mock_test.go" | xargs -n 1 golint -min_confidence 0.3
+CMD ["0"]

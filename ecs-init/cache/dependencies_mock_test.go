@@ -148,13 +148,23 @@ func (_mr *_MockfileSystemRecorder) ReadAll(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadAll", arg0)
 }
 
-func (_m *MockfileSystem) Open(name string) (*os.File, error) {
+func (_m *MockfileSystem) Open(name string) (io.ReadCloser, error) {
 	ret := _m.ctrl.Call(_m, "Open", name)
-	ret0, _ := ret[0].(*os.File)
+	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 func (_mr *_MockfileSystemRecorder) Open(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Open", arg0)
+}
+
+func (_m *MockfileSystem) Base(path string) string {
+	ret := _m.ctrl.Call(_m, "Base", path)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockfileSystemRecorder) Base(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Base", arg0)
 }

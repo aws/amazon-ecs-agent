@@ -63,6 +63,16 @@ func (_mr *_MockdownloaderRecorder) IsAgentLatest() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsAgentLatest")
 }
 
+func (_m *Mockdownloader) DownloadAgent() error {
+	ret := _m.ctrl.Call(_m, "DownloadAgent")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockdownloaderRecorder) DownloadAgent() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DownloadAgent")
+}
+
 func (_m *Mockdownloader) LoadCachedAgent() (io.ReadCloser, error) {
 	ret := _m.ctrl.Call(_m, "LoadCachedAgent")
 	ret0, _ := ret[0].(io.ReadCloser)
@@ -74,14 +84,15 @@ func (_mr *_MockdownloaderRecorder) LoadCachedAgent() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadCachedAgent")
 }
 
-func (_m *Mockdownloader) DownloadAgent() error {
-	ret := _m.ctrl.Call(_m, "DownloadAgent")
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *Mockdownloader) LoadDesiredAgent() (io.ReadCloser, error) {
+	ret := _m.ctrl.Call(_m, "LoadDesiredAgent")
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockdownloaderRecorder) DownloadAgent() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DownloadAgent")
+func (_mr *_MockdownloaderRecorder) LoadDesiredAgent() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadDesiredAgent")
 }
 
 // Mock of dockerClient interface

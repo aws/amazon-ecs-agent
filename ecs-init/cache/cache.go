@@ -16,6 +16,7 @@
 package cache
 
 import (
+	"bufio"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -78,15 +79,10 @@ func (d *Downloader) IsAgentLatest() bool {
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", config.AgentRemoteTarball)
+		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", config.AgentRemoteTarball())
 		return false
 	}
 	return true
-}
-
-// LoadCachedAgent returns an io.ReadCloser of the Agent from the cache
-func (d *Downloader) LoadCachedAgent() (io.ReadCloser, error) {
-	return d.fs.Open(config.AgentTarball())
 }
 
 // DownloadAgent downloads a fresh copy of the Agent and performs an
@@ -133,7 +129,7 @@ func (d *Downloader) DownloadAgent() error {
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = fmt.Errorf("mismatched md5sum while downloading %s", config.AgentRemoteTarball)
+		err = fmt.Errorf("mismatched md5sum while downloading %s", config.AgentRemoteTarball())
 		return err
 	}
 
@@ -142,8 +138,8 @@ func (d *Downloader) DownloadAgent() error {
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	log.Debugf("Downloading published md5sum from %s", config.AgentRemoteTarballMD5)
-	resp, err := d.getter.Get(config.AgentRemoteTarballMD5)
+	log.Debugf("Downloading published md5sum from %s", config.AgentRemoteTarballMD5())
+	resp, err := d.getter.Get(config.AgentRemoteTarballMD5())
 	if err != nil {
 		return "", err
 	}
@@ -160,8 +156,8 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 }
 
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
-	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", config.AgentRemoteTarball)
-	resp, err := d.getter.Get(config.AgentRemoteTarball)
+	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", config.AgentRemoteTarball())
+	resp, err := d.getter.Get(config.AgentRemoteTarball())
 	if err != nil {
 		return nil, err
 	}
@@ -169,4 +165,36 @@ func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("unexpected response code %d", resp.StatusCode)
 	}
 	return resp.Body, nil
+}
+
+// LoadCachedAgent returns an io.ReadCloser of the Agent from the cache
+func (d *Downloader) LoadCachedAgent() (io.ReadCloser, error) {
+	return d.fs.Open(config.AgentTarball())
+}
+
+// LoadDesiredAgent returns an io.ReadCloser of the Agent indicated by the desiredImageLocatorFile
+// (/var/cache/ecs/desired-image). The desiredImageLocatorFile must contain as the beginning of the file the name of
+// the file containing the desired image (interpreted as a basename) and ending in a newline.  Only the first line is
+// read, with the rest of the file reserved for future use.
+func (d *Downloader) LoadDesiredAgent() (io.ReadCloser, error) {
+	desiredImageFile, err := d.getDesiredImageFile()
+	if err != nil {
+		return nil, err
+	}
+	return d.fs.Open(desiredImageFile)
+}
+
+func (d *Downloader) getDesiredImageFile() (string, error) {
+	file, err := d.fs.Open(config.DesiredImageLocatorFile())
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	reader := bufio.NewReader(file)
+	desiredImageString, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	desiredImageFile := strings.TrimSpace(config.CacheDirectory() + "/" + d.fs.Base(desiredImageString))
+	return desiredImageFile, nil
 }
