@@ -151,3 +151,59 @@ func TestServeHttp(t *testing.T) {
 		t.Error("API did not return bad request status when both dockerid and taskarn are specified.")
 	}
 }
+
+func backendMappingTestHelper(containers []*api.Container, testTask api.Task, desiredStatus string, knownStatus string, t *testing.T) {
+	taskEngine := engine.NewTaskEngine(&config.Config{})
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
+	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
+	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
+	server := httptest.NewServer(http.HandlerFunc(taskHandler))
+	defer server.Close()
+	resp, err := http.Get(server.URL+"/v1/tasks")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var taskResponse TasksResponse
+	json.Unmarshal(body, &taskResponse)
+	tasks := taskResponse.Tasks
+	if tasks[0].DesiredStatus != desiredStatus {
+		t.Error("Incorrect known status in response: ", tasks[0].DesiredStatus)
+	}
+	if tasks[0].KnownStatus != knownStatus {
+		t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
+	}
+}
+
+func TestBackendMapping(t *testing.T) {
+	containers := []*api.Container{
+		&api.Container{
+			Name: "c1",
+		},
+	}
+	testTask := api.Task{
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskRunning,
+		Family:        "test",
+		Version:       "1",
+		Containers:    containers,
+	}
+	backendMappingTestHelper(containers, testTask, "RUNNING", "RUNNING", t)
+
+	testTask = api.Task{
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskStopped,
+		Family:        "test",
+		Version:       "1",
+		Containers:    containers,
+	}
+	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
+	backendMappingTestHelper(containers, testTask, "", "STOPPED", t)
+}

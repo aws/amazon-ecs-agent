@@ -21,7 +21,7 @@ type MetadataResponse struct {
 
 type TaskResponse struct {
 	Arn           string
-	DesiredStatus string
+	DesiredStatus string `json:",omitempty"`
 	KnownStatus   string
 	Family        string
 	Version       string
