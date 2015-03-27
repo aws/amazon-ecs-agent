@@ -186,7 +186,7 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error"))
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
 	}).Return(&godocker.Container{
@@ -221,7 +221,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	}
 	expectKey("ECS_DATADIR=/data", envVariables, t)
 	expectKey("ECS_LOGFILE=/log/"+config.AgentLogFile, envVariables, t)
-	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile, envVariables, t)
+	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(), envVariables, t)
 
 	if len(cfg.ExposedPorts) != 1 {
 		t.Errorf("Expected exactly 1 element to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
@@ -242,9 +242,9 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 		binds[binding] = struct{}{}
 	}
 	expectKey(defaultDockerEndpoint+":"+defaultDockerEndpoint, binds, t)
-	expectKey(config.LogDirectory+":/log", binds, t)
-	expectKey(config.AgentDataDirectory+":/data", binds, t)
-	expectKey(config.AgentConfigDirectory+":"+config.AgentConfigDirectory, binds, t)
+	expectKey(config.LogDirectory()+":/log", binds, t)
+	expectKey(config.AgentDataDirectory()+":/data", binds, t)
+	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 
 	if len(hostCfg.PortBindings) != 1 {
 		t.Errorf("Expected exactly 1 element to be in PortBindings, but was %d", len(hostCfg.PortBindings))
@@ -287,7 +287,7 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile).Return([]byte(envFile), nil)
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
 		cfg := opts.Config

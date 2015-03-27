@@ -1,3 +1,5 @@
+// +build !development
+
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,15 +15,6 @@
 
 package config
 
-// Constants for running the agent
 const (
-	AgentConfigDirectory = "/tmp/etc/ecs"
-	AgentConfigFile      = AgentConfigDirectory + "/ecs.config"
-	AgentJSONConfigFile  = AgentConfigDirectory + "/ecs.config.json"
-	AgentImageName       = "amazon/amazon-ecs-agent:latest"
-	AgentContainerName   = "ecs-agent"
-	LogDirectory         = "/tmp/var/log/ecs"
-	InitLogFile          = LogDirectory + "/ecs-init.log"
-	AgentLogFile         = "ecs-agent.log"
-	AgentDataDirectory   = "/tmp/var/lib/ecs/data"
+	directoryPrefix = ""
 )

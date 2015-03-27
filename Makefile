@@ -11,12 +11,12 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: gobuild generate lint static test sources rpm
+.PHONY: dev generate lint static test sources rpm
 
 cwd:=$(shell pwd)
 
-gobuild:
-	cd ecs-init && godep go build -o ../amz-ecs-init
+dev:
+	scripts/gobuild.sh dev
 
 generate:
 	PATH=$(PATH):$(cwd)/scripts go generate -v ./...

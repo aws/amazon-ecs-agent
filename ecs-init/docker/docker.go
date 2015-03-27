@@ -133,7 +133,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	env := append(c.loadEnvVariables(),
 		"ECS_LOGFILE="+logDir+"/"+config.AgentLogFile,
 		"ECS_DATADIR="+dataDir,
-		"ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile)
+		"ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile())
 
 	exposedPorts := map[godocker.Port]struct{}{
 		agentIntrospectionPort + "/tcp": struct{}{},
@@ -147,7 +147,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 }
 
 func (c *Client) loadEnvVariables() []string {
-	file, err := c.fs.ReadFile(config.AgentConfigFile)
+	file, err := c.fs.ReadFile(config.AgentConfigFile())
 	if err != nil {
 		return make([]string, 0)
 	}
@@ -157,9 +157,9 @@ func (c *Client) loadEnvVariables() []string {
 func (c *Client) getHostConfig() *godocker.HostConfig {
 	binds := []string{
 		defaultDockerEndpoint + ":" + defaultDockerEndpoint,
-		config.LogDirectory + ":" + logDir,
-		config.AgentDataDirectory + ":" + dataDir,
-		config.AgentConfigDirectory + ":" + config.AgentConfigDirectory,
+		config.LogDirectory() + ":" + logDir,
+		config.AgentDataDirectory() + ":" + dataDir,
+		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 	}
 	portBindings := map[godocker.Port][]godocker.PortBinding{
 		agentIntrospectionPort + "/tcp": []godocker.PortBinding{

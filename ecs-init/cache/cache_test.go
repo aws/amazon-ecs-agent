@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"code.google.com/p/gomock/gomock"
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 )
 
 func TestIsAgentCachedFalse(t *testing.T) {
@@ -33,7 +34,7 @@ func TestIsAgentCachedFalse(t *testing.T) {
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		fs: mockFS,
@@ -50,7 +51,7 @@ func TestIsAgentCachedTrue(t *testing.T) {
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(&os.File{}, nil)
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(&os.File{}, nil)
 
 	d := &Downloader{
 		fs: mockFS,
@@ -67,7 +68,7 @@ func TestIsAgentLatestCannotOpen(t *testing.T) {
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		fs: mockFS,
@@ -85,9 +86,9 @@ func TestIsAgentLatestDownloadMD5Failure(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockGetter := NewMockhttpGetter(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(&os.File{}, nil)
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(&os.File{}, nil)
 	mockFS.EXPECT().Copy(gomock.Any(), gomock.Any())
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(nil, errors.New("test error"))
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		fs:     mockFS,
@@ -109,8 +110,8 @@ func TestIsAgentLatestMD5Mismatch(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockGetter := NewMockhttpGetter(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(&os.File{}, nil)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(&os.File{}, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
 	mockFS.EXPECT().Copy(gomock.Any(), gomock.Any())
 
@@ -135,8 +136,8 @@ func TestIsAgentLatestTrue(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockGetter := NewMockhttpGetter(mockCtrl)
 
-	mockFS.EXPECT().Open(agentTarball).Return(&os.File{}, nil)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockFS.EXPECT().Open(config.AgentTarball()).Return(&os.File{}, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
 	mockFS.EXPECT().Copy(gomock.Any(), gomock.Any()).Do(func(writer io.Writer, reader io.Reader) {
 		_, err := io.Copy(writer, bytes.NewBufferString(agentContent))
@@ -161,7 +162,7 @@ func TestDownloadAgentMkdirFailure(t *testing.T) {
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700).Return(errors.New("test error"))
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700).Return(errors.New("test error"))
 
 	d := &Downloader{
 		fs: mockFS,
@@ -177,8 +178,8 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockGetter := NewMockhttpGetter(mockCtrl)
 
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		getter: mockGetter,
@@ -197,9 +198,9 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
@@ -218,11 +219,11 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 	md5sum := "md5sum"
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(nil, errors.New("test error"))
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		getter: mockGetter,
@@ -243,11 +244,11 @@ func TestDownloadAgentDownloadTarballNon200(t *testing.T) {
 	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(tarballResponse, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(tarballResponse, nil)
 
 	d := &Downloader{
 		getter: mockGetter,
@@ -269,11 +270,11 @@ func TestDownloadAgentTempFile(t *testing.T) {
 	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(tarballResponse, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(tarballResponse, nil)
 	mockFS.EXPECT().TempFile("", "ecs-agent.tar").Return(nil, errors.New("test error"))
 
 	d := &Downloader{
@@ -296,11 +297,11 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(tarballResponse, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(tarballResponse, nil)
 	tempfile, err := ioutil.TempFile("", "test")
 	if err != nil {
 		t.Fail()
@@ -331,11 +332,11 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(tarballResponse, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(tarballResponse, nil)
 	tempfile, err := ioutil.TempFile("", "test")
 	if err != nil {
 		t.Fail()
@@ -367,11 +368,11 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	md5response := &http.Response{}
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().MkdirAll(cacheDirectory, os.ModeDir|0700)
+	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	mockGetter := NewMockhttpGetter(mockCtrl)
-	mockGetter.EXPECT().Get(agentRemoteTarballMD5).Return(md5response, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil)
-	mockGetter.EXPECT().Get(agentRemoteTarball).Return(tarballResponse, nil)
+	mockGetter.EXPECT().Get(config.AgentRemoteTarball).Return(tarballResponse, nil)
 	tempfile, err := ioutil.TempFile("", "test")
 	if err != nil {
 		t.Fail()
@@ -385,7 +386,7 @@ func TestDownloadAgentSuccess(t *testing.T) {
 		}
 	})
 	mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), nil)
-	mockFS.EXPECT().Rename(tempfile.Name(), agentTarball)
+	mockFS.EXPECT().Rename(tempfile.Name(), config.AgentTarball())
 
 	d := &Downloader{
 		getter: mockGetter,

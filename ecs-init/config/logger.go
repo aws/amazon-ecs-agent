@@ -15,8 +15,8 @@
 
 package config
 
-const (
-	Logger = `
+func Logger() string {
+	return `
 <!--
 Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
@@ -32,7 +32,7 @@ and limitations under the License.
 <seelog type="asyncloop">
 	<outputs formatid="main">
 		<console formatid="console" />
-		<rollingfile filename="/tmp/var/log/ecs/ecs-init.log" type="date"
+		<rollingfile filename="`+initLogFile()+`" type="date"
 			 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />
 	</outputs>
 	<formats>
@@ -41,4 +41,4 @@ and limitations under the License.
 	</formats>
 </seelog>
 `
-)
+}

@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger, err := log.LoggerFromConfigAsString(config.Logger)
+	logger, err := log.LoggerFromConfigAsString(config.Logger())
 	if err != nil {
 		die(err)
 	}

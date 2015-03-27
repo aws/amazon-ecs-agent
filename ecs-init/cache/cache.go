@@ -23,14 +23,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	log "github.com/cihub/seelog"
-)
-
-const (
-	cacheDirectory        = "/tmp/var/cache/ecs"
-	agentTarball          = cacheDirectory + "/ecs-agent.tar"
-	agentRemoteTarball    = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-latest.tar"
-	agentRemoteTarballMD5 = agentRemoteTarball + ".md5"
 )
 
 // Downloader is resposible for cache operations relating to downloading the agent
@@ -50,7 +44,7 @@ func NewDownloader() *Downloader {
 // IsAgentCached returns true if there is a cached copy of the Agent present
 // (no validation is performed)
 func (d *Downloader) IsAgentCached() bool {
-	file, err := d.fs.Open(agentTarball)
+	file, err := d.fs.Open(config.AgentTarball())
 	if err != nil {
 		return false
 	}
@@ -61,7 +55,7 @@ func (d *Downloader) IsAgentCached() bool {
 // IsAgentLatest checks whether the cached copy of the Agent has the same MD5
 // sum as the published MD5 sum
 func (d *Downloader) IsAgentLatest() bool {
-	file, err := d.fs.Open(agentTarball)
+	file, err := d.fs.Open(config.AgentTarball())
 	if err != nil {
 		return false
 	}
@@ -84,7 +78,7 @@ func (d *Downloader) IsAgentLatest() bool {
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", agentRemoteTarball)
+		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", config.AgentRemoteTarball)
 		return false
 	}
 	return true
@@ -92,13 +86,13 @@ func (d *Downloader) IsAgentLatest() bool {
 
 // LoadCachedAgent returns an io.ReadCloser of the Agent from the cache
 func (d *Downloader) LoadCachedAgent() (io.ReadCloser, error) {
-	return d.fs.Open(agentTarball)
+	return d.fs.Open(config.AgentTarball())
 }
 
 // DownloadAgent downloads a fresh copy of the Agent and performs an
 // integrity check on the downloaded image
 func (d *Downloader) DownloadAgent() error {
-	err := d.fs.MkdirAll(cacheDirectory, os.ModeDir|0700)
+	err := d.fs.MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
 	if err != nil {
 		return err
 	}
@@ -140,17 +134,17 @@ func (d *Downloader) DownloadAgent() error {
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
+		err = fmt.Errorf("mismatched md5sum while downloading %s", config.AgentRemoteTarball)
 		return err
 	}
 
-	log.Debugf("Attempting to rename %s to %s", tempFile.Name(), agentTarball)
-	return d.fs.Rename(tempFile.Name(), agentTarball)
+	log.Debugf("Attempting to rename %s to %s", tempFile.Name(), config.AgentTarball())
+	return d.fs.Rename(tempFile.Name(), config.AgentTarball())
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	log.Debugf("Downloading published md5sum from %s", agentRemoteTarballMD5)
-	resp, err := d.getter.Get(agentRemoteTarballMD5)
+	log.Debugf("Downloading published md5sum from %s", config.AgentRemoteTarballMD5)
+	resp, err := d.getter.Get(config.AgentRemoteTarballMD5)
 	if err != nil {
 		return "", err
 	}
@@ -167,8 +161,8 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 }
 
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
-	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
-	resp, err := d.getter.Get(agentRemoteTarball)
+	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", config.AgentRemoteTarball)
+	resp, err := d.getter.Get(config.AgentRemoteTarball)
 	if err != nil {
 		return nil, err
 	}

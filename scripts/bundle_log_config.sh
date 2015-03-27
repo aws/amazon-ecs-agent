@@ -31,9 +31,9 @@ cat > $(pwd)/logger.go <<EOF
 
 package config
 
-const (
-	Logger = \`
+func Logger() string {
+	return \`
 $(cat ../../seelog.xml)
 \`
-)
+}
 EOF
