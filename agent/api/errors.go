@@ -40,10 +40,10 @@ func NewAPIError(err error) *APIError {
 	return &APIError{err, true}
 }
 
-func (sce *APIError) Retry() bool {
-	return sce.Retriable
+func (apiErr *APIError) Retry() bool {
+	return apiErr.Retriable
 }
 
-func (sce *APIError) Error() string {
-	return sce.err.Error()
+func (apiErr *APIError) Error() string {
+	return apiErr.err.Error()
 }
