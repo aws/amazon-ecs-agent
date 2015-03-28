@@ -30,16 +30,13 @@ type savedState struct {
 
 func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
 	var toSave savedState
-	func() {
-		// Lock scope
-		state.lock.RLock()
-		defer state.lock.RUnlock()
-		toSave = savedState{
-			Tasks:         state.AllTasks(),
-			IdToContainer: state.idToContainer,
-			IdToTask:      state.idToTask,
-		}
-	}()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+	toSave = savedState{
+		Tasks:         state.AllTasks(),
+		IdToContainer: state.idToContainer,
+		IdToTask:      state.idToTask,
+	}
 	return json.Marshal(toSave)
 }
 
