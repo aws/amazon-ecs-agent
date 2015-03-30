@@ -22,7 +22,7 @@ A naive update method exists to pull tarballs from S3.  Updating at present is v
 steps:
 
 1. `sudo stop ecs`
-2. `sudo /etc/ecs/ecs-init update-cache`
+2. `sudo /usr/libexec/amazon-ecs-init update-cache`
 3. `docker rm ecs-agent`
 4. `docker rmi amazon/amazon-ecs-agent:latest`
 5. `sudo start ecs`
