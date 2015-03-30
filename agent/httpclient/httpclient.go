@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
-//go:generate mockgen -destination mock/$GOFILE net/http RoundTripper
+//go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
 
 // Default is the client used by this package; it should be overridden as
 // desired for testing

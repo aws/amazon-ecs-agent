@@ -65,7 +65,7 @@ type ClientServer interface {
 	io.Closer
 }
 
-//go:generate mockgen -destination mock/$GOFILE github.com/aws/amazon-ecs-agent/agent/acs/client ClientServer
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/acs/client ClientServer mock/$GOFILE
 
 // default implementation of ClientServer
 type clientServer struct {

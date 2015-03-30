@@ -15,7 +15,7 @@
 // so that may be mocked out appropriately
 package os
 
-//go:generate mockgen -destination mock/$GOFILE github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os FileSystem
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os FileSystem mock/$GOFILE
 
 import (
 	"io"
