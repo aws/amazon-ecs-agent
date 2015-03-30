@@ -1,11 +1,30 @@
 {
-	"ImportPath": "github.com/aws/ecs-container-agent",
-	"GoVersion": "go1.3.1",
+	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
+	"GoVersion": "go1.4",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.6.1-10-g6c28e16",
 			"Rev": "6c28e16200e55c2549705ac24ea58976c07f18ac"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/model/api",
+			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil",
+			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/xml/xmlutil",
+			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/util",
+			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/dockerversion",

@@ -14,12 +14,15 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -423,4 +426,17 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	}
 
 	return binds, nil
+}
+
+func TaskFromACS(task *ecsacs.Task) (*Task, error) {
+	data, err := jsonutil.BuildJSON(task)
+	if err != nil {
+		return nil, err
+	}
+	outTask := &Task{}
+	err = json.Unmarshal(data, outTask)
+	if err != nil {
+		return nil, err
+	}
+	return outTask, nil
 }

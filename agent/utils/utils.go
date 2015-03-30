@@ -101,16 +101,18 @@ func Strptr(s string) *string {
 // If the error is nil then the function will no longer be called
 // If the error is Retriable then that will be used to determine if it should be
 // retried
-func RetryWithBackoff(backoff Backoff, fn func() error) {
-	for err := fn(); true; err = fn() {
+func RetryWithBackoff(backoff Backoff, fn func() error) error {
+	var err error
+	for err = fn(); true; err = fn() {
 		retriable, isRetriable := err.(Retriable)
 
 		if err == nil || isRetriable && !retriable.Retry() {
-			return
+			return err
 		}
 
 		ttime.Sleep(backoff.Duration())
 	}
+	return err
 }
 
 // RetryNWithBackoff takes a Backoff, a maximum number of tries 'n', and a
