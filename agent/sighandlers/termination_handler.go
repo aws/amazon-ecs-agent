@@ -17,13 +17,16 @@
 package sighandlers
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 var log = logger.ForModule("TerminationHandler")
@@ -35,15 +38,55 @@ func StartTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEng
 	sig := <-signalChannel
 	log.Debug("Received termination signal", "signal", sig.String())
 
-	var err error
-	if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
-		err = forceSaver.ForceSave()
-	} else {
-		err = saver.Save()
-	}
+	err := FinalSave(saver, taskEngine)
 	if err != nil {
 		log.Crit("Error saving state before final shutdown", "err", err)
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+const engineDisableTimeout = 5 * time.Second
+const finalSaveTimeout = 3 * time.Second
+
+// FinalSave should be called immediately before exiting, and only before
+// exiting, in order to flush tasks to disk. It waits a short timeout for state
+// to settle if necessary. If unable to reach a steady-state and save within
+// this short timeout, it returns an error
+func FinalSave(saver statemanager.Saver, taskEngine engine.TaskEngine) error {
+	engineDisabled := make(chan error)
+
+	disableTimer := time.AfterFunc(engineDisableTimeout, func() {
+		engineDisabled <- errors.New("Timed out waiting for TaskEngine to settle")
+	})
+
+	go func() {
+		log.Debug("Shutting down task engine")
+		taskEngine.Disable()
+		disableTimer.Stop()
+		engineDisabled <- nil
+	}()
+
+	disableErr := <-engineDisabled
+
+	stateSaved := make(chan error)
+	saveTimer := time.AfterFunc(finalSaveTimeout, func() {
+		stateSaved <- errors.New("Timed out trying to save to disk")
+	})
+	go func() {
+		log.Debug("Saving state before shutting down")
+		if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
+			stateSaved <- forceSaver.ForceSave()
+		} else {
+			stateSaved <- saver.Save()
+		}
+		saveTimer.Stop()
+	}()
+
+	saveErr := <-stateSaved
+
+	if disableErr != nil || saveErr != nil {
+		return utils.NewMultiError(disableErr, saveErr)
+	}
+	return nil
 }

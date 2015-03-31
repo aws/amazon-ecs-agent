@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -222,16 +223,9 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 			return
 		}
 
-		taskEngine.Disable()
-		var err error
-		log.Debug("Saving state before shutting down for update")
-		if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
-			err = forceSaver.ForceSave()
-		} else {
-			err = saver.Save()
-		}
+		err := sighandlers.FinalSave(saver, taskEngine)
 		if err != nil {
-			log.Crit("Error saving state before final shutdown", "err", err)
+			log.Crit("Error saving before update exit", "err", err)
 		} else {
 			log.Debug("Saved state!")
 		}
