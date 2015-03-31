@@ -39,48 +39,48 @@ type FileSystem interface {
 }
 
 // Std delegates to the go standard library functions
-type Std struct{}
+type std struct{}
 
-var Default FileSystem = &Std{}
+var Default FileSystem = &std{}
 
-func (s *Std) MkdirAll(path string, perm os.FileMode) error {
+func (s *std) MkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
-func (s *Std) TempFile(dir, prefix string) (*os.File, error) {
+func (s *std) TempFile(dir, prefix string) (*os.File, error) {
 	return ioutil.TempFile(dir, prefix)
 }
 
-func (s *Std) Remove(path string) {
+func (s *std) Remove(path string) {
 	os.Remove(path)
 }
 
-func (s *Std) TeeReader(r io.Reader, w io.Writer) io.Reader {
+func (s *std) TeeReader(r io.Reader, w io.Writer) io.Reader {
 	return io.TeeReader(r, w)
 }
 
-func (s *Std) Copy(dst io.Writer, src io.Reader) (int64, error) {
+func (s *std) Copy(dst io.Writer, src io.Reader) (int64, error) {
 	return io.Copy(dst, src)
 }
 
-func (s *Std) Rename(oldpath, newpath string) error {
+func (s *std) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
-func (s *Std) ReadAll(r io.Reader) ([]byte, error) {
+func (s *std) ReadAll(r io.Reader) ([]byte, error) {
 	return ioutil.ReadAll(r)
 }
-func (s *Std) WriteFile(filename string, data []byte, perm os.FileMode) error {
+func (s *std) WriteFile(filename string, data []byte, perm os.FileMode) error {
 	return ioutil.WriteFile(filename, data, perm)
 }
-func (s *Std) Open(name string) (io.ReadWriteCloser, error) {
+func (s *std) Open(name string) (io.ReadWriteCloser, error) {
 	return os.Open(name)
 }
 
-func (s *Std) Create(name string) (io.ReadWriteCloser, error) {
+func (s *std) Create(name string) (io.ReadWriteCloser, error) {
 	return os.Create(name)
 }
 
-func (s *Std) Exit(code int) {
+func (s *std) Exit(code int) {
 	os.Exit(code)
 }

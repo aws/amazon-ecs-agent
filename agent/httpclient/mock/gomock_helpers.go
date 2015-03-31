@@ -63,6 +63,6 @@ func SuccessResponse(body string) *http.Response {
 	}
 }
 
-func (*httpMatcher) String() string {
-	return "HTTP Matcher"
+func (m *httpMatcher) String() string {
+	return "HTTP Matcher: " + m.method + " " + m.url
 }

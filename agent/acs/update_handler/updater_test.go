@@ -15,6 +15,7 @@ package updater
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -36,18 +37,26 @@ func ptr(i interface{}) interface{} {
 	return n.Interface()
 }
 
-func TestFullUpdateFlow(t *testing.T) {
-	cfg := &config.Config{
-		UpdatesEnabled:    true,
-		UpdateDownloadDir: "/tmp/test/",
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *config.Config, *mock_os.MockFileSystem, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
+	if cfg == nil {
+		cfg = &config.Config{
+			UpdatesEnabled:    true,
+			UpdateDownloadDir: "/tmp/test/",
+		}
 	}
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockacs := mock_client.NewMockClientServer(ctrl)
 	mockhttp := mock_http.NewMockRoundTripper(ctrl)
 	httpclient.Transport = mockhttp
+
+	return ctrl, cfg, mockfs, mockacs, mockhttp
+}
+
+func TestFullUpdateFlow(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	defer ctrl.Finish()
 
 	// First, it'll try to download the file
 	mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil)
@@ -95,5 +104,78 @@ func TestFullUpdateFlow(t *testing.T) {
 			Location:  ptr("https://update.tld").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
+	})
+}
+
+type nackRequestMatcher struct {
+	*ecsacs.NackRequest
+}
+
+func (m *nackRequestMatcher) Matches(nack interface{}) bool {
+	other := nack.(*ecsacs.NackRequest)
+	if m.Cluster != nil && *m.Cluster != *other.Cluster {
+		return false
+	}
+	if m.ContainerInstance != nil && *m.ContainerInstance != *other.ContainerInstance {
+		fmt.Println(*other.ContainerInstance)
+		return false
+	}
+	if m.MessageId != nil && *m.MessageId != *other.MessageId {
+		fmt.Println(*other.MessageId)
+		return false
+	}
+	if m.Reason != nil && *m.Reason != *other.Reason {
+		return false
+	}
+	return true
+}
+
+func TestMissingUpdateInfo(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	defer ctrl.Finish()
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+
+	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		Cluster:           ptr("cluster").(*string),
+		ContainerInstance: ptr("containerInstance").(*string),
+		MessageId:         ptr("mid").(*string),
+	}})
+
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid").(*string),
+	})
+}
+
+func (m *nackRequestMatcher) String() string {
+	return fmt.Sprintf("Nack request matcher %v", m.NackRequest)
+}
+
+func TestUndownloadedUpdate(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	defer ctrl.Finish()
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+
+	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		Cluster:           ptr("cluster").(*string),
+		ContainerInstance: ptr("containerInstance").(*string),
+		MessageId:         ptr("mid").(*string),
+	}})
+
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid").(*string),
 	})
 }

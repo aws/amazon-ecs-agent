@@ -20,6 +20,8 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -30,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
 
 var log = logger.ForModule("updater")
@@ -38,11 +41,19 @@ const desiredImageFile = "desired-image"
 
 // update describes metadata around an update 2-phase request
 type updater struct {
-	stage             updateStage
+	stage     updateStage
+	stageTime time.Time
+	// downloadMessageID is the most recent message id seen for this update id
 	downloadMessageID string
-	fs                os.FileSystem
-	acs               acsclient.ClientServer
-	config            *config.Config
+	// updateID is a unique identifier for this update used to determine if a
+	// new update request, even with a different message id, is a duplicate or
+	// not
+	updateID string
+	fs       os.FileSystem
+	acs      acsclient.ClientServer
+	config   *config.Config
+
+	sync.Mutex
 }
 
 type updateStage int8
@@ -53,59 +64,84 @@ const (
 	updateDownloaded
 )
 
+const maxUpdateDuration = 30 * time.Minute
+
+// Singleton updater
+var singleUpdater *updater
+
 // AddAgentUpdateHandlers adds the needed update handlers to perform agent
 // updates
 func AddAgentUpdateHandlers(cs acsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
-	log.Debug("Adding update handlers")
-
 	if cfg.UpdatesEnabled {
-		acsUpdater := &updater{
+		singleUpdater = &updater{
 			acs:    cs,
 			config: cfg,
 			fs:     os.Default,
 		}
-		cs.AddRequestHandler(acsUpdater.stageUpdateHandler())
-		cs.AddRequestHandler(acsUpdater.performUpdateHandler(saver, taskEngine))
+		cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
+		cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
 		log.Debug("Added update handlers")
+	} else {
+		log.Debug("Updates disabled; no handlers added")
 	}
 }
 
 func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 	return func(req *ecsacs.StageUpdateMessage) {
+		u.Lock()
+		defer u.Unlock()
+
 		if req == nil || req.MessageId == nil {
+			log.Error("Nil request to stage update or missing MessageID")
 			return
 		}
-		log.Debug("Staging update", "update", req)
-
 		nack := func(reason string) {
 			log.Debug("Nacking update", "reason", reason)
-			u.stage = updateNone
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,
 				Reason:            &reason,
 			})
+			u.reset()
 		}
 
-		if u.stage != updateNone {
-			// update.cancel() // TODO
+		if req.UpdateInfo == nil || req.UpdateInfo.Location == nil || req.UpdateInfo.Signature == nil {
+			nack("Update info required to proceed with update")
+			return
+		}
 
-			// Cancel and nack previous update
-			reason := "New update arrived: " + *req.MessageId
+		log.Debug("Staging update", "update", req)
+
+		if u.stage != updateNone && ttime.Since(u.stageTime) > maxUpdateDuration {
+			log.Debug("Previous update timed out", "time", u.stageTime, "id", u.downloadMessageID)
+			reason := "Update timed out"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         &u.downloadMessageID,
 				Reason:            &reason,
 			})
+			u.reset()
+		}
+		if u.stage != updateNone {
+			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {
+				log.Debug("Update already in progress, ignoring message", "id", u.updateID)
+				return
+			} else {
+				// Nack previous update
+				reason := "New update arrived: " + *req.MessageId
+				u.acs.MakeRequest(&ecsacs.NackRequest{
+					Cluster:           req.ClusterArn,
+					ContainerInstance: req.ContainerInstanceArn,
+					MessageId:         &u.downloadMessageID,
+					Reason:            &reason,
+				})
+			}
 		}
 		u.stage = updateDownloading
+		u.stageTime = ttime.Now()
 		u.downloadMessageID = *req.MessageId
-		if req.UpdateInfo == nil || req.UpdateInfo.Location == nil {
-			nack("Update location not set")
-			return
-		}
 
 		err := u.download(req.UpdateInfo)
 		if err != nil {
@@ -139,10 +175,17 @@ func (u *updater) download(info *ecsacs.UpdateInfo) error {
 	}
 
 	outFileBasename := utils.RandHex() + ".ecs-update.tar"
-	outFile, err := u.fs.Create(filepath.Join(u.config.UpdateDownloadDir, outFileBasename))
+	outFilePath := filepath.Join(u.config.UpdateDownloadDir, outFileBasename)
+	outFile, err := u.fs.Create(outFilePath)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		outFile.Close()
+		if err != nil {
+			u.fs.Remove(outFilePath)
+		}
+	}()
 
 	hashsum := sha256.New()
 	bodyHashReader := io.TeeReader(resp.Body, hashsum)
@@ -163,6 +206,9 @@ func (u *updater) download(info *ecsacs.UpdateInfo) error {
 
 func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) func(req *ecsacs.PerformUpdateMessage) {
 	return func(req *ecsacs.PerformUpdateMessage) {
+		u.Lock()
+		defer u.Unlock()
+
 		log.Debug("Got perform update request")
 		if u.stage != updateDownloaded {
 			log.Debug("Nacking update; not downloaded")
@@ -170,9 +216,10 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
-				MessageId:         &u.downloadMessageID,
+				MessageId:         req.MessageId,
 				Reason:            &reason,
 			})
+			return
 		}
 
 		taskEngine.Disable()
@@ -190,4 +237,11 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		}
 		u.fs.Exit(42)
 	}
+}
+
+func (u *updater) reset() {
+	u.updateID = ""
+	u.downloadMessageID = ""
+	u.stage = updateNone
+	u.stageTime = time.Time{}
 }

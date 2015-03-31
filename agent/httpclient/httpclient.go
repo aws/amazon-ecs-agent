@@ -17,15 +17,18 @@ package httpclient
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
+
+const defaultTimeout = 10 * time.Minute
 
 //go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
 
 // Default is the client used by this package; it should be overridden as
 // desired for testing
-var Default *http.Client = http.DefaultClient
+var Default *http.Client = &http.Client{}
 
 // Transport is the transport requests will be made over
 var Transport = http.DefaultTransport
@@ -34,6 +37,7 @@ type ecsRoundTripper struct{}
 
 func init() {
 	Default.Transport = &ecsRoundTripper{}
+	Default.Timeout = defaultTimeout
 }
 
 func userAgent() string {
@@ -43,4 +47,10 @@ func userAgent() string {
 func (*ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", userAgent())
 	return Transport.RoundTrip(req)
+}
+
+func (*ecsRoundTripper) CancelRequest(req *http.Request) {
+	if def, ok := http.DefaultTransport.(*http.Transport); ok {
+		def.CancelRequest(req)
+	}
 }

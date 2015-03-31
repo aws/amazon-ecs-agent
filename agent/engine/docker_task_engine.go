@@ -56,9 +56,10 @@ type DockerTaskEngine struct {
 
 	client DockerClient
 
-	// Disable before doing a final state save + exit. When disabled, no new
-	// tasks will be processed
-	disabled bool
+	// The processTasks mutex can be used to wait for all tasks to stop
+	// transitioning before doing a final state save + exit. When locked,
+	// new tasks will be processed
+	processTasks sync.RWMutex
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -149,7 +150,7 @@ func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
 }
 
 func (engine *DockerTaskEngine) Disable() {
-	engine.disabled = true
+	engine.processTasks.Lock()
 }
 
 // synchronizeState explicitly goes through each docker container stored in
@@ -375,11 +376,10 @@ func TaskCompleted(task *api.Task) bool {
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask()
-	if engine.disabled {
-		return errors.New("Cannot add a task to a disabled task engine")
-	}
 
+	engine.processTasks.RLock()
 	task = engine.state.AddOrUpdateTask(task)
+	engine.processTasks.RUnlock()
 
 	engine.ApplyTaskState(task)
 	return nil
@@ -399,10 +399,9 @@ func tryApplyTransition(task *api.Task, container *api.Container, to api.Contain
 }
 
 func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *api.Container) {
-	if engine.disabled {
-		log.Debug("Not applying a state change while disabled", "task", task, "container", container)
-		return
-	}
+	engine.processTasks.RLock()
+	defer engine.processTasks.RUnlock()
+
 	container.StatusLock.Lock()
 	defer container.StatusLock.Unlock()
 

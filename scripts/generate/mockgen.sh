@@ -20,6 +20,8 @@ package=${1?Must provide package}
 interfaces=${2?Must provide interface names}
 outputfile=${3?Must provide an output file}
 
+export PATH="${GOPATH//://bin:}/bin:$PATH"
+
 cat  > "${outputfile}" << EOF
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
