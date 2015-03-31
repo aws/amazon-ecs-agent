@@ -40,33 +40,50 @@ var tplAPI = template.Must(template.New("api").Parse(`
 {{ end }}
 `))
 
+const copyrightHeader = `// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+`
+
 // return-based exit code so the 'defer' works
 func _main() int {
 	apiFiles, err := filepath.Glob("./api/*.json")
-	if err != nil || len(apiFiles) != 1 {
-		fmt.Println("Expected a single json file in ./api")
+	if err != nil {
+		fmt.Println("Error listing api json files: ", err)
 		return 1
 	}
-	file := apiFiles[0]
-	api := &api.API{
-		NoInflections:        true,
-		NoRemoveUnusedShapes: true,
-	}
-	api.Attach(file)
+	for _, file := range apiFiles {
+		api := &api.API{
+			NoInflections:        true,
+			NoRemoveUnusedShapes: true,
+		}
+		api.Attach(file)
 
-	outFile := filepath.Join(api.PackageName(), "api.go")
+		var buf bytes.Buffer
+		err = tplAPI.Execute(&buf, api)
+		if err != nil {
+			panic(err)
+		}
+		code := strings.TrimSpace(buf.String())
+		code = util.GoFmt(code)
 
-	var buf bytes.Buffer
-	err = tplAPI.Execute(&buf, api)
-	if err != nil {
-		panic(err)
-	}
-	code := strings.TrimSpace(buf.String())
-	code = util.GoFmt(code)
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), code)), 0644)
-	if err != nil {
-		fmt.Println(err)
-		return 1
+		// Ignore dir error, filepath will catch it for an invalid path.
+		os.Mkdir(api.PackageName(), 0755)
+		outFile := filepath.Join(api.PackageName(), "api.go")
+		err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\npackage %s\n\n%s", copyrightHeader, api.PackageName(), code)), 0644)
+		if err != nil {
+			fmt.Println(err)
+			return 1
+		}
 	}
 	return 0
 }
