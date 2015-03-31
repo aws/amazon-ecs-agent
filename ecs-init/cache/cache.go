@@ -113,8 +113,6 @@ func (d *Downloader) DownloadAgent() error {
 	if err != nil {
 		return err
 	}
-	defer tempFile.Close()
-
 	log.Debugf("Temp file %s", tempFile.Name())
 	defer func() {
 		if err != nil {
@@ -122,6 +120,7 @@ func (d *Downloader) DownloadAgent() error {
 			d.fs.Remove(tempFile.Name())
 		}
 	}()
+	defer tempFile.Close()
 
 	teeReader := d.fs.TeeReader(publishedTarballReader, md5hash)
 	_, err = d.fs.Copy(tempFile, teeReader)
