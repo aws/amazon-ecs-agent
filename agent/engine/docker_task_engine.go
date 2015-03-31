@@ -224,7 +224,7 @@ func (engine *DockerTaskEngine) sweepTasks() {
 // sweepTask deletes all the containers associated with a task
 func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	for _, cont := range task.Containers {
-		err := engine.RemoveContainer(task, cont)
+		err := engine.removeContainer(task, cont)
 		if err != nil {
 			log.Debug("Unable to remove old container", "err", err, "task", task, "cont", cont)
 		}
@@ -239,7 +239,7 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 
 	// Every time something changes, make sure the state for the thing that
 	// changed is known about and move forwards if this change allows us to
-	defer engine.ApplyTaskState(task)
+	defer engine.applyTaskState(task)
 
 	// Collect additional info we need for our StateChanges
 	if err != nil {
@@ -381,7 +381,7 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task = engine.state.AddOrUpdateTask(task)
 	engine.processTasks.RUnlock()
 
-	engine.ApplyTaskState(task)
+	engine.applyTaskState(task)
 	return nil
 }
 
@@ -398,7 +398,7 @@ func tryApplyTransition(task *api.Task, container *api.Container, to api.Contain
 	return err
 }
 
-func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *api.Container) {
+func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container) {
 	engine.processTasks.RLock()
 	defer engine.processTasks.RUnlock()
 
@@ -435,7 +435,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 		// show. This is also the only state where an error results in a
 		// state-change submission anyways.
 		if container.AppliedStatus < api.ContainerStopped {
-			err = tryApplyTransition(task, container, api.ContainerStopped, engine.StopContainer)
+			err = tryApplyTransition(task, container, api.ContainerStopped, engine.stopContainer)
 			if err != nil {
 				clog.Info("Unable to stop container", "err", err)
 				// If there was an error, assume we won't get an event in the
@@ -449,7 +449,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 			}
 		}
 	} else if container.AppliedStatus < api.ContainerPulled {
-		err = tryApplyTransition(task, container, api.ContainerPulled, engine.PullContainer)
+		err = tryApplyTransition(task, container, api.ContainerPulled, engine.pullContainer)
 		if err != nil {
 			clog.Warn("Unable to pull container image", "err", err)
 		} else {
@@ -462,12 +462,12 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 
 	if !container.DesiredTerminal() {
 		if container.AppliedStatus < api.ContainerCreated {
-			err = tryApplyTransition(task, container, api.ContainerCreated, engine.CreateContainer)
+			err = tryApplyTransition(task, container, api.ContainerCreated, engine.createContainer)
 			if err != nil {
 				clog.Warn("Unable to create container", "err", err)
 			}
 		} else if container.AppliedStatus < api.ContainerRunning {
-			err = tryApplyTransition(task, container, api.ContainerRunning, engine.StartContainer)
+			err = tryApplyTransition(task, container, api.ContainerRunning, engine.startContainer)
 			if err != nil {
 				clog.Warn("Unable to start container", "err", err)
 			}
@@ -481,7 +481,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 		container.DesiredStatus = api.ContainerStopped
 		// Because our desired status is now stopped, we should call this
 		// function again to actually stop it
-		go engine.ApplyContainerState(task, container)
+		go engine.applyContainerState(task, container)
 	} else {
 		clog.Debug("Successfully applied transition")
 	}
@@ -494,7 +494,7 @@ func (engine *DockerTaskEngine) ApplyContainerState(task *api.Task, container *a
 // be done, it does it. This function can be called frequently (and should be
 // called anytime a container changes) and will do nothing if the task is at a
 // steady state
-func (engine *DockerTaskEngine) ApplyTaskState(task *api.Task) {
+func (engine *DockerTaskEngine) applyTaskState(task *api.Task) {
 	llog := log.New("task", task)
 	llog.Info("Top of ApplyTaskState")
 
@@ -510,7 +510,7 @@ func (engine *DockerTaskEngine) ApplyTaskState(task *api.Task) {
 	}
 
 	for _, container := range task.Containers {
-		go engine.ApplyContainerState(task, container)
+		go engine.applyContainerState(task, container)
 	}
 }
 
@@ -518,7 +518,7 @@ func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 	return engine.state.AllTasks(), nil
 }
 
-func (engine *DockerTaskEngine) PullContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) error {
 	log.Info("Pulling container", "task", task, "container", container)
 
 	err := engine.client.PullImage(container.Image)
@@ -528,7 +528,7 @@ func (engine *DockerTaskEngine) PullContainer(task *api.Task, container *api.Con
 	return nil
 }
 
-func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) error {
 	log.Info("Creating container", "task", task, "container", container)
 	config, err := task.DockerConfig(container)
 	if err != nil {
@@ -570,7 +570,7 @@ func (engine *DockerTaskEngine) CreateContainer(task *api.Task, container *api.C
 	return err
 }
 
-func (engine *DockerTaskEngine) StartContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) error {
 	log.Info("Starting container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
@@ -590,7 +590,7 @@ func (engine *DockerTaskEngine) StartContainer(task *api.Task, container *api.Co
 	return engine.client.StartContainer(dockerContainer.DockerId, hostConfig)
 }
 
-func (engine *DockerTaskEngine) StopContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) error {
 	log.Info("Stopping container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
@@ -605,7 +605,7 @@ func (engine *DockerTaskEngine) StopContainer(task *api.Task, container *api.Con
 	return engine.client.StopContainer(dockerContainer.DockerId)
 }
 
-func (engine *DockerTaskEngine) RemoveContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
 	log.Info("Removing container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 
