@@ -76,6 +76,7 @@ rm -rf $RPM_BUILD_ROOT
 * Thu Mar 26 2015 Samuel Karp <skarp@amazon.com> - 1.0-1
 - Re-start Agent on non-terminal exit codes
 - Enable Agent self-updates
+- Cache Agent version 1.0.0
 * Mon Mar 16 2015 Samuel Karp <skarp@amazon.com> - 0.3-0
 - Migrate to statically-compiled Go binary
 * Tue Feb 17 2015 Eric Nordlund <ericn@amazon.com> - 0.2-3
