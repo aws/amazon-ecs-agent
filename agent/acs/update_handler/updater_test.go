@@ -59,7 +59,6 @@ func TestFullUpdateFlow(t *testing.T) {
 	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
-	// And then write the new update tarball
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
@@ -180,7 +179,6 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
-	// And then write the new update tarball
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
@@ -240,7 +238,6 @@ func TestNewerUpdateMessages(t *testing.T) {
 	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
-	// And then write the new update tarball
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
