@@ -114,17 +114,6 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 
 		log.Debug("Staging update", "update", req)
 
-		if u.stage != updateNone && ttime.Since(u.stageTime) > maxUpdateDuration {
-			log.Debug("Previous update timed out", "time", u.stageTime, "id", u.downloadMessageID)
-			reason := "Update timed out"
-			u.acs.MakeRequest(&ecsacs.NackRequest{
-				Cluster:           req.ClusterArn,
-				ContainerInstance: req.ContainerInstanceArn,
-				MessageId:         &u.downloadMessageID,
-				Reason:            &reason,
-			})
-			u.reset()
-		}
 		if u.stage != updateNone {
 			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {
 				log.Debug("Update already in progress, ignoring message", "id", u.updateID)
@@ -140,6 +129,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 				})
 			}
 		}
+		u.updateID = *req.UpdateInfo.Signature
 		u.stage = updateDownloading
 		u.stageTime = ttime.Now()
 		u.downloadMessageID = *req.MessageId
@@ -160,7 +150,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 	}
 }
 
-func (u *updater) download(info *ecsacs.UpdateInfo) error {
+func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if info == nil || info.Location == nil {
 		return errors.New("No location given")
 	}

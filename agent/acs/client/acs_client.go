@@ -325,7 +325,7 @@ func (cs *clientServer) handleMessage(data []byte) {
 	}
 
 	if handler, ok := cs.requestHandlers[typeStr]; ok {
-		reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
+		go reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
 	} else {
 		log.Info("No handler for message type", "type", typeStr)
 	}

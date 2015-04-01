@@ -57,8 +57,9 @@ type DockerTaskEngine struct {
 	client DockerClient
 
 	// The processTasks mutex can be used to wait for all tasks to stop
-	// transitioning before doing a final state save + exit. When locked,
-	// new tasks will be processed
+	// transitioning before doing a final state save + exit. When write-locked
+	// new tasks will not be processed. Anything transitioning a tasks state
+	// should aquire a read-lock.
 	processTasks sync.RWMutex
 }
 

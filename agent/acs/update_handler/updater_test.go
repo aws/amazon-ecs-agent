@@ -58,21 +58,19 @@ func TestFullUpdateFlow(t *testing.T) {
 	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
-	// First, it'll try to download the file
-	mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil)
-
 	// And then write the new update tarball
 	var writtenFile bytes.Buffer
-	mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil)
-	// Write that it's available
-	mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil)
-
-	// And then ack it
-	mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
-		Cluster:           ptr("cluster").(*string),
-		ContainerInstance: ptr("containerInstance").(*string),
-		MessageId:         ptr("mid").(*string),
-	}))
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid").(*string),
+		})),
+		mockfs.EXPECT().Exit(42),
+	)
 
 	u := &updater{
 		acs:    mockacs,
@@ -92,9 +90,6 @@ func TestFullUpdateFlow(t *testing.T) {
 	if writtenFile.String() != "update-tar-data" {
 		t.Error("Incorrect data written")
 	}
-
-	// Now that we've staged the update, we can proceed with it
-	mockfs.EXPECT().Exit(42)
 
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
@@ -173,9 +168,183 @@ func TestUndownloadedUpdate(t *testing.T) {
 		MessageId:         ptr("mid").(*string),
 	}})
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
 	})
+}
+
+func TestDuplicateUpdateMessages(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	defer ctrl.Finish()
+
+	// And then write the new update tarball
+	var writtenFile bytes.Buffer
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid").(*string),
+		})),
+		mockfs.EXPECT().Exit(42),
+	)
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
+
+	// Multiple requests to stage something with the same signature should still
+	// result in only one download / update procedure.
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid2").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
+
+	if writtenFile.String() != "update-tar-data" {
+		t.Error("Incorrect data written")
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid2").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
+		},
+	})
+}
+
+func TestNewerUpdateMessages(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	defer ctrl.Finish()
+
+	// And then write the new update tarball
+	var writtenFile bytes.Buffer
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("StageMID").(*string),
+		})),
+		mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("StageMID").(*string),
+			Reason:            ptr("New update arrived: StageMIDNew").(*string),
+		}}),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld/new")).Return(mock_http.SuccessResponse("newer-update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("StageMIDNew").(*string),
+		})),
+		mockfs.EXPECT().Exit(42),
+	)
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("StageMID").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
+
+	if writtenFile.String() != "update-tar-data" {
+		t.Error("Incorrect data written")
+	}
+	writtenFile.Reset()
+
+	// Never perform, make sure a new hash results in a new stage
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("StageMIDNew").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld/new").(*string),
+			Signature: ptr("9c6ea7bd7d49f95b6d516517e453b965897109bf8a1d6ff3a6e57287049eb2de").(*string),
+		},
+	})
+
+	if writtenFile.String() != "newer-update-tar-data" {
+		t.Error("Incorrect data written")
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid2").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
+		},
+	})
+}
+
+func TestValidationError(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	defer ctrl.Finish()
+
+	var writtenFile bytes.Buffer
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().Remove(gomock.Any()),
+		mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("StageMID").(*string),
+		}}),
+	)
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("StageMID").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://update.tld").(*string),
+			Signature: ptr("Invalid signature").(*string),
+		},
+	})
+
+	if writtenFile.String() != "update-tar-data" {
+		t.Error("Incorrect data written")
+	}
 }

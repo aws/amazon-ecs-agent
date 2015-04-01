@@ -62,6 +62,6 @@ type Config struct {
 	UpdatesEnabled bool
 	// UpdateDownloadDir specifies where new agent versions should be placed
 	// within the container in order for the external updating process to
-	// correctly handle them. Default /updates/
+	// correctly handle them.
 	UpdateDownloadDir string
 }
