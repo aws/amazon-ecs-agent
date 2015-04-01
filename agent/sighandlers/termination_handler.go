@@ -25,6 +25,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
@@ -41,9 +42,10 @@ func StartTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEng
 	err := FinalSave(saver, taskEngine)
 	if err != nil {
 		log.Crit("Error saving state before final shutdown", "err", err)
-		os.Exit(1)
+		// Terminal because it's a sigterm; the user doesn't want it to restart
+		os.Exit(exitcodes.ExitTerminal)
 	}
-	os.Exit(0)
+	os.Exit(exitcodes.ExitSuccess)
 }
 
 const engineDisableTimeout = 5 * time.Second
@@ -75,11 +77,7 @@ func FinalSave(saver statemanager.Saver, taskEngine engine.TaskEngine) error {
 	})
 	go func() {
 		log.Debug("Saving state before shutting down")
-		if forceSaver, ok := saver.(statemanager.ForceSaver); ok {
-			stateSaved <- forceSaver.ForceSave()
-		} else {
-			stateSaved <- saver.Save()
-		}
+		stateSaved <- saver.ForceSave()
 		saveTimer.Stop()
 	}()
 

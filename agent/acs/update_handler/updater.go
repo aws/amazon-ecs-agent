@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -219,7 +220,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		} else {
 			log.Debug("Saved state!")
 		}
-		u.fs.Exit(42)
+		u.fs.Exit(exitcodes.ExitUpdate)
 	}
 }
 

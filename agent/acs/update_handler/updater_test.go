@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
@@ -69,7 +70,7 @@ func TestFullUpdateFlow(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid").(*string),
 		})),
-		mockfs.EXPECT().Exit(42),
+		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
 	u := &updater{
@@ -190,7 +191,7 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid").(*string),
 		})),
-		mockfs.EXPECT().Exit(42),
+		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
 	u := &updater{
@@ -264,7 +265,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("StageMIDNew").(*string),
 		})),
-		mockfs.EXPECT().Exit(42),
+		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
 	u := &updater{
