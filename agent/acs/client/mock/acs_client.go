@@ -17,8 +17,8 @@
 package mock_client
 
 import (
-	client "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	gomock "code.google.com/p/gomock/gomock"
+	client "github.com/aws/amazon-ecs-agent/agent/acs/client"
 )
 
 // Mock of ClientServer interface
