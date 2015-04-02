@@ -16,8 +16,16 @@
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.6.1-10-g6c28e16",
-			"Rev": "6c28e16200e55c2549705ac24ea58976c07f18ac"
+			"Comment": "v0.6.5",
+			"Rev": "c0f7e35ed2e48f188c37581b4b743cf7383f85c6"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/aws",
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/endpoints",
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/model/api",
@@ -28,11 +36,23 @@
 			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/jsonrpc",
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+		},
+		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/xml/xmlutil",
 			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/signer/v4",
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+		},
+		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/util",
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+		},
+		{
+			"ImportPath": "github.com/awslabs/aws-sdk-go/service/ecs",
 			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
@@ -92,6 +112,15 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9"
+		},
+		{
+			"ImportPath": "github.com/vaughan0/go-ini",
+			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "gopkg.in/inconshreveable/log15.v2",
+			"Comment": "v2.5",
+			"Rev": "301391f3385d3cd1a8f731cc148db489585a8aaf"
 		}
 	]
 }
