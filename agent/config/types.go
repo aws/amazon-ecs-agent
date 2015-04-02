@@ -28,8 +28,6 @@ type Config struct {
 	// make calls against. If this value is not set, it will default to the
 	// endpoint for your current AWSRegion
 	APIEndpoint string
-	// APIPort is the port for the above APIEndpoint. It defaults to 443.
-	APIPort uint16
 	// DockerEndpoint is the address the agent will attempt to connect to the
 	// Docker daemon at. This should have the same value as "DOCKER_HOST"
 	// normally would to interact with the daemon. It defaults to

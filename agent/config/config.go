@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -110,7 +109,6 @@ func DefaultConfig() Config {
 	awsRegion := "us-west-2"
 	return Config{
 		APIEndpoint:    ecsEndpoint(awsRegion),
-		APIPort:        443,
 		DockerEndpoint: "unix:///var/run/docker.sock",
 		AWSRegion:      awsRegion,
 		ReservedPorts:  []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
@@ -152,7 +150,6 @@ func FileConfig() Config {
 // to convert them to the given type
 func EnvironmentConfig() Config {
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
-	port, _ := strconv.Atoi(os.Getenv("ECS_BACKEND_PORT"))
 
 	clusterRef := os.Getenv("ECS_CLUSTER")
 	awsRegion := os.Getenv("AWS_DEFAULT_REGION")
@@ -191,7 +188,6 @@ func EnvironmentConfig() Config {
 	return Config{
 		Cluster:           clusterRef,
 		APIEndpoint:       endpoint,
-		APIPort:           uint16(port),
 		AWSRegion:         awsRegion,
 		DockerEndpoint:    dockerEndpoint,
 		ReservedPorts:     reservedPorts,

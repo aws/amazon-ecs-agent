@@ -18,7 +18,7 @@ import "testing"
 func TestMerge(t *testing.T) {
 	conf1 := &Config{Cluster: "Foo"}
 	conf2 := Config{Cluster: "ignored", APIEndpoint: "Bar"}
-	conf3 := Config{APIPort: 99}
+	conf3 := Config{AWSRegion: "us-west-2"}
 
 	conf1.Merge(conf2).Merge(conf3)
 
@@ -28,7 +28,7 @@ func TestMerge(t *testing.T) {
 	if conf1.APIEndpoint != "Bar" {
 		t.Error("The APIEndpoint should have been merged in")
 	}
-	if conf1.APIPort != 99 {
-		t.Error("The APIPort should have been 99")
+	if conf1.AWSRegion != "us-west-2" {
+		t.Error("Incorrect region")
 	}
 }

@@ -17,6 +17,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"runtime"
+	"strconv"
+	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/awsjson/codec"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/client/dialer"
@@ -81,11 +83,21 @@ func (client *ApiECSClient) serviceClientImpl() (svc.AmazonEC2ContainerServiceV2
 	signer := authv4.NewHttpSigner(config.AWSRegion, ECS_SERVICE, client.CredentialProvider(), nil)
 
 	c := codec.AwsJson{Host: config.APIEndpoint, SignerV4: signer}
+	endpoint := config.APIEndpoint
+	port := uint16(443)
+	if parts := strings.Split(endpoint, ":"); len(parts) == 2 {
+		endpoint = parts[0]
+		tmpPort, err := strconv.Atoi(parts[1])
+		port = uint16(tmpPort)
+		if err != nil {
+			return nil, errors.New("Malformed endpoint url given")
+		}
+	}
 
-	d, err := dialer.TLS(config.APIEndpoint, config.APIPort, &tls.Config{InsecureSkipVerify: client.insecureSkipVerify})
+	d, err := dialer.TLS(endpoint, port, &tls.Config{InsecureSkipVerify: client.insecureSkipVerify})
 
 	if err != nil {
-		log.Error("Cannot resolve url", "url", config.APIEndpoint, "port", config.APIPort, "err", err)
+		log.Error("Cannot resolve url", "url", endpoint, "port", port, "err", err)
 		return nil, err
 	}
 
