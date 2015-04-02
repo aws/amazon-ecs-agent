@@ -43,9 +43,6 @@ func (m *MockECSClient) RegisterContainerInstance() (string, error) {
 func (m *MockECSClient) DiscoverPollEndpoint(string) (string, error) {
 	return "", nil
 }
-func (m *MockECSClient) DeregisterContainerInstance(string) error {
-	return nil
-}
 func (m *MockECSClient) SubmitTaskStateChange(change api.ContainerStateChange) utils.RetriableError {
 	return m.submitTaskStateChange(change)
 }

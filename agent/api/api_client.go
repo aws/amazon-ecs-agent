@@ -41,7 +41,6 @@ type ECSClient interface {
 	SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError
 	SubmitContainerStateChange(change ContainerStateChange) utils.RetriableError
 	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
-	DeregisterContainerInstance(containerInstanceArn string) error
 }
 
 type ApiECSClient struct {
@@ -124,7 +123,7 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 	resp, err := svcClient.CreateCluster(svcRequest)
 	if err != nil {
 		log.Crit("Could not create cluster", "err", err)
-		return "", err
+		return "", NewAPIError(err)
 	}
 	log.Info("Created a cluster!", "clusterName", clusterName)
 	return *resp.Cluster().ClusterName(), nil
@@ -176,7 +175,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 		// register again
 		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
-			return "", err
+			return "", NewAPIError(err)
 		}
 	}
 	return client.registerContainerInstance(clusterRef)
@@ -238,7 +237,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 	resp, err := ecs.RegisterContainerInstance(svcRequest)
 	if err != nil {
 		log.Error("Could not register", "err", err)
-		return "", err
+		return "", NewAPIError(err)
 	}
 	log.Info("Registered!")
 	return *resp.ContainerInstance().ContainerInstanceArn(), nil
@@ -247,7 +246,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError {
 	if change.TaskStatus == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return NewStateChangeError(errors.New("SubmitTaskStateChange called with an invalid change"))
+		return NewAPIError(errors.New("SubmitTaskStateChange called with an invalid change"))
 	}
 
 	stat := change.TaskStatus.String()
@@ -267,12 +266,12 @@ func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) u
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return NewStateChangeError(err)
+		return NewAPIError(err)
 	}
 	_, err = c.SubmitTaskStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
-		return NewStateChangeError(err)
+		return NewAPIError(err)
 	}
 	return nil
 }
@@ -317,12 +316,12 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return NewStateChangeError(err)
+		return NewAPIError(err)
 	}
 	_, err = c.SubmitContainerStateChange(req)
 	if err != nil {
 		log.Warn("Could not submit a container state change", "change", change, "err", err)
-		return NewStateChangeError(err)
+		return NewAPIError(err)
 	}
 	return nil
 }
@@ -334,28 +333,13 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 
 	c, err := client.serviceClient()
 	if err != nil {
-		return "", err
+		return "", NewAPIError(err)
 	}
 
 	resp, err := c.DiscoverPollEndpoint(req)
 	if err != nil {
-		return "", err
+		return "", NewAPIError(err)
 	}
 
 	return *resp.Endpoint(), nil
-}
-
-func (client *ApiECSClient) DeregisterContainerInstance(containerInstanceArn string) error {
-	req := svc.NewDeregisterContainerInstanceRequest()
-	req.SetCluster(&client.config.Cluster)
-	req.SetContainerInstance(&containerInstanceArn)
-
-	c, err := client.serviceClient()
-	if err != nil {
-		return err
-	}
-
-	_, err = c.DeregisterContainerInstance(req)
-
-	return err
 }
