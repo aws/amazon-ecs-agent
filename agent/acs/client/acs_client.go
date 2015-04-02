@@ -54,16 +54,18 @@ type websocketConn interface {
 
 // More properly this would be func(*ecsacs.T for T in ecsacs.*), but it needs
 // to be interface{} to properly capture that
-type requestHandler interface{}
+type RequestHandler interface{}
 
 // ClientServer is a combined client and server for the ACS websocket connection
 type ClientServer interface {
-	AddRequestHandler(requestHandler)
+	AddRequestHandler(RequestHandler)
 	MakeRequest(input interface{}) error
 	Connect() error
 	Serve() error
 	io.Closer
 }
+
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/acs/client ClientServer mock/$GOFILE
 
 // default implementation of ClientServer
 type clientServer struct {
@@ -78,7 +80,7 @@ type clientServer struct {
 	// requestHandlers is a map from message types to handler functions of the
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
-	requestHandlers map[string]requestHandler
+	requestHandlers map[string]RequestHandler
 }
 
 // receivedMessage is the intermediate message used to unmarshal a message from ACS
@@ -98,7 +100,7 @@ type requestMessage struct {
 // before being used.
 func New(url string, region string, credentialProvider credentials.AWSCredentialProvider, acceptInvalidCert bool) ClientServer {
 	cs := &clientServer{url: url, region: region, credentialProvider: credentialProvider, acceptInvalidCert: acceptInvalidCert}
-	cs.requestHandlers = make(map[string]requestHandler)
+	cs.requestHandlers = make(map[string]RequestHandler)
 	return cs
 }
 
@@ -195,7 +197,7 @@ func (cs *clientServer) Serve() error {
 //     func(message *ecsacs.FooMessage)
 // This function will panic if the passed in function does not have one pointer
 // argument or the argument is not a recognized type.
-func (cs *clientServer) AddRequestHandler(f requestHandler) {
+func (cs *clientServer) AddRequestHandler(f RequestHandler) {
 	firstArg := reflect.TypeOf(f).In(0)
 	firstArgTypeStr := firstArg.Elem().Name()
 	_, ok := typeMappings[firstArgTypeStr]
@@ -323,7 +325,7 @@ func (cs *clientServer) handleMessage(data []byte) {
 	}
 
 	if handler, ok := cs.requestHandlers[typeStr]; ok {
-		reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
+		go reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
 	} else {
 		log.Info("No handler for message type", "type", typeStr)
 	}

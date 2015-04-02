@@ -49,13 +49,9 @@ var log = logger.ForModule("statemanager")
 // and so on can be marshaled/unmarshaled sanely but don't fit those interfaces.
 type Saveable interface{}
 
-// Saver is a type that can be saved and returns an (optional) error.
+// Saver is a type that can be saved
 type Saver interface {
 	Save() error
-}
-
-// ForceSaver is a StateManager that supports forcible saving
-type ForceSaver interface {
 	ForceSave() error
 }
 
@@ -90,7 +86,7 @@ type versionOnlyState struct {
 // A StateManager can load and save state from disk.
 // Load is not expected to return an error if there is no state to load.
 type StateManager interface {
-	Save() error
+	Saver
 	Load() error
 }
 

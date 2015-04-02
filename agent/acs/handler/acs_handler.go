@@ -22,6 +22,7 @@ import (
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 var log = logger.ForModule("acs handler")
@@ -49,12 +51,14 @@ func StartSession(containerInstanceArn string, credentialProvider credentials.AW
 			return err
 		}
 
-		url := AcsWsUrl(acsEndpoint, cfg.Cluster, containerInstanceArn)
+		url := AcsWsUrl(acsEndpoint, cfg.Cluster, containerInstanceArn, taskEngine)
 
 		client := acsclient.New(url, cfg.AWSRegion, credentialProvider, acceptInvalidCert)
 
 		client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, containerInstanceArn, taskEngine, ecsclient, stateManager))
 		client.AddRequestHandler(heartbeatHandler(client))
+
+		updater.AddAgentUpdateHandlers(client, cfg, stateManager, taskEngine)
 
 		err = client.Connect()
 		if err != nil {
@@ -129,7 +133,12 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 				return
 			}
 			// Else, no error converting, add to engine
-			taskEngine.AddTask(apiTask)
+			err = taskEngine.AddTask(apiTask)
+			if err != nil {
+				log.Warn("Could not add task; taskengine probably disabled")
+				// Don't ack
+				return
+			}
 			err = stateManager.Save()
 			if err != nil {
 				log.Error("Error saving state!", "err", err)
@@ -153,7 +162,7 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 }
 
 // AcsWsUrl returns the websocket url for ACS given the endpoint.
-func AcsWsUrl(endpoint, cluster, containerInstanceArn string) string {
+func AcsWsUrl(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine) string {
 	acsUrl := endpoint
 	if endpoint[len(endpoint)-1] != '/' {
 		acsUrl += "/"
@@ -162,5 +171,10 @@ func AcsWsUrl(endpoint, cluster, containerInstanceArn string) string {
 	query := url.Values{}
 	query.Set("clusterArn", cluster)
 	query.Set("containerInstanceArn", containerInstanceArn)
+	query.Set("agentHash", version.GitHashString())
+	query.Set("agentVersion", version.Version)
+	if dockerVersion, err := taskEngine.Version(); err == nil {
+		query.Set("dockerVersion", dockerVersion)
+	}
 	return acsUrl + "?" + query.Encode()
 }

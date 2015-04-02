@@ -53,3 +53,10 @@ func String() string {
 	}
 	return ret + GitShortHash + ")"
 }
+
+func GitHashString() string {
+	if GitDirty {
+		return "*" + GitShortHash
+	}
+	return GitShortHash
+}

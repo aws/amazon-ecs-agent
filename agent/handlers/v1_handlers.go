@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -25,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -192,7 +194,15 @@ func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *
 	}
 
 	for {
-		err := server.ListenAndServe()
-		log.Error("Error running http api", "err", err)
+		once := sync.Once{}
+		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
+			// TODO, make this cancellable and use the passed in context; for
+			// now, not critical if this gets interrupted
+			err := server.ListenAndServe()
+			once.Do(func() {
+				log.Error("Error running http api", "err", err)
+			})
+			return err
+		})
 	}
 }

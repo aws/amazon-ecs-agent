@@ -52,7 +52,7 @@ release: certs docker-release
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
 gogenerate:
-	@cd agent && GOOS=generate godep go generate ./...
+	@cd agent && PATH=$(shell pwd)/scripts/generate:$(PATH) GOOS=generate godep go generate ./...
 
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt
@@ -85,6 +85,7 @@ volumes-test:
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
+	go get code.google.com/p/gomock/mockgen
 
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null

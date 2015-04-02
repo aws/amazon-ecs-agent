@@ -31,10 +31,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/signable"
 	"crypto/hmac"
 	"crypto/sha256"
+
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/signable"
 )
 
 type Signable signable.Signable
@@ -169,7 +170,9 @@ func canonicalizeQuery(signable Signable) string {
 		for _, value := range values {
 			sort.Strings(value) // ensure values are sorted
 		}
-		canonical_query = values.Encode()
+		// spaces should be encoded to '%20', not '+', but values.Encode does
+		// '+'
+		canonical_query = strings.Replace(values.Encode(), "+", "%20", -1)
 	}
 
 	return canonical_query
@@ -251,7 +254,6 @@ func getStringToSign(nowDate string, nowDay SigningDay,
 
 	str2sign := fmt.Sprintf("AWS4-HMAC-SHA256\n%s\n%s/%s/%s/aws4_request\n%s",
 		nowDate, nowDay, region, service, canonical_request_signature)
-
 	return canonical_request, str2sign, payload_signature, nil
 }
 

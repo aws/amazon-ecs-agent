@@ -53,9 +53,10 @@ WORKDIR /go
 # Dockerfile.build should INCLUDE a common source. Same is true for the above
 # section.
 RUN mkdir -p /go/src/github.com/aws/
-RUN go get github.com/tools/godep
-RUN go get golang.org/x/tools/cmd/cover
+WORKDIR /go/src/github.com/aws/amazon-ecs-agent/
+RUN make get-deps
 
 WORKDIR /go/src/github.com/aws/amazon-ecs-agent/agent
+
 
 ENTRYPOINT /go/src/github.com/aws/amazon-ecs-agent/scripts/test

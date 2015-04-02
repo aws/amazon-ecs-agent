@@ -57,3 +57,67 @@ func TestAddTask(t *testing.T) {
 		t.Error("Wrong task retrieved")
 	}
 }
+
+func TestTwophaseAddContainer(t *testing.T) {
+	state := NewDockerTaskEngineState()
+	testTask := &api.Task{Arn: "test", Containers: []*api.Container{&api.Container{
+		Name: "testContainer",
+	}}}
+	state.AddOrUpdateTask(testTask)
+
+	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
+
+	if len(state.AllTasks()) != 1 {
+		t.Fatal("Should have 1 task")
+	}
+
+	task, ok := state.TaskByArn("test")
+	if !ok {
+		t.Error("Couldn't find the test task")
+	}
+	if task.Arn != "test" {
+		t.Error("Wrong task retrieved")
+	}
+
+	containerMap, ok := state.ContainerMapByArn("test")
+	if !ok {
+		t.Fatal("Could not get container map")
+	}
+
+	container, ok := containerMap["testContainer"]
+	if !ok {
+		t.Fatal("Could not get container")
+	}
+	if container.DockerName != "dockerName" {
+		t.Fatal("Incorrect docker name")
+	}
+	if container.DockerId != "" {
+		t.Fatal("DockerID Should be blank")
+	}
+
+	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerId: "did"}, testTask)
+
+	containerMap, ok = state.ContainerMapByArn("test")
+	if !ok {
+		t.Fatal("Could not get container map")
+	}
+
+	container, ok = containerMap["testContainer"]
+	if !ok {
+		t.Fatal("Could not get container")
+	}
+	if container.DockerName != "dockerName" {
+		t.Fatal("Incorrect docker name")
+	}
+	if container.DockerId != "did" {
+		t.Fatal("DockerID should have been updated")
+	}
+
+	container, ok = state.ContainerById("did")
+	if !ok {
+		t.Fatal("Could not get container by id")
+	}
+	if container.DockerName != "dockerName" || container.DockerId != "did" {
+		t.Fatal("Incorrect container fetched")
+	}
+}

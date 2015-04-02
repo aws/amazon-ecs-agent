@@ -36,6 +36,8 @@ func init() {
 		ecsacs.HeartbeatMessage{}, ecsacs.PayloadMessage{},
 
 		ecsacs.CloseMessage{}, ecsacs.AckRequest{},
+		ecsacs.NackRequest{},
+		ecsacs.PerformUpdateMessage{}, ecsacs.StageUpdateMessage{},
 
 		ecsacs.ServerException{},
 		ecsacs.BadRequestException{}, ecsacs.InvalidClusterException{},

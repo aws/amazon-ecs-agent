@@ -163,6 +163,22 @@ type metadataMountPoint struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type NackRequest struct {
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	Reason *string `locationName:"reason" type:"string"`
+
+	metadataNackRequest `json:"-", xml:"-"`
+}
+
+type metadataNackRequest struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type PayloadMessage struct {
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
@@ -183,7 +199,25 @@ type metadataPayloadMessage struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type PerformUpdateMessage struct {
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+
+	metadataPerformUpdateMessage `json:"-", xml:"-"`
+}
+
+type metadataPerformUpdateMessage struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type PollRequest struct {
+	AgentVersion *VersionInfo `locationName:"agentVersion" type:"structure"`
+
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
@@ -219,6 +253,22 @@ type metadataServerException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type StageUpdateMessage struct {
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+
+	metadataStageUpdateMessage `json:"-", xml:"-"`
+}
+
+type metadataStageUpdateMessage struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type Task struct {
 	Arn *string `locationName:"arn" type:"string"`
 
@@ -240,6 +290,40 @@ type Task struct {
 }
 
 type metadataTask struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type UpdateFailureOutput struct {
+	metadataUpdateFailureOutput `json:"-", xml:"-"`
+}
+
+type metadataUpdateFailureOutput struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type UpdateInfo struct {
+	Location *string `locationName:"location" type:"string"`
+
+	Signature *string `locationName:"signature" type:"string"`
+
+	metadataUpdateInfo `json:"-", xml:"-"`
+}
+
+type metadataUpdateInfo struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type VersionInfo struct {
+	AgentHash *string `locationName:"agentHash" type:"string"`
+
+	AgentVersion *string `locationName:"agentVersion" type:"string"`
+
+	DockerVersion *string `locationName:"dockerVersion" type:"string"`
+
+	metadataVersionInfo `json:"-", xml:"-"`
+}
+
+type metadataVersionInfo struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 

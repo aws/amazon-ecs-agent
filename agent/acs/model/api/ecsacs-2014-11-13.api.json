@@ -27,6 +27,15 @@
       "input":{"shape":"PayloadMessage"},
       "output":{"shape":"AckRequest"}
     },
+    "PerformUpdate":{
+      "name":"PerformUpdate",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PerformUpdateMessage"},
+      "output":{"shape":"AckRequest"}
+    },
     "Poll":{
       "name":"Poll",
       "http":{
@@ -49,18 +58,35 @@
           "exception":true
         },
         {
+          "shape":"AccessDeniedException",
+          "exception":true
+        },
+        {
           "shape":"InvalidInstanceException",
           "exception":true
         },
         {
           "shape":"InactiveInstanceException",
           "exception":true
-        },
-        {
-          "shape":"AccessDeniedException",
-          "exception":true
         }
       ]
+    },
+    "StageUpdate":{
+      "name":"StageUpdate",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"StageUpdateMessage"},
+      "output":{"shape":"AckRequest"}
+    },
+    "UpdateFailure":{
+      "name":"UpdateFailure",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"NackRequest"}
     }
   },
   "shapes":{
@@ -167,6 +193,15 @@
       "type":"list",
       "member":{"shape":"MountPoint"}
     },
+    "NackRequest":{
+      "type":"structure",
+      "members":{
+        "cluster":{"shape":"String"},
+        "containerInstance":{"shape":"String"},
+        "messageId":{"shape":"String"},
+        "reason":{"shape":"String"}
+      }
+    },
     "PayloadMessage":{
       "type":"structure",
       "members":{
@@ -178,12 +213,22 @@
         "seqNum":{"shape":"Integer"}
       }
     },
+    "PerformUpdateMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "updateInfo":{"shape":"UpdateInfo"},
+        "messageId":{"shape":"String"}
+      }
+    },
     "PollRequest":{
       "type":"structure",
       "members":{
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
-        "seqNum":{"shape":"Integer"}
+        "seqNum":{"shape":"Integer"},
+        "agentVersion":{"shape":"VersionInfo"}
       }
     },
     "PortMapping":{
@@ -203,6 +248,15 @@
         "message":{"shape":"String"}
       },
       "exception":true
+    },
+    "StageUpdateMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "updateInfo":{"shape":"UpdateInfo"},
+        "messageId":{"shape":"String"}
+      }
     },
     "String":{"type":"string"},
     "StringList":{
@@ -225,6 +279,21 @@
     "TaskList":{
       "type":"list",
       "member":{"shape":"Task"}
+    },
+    "UpdateInfo":{
+      "type":"structure",
+      "members":{
+        "location":{"shape":"String"},
+        "signature":{"shape":"String"}
+      }
+    },
+    "VersionInfo":{
+      "type":"structure",
+      "members":{
+        "agentVersion":{"shape":"String"},
+        "agentHash":{"shape":"String"},
+        "dockerVersion":{"shape":"String"}
+      }
     },
     "Volume":{
       "type":"structure",
