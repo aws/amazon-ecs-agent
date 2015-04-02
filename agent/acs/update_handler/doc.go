@@ -11,29 +11,12 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package acs
-
-import "github.com/aws/amazon-ecs-agent/agent/api"
-
-type PollCallback func(api.Task)
-
-type PollResponse struct {
-	MessageType string `json:"type"`
-	//TODO handle other messageTypes, this should be union type
-	Message Payload `json:"message"`
-}
-
-type Payload struct {
-	Tasks     []*api.Task
-	MessageId string
-}
-
-type HealthResponse struct {
-	Healthy bool `json:"healthy"`
-}
-
-type AckRequest struct {
-	ClusterArn           string `json:"cluster"`
-	ContainerInstanceArn string `json:"containerInstance"`
-	MessageId            string `json:"messageId"`
-}
+// Package updater handles requests to update the agent.
+//
+// Requests are assumed to be two-phase where the phases consist of a 'download'
+// followed by an 'update'. Either of these steps may fail.
+// The agent is responsible for, on download, correctly downloading the
+// referenced file and validating it against the provided checksum. However,
+// the actual 'update' component is handled by signaling a watching process via
+// exit code.
+package updater

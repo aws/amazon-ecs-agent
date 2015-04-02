@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -25,6 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 var log = logger.ForModule("Handlers")
@@ -45,6 +48,7 @@ func MetadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	resp := &MetadataResponse{
 		Cluster:              cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
+		Version:              version.String(),
 	}
 	responseJSON, _ := json.Marshal(resp)
 
@@ -62,10 +66,17 @@ func NewTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		containers = append(containers, ContainerResponse{container.DockerId, container.DockerName, containerName})
 	}
 
+	knownStatus := task.KnownStatus.BackendStatus()
+	desiredStatus := task.DesiredStatus.BackendStatus()
+
+	if (knownStatus == "STOPPED" && desiredStatus != "STOPPED") || (knownStatus == "RUNNING" && desiredStatus == "PENDING") {
+		desiredStatus = ""
+	}
+
 	return &TaskResponse{
 		Arn:           task.Arn,
-		DesiredStatus: task.DesiredStatus.String(),
-		KnownStatus:   task.KnownStatus.String(),
+		DesiredStatus: desiredStatus,
+		KnownStatus:   knownStatus,
 		Family:        task.Family,
 		Version:       task.Version,
 		Containers:    containers,
@@ -183,7 +194,15 @@ func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *
 	}
 
 	for {
-		err := server.ListenAndServe()
-		log.Error("Error running http api", "err", err)
+		once := sync.Once{}
+		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
+			// TODO, make this cancellable and use the passed in context; for
+			// now, not critical if this gets interrupted
+			err := server.ListenAndServe()
+			once.Do(func() {
+				log.Error("Error running http api", "err", err)
+			})
+			return err
+		})
 	}
 }

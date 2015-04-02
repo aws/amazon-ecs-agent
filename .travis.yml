@@ -1,6 +1,6 @@
 language: go
 go:
-    - 1.3
+    - 1.4
 before_install: ./scripts/hack/symlink-gopath-travisci
 install: make get-deps
 script:

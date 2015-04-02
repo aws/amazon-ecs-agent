@@ -757,7 +757,7 @@ WaitStopped:
 	}
 
 	if testTask.Containers[1].KnownExitCode == nil || *testTask.Containers[1].KnownExitCode != 42 {
-		t.Error("Didn't exit due to failure to touch ro fs as expected")
+		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].KnownExitCode)
 	}
 	if testTask.Containers[2].KnownExitCode == nil || *testTask.Containers[2].KnownExitCode != 0 {
 		t.Error("Couldn't touch with default of rw")

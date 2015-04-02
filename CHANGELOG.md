@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased Changes
+## 1.0.0
+
+* Feature - Added the ability to update via ACS when running under
+  amazon-ecs-init.
+* Feature - Added version information (available via the version flag or the
+  introspection API).
+* Enhancement - Clarified reporting of task state in introspection API.
+* Bug - Fix a lock scoping issue that could cause an invalid checkpoint file
+  to be written.
+* Bug - Correctly recognize various fatal messages from ACS to error out more
+  cleanly.
 
 ## 0.0.3 (2015-02-19)
 

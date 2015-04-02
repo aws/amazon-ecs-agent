@@ -14,13 +14,14 @@
 package handlers
 
 type MetadataResponse struct {
-	Cluster           string
+	Cluster              string
 	ContainerInstanceArn *string
+	Version              string
 }
 
 type TaskResponse struct {
 	Arn           string
-	DesiredStatus string
+	DesiredStatus string `json:",omitempty"`
 	KnownStatus   string
 	Family        string
 	Version       string

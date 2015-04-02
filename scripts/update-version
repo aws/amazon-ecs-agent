@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+version=${1:?Must specify version as the only argument (e.g. 1.0.0)}
+
+echo -n "$version" > VERSION
+export ECS_UNKNOWN_VERSION=true
+
+make gogenerate
+git add agent/version/version.go VERSION
+
+# TODO, the changelog bump could also be automated
+echo "Please edit the changelog and commit the version bump"

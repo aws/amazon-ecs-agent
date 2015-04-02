@@ -28,6 +28,11 @@ func (nsm *NoopStateManager) Save() error {
 	return nil
 }
 
+// ForceSave does nothing, successfully
+func (nsm *NoopStateManager) ForceSave() error {
+	return nil
+}
+
 // Load does nothing, successfully
 func (nsm *NoopStateManager) Load() error {
 	return nil

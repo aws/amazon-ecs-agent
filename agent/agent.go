@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs"
+	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -29,8 +29,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
 func init() {
@@ -38,9 +40,11 @@ func init() {
 }
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
 	flag.Parse()
+
 	logger.SetLevel(*logLevel)
 	log := logger.ForModule("main")
 
@@ -50,7 +54,13 @@ func main() {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Error("Error loading config", "err", err)
-		os.Exit(1)
+		os.Exit(exitcodes.ExitTerminal)
+	}
+
+	if *versionFlag {
+		versionableEngine := engine.NewTaskEngine(cfg)
+		version.PrintVersion(versionableEngine)
+		os.Exit(exitcodes.ExitSuccess)
 	}
 
 	var currentEc2InstanceID, containerInstanceArn string
@@ -64,13 +74,13 @@ func main() {
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
-			os.Exit(1)
+			os.Exit(exitcodes.ExitTerminal)
 		}
 
 		err = previousState.Load()
 		if err != nil {
 			log.Crit("Error loading previously saved state", "err", err)
-			os.Exit(1)
+			os.Exit(exitcodes.ExitTerminal)
 		}
 
 		if previousCluster != "" {
@@ -81,7 +91,7 @@ func main() {
 			}
 			if previousCluster != configuredCluster {
 				log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", configuredCluster)
-				os.Exit(1)
+				os.Exit(exitcodes.ExitTerminal)
 			}
 			cfg.Cluster = previousCluster
 			log.Info("Restored cluster", "cluster", cfg.Cluster)
@@ -111,7 +121,7 @@ func main() {
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
 	if err != nil {
 		log.Crit("Error creating state manager", "err", err)
-		os.Exit(1)
+		os.Exit(exitcodes.ExitTerminal)
 	}
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
@@ -122,7 +132,10 @@ func main() {
 		containerInstanceArn, err = client.RegisterContainerInstance()
 		if err != nil {
 			log.Error("Error registering", "err", err)
-			os.Exit(1)
+			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
+				os.Exit(exitcodes.ExitTerminal)
+			}
+			os.Exit(exitcodes.ExitError)
 		}
 		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 		// Save our shiny new containerInstanceArn
@@ -135,7 +148,7 @@ func main() {
 	taskEngine.SetSaver(stateManager)
 	taskEngine.MustInit()
 
-	sighandlers.StartTerminationHandler(stateManager)
+	go sighandlers.StartTerminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
 	go handlers.ServeHttp(&containerInstanceArn, taskEngine, cfg)
@@ -144,62 +157,10 @@ func main() {
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
 	log.Info("Beginning Polling for updates")
-	// Todo, split into separate package
-	for {
-		backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
-		utils.RetryWithBackoff(backoff, func() error {
-			acsEndpoint, err := client.DiscoverPollEndpoint(containerInstanceArn)
-			if err != nil {
-				log.Error("Could not discover poll endpoint", "err", err)
-				return err
-			}
-			log.Info("Discovered poll endpoint", "endpoint", acsEndpoint)
-			acsObj := acs.NewAgentCommunicationClient(acsEndpoint, cfg, credentialProvider, containerInstanceArn)
-
-			state_changes, errc, err := acsObj.Poll(*acceptInsecureCert)
-			if err != nil {
-				log.Error("Error polling; retrying", "err", err)
-				return err
-			}
-
-			var err_ok bool
-			for state_changes != nil {
-				select {
-				case state, state_ok := <-state_changes:
-					if state_ok {
-						backoff.Reset()
-
-						go func(payload *acs.Payload) {
-							for _, task := range payload.Tasks {
-								taskEngine.AddTask(task)
-							}
-
-							err = stateManager.Save()
-							if err != nil {
-								log.Error("Error saving state", "err", err)
-							}
-							acsObj.Ack(payload)
-						}(state)
-					} else {
-						// Break out of the loop to reconnect
-						state_changes = nil
-					}
-				case err, err_ok = <-errc:
-					if !err_ok {
-						log.Error("Error channel unexpectedly closed")
-
-						state_changes = nil // break out
-					}
-					log.Error("Error in state", "err", err)
-				}
-			}
-			if err != nil {
-				log.Warn("Error polling. Waiting and retrying")
-				return err
-			}
-			// Shouldn't happen
-			return nil
-		})
+	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
+	if err != nil {
+		log.Crit("Unretriable error starting communicating with ACS", "err", err)
+		os.Exit(exitcodes.ExitTerminal)
 	}
 }
 
