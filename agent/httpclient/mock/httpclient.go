@@ -17,8 +17,8 @@
 package mock_http
 
 import (
-	http "net/http"
 	gomock "code.google.com/p/gomock/gomock"
+	http "net/http"
 )
 
 // Mock of RoundTripper interface
