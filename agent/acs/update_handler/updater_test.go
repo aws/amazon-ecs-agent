@@ -61,7 +61,7 @@ func TestFullUpdateFlow(t *testing.T) {
 
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
-		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
 		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
@@ -82,7 +82,7 @@ func TestFullUpdateFlow(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
 	})
@@ -96,7 +96,7 @@ func TestFullUpdateFlow(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
 	})
@@ -181,7 +181,7 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
-		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
 		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
@@ -202,7 +202,7 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
 	})
@@ -214,7 +214,7 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
 	})
@@ -228,7 +228,7 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
 	})
@@ -240,7 +240,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
-		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
 		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
@@ -254,7 +254,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 			MessageId:         ptr("StageMID").(*string),
 			Reason:            ptr("New update arrived: StageMIDNew").(*string),
 		}}),
-		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld/new")).Return(mock_http.SuccessResponse("newer-update-tar-data"), nil),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/new.tar")).Return(mock_http.SuccessResponse("newer-update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
 		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
@@ -275,7 +275,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
 	})
@@ -291,7 +291,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMIDNew").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld/new").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/new.tar").(*string),
 			Signature: ptr("9c6ea7bd7d49f95b6d516517e453b965897109bf8a1d6ff3a6e57287049eb2de").(*string),
 		},
 	})
@@ -305,7 +305,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
 	})
@@ -317,7 +317,7 @@ func TestValidationError(t *testing.T) {
 
 	var writtenFile bytes.Buffer
 	gomock.InOrder(
-		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://update.tld")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
 		mockfs.EXPECT().Remove(gomock.Any()),
 		mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
@@ -337,7 +337,7 @@ func TestValidationError(t *testing.T) {
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
-			Location:  ptr("https://update.tld").(*string),
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("Invalid signature").(*string),
 		},
 	})
@@ -345,4 +345,57 @@ func TestValidationError(t *testing.T) {
 	if writtenFile.String() != "update-tar-data" {
 		t.Error("Incorrect data written")
 	}
+}
+
+func TestLocationBucketValidationError(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	defer ctrl.Finish()
+
+	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		Cluster:           ptr("cluster").(*string),
+		ContainerInstance: ptr("containerInstance").(*string),
+		MessageId:         ptr("StageMID").(*string),
+	}})
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("StageMID").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://s3.amazonaws.com/some-other-bucket/update.tar").(*string),
+			Signature: ptr("hashsum").(*string),
+		},
+	})
+}
+
+func TestLocationHostValidationError(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	defer ctrl.Finish()
+
+	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		Cluster:           ptr("cluster").(*string),
+		ContainerInstance: ptr("containerInstance").(*string),
+		MessageId:         ptr("StageMID").(*string),
+	}})
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("StageMID").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://nots3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
+			Signature: ptr("hashsum").(*string),
+		},
+	})
+
 }

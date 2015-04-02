@@ -108,8 +108,8 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			u.reset()
 		}
 
-		if req.UpdateInfo == nil || req.UpdateInfo.Location == nil || req.UpdateInfo.Signature == nil {
-			nack("Update info required to proceed with update")
+		if err := validateUpdateInfo(req.UpdateInfo); err != nil {
+			nack("Invalid update: " + err.Error())
 			return
 		}
 
