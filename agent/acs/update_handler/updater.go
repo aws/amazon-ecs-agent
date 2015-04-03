@@ -117,7 +117,16 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 
 		if u.stage != updateNone {
 			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {
-				log.Debug("Update already in progress, ignoring message", "id", u.updateID)
+				log.Debug("Update already in progress, acking duplicate message", "id", u.updateID)
+				// Acking here is safe as any currently-downloading update will already be holding
+				// the update lock.  A failed download will nack and clear state (while holding the
+				// update lock) before this code is reached, meaning that the above conditional will
+				// not evaluate true (no matching, in-progress update).
+				u.acs.MakeRequest(&ecsacs.AckRequest{
+					Cluster:           req.ClusterArn,
+					ContainerInstance: req.ContainerInstanceArn,
+					MessageId:         req.MessageId,
+				})
 				return
 			} else {
 				// Nack previous update

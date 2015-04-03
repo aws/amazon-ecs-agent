@@ -15,6 +15,7 @@ package updater
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -175,7 +176,7 @@ func TestUndownloadedUpdate(t *testing.T) {
 	})
 }
 
-func TestDuplicateUpdateMessages(t *testing.T) {
+func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
@@ -188,6 +189,11 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid").(*string),
+		})),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid2").(*string),
 		})),
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
@@ -209,6 +215,73 @@ func TestDuplicateUpdateMessages(t *testing.T) {
 
 	// Multiple requests to stage something with the same signature should still
 	// result in only one download / update procedure.
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid2").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
+
+	if writtenFile.String() != "update-tar-data" {
+		t.Error("Incorrect data written")
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid2").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
+			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
+		},
+	})
+}
+
+func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
+	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	defer ctrl.Finish()
+
+	var writtenFile bytes.Buffer
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(nil, errors.New("test error")),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.NackRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid").(*string),
+			Reason:            ptr("Unable to download: test error").(*string),
+		})),
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
+		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid2").(*string),
+		})),
+		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
+	)
+
+	u := &updater{
+		acs:    mockacs,
+		config: cfg,
+		fs:     mockfs,
+	}
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
+
+	// Multiple requests to stage something with the same signature where the previous update failed
+	// should cause another update attempt to be started
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
