@@ -222,6 +222,11 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 			})
 			return
 		}
+		u.acs.MakeRequest(&ecsacs.AckRequest{
+			Cluster:           req.ClusterArn,
+			ContainerInstance: req.ContainerInstanceArn,
+			MessageId:         req.MessageId,
+		})
 
 		err := sighandlers.FinalSave(saver, taskEngine)
 		if err != nil {

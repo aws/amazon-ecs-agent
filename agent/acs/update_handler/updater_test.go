@@ -70,6 +70,11 @@ func TestFullUpdateFlow(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid").(*string),
 		})),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid2").(*string),
+		})),
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
@@ -195,6 +200,11 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid2").(*string),
 		})),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid3").(*string),
+		})),
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
@@ -232,7 +242,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
-		MessageId:            ptr("mid2").(*string),
+		MessageId:            ptr("mid3").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
@@ -261,6 +271,11 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid2").(*string),
+		})),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid3").(*string),
 		})),
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
@@ -299,7 +314,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
-		MessageId:            ptr("mid2").(*string),
+		MessageId:            ptr("mid3").(*string),
 		UpdateInfo: &ecsacs.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
@@ -334,6 +349,11 @@ func TestNewerUpdateMessages(t *testing.T) {
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("StageMIDNew").(*string),
+		})),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid2").(*string),
 		})),
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
