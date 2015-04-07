@@ -239,31 +239,43 @@ func TestPreStop(t *testing.T) {
 	engine.PreStop()
 }
 
-func TestUpdateCacheIsLatest(t *testing.T) {
+func TestReloadCacheNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+
+	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDownloader.EXPECT().IsAgentLatest().Return(true)
+	mockDownloader.EXPECT().IsAgentCached().Return(false)
+	mockDownloader.EXPECT().DownloadAgent()
+	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
+	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
 
 	engine := &Engine{
+		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
-	engine.UpdateCache()
+	engine.ReloadCache()
 }
 
-func TestUpdateCacheIsNotLatest(t *testing.T) {
+func TestReloadCacheCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+
+	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDownloader.EXPECT().IsAgentLatest().Return(false)
-	mockDownloader.EXPECT().DownloadAgent()
+	mockDownloader.EXPECT().IsAgentCached().Return(true)
+	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
+	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
 
 	engine := &Engine{
+		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
-	engine.UpdateCache()
+	engine.ReloadCache()
 }

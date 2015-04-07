@@ -76,9 +76,9 @@ func actions(engine *engine.Engine) map[string]action {
 			function:    engine.PreStop,
 			description: "Stop the ECS Agent",
 		},
-		"update-cache": action{
-			function:    engine.UpdateCache,
-			description: "Update the cached image of the ECS Agent",
+		"reload-cache": action{
+			function:    engine.ReloadCache,
+			description: "Reload the cached image of the ECS Agent into Docker",
 		},
 	}
 }

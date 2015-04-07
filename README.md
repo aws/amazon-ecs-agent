@@ -18,14 +18,12 @@ The upstart script installed by the Amazon EC2 Container Service RPM can be star
 * `sudo stop ecs`
 
 ### Updates
-A naive update method exists to pull tarballs from S3.  Updating at present is very manual, and requires the following
-steps:
+Updates to the Amazon ECS Container Agent should be performed through the Amazon ECS Container Agent.  In the case where
+an update failed and the Amazon ECS Container Agent is no longer functional, a rollback can be initiated as follows:
 
 1. `sudo stop ecs`
-2. `sudo /usr/libexec/amazon-ecs-init update-cache`
-3. `docker rm ecs-agent`
-4. `docker rmi amazon/amazon-ecs-agent:latest`
-5. `sudo start ecs`
+2. `sudo /usr/libexec/amazon-ecs-init reload-cache`
+3. `sudo start ecs`
 
 ## License
 

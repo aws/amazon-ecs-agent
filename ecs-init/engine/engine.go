@@ -59,9 +59,18 @@ func (e *Engine) PreStart() error {
 		return nil
 	}
 
+	return e.loadCache()
+}
+
+// ReloadCache reloads the cached image of the ECS Agent into Docker
+func (e *Engine) ReloadCache() error {
+	return e.loadCache()
+}
+
+func (e *Engine) loadCache() error {
 	cached := e.downloader.IsAgentCached()
 	if !cached {
-		err = e.mustDownloadAgent()
+		err := e.mustDownloadAgent()
 		if err != nil {
 			return err
 		}
@@ -69,6 +78,15 @@ func (e *Engine) PreStart() error {
 
 	log.Info("Loading Amazon EC2 Container Service Agent into Docker")
 	return e.load(e.downloader.LoadCachedAgent())
+}
+
+func (e *Engine) mustDownloadAgent() error {
+	log.Info("Downloading Amazon EC2 Container Service Agent")
+	err := e.downloader.DownloadAgent()
+	if err != nil {
+		return engineError("could not download Amazon EC2 Container Serivce Agent", err)
+	}
+	return nil
 }
 
 func (e *Engine) load(image io.ReadCloser, err error) error {
@@ -122,25 +140,6 @@ func (e *Engine) PreStop() error {
 	err := e.docker.StopAgent()
 	if err != nil {
 		return engineError("could not stop Amazon EC2 Container Service Agent", err)
-	}
-	return nil
-}
-
-// UpdateCache updates teh cached image of the ECS Agent
-func (e *Engine) UpdateCache() error {
-	latest := e.downloader.IsAgentLatest()
-	if !latest {
-		log.Info("Cached Amazon EC2 Container Service Agent does not match latest published")
-		return e.mustDownloadAgent()
-	}
-	return nil
-}
-
-func (e *Engine) mustDownloadAgent() error {
-	log.Info("Downloading Amazon EC2 Container Service Agent")
-	err := e.downloader.DownloadAgent()
-	if err != nil {
-		return engineError("could not download Amazon EC2 Container Serivce Agent", err)
 	}
 	return nil
 }

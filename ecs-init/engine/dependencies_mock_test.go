@@ -53,16 +53,6 @@ func (_mr *_MockdownloaderRecorder) IsAgentCached() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsAgentCached")
 }
 
-func (_m *Mockdownloader) IsAgentLatest() bool {
-	ret := _m.ctrl.Call(_m, "IsAgentLatest")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-func (_mr *_MockdownloaderRecorder) IsAgentLatest() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsAgentLatest")
-}
-
 func (_m *Mockdownloader) DownloadAgent() error {
 	ret := _m.ctrl.Call(_m, "DownloadAgent")
 	ret0, _ := ret[0].(error)

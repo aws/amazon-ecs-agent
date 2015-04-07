@@ -21,7 +21,6 @@ import (
 
 type downloader interface {
 	IsAgentCached() bool
-	IsAgentLatest() bool
 	DownloadAgent() error
 	LoadCachedAgent() (io.ReadCloser, error)
 	LoadDesiredAgent() (io.ReadCloser, error)

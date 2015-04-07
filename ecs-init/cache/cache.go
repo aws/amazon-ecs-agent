@@ -53,38 +53,6 @@ func (d *Downloader) IsAgentCached() bool {
 	return true
 }
 
-// IsAgentLatest checks whether the cached copy of the Agent has the same MD5
-// sum as the published MD5 sum
-func (d *Downloader) IsAgentLatest() bool {
-	file, err := d.fs.Open(config.AgentTarball())
-	if err != nil {
-		return false
-	}
-	defer file.Close()
-
-	md5hash := md5.New()
-	_, err = d.fs.Copy(md5hash, file)
-	if err != nil {
-		log.Error("Could not calculate md5sum", err)
-		return false
-	}
-
-	publishedMd5Sum, err := d.getPublishedMd5Sum()
-	if err != nil {
-		return false
-	}
-
-	calculatedMd5Sum := md5hash.Sum(nil)
-	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
-	log.Debugf("Expected %s", publishedMd5Sum)
-	log.Debugf("Calculated %s", calculatedMd5SumString)
-	if publishedMd5Sum != calculatedMd5SumString {
-		log.Info("Cached Amazon EC2 Container Service Agent does not match latest at %s", config.AgentRemoteTarball())
-		return false
-	}
-	return true
-}
-
 // DownloadAgent downloads a fresh copy of the Agent and performs an
 // integrity check on the downloaded image
 func (d *Downloader) DownloadAgent() error {
