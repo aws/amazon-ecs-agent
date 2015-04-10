@@ -337,3 +337,24 @@ func TestSendsEvents(t *testing.T) {
 	default:
 	}
 }
+
+func TestShouldBeSent(t *testing.T) {
+	sendableEvent := newSendableEvent(api.ContainerStateChange{
+		Status:     api.ContainerStopped,
+		TaskStatus: api.TaskStatusNone,
+		Container:  &api.Container{},
+	})
+
+	if sendableEvent.taskShouldBeSent() {
+		t.Error("TasStatusNone should not be sent")
+	}
+
+	if !sendableEvent.containerShouldBeSent() {
+		t.Error("Container should be sent if it's the first try")
+	}
+
+	sendableEvent = newSendableEvent(api.ContainerStateChange{
+		Status:     api.ContainerStopped,
+		TaskStatus: api.TaskStatusNone,
+	})
+}

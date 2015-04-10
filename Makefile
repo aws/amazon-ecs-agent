@@ -84,7 +84,7 @@ volumes-test:
 
 get-deps:
 	go get github.com/tools/godep
-	go get golang.org/x/tools/cover
+	go get golang.org/x/tools/cmd/cover
 	go get code.google.com/p/gomock/mockgen
 
 clean:

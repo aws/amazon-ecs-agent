@@ -108,9 +108,11 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 					event.containerSent = true
 					event.Container.SentStatus = event.Status
 					statesaver.Save()
-					llog.Debug("Submitted container")
-				} else {
-					llog.Error("Unretriable error submitting container state change", "err", contErr)
+					if contErr != nil {
+						llog.Error("Unretriable error submitting container state change", "err", contErr)
+					} else {
+						llog.Debug("Submitted container")
+					}
 				}
 			}
 			if event.taskShouldBeSent() {
@@ -121,8 +123,11 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 					event.taskSent = true
 					event.Task.SentStatus = event.TaskStatus
 					statesaver.Save()
-				} else {
-					llog.Error("Error submitting task state change", "err", taskErr)
+					if taskErr != nil {
+						llog.Error("Unretriable error submitting container state change", "err", contErr)
+					} else {
+						llog.Debug("Submitted container")
+					}
 				}
 			}
 
