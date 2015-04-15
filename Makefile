@@ -25,8 +25,14 @@ lint:
 static:
 	./scripts/gobuild.sh
 
-test: generate lint
-	go test -short -v -cover ./...
+gotest:
+	GOPATH="$(shell pwd)/ecs-init/Godeps/_workspace:$(GOPATH)" go test -short -v -cover ./...
+
+test: generate lint gotest
+
+test-in-docker:
+	docker build -f scripts/dockerfiles/test.dockerfile -t "amazon/amazon-ecs-init-test:make" .
+	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-init" "amazon/amazon-ecs-init-test:make"
 
 build-mock-images:
 	docker build -t "test.localhost/amazon/mock-ecs-agent" -f "scripts/dockerfiles/mock-agent.dockerfile" .
@@ -45,6 +51,7 @@ rpm: sources
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
+	go get golang.org/x/tools/cmd/cover
 
 clean:
 	-rm ./sources.tgz
