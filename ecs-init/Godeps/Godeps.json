@@ -1,7 +1,14 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-init/ecs-init",
 	"GoVersion": "go1.4.2",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/gomock/gomock",
+			"Rev": "e033c7513ca3d743bbb64df299bdec29e93fed03"
+		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.6.6-2-g2cea0f0",
