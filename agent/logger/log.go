@@ -63,8 +63,8 @@ func SetLevel(logLevel string) {
 }
 
 func SetHandlerChain() {
-	// Filehandler is an optional handler that always logs at debug level when
-	// set, but only runs if the LOGFILE_ENV_VAR (ECS_LOGFILE) is set.
+	// Filehandler is an optional handler that only runs if the
+	// LOGFILE_ENV_VAR (ECS_LOGFILE) is set.
 	var fileHandler log15.Handler
 	if logfile == "" {
 		fileHandler = log15.DiscardHandler()
@@ -78,7 +78,9 @@ func SetHandlerChain() {
 				log15.LvlFilterHandler(level,
 					log15.StdoutHandler,
 				),
-				fileHandler,
+				log15.LvlFilterHandler(level,
+					fileHandler,
+				),
 			),
 		),
 	)
