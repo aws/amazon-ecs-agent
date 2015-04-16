@@ -22,6 +22,9 @@ type API struct {
 	// Set to true to avoid removing unused shapes
 	NoRemoveUnusedShapes bool
 
+	// Set to true to ignore service/request init methods (for testing)
+	NoInitMethods bool
+
 	initialized       bool
 	imports           map[string]bool
 	name              string
@@ -64,6 +67,10 @@ func (a *API) StructName() string {
 		}
 	}
 	return a.name
+}
+
+func (a *API) UseInitMethods() bool {
+	return !a.NoInitMethods
 }
 
 func (a *API) NiceName() string {
@@ -155,6 +162,8 @@ func (a *API) importsGoCode() string {
 }
 
 var tplAPI = template.Must(template.New("api").Parse(`
+var oprw sync.Mutex
+
 {{ range $_, $o := .OperationList }}
 {{ $o.GoCode }}
 
@@ -168,6 +177,7 @@ var tplAPI = template.Must(template.New("api").Parse(`
 
 func (a *API) APIGoCode() string {
 	a.resetImports()
+	a.imports["sync"] = true
 	var buf bytes.Buffer
 	err := tplAPI.Execute(&buf, a)
 	if err != nil {
@@ -181,37 +191,60 @@ func (a *API) APIGoCode() string {
 var tplService = template.Must(template.New("service").Parse(`
 // {{ .StructName }} is a client for {{ .NiceName }}.
 type {{ .StructName }} struct {
-    *aws.Service
+	*aws.Service
 }
 
-type {{ .StructName }}Config struct {
-    *aws.Config
-}
+{{ if .UseInitMethods }}// Used for custom service initialization logic
+var initService func(*aws.Service)
+
+// Used for custom request initialization logic
+var initRequest func(*aws.Request)
+{{ end }}
 
 // New returns a new {{ .StructName }} client.
-func New(config *{{ .StructName }}Config) *{{ .StructName }} {
-  if config == nil {
-    config = &{{ .StructName }}Config{}
-  }
+func New(config *aws.Config) *{{ .StructName }} {
+	if config == nil {
+		config = &aws.Config{}
+	}
 
-  service := &aws.Service{
-    Config:       aws.DefaultConfig.Merge(config.Config),
-    ServiceName:  "{{ .Metadata.EndpointPrefix }}",
-    APIVersion:   "{{ .Metadata.APIVersion }}",
+	service := &aws.Service{
+		Config:       aws.DefaultConfig.Merge(config),
+		ServiceName:  "{{ .Metadata.EndpointPrefix }}",
+		APIVersion:   "{{ .Metadata.APIVersion }}",
 {{ if eq .Metadata.Protocol "json" }}JSONVersion:  "{{ .Metadata.JSONVersion }}",
-    TargetPrefix: "{{ .Metadata.TargetPrefix }}",
+		TargetPrefix: "{{ .Metadata.TargetPrefix }}",
 {{ end }}
   }
-  service.Initialize()
+	service.Initialize()
 
-  // Handlers
-  service.Handlers.Sign.PushBack(v4.Sign)
-  service.Handlers.Build.PushBack({{ .ProtocolPackage }}.Build)
-  service.Handlers.Unmarshal.PushBack({{ .ProtocolPackage }}.Unmarshal)
-  service.Handlers.UnmarshalMeta.PushBack({{ .ProtocolPackage }}.UnmarshalMeta)
-  service.Handlers.UnmarshalError.PushBack({{ .ProtocolPackage }}.UnmarshalError)
+	// Handlers
+	service.Handlers.Sign.PushBack(v4.Sign)
+	service.Handlers.Build.PushBack({{ .ProtocolPackage }}.Build)
+	service.Handlers.Unmarshal.PushBack({{ .ProtocolPackage }}.Unmarshal)
+	service.Handlers.UnmarshalMeta.PushBack({{ .ProtocolPackage }}.UnmarshalMeta)
+	service.Handlers.UnmarshalError.PushBack({{ .ProtocolPackage }}.UnmarshalError)
 
-  return &{{ .StructName }}{service}
+	{{ if .UseInitMethods }}// Run custom service initialization if present
+	if initService != nil {
+		initService(service)
+	}
+	{{ end  }}
+
+	return &{{ .StructName }}{service}
+}
+
+// newRequest creates a new request for a {{ .StructName }} operation and runs any
+// custom request initialization.
+func (c *{{ .StructName }}) newRequest(op *aws.Operation, params, data interface{}) *aws.Request {
+	req := aws.NewRequest(c.Service, op, params, data)
+
+	{{ if .UseInitMethods }}// Run custom request initialization if present
+	if initRequest != nil {
+		initRequest(req)
+	}
+	{{ end }}
+
+	return req
 }
 `))
 
@@ -227,5 +260,24 @@ func (a *API) ServiceGoCode() string {
 	}
 
 	code := a.importsGoCode() + buf.String()
+	return util.GoFmt(code)
+}
+
+func (a *API) ExampleGoCode() string {
+	exs := []string{}
+	for _, o := range a.OperationList() {
+		exs = append(exs, o.Example())
+	}
+
+	code := fmt.Sprintf("import (\n%q\n%q\n%q\n\n%q\n%q\n%q\n)\n\n"+
+		"var _ time.Duration\nvar _ bytes.Buffer\n\n%s",
+		"bytes",
+		"fmt",
+		"time",
+		"github.com/awslabs/aws-sdk-go/aws",
+		"github.com/awslabs/aws-sdk-go/aws/awsutil",
+		"github.com/awslabs/aws-sdk-go/service/"+a.PackageName(),
+		strings.Join(exs, "\n\n"),
+	)
 	return util.GoFmt(code)
 }

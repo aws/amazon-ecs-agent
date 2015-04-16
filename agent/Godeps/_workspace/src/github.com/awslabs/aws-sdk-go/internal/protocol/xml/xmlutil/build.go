@@ -203,7 +203,6 @@ func (b *xmlBuilder) buildMap(value reflect.Value, current *XMLNode, tag reflect
 
 	for _, k := range keys {
 		v := value.MapIndex(reflect.ValueOf(k))
-		fmt.Println(k, v.Interface())
 
 		mapcur := current
 		if tag.Get("flattened") == "" { // add "entry" tag to non-flat maps
@@ -232,7 +231,9 @@ func (b *xmlBuilder) buildScalar(value reflect.Value, current *XMLNode, tag refl
 	case string:
 		str = converted
 	case []byte:
-		str = base64.StdEncoding.EncodeToString(converted)
+		if !value.IsNil() {
+			str = base64.StdEncoding.EncodeToString(converted)
+		}
 	case bool:
 		str = strconv.FormatBool(converted)
 	case int64:

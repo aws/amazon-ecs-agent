@@ -16,7 +16,6 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -26,9 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-
-	dockerparsers "github.com/docker/docker/pkg/parsers"
-	dockerregistry "github.com/docker/docker/registry"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -95,23 +91,7 @@ func (dg *DockerGoClient) PullImage(image string) error {
 		return dg.createScratchImageIfNotExists()
 	}
 
-	// The following lines of code are taken, in whole or part, from the docker
-	// source code. Please see the NOTICE file in the root of the project for
-	// attribution
-	// https://github.com/docker/docker/blob/246ec5dd067fc17be5196ae29956e3368b167ccf/api/client/commands.go#L1180
-	taglessRemote, tag := dockerparsers.ParseRepositoryTag(image)
-	if tag == "" {
-		tag = "latest"
-	}
-
-	hostname, _, err := dockerregistry.ResolveRepositoryName(taglessRemote)
-	if err != nil {
-		return err
-	}
-	// End of docker-attributed code
-
-	authConfig := dockerauth.GetAuthconfig(hostname)
-
+	authConfig := dockerauth.GetAuthconfig(image)
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
 	pullLock.Lock()
@@ -119,9 +99,7 @@ func (dg *DockerGoClient) PullImage(image string) error {
 
 	pullDebugOut, pullWriter := io.Pipe()
 	opts := docker.PullImageOptions{
-		Repository:   taglessRemote,
-		Registry:     hostname,
-		Tag:          tag,
+		Repository:   image,
 		OutputStream: pullWriter,
 	}
 	go func() {
@@ -243,26 +221,6 @@ func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, 
 		return nil, err
 	}
 	return client.InspectContainer(dockerId)
-}
-
-// DescribeDockerImages takes no arguments, and returns a JSON-encoded string of all of the images located on the host
-func (dg *DockerGoClient) DescribeDockerImages() (string, error) {
-	client, err := dg.client()
-	if err != nil {
-		return "", err
-	}
-
-	imgs, err := client.ListImages(true)
-	if err != nil {
-		return "", err
-	}
-	response := DockerImageResponse{Images: imgs}
-	output, err := json.Marshal(response)
-	if err != nil {
-		return "", err
-	}
-
-	return string(output), nil
 }
 
 func (dg *DockerGoClient) StopContainer(dockerId string) error {

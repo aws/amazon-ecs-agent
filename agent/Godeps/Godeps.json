@@ -6,35 +6,34 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "code.google.com/p/gomock/gomock",
+			"Rev": "e033c7513ca3d743bbb64df299bdec29e93fed03"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/credentialprovider",
+			"Comment": "v0.14.1-612-g2215a64",
+			"Rev": "2215a645673e63529bc1f3a8b32d039a61b7ab77"
+		},
+		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.6.1-10-g6c28e16",
 			"Rev": "6c28e16200e55c2549705ac24ea58976c07f18ac"
 		},
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/model/api",
-			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil",
-			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/xml/xmlutil",
-			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/util",
-			"Rev": "28442d281ec9e079d2c6b8a0c919285c3e1a0fac"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/dockerversion",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/engine",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
+			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/archive",
@@ -47,17 +46,7 @@
 			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/httputils",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/pkg/ioutils",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/parsers",
 			"Comment": "v1.3.0-846-gbfde3f2",
 			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
 		},
@@ -77,32 +66,7 @@
 			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/tarsum",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/term",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/timeutils",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/pkg/units",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/registry",
-			"Comment": "v1.3.0-846-gbfde3f2",
-			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/utils",
 			"Comment": "v1.3.0-846-gbfde3f2",
 			"Rev": "bfde3f2cd1807cf4472462819645851c58b22e72"
 		},
@@ -117,12 +81,8 @@
 			"Rev": "11620a68c22a84657503068ffc14f2bc292d9aa6"
 		},
 		{
-			"ImportPath": "github.com/gorilla/context",
-			"Rev": "50c25fb3b2b3b3cc724e9b6ac75fb44b3bccd0da"
-		},
-		{
-			"ImportPath": "github.com/gorilla/mux",
-			"Rev": "e444e69cbd2e2e3e0749a2f3c717cec491552bbf"
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
