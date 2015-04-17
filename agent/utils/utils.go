@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -159,7 +160,7 @@ func StrSliceEqual(s1, s2 []string) bool {
 }
 
 func ParseBool(str string, default_ bool) bool {
-	res, err := strconv.ParseBool(str)
+	res, err := strconv.ParseBool(strings.TrimSpace(str))
 	if err != nil {
 		return default_
 	}

@@ -105,6 +105,31 @@ func (cfg *Config) CheckMissingAndDepreciated() {
 	}
 }
 
+// TrimWhitespace trims whitespace from all string config values with the
+// `trim` tag
+func (cfg *Config) TrimWhitespace() {
+	cfgElem := reflect.ValueOf(cfg).Elem()
+	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
+
+	for i := 0; i < cfgElem.NumField(); i++ {
+		cfgField := cfgElem.Field(i)
+		if !cfgField.CanInterface() {
+			continue
+		}
+		trimTag := cfgStructField.Field(i).Tag.Get("trim")
+		if len(trimTag) == 0 {
+			continue
+		}
+
+		if cfgField.Kind() != reflect.String {
+			log.Warn("Cannot trim non-string field", "type", cfgField.Kind().String(), "index", i)
+			continue
+		}
+		str := cfgField.Interface().(string)
+		cfgField.SetString(strings.TrimSpace(str))
+	}
+}
+
 func DefaultConfig() Config {
 	awsRegion := "us-west-2"
 	return Config{
@@ -217,6 +242,7 @@ func NewConfig() (*Config, error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
 	config := &ctmp
 	defer func() {
+		config.TrimWhitespace()
 		config.CheckMissingAndDepreciated()
 		config.Merge(DefaultConfig())
 	}()

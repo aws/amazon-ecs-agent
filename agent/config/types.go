@@ -23,11 +23,11 @@ type Config struct {
 	// Cluster can either be the Name or full ARN of a Cluster. This is the
 	// cluster the agent should register this ContainerInstance into. If this
 	// value is not set, it will default to "default"
-	Cluster string
+	Cluster string `trim:"true"`
 	// APIEndpoint is the endpoint, such as "ecs.us-east-1.amazonaws.com", to
 	// make calls against. If this value is not set, it will default to the
 	// endpoint for your current AWSRegion
-	APIEndpoint string
+	APIEndpoint string `trim:"true"`
 	// DockerEndpoint is the address the agent will attempt to connect to the
 	// Docker daemon at. This should have the same value as "DOCKER_HOST"
 	// normally would to interact with the daemon. It defaults to
@@ -35,7 +35,7 @@ type Config struct {
 	DockerEndpoint string
 	// AWSRegion is the region to run in (such as "us-east-1"). This value is
 	// used to determine the correct APIEndpoint.
-	AWSRegion string `missing:"warn"`
+	AWSRegion string `missing:"warn" trim:"true"`
 	// ReservedPorts is an array of ports which should be registerd as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
@@ -50,7 +50,7 @@ type Config struct {
 
 	// EngineAuthType configures what type of data is in EngineAuthData.
 	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/engine/dockerauth
-	EngineAuthType string
+	EngineAuthType string `trim:"true"`
 	// EngineAuthData contains authentication data. Please see the documentation
 	// for EngineAuthType for more information.
 	EngineAuthData json.RawMessage

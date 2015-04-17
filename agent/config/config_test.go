@@ -13,7 +13,11 @@
 
 package config
 
-import "testing"
+import (
+	"os"
+	"reflect"
+	"testing"
+)
 
 func TestMerge(t *testing.T) {
 	conf1 := &Config{Cluster: "Foo"}
@@ -30,5 +34,40 @@ func TestMerge(t *testing.T) {
 	}
 	if conf1.AWSRegion != "us-west-2" {
 		t.Error("Incorrect region")
+	}
+}
+
+func TestEnvironmentConfig(t *testing.T) {
+	os.Setenv("ECS_CLUSTER", "myCluster")
+
+	conf := EnvironmentConfig()
+	if conf.Cluster != "myCluster" {
+		t.Error("Wrong value for cluster ", conf.Cluster)
+	}
+}
+
+func TestTrimWhitespace(t *testing.T) {
+	os.Setenv("ECS_CLUSTER", "default \r")
+	os.Setenv("ECS_ENGINE_AUTH_TYPE", "dockercfg\r")
+
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Cluster != "default" {
+		t.Error("Wrong cluster: " + cfg.Cluster)
+	}
+	if cfg.EngineAuthType != "dockercfg" {
+		t.Error("Wrong auth type: " + cfg.EngineAuthType)
+	}
+
+	cfg = &Config{
+		Cluster:   " asdf ",
+		AWSRegion: " us-east-1\r\t",
+		DataDir:   "/trailing/space/directory ",
+	}
+	cfg.TrimWhitespace()
+	if !reflect.DeepEqual(cfg, &Config{Cluster: "asdf", AWSRegion: "us-east-1", DataDir: "/trailing/space/directory "}) {
+		t.Error("Did not match expected", *cfg)
 	}
 }

@@ -173,3 +173,37 @@ func TestRetryNWithBackoff(t *testing.T) {
 		t.Error("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
 	}
 }
+
+func TestParseBool(t *testing.T) {
+
+	truthyStrings := []string{"true", "1", "t", "true\r", "true ", "true \r"}
+	falsyStrings := []string{"false", "0", "f", "false\r", "false ", "false \r"}
+	neitherStrings := []string{"apple", " ", "\r", "orange", "maybe"}
+
+	for ndx, str := range truthyStrings {
+		if !ParseBool(str, false) {
+			t.Fatal("Truthy string should be truthy: ", ndx)
+		}
+		if !ParseBool(str, true) {
+			t.Fatal("Truthy string should be truthy (regardless of default): ", ndx)
+		}
+	}
+
+	for ndx, str := range falsyStrings {
+		if ParseBool(str, false) {
+			t.Fatal("Falsy string should be falsy: ", ndx)
+		}
+		if ParseBool(str, true) {
+			t.Fatal("falsy string should be falsy (regardless of default): ", ndx)
+		}
+	}
+
+	for ndx, str := range neitherStrings {
+		if ParseBool(str, false) {
+			t.Fatal("Should default to false", ndx)
+		}
+		if !ParseBool(str, true) {
+			t.Fatal("Should default to true", ndx)
+		}
+	}
+}
