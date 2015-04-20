@@ -1,0 +1,7 @@
+{
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  },
+  "Tags": ["busybox","exits"]
+}
