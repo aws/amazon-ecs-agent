@@ -1,0 +1,28 @@
+.TH AMAZON-ECS-INIT 1 2015-04-20 AMAZON AMAZON-EC2-CONTAINER-SERVICE
+.SH NAME
+amazon\-ecs\-init \- ecs\-init is a service which may be run to register an EC2 instance as an Amazon ECS Container Instance.
+.SH SYNOPSIS
+.B amazon\-ecs\-init
+.IR ACTION
+.SH DESCRIPTION
+.B amazon\-ecs\-init
+is software developed to support the Amazon ECS Container Agent (http://github.com/aws/amazon-ecs-agent).
+.B amazon\-ecs\-init
+is packaged for RPM-based systems that utilize Upstart (http://upstart.ubuntu.com) as the init system.
+.SH ACTIONS
+.TP
+.BR pre-start
+Prepare the ECS Agent for starting
+.TP
+.BR start
+Start the ECS Agent and wait for it to stop
+.TP
+.BR pre-stop
+Stop the ECS Agent
+.TP
+.BR reload-cache
+Reload the cached image of the ECS Agent into Docker
+.SH COPYRIGHT
+Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+.SH LICENSE
+Licensed under the Apache License, Version 2.0.

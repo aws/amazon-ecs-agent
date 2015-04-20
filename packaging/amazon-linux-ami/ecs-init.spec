@@ -35,6 +35,7 @@ Requires:      upstart
 %global	conf_dir %{_sysconfdir}/ecs
 %global cache_dir %{_localstatedir}/cache/ecs
 %global data_dir %{_sharedstatedir}/ecs/data
+%global man_dir %{_mandir}/man1
 
 %description
 ecs-init is a service which may be run to register an EC2 instance as an Amazon
@@ -45,6 +46,7 @@ ECS Container Instance.
 
 %build
 ./scripts/gobuild.sh
+gzip -c scripts/amazon-ecs-init.1 > scripts/amazon-ecs-init.1.gz
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -53,9 +55,11 @@ mkdir -p $RPM_BUILD_ROOT/%{bin_dir}
 mkdir -p $RPM_BUILD_ROOT/%{conf_dir}
 mkdir -p $RPM_BUILD_ROOT/%{cache_dir}
 mkdir -p $RPM_BUILD_ROOT/%{data_dir}
+mkdir -p $RPM_BUILD_ROOT/%{man_dir}
 
 install %{SOURCE1} $RPM_BUILD_ROOT/%{init_dir}/ecs.conf
 install amazon-ecs-init $RPM_BUILD_ROOT/%{bin_dir}/amazon-ecs-init
+install scripts/amazon-ecs-init.1.gz $RPM_BUILD_ROOT/%{man_dir}/amazon-ecs-init.1.gz
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
 touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
@@ -64,12 +68,14 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 %defattr(-,root,root,-)
 %{init_dir}/ecs.conf
 %{bin_dir}/amazon-ecs-init
+%{man_dir}/amazon-ecs-init.1.gz
 %config(noreplace) %ghost %{conf_dir}/ecs.config
 %config(noreplace) %ghost %{conf_dir}/ecs.config.json
 %ghost %{cache_dir}/ecs-agent.tar
 %dir %{data_dir}
 
 %clean
+rm scripts/amazon-ecs-init.1.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
