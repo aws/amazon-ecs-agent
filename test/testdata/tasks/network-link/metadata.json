@@ -4,5 +4,5 @@
   "ExitCodes": {
     "exit": 42
   },
-  "Tags": ["image:busybox","exits"]
+  "Tags": ["image:busybox","exits","links","image:nginx"]
 }
