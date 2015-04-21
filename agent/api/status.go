@@ -19,7 +19,7 @@ var taskStatusMap = map[string]TaskStatus{
 	"CREATED": TaskCreated,
 	"RUNNING": TaskRunning,
 	"STOPPED": TaskStopped,
-	"DEAD":    TaskDead,
+	"DEAD":    TaskStopped,
 }
 
 func (ts *TaskStatus) String() string {
@@ -38,8 +38,6 @@ func (ts *TaskStatus) BackendStatus() string {
 		return "RUNNING"
 	case TaskStopped:
 		return "STOPPED"
-	case TaskDead:
-		return "STOPPED"
 	}
 	return "PENDING"
 }
@@ -51,7 +49,7 @@ var containerStatusMap = map[string]ContainerStatus{
 	"CREATED": ContainerCreated,
 	"RUNNING": ContainerRunning,
 	"STOPPED": ContainerStopped,
-	"DEAD":    ContainerDead,
+	"DEAD":    ContainerStopped,
 }
 
 func (cs *ContainerStatus) String() string {
@@ -73,8 +71,6 @@ func (cs *ContainerStatus) TaskStatus() TaskStatus {
 		return TaskRunning
 	case ContainerStopped:
 		return TaskStopped
-	case ContainerDead:
-		return TaskDead
 	}
 	return TaskStatusUnknown
 }
@@ -89,8 +85,6 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 		return ContainerRunning
 	case TaskStopped:
 		return ContainerStopped
-	case TaskDead:
-		return ContainerDead
 	}
 	return ContainerStatusUnknown
 }
@@ -99,12 +93,12 @@ func (cs *ContainerStatus) Terminal() bool {
 	if cs == nil {
 		return false
 	}
-	return *cs == ContainerStopped || *cs == ContainerDead
+	return *cs == ContainerStopped
 }
 
 func (ts *TaskStatus) Terminal() bool {
 	if ts == nil {
 		return false
 	}
-	return *ts == TaskStopped || *ts == TaskDead
+	return *ts == TaskStopped
 }

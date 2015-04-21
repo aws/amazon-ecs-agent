@@ -30,7 +30,6 @@ const (
 	TaskCreated
 	TaskRunning
 	TaskStopped
-	TaskDead
 )
 
 const (
@@ -40,7 +39,6 @@ const (
 	ContainerCreated
 	ContainerRunning
 	ContainerStopped
-	ContainerDead
 
 	ContainerZombie // Impossible status to use as a virtual 'max'
 )

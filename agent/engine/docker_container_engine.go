@@ -165,8 +165,6 @@ func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) (s
 	if err != nil {
 		return "", err
 	}
-	// TODO, race condition here: images should not be able to be deleted
-	// between that inspect and the CreateContainer below
 
 	containerOptions := docker.CreateContainerOptions{Config: config, Name: name}
 	dockerContainer, err := client.CreateContainer(containerOptions)
@@ -310,11 +308,11 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 			case "start":
 				status = api.ContainerRunning
 			case "stop":
-				status = api.ContainerStopped
+				fallthrough
 			case "die":
-				status = api.ContainerDead
+				fallthrough
 			case "kill":
-				status = api.ContainerDead
+				status = api.ContainerStopped
 			case "destroy":
 			case "pause":
 			case "unpause":

@@ -181,7 +181,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			if cont.DockerId != "" {
 				currentState, err := engine.client.DescribeContainer(cont.DockerId)
 				if err != nil {
-					currentState = api.ContainerDead
+					currentState = api.ContainerStopped
 					if !cont.Container.KnownTerminal() {
 						log.Warn("Could not describe previously known container; assuming dead", "err", err)
 						reason = "Docker did not recognize container id after an ECS Agent restart."
@@ -338,8 +338,6 @@ func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, containe
 
 		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
 	case api.ContainerStopped:
-		fallthrough
-	case api.ContainerDead:
 		containerInfo, err := engine.client.InspectContainer(container.DockerId)
 		if err != nil {
 			llog.Error("Error inspecting container", "err", err)

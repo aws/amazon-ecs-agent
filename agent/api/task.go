@@ -212,11 +212,6 @@ func (task *Task) UpdateTaskStatus() (newStatus TaskStatus) {
 			task.KnownStatus = TaskStopped
 			return task.KnownStatus
 		}
-	} else if essentialContainersEarliestStatus == ContainerDead {
-		if task.KnownStatus < TaskDead {
-			task.KnownStatus = TaskDead
-			return task.KnownStatus
-		}
 	}
 	return TaskStatusNone
 }
