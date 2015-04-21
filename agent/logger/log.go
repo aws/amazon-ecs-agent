@@ -18,78 +18,68 @@ import (
 	"strings"
 	"sync"
 
-	log15 "gopkg.in/inconshreveable/log15.v2"
+	log "github.com/cihub/seelog"
 )
 
 const (
 	LOGLEVEL_ENV_VAR = "ECS_LOGLEVEL"
 	LOGFILE_ENV_VAR  = "ECS_LOGFILE"
 
-	DEFAULT_LOGLEVEL = log15.LvlWarn
+	DEFAULT_LOGLEVEL = "info"
 )
 
-// This logger is the base that all other loggers should inherit from
-var logger log15.Logger
 var logfile string
-var level log15.Lvl
+var level string
+var levels map[string]string
+var logger OldLogger
 
 // Initialize this logger once
 var once sync.Once
-
-func initLogger() {
-	logger = log15.New()
-
-	envLevel := os.Getenv(LOGLEVEL_ENV_VAR)
-	SetLevel(envLevel)
-
-	logfile = os.Getenv(LOGFILE_ENV_VAR)
-
-	SetHandlerChain()
-}
 
 func init() {
 	once.Do(initLogger)
 }
 
-// This package relies on the log15 backend. It is simply a place to centralize
-// instantiations of loggers so they all have the same basic config
-func SetLevel(logLevel string) {
-	parsedLevel, err := log15.LvlFromString(strings.ToLower(logLevel))
+func initLogger() {
+	levels = map[string]string{
+		"debug": "debug",
+		"info":  "info",
+		"warn":  "warn",
+		"error": "error",
+		"crit":  "critical",
+	}
+	level = DEFAULT_LOGLEVEL
+
+	logger = &Shim{}
+
+	envLevel := os.Getenv(LOGLEVEL_ENV_VAR)
+	SetLevel(envLevel)
+
+	logfile = os.Getenv(LOGFILE_ENV_VAR)
+	reloadConfig()
+}
+
+func reloadConfig() {
+	logger, err := log.LoggerFromConfigAsString(loggerConfig())
 	if err == nil {
-		level = parsedLevel
-	}
-
-	SetHandlerChain()
-}
-
-func SetHandlerChain() {
-	// Filehandler is an optional handler that only runs if the
-	// LOGFILE_ENV_VAR (ECS_LOGFILE) is set.
-	var fileHandler log15.Handler
-	if logfile == "" {
-		fileHandler = log15.DiscardHandler()
+		log.ReplaceLogger(logger)
 	} else {
-		fileHandler = log15.CallerStackHandler("%+v", log15.Must.FileHandler(logfile, log15.LogfmtFormat()))
+		log.Error(err)
 	}
-
-	logger.SetHandler(
-		log15.LazyHandler(
-			log15.MultiHandler(
-				log15.LvlFilterHandler(level,
-					log15.StdoutHandler,
-				),
-				log15.LvlFilterHandler(level,
-					fileHandler,
-				),
-			),
-		),
-	)
 }
 
-func ForModule(module string) log15.Logger {
+// SetLevel sets the log level for logging
+func SetLevel(logLevel string) {
+	parsedLevel, ok := levels[strings.ToLower(logLevel)]
+	if ok {
+		level = parsedLevel
+		reloadConfig()
+	}
+}
+
+// ForModule returns an OldLogger instance.  OldLogger is deprecated and kept
+// for compatibility reasons.  Prefer using Seelog directly.
+func ForModule(module string) OldLogger {
 	once.Do(initLogger)
-
-	SetHandlerChain()
-
 	return logger.New("module", module)
 }

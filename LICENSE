@@ -15,7 +15,6 @@ language governing permissions and limitations under the License.
 Includes the following packages:
 ***
 Docker, Copyright 2014 Docker, Inc.
-log15, Copyright 2014 Alan Shreve
 gomock, Copyright 2010-2014 Google Inc.
 AWS SDK for Go, Copyright 2014-2015 Stripe, Inc. and Amazon.com, Inc. or its affiliates
 glog, Copyright 2013-2014 Google Inc.
@@ -149,6 +148,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Golang archive/tar, copyright (c) 2012 The Go Authors
 Gorilla Context, Copyright (c) 2012 Rodrigo Moraes
 Gorilla Mux, Copyright (c) 2012 Rodrigo Moraes
+seelog, Copyright (c) 2012, Cloud Instruments Co., Ltd.
 
 each of which are licensed under the following terms and conditions:
 

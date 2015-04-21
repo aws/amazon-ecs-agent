@@ -52,7 +52,7 @@ release: certs docker-release
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
 gogenerate:
-	@cd agent && PATH=$(shell pwd)/scripts/generate:$(PATH) GOOS=generate godep go generate ./...
+	@cd agent && PATH=$(shell pwd)/scripts/generate:$(PATH) godep go generate ./...
 
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt

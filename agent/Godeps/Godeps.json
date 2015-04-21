@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
-	"GoVersion": "go1.4",
+	"GoVersion": "go1.4.2",
 	"Packages": [
 		"./..."
 	],
@@ -34,6 +34,11 @@
 		{
 			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/util",
 			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+		},
+		{
+			"ImportPath": "github.com/cihub/seelog",
+			"Comment": "go1.1-57-g0fa7e41",
+			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/archive",
@@ -87,11 +92,6 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9"
-		},
-		{
-			"ImportPath": "gopkg.in/inconshreveable/log15.v2",
-			"Comment": "v2.5",
-			"Rev": "301391f3385d3cd1a8f731cc148db489585a8aaf"
 		}
 	]
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/cihub/seelog"
 )
 
 func init() {
@@ -40,6 +41,7 @@ func init() {
 }
 
 func main() {
+	defer seelog.Flush()
 	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")

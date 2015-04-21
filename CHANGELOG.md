@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* Feature - Logs rotate hourly and log file names are suffixed with timestamp
 
 ## 1.0.0
 
