@@ -25,7 +25,6 @@ type ContainerStatus int32
 
 const (
 	TaskStatusNone TaskStatus = iota
-	TaskStatusUnknown
 	TaskPulled
 	TaskCreated
 	TaskRunning
@@ -34,7 +33,6 @@ const (
 
 const (
 	ContainerStatusNone ContainerStatus = iota
-	ContainerStatusUnknown
 	ContainerPulled
 	ContainerCreated
 	ContainerRunning
@@ -118,10 +116,22 @@ type ContainerStateChange struct {
 	ExitCode     *int
 	PortBindings []PortBinding
 
-	TaskStatus TaskStatus // TaskStatusNone if this does not result in a task state change
+	// This bit is a little hacky; a pointer to the container's sentstatus which
+	// may be updated to indicate what status was sent. This is used to ensure
+	// the same event is handled only once.
+	SentStatus *ContainerStatus
+}
 
-	Task      *Task
-	Container *Container
+type TaskStateChange struct {
+	TaskArn string
+	Status  TaskStatus
+	Reason  string
+
+	// As above, this is the same sort of hacky.
+	// This is a pointer to the task's sent-status that gives the event handler a
+	// hook into storing metadata about the task on the task such that it follows
+	// the lifecycle of the task and so on.
+	SentStatus *TaskStatus
 }
 
 func (t *Task) String() string {

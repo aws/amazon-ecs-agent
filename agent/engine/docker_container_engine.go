@@ -33,13 +33,14 @@ import (
 type DockerClient interface {
 	ContainerEvents() (<-chan DockerContainerChangeEvent, error)
 
-	PullImage(image string) error
-	CreateContainer(*docker.Config, string) (string, error)
-	StartContainer(string, *docker.HostConfig) error
-	StopContainer(string) error
-	RemoveContainer(string) error
-	GetContainerName(string) (string, error)
+	PullImage(image string) DockerContainerMetadata
+	CreateContainer(*docker.Config, string) DockerContainerMetadata
+	StartContainer(string, *docker.HostConfig) DockerContainerMetadata
+	StopContainer(string) DockerContainerMetadata
 
+	RemoveContainer(string) error
+
+	GetContainerName(string) (string, error)
 	InspectContainer(string) (*docker.Container, error)
 	DescribeContainer(string) (api.ContainerStatus, error)
 
@@ -78,17 +79,18 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 	return dg, err
 }
 
-func (dg *DockerGoClient) PullImage(image string) error {
-	log.Info("Pulling image", "image", image)
+func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
+	log.Debug("Pulling image", "image", image)
 	client, err := dg.client()
 	if err != nil {
-		return err
+		return DockerContainerMetadata{Error: err}
 	}
 
 	// Special case; this image is not one that should be pulled, but rather
 	// should be created locally if necessary
 	if image == emptyvolume.Image+":"+emptyvolume.Tag {
-		return dg.createScratchImageIfNotExists()
+		err = dg.createScratchImageIfNotExists()
+		return DockerContainerMetadata{Error: err}
 	}
 
 	authConfig := dockerauth.GetAuthconfig(image)
@@ -98,6 +100,7 @@ func (dg *DockerGoClient) PullImage(image string) error {
 	defer pullLock.Unlock()
 
 	pullDebugOut, pullWriter := io.Pipe()
+	defer pullWriter.Close()
 	opts := docker.PullImageOptions{
 		Repository:   image,
 		OutputStream: pullWriter,
@@ -111,13 +114,13 @@ func (dg *DockerGoClient) PullImage(image string) error {
 			log.Debug("Pulling image", "image", image, "status", string(line[:]))
 			line, _, err = reader.ReadLine()
 		}
-		if err != nil {
-			log.Error("Error reading pull image status", "image", image, "err", err)
+		if err != nil && err != io.EOF {
+			log.Warn("Error reading pull image status", "image", image, "err", err)
 		}
 	}()
 	err = client.PullImage(opts, authConfig)
 
-	return err
+	return DockerContainerMetadata{Error: err}
 }
 
 func (dg *DockerGoClient) createScratchImageIfNotExists() error {
@@ -153,40 +156,33 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 	return err
 }
 
-func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) (string, error) {
+func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) DockerContainerMetadata {
 	client, err := dg.client()
 	if err != nil {
-		return "", err
-	}
-
-	// Ensure this image was pulled so this can be a quick operation (taskEngine
-	// is blocked on this)
-	_, err = client.InspectImage(config.Image)
-	if err != nil {
-		return "", err
+		return DockerContainerMetadata{Error: err}
 	}
 
 	containerOptions := docker.CreateContainerOptions{Config: config, Name: name}
 	dockerContainer, err := client.CreateContainer(containerOptions)
-
 	if err != nil {
-		return "", err
+		return DockerContainerMetadata{Error: err}
 	}
-	return dockerContainer.ID, nil
+	return dg.containerMetadata(dockerContainer.ID)
 }
 
-func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfig) error {
+func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfig) DockerContainerMetadata {
 	client, err := dg.client()
 	if err != nil {
-		return err
+		return DockerContainerMetadata{Error: err, DockerId: id}
 	}
 
 	err = client.StartContainer(id, hostConfig)
+	metadata := dg.containerMetadata(id)
 	if err != nil {
-		return err
+		metadata.Error = err
 	}
 
-	return nil
+	return metadata
 }
 
 func dockerStateToState(state docker.State) api.ContainerStatus {
@@ -199,16 +195,16 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, error) {
 	client, err := dg.client()
 	if err != nil {
-		return api.ContainerStatusUnknown, err
+		return api.ContainerStatusNone, err
 	}
 
 	if len(dockerId) == 0 {
-		return api.ContainerStatusUnknown, errors.New("Invalid container id: ''")
+		return api.ContainerStatusNone, errors.New("Invalid container id: ''")
 	}
 
 	dockerContainer, err := client.InspectContainer(dockerId)
 	if err != nil {
-		return api.ContainerStatusUnknown, err
+		return api.ContainerStatusNone, err
 	}
 	return dockerStateToState(dockerContainer.State), nil
 }
@@ -221,12 +217,24 @@ func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, 
 	return client.InspectContainer(dockerId)
 }
 
-func (dg *DockerGoClient) StopContainer(dockerId string) error {
+func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
 	client, err := dg.client()
 	if err != nil {
-		return err
+		metadata := dg.containerMetadata(dockerId)
+		if metadata.Error == nil {
+			metadata.Error = err
+		}
+		return metadata
 	}
-	return client.StopContainer(dockerId, DEFAULT_TIMEOUT_SECONDS)
+	err = client.StopContainer(dockerId, DEFAULT_TIMEOUT_SECONDS)
+	metadata := dg.containerMetadata(dockerId)
+	if err != nil {
+		log.Debug("Error stopping container", "err", err, "id", dockerId)
+		if metadata.Error == nil {
+			metadata.Error = err
+		}
+	}
+	return metadata
 }
 
 func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
@@ -237,12 +245,16 @@ func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
 	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
 }
 
-func (dg *DockerGoClient) StopContainerById(id string) error {
+func (dg *DockerGoClient) StopContainerById(id string) DockerContainerMetadata {
 	client, err := dg.client()
 	if err != nil {
-		return err
+		return DockerContainerMetadata{Error: err}
 	}
-	return client.StopContainer(id, DEFAULT_TIMEOUT_SECONDS)
+	err = client.StopContainer(id, DEFAULT_TIMEOUT_SECONDS)
+	if err != nil {
+		return DockerContainerMetadata{Error: err}
+	}
+	return dg.containerMetadata(id)
 }
 
 func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
@@ -267,7 +279,7 @@ func (dg *DockerGoClient) client() (*docker.Client, error) {
 	// Re-read the env in case they corrected it
 	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 
-	client, err := docker.NewVersionedClient(endpoint, "1.15")
+	client, err := docker.NewVersionedClient(endpoint, "1.17")
 	if err != nil {
 		log.Error("Unable to conect to docker client. Ensure daemon is running", "endpoint", endpoint, "err", err)
 		return nil, err
@@ -275,6 +287,40 @@ func (dg *DockerGoClient) client() (*docker.Client, error) {
 	dockerclient = client
 
 	return dockerclient, err
+}
+
+func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
+	dockerContainer, err := dg.InspectContainer(id)
+	if err != nil {
+		return DockerContainerMetadata{Error: err}
+	}
+	var bindings []api.PortBinding
+	if dockerContainer.NetworkSettings != nil {
+		// Convert port bindings into the format our container expects
+		bindings, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
+		if err != nil {
+			log.Crit("Docker had network bindings we couldn't understand", "err", err)
+			return DockerContainerMetadata{Error: err}
+		}
+	}
+	metadata := DockerContainerMetadata{
+		DockerId:     id,
+		PortBindings: bindings,
+		Volumes:      dockerContainer.Volumes,
+	}
+	if dockerContainer.State.Running == false {
+		metadata.ExitCode = &dockerContainer.State.ExitCode
+	}
+	if dockerContainer.State.Error != "" {
+		// TODO type this so that it shows up as 'DockerError: '
+		metadata.Error = errors.New(dockerContainer.State.Error)
+	}
+	if dockerContainer.State.OOMKilled {
+		// TODO type this so it shows up as 'OutOfMemoryError: ...'
+		metadata.Error = errors.New("Memory limit exceeded; container killed")
+	}
+
+	return metadata
 }
 
 // Listen to the docker event stream for container changes and pass them up
@@ -297,9 +343,11 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 
 	go func() {
 		for event := range events {
-			log.Debug("Got event from docker daemon", "event", event)
 			containerId := event.ID
-			image := event.From
+			if containerId == "" {
+				continue
+			}
+			log.Debug("Got event from docker daemon", "event", event)
 
 			var status api.ContainerStatus
 			switch event.Status {
@@ -311,6 +359,8 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 				fallthrough
 			case "die":
 				fallthrough
+			case "oom":
+				fallthrough
 			case "kill":
 				status = api.ContainerStopped
 			case "destroy":
@@ -320,12 +370,22 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 
 			// Image events
 			case "pull":
+				fallthrough
 			case "untag":
+				fallthrough
 			case "delete":
+				// No interest in image events
+				continue
 			default:
-				log.Warn("Unknown status event! Maybe docker updated? ", "status", event.Status)
+				log.Info("Unknown status event! Maybe docker updated? ", "status", event.Status)
 			}
-			changedContainers <- DockerContainerChangeEvent{DockerId: containerId, Image: image, Status: status}
+
+			metadata := dg.containerMetadata(containerId)
+
+			changedContainers <- DockerContainerChangeEvent{
+				Status:                  status,
+				DockerContainerMetadata: metadata,
+			}
 		}
 	}()
 

@@ -53,3 +53,22 @@ func TestSleepWarp(t *testing.T) {
 		t.Error("Time should have been warped")
 	}
 }
+
+func TestAfter(t *testing.T) {
+	testTime := NewTestTime()
+	SetTime(testTime)
+
+	done := make(chan bool)
+
+	realnow := time.Now()
+	go func() {
+		<-After(1 * time.Second)
+		<-After(1 * time.Second)
+		done <- true
+	}()
+	testTime.Warp(15 * time.Second)
+	<-done
+	if time.Since(realnow) > 1*time.Second {
+		t.Error("Time should have been warped")
+	}
+}

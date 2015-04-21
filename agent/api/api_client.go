@@ -43,7 +43,7 @@ type ECSClient interface {
 	RegisterContainerInstance() (string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
-	SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError
+	SubmitTaskStateChange(change TaskStateChange) utils.RetriableError
 	// SubmitContainerStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitContainerStateChange(change ContainerStateChange) utils.RetriableError
@@ -219,16 +219,13 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 	return *resp.ContainerInstance.ContainerInstanceARN, nil
 }
 
-func (client *ApiECSClient) SubmitTaskStateChange(change ContainerStateChange) utils.RetriableError {
-	if change.TaskStatus == TaskStatusNone {
+func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) utils.RetriableError {
+	if change.Status == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
 		return NewAPIError(errors.New("SubmitTaskStateChange called with an invalid change"))
 	}
 
-	stat := change.TaskStatus.String()
-	if stat == "DEAD" {
-		stat = "STOPPED"
-	}
+	stat := change.Status.String()
 	if stat != "STOPPED" && stat != "RUNNING" {
 		log.Debug("Not submitting unsupported upstream task state", "state", stat)
 		// Not really an error

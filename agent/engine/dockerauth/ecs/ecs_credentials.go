@@ -56,6 +56,7 @@ func (creds *ecsCredentials) Provide() credentialprovider.DockerConfig {
 		if err != nil {
 			log.Error("Unable to decode provided docker credentials", "type", creds.EngineAuthType)
 		}
+	case "":
 	default:
 		log.Error("Unrecognized AuthType type")
 	}

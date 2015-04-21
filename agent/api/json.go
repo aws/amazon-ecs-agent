@@ -27,14 +27,23 @@ func (ts *TaskStatus) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*ts = TaskStatusUnknown
+		*ts = TaskStatusNone
 		return errors.New("TaskStatus must be a string or null")
 	}
 	strStatus := string(b[1 : len(b)-1])
+	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
+	if strStatus == "UNKNOWN" {
+		*ts = TaskStatusNone
+		return nil
+	}
+	if strStatus == "DEAD" {
+		*ts = TaskStopped
+		return nil
+	}
 
 	stat, ok := taskStatusMap[strStatus]
 	if !ok {
-		*ts = TaskStatusUnknown
+		*ts = TaskStatusNone
 		return errors.New("Unrecognized TaskStatus")
 	}
 	*ts = stat
@@ -54,14 +63,23 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*cs = ContainerStatusUnknown
+		*cs = ContainerStatusNone
 		return errors.New("ContainerStatus must be a string or null; Got " + string(b))
 	}
 	strStatus := string(b[1 : len(b)-1])
+	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
+	if strStatus == "UNKNOWN" {
+		*cs = ContainerStatusNone
+		return nil
+	}
+	if strStatus == "DEAD" {
+		*cs = ContainerStopped
+		return nil
+	}
 
 	stat, ok := containerStatusMap[strStatus]
 	if !ok {
-		*cs = ContainerStatusUnknown
+		*cs = ContainerStatusNone
 		return errors.New("Unrecognized ContainerStatus")
 	}
 	*cs = stat

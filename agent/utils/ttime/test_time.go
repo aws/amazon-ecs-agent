@@ -41,6 +41,17 @@ func (t *TestTime) Now() time.Time {
 	return time.Now().Add(t.warped)
 }
 
+// After returns a channel which is written to after the given duration, taking
+// into account time-warping
+func (t *TestTime) After(d time.Duration) <-chan time.Time {
+	done := make(chan time.Time)
+	go func() {
+		t.Sleep(d)
+		done <- t.Now()
+	}()
+	return done
+}
+
 // Sleep sleeps the given duration in mock-time; that is to say that Warps will
 // reduce the amount of time slept and LudicrousSpeed will cause instant
 // success.

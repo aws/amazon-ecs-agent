@@ -57,7 +57,7 @@ func TestStateManager(t *testing.T) {
 	containerInstanceArn = "containerInstanceArn"
 
 	testTask := &api.Task{Arn: "test-arn"}
-	taskEngine.AddTask(testTask)
+	taskEngine.(*engine.DockerTaskEngine).State().AddTask(testTask)
 
 	err = manager.Save()
 	if err != nil {

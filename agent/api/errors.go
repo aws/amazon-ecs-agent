@@ -43,3 +43,11 @@ func (apiErr *APIError) Retry() bool {
 func (apiErr *APIError) Error() string {
 	return apiErr.err.Error()
 }
+
+type badVolumeError struct {
+	msg string
+}
+
+func (err *badVolumeError) Error() string     { return err.msg }
+func (err *badVolumeError) ErrorName() string { return "InvalidVolumeError" }
+func (err *badVolumeError) Retry() bool       { return false }

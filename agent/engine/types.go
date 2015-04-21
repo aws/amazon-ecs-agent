@@ -26,7 +26,15 @@ func (cnferror ContainerNotFound) Error() string {
 }
 
 type DockerContainerChangeEvent struct {
-	DockerId string
-	Image    string
-	Status   api.ContainerStatus
+	Status api.ContainerStatus
+
+	DockerContainerMetadata
+}
+
+type DockerContainerMetadata struct {
+	DockerId     string
+	ExitCode     *int
+	PortBindings []api.PortBinding
+	Error        error
+	Volumes      map[string]string
 }

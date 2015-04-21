@@ -77,7 +77,7 @@ func TestServeHttp(t *testing.T) {
 	}
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddTask(&testTask)
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
 
@@ -156,12 +156,12 @@ func backendMappingTestHelper(containers []*api.Container, testTask api.Task, de
 	taskEngine := engine.NewTaskEngine(&config.Config{})
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddTask(&testTask)
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
 	server := httptest.NewServer(http.HandlerFunc(taskHandler))
 	defer server.Close()
-	resp, err := http.Get(server.URL+"/v1/tasks")
+	resp, err := http.Get(server.URL + "/v1/tasks")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}

@@ -7,6 +7,7 @@ import "time"
 type Time interface {
 	Now() time.Time
 	Sleep(d time.Duration)
+	After(d time.Duration) <-chan time.Time
 }
 
 // DefaultTime is a Time that behaves normally
@@ -22,6 +23,11 @@ func (*DefaultTime) Now() time.Time {
 // Sleep sleeps for the given duration
 func (*DefaultTime) Sleep(d time.Duration) {
 	time.Sleep(d)
+}
+
+// After sleeps for the given duration and then writes to to the returned channel
+func (*DefaultTime) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
 }
 
 // SetTime configures what 'Time' implementation to use for each of the
@@ -43,4 +49,9 @@ func Sleep(d time.Duration) {
 // Since returns the time different from Now and the given time t
 func Since(t time.Time) time.Duration {
 	return _time.Now().Sub(t)
+}
+
+// After calls the implementations After method
+func After(t time.Duration) <-chan time.Time {
+	return _time.After(t)
 }

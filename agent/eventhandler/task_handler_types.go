@@ -22,37 +22,64 @@ import (
 )
 
 // Maximum number of tasks that may be handled at once by the taskHandler
-const CONCURRENT_EVENT_CALLS = 3
+const concurrentEventCalls = 3
 
 // a state change that may have a container and, optionally, a task event to
 // send
 type sendableEvent struct {
-	containerSent bool
-	taskSent      bool
+	// Either is a contaienr event or a task event
+	isContainerEvent bool
 
-	api.ContainerStateChange
+	containerSent   bool
+	containerChange api.ContainerStateChange
+
+	taskSent   bool
+	taskChange api.TaskStateChange
 }
 
-func newSendableEvent(event api.ContainerStateChange) *sendableEvent {
+func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
 	return &sendableEvent{
-		containerSent:        false,
-		taskSent:             false,
-		ContainerStateChange: event,
+		isContainerEvent: true,
+		containerSent:    false,
+		containerChange:  event,
 	}
+}
+
+func newSendableTaskEvent(event api.TaskStateChange) *sendableEvent {
+	return &sendableEvent{
+		isContainerEvent: false,
+		taskSent:         false,
+		taskChange:       event,
+	}
+}
+
+func (event *sendableEvent) taskArn() string {
+	if event.isContainerEvent {
+		return event.containerChange.TaskArn
+	}
+	return event.taskChange.TaskArn
 }
 
 func (event *sendableEvent) taskShouldBeSent() bool {
-	if event.TaskStatus == api.TaskStatusNone {
-		return false // container only event
+	if event.isContainerEvent {
+		return false
 	}
-	if event.taskSent || event.Task.SentStatus >= event.TaskStatus {
+	tevent := event.taskChange
+	if tevent.Status == api.TaskStatusNone {
+		return false // defensive programming :)
+	}
+	if event.taskSent || (tevent.SentStatus != nil && *tevent.SentStatus >= tevent.Status) {
 		return false // redundant event
 	}
 	return true
 }
 
 func (event *sendableEvent) containerShouldBeSent() bool {
-	if event.containerSent || event.Container.SentStatus >= event.Status {
+	if !event.isContainerEvent {
+		return false
+	}
+	cevent := event.containerChange
+	if event.containerSent || (cevent.SentStatus != nil && *cevent.SentStatus >= cevent.Status) {
 		return false
 	}
 	return true
@@ -73,7 +100,7 @@ type taskHandler struct {
 
 func newTaskHandler() taskHandler {
 	taskMap := make(map[string]*eventList)
-	submitSemaphore := utils.NewSemaphore(CONCURRENT_EVENT_CALLS)
+	submitSemaphore := utils.NewSemaphore(concurrentEventCalls)
 
 	return taskHandler{
 		taskMap:         taskMap,

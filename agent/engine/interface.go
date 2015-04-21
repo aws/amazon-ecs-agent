@@ -26,7 +26,7 @@ type TaskEngine interface {
 	// this task engine from processing new tasks
 	Disable()
 
-	TaskEvents() <-chan api.ContainerStateChange
+	TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange)
 	SetSaver(statemanager.Saver)
 
 	// AddTask adds a new task to the task engine and manages its container's

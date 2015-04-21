@@ -15,11 +15,9 @@ package api
 
 var taskStatusMap = map[string]TaskStatus{
 	"NONE":    TaskStatusNone,
-	"UNKNOWN": TaskStatusUnknown,
 	"CREATED": TaskCreated,
 	"RUNNING": TaskRunning,
 	"STOPPED": TaskStopped,
-	"DEAD":    TaskStopped,
 }
 
 func (ts *TaskStatus) String() string {
@@ -28,7 +26,7 @@ func (ts *TaskStatus) String() string {
 			return k
 		}
 	}
-	return "UNKNOWN"
+	return "NONE"
 }
 
 // Mapping task status in the agent to that in the backend
@@ -42,14 +40,16 @@ func (ts *TaskStatus) BackendStatus() string {
 	return "PENDING"
 }
 
+func (ts *TaskStatus) BackendRecognized() bool {
+	return *ts == TaskRunning || *ts == TaskStopped
+}
+
 var containerStatusMap = map[string]ContainerStatus{
 	"NONE":    ContainerStatusNone,
-	"UNKNOWN": ContainerStatusUnknown,
 	"PULLED":  ContainerPulled,
 	"CREATED": ContainerCreated,
 	"RUNNING": ContainerRunning,
 	"STOPPED": ContainerStopped,
-	"DEAD":    ContainerStopped,
 }
 
 func (cs *ContainerStatus) String() string {
@@ -58,7 +58,7 @@ func (cs *ContainerStatus) String() string {
 			return k
 		}
 	}
-	return "UNKNOWN"
+	return "NONE"
 }
 
 func (cs *ContainerStatus) TaskStatus() TaskStatus {
@@ -72,7 +72,7 @@ func (cs *ContainerStatus) TaskStatus() TaskStatus {
 	case ContainerStopped:
 		return TaskStopped
 	}
-	return TaskStatusUnknown
+	return TaskStatusNone
 }
 
 func (ts *TaskStatus) ContainerStatus() ContainerStatus {
@@ -86,7 +86,11 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 	case TaskStopped:
 		return ContainerStopped
 	}
-	return ContainerStatusUnknown
+	return ContainerStatusNone
+}
+
+func (cs *ContainerStatus) BackendRecognized() bool {
+	return *cs == ContainerRunning || *cs == ContainerStopped
 }
 
 func (cs *ContainerStatus) Terminal() bool {

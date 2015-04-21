@@ -81,25 +81,14 @@ func (state *DockerTaskEngineState) TaskById(cid string) (*api.Task, bool) {
 	return state.TaskByArn(arn)
 }
 
-// AddOrUpdate task adds a new task to the state, and if it already exists
-// updates the existing task to match the argument's DesiredStatus. This method
-// *does* aquire a write lock.
-func (state *DockerTaskEngineState) AddOrUpdateTask(task *api.Task) *api.Task {
+// AddTask adds a new task to the state
+func (state *DockerTaskEngineState) AddTask(task *api.Task) {
 	state.Lock()
 	defer state.Unlock()
 
-	current, exists := state.tasks[task.Arn]
-	if !exists {
-		state.tasks[task.Arn] = task
-		return task
-	}
+	state.tasks[task.Arn] = task
 
-	// Update
-	if task.DesiredStatus > current.DesiredStatus {
-		current.DesiredStatus = task.DesiredStatus
-	}
-
-	return current
+	return
 }
 
 // RemoveTask removes a task from this state. It removes all containers and

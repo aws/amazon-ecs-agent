@@ -100,7 +100,6 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 				// If there was an error converting these from acs to engine
 				// tasks, report to the backend that they're not running and
 				// give a suitable reason
-				badtaskChanges := make([]*api.ContainerStateChange, 0, len(task.Containers))
 				for _, container := range task.Containers {
 					if container == nil {
 						log.Error("Recieved task with nil containers", "arn", *task.Arn)
@@ -110,26 +109,18 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 						log.Error("Recieved task with nil container name", "arn", *task.Arn)
 						continue
 					}
-					change := api.ContainerStateChange{
+					eventhandler.AddContainerEvent(api.ContainerStateChange{
 						TaskArn:       *task.Arn,
 						Status:        api.ContainerStopped,
-						Reason:        "Error loading task: " + err.Error(),
-						Container:     &api.Container{},
+						Reason:        "UnrecognizedACSTask: Error loading task: " + err.Error(),
 						ContainerName: *container.Name,
-					}
-					badtaskChanges = append(badtaskChanges, &change)
+					}, client)
 				}
-				if len(badtaskChanges) == 0 {
-					return
-				}
-				// The last container stop also brings down the task
-				taskChange := badtaskChanges[len(badtaskChanges)-1]
-				taskChange.TaskStatus = api.TaskStopped
-				taskChange.Task = &api.Task{}
-
-				for _, change := range badtaskChanges {
-					eventhandler.AddTaskEvent(*change, client)
-				}
+				eventhandler.AddTaskEvent(api.TaskStateChange{
+					TaskArn: *task.Arn,
+					Status:  api.TaskStopped,
+					Reason:  "UnrecognizedACSTask: Error loading task: " + err.Error(),
+				}, client)
 				return
 			}
 			// Else, no error converting, add to engine
