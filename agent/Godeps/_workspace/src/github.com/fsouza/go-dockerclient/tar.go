@@ -1,4 +1,4 @@
-// Copyright 2014 go-dockerclient authors. All rights reserved.
+// Copyright 2015 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -27,9 +27,9 @@ func createTarStream(srcPath string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	tarOpts := &archive.TarOptions{
-		Excludes:    excludes,
-		Compression: archive.Uncompressed,
-		NoLchown:    true,
+		ExcludePatterns: excludes,
+		Compression:     archive.Uncompressed,
+		NoLchown:        true,
 	}
 	return archive.TarWithOptions(srcPath, tarOpts)
 }
