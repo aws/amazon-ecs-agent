@@ -86,7 +86,8 @@ const (
 )
 
 func NewECSClient(credentialProvider aws.CredentialsProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
-	httpClient := httpclient.New(RoundtripTimeout)
+	httpClient := httpclient.New(RoundtripTimeout, insecureSkipVerify)
+
 	ecsConfig := &aws.Config{
 		Credentials: credentialProvider,
 		Region:      config.AWSRegion,

@@ -17,11 +17,11 @@
 package mock_engine
 
 import (
-	api "github.com/aws/amazon-ecs-agent/agent/api"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	engine "github.com/aws/amazon-ecs-agent/agent/engine"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "code.google.com/p/gomock/gomock"
+	api "github.com/aws/amazon-ecs-agent/agent/api"
 )
 
 // Mock of TaskEngine interface
