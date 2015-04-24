@@ -24,7 +24,7 @@ type APIError struct {
 func NewAPIError(err error) *APIError {
 	if apierr, ok := err.(aws.APIError); ok {
 		// ClientExceptions are not retriable
-		if apierr.Code == "ClientException" {
+		if apierr.Code == "ClientException" || (apierr.StatusCode >= 400 && apierr.StatusCode < 500) {
 			return &APIError{err, false}
 		}
 	}

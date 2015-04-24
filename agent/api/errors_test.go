@@ -27,6 +27,7 @@ func TestNewAPIError(t *testing.T) {
 	}
 	unretriable := []error{
 		aws.APIError{Code: "ClientException"},
+		aws.APIError{StatusCode: 400, Code: "BadRequestException"},
 	}
 
 	for i, err := range retriable {
