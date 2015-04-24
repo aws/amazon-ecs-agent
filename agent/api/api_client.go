@@ -33,7 +33,7 @@ var log = logger.ForModule("api client")
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
 // details around constructing the request and reading the response down to the
-// parts ECS cares about.
+// parts the agent cares about.
 // For example, the ever-present 'Cluster' member is abstracted out so that it
 // may be configured once and used throughout transparently.
 type ECSClient interface {
@@ -102,7 +102,7 @@ func NewECSClient(credentialProvider aws.CredentialsProvider, config *config.Con
 
 func getCpuAndMemory() (int64, int64) {
 	memInfo, err := system.ReadMemInfo()
-	mem := memInfo.MemTotal / 1024 / 1024 // MB
+	mem := memInfo.MemTotal / 1024 / 1024 // MiB
 	if err != nil {
 		log.Error("Unable to get memory info", "err", err)
 		mem = 0
