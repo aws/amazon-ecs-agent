@@ -115,6 +115,10 @@
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "169f42267807fe93f4a4b0150583e410aefafe4e"
 		}
 	]
 }
