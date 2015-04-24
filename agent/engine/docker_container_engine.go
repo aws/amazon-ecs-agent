@@ -21,6 +21,8 @@ import (
 	"os"
 	"sync"
 
+	"golang.org/x/net/context"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
@@ -31,7 +33,7 @@ import (
 
 // Interface to make testing it easier
 type DockerClient interface {
-	ContainerEvents() (<-chan DockerContainerChangeEvent, error)
+	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	PullImage(image string) DockerContainerMetadata
 	CreateContainer(*docker.Config, string) DockerContainerMetadata
@@ -324,7 +326,7 @@ func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 }
 
 // Listen to the docker event stream for container changes and pass them up
-func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, error) {
+func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
 	client, err := dg.client()
 	if err != nil {
 		log.Error("Unable to communicate with docker daemon", "err", err)
@@ -338,6 +340,10 @@ func (dg *DockerGoClient) ContainerEvents() (<-chan DockerContainerChangeEvent, 
 		log.Error("Unable to add a docker event listener", "err", err)
 		return nil, err
 	}
+	go func() {
+		<-ctx.Done()
+		client.RemoveEventListener(events)
+	}()
 
 	changedContainers := make(chan DockerContainerChangeEvent)
 

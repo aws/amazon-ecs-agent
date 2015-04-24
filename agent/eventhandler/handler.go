@@ -33,14 +33,6 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 
 		for taskEvents != nil && containerEvents != nil {
 			select {
-			case event, open := <-taskEvents:
-				if !open {
-					taskEvents = nil
-					log.Crit("Task events closed")
-					break
-				}
-
-				go AddTaskEvent(event, client)
 			case event, open := <-containerEvents:
 				if !open {
 					containerEvents = nil
@@ -48,7 +40,15 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 					break
 				}
 
-				go AddContainerEvent(event, client)
+				AddContainerEvent(event, client)
+			case event, open := <-taskEvents:
+				if !open {
+					taskEvents = nil
+					log.Crit("Task events closed")
+					break
+				}
+
+				AddTaskEvent(event, client)
 			}
 		}
 	}

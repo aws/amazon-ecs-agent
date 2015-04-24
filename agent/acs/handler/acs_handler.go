@@ -86,27 +86,28 @@ func heartbeatHandler(acsConnection io.Closer) func(*ecsacs.HeartbeatMessage) {
 // task, it is moved to stopped. If a task is handled, state is saved.
 func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, client api.ECSClient, stateManager statemanager.Saver) func(payload *ecsacs.PayloadMessage) {
 	return func(payload *ecsacs.PayloadMessage) {
-		for _, task := range payload.Tasks {
+		toAddTasks := make([]*api.Task, len(payload.Tasks))
+		for ndx, task := range payload.Tasks {
 			if task == nil {
-				log.Error("Recieved nil task")
-				return
+				log.Crit("Recieved nil task")
+				continue
 			}
-			apiTask, err := api.TaskFromACS(task)
+			apiTask, err := api.TaskFromACS(task, payload)
 			if err != nil {
 				if task.Arn == nil {
-					log.Error("Recieved task with no arn", "task", task)
-					return
+					log.Crit("Recieved task with no arn", "task", task)
+					continue
 				}
 				// If there was an error converting these from acs to engine
 				// tasks, report to the backend that they're not running and
 				// give a suitable reason
 				for _, container := range task.Containers {
 					if container == nil {
-						log.Error("Recieved task with nil containers", "arn", *task.Arn)
+						log.Crit("Recieved task with nil containers", "arn", *task.Arn)
 						continue
 					}
 					if container.Name == nil {
-						log.Error("Recieved task with nil container name", "arn", *task.Arn)
+						log.Crit("Recieved task with nil container name", "arn", *task.Arn)
 						continue
 					}
 					eventhandler.AddContainerEvent(api.ContainerStateChange{
@@ -121,33 +122,58 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 					Status:  api.TaskStopped,
 					Reason:  "UnrecognizedACSTask: Error loading task: " + err.Error(),
 				}, client)
-				return
+				continue
 			}
-			// Else, no error converting, add to engine
-			err = taskEngine.AddTask(apiTask)
+			toAddTasks[ndx] = apiTask
+		}
+		// Add 'stop' transitions first to allow seqnum ordering to work out
+		for _, task := range toAddTasks {
+			if task == nil {
+				continue
+			}
+			if task.DesiredStatus != api.TaskStopped {
+				continue
+			}
+			err := taskEngine.AddTask(task)
 			if err != nil {
 				log.Warn("Could not add task; taskengine probably disabled")
 				// Don't ack
 				return
 			}
-			err = stateManager.Save()
+		}
+		// Now add the rest of the tasks
+		for _, task := range toAddTasks {
+			if task == nil {
+				continue
+			}
+			if task.DesiredStatus == api.TaskStopped {
+				continue
+			}
+			err := taskEngine.AddTask(task)
 			if err != nil {
-				log.Error("Error saving state!", "err", err)
-				// Don't ack; maybe we can save it in the future.
+				log.Warn("Could not add task; taskengine probably disabled")
+				// Don't ack
 				return
 			}
-			err = cs.MakeRequest(&ecsacs.AckRequest{
-				Cluster:           &cluster,
-				ContainerInstance: &containerInstanceArn,
-				MessageId:         payload.MessageId,
-			})
-			if err != nil {
-				mid := "null"
-				if payload.MessageId != nil {
-					mid = *payload.MessageId
-				}
-				log.Warn("Error 'ack'ing request", "MessageID", mid)
+		}
+
+		err := stateManager.Save()
+		if err != nil {
+			log.Error("Error saving state!", "err", err)
+			// Don't ack; maybe we can save it in the future.
+			return
+		}
+		err = cs.MakeRequest(&ecsacs.AckRequest{
+			Cluster:           &cluster,
+			ContainerInstance: &containerInstanceArn,
+			MessageId:         payload.MessageId,
+		})
+		if err != nil {
+			mid := "null"
+			if payload.MessageId != nil {
+				mid = *payload.MessageId
 			}
+			log.Warn("Error 'ack'ing request", "MessageID", mid)
 		}
 	}
 }

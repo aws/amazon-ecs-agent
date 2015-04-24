@@ -18,10 +18,10 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil"
 	"github.com/fsouza/go-dockerclient"
 )
@@ -150,7 +150,7 @@ func (task *Task) UpdateTaskKnownStatus() (newStatus TaskStatus) {
 	llog.Debug("Updating task")
 	defer func() {
 		if newStatus != TaskStatusNone {
-			task.KnownTime = time.Now()
+			task.KnownTime = ttime.Now()
 		}
 	}()
 
@@ -377,7 +377,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
-func TaskFromACS(task *ecsacs.Task) (*Task, error) {
+func TaskFromACS(task *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(task)
 	if err != nil {
 		return nil, err
@@ -387,6 +387,12 @@ func TaskFromACS(task *ecsacs.Task) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
+	if outTask.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
+		outTask.StartSequenceNumber = *envelope.SeqNum
+	} else if outTask.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
+		outTask.StopSequenceNumber = *envelope.SeqNum
+	}
+
 	return outTask, nil
 }
 

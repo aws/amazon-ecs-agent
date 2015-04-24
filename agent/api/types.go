@@ -65,6 +65,9 @@ type Task struct {
 
 	containersByNameLock sync.Mutex
 	containersByName     map[string]*Container
+
+	StartSequenceNumber int64
+	StopSequenceNumber  int64
 }
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -135,12 +138,12 @@ type TaskStateChange struct {
 }
 
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s-%s %s, Overrides: %s Status: %s(%s)", t.Family, t.Version, t.Arn, t.Overrides, t.KnownStatus.String(), t.DesiredStatus.String())
-	res += " Containers: "
+	res := fmt.Sprintf("%s-%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.KnownStatus.String(), t.DesiredStatus.String())
+	res += " Containers: ["
 	for _, c := range t.Containers {
-		res += c.Name + ","
+		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.KnownStatus.String(), c.DesiredStatus.String())
 	}
-	return res
+	return res + "]"
 }
 
 type ContainerOverrides struct {
@@ -204,7 +207,7 @@ type VolumeFrom struct {
 }
 
 func (c *Container) String() string {
-	ret := fmt.Sprintf("%s(%s) - Status: %v", c.Name, c.Image, c.KnownStatus.String())
+	ret := fmt.Sprintf("%s-%s (%s->%s)", c.Name, c.Image, c.KnownStatus.String(), c.DesiredStatus.String())
 	if c.KnownExitCode != nil {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}

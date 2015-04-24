@@ -151,6 +151,7 @@ func removeImage(img string) {
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
 
@@ -163,7 +164,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 		}
 	}()
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
@@ -187,6 +188,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -200,7 +202,7 @@ func TestPortForward(t *testing.T) {
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 
 	// Port not forwarded; verify we can't access it
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -240,7 +242,7 @@ func TestPortForward(t *testing.T) {
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -271,7 +273,7 @@ func TestPortForward(t *testing.T) {
 	// Stop the existing container now
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
@@ -286,6 +288,7 @@ func TestPortForward(t *testing.T) {
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
 	go func() {
@@ -305,7 +308,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
 	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24752}}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -343,7 +346,7 @@ func TestMultiplePortForwards(t *testing.T) {
 
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
@@ -358,6 +361,7 @@ func TestMultiplePortForwards(t *testing.T) {
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -367,18 +371,26 @@ func TestDynamicPortForward(t *testing.T) {
 	// No HostPort = docker should pick
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	var portBindings []api.PortBinding
-	for contEvent := range contEvents {
-		if contEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if contEvent.Status == api.ContainerRunning {
-			portBindings = contEvent.PortBindings
-			break
-		} else if contEvent.Status > api.ContainerRunning {
-			t.Fatal("Container went straight to " + contEvent.Status.String() + " without running")
+PortsBound:
+	for {
+		select {
+		case contEvent := <-contEvents:
+			if contEvent.TaskArn != testTask.Arn {
+				continue
+			}
+			if contEvent.Status == api.ContainerRunning {
+				portBindings = contEvent.PortBindings
+				break PortsBound
+			} else if contEvent.Status > api.ContainerRunning {
+				t.Fatal("Container went straight to " + contEvent.Status.String() + " without running")
+			}
+		case taskEvent := <-taskEvents:
+			if taskEvent.Status == api.TaskStopped {
+				t.Fatal("Task stopped")
+			}
 		}
 	}
 	// discard other container events
@@ -416,7 +428,7 @@ func TestDynamicPortForward(t *testing.T) {
 	// Kill the existing container now
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
@@ -429,6 +441,7 @@ func TestDynamicPortForward(t *testing.T) {
 
 func TestMultipleDynamicPortForward(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -438,7 +451,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	// No HostPort or 0 hostport; docker should pick two ports for us
 	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}, api.PortBinding{ContainerPort: 24751, HostPort: 0}}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	var portBindings []api.PortBinding
 	for contEvent := range contEvents {
@@ -506,7 +519,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	// Kill the existing container now
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
@@ -523,6 +536,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	testTask := createTestTask("TestLinking")
 	testTask.Containers = append(testTask.Containers, createTestContainer())
@@ -539,7 +553,7 @@ func TestLinking(t *testing.T) {
 		}
 	}()
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -569,7 +583,7 @@ func TestLinking(t *testing.T) {
 
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -583,6 +597,7 @@ func TestLinking(t *testing.T) {
 
 func TestDockerCfgAuth(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	removeImage(testAuthRegistryImage)
 
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
@@ -603,7 +618,7 @@ func TestDockerCfgAuth(t *testing.T) {
 		}
 	}()
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	expected_events := []api.TaskStatus{api.TaskRunning}
 
@@ -623,7 +638,7 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn == testTask.Arn {
 			if !(taskEvent.Status >= api.TaskStopped) {
@@ -636,6 +651,7 @@ func TestDockerCfgAuth(t *testing.T) {
 
 func TestDockerAuth(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	removeImage(testAuthRegistryImage)
 
 	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`)
@@ -655,7 +671,7 @@ func TestDockerAuth(t *testing.T) {
 		}
 	}()
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	expected_events := []api.TaskStatus{api.TaskRunning}
 
@@ -675,7 +691,7 @@ func TestDockerAuth(t *testing.T) {
 
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn == testTask.Arn {
 			if !(taskEvent.Status >= api.TaskStopped) {
@@ -688,6 +704,7 @@ func TestDockerAuth(t *testing.T) {
 
 func TestVolumesFrom(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -705,7 +722,7 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
 	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 80, HostPort: 24751}}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -731,7 +748,7 @@ func TestVolumesFrom(t *testing.T) {
 
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
-	taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -745,6 +762,7 @@ func TestVolumesFrom(t *testing.T) {
 
 func TestVolumesFromRO(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -769,7 +787,7 @@ func TestVolumesFromRO(t *testing.T) {
 	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.Status == api.TaskStopped {
@@ -790,6 +808,7 @@ func TestVolumesFromRO(t *testing.T) {
 
 func TestHostVolumeMount(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -807,7 +826,7 @@ func TestHostVolumeMount(t *testing.T) {
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -829,6 +848,7 @@ func TestHostVolumeMount(t *testing.T) {
 
 func TestEmptyHostVolumeMount(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -848,7 +868,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	testTask.Containers[1].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
 	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
 	testTask.Containers[1].Essential = false
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
@@ -866,6 +886,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 
 func TestSweepContainer(t *testing.T) {
 	taskEngine := setup(t)
+	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	go func() {
@@ -876,7 +897,7 @@ func TestSweepContainer(t *testing.T) {
 
 	testTask := createTestTask("testSweepContainer")
 
-	taskEngine.AddTask(testTask)
+	go taskEngine.AddTask(testTask)
 
 	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 

@@ -17,11 +17,12 @@
 package mock_engine
 
 import (
-	api "github.com/aws/amazon-ecs-agent/agent/api"
-	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
-	engine "github.com/aws/amazon-ecs-agent/agent/engine"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "code.google.com/p/gomock/gomock"
+	api "github.com/aws/amazon-ecs-agent/agent/api"
+	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
+	context "golang.org/x/net/context"
+	engine "github.com/aws/amazon-ecs-agent/agent/engine"
 )
 
 // Mock of TaskEngine interface
@@ -164,15 +165,15 @@ func (_m *MockDockerClient) EXPECT() *_MockDockerClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDockerClient) ContainerEvents() (<-chan engine.DockerContainerChangeEvent, error) {
-	ret := _m.ctrl.Call(_m, "ContainerEvents")
+func (_m *MockDockerClient) ContainerEvents(_param0 context.Context) (<-chan engine.DockerContainerChangeEvent, error) {
+	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)
 	ret0, _ := ret[0].(<-chan engine.DockerContainerChangeEvent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDockerClientRecorder) ContainerEvents() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents")
+func (_mr *_MockDockerClientRecorder) ContainerEvents(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents", arg0)
 }
 
 func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 string) engine.DockerContainerMetadata {
