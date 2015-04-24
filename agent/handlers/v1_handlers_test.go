@@ -152,12 +152,12 @@ func TestServeHttp(t *testing.T) {
 	}
 }
 
-func backendMappingTestHelper(containers []*api.Container, testTask api.Task, desiredStatus string, knownStatus string, t *testing.T) {
+func backendMappingTestHelper(containers []*api.Container, testTask *api.Task, desiredStatus string, knownStatus string, t *testing.T) {
 	taskEngine := engine.NewTaskEngine(&config.Config{})
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(&testTask)
-	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, testTask)
 	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
 	server := httptest.NewServer(http.HandlerFunc(taskHandler))
 	defer server.Close()

@@ -98,11 +98,11 @@ type taskHandler struct {
 	sync.RWMutex // Lock for the taskMap
 }
 
-func newTaskHandler() taskHandler {
+func newTaskHandler() *taskHandler {
 	taskMap := make(map[string]*eventList)
 	submitSemaphore := utils.NewSemaphore(concurrentEventCalls)
 
-	return taskHandler{
+	return &taskHandler{
 		taskMap:         taskMap,
 		submitSemaphore: submitSemaphore,
 	}

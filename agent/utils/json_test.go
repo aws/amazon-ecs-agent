@@ -24,7 +24,7 @@ func TestJsonKeys(t *testing.T) {
 		t.Error(err)
 	}
 	if !SlicesDeepEqual(keys, []string{"key1", "key2", "key3"}) {
-		t.Error("Incorrect json keys: Got %v", keys)
+		t.Errorf("Incorrect json keys: Got %v", keys)
 	}
 
 	_, err = JsonKeys([]byte(`Invalid json }{`))
@@ -72,7 +72,7 @@ func TestCompleteJsonUnmarshal(t *testing.T) {
 	}
 
 	if err = CompleteJsonUnmarshal(jsonString, unmarshaledTest); err != nil {
-		t.Error("Unmarshal should have been complete: %v", err)
+		t.Errorf("Unmarshal should have been complete: %v", err)
 	}
 
 	future := futureTestStruct{Field1: "str", Field2: 1, Field5: 1}

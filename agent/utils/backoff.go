@@ -54,8 +54,6 @@ func (sb *SimpleBackoff) Duration() time.Duration {
 	sb.current = time.Duration(math.Min(float64(sb.max.Nanoseconds()), float64(float64(sb.current.Nanoseconds())*sb.multiple)))
 
 	return AddJitter(ret, time.Duration(int64(float64(ret)*sb.jitterMultiple)))
-
-	return ret
 }
 
 func (sb *SimpleBackoff) Reset() {

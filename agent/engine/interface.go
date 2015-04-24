@@ -14,6 +14,8 @@
 package engine
 
 import (
+	"encoding/json"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
@@ -35,8 +37,8 @@ type TaskEngine interface {
 
 	ListTasks() ([]*api.Task, error)
 
-	UnmarshalJSON([]byte) error
-	MarshalJSON() ([]byte, error)
-
 	Version() (string, error)
+
+	json.Marshaler
+	json.Unmarshaler
 }

@@ -149,7 +149,7 @@ func TestRetryNWithBackoff(t *testing.T) {
 	testTime := ttime.Since(start)
 	// Expect that it tried twice, sleeping once between them
 	if testTime.Seconds() < 0.09 || testTime.Seconds() > 0.11 {
-		t.Error("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
+		t.Errorf("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
 	}
 
 	start = ttime.Now()
@@ -170,7 +170,7 @@ func TestRetryNWithBackoff(t *testing.T) {
 	}
 	// 3 tries; 2 backoffs
 	if testTime.Seconds() < 0.190 || testTime.Seconds() > 0.210 {
-		t.Error("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
+		t.Errorf("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
 	}
 }
 

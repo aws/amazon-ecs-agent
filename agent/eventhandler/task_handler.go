@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-var handler taskHandler
+var handler *taskHandler
 
 func init() {
 	handler = newTaskHandler()

@@ -86,6 +86,8 @@ get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
 	go get code.google.com/p/gomock/mockgen
+	go get golang.org/x/tools/cmd/goimports
+
 
 clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
