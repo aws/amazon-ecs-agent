@@ -172,9 +172,9 @@ func (cs *clientServer) Serve() error {
 		messageType, message, cerr := cs.conn.ReadMessage()
 		err = cerr
 		if err != nil {
-			if message != nil {
+			if message != nil && err != io.EOF {
 				log.Error("Error getting message from acs", "err", err, "message", message)
-			} else {
+			} else if err != io.EOF {
 				log.Error("Error getting message from acs", "err", err)
 			}
 			break

@@ -34,8 +34,6 @@ import (
 )
 
 const (
-	DEFAULT_TIMEOUT_SECONDS uint = 30
-
 	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 )
@@ -171,6 +169,11 @@ func (engine *DockerTaskEngine) initDockerClient() error {
 		engine.client = client
 	}
 	return nil
+}
+
+// SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
+func (engine *DockerTaskEngine) SetDockerClient(client DockerClient) {
+	engine.client = client
 }
 
 // MustInit blocks and retries until an engine can be initialized.
@@ -334,7 +337,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 			cont, container_found := engine.state.ContainerById(event.DockerId)
 			if !task_found || !container_found {
 				log.Debug("Event for container not managed", "dockerId", event.DockerId)
-				continue
+				break
 			}
 			engine.processTasks.Lock()
 			managedTask, ok := engine.managedTasks[task.Arn]
@@ -342,7 +345,9 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 			if !ok {
 				log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
 			}
+			log.Debug("Writing docker event to the associated task", "task", task, "event", event)
 			managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
+			log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
 		}
 	}
 }

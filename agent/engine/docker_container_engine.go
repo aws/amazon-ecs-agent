@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -29,6 +30,18 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	docker "github.com/fsouza/go-dockerclient"
+)
+
+const dockerStopTimeoutSeconds = 30
+
+// Timelimits for docker operations enforced above docker
+const (
+	pullImageTimeout        = 1 * time.Hour
+	createContainerTimeout  = 1 * time.Minute
+	startContainerTimeout   = 1 * time.Minute
+	stopContainerTimeout    = 1 * time.Minute
+	removeContainerTimeout  = 5 * time.Minute
+	inspectContainerTimeout = 10 * time.Second
 )
 
 // Interface to make testing it easier
@@ -202,12 +215,16 @@ func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatu
 }
 
 func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
+	return dg.inspectContainer(dockerId)
+}
+
+func (dg *DockerGoClient) inspectContainer(dockerId string) (*docker.Container, error) {
 	return dg.client().InspectContainer(dockerId)
 }
 
 func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
 	client := dg.client()
-	err := client.StopContainer(dockerId, DEFAULT_TIMEOUT_SECONDS)
+	err := client.StopContainer(dockerId, dockerStopTimeoutSeconds)
 	metadata := dg.containerMetadata(dockerId)
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerId)
@@ -222,18 +239,8 @@ func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
 	return dg.client().RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
 }
 
-func (dg *DockerGoClient) StopContainerById(id string) DockerContainerMetadata {
-	client := dg.client()
-	err := client.StopContainer(id, DEFAULT_TIMEOUT_SECONDS)
-	if err != nil {
-		return DockerContainerMetadata{Error: err}
-	}
-	return dg.containerMetadata(id)
-}
-
 func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
-	client := dg.client()
-	container, err := client.InspectContainer(id)
+	container, err := dg.inspectContainer(id)
 	if err != nil {
 		return "", err
 	}
@@ -246,7 +253,7 @@ func (dg *DockerGoClient) client() *docker.Client {
 }
 
 func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
-	dockerContainer, err := dg.InspectContainer(id)
+	dockerContainer, err := dg.inspectContainer(id)
 	if err != nil {
 		return DockerContainerMetadata{Error: err}
 	}
