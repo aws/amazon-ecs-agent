@@ -76,7 +76,7 @@ func (tester *Tester) RunTaskTest(testMetadata *TaskTestMetadata, tdArn string) 
 			for _, cont := range resp.Tasks[0].Containers {
 				if expectedExit, ok := testMetadata.ExitCodes[*cont.Name]; ok {
 					exitMapMatches++
-					if expectedExit != int(*cont.ExitCode) {
+					if cont.ExitCode != nil && expectedExit != int(*cont.ExitCode) {
 						t.Errorf("Incorrect exit code: %v, %v expected %v got %v", tdArn, *cont.Name, expectedExit, *cont.ExitCode)
 					} else {
 						t.Logf("Exit code match: %v %v, %v == %v", *task.TaskARN, *cont.Name, expectedExit, *cont.ExitCode)
