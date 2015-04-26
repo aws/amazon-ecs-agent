@@ -34,7 +34,7 @@ import (
 // The current version of saved data. Any backwards or forwards incompatible
 // changes to the data-format should increment this number and retain the
 // ability to read old data versions.
-const EcsDataVersion = 1
+const EcsDataVersion = 2
 
 // Filename in the ECS_DATADIR
 const ecsDataFile = "ecs_agent_data.json"
