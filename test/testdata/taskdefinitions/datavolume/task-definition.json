@@ -19,7 +19,7 @@
     "name": "dataSource",
     "cpu": 10,
     "memory": 10,
-    "essential": true,
+    "essential": false,
     "volumesFrom": [{
       "sourceContainer": "data-volume-source"
     }],
@@ -29,7 +29,7 @@
     "name": "data-volume-source",
     "cpu": 10,
     "memory": 10,
-    "essential": true,
+    "essential": false,
     "mountPoints": [{
       "sourceVolume": "test",
       "containerPath": "/data/"
