@@ -33,9 +33,9 @@ func (ts *TaskStatus) String() string {
 func (ts *TaskStatus) BackendStatus() string {
 	switch *ts {
 	case TaskRunning:
-		return "RUNNING"
+		fallthrough
 	case TaskStopped:
-		return "STOPPED"
+		return ts.String()
 	}
 	return "PENDING"
 }

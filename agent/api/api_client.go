@@ -225,17 +225,17 @@ func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) utils.
 		return NewAPIError(errors.New("SubmitTaskStateChange called with an invalid change"))
 	}
 
-	stat := change.Status.String()
-	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Debug("Not submitting unsupported upstream task state", "state", stat)
+	if change.Status != TaskRunning && change.Status != TaskStopped {
+		log.Debug("Not submitting unsupported upstream task state", "state", change.Status.String())
 		// Not really an error
 		return nil
 	}
 
+	status := change.Status.String()
 	_, err := client.c.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
 		Cluster: &client.config.Cluster,
 		Task:    &change.TaskArn,
-		Status:  &stat,
+		Status:  &status,
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)

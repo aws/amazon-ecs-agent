@@ -131,9 +131,9 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 	}
 }
 
-// UpdateContainerDesiredStatus sets all container's desired status's to the
+// updateContainerDesiredStatus sets all container's desired status's to the
 // task's desired status
-func (task *Task) UpdateContainerDesiredStatus() {
+func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
 		if c.DesiredStatus < task.DesiredStatus.ContainerStatus() {
 			c.DesiredStatus = task.DesiredStatus.ContainerStatus()
@@ -141,11 +141,11 @@ func (task *Task) UpdateContainerDesiredStatus() {
 	}
 }
 
-// UpdateTaskKnownState updates the given task's status based on its container's status.
+// updateTaskKnownState updates the given task's status based on its container's status.
 // It updates to the minimum of all containers no matter what
 // It returns a TaskStatus indicating what change occured or TaskStatusNone if
 // there was no change
-func (task *Task) UpdateTaskKnownStatus() (newStatus TaskStatus) {
+func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	llog := log.New("task", task)
 	llog.Debug("Updating task")
 	defer func() {
@@ -377,41 +377,27 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
-func TaskFromACS(task *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
-	data, err := jsonutil.BuildJSON(task)
+func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
 		return nil, err
 	}
-	outTask := &Task{}
-	err = json.Unmarshal(data, outTask)
+	task := &Task{}
+	err = json.Unmarshal(data, task)
 	if err != nil {
 		return nil, err
 	}
-	if outTask.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
-		outTask.StartSequenceNumber = *envelope.SeqNum
-	} else if outTask.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
-		outTask.StopSequenceNumber = *envelope.SeqNum
+	if task.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
+		task.StartSequenceNumber = *envelope.SeqNum
+	} else if task.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
+		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
-	return outTask, nil
+	return task, nil
 }
 
-func (t *Task) SetDesiredStatus(status TaskStatus) {
-	llog := log.New("task", t, "status", status.String())
-
-	if status < t.DesiredStatus {
-		llog.Warn("Recieved event asking task to move backwards in desired; ignoring")
-	} else if status == t.DesiredStatus {
-		llog.Info("Redundant backend event; desired = desired")
-	} else {
-		llog.Debug("Updating task desired status")
-		t.DesiredStatus = status
-		t.UpdateContainerDesiredStatus()
-	}
-}
-
-// UpdateTaskDesiredStatus determines what status the task should properly be at based on its container's statuses
-func (task *Task) UpdateTaskDesiredStatus() {
+// updateTaskDesiredStatus determines what status the task should properly be at based on its container's statuses
+func (task *Task) updateTaskDesiredStatus() {
 	llog := log.New("task", task)
 	llog.Debug("Updating task")
 
@@ -429,13 +415,13 @@ func (task *Task) UpdateTaskDesiredStatus() {
 // with all of its containers
 // It will return a bool indicating if there was a change
 func (t *Task) UpdateStatus() bool {
-	change := t.UpdateTaskKnownStatus()
+	change := t.updateTaskKnownStatus()
 	// DesiredStatus can change based on a new known status
 	t.UpdateDesiredStatus()
 	return change != TaskStatusNone
 }
 
 func (t *Task) UpdateDesiredStatus() {
-	t.UpdateTaskDesiredStatus()
-	t.UpdateContainerDesiredStatus()
+	t.updateTaskDesiredStatus()
+	t.updateContainerDesiredStatus()
 }

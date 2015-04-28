@@ -25,14 +25,14 @@ import stdsync "sync"
 type SequentialWaitGroup struct {
 	m stdsync.Mutex
 	// Implement our own semaphore over using sync.WaitGroup so that we can safely GC our map
-	semas  map[int64]int
-	change *stdsync.Cond
+	semaphores map[int64]int
+	change     *stdsync.Cond
 }
 
 func NewSequentialWaitGroup() *SequentialWaitGroup {
 	return &SequentialWaitGroup{
-		semas:  make(map[int64]int),
-		change: stdsync.NewCond(&stdsync.Mutex{}),
+		semaphores: make(map[int64]int),
+		change:     stdsync.NewCond(&stdsync.Mutex{}),
 	}
 }
 
@@ -40,17 +40,17 @@ func NewSequentialWaitGroup() *SequentialWaitGroup {
 func (s *SequentialWaitGroup) Add(sequence int64, delta int) {
 	s.m.Lock()
 	defer s.m.Unlock()
-	if s.semas == nil {
-		s.semas = make(map[int64]int)
+	if s.semaphores == nil {
+		s.semaphores = make(map[int64]int)
 	}
-	_, ok := s.semas[sequence]
+	_, ok := s.semaphores[sequence]
 	if ok {
-		s.semas[sequence] += delta
+		s.semaphores[sequence] += delta
 	} else {
-		s.semas[sequence] = delta
+		s.semaphores[sequence] = delta
 	}
-	if s.semas[sequence] <= 0 {
-		delete(s.semas, sequence)
+	if s.semaphores[sequence] <= 0 {
+		delete(s.semaphores, sequence)
 		s.change.Broadcast()
 	}
 }
@@ -59,11 +59,11 @@ func (s *SequentialWaitGroup) Add(sequence int64, delta int) {
 func (s *SequentialWaitGroup) Done(sequence int64) {
 	s.m.Lock()
 	defer s.m.Unlock()
-	_, ok := s.semas[sequence]
+	_, ok := s.semaphores[sequence]
 	if ok {
-		s.semas[sequence]--
-		if s.semas[sequence] == 0 {
-			delete(s.semas, sequence)
+		s.semaphores[sequence]--
+		if s.semaphores[sequence] == 0 {
+			delete(s.semaphores, sequence)
 			s.change.Broadcast()
 		}
 	}
@@ -75,7 +75,7 @@ func (s *SequentialWaitGroup) Wait(sequence int64) {
 	waitOver := func() bool {
 		total := 0
 		s.m.Lock()
-		for seq, _ := range s.semas {
+		for seq, _ := range s.semaphores {
 			if seq <= sequence {
 				total++
 			}
