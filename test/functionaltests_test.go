@@ -67,7 +67,7 @@ func TestRunManyTasks(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
-	numToRun := 30
+	numToRun := 15
 	tasks := []*TestTask{}
 	attemptsTaken := 0
 	for numRun := 0; numRun < numToRun; attemptsTaken++ {
@@ -81,7 +81,7 @@ func TestRunManyTasks(t *testing.T) {
 
 	t.Logf("Ran %v containers; took %v tries\n", numToRun, attemptsTaken)
 	for _, task := range tasks {
-		err := task.WaitStopped(1 * time.Minute)
+		err := task.WaitStopped(10 * time.Minute)
 		if err != nil {
 			t.Error(err)
 		}
