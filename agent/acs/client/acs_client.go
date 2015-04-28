@@ -197,6 +197,8 @@ func (cs *clientServer) Serve() error {
 //     func(message *ecsacs.FooMessage)
 // This function will panic if the passed in function does not have one pointer
 // argument or the argument is not a recognized type.
+// Additionally, the request handler will block processing of further messages
+// on this connection so it's important that it return quickly.
 func (cs *clientServer) AddRequestHandler(f RequestHandler) {
 	firstArg := reflect.TypeOf(f).In(0)
 	firstArgTypeStr := firstArg.Elem().Name()
@@ -325,7 +327,7 @@ func (cs *clientServer) handleMessage(data []byte) {
 	}
 
 	if handler, ok := cs.requestHandlers[typeStr]; ok {
-		go reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
+		reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
 	} else {
 		log.Info("No handler for message type", "type", typeStr)
 	}
