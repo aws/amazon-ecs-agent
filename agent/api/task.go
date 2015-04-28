@@ -148,11 +148,6 @@ func (task *Task) updateContainerDesiredStatus() {
 func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	llog := log.New("task", task)
 	llog.Debug("Updating task")
-	defer func() {
-		if newStatus != TaskStatusNone {
-			task.KnownTime = ttime.Now()
-		}
-	}()
 
 	// Set to a large 'impossible' status that can't be the min
 	earliestStatus := ContainerZombie
@@ -164,7 +159,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 
 	llog.Debug("Earliest status is " + earliestStatus.String())
 	if task.KnownStatus < earliestStatus.TaskStatus() {
-		task.KnownStatus = earliestStatus.TaskStatus()
+		task.SetKnownStatus(earliestStatus.TaskStatus())
 		return task.KnownStatus
 	}
 	return TaskStatusNone
@@ -424,4 +419,9 @@ func (t *Task) UpdateStatus() bool {
 func (t *Task) UpdateDesiredStatus() {
 	t.updateTaskDesiredStatus()
 	t.updateContainerDesiredStatus()
+}
+
+func (t *Task) SetKnownStatus(status TaskStatus) {
+	t.KnownStatus = status
+	t.KnownTime = ttime.Now()
 }

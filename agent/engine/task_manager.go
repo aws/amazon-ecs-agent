@@ -77,11 +77,26 @@ func (task *managedTask) overseeTask() {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {
 			llog.Debug("Task at steady state", "state", task.KnownStatus.String())
-			task.waitEvent()
+			maxWait := make(chan bool)
+			timer := time.AfterFunc(steadyStateTaskVerifyInterval, func() {
+				maxWait <- true
+			})
+			timedOut := task.waitEvent(maxWait)
+			timer.Stop()
+
+			if timedOut {
+				// TODO verify container state
+			}
+			select {
+			case <-maxWait:
+			default:
+				close(maxWait)
+			}
 		}
 
 		if !task.KnownStatus.Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be able to move some containers along
+			llog.Debug("Task not steady state or terminal; progressing it")
 			task.progressContainers()
 		}
 
@@ -96,7 +111,7 @@ func (task *managedTask) overseeTask() {
 		llog.Debug("Marking done for this sequence", "seqnum", task.StopSequenceNumber)
 		task.engine.taskStopGroup.Done(task.StopSequenceNumber)
 	}
-
+	task.cleanupTask()
 }
 
 // startTask creates a managedTask construct to track the task and then begins
@@ -172,11 +187,14 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		return
 	}
 	event := containerChange.event
+	llog.Debug("Handling container change", "change", containerChange)
 
 	if event.Status <= container.KnownStatus {
 		llog.Info("Redundant status change; ignoring", "current", container.KnownStatus.String(), "change", event.Status.String())
 		return
 	}
+	container.KnownStatus = event.Status
+
 	if event.Error != nil {
 		if event.Status == api.ContainerStopped {
 			// If we were trying to transition to stopped and had an error, we
@@ -197,7 +215,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			container.ApplyingError = api.NewApplyingError(event.Error)
 		}
 	}
-	container.KnownStatus = event.Status
 
 	if event.ExitCode != nil && event.ExitCode != container.KnownExitCode {
 		container.KnownExitCode = event.ExitCode
@@ -222,19 +239,24 @@ func (mtask *managedTask) steadyState() bool {
 	return mtask.KnownStatus == api.TaskRunning && mtask.KnownStatus >= mtask.DesiredStatus
 }
 
-func (mtask *managedTask) waitEvent() {
-	maxWait := time.NewTimer(steadyStateTaskVerifyInterval)
-
+// waitEvent waits for any event to occur. If the event is the passed in
+// channel, it will return the value written to the channel, otherwise it will
+// return false
+func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
+	log.Debug("Waiting for event for task", "task", mtask.Task)
 	select {
 	case acsTransition := <-mtask.acsMessages:
+		log.Debug("Got acs event for task", "task", mtask.Task)
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
+		return false
 	case dockerChange := <-mtask.dockerMessages:
+		log.Debug("Got container event for task", "task", mtask.Task)
 		mtask.handleContainerChange(dockerChange)
-	case <-maxWait.C:
-		log.Debug("No task events in wait time; inspecting just in case", "task", mtask.Task)
-		//engine.verifyTaskStatus(task) // TODO
+		return false
+	case b := <-stopWaiting:
+		log.Debug("No longer waiting", "task", mtask.Task)
+		return b
 	}
-	maxWait.Stop()
 }
 
 func (mtask *managedTask) containerNextState(container *api.Container) (api.ContainerStatus, bool) {
@@ -281,7 +303,10 @@ func (task *managedTask) progressContainers() {
 		// At least one container is able to be moved forwards, so we're not deadlocked
 		anyCanTransition = true
 		transitionsFinished.Add(1)
-		go task.engine.transitionContainer(task.Task, cont, nextState, transitionsFinished)
+		go func(container *api.Container, nextStatus api.ContainerStatus) {
+			task.engine.transitionContainer(task.Task, container, nextStatus)
+			transitionsFinished.Done()
+		}(cont, nextState)
 	}
 
 	if !anyCanTransition {
@@ -290,7 +315,7 @@ func (task *managedTask) progressContainers() {
 			// Ack, really bad. We want it to stop but the containers don't think
 			// that's possible... let's just break out and hope for the best!
 			log.Crit("The state is so bad that we're just giving up on it")
-			task.KnownStatus = api.TaskStopped
+			task.SetKnownStatus(api.TaskStopped)
 			task.engine.emitTaskEvent(task.Task, "TaskStateError: Agent could not progress task's state to stopped")
 		} else {
 			log.Crit("Moving task to stopped due to bad state", "task", task.Task)
@@ -307,24 +332,13 @@ func (task *managedTask) progressContainers() {
 		transitionsFinished.Wait()
 		transitionsFinishedChan <- true
 	}()
-
-WaitTransitioned:
-	for {
-		select {
-		case <-transitionsFinishedChan:
-			break WaitTransitioned
-		default:
-			// Continue handling events while waiting for docker to finish what we
-			// requested of it; these changes will not affect our existing work and
-			// will be picked up the next time we get called.
-			// TODO, have a cancelfunc / context for the docker requests and allow a
-			// new event to cancel the current work (specifically stopped should be
-			// able to do this)
-			task.waitEvent()
-		}
+	for !task.waitEvent(transitionsFinishedChan) {
 	}
+
 	// All attempts to transition containers we sent to docker have completed
 	close(transitionsFinishedChan)
+
+	task.UpdateStatus()
 }
 
 func (task *managedTask) cleanupTask() {
@@ -365,14 +379,14 @@ FinishCleanup:
 	close(task.acsMessages)
 }
 
-func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus, wg *sync.WaitGroup) {
+func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
 	// Let docker events operate async so that we can continue to handle ACS / other requests
-	// This is safe because 'applyContainerStatus' will not mutate the task
+	// This is safe because 'applyContainerState' will not mutate the task
 	metadata := engine.applyContainerState(task, container, to)
 
-	// We must re-aquire a reference to the managedTask since it's possible something has happened to it..
 	engine.processTasks.Lock()
 	managedTask, ok := engine.managedTasks[task.Arn]
+	engine.processTasks.Unlock()
 	if ok {
 		managedTask.dockerMessages <- dockerContainerChange{
 			container: container,
@@ -382,6 +396,4 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 			},
 		}
 	}
-	wg.Done()
-	engine.processTasks.Unlock()
 }

@@ -30,10 +30,6 @@ import (
 
 var test_time = ttime.NewTestTime()
 
-func init() {
-	ttime.SetTime(test_time)
-}
-
 func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *mock_engine.MockDockerClient, engine.TaskEngine) {
 	ctrl := gomock.NewController(t)
 	client := mock_engine.NewMockDockerClient(ctrl)
@@ -45,6 +41,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *mock_engine.M
 func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
+	ttime.SetTime(test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
@@ -123,6 +120,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
 	sleepTaskStop.DesiredStatus = api.TaskStopped
+	taskEngine.AddTask(sleepTaskStop)
+	// As above, duplicate events should not be a problem
+	taskEngine.AddTask(sleepTaskStop)
 	taskEngine.AddTask(sleepTaskStop)
 
 	client.EXPECT().RemoveContainer("containerId").Return(nil)

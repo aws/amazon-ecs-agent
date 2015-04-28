@@ -21,8 +21,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,13 +45,11 @@ var testAuthPass = "swordfish"
 
 var test_time = ttime.NewTestTime()
 
-func init() {
-	ttime.SetTime(test_time)
-}
+var taskEngine *DockerTaskEngine
+
+var initOnce sync.Once
 
 func setup(t *testing.T) TaskEngine {
-	te := NewTaskEngine(cfg)
-	te.Init()
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -59,8 +59,36 @@ func setup(t *testing.T) TaskEngine {
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
+	initOnce.Do(func() {
+		taskEngine.Init()
+	})
+	ttime.SetTime(test_time)
+	return taskEngine
+}
 
-	return te
+func discardEvents(from interface{}) func() {
+	done := make(chan bool)
+
+	go func() {
+		for {
+			ndx, _, _ := reflect.Select([]reflect.SelectCase{
+				reflect.SelectCase{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(from),
+				},
+				reflect.SelectCase{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(done),
+				},
+			})
+			if ndx == 1 {
+				break
+			}
+		}
+	}()
+	return func() {
+		done <- true
+	}
 }
 
 func createTestContainer() *api.Container {
@@ -135,6 +163,7 @@ var cfg *config.Config
 
 func init() {
 	cfg, _ = config.NewConfig()
+	taskEngine = NewDockerTaskEngine(cfg)
 	go runProxyAuthRegistry()
 }
 
@@ -151,18 +180,14 @@ func removeImage(img string) {
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
 
 	testTask := createTestTask("testStartUnpulled")
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	go taskEngine.AddTask(testTask)
 
@@ -188,14 +213,10 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
@@ -288,14 +309,10 @@ func TestPortForward(t *testing.T) {
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-containerEvents
-		}
-	}()
+
+	defer discardEvents(containerEvents)()
 
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
@@ -361,7 +378,6 @@ func TestMultiplePortForwards(t *testing.T) {
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -393,12 +409,7 @@ PortsBound:
 			}
 		}
 	}
-	// discard other container events
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+	defer discardEvents(contEvents)()
 
 	if len(portBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
@@ -441,7 +452,6 @@ PortsBound:
 
 func TestMultipleDynamicPortForward(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -465,11 +475,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 			t.Fatal("Task went straight to " + contEvent.Status.String() + " without running")
 		}
 	}
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+	defer discardEvents(contEvents)()
 
 	if len(portBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
@@ -536,7 +542,6 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	testTask := createTestTask("TestLinking")
 	testTask.Containers = append(testTask.Containers, createTestContainer())
@@ -547,11 +552,8 @@ func TestLinking(t *testing.T) {
 	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	go taskEngine.AddTask(testTask)
 
@@ -597,7 +599,6 @@ func TestLinking(t *testing.T) {
 
 func TestDockerCfgAuth(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	removeImage(testAuthRegistryImage)
 
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
@@ -612,11 +613,8 @@ func TestDockerCfgAuth(t *testing.T) {
 	testTask.Containers[0].Image = testAuthRegistryImage
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	go taskEngine.AddTask(testTask)
 
@@ -651,7 +649,6 @@ func TestDockerCfgAuth(t *testing.T) {
 
 func TestDockerAuth(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 	removeImage(testAuthRegistryImage)
 
 	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`)
@@ -665,11 +662,8 @@ func TestDockerAuth(t *testing.T) {
 	testTask.Containers[0].Image = testAuthRegistryImage
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	go taskEngine.AddTask(testTask)
 
@@ -704,14 +698,10 @@ func TestDockerAuth(t *testing.T) {
 
 func TestVolumesFrom(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	testTask := createTestTask("testVolumeContainer")
 	testTask.Containers[0].Image = testVolumeImage
@@ -762,14 +752,10 @@ func TestVolumesFrom(t *testing.T) {
 
 func TestVolumesFromRO(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	testTask := createTestTask("testVolumeROContainer")
 	testTask.Containers[0].Image = testVolumeImage
@@ -808,14 +794,10 @@ func TestVolumesFromRO(t *testing.T) {
 
 func TestHostVolumeMount(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
 	defer os.RemoveAll(tmpPath)
@@ -848,14 +830,10 @@ func TestHostVolumeMount(t *testing.T) {
 
 func TestEmptyHostVolumeMount(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	testTask := createTestTask("testEmptyHostVolumeMount")
 	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
@@ -886,14 +864,10 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 
 func TestSweepContainer(t *testing.T) {
 	taskEngine := setup(t)
-	defer taskEngine.(*DockerTaskEngine).Shutdown()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	go func() {
-		for {
-			<-contEvents
-		}
-	}()
+
+	defer discardEvents(contEvents)()
 
 	testTask := createTestTask("testSweepContainer")
 
@@ -915,18 +889,20 @@ func TestSweepContainer(t *testing.T) {
 		}
 	}
 
+	defer discardEvents(taskEvents)()
+
 	// Should be stopped, let's verify it's still listed...
 	_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
 	if !ok {
 		t.Error("Expected task to be present still, but wasn't")
 	}
-	test_time.Warp(4 * time.Hour)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
 		if !ok {
 			break
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
+		test_time.Warp(4 * time.Hour)
 	}
 	if ok {
 		t.Error("Expected container to have been sweept but was not")
