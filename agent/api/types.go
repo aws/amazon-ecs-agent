@@ -57,9 +57,9 @@ type Task struct {
 	Containers []*Container
 	Volumes    []TaskVolume `json:"volumes"`
 
-	DesiredStatus TaskStatus
-	KnownStatus   TaskStatus
-	KnownTime     time.Time
+	DesiredStatus   TaskStatus
+	KnownStatus     TaskStatus
+	KnownStatusTime time.Time `json:"KnownTime"`
 
 	SentStatus TaskStatus
 

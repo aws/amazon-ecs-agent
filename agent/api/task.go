@@ -423,5 +423,5 @@ func (t *Task) UpdateDesiredStatus() {
 
 func (t *Task) SetKnownStatus(status TaskStatus) {
 	t.KnownStatus = status
-	t.KnownTime = ttime.Now()
+	t.KnownStatusTime = ttime.Now()
 }

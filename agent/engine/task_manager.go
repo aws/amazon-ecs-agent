@@ -342,7 +342,7 @@ func (task *managedTask) progressContainers() {
 }
 
 func (task *managedTask) cleanupTask() {
-	cleanupTime := ttime.After(task.KnownTime.Add(taskStoppedDuration).Sub(ttime.Now()))
+	cleanupTime := ttime.After(task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now()))
 
 ContinueCleanup:
 	for {
