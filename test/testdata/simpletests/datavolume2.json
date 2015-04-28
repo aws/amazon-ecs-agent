@@ -1,11 +1,9 @@
-
 {
+  "TaskDefinition": "datavolume2",
   "Version": ">1.0.0",
   "Timeout": "2m",
   "ExitCodes": {
     "exit": 42
   },
-  "Tags": ["exits", "volumesFrom", "hostVolume", "links"],
-
   "Related": ["forums#176057", "gh#52"]
 }

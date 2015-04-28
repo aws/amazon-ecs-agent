@@ -26,7 +26,6 @@
     "image": "busybox",
     "memory": 20,
     "portMappings": [{
-      "hostPort": 80,
       "containerPort": 80
     }],
     "volumesFrom": [{
