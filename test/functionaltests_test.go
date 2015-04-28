@@ -70,8 +70,12 @@ func TestRunManyTasks(t *testing.T) {
 	numToRun := 15
 	tasks := []*TestTask{}
 	attemptsTaken := 0
-	for numRun := 0; numRun < numToRun; attemptsTaken++ {
-		startedTasks, err := agent.StartMultipleTasks(t, "simple-exit", 10)
+	for numRun := 0; len(tasks) < numToRun; attemptsTaken++ {
+		startNum := 10
+		if numToRun-len(tasks) < 10 {
+			startNum = numToRun - len(tasks)
+		}
+		startedTasks, err := agent.StartMultipleTasks(t, "simple-exit", startNum)
 		if err != nil {
 			continue
 		}
