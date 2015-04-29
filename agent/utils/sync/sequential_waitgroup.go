@@ -23,7 +23,7 @@ import stdsync "sync"
 // Elsewhere, 'Wait' can be used to wait for all groups at or below the
 // provided sequence number to complete.
 type SequentialWaitGroup struct {
-	m stdsync.Mutex
+	mutex stdsync.Mutex
 	// Implement our own semaphore over using sync.WaitGroup so that we can safely GC our map
 	semaphores map[int64]int
 	change     *stdsync.Cond
@@ -38,8 +38,8 @@ func NewSequentialWaitGroup() *SequentialWaitGroup {
 
 // Add adds the given delta to the waitgroup at the given sequence
 func (s *SequentialWaitGroup) Add(sequence int64, delta int) {
-	s.m.Lock()
-	defer s.m.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if s.semaphores == nil {
 		s.semaphores = make(map[int64]int)
 	}
@@ -57,8 +57,8 @@ func (s *SequentialWaitGroup) Add(sequence int64, delta int) {
 
 // Done decrements the waitgroup at the given sequence by one
 func (s *SequentialWaitGroup) Done(sequence int64) {
-	s.m.Lock()
-	defer s.m.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	_, ok := s.semaphores[sequence]
 	if ok {
 		s.semaphores[sequence]--
@@ -73,20 +73,15 @@ func (s *SequentialWaitGroup) Done(sequence int64) {
 // Please note that this is *INCLUSIVE* of the sequence
 func (s *SequentialWaitGroup) Wait(sequence int64) {
 	waitOver := func() bool {
-		total := 0
-		s.m.Lock()
-		for seq, _ := range s.semaphores {
-			if seq <= sequence {
-				total++
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		for storedSequence, _ := range s.semaphores {
+			if storedSequence <= sequence {
+				// At least one non-empty seqnum greater than ours; wait more
+				return false
 			}
 		}
-		s.m.Unlock()
-
-		// No seqnums less than ours; good to go
-		if total == 0 {
-			return true
-		}
-		return false
+		return true
 	}
 
 	s.change.L.Lock()
