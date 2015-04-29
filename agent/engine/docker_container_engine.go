@@ -88,7 +88,7 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 
 	client, err := docker.NewVersionedClient(endpoint, "1.17")
 	if err != nil {
-		log.Error("Unable to connect to docker deamon. Ensure docker is running", "endpoint", endpoint, "err", err)
+		log.Error("Unable to connect to docker daemon . Ensure docker is running", "endpoint", endpoint, "err", err)
 		return nil, err
 	}
 
@@ -96,7 +96,7 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 	// to ensure it's up.
 	err = client.Ping()
 	if err != nil {
-		log.Error("Unable to ping docker deamon. Ensure docker is running", "endpoint", endpoint, "err", err)
+		log.Error("Unable to ping docker daemon. Ensure docker is running", "endpoint", endpoint, "err", err)
 		return nil, err
 	}
 

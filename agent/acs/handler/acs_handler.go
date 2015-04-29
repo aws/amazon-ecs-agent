@@ -161,7 +161,18 @@ func addPayloadTasks(cs acsclient.ClientServer, client api.ECSClient, cluster, c
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out
-	for _, task := range validTasks {
+	stoppedAddedOk := addStoppedTasks(validTasks, taskEngine)
+	// Now add the rest of the tasks
+	nonstoppedAddedOk := addNonstoppedTasks(validTasks, taskEngine)
+	if !stoppedAddedOk || !nonstoppedAddedOk {
+		allTasksOk = false
+	}
+	return allTasksOk
+}
+
+func addStoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
+	allTasksOk := true
+	for _, task := range tasks {
 		if task.DesiredStatus != api.TaskStopped {
 			continue
 		}
@@ -172,8 +183,12 @@ func addPayloadTasks(cs acsclient.ClientServer, client api.ECSClient, cluster, c
 			allTasksOk = false
 		}
 	}
-	// Now add the rest of the tasks
-	for _, task := range validTasks {
+	return allTasksOk
+}
+
+func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
+	allTasksOk := true
+	for _, task := range tasks {
 		if task.DesiredStatus == api.TaskStopped {
 			continue
 		}
@@ -198,7 +213,7 @@ func handleUnrecognizedTask(cs acsclient.ClientServer, client api.ECSClient, clu
 	eventhandler.AddTaskEvent(api.TaskStateChange{
 		TaskArn: *task.Arn,
 		Status:  api.TaskStopped,
-		Reason:  "UnrecognizedACSTask: Error loading task: " + err.Error(),
+		Reason:  "UnrecognizedTask: Error loading task: " + err.Error(),
 	}, client)
 }
 

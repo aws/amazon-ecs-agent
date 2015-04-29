@@ -41,6 +41,27 @@ type acsTransition struct {
 	desiredStatus api.TaskStatus
 }
 
+// managedTask is a type that is meant to manage the lifecycle of a task.
+// There should be only one managed task construct for a given task arn and the
+// managed task should be the only thing to modify the task's known or desired statuses.
+//
+// The managedTask should run serially in a single goroutine in which it reads
+// messages from the two given channels and acts upon them.
+// This design is chosen to allow a safe level if isolation and avoid any race
+// conditions around the state of a task.
+// The data sources (e.g. docker, acs) that write to the task's channels may
+// block and it is expected that the managedTask listen to those channels
+// almost constantly.
+// The general operation should be:
+//  1) Listen to the channels
+//  2) On an event, update the status of the task and containers (known/desired)
+//  3) Figure out if any action needs to be done. If so, do it
+//  4) GOTO 1
+// Item '3' obviously might lead to some duration where you are not listening
+// to the channels. However, this can be solved by kicking off '3' as a
+// goroutine and then only communicating the result back via the channels
+// (obviously once you kick off a goroutine you give up the right to write the
+// task's statuses yourself)
 type managedTask struct {
 	*api.Task
 	engine *DockerTaskEngine
@@ -114,44 +135,6 @@ func (task *managedTask) overseeTask() {
 	task.cleanupTask()
 }
 
-// startTask creates a managedTask construct to track the task and then begins
-// pushing it towards its desired state when allowed startTask is protected by
-// the processTasks lock of 'AddTask'. It should not be called from anywhere
-// else and should exit quickly to allow AddTask to do more work.
-func (engine *DockerTaskEngine) startTask(task *api.Task) {
-	// Create a channel that may be used to communicate with this task, survey
-	// what tasks need to be waited for for this one to start, and then spin off
-	// a goroutine to oversee this task
-
-	thisTask := engine.newManagedTask(task)
-
-	go thisTask.overseeTask()
-}
-
-// updateTask determines if a new transition needs to be applied to the
-// referenced task, and if needed applies it. It should not be called anywhere
-// but from 'AddTask' and is protected by the processTasks lock there.
-func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
-	managedTask, ok := engine.managedTasks[task.Arn]
-	if !ok {
-		log.Crit("ACS message for a task we thought we managed, but don't!", "arn", task.Arn)
-		// Is this the right thing to do?
-		// Calling startTask should overwrite our bad 'state' data with the new
-		// task which we do manage.. but this is still scary and shouldn't have happened
-		engine.startTask(update)
-		return
-	}
-	// Keep the lock because sequence numbers cannot be correct unless they are
-	// also read in the order addtask was called
-	// This does block the engine's ability to ingest any new events (including
-	// stops for past tasks, ack!), but this is necessary for correctness
-	log.Debug("Putting update on the acs channel", "task", task.Arn, "status", update.DesiredStatus, "seqnum", update.StopSequenceNumber)
-	transition := acsTransition{desiredStatus: update.DesiredStatus}
-	transition.seqnum = update.StopSequenceNumber
-	managedTask.acsMessages <- transition
-	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", update.DesiredStatus)
-}
-
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus, seqnum int64) {
 	llog := log.New("task", mtask.Task)
 	// Handle acs message changes this task's desired status to whatever
@@ -207,6 +190,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			container.DesiredStatus = api.ContainerStopped
 		} else if event.Status == api.ContainerPulled {
 			// Another special case; a failure to pull might not be fatal if e.g. the image already exists.
+			llog.Info("Error while pulling container; will try to run anyways", "err", event.Error)
 		} else {
 			llog.Warn("Error with docker; stopping container", "container", container, "err", event.Error)
 			container.DesiredStatus = api.ContainerStopped
@@ -341,18 +325,15 @@ func (task *managedTask) progressContainers() {
 
 func (task *managedTask) cleanupTask() {
 	cleanupTime := ttime.After(task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now()))
-
-ContinueCleanup:
-	for {
-		select {
-		case <-task.dockerMessages:
-		case <-task.acsMessages:
-			log.Debug("ACS message recieved for already stopped task", "task", task.Task)
-		case <-cleanupTime:
-			log.Debug("Cleaning up task's containers and data", "task", task.Task)
-			break ContinueCleanup
-		}
+	cleanupTimeBool := make(chan bool)
+	go func() {
+		<-cleanupTime
+		cleanupTimeBool <- true
+		close(cleanupTimeBool)
+	}()
+	for !task.waitEvent(cleanupTimeBool) {
 	}
+	log.Debug("Cleaning up task's containers and data", "task", task.Task)
 
 	// First make an attempt to cleanup resources
 	task.engine.sweepTask(task.Task)
@@ -361,37 +342,23 @@ ContinueCleanup:
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
 	task.engine.processTasks.Unlock()
-FinishCleanup:
-	for {
-		// Cleanup any leftover messages before closing. No new messages possible
-		// because we deleted ourselves from managedTasks, so this removes all stale ones
-		select {
-		case <-task.dockerMessages:
-		case <-task.acsMessages:
-		default:
-			break FinishCleanup
-		}
-	}
+
+	// Cleanup any leftover messages before closing their channels. No new
+	// messages possible because we deleted ourselves from managedTasks, so this
+	// removes all stale ones
+	task.discardPendingMessages()
 
 	close(task.dockerMessages)
 	close(task.acsMessages)
 }
 
-func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
-	// Let docker events operate async so that we can continue to handle ACS / other requests
-	// This is safe because 'applyContainerState' will not mutate the task
-	metadata := engine.applyContainerState(task, container, to)
-
-	engine.processTasks.Lock()
-	managedTask, ok := engine.managedTasks[task.Arn]
-	engine.processTasks.Unlock()
-	if ok {
-		managedTask.dockerMessages <- dockerContainerChange{
-			container: container,
-			event: DockerContainerChangeEvent{
-				Status:                  to,
-				DockerContainerMetadata: metadata,
-			},
+func (task *managedTask) discardPendingMessages() {
+	for {
+		select {
+		case <-task.dockerMessages:
+		case <-task.acsMessages:
+		default:
+			return
 		}
 	}
 }

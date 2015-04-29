@@ -105,7 +105,7 @@ func (engine *DockerTaskEngine) Init() error {
 		return err
 	}
 
-	// TODO, pass ina a context from main from background so that other things can stop us, not just the tests
+	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	ctx, cancel := context.WithCancel(context.TODO())
 	engine.stopEngine = cancel
 	// Open the event stream before we sync state so that e.g. if a container
@@ -242,6 +242,20 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 	}
 	log.Info("Task change event", "event", event)
 	engine.taskEvents <- event
+}
+
+// startTask creates a managedTask construct to track the task and then begins
+// pushing it towards its desired state when allowed startTask is protected by
+// the processTasks lock of 'AddTask'. It should not be called from anywhere
+// else and should exit quickly to allow AddTask to do more work.
+func (engine *DockerTaskEngine) startTask(task *api.Task) {
+	// Create a channel that may be used to communicate with this task, survey
+	// what tasks need to be waited for for this one to start, and then spin off
+	// a goroutine to oversee this task
+
+	thisTask := engine.newManagedTask(task)
+
+	go thisTask.overseeTask()
 }
 
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
@@ -443,21 +457,28 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	return engine.client.RemoveContainer(dockerContainer.DockerId)
 }
 
-// State is a function primarily meant for testing usage; it is explicitly not
-// part of the TaskEngine interface and should not be relied upon.
-// It returns an internal representation of the state of this DockerTaskEngine.
-func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
-	return engine.state
-}
-
-// Version returns the underlying docker version.
-func (engine *DockerTaskEngine) Version() (string, error) {
-	// Must be able to be called before Init()
-	err := engine.initDockerClient()
-	if err != nil {
-		return "", err
+// updateTask determines if a new transition needs to be applied to the
+// referenced task, and if needed applies it. It should not be called anywhere
+// but from 'AddTask' and is protected by the processTasks lock there.
+func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
+	managedTask, ok := engine.managedTasks[task.Arn]
+	if !ok {
+		log.Crit("ACS message for a task we thought we managed, but don't!", "arn", task.Arn)
+		// Is this the right thing to do?
+		// Calling startTask should overwrite our bad 'state' data with the new
+		// task which we do manage.. but this is still scary and shouldn't have happened
+		engine.startTask(update)
+		return
 	}
-	return engine.client.Version()
+	// Keep the lock because sequence numbers cannot be correct unless they are
+	// also read in the order addtask was called
+	// This does block the engine's ability to ingest any new events (including
+	// stops for past tasks, ack!), but this is necessary for correctness
+	log.Debug("Putting update on the acs channel", "task", task.Arn, "status", update.DesiredStatus, "seqnum", update.StopSequenceNumber)
+	transition := acsTransition{desiredStatus: update.DesiredStatus}
+	transition.seqnum = update.StopSequenceNumber
+	managedTask.acsMessages <- transition
+	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", update.DesiredStatus)
 }
 
 func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
@@ -486,4 +507,40 @@ func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *a
 		engine.saver.Save()
 	}
 	return metadata
+}
+
+func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
+	// Let docker events operate async so that we can continue to handle ACS / other requests
+	// This is safe because 'applyContainerState' will not mutate the task
+	metadata := engine.applyContainerState(task, container, to)
+
+	engine.processTasks.Lock()
+	managedTask, ok := engine.managedTasks[task.Arn]
+	engine.processTasks.Unlock()
+	if ok {
+		managedTask.dockerMessages <- dockerContainerChange{
+			container: container,
+			event: DockerContainerChangeEvent{
+				Status:                  to,
+				DockerContainerMetadata: metadata,
+			},
+		}
+	}
+}
+
+// State is a function primarily meant for testing usage; it is explicitly not
+// part of the TaskEngine interface and should not be relied upon.
+// It returns an internal representation of the state of this DockerTaskEngine.
+func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
+	return engine.state
+}
+
+// Version returns the underlying docker version.
+func (engine *DockerTaskEngine) Version() (string, error) {
+	// Must be able to be called before Init()
+	err := engine.initDockerClient()
+	if err != nil {
+		return "", err
+	}
+	return engine.client.Version()
 }
