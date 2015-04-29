@@ -19,7 +19,6 @@ import (
 	"io"
 	"net/url"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
@@ -33,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -47,7 +47,7 @@ const payloadMessageBufferSize = 10
 
 // SequenceNumber is a number shared between all ACS clients which indicates
 // the last sequence number successfully handled.
-var SequenceNumber int64 = 1
+var SequenceNumber = utilatomic.NewIncreasingInt64(1)
 
 // StartSession creates a session with ACS and handles requests using the passed
 // in arguments.
@@ -131,9 +131,7 @@ func handlePayloadMessage(cs acsclient.ClientServer, cluster, containerInstanceA
 		}
 		// Record the sequence number as well
 		if payload.SeqNum != nil {
-			for *payload.SeqNum < SequenceNumber && !atomic.CompareAndSwapInt64(&SequenceNumber, SequenceNumber, *payload.SeqNum) {
-				log.Debug("Atomic setting of sequence number failed. Unusual, but not critical")
-			}
+			SequenceNumber.Set(*payload.SeqNum)
 		}
 	}
 }
@@ -229,7 +227,7 @@ func AcsWsUrl(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 	query.Set("containerInstanceArn", containerInstanceArn)
 	query.Set("agentHash", version.GitHashString())
 	query.Set("agentVersion", version.Version)
-	query.Set("seqNum", strconv.FormatInt(SequenceNumber, 10))
+	query.Set("seqNum", strconv.FormatInt(SequenceNumber.Get(), 10))
 	if dockerVersion, err := taskEngine.Version(); err == nil {
 		query.Set("dockerVersion", dockerVersion)
 	}

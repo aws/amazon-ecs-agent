@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/cihub/seelog"
 )
@@ -73,7 +74,7 @@ func main() {
 		previousTaskEngine := engine.NewTaskEngine(cfg)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
-		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, &acshandler.SequenceNumber)
+		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
 			os.Exit(exitcodes.ExitTerminal)
@@ -120,7 +121,7 @@ func main() {
 		taskEngine = engine.NewTaskEngine(cfg)
 	}
 
-	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, &acshandler.SequenceNumber)
+	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
 	if err != nil {
 		log.Crit("Error creating state manager", "err", err)
 		os.Exit(exitcodes.ExitTerminal)
@@ -167,7 +168,7 @@ func main() {
 	}
 }
 
-func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string, sequenceNumber *int64) (statemanager.StateManager, error) {
+func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string, sequenceNumber *utilatomic.IncreasingInt64) (statemanager.StateManager, error) {
 	if !cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
 	}
