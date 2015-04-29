@@ -114,7 +114,7 @@ func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
 	case resp := <-response:
 		return resp
 	case <-timeout:
-		return DockerContainerMetadata{Error: &dockerTimeoutError{pullImageTimeout, "pulled"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{pullImageTimeout, "pulled"}}
 	}
 }
 
@@ -200,7 +200,7 @@ func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) Do
 		return resp
 	case <-timeout:
 		cancelFunc()
-		return DockerContainerMetadata{Error: &dockerTimeoutError{createContainerTimeout, "created"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{createContainerTimeout, "created"}}
 	}
 }
 
@@ -233,7 +233,7 @@ func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfi
 		return resp
 	case <-timeout:
 		cancelFunc()
-		return DockerContainerMetadata{Error: &dockerTimeoutError{startContainerTimeout, "started"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{startContainerTimeout, "started"}}
 	}
 }
 
@@ -291,7 +291,7 @@ func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, 
 	case resp := <-response:
 		return resp.container, resp.err
 	case <-timeout:
-		return nil, &dockerTimeoutError{inspectContainerTimeout, "inspecting"}
+		return nil, &DockerTimeoutError{inspectContainerTimeout, "inspecting"}
 	}
 }
 
@@ -310,7 +310,7 @@ func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 		return resp
 	case <-timeout:
 		cancelFunc()
-		return DockerContainerMetadata{Error: &dockerTimeoutError{stopContainerTimeout, "stopped"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerTimeout, "stopped"}}
 	}
 }
 
@@ -342,7 +342,7 @@ func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
 	case resp := <-response:
 		return resp
 	case <-timeout:
-		return &dockerTimeoutError{removeContainerTimeout, "removing"}
+		return &DockerTimeoutError{removeContainerTimeout, "removing"}
 	}
 }
 

@@ -68,6 +68,15 @@ type managedTask struct {
 
 	acsMessages    chan acsTransition
 	dockerMessages chan dockerContainerChange
+
+	// unexpectedStart is a once that controls stopping a container that
+	// unexpectedly started one time.
+	// This exists because a 'start' after a container is meant to be stopped is
+	// possible under some circumstances (e.g. a timeout). However, if it
+	// continues to 'start' when we aren't asking it to, let it go through in
+	// case it's a user trying to debug it or in case we're fighting with another
+	// thing managing the container.
+	unexpectedStart sync.Once
 }
 
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
@@ -172,6 +181,21 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	event := containerChange.event
 	llog.Debug("Handling container change", "change", containerChange)
 
+	// Cases: If this is a forward transition (else) update the container to be known to be at that status.
+	// If this is a backwards transition stopped->running, the first time set it
+	// to be known running so it will be stopped. Subsequently ignore these backward transitions
+	if event.Status <= container.KnownStatus && container.KnownStatus == api.ContainerStopped {
+		if event.Status == api.ContainerRunning {
+			// If the container becomes running after we've stopped it (possibly
+			// because we got an error running it and it ran anyways), the first time
+			// update it to 'known running' so that it will be driven back to stopped
+			mtask.unexpectedStart.Do(func() {
+				llog.Warn("Container that we thought was stopped came back; re-stopping it once")
+				go mtask.engine.transitionContainer(mtask.Task, container, api.ContainerStopped)
+				// This will not proceed afterwards because status <= knownstatus below
+			})
+		}
+	}
 	if event.Status <= container.KnownStatus {
 		llog.Info("Redundant status change; ignoring", "current", container.KnownStatus.String(), "change", event.Status.String())
 		return
@@ -179,6 +203,9 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	container.KnownStatus = event.Status
 
 	if event.Error != nil {
+		if container.ApplyingError == nil {
+			container.ApplyingError = api.NewApplyingError(event.Error)
+		}
 		if event.Status == api.ContainerStopped {
 			// If we were trying to transition to stopped and had an error, we
 			// clearly can't just continue trying to transition it to stopped
@@ -194,9 +221,9 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		} else {
 			llog.Warn("Error with docker; stopping container", "container", container, "err", event.Error)
 			container.DesiredStatus = api.ContainerStopped
-		}
-		if container.ApplyingError == nil {
-			container.ApplyingError = api.NewApplyingError(event.Error)
+			// the above 'knownstatus' is not truthful because of the error
+			// No point in emitting it, just continue on to stopped
+			return
 		}
 	}
 

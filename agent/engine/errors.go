@@ -35,12 +35,12 @@ func (err *impossibleTransitionError) Error() string {
 }
 func (err *impossibleTransitionError) Name() string { return "ImpossibleStateTransitionError" }
 
-type dockerTimeoutError struct {
+type DockerTimeoutError struct {
 	duration   time.Duration
 	transition string
 }
 
-func (err *dockerTimeoutError) Error() string {
+func (err *DockerTimeoutError) Error() string {
 	return "Could not transition to " + err.transition + "; timed out after waiting " + err.duration.String()
 }
-func (err *dockerTimeoutError) Name() string { return "DockerTimeoutError" }
+func (err *DockerTimeoutError) Name() string { return "DockerTimeoutError" }
