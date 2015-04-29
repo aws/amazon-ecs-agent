@@ -16,10 +16,14 @@ package engine
 import (
 	"errors"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -27,6 +31,16 @@ import (
 
 	"code.google.com/p/gomock/gomock"
 )
+
+func dockerclientSetup(t *testing.T) (*mock_dockerclient.MockClient, *DockerGoClient, *ttime.TestTime, func()) {
+	ctrl := gomock.NewController(t)
+	mockDocker := mock_dockerclient.NewMockClient(ctrl)
+	client := &DockerGoClient{}
+	client.SetGoDockerClient(mockDocker)
+	testTime := ttime.NewTestTime()
+	ttime.SetTime(testTime)
+	return mockDocker, client, testTime, ctrl.Finish
+}
 
 type pullImageOptsMatcher struct {
 	image string
@@ -41,20 +55,13 @@ func (matcher *pullImageOptsMatcher) Matches(x interface{}) bool {
 }
 
 func TestPullImageTimeout(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image"}, docker.AuthConfiguration{}).Do(func(x, y interface{}) {
-		test_time.Warp(3 * time.Hour)
+		testTime.Warp(3 * time.Hour)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -71,11 +78,8 @@ func TestPullImageTimeout(t *testing.T) {
 }
 
 func TestPullImage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image"}, docker.AuthConfiguration{}).Return(nil)
 
@@ -86,11 +90,8 @@ func TestPullImage(t *testing.T) {
 }
 
 func TestPullEmptyvolumeImage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	// The special emptyvolume image leads to a create, not pull
 
@@ -114,11 +115,8 @@ func TestPullEmptyvolumeImage(t *testing.T) {
 }
 
 func TestPullExistingEmptyvolumeImage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	// The special emptyvolume image leads to a create only if it doesn't exist
 	gomock.InOrder(
@@ -132,21 +130,14 @@ func TestPullExistingEmptyvolumeImage(t *testing.T) {
 }
 
 func TestCreateContainerTimeout(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	mockDocker.EXPECT().CreateContainer(config).Do(func(x interface{}) {
-		test_time.Warp(createContainerTimeout)
+		testTime.Warp(createContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -161,12 +152,8 @@ func TestCreateContainerTimeout(t *testing.T) {
 }
 
 func TestCreateContainer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	gomock.InOrder(
@@ -183,20 +170,13 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestStartContainerTimeout(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().StartContainer("id", &docker.HostConfig{}).Do(func(x, y interface{}) {
-		test_time.Warp(startContainerTimeout)
+		testTime.Warp(startContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -211,12 +191,8 @@ func TestStartContainerTimeout(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	hostConfig := &docker.HostConfig{}
 	gomock.InOrder(
@@ -233,20 +209,13 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStopContainerTimeout(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeoutSeconds)).Do(func(x, y interface{}) {
-		test_time.Warp(stopContainerTimeout)
+		testTime.Warp(stopContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -261,12 +230,8 @@ func TestStopContainerTimeout(t *testing.T) {
 }
 
 func TestStopContainer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	gomock.InOrder(
 		mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeoutSeconds)).Return(nil),
@@ -282,20 +247,13 @@ func TestStopContainer(t *testing.T) {
 }
 
 func TestInspectContainerTimeout(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().InspectContainer("id").Do(func(x interface{}) {
-		test_time.Warp(inspectContainerTimeout)
+		testTime.Warp(inspectContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -310,12 +268,8 @@ func TestInspectContainerTimeout(t *testing.T) {
 }
 
 func TestInspectContainer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-
-	client := DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
 
 	containerOutput := docker.Container{ID: "id", State: docker.State{ExitCode: 10}}
 	gomock.InOrder(
@@ -327,5 +281,113 @@ func TestInspectContainer(t *testing.T) {
 	}
 	if !reflect.DeepEqual(&containerOutput, container) {
 		t.Fatal("Did not match expected output")
+	}
+}
+
+func TestContainerEvents(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+
+	var events chan<- *docker.APIEvents
+	mockDocker.EXPECT().AddEventListener(gomock.Any()).Do(func(x interface{}) {
+		events = x.(chan<- *docker.APIEvents)
+	})
+
+	dockerEvents, err := client.ContainerEvents(context.TODO())
+	if err != nil {
+		t.Fatal("Could not get container events")
+	}
+
+	mockDocker.EXPECT().InspectContainer("containerId").Return(&docker.Container{ID: "containerId"}, nil)
+	go func() {
+		events <- &docker.APIEvents{ID: "containerId", Status: "create"}
+	}()
+
+	event := <-dockerEvents
+	if event.DockerId != "containerId" {
+		t.Error("Wrong docker id")
+	}
+	if event.Status != api.ContainerCreated {
+		t.Error("Wrong status")
+	}
+
+	container := &docker.Container{
+		ID: "cid2",
+		NetworkSettings: &docker.NetworkSettings{
+			Ports: map[docker.Port][]docker.PortBinding{
+				"80/tcp": []docker.PortBinding{docker.PortBinding{HostPort: "9001"}},
+			},
+		},
+		Volumes: map[string]string{"/host/path": "/container/path"},
+	}
+	mockDocker.EXPECT().InspectContainer("cid2").Return(container, nil)
+	go func() {
+		events <- &docker.APIEvents{ID: "cid2", Status: "start"}
+	}()
+	event = <-dockerEvents
+	if event.DockerId != "cid2" {
+		t.Error("Wrong docker id")
+	}
+	if event.Status != api.ContainerRunning {
+		t.Error("Wrong status")
+	}
+	if event.PortBindings[0].ContainerPort != 80 || event.PortBindings[0].HostPort != 9001 {
+		t.Error("Incorrect port bindings")
+	}
+	if event.Volumes["/host/path"] != "/container/path" {
+		t.Error("Incorrect volume mapping")
+	}
+
+	stoppedContainer := &docker.Container{
+		ID: "cid3",
+		State: docker.State{
+			ExitCode: 20,
+		},
+	}
+	for i := 0; i < 3; i++ {
+		mockDocker.EXPECT().InspectContainer("cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
+	}
+	go func() {
+		events <- &docker.APIEvents{ID: "cid30", Status: "stop"}
+		events <- &docker.APIEvents{ID: "cid31", Status: "die"}
+		events <- &docker.APIEvents{ID: "cid32", Status: "kill"}
+	}()
+
+	for i := 0; i < 3; i++ {
+		anEvent := <-dockerEvents
+		if anEvent.DockerId != "cid3"+strconv.Itoa(i) {
+			t.Error("Wrong container id")
+		}
+		if anEvent.Status != api.ContainerStopped {
+			t.Error("Should be stopped")
+		}
+		if *anEvent.ExitCode != 20 {
+			t.Error("Incorrect exit code")
+		}
+	}
+
+	// Verify the following events do not translate into our event stream
+	for _, eventStatus := range []string{"pause", "export", "pull", "untag", "delete"} {
+		events <- &docker.APIEvents{ID: "123", Status: eventStatus}
+		select {
+		case <-dockerEvents:
+			t.Error("No event should be available for " + eventStatus)
+		default:
+		}
+	}
+}
+
+func TestDockerVersion(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().Version().Return(&docker.Env{"Version=1.6.0"}, nil)
+
+	str, err := client.Version()
+	if err != nil {
+		t.Error(err)
+	}
+	if str != "DockerVersion: 1.6.0" {
+		t.Error("Got unexpected version string: " + str)
 	}
 }

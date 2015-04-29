@@ -433,10 +433,13 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			case "kill":
 				status = api.ContainerStopped
 			case "destroy":
-			case "pause":
 			case "unpause":
+				// These two result in us falling through to inspect the container even
+				// though generally it won't cause any change
+			case "pause":
+				fallthrough
 			case "export":
-
+				fallthrough
 			// Image events
 			case "pull":
 				fallthrough
