@@ -896,20 +896,15 @@ func TestSweepContainer(t *testing.T) {
 	if !ok {
 		t.Error("Expected task to be present still, but wasn't")
 	}
+	test_time.Warp(4 * time.Hour)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
 		if !ok {
 			break
 		}
 		time.Sleep(1 * time.Second)
-		test_time.Warp(4 * time.Hour)
 	}
 	if ok {
 		t.Error("Expected container to have been sweept but was not")
-	}
-
-	allTasks := taskEngine.(*DockerTaskEngine).State().AllTasks()
-	if len(allTasks) != 0 {
-		t.Error("Sweep did not remove all containers")
 	}
 }
