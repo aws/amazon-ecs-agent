@@ -94,3 +94,14 @@ func TestRunManyTasks(t *testing.T) {
 		}
 	}
 }
+
+func TestPullInvalidImage(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "invalid-image")
+	if err != nil {
+		t.Fatal("Expected to start invalid-image task")
+	}
+	testTask.ExpectErrorType("error", "CannotPulledContainerError", 1*time.Minute)
+}

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -312,4 +313,26 @@ func (task *TestTask) WaitRunning(timeout time.Duration) error {
 
 func (task *TestTask) WaitStopped(timeout time.Duration) error {
 	return task.waitStatus(timeout, "STOPPED")
+}
+
+func (task *TestTask) ExpectErrorType(containerName, errType string, timeout time.Duration) error {
+	task.WaitStopped(timeout)
+
+	for _, container := range task.Containers {
+		if *container.Name != containerName {
+			continue
+		}
+		if container.Reason == nil {
+			return errors.New("Expected error reason")
+		}
+		errParts := strings.SplitN(*container.Reason, ":", 2)
+		if len(errParts) != 2 {
+			return errors.New("Error did not have a type: " + *container.Reason)
+		}
+		if errParts[0] != errType {
+			return errors.New("Type did not match: " + *container.Reason)
+		}
+		return nil
+	}
+	return errors.New("Could not find container " + containerName + " in task " + *task.TaskARN)
 }
