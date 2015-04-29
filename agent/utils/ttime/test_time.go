@@ -19,7 +19,7 @@ type TestTime struct {
 // will behave like a normal time
 func NewTestTime() *TestTime {
 	return &TestTime{
-		timeChange: make(chan bool),
+		timeChange: make(chan bool, 1),
 	}
 }
 
@@ -44,7 +44,7 @@ func (t *TestTime) Now() time.Time {
 // After returns a channel which is written to after the given duration, taking
 // into account time-warping
 func (t *TestTime) After(d time.Duration) <-chan time.Time {
-	done := make(chan time.Time)
+	done := make(chan time.Time, 1)
 	go func() {
 		t.Sleep(d)
 		done <- t.Now()
@@ -59,7 +59,7 @@ func (t *TestTime) Sleep(d time.Duration) {
 	// Calculate the 'real' end time so previously applied Warps work as
 	// expected. Add in the 'slept' time to ensure sleeps accumulate time
 	endTime := time.Now().Add(t.slept).Add(d)
-	done := make(chan bool)
+	done := make(chan bool, 1)
 
 	defer func() {
 		t.slept += d
