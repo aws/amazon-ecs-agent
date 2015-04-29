@@ -282,8 +282,6 @@ func (mtask *managedTask) containerNextState(container *api.Container) (api.Cont
 		nextState = container.KnownStatus + 1
 	}
 	return nextState, true
-
-	return api.ContainerStatusNone, true
 }
 
 // progressContainers tries to step forwards all containers that are able to be
