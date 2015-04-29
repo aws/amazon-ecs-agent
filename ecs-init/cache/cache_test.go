@@ -28,13 +28,50 @@ import (
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 )
 
-func TestIsAgentCachedFalse(t *testing.T) {
+func TestIsAgentCachedFalseMissingState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
-	mockFS.EXPECT().Open(config.AgentTarball()).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().Stat(config.CacheState()).Return(nil, errors.New("test error"))
+
+	d := &Downloader{
+		fs: mockFS,
+	}
+
+	if d.IsAgentCached() {
+		t.Error("Expected d.IsAgentCached() to be false")
+	}
+}
+
+func TestIsAgentCachedFalseEmptyState(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockFSInfo := NewMockfileSizeInfo(mockCtrl)
+	mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
+	mockFSInfo.EXPECT().Size().Return(int64(0))
+
+	d := &Downloader{
+		fs: mockFS,
+	}
+
+	if d.IsAgentCached() {
+		t.Error("Expected d.IsAgentCached() to be false")
+	}
+}
+
+func TestIsAgentCachedFalseMissingTarball(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockFSInfo := NewMockfileSizeInfo(mockCtrl)
+	mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
+	mockFSInfo.EXPECT().Size().Return(int64(1))
+	mockFS.EXPECT().Stat(config.AgentTarball()).Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		fs: mockFS,
@@ -50,8 +87,10 @@ func TestIsAgentCachedTrue(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockFS := NewMockfileSystem(mockCtrl)
-
-	mockFS.EXPECT().Open(config.AgentTarball()).Return(&os.File{}, nil)
+	mockFSInfo := NewMockfileSizeInfo(mockCtrl)
+	mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
+	mockFS.EXPECT().Stat(config.AgentTarball()).Return(mockFSInfo, nil)
+	mockFSInfo.EXPECT().Size().Return(int64(1)).Times(2)
 
 	d := &Downloader{
 		fs: mockFS,
@@ -336,6 +375,20 @@ func TestLoadDesiredAgentFailReadDesired(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error to be returned but got nil")
 	}
+}
+
+func TestRecordCachedAgent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+
+	mockFS.EXPECT().WriteFile(config.CacheState(), []byte("1"), os.FileMode(orwPerm))
+
+	d := &Downloader{
+		fs: mockFS,
+	}
+	d.RecordCachedAgent()
 }
 
 func TestLoadDesiredAgent(t *testing.T) {

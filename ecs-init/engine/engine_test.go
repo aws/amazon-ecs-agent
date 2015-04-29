@@ -22,15 +22,18 @@ import (
 	"testing"
 )
 
-func TestPreStartImageAlreadyLoaded(t *testing.T) {
+func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+	mockDownloader.EXPECT().IsAgentCached().Return(true)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 
 	engine := &Engine{
-		docker: mockDocker,
+		docker:     mockDocker,
+		downloader: mockDownloader,
 	}
 	engine.PreStart()
 }
@@ -44,10 +47,11 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().IsAgentCached().Return(true)
+	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
+	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
 		docker:     mockDocker,
@@ -56,7 +60,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	engine.PreStart()
 }
 
-func TestPreStartImageNotLoadedNotCached(t *testing.T) {
+func TestPreStartImageNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -65,11 +69,11 @@ func TestPreStartImageNotLoadedNotCached(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().IsAgentCached().Return(false)
 	mockDownloader.EXPECT().DownloadAgent()
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
+	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
 		docker:     mockDocker,
@@ -211,6 +215,7 @@ func TestStartSupervisedUpgrade(t *testing.T) {
 		mockDocker.EXPECT().StartAgent().Return(upgradeAgentExitCode, nil),
 		mockDownloader.EXPECT().LoadDesiredAgent().Return(&os.File{}, nil),
 		mockDocker.EXPECT().LoadImage(gomock.Any()),
+		mockDownloader.EXPECT().RecordCachedAgent(),
 		mockDocker.EXPECT().RemoveExistingAgentContainer(),
 		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
 	)
@@ -252,6 +257,7 @@ func TestReloadCacheNotCached(t *testing.T) {
 	mockDownloader.EXPECT().DownloadAgent()
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
+	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
 		docker:     mockDocker,
@@ -272,6 +278,7 @@ func TestReloadCacheCached(t *testing.T) {
 	mockDownloader.EXPECT().IsAgentCached().Return(true)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
+	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
 		docker:     mockDocker,

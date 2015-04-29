@@ -14,7 +14,7 @@
 
 Name:          ecs-init
 Version:       1.0
-Release:       1%{?dist}
+Release:       2%{?dist}
 Group:         System Environment/Base
 Vendor:        Amazon.com
 License:       Apache 2.0
@@ -63,6 +63,7 @@ install scripts/amazon-ecs-init.1.gz $RPM_BUILD_ROOT/%{man_dir}/amazon-ecs-init.
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
 touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
+touch $RPM_BUILD_ROOT/%{cache_dir}/state
 
 %files
 %defattr(-,root,root,-)
@@ -72,6 +73,7 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 %config(noreplace) %ghost %{conf_dir}/ecs.config
 %config(noreplace) %ghost %{conf_dir}/ecs.config.json
 %ghost %{cache_dir}/ecs-agent.tar
+%{cache_dir}/state
 %dir %{data_dir}
 
 %clean
@@ -79,6 +81,8 @@ rm scripts/amazon-ecs-init.1.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Wed Apr 29 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
+- Force cache load on install/upgrade
 * Thu Mar 26 2015 Samuel Karp <skarp@amazon.com> - 1.0-1
 - Re-start Agent on non-terminal exit codes
 - Enable Agent self-updates

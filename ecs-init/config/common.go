@@ -58,6 +58,11 @@ func CacheDirectory() string {
 	return directoryPrefix + "/var/cache/ecs"
 }
 
+// CacheState returns the location on disk where cache state is stored
+func CacheState() string {
+	return CacheDirectory() + "/state"
+}
+
 // AgentTarball returns the location on disk of the cached Agent image
 func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"

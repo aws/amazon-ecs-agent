@@ -159,6 +159,17 @@ func (_mr *_MockfileSystemRecorder) Open(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Open", arg0)
 }
 
+func (_m *MockfileSystem) Stat(name string) (fileSizeInfo, error) {
+	ret := _m.ctrl.Call(_m, "Stat", name)
+	ret0, _ := ret[0].(fileSizeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockfileSystemRecorder) Stat(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stat", arg0)
+}
+
 func (_m *MockfileSystem) Base(path string) string {
 	ret := _m.ctrl.Call(_m, "Base", path)
 	ret0, _ := ret[0].(string)
@@ -167,4 +178,45 @@ func (_m *MockfileSystem) Base(path string) string {
 
 func (_mr *_MockfileSystemRecorder) Base(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Base", arg0)
+}
+
+func (_m *MockfileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	ret := _m.ctrl.Call(_m, "WriteFile", filename, data, perm)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockfileSystemRecorder) WriteFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WriteFile", arg0, arg1, arg2)
+}
+
+// Mock of fileSizeInfo interface
+type MockfileSizeInfo struct {
+	ctrl     *gomock.Controller
+	recorder *_MockfileSizeInfoRecorder
+}
+
+// Recorder for MockfileSizeInfo (not exported)
+type _MockfileSizeInfoRecorder struct {
+	mock *MockfileSizeInfo
+}
+
+func NewMockfileSizeInfo(ctrl *gomock.Controller) *MockfileSizeInfo {
+	mock := &MockfileSizeInfo{ctrl: ctrl}
+	mock.recorder = &_MockfileSizeInfoRecorder{mock}
+	return mock
+}
+
+func (_m *MockfileSizeInfo) EXPECT() *_MockfileSizeInfoRecorder {
+	return _m.recorder
+}
+
+func (_m *MockfileSizeInfo) Size() int64 {
+	ret := _m.ctrl.Call(_m, "Size")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+func (_mr *_MockfileSizeInfoRecorder) Size() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Size")
 }

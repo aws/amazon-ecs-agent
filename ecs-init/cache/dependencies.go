@@ -45,7 +45,13 @@ type fileSystem interface {
 	Rename(oldpath, newpath string) error
 	ReadAll(r io.Reader) ([]byte, error)
 	Open(name string) (file io.ReadCloser, err error)
+	Stat(name string) (fileinfo fileSizeInfo, err error)
 	Base(path string) string
+	WriteFile(filename string, data []byte, perm os.FileMode) error
+}
+
+type fileSizeInfo interface {
+	Size() int64
 }
 
 // standardFS delegates to the package-level functions
@@ -83,8 +89,16 @@ func (s *standardFS) Open(name string) (io.ReadCloser, error) {
 	return os.Open(name)
 }
 
+func (s *standardFS) Stat(name string) (fileSizeInfo, error) {
+	return os.Stat(name)
+}
+
 func (s *standardFS) Base(path string) string {
 	return filepath.Base(path)
+}
+
+func (s *standardFS) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return ioutil.WriteFile(filename, data, perm)
 }
 
 // customGetter is very similar to http.DefaultClient, but sets a shorter

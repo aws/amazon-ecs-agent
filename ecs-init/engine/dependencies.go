@@ -24,6 +24,7 @@ type downloader interface {
 	DownloadAgent() error
 	LoadCachedAgent() (io.ReadCloser, error)
 	LoadDesiredAgent() (io.ReadCloser, error)
+	RecordCachedAgent() error
 }
 
 type dockerClient interface {

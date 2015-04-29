@@ -50,37 +50,42 @@ func New() (*Engine, error) {
 
 // PreStart prepares the ECS Agent for starting
 func (e *Engine) PreStart() error {
+	cached := e.downloader.IsAgentCached()
+	if !cached {
+		return e.downloadAndLoadCache()
+	}
+
 	loaded, err := e.docker.IsAgentImageLoaded()
 	if err != nil {
 		return engineError("could not check if Agent is loaded", err)
 	}
-
-	if loaded {
-		return nil
+	if !loaded {
+		return e.load(e.downloader.LoadCachedAgent())
 	}
 
-	return e.loadCache()
+	return nil
 }
 
 // ReloadCache reloads the cached image of the ECS Agent into Docker
 func (e *Engine) ReloadCache() error {
-	return e.loadCache()
-}
-
-func (e *Engine) loadCache() error {
 	cached := e.downloader.IsAgentCached()
 	if !cached {
-		err := e.mustDownloadAgent()
-		if err != nil {
-			return err
-		}
+		return e.downloadAndLoadCache()
+	}
+	return e.load(e.downloader.LoadCachedAgent())
+}
+
+func (e *Engine) downloadAndLoadCache() error {
+	err := e.downloadAgent()
+	if err != nil {
+		return err
 	}
 
 	log.Info("Loading Amazon EC2 Container Service Agent into Docker")
 	return e.load(e.downloader.LoadCachedAgent())
 }
 
-func (e *Engine) mustDownloadAgent() error {
+func (e *Engine) downloadAgent() error {
 	log.Info("Downloading Amazon EC2 Container Service Agent")
 	err := e.downloader.DownloadAgent()
 	if err != nil {
@@ -98,7 +103,7 @@ func (e *Engine) load(image io.ReadCloser, err error) error {
 	if err != nil {
 		return engineError("could not load Amazon EC2 Container Service Agent into Docker", err)
 	}
-	return nil
+	return e.downloader.RecordCachedAgent()
 }
 
 // StartSupervised starts the ECS Agent and ensures it stays running, except for terminal errors (indicated by an agent exit code of 5)

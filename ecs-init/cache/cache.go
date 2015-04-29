@@ -28,6 +28,10 @@ import (
 	log "github.com/cihub/seelog"
 )
 
+const (
+	orwPerm = 0700
+)
+
 // Downloader is resposible for cache operations relating to downloading the agent
 type Downloader struct {
 	getter httpGetter
@@ -43,20 +47,24 @@ func NewDownloader() *Downloader {
 }
 
 // IsAgentCached returns true if there is a cached copy of the Agent present
-// (no validation is performed)
+// and a cache state file is not empty (no validation is performed on the
+// tarball or cache state file contents)
 func (d *Downloader) IsAgentCached() bool {
-	file, err := d.fs.Open(config.AgentTarball())
+	return d.fileNotEmpty(config.CacheState()) && d.fileNotEmpty(config.AgentTarball())
+}
+
+func (d *Downloader) fileNotEmpty(filename string) bool {
+	fileinfo, err := d.fs.Stat(filename)
 	if err != nil {
 		return false
 	}
-	file.Close()
-	return true
+	return fileinfo.Size() > 0
 }
 
 // DownloadAgent downloads a fresh copy of the Agent and performs an
 // integrity check on the downloaded image
 func (d *Downloader) DownloadAgent() error {
-	err := d.fs.MkdirAll(config.CacheDirectory(), os.ModeDir|0700)
+	err := d.fs.MkdirAll(config.CacheDirectory(), os.ModeDir|orwPerm)
 	if err != nil {
 		return err
 	}
@@ -138,6 +146,11 @@ func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
 // LoadCachedAgent returns an io.ReadCloser of the Agent from the cache
 func (d *Downloader) LoadCachedAgent() (io.ReadCloser, error) {
 	return d.fs.Open(config.AgentTarball())
+}
+
+func (d *Downloader) RecordCachedAgent() error {
+	data := []byte("1")
+	return d.fs.WriteFile(config.CacheState(), data, orwPerm)
 }
 
 // LoadDesiredAgent returns an io.ReadCloser of the Agent indicated by the desiredImageLocatorFile

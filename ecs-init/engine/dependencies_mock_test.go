@@ -85,6 +85,16 @@ func (_mr *_MockdownloaderRecorder) LoadDesiredAgent() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadDesiredAgent")
 }
 
+func (_m *Mockdownloader) RecordCachedAgent() error {
+	ret := _m.ctrl.Call(_m, "RecordCachedAgent")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockdownloaderRecorder) RecordCachedAgent() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RecordCachedAgent")
+}
+
 // Mock of dockerClient interface
 type MockdockerClient struct {
 	ctrl     *gomock.Controller
