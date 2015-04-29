@@ -26,8 +26,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -36,7 +38,7 @@ const dockerStopTimeoutSeconds = 30
 
 // Timelimits for docker operations enforced above docker
 const (
-	pullImageTimeout        = 1 * time.Hour
+	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 1 * time.Minute
 	startContainerTimeout   = 1 * time.Minute
 	stopContainerTimeout    = 1 * time.Minute
@@ -64,7 +66,11 @@ type DockerClient interface {
 
 // Implements DockerClient
 type DockerGoClient struct {
-	dockerClient *docker.Client
+	dockerClient dockerclient.Client
+}
+
+func (dg *DockerGoClient) SetGoDockerClient(to dockerclient.Client) {
+	dg.dockerClient = to
 }
 
 // pullLock is a temporary workaround for a devicemapper issue. See: https://github.com/docker/docker/issues/9718
@@ -100,8 +106,21 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 }
 
 func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
+	timeout := ttime.After(pullImageTimeout)
+
+	response := make(chan DockerContainerMetadata, 1)
+	go func() { response <- dg.pullImage(image) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		return DockerContainerMetadata{Error: &dockerTimeoutError{pullImageTimeout, "pulled"}}
+	}
+}
+
+func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	log.Debug("Pulling image", "image", image)
-	client := dg.client()
+	client := dg.dockerClient
 
 	// Special case; this image is not one that should be pulled, but rather
 	// should be created locally if necessary
@@ -141,7 +160,7 @@ func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
 }
 
 func (dg *DockerGoClient) createScratchImageIfNotExists() error {
-	c := dg.client()
+	c := dg.dockerClient
 
 	scratchCreateLock.Lock()
 	defer scratchCreateLock.Unlock()
@@ -171,10 +190,32 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 }
 
 func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) DockerContainerMetadata {
-	client := dg.client()
+	timeout := ttime.After(createContainerTimeout)
+
+	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+	response := make(chan DockerContainerMetadata, 1)
+	go func() { response <- dg.createContainer(ctx, config, name) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		cancelFunc()
+		return DockerContainerMetadata{Error: &dockerTimeoutError{createContainerTimeout, "created"}}
+	}
+}
+
+func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Config, name string) DockerContainerMetadata {
+	client := dg.dockerClient
 
 	containerOptions := docker.CreateContainerOptions{Config: config, Name: name}
 	dockerContainer, err := client.CreateContainer(containerOptions)
+	select {
+	case <-ctx.Done():
+		// Only inspect if we don't timeout; otherwise no one's listening for our
+		// response anyways
+		return DockerContainerMetadata{}
+	default:
+	}
 	if err != nil {
 		return DockerContainerMetadata{Error: err}
 	}
@@ -182,9 +223,29 @@ func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) Do
 }
 
 func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfig) DockerContainerMetadata {
-	client := dg.client()
+	timeout := ttime.After(startContainerTimeout)
+
+	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+	response := make(chan DockerContainerMetadata, 1)
+	go func() { response <- dg.startContainer(ctx, id, hostConfig) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		cancelFunc()
+		return DockerContainerMetadata{Error: &dockerTimeoutError{startContainerTimeout, "started"}}
+	}
+}
+
+func (dg *DockerGoClient) startContainer(ctx context.Context, id string, hostConfig *docker.HostConfig) DockerContainerMetadata {
+	client := dg.dockerClient
 
 	err := client.StartContainer(id, hostConfig)
+	select {
+	case <-ctx.Done():
+		return DockerContainerMetadata{}
+	default:
+	}
 	metadata := dg.containerMetadata(id)
 	if err != nil {
 		metadata.Error = err
@@ -201,7 +262,7 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 }
 
 func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, error) {
-	client := dg.client()
+	client := dg.dockerClient
 
 	if len(dockerId) == 0 {
 		return api.ContainerStatusNone, errors.New("Invalid container id: ''")
@@ -215,16 +276,53 @@ func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatu
 }
 
 func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
-	return dg.inspectContainer(dockerId)
+	timeout := ttime.After(inspectContainerTimeout)
+
+	type inspectResponse struct {
+		container *docker.Container
+		err       error
+	}
+	response := make(chan inspectResponse, 1)
+	go func() {
+		container, err := dg.inspectContainer(dockerId)
+		response <- inspectResponse{container, err}
+	}()
+	select {
+	case resp := <-response:
+		return resp.container, resp.err
+	case <-timeout:
+		return nil, &dockerTimeoutError{inspectContainerTimeout, "inspecting"}
+	}
 }
 
 func (dg *DockerGoClient) inspectContainer(dockerId string) (*docker.Container, error) {
-	return dg.client().InspectContainer(dockerId)
+	return dg.dockerClient.InspectContainer(dockerId)
 }
 
 func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	client := dg.client()
+	timeout := ttime.After(stopContainerTimeout)
+
+	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+	response := make(chan DockerContainerMetadata, 1)
+	go func() { response <- dg.stopContainer(ctx, dockerId) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		cancelFunc()
+		return DockerContainerMetadata{Error: &dockerTimeoutError{stopContainerTimeout, "stopped"}}
+	}
+}
+
+func (dg *DockerGoClient) stopContainer(ctx context.Context, dockerId string) DockerContainerMetadata {
+	client := dg.dockerClient
 	err := client.StopContainer(dockerId, dockerStopTimeoutSeconds)
+	select {
+	case <-ctx.Done():
+		// No one waiting for us anyways
+		return DockerContainerMetadata{}
+	default:
+	}
 	metadata := dg.containerMetadata(dockerId)
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerId)
@@ -236,24 +334,32 @@ func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 }
 
 func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
-	return dg.client().RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
+	timeout := ttime.After(removeContainerTimeout)
+
+	response := make(chan error, 1)
+	go func() { response <- dg.removeContainer(dockerId) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		return &dockerTimeoutError{removeContainerTimeout, "removing"}
+	}
+}
+
+func (dg *DockerGoClient) removeContainer(dockerId string) error {
+	return dg.dockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
 }
 
 func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
-	container, err := dg.inspectContainer(id)
+	container, err := dg.InspectContainer(id)
 	if err != nil {
 		return "", err
 	}
 	return container.Name, nil
 }
 
-// client returns the underlying docker client
-func (dg *DockerGoClient) client() *docker.Client {
-	return dg.dockerClient
-}
-
 func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
-	dockerContainer, err := dg.inspectContainer(id)
+	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
 		return DockerContainerMetadata{Error: err}
 	}
@@ -288,7 +394,7 @@ func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 
 // Listen to the docker event stream for container changes and pass them up
 func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
-	client := dg.client()
+	client := dg.dockerClient
 
 	events := make(chan *docker.APIEvents)
 
@@ -356,7 +462,7 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 }
 
 func (dg *DockerGoClient) Version() (string, error) {
-	client := dg.client()
+	client := dg.dockerClient
 	info, err := client.Version()
 	if err != nil {
 		return "", err

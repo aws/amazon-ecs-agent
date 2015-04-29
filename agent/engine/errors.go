@@ -13,7 +13,16 @@
 
 package engine
 
-import "github.com/aws/amazon-ecs-agent/agent/api"
+import (
+	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+)
+
+type NamedError interface {
+	error
+	Name() string
+}
 
 // impossibleTransitionError is an error that occurs when an event causes a
 // container to try and transition to a state that it cannot be moved to
@@ -25,3 +34,13 @@ func (err *impossibleTransitionError) Error() string {
 	return "Cannot transition to " + err.state.String()
 }
 func (err *impossibleTransitionError) Name() string { return "ImpossibleStateTransitionError" }
+
+type dockerTimeoutError struct {
+	duration   time.Duration
+	transition string
+}
+
+func (err *dockerTimeoutError) Error() string {
+	return "Could not transition to " + err.transition + "; timed out after waiting " + err.duration.String()
+}
+func (err *dockerTimeoutError) Name() string { return "DockerTimeoutError" }
