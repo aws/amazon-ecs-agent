@@ -272,7 +272,7 @@ func TestSendsEvents(t *testing.T) {
 	sortaRedundantc.Status = api.ContainerStopped
 	sortaRedundantt := taskEvent("notreplaced2")
 	sortaRedundantt.Status = api.TaskStopped
-	//AddContainerEvent(sortaRedundantc, client)
+	AddContainerEvent(sortaRedundantc, client)
 	AddTaskEvent(sortaRedundantt, client)
 
 	go func() {
@@ -296,10 +296,10 @@ func TestSendsEvents(t *testing.T) {
 	if tsent.Status != api.TaskRunning {
 		t.Error("Wrong status")
 	}
-	//sent = <-contStatus
-	//if sent.TaskArn != "notreplaced2" {
-	//	t.Error("Lost a task or task out of order")
-	//}
+	sent = <-contStatus
+	if sent.TaskArn != "notreplaced2" {
+		t.Error("Lost a task or task out of order")
+	}
 	tsent = <-taskStatus
 	if tsent.TaskArn != "notreplaced2" {
 		t.Error("Lost a task or task out of order")
