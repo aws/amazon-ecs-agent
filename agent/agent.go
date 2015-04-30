@@ -177,7 +177,7 @@ func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cl
 		statemanager.AddSaveable("ContainerInstanceArn", containerInstanceArn),
 		statemanager.AddSaveable("Cluster", cluster),
 		statemanager.AddSaveable("EC2InstanceID", savedInstanceID),
-		statemanager.AddSaveable("SeqNum", sequenceNumber),
+		statemanager.AddSaveable("ACSSeqNum", sequenceNumber),
 	)
 	if err != nil {
 		return nil, err
