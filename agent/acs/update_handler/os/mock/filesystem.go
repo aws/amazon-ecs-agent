@@ -17,9 +17,9 @@
 package mock_os
 
 import (
-	io "io"
 	os "os"
 	gomock "code.google.com/p/gomock/gomock"
+	io "io"
 )
 
 // Mock of FileSystem interface

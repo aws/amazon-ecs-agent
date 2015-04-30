@@ -69,12 +69,19 @@ type ApiECSClient struct {
 	config             *config.Config
 	insecureSkipVerify bool
 	c                  ECSSDK
+	ec2metadata        ec2.EC2MetadataClient
 }
 
 // SetSDK overrides the SDK to the given one. This is useful for injecting a
 // test implementation
 func (client *ApiECSClient) SetSDK(sdk ECSSDK) {
 	client.c = sdk
+}
+
+// SetEC2MetadataClient overrides the EC2 Metadata Client to the given one.
+// This is useful for injecting a test implementation
+func (client *ApiECSClient) SetEC2MetadataClient(ec2MetadataClient ec2.EC2MetadataClient) {
+	client.ec2metadata = ec2MetadataClient
 }
 
 const (
@@ -151,7 +158,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 
-	instanceIdentityDoc, err := ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
 		log.Error("Unable to get instance identity document", "err", err)
@@ -163,7 +170,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 
 	instanceIdentitySignature := []byte{}
 	if iidRetrieved {
-		instanceIdentitySignature, err = ec2.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
+		instanceIdentitySignature, err = client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
 		if err != nil {
 			log.Error("Unable to get instance identity signature", "err", err)
 		}

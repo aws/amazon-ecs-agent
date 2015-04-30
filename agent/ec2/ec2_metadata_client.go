@@ -63,11 +63,17 @@ type HttpClient interface {
 	Get(string) (*http.Response, error)
 }
 
-type EC2MetadataClient struct {
+type EC2MetadataClient interface {
+	DefaultCredentials() (*RoleCredentials, error)
+	ReadResource(string) ([]byte, error)
+	InstanceIdentityDocument() (*InstanceIdentityDocument, error)
+}
+
+type ec2MetadataClientImpl struct {
 	client HttpClient
 }
 
-func NewEC2MetadataClient() *EC2MetadataClient {
+func NewEC2MetadataClient() EC2MetadataClient {
 	var lowTimeoutDial http.RoundTripper = &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout: EC2_METADATA_REQUEST_TIMEOUT,
@@ -76,10 +82,10 @@ func NewEC2MetadataClient() *EC2MetadataClient {
 
 	httpClient := http.Client{Transport: lowTimeoutDial}
 
-	return &EC2MetadataClient{client: &httpClient}
+	return &ec2MetadataClientImpl{client: &httpClient}
 }
 
-func (c EC2MetadataClient) DefaultCredentials() (*RoleCredentials, error) {
+func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 	securityCredentialResp, err := c.ReadResource(SECURITY_CREDENTIALS_RESOURCE)
 	if err != nil {
 		return nil, err
@@ -104,7 +110,7 @@ func (c EC2MetadataClient) DefaultCredentials() (*RoleCredentials, error) {
 	return &credential, nil
 }
 
-func (c EC2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
 	rawIidResp, err := c.ReadResource(INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	if err != nil {
 		return nil, err
@@ -119,12 +125,12 @@ func (c EC2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument
 	return &iid, nil
 }
 
-func (c EC2MetadataClient) ResourceServiceUrl(path string) string {
+func (c *ec2MetadataClientImpl) ResourceServiceUrl(path string) string {
 	// TODO, override EC2_METADATA_SERVICE_URL based on the environment
 	return EC2_METADATA_SERVICE_URL + path
 }
 
-func (c EC2MetadataClient) ReadResource(path string) ([]byte, error) {
+func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 	endpoint := c.ResourceServiceUrl(path)
 
 	resp, err := c.client.Get(endpoint)

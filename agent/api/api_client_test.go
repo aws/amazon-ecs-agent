@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/awslabs/aws-sdk-go/service/ecs"
 )
@@ -151,11 +154,21 @@ func TestRegisterContainerInstance(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	client, mc := NewMockClient(mockCtrl)
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client.(*api.ApiECSClient).SetEC2MetadataClient(mockEC2Metadata)
+
+	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 		if *req.Cluster != configuredCluster {
 			t.Errorf("Wrong cluster: %v", *req.Cluster)
 		}
-		// TODO, IID, resources
+		if *req.InstanceIdentityDocument != "instanceIdentityDocument" {
+			t.Errorf("Wrong IID: %v", *req.InstanceIdentityDocument)
+		}
+		if *req.InstanceIdentityDocumentSignature != "signature" {
+			t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
+		}
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)
 
 	arn, err := client.RegisterContainerInstance()
@@ -170,13 +183,33 @@ func TestRegisterContainerInstance(t *testing.T) {
 func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc := NewMockClient(mockCtrl)
-	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-		if *req.Cluster != configuredCluster {
-			t.Errorf("Wrong cluster: %v", *req.Cluster)
-		}
-		// TODO, IID, resources
-	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)
+	// Test the special 'empty cluster' behavior of creating 'default'
+	client := api.NewECSClient(aws.DetectCreds("", "", ""), &config.Config{Cluster: "", AWSRegion: "us-east-1"}, false)
+	mc := mock_api.NewMockECSSDK(mockCtrl)
+	client.(*api.ApiECSClient).SetSDK(mc)
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client.(*api.ApiECSClient).SetEC2MetadataClient(mockEC2Metadata)
+
+	defaultCluster := config.DEFAULT_CLUSTER_NAME
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, aws.Error(errors.New("No such cluster"))),
+		mc.EXPECT().CreateCluster(&ecs.CreateClusterInput{ClusterName: &defaultCluster}).Return(&ecs.CreateClusterOutput{Cluster: &ecs.Cluster{ClusterName: &defaultCluster}}, nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			if *req.Cluster != config.DEFAULT_CLUSTER_NAME {
+				t.Errorf("Wrong cluster: %v", *req.Cluster)
+			}
+			if *req.InstanceIdentityDocument != "instanceIdentityDocument" {
+				t.Errorf("Wrong IID: %v", *req.InstanceIdentityDocument)
+			}
+			if *req.InstanceIdentityDocumentSignature != "signature" {
+				t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
+			}
+		}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil),
+	)
 
 	arn, err := client.RegisterContainerInstance()
 	if err != nil {
@@ -186,6 +219,3 @@ func TestRegisterBlankCluster(t *testing.T) {
 		t.Errorf("Wrong arn: %v", arn)
 	}
 }
-
-// TODO, re-add RegisterContainerInstance tests after the few pending changes to
-// defaultCluster are written
