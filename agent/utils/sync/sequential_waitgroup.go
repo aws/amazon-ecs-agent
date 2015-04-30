@@ -40,9 +40,7 @@ func NewSequentialWaitGroup() *SequentialWaitGroup {
 func (s *SequentialWaitGroup) Add(sequence int64, delta int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.semaphores == nil {
-		s.semaphores = make(map[int64]int)
-	}
+
 	_, ok := s.semaphores[sequence]
 	if ok {
 		s.semaphores[sequence] += delta
