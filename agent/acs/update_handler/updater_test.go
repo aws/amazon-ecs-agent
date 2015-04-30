@@ -39,7 +39,7 @@ func ptr(i interface{}) interface{} {
 	return n.Interface()
 }
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *config.Config, *mock_os.MockFileSystem, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
+func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *config.Config, *mock_os.MockFileSystem, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
 	if cfg == nil {
 		cfg = &config.Config{
 			UpdatesEnabled:    true,
@@ -51,13 +51,21 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *config.Config
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockacs := mock_client.NewMockClientServer(ctrl)
 	mockhttp := mock_http.NewMockRoundTripper(ctrl)
-	httpclient.Transport = mockhttp
+	httpClient := httpclient.New(updateDownloadTimeout, false)
+	httpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockhttp)
 
-	return ctrl, cfg, mockfs, mockacs, mockhttp
+	u := &updater{
+		acs:        mockacs,
+		config:     cfg,
+		fs:         mockfs,
+		httpclient: httpClient,
+	}
+
+	return u, ctrl, cfg, mockfs, mockacs, mockhttp
 }
 
 func TestFullUpdateFlow(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	var writtenFile bytes.Buffer
@@ -78,11 +86,6 @@ func TestFullUpdateFlow(t *testing.T) {
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -132,14 +135,8 @@ func (m *nackRequestMatcher) Matches(nack interface{}) bool {
 }
 
 func TestMissingUpdateInfo(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	u, ctrl, _, _, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
-
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
 		Cluster:           ptr("cluster").(*string),
@@ -159,14 +156,8 @@ func (m *nackRequestMatcher) String() string {
 }
 
 func TestUndownloadedUpdate(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	u, ctrl, cfg, _, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
-
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
 		Cluster:           ptr("cluster").(*string),
@@ -182,7 +173,7 @@ func TestUndownloadedUpdate(t *testing.T) {
 }
 
 func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	var writtenFile bytes.Buffer
@@ -208,11 +199,6 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -251,7 +237,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 }
 
 func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	var writtenFile bytes.Buffer
@@ -280,11 +266,6 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -323,7 +304,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 }
 
 func TestNewerUpdateMessages(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	var writtenFile bytes.Buffer
@@ -358,11 +339,6 @@ func TestNewerUpdateMessages(t *testing.T) {
 		mockfs.EXPECT().Exit(exitcodes.ExitUpdate),
 	)
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -405,7 +381,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, _, mockfs, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	var writtenFile bytes.Buffer
@@ -420,11 +396,6 @@ func TestValidationError(t *testing.T) {
 		}}),
 	)
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -441,7 +412,7 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestLocationBucketValidationError(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	u, ctrl, _, _, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
@@ -450,11 +421,6 @@ func TestLocationBucketValidationError(t *testing.T) {
 		MessageId:         ptr("StageMID").(*string),
 	}})
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -467,7 +433,7 @@ func TestLocationBucketValidationError(t *testing.T) {
 }
 
 func TestLocationHostValidationError(t *testing.T) {
-	ctrl, cfg, mockfs, mockacs, _ := mocks(t, nil)
+	u, ctrl, _, _, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
@@ -476,11 +442,6 @@ func TestLocationHostValidationError(t *testing.T) {
 		MessageId:         ptr("StageMID").(*string),
 	}})
 
-	u := &updater{
-		acs:    mockacs,
-		config: cfg,
-		fs:     mockfs,
-	}
 	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),

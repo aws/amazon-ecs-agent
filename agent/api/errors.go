@@ -14,8 +14,9 @@
 package api
 
 import (
-	"encoding/json"
-	"errors"
+	"net/http"
+
+	"github.com/awslabs/aws-sdk-go/aws"
 )
 
 // Implements Error & Retriable
@@ -24,16 +25,11 @@ type APIError struct {
 	Retriable bool
 }
 
-type jsonError struct {
-	ErrType string `json:"__type"`
-	Message string `json:"message"`
-}
-
 func NewAPIError(err error) *APIError {
-	intermediate := &jsonError{}
-	if err := json.Unmarshal([]byte(err.Error()), intermediate); err == nil {
-		if intermediate.ErrType == "ClientException" {
-			return &APIError{errors.New(intermediate.Message), false}
+	if apierr, ok := err.(aws.APIError); ok {
+		// ClientExceptions are not retriable
+		if apierr.Code == "ClientException" || (apierr.StatusCode >= http.StatusBadRequest && apierr.StatusCode < http.StatusInternalServerError) {
+			return &APIError{err, false}
 		}
 	}
 

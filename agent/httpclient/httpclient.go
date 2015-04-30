@@ -16,6 +16,8 @@
 package httpclient
 
 import (
+	"crypto/tls"
+	"net"
 	"net/http"
 	"time"
 
@@ -24,33 +26,64 @@ import (
 
 const defaultTimeout = 10 * time.Minute
 
+// Taken from the default http.Client behavior
+const defaultDialTimeout = 30 * time.Second
+const defaultDialKeepalive = 30 * time.Second
+
 //go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
 
-// Default is the client used by this package; it should be overridden as
-// desired for testing
-var Default *http.Client = &http.Client{}
-
-// Transport is the transport requests will be made over
-var Transport = http.DefaultTransport
-
-type ecsRoundTripper struct{}
-
-func init() {
-	Default.Transport = &ecsRoundTripper{}
-	Default.Timeout = defaultTimeout
+type ecsRoundTripper struct {
+	insecureSkipVerify bool
+	transport          http.RoundTripper
 }
 
 func userAgent() string {
 	return version.String() + " (+http://aws.amazon.com/ecs/)"
 }
 
-func (*ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (client *ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", userAgent())
-	return Transport.RoundTrip(req)
+	return client.transport.RoundTrip(req)
 }
 
-func (*ecsRoundTripper) CancelRequest(req *http.Request) {
-	if def, ok := http.DefaultTransport.(*http.Transport); ok {
+func (client *ecsRoundTripper) CancelRequest(req *http.Request) {
+	if def, ok := client.transport.(*http.Transport); ok {
 		def.CancelRequest(req)
 	}
+}
+
+// New returns an ECS httpClient with a roundtrip timeout of the given duration
+func New(timeout time.Duration, insecureSkipVerify bool) *http.Client {
+	// Transport is the transport requests will be made over
+	// Note, these defaults are taken from the golang http library. We do not
+	// explicitly do not use theirs to avoid changing their behavior.
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   defaultDialTimeout,
+			KeepAlive: defaultDialKeepalive,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if insecureSkipVerify {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	client := &http.Client{
+		Transport: &ecsRoundTripper{insecureSkipVerify, transport},
+		Timeout:   timeout,
+	}
+
+	return client
+}
+
+// OverridableTransport is a transport that provides an override for testing purposes.
+type OverridableTransport interface {
+	SetTransport(http.RoundTripper)
+}
+
+// SetTransport allows you to set the transport. It is exposed so tests may
+// override it. It fulfills an interface to allow calling thsi function via
+// assertion to the exported interface
+func (client *ecsRoundTripper) SetTransport(transport http.RoundTripper) {
+	client.transport = transport
 }

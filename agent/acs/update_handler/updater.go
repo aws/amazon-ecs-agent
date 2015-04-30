@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -50,10 +51,11 @@ type updater struct {
 	// updateID is a unique identifier for this update used to determine if a
 	// new update request, even with a different message id, is a duplicate or
 	// not
-	updateID string
-	fs       os.FileSystem
-	acs      acsclient.ClientServer
-	config   *config.Config
+	updateID   string
+	fs         os.FileSystem
+	acs        acsclient.ClientServer
+	config     *config.Config
+	httpclient *http.Client
 
 	sync.Mutex
 }
@@ -66,7 +68,10 @@ const (
 	updateDownloaded
 )
 
-const maxUpdateDuration = 30 * time.Minute
+const (
+	maxUpdateDuration     = 30 * time.Minute
+	updateDownloadTimeout = 15 * time.Minute
+)
 
 // Singleton updater
 var singleUpdater *updater
@@ -76,9 +81,10 @@ var singleUpdater *updater
 func AddAgentUpdateHandlers(cs acsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
 	if cfg.UpdatesEnabled {
 		singleUpdater = &updater{
-			acs:    cs,
-			config: cfg,
-			fs:     os.Default,
+			acs:        cs,
+			config:     cfg,
+			fs:         os.Default,
+			httpclient: httpclient.New(updateDownloadTimeout, false),
 		}
 		cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
 		cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
@@ -167,7 +173,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if info.Signature == nil {
 		return errors.New("No signature given")
 	}
-	resp, err := httpclient.Default.Get(*info.Location)
+	resp, err := u.httpclient.Get(*info.Location)
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 	}

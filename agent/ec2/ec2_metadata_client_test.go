@@ -43,7 +43,7 @@ const (
 	TEST_ROLE_NAME = "test-role"
 )
 
-var test_client = EC2MetadataClient{client: testHttpClient{}}
+var test_client = ec2MetadataClientImpl{client: testHttpClient{}}
 
 var test_response = map[string]string{
 	test_client.ResourceServiceUrl(SECURITY_CREDENTIALS_RESOURCE):                  TEST_ROLE_NAME,
