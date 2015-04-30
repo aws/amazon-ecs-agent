@@ -127,6 +127,14 @@ func (task *managedTask) overseeTask() {
 			task.progressContainers()
 		}
 
+		// If we reach this point, we've changed the task in some way.
+		// Conversely, for it to spin in steady state it will have to have been
+		// loaded in steady state or progressed through here, so saving here should
+		// be sufficient to capture state changes.
+		err := task.engine.saver.Save()
+		if err != nil {
+			llog.Warn("Error checkpointing task's states to disk", "err", err)
+		}
 		if task.KnownStatus.Terminal() {
 			break
 		}
@@ -366,6 +374,7 @@ func (task *managedTask) cleanupTask() {
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
 	task.engine.processTasks.Unlock()
+	task.engine.saver.Save()
 
 	// Cleanup any leftover messages before closing their channels. No new
 	// messages possible because we deleted ourselves from managedTasks, so this

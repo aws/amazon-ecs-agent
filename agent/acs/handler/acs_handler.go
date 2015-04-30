@@ -113,13 +113,14 @@ func handlePayloadMessage(cs acsclient.ClientServer, cluster, containerInstanceA
 		log.Crit("Recieved a payload with no message id", "payload", payload)
 		return
 	}
+	allTasksHandled := addPayloadTasks(cs, client, cluster, containerInstanceArn, payload, taskEngine)
+	// save the state of tasks we know about after passing them to the task engine
 	err := saver.Save()
 	if err != nil {
 		log.Error("Error saving state for payload message!", "err", err, "messageId", *payload.MessageId)
 		// Don't ack; maybe we can save it in the future.
 		return
 	}
-	allTasksHandled := addPayloadTasks(cs, client, cluster, containerInstanceArn, payload, taskEngine)
 	if allTasksHandled {
 		err = cs.MakeRequest(&ecsacs.AckRequest{
 			Cluster:           &cluster,
@@ -159,8 +160,10 @@ func addPayloadTasks(cs acsclient.ClientServer, client api.ECSClient, cluster, c
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out
+	// Because a 'start' sequence number should only be proceeded if all 'stop's
+	// of the same sequence number have completed, the 'start' events need to be
+	// added after the 'stop' events are there to block them.
 	stoppedAddedOk := addStoppedTasks(validTasks, taskEngine)
-	// Now add the rest of the tasks
 	nonstoppedAddedOk := addNonstoppedTasks(validTasks, taskEngine)
 	if !stoppedAddedOk || !nonstoppedAddedOk {
 		allTasksOk = false
@@ -211,7 +214,7 @@ func handleUnrecognizedTask(cs acsclient.ClientServer, client api.ECSClient, clu
 	eventhandler.AddTaskEvent(api.TaskStateChange{
 		TaskArn: *task.Arn,
 		Status:  api.TaskStopped,
-		Reason:  "UnrecognizedTask: Error loading task: " + err.Error(),
+		Reason:  UnrecognizedTaskError{err}.Error(),
 	}, client)
 }
 
