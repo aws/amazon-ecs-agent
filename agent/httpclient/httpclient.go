@@ -26,6 +26,10 @@ import (
 
 const defaultTimeout = 10 * time.Minute
 
+// Taken from the default http.Client behavior
+const defaultDialTimeout = 30 * time.Second
+const defaultDialKeepalive = 30 * time.Second
+
 //go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
 
 type ecsRoundTripper struct {
@@ -56,8 +60,8 @@ func New(timeout time.Duration, insecureSkipVerify bool) *http.Client {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:   defaultDialTimeout,
+			KeepAlive: defaultDialKeepalive,
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}

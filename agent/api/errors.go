@@ -13,7 +13,11 @@
 
 package api
 
-import "github.com/awslabs/aws-sdk-go/aws"
+import (
+	"net/http"
+
+	"github.com/awslabs/aws-sdk-go/aws"
+)
 
 // Implements Error & Retriable
 type APIError struct {
@@ -24,7 +28,7 @@ type APIError struct {
 func NewAPIError(err error) *APIError {
 	if apierr, ok := err.(aws.APIError); ok {
 		// ClientExceptions are not retriable
-		if apierr.Code == "ClientException" || (apierr.StatusCode >= 400 && apierr.StatusCode < 500) {
+		if apierr.Code == "ClientException" || (apierr.StatusCode >= http.StatusBadRequest && apierr.StatusCode < http.StatusInternalServerError) {
 			return &APIError{err, false}
 		}
 	}
