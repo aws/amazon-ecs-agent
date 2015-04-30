@@ -126,6 +126,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTaskStop)
 	taskEngine.AddTask(sleepTaskStop)
 
+	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	client.EXPECT().RemoveContainer("containerId").Return(nil)
 
 	test_time.Warp(4 * time.Hour)
@@ -285,15 +287,30 @@ func TestSteadyStatePoll(t *testing.T) {
 	default:
 	}
 
-	// Expect that in a short time, the agent will poll and need to describe
-	client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, engine.DockerContainerMetadata{DockerId: "containerId"})
-	test_time.Warp(12 * time.Minute)
-	// Warp 0 minutes due to a bug in test_time; it uses a channel to notify rather than a broadcast so multiple sleeps will not be notified.
-	// This can be removed when that bug is fixed, but will have no impact then either
-	test_time.Warp(0 * time.Minute)
+	// Two steady state oks, one stop
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, engine.DockerContainerMetadata{DockerId: "containerId"}).Times(2),
+		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, engine.DockerContainerMetadata{DockerId: "containerId"}),
+	)
+	// Due to how the mock time works, we actually have to warp 10 minutes per
+	// steady-state event. That's 10 per timeout + 10 per describe * 1 container.
+	// The reason for this is the '.After' call happens regardless of whether the
+	// value gets read, and the test sleep will add that time to elapsed, even
+	// though in real-time-units that much time would not have elapsed.
+	test_time.Warp(60 * time.Minute)
 
-	// Now let's pretend the container stopped but docker bugged out and didn't give us the event until we described it ...
-	client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, engine.DockerContainerMetadata{DockerId: "containerId"})
-	test_time.Warp(10 * time.Minute)
-	test_time.Warp(0 * time.Minute)
+	contEvent := <-contEvents
+	if contEvent.Status != api.ContainerStopped {
+		t.Error("Expected container to be stopped")
+	}
+	if (<-taskEvents).Status != api.TaskStopped {
+		t.Fatal("And then task")
+	}
+	select {
+	case <-taskEvents:
+		t.Fatal("Should be out of events")
+	case <-contEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
 }
