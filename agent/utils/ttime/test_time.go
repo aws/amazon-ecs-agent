@@ -1,6 +1,9 @@
 package ttime
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // TestTime implements a time that is able to be moved forward easily
 type TestTime struct {
@@ -10,30 +13,29 @@ type TestTime struct {
 	warped time.Duration
 	slept  time.Duration
 
-	// Whenever we warp around or toggle behavior, send a value down this
-	// channel so all current calls can check if it affects them
-	timeChange chan bool
+	// Whenever we warp around or toggle LudicrousSpeed, broadcast to any waiting sleeps so they can recalculate remaining time
+	timeChange *sync.Cond
 }
 
 // NewTestTime returns a default TestTime. It will not be LudicrousSpeed and
 // will behave like a normal time
 func NewTestTime() *TestTime {
 	return &TestTime{
-		timeChange: make(chan bool, 1),
+		timeChange: sync.NewCond(&sync.Mutex{}),
 	}
 }
 
 // Warp moves the mock time forwards by the given duration.
 func (t *TestTime) Warp(d time.Duration) {
 	t.warped += d
-	go func() { t.timeChange <- true }()
+	t.timeChange.Broadcast()
 }
 
 // LudicrousSpeed can be called to toggle LudicrousSpeed (default off). When
 // LudicrousSpeed is engaged, all calls to "sleep" will succeed instantly.
 func (t *TestTime) LudicrousSpeed(b bool) {
 	t.IsLudicrousSpeed = b
-	go func() { t.timeChange <- true }()
+	t.timeChange.Broadcast()
 }
 
 // Now returns the current time, including any time-warping that has occured.
@@ -56,31 +58,27 @@ func (t *TestTime) After(d time.Duration) <-chan time.Time {
 // reduce the amount of time slept and LudicrousSpeed will cause instant
 // success.
 func (t *TestTime) Sleep(d time.Duration) {
+	defer func() {
+		t.slept += d
+		t.timeChange.Broadcast()
+	}()
+
+	t.timeChange.L.Lock()
+	defer t.timeChange.L.Unlock()
+
 	// Calculate the 'real' end time so previously applied Warps work as
 	// expected. Add in the 'slept' time to ensure sleeps accumulate time
 	endTime := time.Now().Add(t.slept).Add(d)
-	done := make(chan bool, 1)
-
-	defer func() {
-		t.slept += d
-	}()
-
-	for {
-		remainingTime := endTime.Sub(t.Now())
+	for remainingTime := endTime.Sub(t.Now()); remainingTime > 0; remainingTime = endTime.Sub(t.Now()) {
 		if t.IsLudicrousSpeed {
 			t.Warp(remainingTime)
-			return
+			break
 		}
-
-		go func() {
+		go func(remaining time.Duration) {
 			time.Sleep(remainingTime)
-			done <- true
-		}()
+			t.timeChange.Broadcast()
+		}(remainingTime)
 
-		select {
-		case <-done:
-			return
-		case <-t.timeChange:
-		}
+		t.timeChange.Wait()
 	}
 }

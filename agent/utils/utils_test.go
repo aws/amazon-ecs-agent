@@ -95,7 +95,7 @@ func TestSlicesDeepEqual(t *testing.T) {
 }
 
 func TestRetryWithBackoff(t *testing.T) {
-	test_time := &ttime.TestTime{}
+	test_time := ttime.NewTestTime()
 	test_time.LudicrousSpeed(true)
 	ttime.SetTime(test_time)
 
@@ -129,7 +129,7 @@ func TestRetryWithBackoff(t *testing.T) {
 }
 
 func TestRetryNWithBackoff(t *testing.T) {
-	test_time := &ttime.TestTime{}
+	test_time := ttime.NewTestTime()
 	test_time.LudicrousSpeed(true)
 	ttime.SetTime(test_time)
 
