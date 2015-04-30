@@ -222,3 +222,78 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	default:
 	}
 }
+
+func TestSteadyStatePoll(t *testing.T) {
+	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	defer ctrl.Finish()
+	ttime.SetTime(test_time)
+
+	sleepTask := testdata.LoadTask("sleep5")
+
+	eventStream := make(chan engine.DockerContainerChangeEvent)
+
+	dockerEvent := func(status api.ContainerStatus) engine.DockerContainerChangeEvent {
+		meta := engine.DockerContainerMetadata{
+			DockerId: "containerId",
+		}
+		return engine.DockerContainerChangeEvent{status, meta}
+	}
+
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	for _, container := range sleepTask.Containers {
+
+		client.EXPECT().PullImage(container.Image).Return(engine.DockerContainerMetadata{})
+
+		dockerConfig, err := sleepTask.DockerConfig(container)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any()).Do(func(x, y interface{}) {
+			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
+		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+
+		client.EXPECT().StartContainer("containerId", gomock.Any()).Do(func(id string, hostConfig *docker.HostConfig) {
+			containerMapByArn, _ := taskEngine.(*engine.DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
+			computedHostConfig, _ := sleepTask.DockerHostConfig(container, containerMapByArn)
+			if !reflect.DeepEqual(hostConfig, computedHostConfig) {
+				t.Fatal("Host config mismatch")
+			}
+
+			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
+		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+	}
+
+	err := taskEngine.Init()
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	taskEngine.AddTask(sleepTask)
+
+	if (<-contEvents).Status != api.ContainerRunning {
+		t.Fatal("Expected container to run first")
+	}
+	if (<-taskEvents).Status != api.TaskRunning {
+		t.Fatal("And then task")
+	}
+	select {
+	case <-taskEvents:
+		t.Fatal("Should be out of events")
+	case <-contEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
+
+	// Expect that in a short time, the agent will poll and need to describe
+	client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, engine.DockerContainerMetadata{DockerId: "containerId"})
+	test_time.Warp(12 * time.Minute)
+	// Warp 0 minutes due to a bug in test_time; it uses a channel to notify rather than a broadcast so multiple sleeps will not be notified.
+	// This can be removed when that bug is fixed, but will have no impact then either
+	test_time.Warp(0 * time.Minute)
+
+	// Now let's pretend the container stopped but docker bugged out and didn't give us the event until we described it ...
+	client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, engine.DockerContainerMetadata{DockerId: "containerId"})
+	test_time.Warp(10 * time.Minute)
+	test_time.Warp(0 * time.Minute)
+}

@@ -54,12 +54,12 @@ type DockerClient interface {
 	CreateContainer(*docker.Config, string) DockerContainerMetadata
 	StartContainer(string, *docker.HostConfig) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
+	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 
 	RemoveContainer(string) error
 
 	GetContainerName(string) (string, error)
 	InspectContainer(string) (*docker.Container, error)
-	DescribeContainer(string) (api.ContainerStatus, error)
 
 	Version() (string, error)
 }
@@ -261,18 +261,14 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 	return api.ContainerStopped
 }
 
-func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, error) {
+func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, DockerContainerMetadata) {
 	client := dg.dockerClient
-
-	if len(dockerId) == 0 {
-		return api.ContainerStatusNone, errors.New("Invalid container id: ''")
-	}
 
 	dockerContainer, err := client.InspectContainer(dockerId)
 	if err != nil {
-		return api.ContainerStatusNone, err
+		return api.ContainerStatusNone, DockerContainerMetadata{Error: err}
 	}
-	return dockerStateToState(dockerContainer.State), nil
+	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
 
 func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
@@ -363,7 +359,12 @@ func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	if err != nil {
 		return DockerContainerMetadata{Error: err}
 	}
+	return metadataFromContainer(dockerContainer)
+}
+
+func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
 	var bindings []api.PortBinding
+	var err error
 	if dockerContainer.NetworkSettings != nil {
 		// Convert port bindings into the format our container expects
 		bindings, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
@@ -373,7 +374,7 @@ func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 		}
 	}
 	metadata := DockerContainerMetadata{
-		DockerId:     id,
+		DockerId:     dockerContainer.ID,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}

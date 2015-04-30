@@ -338,13 +338,13 @@ func TestContainerEvents(t *testing.T) {
 		t.Error("Incorrect volume mapping")
 	}
 
-	stoppedContainer := &docker.Container{
-		ID: "cid3",
-		State: docker.State{
-			ExitCode: 20,
-		},
-	}
 	for i := 0; i < 3; i++ {
+		stoppedContainer := &docker.Container{
+			ID: "cid3" + strconv.Itoa(i),
+			State: docker.State{
+				ExitCode: 20,
+			},
+		}
 		mockDocker.EXPECT().InspectContainer("cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
 	}
 	go func() {
@@ -356,7 +356,7 @@ func TestContainerEvents(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		anEvent := <-dockerEvents
 		if anEvent.DockerId != "cid3"+strconv.Itoa(i) {
-			t.Error("Wrong container id")
+			t.Error("Wrong container id: " + anEvent.DockerId)
 		}
 		if anEvent.Status != api.ContainerStopped {
 			t.Error("Should be stopped")

@@ -197,13 +197,13 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				}
 			}
 			if cont.DockerId != "" {
-				currentState, err := engine.client.DescribeContainer(cont.DockerId)
-				if err != nil {
+				currentState, metadata := engine.client.DescribeContainer(cont.DockerId)
+				if metadata.Error != nil {
 					currentState = api.ContainerStopped
 					if !cont.Container.KnownTerminal() {
 						// TODO error type
 						cont.Container.ApplyingError = api.NewApplyingError(errors.New("Docker did not recognize container id after an ECS Agent restart"))
-						log.Warn("Could not describe previously known container; assuming dead", "err", err)
+						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error)
 					}
 				}
 				if currentState > cont.Container.KnownStatus {
@@ -214,6 +214,35 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		engine.startTask(task)
 	}
 	engine.saver.Save()
+}
+
+// CheckTaskState inspects the state of all containers within a task and writes
+// their state to the managed task's container channel.
+func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
+	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
+	if !ok {
+		log.Warn("Could not check task state for task; no task in state", "task", task)
+	}
+	for _, container := range task.Containers {
+		dockerContainer, ok := taskContainers[container.Name]
+		if !ok {
+			continue
+		}
+		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerId)
+		engine.processTasks.Lock()
+		managedTask, ok := engine.managedTasks[task.Arn]
+		engine.processTasks.Unlock()
+
+		if ok {
+			managedTask.dockerMessages <- dockerContainerChange{
+				container: container,
+				event: DockerContainerChangeEvent{
+					Status:                  status,
+					DockerContainerMetadata: metadata,
+				},
+			}
+		}
+	}
 }
 
 // sweepTask deletes all the containers associated with a task

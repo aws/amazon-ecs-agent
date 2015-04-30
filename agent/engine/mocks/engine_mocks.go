@@ -186,10 +186,10 @@ func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1)
 }
 
-func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, error) {
+func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, engine.DockerContainerMetadata) {
 	ret := _m.ctrl.Call(_m, "DescribeContainer", _param0)
 	ret0, _ := ret[0].(api.ContainerStatus)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(engine.DockerContainerMetadata)
 	return ret0, ret1
 }
 

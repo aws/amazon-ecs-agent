@@ -24,7 +24,7 @@ import (
 
 const (
 	taskStoppedDuration           = 3 * time.Hour
-	steadyStateTaskVerifyInterval = 5 * time.Minute
+	steadyStateTaskVerifyInterval = 10 * time.Minute
 )
 
 type acsTaskUpdate struct {
@@ -107,20 +107,17 @@ func (task *managedTask) overseeTask() {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {
 			llog.Debug("Task at steady state", "state", task.KnownStatus.String())
-			maxWait := make(chan bool)
-			timer := time.AfterFunc(steadyStateTaskVerifyInterval, func() {
+			maxWait := make(chan bool, 1)
+			timer := ttime.After(steadyStateTaskVerifyInterval)
+			go func() {
+				<-timer
 				maxWait <- true
-			})
+			}()
 			timedOut := task.waitEvent(maxWait)
-			timer.Stop()
 
 			if timedOut {
-				// TODO verify container state
-			}
-			select {
-			case <-maxWait:
-			default:
-				close(maxWait)
+				llog.Debug("Checking task to make sure it's still at steadystate")
+				go task.engine.CheckTaskState(task.Task)
 			}
 		}
 
