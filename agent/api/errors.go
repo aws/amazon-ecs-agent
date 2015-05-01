@@ -51,3 +51,49 @@ type badVolumeError struct {
 func (err *badVolumeError) Error() string     { return err.msg }
 func (err *badVolumeError) ErrorName() string { return "InvalidVolumeError" }
 func (err *badVolumeError) Retry() bool       { return false }
+
+type NamedError interface {
+	error
+	ErrorName() string
+}
+
+// NamedError is a wrapper type for 'error' which adds an optional name and provides a symetric marshal/unmarshal
+type DefaultNamedError struct {
+	Err  string `json:"error"`
+	Name string `json:"name"`
+}
+
+// Error implements error
+func (err *DefaultNamedError) Error() string {
+	if err.Name == "" {
+		return "UnknownError: " + err.Err
+	}
+	return err.Name + ": " + err.Err
+}
+
+// ErrorName implements NamedError
+func (err *DefaultNamedError) ErrorName() string {
+	return err.Name
+}
+
+// NewNamedError creates a NamedError.
+func NewNamedError(err error) *DefaultNamedError {
+	if namedErr, ok := err.(NamedError); ok {
+		return &DefaultNamedError{Err: namedErr.Error(), Name: namedErr.ErrorName()}
+	}
+	return &DefaultNamedError{Err: err.Error()}
+}
+
+type HostConfigError struct {
+	msg string
+}
+
+func (err *HostConfigError) Error() string     { return err.msg }
+func (err *HostConfigError) ErrorName() string { return "HostConfigError" }
+
+type DockerClientConfigError struct {
+	msg string
+}
+
+func (err *DockerClientConfigError) Error() string     { return err.msg }
+func (err *DockerClientConfigError) ErrorName() string { return "DockerClientConfigError" }

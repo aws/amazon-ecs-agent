@@ -185,14 +185,14 @@ func (task *Task) Overridden() *Task {
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *Container) (*docker.Config, error) {
+func (task *Task) DockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
 	return task.Overridden().dockerConfig(container.Overridden())
 }
 
-func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
+func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
-		return nil, err
+		return nil, &DockerClientConfigError{err.Error()}
 	}
 
 	dockerEnv := make([]string, 0, len(container.Environment))
@@ -256,26 +256,26 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	dockerPortMap := task.dockerPortMap(container)
 
 	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	binds, err := task.dockerHostBinds(container)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	hostConfig := &docker.HostConfig{

@@ -209,7 +209,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	if event.Error != nil {
 		if container.ApplyingError == nil {
-			container.ApplyingError = api.NewApplyingError(event.Error)
+			container.ApplyingError = api.NewNamedError(event.Error)
 		}
 		if event.Status == api.ContainerStopped {
 			// If we were trying to transition to stopped and had an error, we

@@ -70,7 +70,7 @@ func TestPullImageTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(NamedError).Name() != "DockerTimeoutError" {
+	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	// cleanup
@@ -145,7 +145,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(NamedError).Name() != "DockerTimeoutError" {
+	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
@@ -184,7 +184,7 @@ func TestStartContainerTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(NamedError).Name() != "DockerTimeoutError" {
+	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
@@ -223,7 +223,7 @@ func TestStopContainerTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(NamedError).Name() != "DockerTimeoutError" {
+	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
@@ -261,7 +261,7 @@ func TestInspectContainerTimeout(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if err.(NamedError).Name() != "DockerTimeoutError" {
+	if err.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()

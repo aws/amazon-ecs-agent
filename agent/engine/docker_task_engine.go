@@ -201,9 +201,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				if metadata.Error != nil {
 					currentState = api.ContainerStopped
 					if !cont.Container.KnownTerminal() {
-						// TODO error type
-						cont.Container.ApplyingError = api.NewApplyingError(errors.New("Docker did not recognize container id after an ECS Agent restart"))
-						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error)
+						cont.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerId, "name", cont.DockerName)
 					}
 				}
 				if currentState > cont.Container.KnownStatus {
@@ -401,7 +400,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	log.Info("Creating container", "task", task, "container", container)
 	config, err := task.DockerConfig(container)
 	if err != nil {
-		return DockerContainerMetadata{Error: err}
+		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}
 
 	name := ""
@@ -434,20 +433,17 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	log.Info("Starting container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		// TODO error type
-		return DockerContainerMetadata{Error: errors.New("No such task: " + task.Arn)}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container belongs to unrecognized task " + task.Arn}}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		// TODO type
-		return DockerContainerMetadata{Error: errors.New("No container named '" + container.Name + "' created in " + task.Arn)}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
 	}
 
 	hostConfig, err := task.DockerHostConfig(container, containerMap)
 	if err != nil {
-		// TODO hostconfig function neesd an error tyep
-		return DockerContainerMetadata{Error: err}
+		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}
 
 	return engine.client.StartContainer(dockerContainer.DockerId, hostConfig)
@@ -457,14 +453,12 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	log.Info("Stopping container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		// TODO error type
-		return DockerContainerMetadata{Error: errors.New("No such task: " + task.Arn)}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container belongs to unrecognized task " + task.Arn}}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		// TODO type
-		return DockerContainerMetadata{Error: errors.New("No container named '" + container.Name + "' created in " + task.Arn)}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container not recorded as created"}}
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerId)

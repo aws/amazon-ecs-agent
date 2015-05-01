@@ -16,7 +16,6 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
-	"errors"
 	"io"
 	"os"
 	"sync"
@@ -126,7 +125,10 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	// should be created locally if necessary
 	if image == emptyvolume.Image+":"+emptyvolume.Tag {
 		err := dg.createScratchImageIfNotExists()
-		return DockerContainerMetadata{Error: err}
+		if err != nil {
+			return DockerContainerMetadata{Error: &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + err.Error()}}
+		}
+		return DockerContainerMetadata{}
 	}
 
 	authConfig := dockerauth.GetAuthconfig(image)
@@ -155,8 +157,10 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		}
 	}()
 	err := client.PullImage(opts, authConfig)
-
-	return DockerContainerMetadata{Error: err}
+	if err != nil {
+		return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+	}
+	return DockerContainerMetadata{}
 }
 
 func (dg *DockerGoClient) createScratchImageIfNotExists() error {
@@ -217,7 +221,7 @@ func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	default:
 	}
 	if err != nil {
-		return DockerContainerMetadata{Error: err}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Create", err.Error()}}
 	}
 	return dg.containerMetadata(dockerContainer.ID)
 }
@@ -248,7 +252,7 @@ func (dg *DockerGoClient) startContainer(ctx context.Context, id string, hostCon
 	}
 	metadata := dg.containerMetadata(id)
 	if err != nil {
-		metadata.Error = err
+		metadata.Error = CannotXContainerError{"Start", err.Error()}
 	}
 
 	return metadata
@@ -266,7 +270,7 @@ func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatu
 
 	dockerContainer, err := client.InspectContainer(dockerId)
 	if err != nil {
-		return api.ContainerStatusNone, DockerContainerMetadata{Error: err}
+		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotXContainerError{"Describe", err.Error()}}
 	}
 	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
@@ -323,7 +327,7 @@ func (dg *DockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerId)
 		if metadata.Error == nil {
-			metadata.Error = err
+			metadata.Error = CannotXContainerError{"Stop", err.Error()}
 		}
 	}
 	return metadata
@@ -357,20 +361,20 @@ func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
 func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
-		return DockerContainerMetadata{Error: err}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
 	return metadataFromContainer(dockerContainer)
 }
 
 func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
 	var bindings []api.PortBinding
-	var err error
+	var err api.NamedError
 	if dockerContainer.NetworkSettings != nil {
 		// Convert port bindings into the format our container expects
 		bindings, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 		if err != nil {
 			log.Crit("Docker had network bindings we couldn't understand", "err", err)
-			return DockerContainerMetadata{Error: err}
+			return DockerContainerMetadata{Error: api.NamedError(err)}
 		}
 	}
 	metadata := DockerContainerMetadata{
@@ -382,12 +386,10 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		metadata.ExitCode = &dockerContainer.State.ExitCode
 	}
 	if dockerContainer.State.Error != "" {
-		// TODO type this so that it shows up as 'DockerError: '
-		metadata.Error = errors.New(dockerContainer.State.Error)
+		metadata.Error = NewDockerStateError(dockerContainer.State.Error)
 	}
 	if dockerContainer.State.OOMKilled {
-		// TODO type this so it shows up as 'OutOfMemoryError: ...'
-		metadata.Error = errors.New("Memory limit exceeded; container killed")
+		metadata.Error = OutOfMemoryError{}
 	}
 
 	return metadata
