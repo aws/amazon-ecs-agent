@@ -221,6 +221,7 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		log.Warn("Could not check task state for task; no task in state", "task", task)
+		return
 	}
 	for _, container := range task.Containers {
 		dockerContainer, ok := taskContainers[container.Name]

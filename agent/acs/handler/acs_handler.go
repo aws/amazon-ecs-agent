@@ -203,7 +203,8 @@ func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
 	return allTasksOk
 }
 
-// Unrecognized tasks are handled by sending 'stopped' with a suitable reason to the backend
+// handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
+// a suitable reason to the backend
 func handleUnrecognizedTask(cs acsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
 	if task.Arn == nil {
 		log.Crit("Recieved task with no arn", "task", task, "messageId", *payload.MessageId)

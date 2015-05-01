@@ -215,8 +215,7 @@ func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	select {
 	case <-ctx.Done():
-		// Only inspect if we don't timeout; otherwise no one's listening for our
-		// response anyways
+		// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -247,6 +246,7 @@ func (dg *DockerGoClient) startContainer(ctx context.Context, id string, hostCon
 	err := client.StartContainer(id, hostConfig)
 	select {
 	case <-ctx.Done():
+		// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -303,6 +303,8 @@ func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 	timeout := ttime.After(stopContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.stopContainer(ctx, dockerId) }()
 	select {
@@ -319,7 +321,8 @@ func (dg *DockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	err := client.StopContainer(dockerId, dockerStopTimeoutSeconds)
 	select {
 	case <-ctx.Done():
-		// No one waiting for us anyways
+		// parent function has already timed out and returned; we're writing to a
+		// buffered channel that will never be read
 		return DockerContainerMetadata{}
 	default:
 	}

@@ -27,10 +27,12 @@ func init() {
 	handler = newTaskHandler()
 }
 
+// AddTaskEvent queues up a state change for sending using the given client.
 func AddTaskEvent(change api.TaskStateChange, client api.ECSClient) {
 	addEvent(newSendableTaskEvent(change), client)
 }
 
+// AddContainerEvent queues up a state change for sending using the given client.
 func AddContainerEvent(change api.ContainerStateChange, client api.ECSClient) {
 	addEvent(newSendableContainerEvent(change), client)
 }
