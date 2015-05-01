@@ -104,7 +104,14 @@ func NewECSClient(credentialProvider aws.CredentialsProvider, config *config.Con
 		ecsConfig.Endpoint = config.APIEndpoint
 	}
 	client := ecs.New(ecsConfig)
-	return &ApiECSClient{credentialProvider: credentialProvider, config: config, insecureSkipVerify: insecureSkipVerify, c: client}
+	ec2metadataclient := ec2.DefaultClient
+	return &ApiECSClient{
+		credentialProvider: credentialProvider,
+		config:             config,
+		insecureSkipVerify: insecureSkipVerify,
+		c:                  client,
+		ec2metadata:        ec2metadataclient,
+	}
 }
 
 func getCpuAndMemory() (int64, int64) {
