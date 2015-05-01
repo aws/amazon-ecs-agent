@@ -236,6 +236,7 @@ func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) utils.
 		Cluster: &client.config.Cluster,
 		Task:    &change.TaskArn,
 		Status:  &status,
+		Reason:  &change.Reason,
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
