@@ -20,27 +20,20 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/fsouza/go-dockerclient"
+	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 )
 
 const (
-	DEFAULT_TIMEOUT_SECONDS uint = 30
-
 	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
-)
-
-const (
-	sweepInterval       = 5 * time.Minute
-	taskStoppedDuration = 3 * time.Hour
 )
 
 // The DockerTaskEngine interacts with docker to implement a task
@@ -48,19 +41,28 @@ const (
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
-	state *dockerstate.DockerTaskEngineState
+	// state stores all tasks this task engine is aware of, including their
+	// current state and mappings to/from dockerId and name.
+	// This is used to checkpoint state to disk so tasks may survive agent
+	// failures or updates
+	state        *dockerstate.DockerTaskEngineState
+	managedTasks map[string]*managedTask
 
-	events           <-chan DockerContainerChangeEvent
-	container_events chan api.ContainerStateChange
-	saver            statemanager.Saver
+	taskStopGroup *utilsync.SequentialWaitGroup
+
+	events          <-chan DockerContainerChangeEvent
+	containerEvents chan api.ContainerStateChange
+	taskEvents      chan api.TaskStateChange
+	saver           statemanager.Saver
 
 	client DockerClient
 
-	// The processTasks mutex can be used to wait for all tasks to stop
-	// transitioning before doing a final state save + exit. When write-locked
-	// new tasks will not be processed. Anything transitioning a tasks state
-	// should aquire a read-lock.
-	processTasks sync.RWMutex
+	stopEngine context.CancelFunc
+
+	// processTasks is a mutex that the task engine must aquire before changing
+	// any task's state which it manages. Since this is a lock that encompasses
+	// all tasks, it must not aquire it for any significant duration
+	processTasks sync.Mutex
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -72,9 +74,12 @@ func NewDockerTaskEngine(cfg *config.Config) *DockerTaskEngine {
 		client: nil,
 		saver:  statemanager.NewNoopStateManager(),
 
-		state: dockerstate.NewDockerTaskEngineState(),
+		state:         dockerstate.NewDockerTaskEngineState(),
+		managedTasks:  make(map[string]*managedTask),
+		taskStopGroup: utilsync.NewSequentialWaitGroup(),
 
-		container_events: make(chan api.ContainerStateChange),
+		containerEvents: make(chan api.ContainerStateChange),
+		taskEvents:      make(chan api.TaskStateChange),
 	}
 	dockerauth.SetConfig(cfg)
 
@@ -100,18 +105,19 @@ func (engine *DockerTaskEngine) Init() error {
 		return err
 	}
 
+	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
+	ctx, cancel := context.WithCancel(context.TODO())
+	engine.stopEngine = cancel
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
-	err = engine.openEventstream()
+	err = engine.openEventstream(ctx)
 	if err != nil {
 		return err
 	}
 	engine.synchronizeState()
 	// Now catch up and start processing new events per normal
-	go engine.handleDockerEvents()
-
-	go engine.sweepTasks()
+	go engine.handleDockerEvents(ctx)
 
 	return nil
 }
@@ -125,6 +131,11 @@ func (engine *DockerTaskEngine) initDockerClient() error {
 		engine.client = client
 	}
 	return nil
+}
+
+// SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
+func (engine *DockerTaskEngine) SetDockerClient(client DockerClient) {
+	engine.client = client
 }
 
 // MustInit blocks and retries until an engine can be initialized.
@@ -150,6 +161,14 @@ func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
 	engine.saver = saver
 }
 
+// Shutdown makes a best-effort attempt to cleanup after the task engine.
+// This should not be relied on for anything more complicated than testing.
+func (engine *DockerTaskEngine) Shutdown() {
+	engine.stopEngine()
+	engine.Disable()
+}
+
+// Disable prevents this engine from managing any additional tasks.
 func (engine *DockerTaskEngine) Disable() {
 	engine.processTasks.Lock()
 }
@@ -158,16 +177,19 @@ func (engine *DockerTaskEngine) Disable() {
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
 func (engine *DockerTaskEngine) synchronizeState() {
+	engine.processTasks.Lock()
+	defer engine.processTasks.Unlock()
+
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
+			engine.startTask(task)
 			continue
 		}
 		for _, cont := range conts {
-			var reason string
 			if cont.DockerId == "" {
-				log.Debug("Found container created while we were down", "name", cont.DockerName)
+				log.Debug("Found container potentially created while we were down", "name", cont.DockerName)
 				// Figure out the dockerid
 				describedCont, err := engine.client.InspectContainer(cont.DockerName)
 				if err != nil {
@@ -179,46 +201,51 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				}
 			}
 			if cont.DockerId != "" {
-				currentState, err := engine.client.DescribeContainer(cont.DockerId)
-				if err != nil {
-					currentState = api.ContainerDead
+				currentState, metadata := engine.client.DescribeContainer(cont.DockerId)
+				if metadata.Error != nil {
+					currentState = api.ContainerStopped
 					if !cont.Container.KnownTerminal() {
-						log.Warn("Could not describe previously known container; assuming dead", "err", err)
-						reason = "Docker did not recognize container id after an ECS Agent restart."
+						cont.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerId, "name", cont.DockerName)
 					}
 				}
 				if currentState > cont.Container.KnownStatus {
 					cont.Container.KnownStatus = currentState
 				}
 			}
-			// Over-aggressively resend everything. The task handler will
-			// discard items that have already been sent.
-			// We cannot actually emit an event yet because nothing is handling
-			// events; just throw it in a goroutine so this doesn't block
-			// forever.
-			go engine.emitEvent(task, cont, reason)
 		}
+		engine.startTask(task)
 	}
 	engine.saver.Save()
 }
 
-// sweepTasks periodically sweeps through all tasks looking for tasks that have
-// been in the 'stopped' state for a sufficiently long time. At that time it
-// deletes them and removes them from its "state".
-func (engine *DockerTaskEngine) sweepTasks() {
-	for {
-		tasks := engine.state.AllTasks()
+// CheckTaskState inspects the state of all containers within a task and writes
+// their state to the managed task's container channel.
+func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
+	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
+	if !ok {
+		log.Warn("Could not check task state for task; no task in state", "task", task)
+		return
+	}
+	for _, container := range task.Containers {
+		dockerContainer, ok := taskContainers[container.Name]
+		if !ok {
+			continue
+		}
+		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerId)
+		engine.processTasks.Lock()
+		managedTask, ok := engine.managedTasks[task.Arn]
+		engine.processTasks.Unlock()
 
-		for _, task := range tasks {
-			if task.KnownStatus.Terminal() {
-				if ttime.Since(task.KnownTime) > taskStoppedDuration {
-					engine.sweepTask(task)
-					engine.state.RemoveTask(task)
-				}
+		if ok {
+			managedTask.dockerMessages <- dockerContainerChange{
+				container: container,
+				event: DockerContainerChangeEvent{
+					Status:                  status,
+					DockerContainerMetadata: metadata,
+				},
 			}
 		}
-
-		ttime.Sleep(sweepInterval)
 	}
 }
 
@@ -232,21 +259,51 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	}
 }
 
-// emitEvent passes a given event up through the container_event channel.
-// It also will update the task's knownStatus to match the container's
-// knownStatus
-func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerContainer, reason string) {
-	err := engine.updateContainerMetadata(task, container)
-
-	// Every time something changes, make sure the state for the thing that
-	// changed is known about and move forwards if this change allows us to
-	defer engine.applyTaskState(task)
-
-	// Collect additional info we need for our StateChanges
-	if err != nil {
-		log.Crit("Error updating container metadata", "err", err)
+func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
+	if !task.KnownStatus.BackendRecognized() {
+		return
 	}
-	cont := container.Container
+	if task.SentStatus >= task.KnownStatus {
+		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", task.KnownStatus.String())
+		return
+	}
+	event := api.TaskStateChange{
+		TaskArn:    task.Arn,
+		Status:     task.KnownStatus,
+		Reason:     reason,
+		SentStatus: &task.SentStatus,
+	}
+	log.Info("Task change event", "event", event)
+	engine.taskEvents <- event
+}
+
+// startTask creates a managedTask construct to track the task and then begins
+// pushing it towards its desired state when allowed startTask is protected by
+// the processTasks lock of 'AddTask'. It should not be called from anywhere
+// else and should exit quickly to allow AddTask to do more work.
+func (engine *DockerTaskEngine) startTask(task *api.Task) {
+	// Create a channel that may be used to communicate with this task, survey
+	// what tasks need to be waited for for this one to start, and then spin off
+	// a goroutine to oversee this task
+
+	thisTask := engine.newManagedTask(task)
+
+	go thisTask.overseeTask()
+}
+
+// emitContainerEvent passes a given event up through the containerEvents channel if necessary.
+// It will omit events the backend would not process and will perform best-effort deduplication of events.
+func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
+	if !cont.KnownStatus.BackendRecognized() {
+		return
+	}
+	if cont.IsInternal {
+		return
+	}
+	if cont.SentStatus >= cont.KnownStatus {
+		log.Debug("Already sent container event; no need to re-send", "task", task.Arn, "container", cont.Name, "event", cont.KnownStatus.String())
+		return
+	}
 
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
@@ -258,23 +315,16 @@ func (engine *DockerTaskEngine) emitEvent(task *api.Task, container *api.DockerC
 		ExitCode:      cont.KnownExitCode,
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,
-		Task:          task,
-		Container:     cont,
+		SentStatus:    &cont.SentStatus,
 	}
-	if task_change := task.UpdateTaskStatus(); task_change != api.TaskStatusNone {
-		log.Info("Task change event", "state", task_change)
-		event.TaskStatus = task_change
-	}
-	log.Info("Container change event", "event", event)
-	if cont.IsInternal {
-		return
-	}
-	engine.container_events <- event
+	log.Debug("Container change event", "event", event)
+	engine.containerEvents <- event
+	log.Debug("Container change event passed on", "event", event)
 }
 
 // openEventstream opens, but does not consume, the docker event stream
-func (engine *DockerTaskEngine) openEventstream() error {
-	events, err := engine.client.ContainerEvents()
+func (engine *DockerTaskEngine) openEventstream(ctx context.Context) error {
+	events, err := engine.client.ContainerEvents(ctx)
 	if err != nil {
 		return err
 	}
@@ -284,323 +334,136 @@ func (engine *DockerTaskEngine) openEventstream() error {
 
 // handleDockerEvents must be called after openEventstream; it processes each
 // event that it reads from the docker eventstream
-func (engine *DockerTaskEngine) handleDockerEvents() {
-	for event := range engine.events {
-		log.Info("Handling an event", "event", event)
+func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-engine.events:
+			log.Debug("Handling a docker event", "event", event)
 
-		task, task_found := engine.state.TaskById(event.DockerId)
-		cont, container_found := engine.state.ContainerById(event.DockerId)
-		if !task_found || !container_found {
-			log.Debug("Event for container not managed", "dockerId", event.DockerId)
-			continue
-		}
-		// Update the status to what we now know to be the true status
-		if cont.Container.KnownStatus < event.Status {
-			cont.Container.KnownStatus = event.Status
-			engine.emitEvent(task, cont, "")
-		} else if cont.Container.KnownStatus == event.Status {
-			log.Warn("Redundant docker event; unusual but not critical", "event", event, "cont", cont)
-		} else {
-			if !cont.Container.KnownTerminal() {
-				log.Crit("Docker container went backwards in state! This container will no longer be managed", "cont", cont, "event", event)
+			task, task_found := engine.state.TaskById(event.DockerId)
+			cont, container_found := engine.state.ContainerById(event.DockerId)
+			if !task_found || !container_found {
+				log.Debug("Event for container not managed", "dockerId", event.DockerId)
+				break
 			}
-		}
-	}
-	log.Crit("Docker event stream closed unexpectedly")
-}
-
-// updateContainerMetadata updates a minor set of metadata about a container
-// that cannot be fully determined beforehand. Specifically, it will determine
-// the exit code when a container stops, and the portBindings when it is started
-// (and thus they are fully resolved).
-func (engine *DockerTaskEngine) updateContainerMetadata(task *api.Task, container *api.DockerContainer) error {
-	if container.DockerId == "" {
-		return nil
-	}
-	llog := log.New("task", task, "container", container)
-	switch container.Container.KnownStatus {
-	case api.ContainerRunning:
-		containerInfo, err := engine.client.InspectContainer(container.DockerId)
-		if err != nil {
-			llog.Error("Error inspecting container", "err", err)
-			return err
-		}
-
-		// Port bindings
-		if containerInfo.NetworkSettings != nil {
-			// Convert port bindings into the format our container expects
-			bindings, err := api.PortBindingFromDockerPortBinding(containerInfo.NetworkSettings.Ports)
-			if err != nil {
-				return err
+			engine.processTasks.Lock()
+			managedTask, ok := engine.managedTasks[task.Arn]
+			if !ok {
+				log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
 			}
-			container.Container.KnownPortBindings = bindings
+			log.Debug("Writing docker event to the associated task", "task", task, "event", event)
+			managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
+			log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
+			engine.processTasks.Unlock()
 		}
-
-		task.UpdateMountPoints(container.Container, containerInfo.Volumes)
-	case api.ContainerStopped:
-		fallthrough
-	case api.ContainerDead:
-		containerInfo, err := engine.client.InspectContainer(container.DockerId)
-		if err != nil {
-			llog.Error("Error inspecting container", "err", err)
-			return err
-		}
-
-		// Exit code
-		log.Debug("Updating exit code", "exit code", containerInfo.State.ExitCode)
-		container.Container.KnownExitCode = &containerInfo.State.ExitCode
 	}
-
-	return nil
 }
 
 // TaskEvents returns channels to read task and container state changes. These
 // changes should be read as soon as possible as them not being read will block
-// processing tasks and events.
-func (engine *DockerTaskEngine) TaskEvents() <-chan api.ContainerStateChange {
-	return engine.container_events
-}
-
-// TaskCompleted evaluates if a task is at a steady state; that is that all the
-// containers have reached their desired status as well as the task itself
-func TaskCompleted(task *api.Task) bool {
-	if task.KnownStatus < task.DesiredStatus {
-		return false
-	}
-	for _, container := range task.Containers {
-		if container.KnownStatus < container.DesiredStatus {
-			return false
-		}
-	}
-	return true
+// processing the task referenced by the event.
+func (engine *DockerTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
+	return engine.taskEvents, engine.containerEvents
 }
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask()
 
-	engine.processTasks.RLock()
-	task = engine.state.AddOrUpdateTask(task)
-	engine.processTasks.RUnlock()
+	engine.processTasks.Lock()
+	defer engine.processTasks.Unlock()
 
-	engine.applyTaskState(task)
+	existingTask, exists := engine.state.TaskByArn(task.Arn)
+	if !exists {
+		engine.state.AddTask(task)
+		engine.startTask(task)
+	} else {
+		engine.updateTask(existingTask, task)
+	}
+
 	return nil
 }
 
-type transitionApplyFunc (func(*api.Task, *api.Container) error)
+type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
 
-func tryApplyTransition(task *api.Task, container *api.Container, to api.ContainerStatus, f transitionApplyFunc) error {
-	err := utils.RetryNWithBackoff(utils.NewSimpleBackoff(5*time.Second, 30*time.Second, 0.25, 2), 3, func() error {
-		return f(task, container)
-	})
-
-	if err == nil {
-		container.AppliedStatus = to
-	}
-	return err
-}
-
-func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container) {
-	engine.processTasks.RLock()
-	defer engine.processTasks.RUnlock()
-
-	container.StatusLock.Lock()
-	defer container.StatusLock.Unlock()
-
-	clog := log.New("task", task, "container", container)
-	if container.KnownStatus == container.DesiredStatus {
-		clog.Debug("Container at desired status", "desired", container.DesiredStatus)
-		return
-	}
-	if container.AppliedStatus >= container.DesiredStatus {
-		clog.Debug("Container already working towards desired status", "desired", container.DesiredStatus)
-		return
-	}
-	if container.KnownStatus > container.DesiredStatus {
-		clog.Debug("Container past desired status")
-		return
-	}
-	if !dependencygraph.DependenciesAreResolved(container, task.Containers) {
-		clog.Info("Can't apply state to container yet; dependencies unresolved", "state", container.DesiredStatus)
-		return
-	}
-	// If we got here, the KnownStatus < DesiredStatus and we haven't applied
-	// DesiredStatus yet; appliy a step towards it now
-
-	var err error
-	// Terminal cases are special. If our desired status is terminal, then
-	// immediately go there with no regard to creating or starting the container
-	if container.DesiredTerminal() {
-		// Terminal cases are also special in that we do not record any error
-		// in applying this state; this is because it could overwrite an error
-		// that caused us to stop it and the previous error is more useful to
-		// show. This is also the only state where an error results in a
-		// state-change submission anyways.
-		if container.AppliedStatus < api.ContainerStopped {
-			err = tryApplyTransition(task, container, api.ContainerStopped, engine.stopContainer)
-			if err != nil {
-				clog.Info("Unable to stop container", "err", err)
-				// If there was an error, assume we won't get an event in the
-				// eventstream and emit it ourselves.
-				container.KnownStatus = api.ContainerStopped
-				engine.emitEvent(task, &api.DockerContainer{Container: container}, "")
-				if _, ok := err.(*docker.NoSuchContainer); ok {
-					engine.state.RemoveTask(task)
-				}
-				err = nil
-			}
-		}
-	} else if container.AppliedStatus < api.ContainerPulled {
-		err = tryApplyTransition(task, container, api.ContainerPulled, engine.pullContainer)
-		if err != nil {
-			clog.Warn("Unable to pull container image", "err", err)
-		} else {
-			// PullImage is a special case; update KnownStatus because there is
-			// no corresponding event from the docker eventstream to update
-			// this with.
-			container.KnownStatus = api.ContainerPulled
-		}
-	}
-
-	if !container.DesiredTerminal() {
-		if container.AppliedStatus < api.ContainerCreated {
-			err = tryApplyTransition(task, container, api.ContainerCreated, engine.createContainer)
-			if err != nil {
-				clog.Warn("Unable to create container", "err", err)
-			}
-		} else if container.AppliedStatus < api.ContainerRunning {
-			err = tryApplyTransition(task, container, api.ContainerRunning, engine.startContainer)
-			if err != nil {
-				clog.Warn("Unable to start container", "err", err)
-			}
-		}
-	}
-
-	if err != nil {
-		// If we were unable to successfully accomplish a state transition,
-		// we should move that container to 'stopped'
-		container.ApplyingError = api.NewApplyingError(err)
-		container.DesiredStatus = api.ContainerStopped
-		// Because our desired status is now stopped, we should call this
-		// function again to actually stop it
-		go engine.applyContainerState(task, container)
-	} else {
-		clog.Debug("Successfully applied transition")
-	}
-
-	engine.saver.Save()
-}
-
-// ApplyTaskState checks if there is any work to be done on a given task or any
-// of the containers belonging to it, and if there is work to be done that can
-// be done, it does it. This function can be called frequently (and should be
-// called anytime a container changes) and will do nothing if the task is at a
-// steady state
-func (engine *DockerTaskEngine) applyTaskState(task *api.Task) {
-	llog := log.New("task", task)
-	llog.Info("Top of ApplyTaskState")
-
-	task.InferContainerDesiredStatus()
-
-	if !dependencygraph.ValidDependencies(task) {
-		llog.Error("Invalid task dependency graph")
-		return
-	}
-	if TaskCompleted(task) {
-		llog.Info("Task completed, not acting upon it")
-		return
-	}
-
-	for _, container := range task.Containers {
-		go engine.applyContainerState(task, container)
-	}
+func tryApplyTransition(task *api.Task, container *api.Container, to api.ContainerStatus, f transitionApplyFunc) DockerContainerMetadata {
+	return f(task, container)
 }
 
 func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 	return engine.state.AllTasks(), nil
 }
 
-func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Pulling container", "task", task, "container", container)
 
-	err := engine.client.PullImage(container.Image)
-	if err != nil {
-		return err
-	}
-	return nil
+	return engine.client.PullImage(container.Image)
 }
 
-func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Creating container", "task", task, "container", container)
 	config, err := task.DockerConfig(container)
 	if err != nil {
-		return err
+		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}
 
-	err = func() error {
-		name := ""
-		for i := 0; i < len(container.Name); i++ {
-			c := container.Name[i]
-			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
-				continue
-			}
-			name += string(c)
+	name := ""
+	for i := 0; i < len(container.Name); i++ {
+		c := container.Name[i]
+		if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
+			continue
 		}
+		name += string(c)
+	}
 
-		containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
+	containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 
-		// Lock state for writing so that handleDockerEvents will block on
-		// resolving the 'create' event's dockerid until it is actually in the
-		// added to state.
-		engine.state.Lock()
-		defer engine.state.Unlock()
+	// Pre-add the container in case we stop before the next, more useful,
+	// AddContainer call. This ensures we have a way to get the container if
+	// we die before 'createContainer' returns because we can inspect by
+	// name
+	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
 
-		// Pre-add the container in case we stop before the next, more useful,
-		// AddContainer call. This ensures we have a way to get the container if
-		// we die before 'createContainer' returns because we can inspect by
-		// name
-		engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
-
-		containerId, err := engine.client.CreateContainer(config, containerName)
-		if err != nil {
-			return err
-		}
-		engine.state.AddContainer(&api.DockerContainer{DockerId: containerId, DockerName: containerName, Container: container}, task)
-		log.Info("Created container successfully", "task", task, "container", container)
-		return nil
-	}()
-	return err
+	metadata := engine.client.CreateContainer(config, containerName)
+	if metadata.Error != nil {
+		return metadata
+	}
+	engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerId, DockerName: containerName, Container: container}, task)
+	log.Info("Created container successfully", "task", task, "container", container)
+	return metadata
 }
 
-func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Starting container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return errors.New("No such task: " + task.Arn)
+		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container belongs to unrecognized task " + task.Arn}}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
+		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
 	}
 
 	hostConfig, err := task.DockerHostConfig(container, containerMap)
 	if err != nil {
-		return err
+		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}
 
 	return engine.client.StartContainer(dockerContainer.DockerId, hostConfig)
 }
 
-func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) error {
+func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Stopping container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return errors.New("No such task: " + task.Arn)
+		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container belongs to unrecognized task " + task.Arn}}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
+		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container not recorded as created"}}
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerId)
@@ -620,6 +483,77 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	}
 
 	return engine.client.RemoveContainer(dockerContainer.DockerId)
+}
+
+// updateTask determines if a new transition needs to be applied to the
+// referenced task, and if needed applies it. It should not be called anywhere
+// but from 'AddTask' and is protected by the processTasks lock there.
+func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
+	managedTask, ok := engine.managedTasks[task.Arn]
+	if !ok {
+		log.Crit("ACS message for a task we thought we managed, but don't!", "arn", task.Arn)
+		// Is this the right thing to do?
+		// Calling startTask should overwrite our bad 'state' data with the new
+		// task which we do manage.. but this is still scary and shouldn't have happened
+		engine.startTask(update)
+		return
+	}
+	// Keep the lock because sequence numbers cannot be correct unless they are
+	// also read in the order addtask was called
+	// This does block the engine's ability to ingest any new events (including
+	// stops for past tasks, ack!), but this is necessary for correctness
+	log.Debug("Putting update on the acs channel", "task", task.Arn, "status", update.DesiredStatus, "seqnum", update.StopSequenceNumber)
+	transition := acsTransition{desiredStatus: update.DesiredStatus}
+	transition.seqnum = update.StopSequenceNumber
+	managedTask.acsMessages <- transition
+	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", update.DesiredStatus)
+}
+
+func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
+	return map[api.ContainerStatus]transitionApplyFunc{
+		api.ContainerPulled:  engine.pullContainer,
+		api.ContainerCreated: engine.createContainer,
+		api.ContainerRunning: engine.startContainer,
+		api.ContainerStopped: engine.stopContainer,
+	}
+}
+
+// applyContainerState moves the container to the given state
+func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
+	clog := log.New("task", task, "container", container)
+	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
+	if !ok {
+		clog.Crit("Container desired to transition to an unsupported state", "state", nextState.String())
+		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
+	}
+
+	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
+	if metadata.Error != nil {
+		clog.Info("Error transitioning container", "state", nextState.String())
+	} else {
+		clog.Debug("Transitioned container", "state", nextState.String())
+		engine.saver.Save()
+	}
+	return metadata
+}
+
+func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
+	// Let docker events operate async so that we can continue to handle ACS / other requests
+	// This is safe because 'applyContainerState' will not mutate the task
+	metadata := engine.applyContainerState(task, container, to)
+
+	engine.processTasks.Lock()
+	managedTask, ok := engine.managedTasks[task.Arn]
+	engine.processTasks.Unlock()
+	if ok {
+		managedTask.dockerMessages <- dockerContainerChange{
+			container: container,
+			event: DockerContainerChangeEvent{
+				Status:                  to,
+				DockerContainerMetadata: metadata,
+			},
+		}
+	}
 }
 
 // State is a function primarily meant for testing usage; it is explicitly not

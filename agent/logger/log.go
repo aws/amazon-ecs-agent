@@ -47,15 +47,16 @@ func initLogger() {
 		"warn":  "warn",
 		"error": "error",
 		"crit":  "critical",
+		"none":  "off",
 	}
 	level = DEFAULT_LOGLEVEL
 
 	logger = &Shim{}
 
 	envLevel := os.Getenv(LOGLEVEL_ENV_VAR)
-	SetLevel(envLevel)
 
 	logfile = os.Getenv(LOGFILE_ENV_VAR)
+	SetLevel(envLevel)
 	reloadConfig()
 }
 

@@ -17,11 +17,12 @@
 package mock_engine
 
 import (
-	api "github.com/aws/amazon-ecs-agent/agent/api"
-	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
-	engine "github.com/aws/amazon-ecs-agent/agent/engine"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "code.google.com/p/gomock/gomock"
+	api "github.com/aws/amazon-ecs-agent/agent/api"
+	engine "github.com/aws/amazon-ecs-agent/agent/engine"
+	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
+	go_dockerclient "github.com/fsouza/go-dockerclient"
+	context "golang.org/x/net/context"
 )
 
 // Mock of TaskEngine interface
@@ -111,10 +112,11 @@ func (_mr *_MockTaskEngineRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockTaskEngine) TaskEvents() <-chan api.ContainerStateChange {
+func (_m *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
 	ret := _m.ctrl.Call(_m, "TaskEvents")
-	ret0, _ := ret[0].(<-chan api.ContainerStateChange)
-	return ret0
+	ret0, _ := ret[0].(<-chan api.TaskStateChange)
+	ret1, _ := ret[1].(<-chan api.ContainerStateChange)
+	return ret0, ret1
 }
 
 func (_mr *_MockTaskEngineRecorder) TaskEvents() *gomock.Call {
@@ -163,32 +165,31 @@ func (_m *MockDockerClient) EXPECT() *_MockDockerClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDockerClient) ContainerEvents() (<-chan engine.DockerContainerChangeEvent, error) {
-	ret := _m.ctrl.Call(_m, "ContainerEvents")
+func (_m *MockDockerClient) ContainerEvents(_param0 context.Context) (<-chan engine.DockerContainerChangeEvent, error) {
+	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)
 	ret0, _ := ret[0].(<-chan engine.DockerContainerChangeEvent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDockerClientRecorder) ContainerEvents() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents")
+func (_mr *_MockDockerClientRecorder) ContainerEvents(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents", arg0)
 }
 
-func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 string) (string, error) {
+func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 string) engine.DockerContainerMetadata {
 	ret := _m.ctrl.Call(_m, "CreateContainer", _param0, _param1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(engine.DockerContainerMetadata)
+	return ret0
 }
 
 func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1)
 }
 
-func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, error) {
+func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, engine.DockerContainerMetadata) {
 	ret := _m.ctrl.Call(_m, "DescribeContainer", _param0)
 	ret0, _ := ret[0].(api.ContainerStatus)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(engine.DockerContainerMetadata)
 	return ret0, ret1
 }
 
@@ -218,9 +219,9 @@ func (_mr *_MockDockerClientRecorder) InspectContainer(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectContainer", arg0)
 }
 
-func (_m *MockDockerClient) PullImage(_param0 string) error {
+func (_m *MockDockerClient) PullImage(_param0 string) engine.DockerContainerMetadata {
 	ret := _m.ctrl.Call(_m, "PullImage", _param0)
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(engine.DockerContainerMetadata)
 	return ret0
 }
 
@@ -238,9 +239,9 @@ func (_mr *_MockDockerClientRecorder) RemoveContainer(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveContainer", arg0)
 }
 
-func (_m *MockDockerClient) StartContainer(_param0 string, _param1 *go_dockerclient.HostConfig) error {
+func (_m *MockDockerClient) StartContainer(_param0 string, _param1 *go_dockerclient.HostConfig) engine.DockerContainerMetadata {
 	ret := _m.ctrl.Call(_m, "StartContainer", _param0, _param1)
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(engine.DockerContainerMetadata)
 	return ret0
 }
 
@@ -248,9 +249,9 @@ func (_mr *_MockDockerClientRecorder) StartContainer(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
 }
 
-func (_m *MockDockerClient) StopContainer(_param0 string) error {
+func (_m *MockDockerClient) StopContainer(_param0 string) engine.DockerContainerMetadata {
 	ret := _m.ctrl.Call(_m, "StopContainer", _param0)
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(engine.DockerContainerMetadata)
 	return ret0
 }
 

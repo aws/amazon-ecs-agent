@@ -17,8 +17,8 @@
 package mock_ec2
 
 import (
-	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
 	gomock "code.google.com/p/gomock/gomock"
+	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
 )
 
 // Mock of EC2MetadataClient interface

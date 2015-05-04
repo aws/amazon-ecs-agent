@@ -77,7 +77,7 @@ func TestServeHttp(t *testing.T) {
 	}
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
+	dockerTaskEngine.State().AddTask(&testTask)
 	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
 	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
 
@@ -152,16 +152,16 @@ func TestServeHttp(t *testing.T) {
 	}
 }
 
-func backendMappingTestHelper(containers []*api.Container, testTask api.Task, desiredStatus string, knownStatus string, t *testing.T) {
+func backendMappingTestHelper(containers []*api.Container, testTask *api.Task, desiredStatus string, knownStatus string, t *testing.T) {
 	taskEngine := engine.NewTaskEngine(&config.Config{})
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddOrUpdateTask(&testTask)
-	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, testTask)
 	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
 	server := httptest.NewServer(http.HandlerFunc(taskHandler))
 	defer server.Close()
-	resp, err := http.Get(server.URL+"/v1/tasks")
+	resp, err := http.Get(server.URL + "/v1/tasks")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestBackendMapping(t *testing.T) {
 		Version:       "1",
 		Containers:    containers,
 	}
-	backendMappingTestHelper(containers, testTask, "RUNNING", "RUNNING", t)
+	backendMappingTestHelper(containers, &testTask, "RUNNING", "RUNNING", t)
 
 	testTask = api.Task{
 		Arn:           "task1",
@@ -205,5 +205,5 @@ func TestBackendMapping(t *testing.T) {
 		Containers:    containers,
 	}
 	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
-	backendMappingTestHelper(containers, testTask, "", "STOPPED", t)
+	backendMappingTestHelper(containers, &testTask, "", "STOPPED", t)
 }

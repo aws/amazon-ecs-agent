@@ -15,11 +15,9 @@ package api
 
 var taskStatusMap = map[string]TaskStatus{
 	"NONE":    TaskStatusNone,
-	"UNKNOWN": TaskStatusUnknown,
 	"CREATED": TaskCreated,
 	"RUNNING": TaskRunning,
 	"STOPPED": TaskStopped,
-	"DEAD":    TaskDead,
 }
 
 func (ts *TaskStatus) String() string {
@@ -28,30 +26,30 @@ func (ts *TaskStatus) String() string {
 			return k
 		}
 	}
-	return "UNKNOWN"
+	return "NONE"
 }
 
 // Mapping task status in the agent to that in the backend
 func (ts *TaskStatus) BackendStatus() string {
 	switch *ts {
 	case TaskRunning:
-		return "RUNNING"
+		fallthrough
 	case TaskStopped:
-		return "STOPPED"
-	case TaskDead:
-		return "STOPPED"
+		return ts.String()
 	}
 	return "PENDING"
 }
 
+func (ts *TaskStatus) BackendRecognized() bool {
+	return *ts == TaskRunning || *ts == TaskStopped
+}
+
 var containerStatusMap = map[string]ContainerStatus{
 	"NONE":    ContainerStatusNone,
-	"UNKNOWN": ContainerStatusUnknown,
 	"PULLED":  ContainerPulled,
 	"CREATED": ContainerCreated,
 	"RUNNING": ContainerRunning,
 	"STOPPED": ContainerStopped,
-	"DEAD":    ContainerDead,
 }
 
 func (cs *ContainerStatus) String() string {
@@ -60,7 +58,7 @@ func (cs *ContainerStatus) String() string {
 			return k
 		}
 	}
-	return "UNKNOWN"
+	return "NONE"
 }
 
 func (cs *ContainerStatus) TaskStatus() TaskStatus {
@@ -73,10 +71,8 @@ func (cs *ContainerStatus) TaskStatus() TaskStatus {
 		return TaskRunning
 	case ContainerStopped:
 		return TaskStopped
-	case ContainerDead:
-		return TaskDead
 	}
-	return TaskStatusUnknown
+	return TaskStatusNone
 }
 
 func (ts *TaskStatus) ContainerStatus() ContainerStatus {
@@ -89,22 +85,24 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 		return ContainerRunning
 	case TaskStopped:
 		return ContainerStopped
-	case TaskDead:
-		return ContainerDead
 	}
-	return ContainerStatusUnknown
+	return ContainerStatusNone
+}
+
+func (cs *ContainerStatus) BackendRecognized() bool {
+	return *cs == ContainerRunning || *cs == ContainerStopped
 }
 
 func (cs *ContainerStatus) Terminal() bool {
 	if cs == nil {
 		return false
 	}
-	return *cs == ContainerStopped || *cs == ContainerDead
+	return *cs == ContainerStopped
 }
 
 func (ts *TaskStatus) Terminal() bool {
 	if ts == nil {
 		return false
 	}
-	return *ts == TaskStopped || *ts == TaskDead
+	return *ts == TaskStopped
 }

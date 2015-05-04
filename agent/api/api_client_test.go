@@ -70,11 +70,14 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		ContainerName: "cont",
 		Status:        api.ContainerRunning,
 	})
-	client.SubmitContainerStateChange(api.ContainerStateChange{
+	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		Status:        api.ContainerRunning,
 	})
+	if err != nil {
+		t.Errorf("Unable to submit container state change: %v", err)
+	}
 }
 
 func TestSubmitContainerStateChangeFull(t *testing.T) {
@@ -92,13 +95,16 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		ExitCode:      &exitCode,
 		Reason:        &reason,
 	})
-	client.SubmitContainerStateChange(api.ContainerStateChange{
+	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		Status:        api.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
+	if err != nil {
+		t.Errorf("Unable to submit container state change: %v", err)
+	}
 }
 
 func TestSubmitContainerStateChangeReason(t *testing.T) {
@@ -116,13 +122,16 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 		ExitCode:      &exitCode,
 		Reason:        &reason,
 	})
-	client.SubmitContainerStateChange(api.ContainerStateChange{
+	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		Status:        api.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSubmitContainerStateChangeLongReason(t *testing.T) {
@@ -141,13 +150,16 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 		ExitCode:      &exitCode,
 		Reason:        &trimmedReason,
 	})
-	client.SubmitContainerStateChange(api.ContainerStateChange{
+	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		Status:        api.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
+	if err != nil {
+		t.Errorf("Unable to submit container state change: %v", err)
+	}
 }
 
 func TestRegisterContainerInstance(t *testing.T) {

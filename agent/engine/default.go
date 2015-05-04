@@ -26,11 +26,3 @@ var log = logger.ForModule("TaskEngine")
 func NewTaskEngine(cfg *config.Config) TaskEngine {
 	return NewDockerTaskEngine(cfg)
 }
-
-// mustTaskEngine creates and initializes a taskEngine, retrying until it
-// succeeds.
-func mustTaskEngine() TaskEngine {
-	taskEngine := NewDockerTaskEngine(&config.Config{})
-	taskEngine.MustInit()
-	return taskEngine
-}

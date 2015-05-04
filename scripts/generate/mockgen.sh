@@ -22,7 +22,8 @@ outputfile=${3?Must provide an output file}
 
 export PATH="${GOPATH//://bin:}/bin:$PATH"
 
-cat  > "${outputfile}" << EOF
+data=$(
+cat << EOF
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -38,3 +39,5 @@ cat  > "${outputfile}" << EOF
 
 $(mockgen "$package" "$interfaces")
 EOF
+)
+echo "$data" | goimports > "${outputfile}"

@@ -203,13 +203,24 @@ func TestTaskFromACS(t *testing.T) {
 				},
 			},
 		},
+		StartSequenceNumber: 42,
 	}
 
-	task, err := TaskFromACS(&taskFromAcs)
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	if err != nil {
 		t.Fatalf("Should be able to handle acs task: %v", err)
 	}
 	if !reflect.DeepEqual(task.Containers, expectedTask.Containers) {
+		t.Fatal("Should be equal")
+	}
+	if !reflect.DeepEqual(task.Volumes, expectedTask.Volumes) {
+		t.Fatal("Should be equal")
+	}
+	if !reflect.DeepEqual(task.StartSequenceNumber, expectedTask.StartSequenceNumber) {
+		t.Fatal("Should be equal")
+	}
+	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
 		t.Fatal("Should be equal")
 	}
 }

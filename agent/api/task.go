@@ -18,10 +18,10 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil"
 	"github.com/fsouza/go-dockerclient"
 )
@@ -131,92 +131,36 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 	}
 }
 
-// InferContainerDesiredStatus ensures that all container's desired statuses are
-// compatible with whatever status the task desires to be at or is at.
-// This is used both to initialize container statuses of new tasks and to force
-// auxilery containers into terminal states (e.g. the essential containers died
-// already)
-func (task *Task) InferContainerDesiredStatus() {
+// updateContainerDesiredStatus sets all container's desired status's to the
+// task's desired status
+func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
-		c.DesiredStatus = task.maxStatus().ContainerStatus()
+		if c.DesiredStatus < task.DesiredStatus.ContainerStatus() {
+			c.DesiredStatus = task.DesiredStatus.ContainerStatus()
+		}
 	}
 }
 
-func (task *Task) maxStatus() *TaskStatus {
-	if task.KnownStatus > task.DesiredStatus {
-		return &task.KnownStatus
-	}
-	return &task.DesiredStatus
-}
-
-// UpdateTaskState updates the given task's status based on its container's status.
-// For example, if an essential container stops, it will set the task to
-// stopped.
+// updateTaskKnownState updates the given task's status based on its container's status.
+// It updates to the minimum of all containers no matter what
 // It returns a TaskStatus indicating what change occured or TaskStatusNone if
 // there was no change
-func (task *Task) UpdateTaskStatus() (newStatus TaskStatus) {
-	//The task is the minimum status of all its essential containers unless the
-	//status is terminal in which case it's that status
-	log.Debug("Updating task", "task", task)
-	defer func() {
-		if newStatus != TaskStatusNone {
-			task.KnownTime = time.Now()
-		}
-	}()
+func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
+	llog := log.New("task", task)
+	llog.Debug("Updating task")
 
 	// Set to a large 'impossible' status that can't be the min
-	essentialContainersEarliestStatus := ContainerZombie
-	allContainersEarliestStatus := ContainerZombie
+	earliestStatus := ContainerZombie
 	for _, cont := range task.Containers {
-		log.Debug("On container", "cont", cont)
-		if cont.KnownStatus < allContainersEarliestStatus {
-			allContainersEarliestStatus = cont.KnownStatus
-		}
-		if !cont.Essential {
-			continue
-		}
-
-		if cont.KnownStatus.Terminal() && !task.KnownStatus.Terminal() {
-			// Any essential & terminal container brings down the whole task
-			task.KnownStatus = TaskStopped
-			return task.KnownStatus
-		}
-		// Non-terminal
-		if cont.KnownStatus < essentialContainersEarliestStatus {
-			essentialContainersEarliestStatus = cont.KnownStatus
+		if cont.KnownStatus < earliestStatus {
+			earliestStatus = cont.KnownStatus
 		}
 	}
 
-	if essentialContainersEarliestStatus == ContainerZombie {
-		log.Warn("Task with no essential containers; all properly formed tasks should have at least one essential container", "task", task)
-
-		// If there are no essential containers, assume the container with the
-		// earliest status is essential and proceed.
-		essentialContainersEarliestStatus = allContainersEarliestStatus
-	}
-
-	log.Debug("Earliest essential status is " + essentialContainersEarliestStatus.String())
-
-	if essentialContainersEarliestStatus == ContainerCreated {
-		if task.KnownStatus < TaskCreated {
-			task.KnownStatus = TaskCreated
-			return task.KnownStatus
-		}
-	} else if essentialContainersEarliestStatus == ContainerRunning {
-		if task.KnownStatus < TaskRunning {
-			task.KnownStatus = TaskRunning
-			return task.KnownStatus
-		}
-	} else if essentialContainersEarliestStatus == ContainerStopped {
-		if task.KnownStatus < TaskStopped {
-			task.KnownStatus = TaskStopped
-			return task.KnownStatus
-		}
-	} else if essentialContainersEarliestStatus == ContainerDead {
-		if task.KnownStatus < TaskDead {
-			task.KnownStatus = TaskDead
-			return task.KnownStatus
-		}
+	llog.Debug("Earliest status is " + earliestStatus.String())
+	if task.KnownStatus < earliestStatus.TaskStatus() {
+		task.SetKnownStatus(earliestStatus.TaskStatus())
+		return task.KnownStatus
 	}
 	return TaskStatusNone
 }
@@ -241,14 +185,14 @@ func (task *Task) Overridden() *Task {
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *Container) (*docker.Config, error) {
+func (task *Task) DockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
 	return task.Overridden().dockerConfig(container.Overridden())
 }
 
-func (task *Task) dockerConfig(container *Container) (*docker.Config, error) {
+func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
-		return nil, err
+		return nil, &DockerClientConfigError{err.Error()}
 	}
 
 	dockerEnv := make([]string, 0, len(container.Environment))
@@ -295,7 +239,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	for _, m := range container.MountPoints {
 		vol, exists := task.HostVolumeByName(m.SourceVolume)
 		if !exists {
-			return nil, errors.New("Container references non-existent volume")
+			return nil, &badVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
 		}
 		// you can handle most volume mount types in the HostConfig at run-time;
 		// empty mounts are created by docker at create-time (Config) so set
@@ -303,7 +247,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 		if container.Name == emptyHostVolumeName && container.IsInternal {
 			_, ok := vol.(*EmptyHostVolume)
 			if !ok {
-				return nil, errors.New("invalid state; internal emptyvolume container with non empty volume")
+				return nil, &badVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
 			}
 
 			volumeMap[m.ContainerPath] = struct{}{}
@@ -312,26 +256,26 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, error) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	dockerPortMap := task.dockerPortMap(container)
 
 	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	binds, err := task.dockerHostBinds(container)
 	if err != nil {
-		return nil, err
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	hostConfig := &docker.HostConfig{
@@ -415,7 +359,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 		}
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path")
+			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
@@ -428,15 +372,56 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
-func TaskFromACS(task *ecsacs.Task) (*Task, error) {
-	data, err := jsonutil.BuildJSON(task)
+func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
 		return nil, err
 	}
-	outTask := &Task{}
-	err = json.Unmarshal(data, outTask)
+	task := &Task{}
+	err = json.Unmarshal(data, task)
 	if err != nil {
 		return nil, err
 	}
-	return outTask, nil
+	if task.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
+		task.StartSequenceNumber = *envelope.SeqNum
+	} else if task.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
+		task.StopSequenceNumber = *envelope.SeqNum
+	}
+
+	return task, nil
+}
+
+// updateTaskDesiredStatus determines what status the task should properly be at based on its container's statuses
+func (task *Task) updateTaskDesiredStatus() {
+	llog := log.New("task", task)
+	llog.Debug("Updating task")
+
+	// A task's desired status is stopped if any essential container is stopped
+	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
+	for _, cont := range task.Containers {
+		if cont.Essential && (cont.KnownStatus.Terminal() || cont.DesiredStatus.Terminal()) {
+			llog.Debug("Updating task desired status to stopped", "container", cont.Name)
+			task.DesiredStatus = TaskStopped
+		}
+	}
+}
+
+// UpdateState updates a task's known and desired statuses to be compatible
+// with all of its containers
+// It will return a bool indicating if there was a change
+func (t *Task) UpdateStatus() bool {
+	change := t.updateTaskKnownStatus()
+	// DesiredStatus can change based on a new known status
+	t.UpdateDesiredStatus()
+	return change != TaskStatusNone
+}
+
+func (t *Task) UpdateDesiredStatus() {
+	t.updateTaskDesiredStatus()
+	t.updateContainerDesiredStatus()
+}
+
+func (t *Task) SetKnownStatus(status TaskStatus) {
+	t.KnownStatus = status
+	t.KnownStatusTime = ttime.Now()
 }

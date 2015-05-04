@@ -34,7 +34,14 @@ import (
 // The current version of saved data. Any backwards or forwards incompatible
 // changes to the data-format should increment this number and retain the
 // ability to read old data versions.
-const EcsDataVersion = 1
+// Version changes:
+// 1) initial
+// 2)
+//   a) Add 'ACSSeqNum' top level field (backwards compatible; technically
+//      forwards compatible but could cause resource constraint violations)
+//   b) remove 'DEAD', 'UNKNOWN' state from ever being marshalled (backward and
+//      forward compatible)
+const EcsDataVersion = 2
 
 // Filename in the ECS_DATADIR
 const ecsDataFile = "ecs_agent_data.json"

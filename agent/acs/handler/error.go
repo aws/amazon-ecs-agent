@@ -11,30 +11,12 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine
+package handler
 
-import (
-	"os"
-	"testing"
-)
+type UnrecognizedTaskError struct {
+	err error
+}
 
-func TestPullLibraryImage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		t.Skip("Docker not running")
-	}
-
-	dgc, err := NewDockerGoClient()
-	if err != nil {
-		t.Errorf("Unable to create client: %v", err)
-	}
-
-	for _, image := range []string{"busybox", "library/busybox:latest", "busybox:latest"} {
-		err = dgc.PullImage(image)
-		if err != nil {
-			t.Errorf("Error pulling library image: %v", err)
-		}
-	}
+func (err UnrecognizedTaskError) Error() string {
+	return "UnrecogniedTaskError: Error loading task - " + err.err.Error()
 }

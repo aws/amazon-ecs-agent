@@ -25,22 +25,18 @@ type ContainerStatus int32
 
 const (
 	TaskStatusNone TaskStatus = iota
-	TaskStatusUnknown
 	TaskPulled
 	TaskCreated
 	TaskRunning
 	TaskStopped
-	TaskDead
 )
 
 const (
 	ContainerStatusNone ContainerStatus = iota
-	ContainerStatusUnknown
 	ContainerPulled
 	ContainerCreated
 	ContainerRunning
 	ContainerStopped
-	ContainerDead
 
 	ContainerZombie // Impossible status to use as a virtual 'max'
 )
@@ -61,14 +57,17 @@ type Task struct {
 	Containers []*Container
 	Volumes    []TaskVolume `json:"volumes"`
 
-	DesiredStatus TaskStatus
-	KnownStatus   TaskStatus
-	KnownTime     time.Time
+	DesiredStatus   TaskStatus
+	KnownStatus     TaskStatus
+	KnownStatusTime time.Time `json:"KnownTime"`
 
 	SentStatus TaskStatus
 
 	containersByNameLock sync.Mutex
 	containersByName     map[string]*Container
+
+	StartSequenceNumber int64
+	StopSequenceNumber  int64
 }
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -104,7 +103,7 @@ func (fs *FSHostVolume) SourcePath() string {
 }
 
 type EmptyHostVolume struct {
-	hostPath string `json:"-"`
+	hostPath string
 }
 
 func (e *EmptyHostVolume) SourcePath() string {
@@ -120,37 +119,35 @@ type ContainerStateChange struct {
 	ExitCode     *int
 	PortBindings []PortBinding
 
-	TaskStatus TaskStatus // TaskStatusNone if this does not result in a task state change
+	// This bit is a little hacky; a pointer to the container's sentstatus which
+	// may be updated to indicate what status was sent. This is used to ensure
+	// the same event is handled only once.
+	SentStatus *ContainerStatus
+}
 
-	Task      *Task
-	Container *Container
+type TaskStateChange struct {
+	TaskArn string
+	Status  TaskStatus
+	Reason  string
+
+	// As above, this is the same sort of hacky.
+	// This is a pointer to the task's sent-status that gives the event handler a
+	// hook into storing metadata about the task on the task such that it follows
+	// the lifecycle of the task and so on.
+	SentStatus *TaskStatus
 }
 
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s-%s %s, Overrides: %s Status: %s(%s)", t.Family, t.Version, t.Arn, t.Overrides, t.KnownStatus.String(), t.DesiredStatus.String())
-	res += " Containers: "
+	res := fmt.Sprintf("%s-%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.KnownStatus.String(), t.DesiredStatus.String())
+	res += " Containers: ["
 	for _, c := range t.Containers {
-		res += c.Name + ","
+		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.KnownStatus.String(), c.DesiredStatus.String())
 	}
-	return res
+	return res + "]"
 }
 
 type ContainerOverrides struct {
 	Command *[]string `json:"command"`
-}
-
-// ApplyingError is an error indicating something that went wrong transitioning
-// from one state to another. For now it's very simple (and exists in part to
-// ensure that there's a symetric marshal/unmarshal for the error).
-type ApplyingError struct {
-	Err string `json:"error"`
-}
-
-func (ae *ApplyingError) Error() string {
-	return ae.Err
-}
-func NewApplyingError(err error) *ApplyingError {
-	return &ApplyingError{err.Error()}
 }
 
 type Container struct {
@@ -178,7 +175,9 @@ type Container struct {
 	IsInternal bool
 
 	AppliedStatus ContainerStatus
-	ApplyingError *ApplyingError
+	// ApplyingError is an error that occured trying to transition the container to its desired state
+	// It is propagated to the backend in the form 'Name: ErrorString' as the 'reason' field.
+	ApplyingError *DefaultNamedError
 
 	SentStatus ContainerStatus
 
@@ -196,7 +195,7 @@ type VolumeFrom struct {
 }
 
 func (c *Container) String() string {
-	ret := fmt.Sprintf("%s(%s) - Status: %v", c.Name, c.Image, c.KnownStatus.String())
+	ret := fmt.Sprintf("%s-%s (%s->%s)", c.Name, c.Image, c.KnownStatus.String(), c.DesiredStatus.String())
 	if c.KnownExitCode != nil {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}

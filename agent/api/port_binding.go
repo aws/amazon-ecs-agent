@@ -21,19 +21,19 @@ import (
 
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
-func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, error) {
+func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, NamedError) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
 	for port, bindings := range dockerPortBindings {
 		intPort, err := strconv.Atoi(port.Port())
 		if err != nil {
-			return nil, err
+			return nil, &DefaultNamedError{Name: "UnparseablePort", Err: "Error parsing docker port as int " + err.Error()}
 		}
 		containerPort := intPort
 		for _, binding := range bindings {
 			hostPort, err := strconv.Atoi(binding.HostPort)
 			if err != nil {
-				return nil, err
+				return nil, &DefaultNamedError{Name: "UnparseablePort", Err: "Error parsing port binding as int " + err.Error()}
 			}
 			portBindings = append(portBindings, PortBinding{
 				ContainerPort: uint16(containerPort),

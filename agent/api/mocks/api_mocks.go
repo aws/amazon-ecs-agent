@@ -17,10 +17,10 @@
 package mock_api
 
 import (
-	ecs "github.com/awslabs/aws-sdk-go/service/ecs"
+	gomock "code.google.com/p/gomock/gomock"
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	utils "github.com/aws/amazon-ecs-agent/agent/utils"
-	gomock "code.google.com/p/gomock/gomock"
+	ecs "github.com/awslabs/aws-sdk-go/service/ecs"
 )
 
 // Mock of ECSSDK interface
@@ -152,7 +152,7 @@ func (_mr *_MockECSClientRecorder) SubmitContainerStateChange(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SubmitContainerStateChange", arg0)
 }
 
-func (_m *MockECSClient) SubmitTaskStateChange(_param0 api.ContainerStateChange) utils.RetriableError {
+func (_m *MockECSClient) SubmitTaskStateChange(_param0 api.TaskStateChange) utils.RetriableError {
 	ret := _m.ctrl.Call(_m, "SubmitTaskStateChange", _param0)
 	ret0, _ := ret[0].(utils.RetriableError)
 	return ret0

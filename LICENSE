@@ -145,7 +145,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ***
-Golang archive/tar, copyright (c) 2012 The Go Authors
+Golang archive/tar, Copyright (c) 2012 The Go Authors
+Golang net, Copyright (c) 2009 The Go Authors
 Gorilla Context, Copyright (c) 2012 Rodrigo Moraes
 Gorilla Mux, Copyright (c) 2012 Rodrigo Moraes
 seelog, Copyright (c) 2012, Cloud Instruments Co., Ltd.

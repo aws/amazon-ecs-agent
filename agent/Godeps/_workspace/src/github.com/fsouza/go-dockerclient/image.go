@@ -1,4 +1,4 @@
-// Copyright 2014 go-dockerclient authors. All rights reserved.
+// Copyright 2015 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -26,6 +26,7 @@ type APIImages struct {
 	Size        int64    `json:"Size,omitempty" yaml:"Size,omitempty"`
 	VirtualSize int64    `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
 	ParentID    string   `json:"ParentId,omitempty" yaml:"ParentId,omitempty"`
+	RepoDigests []string `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty"`
 }
 
 // Image is the type representing a docker image and its various properties
@@ -69,6 +70,15 @@ type ImagePre012 struct {
 	Size            int64     `json:"size,omitempty"`
 }
 
+// ListImagesOptions specify parameters to the ListImages function.
+//
+// See http://goo.gl/HRVN1Z for more details.
+type ListImagesOptions struct {
+	All     bool
+	Filters map[string][]string
+	Digests bool
+}
+
 var (
 	// ErrNoSuchImage is the error returned when the image does not exist.
 	ErrNoSuchImage = errors.New("no such image")
@@ -84,19 +94,19 @@ var (
 	// ErrMultipleContexts is the error returned when both a ContextDir and
 	// InputStream are provided in BuildImageOptions
 	ErrMultipleContexts = errors.New("image build may not be provided BOTH context dir and input stream")
+
+	// ErrMustSpecifyNames is the error rreturned when the Names field on
+	// ExportImagesOptions is nil or empty
+	ErrMustSpecifyNames = errors.New("must specify at least one name to export")
 )
 
 // ListImages returns the list of available images in the server.
 //
-// See http://goo.gl/VmcR6v for more details.
-func (c *Client) ListImages(all bool) ([]APIImages, error) {
-	path := "/images/json?all="
-	if all {
-		path += "1"
-	} else {
-		path += "0"
-	}
-	body, _, err := c.do("GET", path, nil)
+// See http://goo.gl/HRVN1Z for more details.
+func (c *Client) ListImages(opts ListImagesOptions) ([]APIImages, error) {
+	// TODO(pedge): what happens if we specify the digest parameter when using API Version <1.18?
+	path := "/images/json?" + queryString(opts)
+	body, _, err := c.do("GET", path, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +122,7 @@ func (c *Client) ListImages(all bool) ([]APIImages, error) {
 //
 // See http://goo.gl/2oJmNs for more details.
 func (c *Client) ImageHistory(name string) ([]ImageHistory, error) {
-	body, status, err := c.do("GET", "/images/"+name+"/history", nil)
+	body, status, err := c.do("GET", "/images/"+name+"/history", nil, false)
 	if status == http.StatusNotFound {
 		return nil, ErrNoSuchImage
 	}
@@ -131,7 +141,29 @@ func (c *Client) ImageHistory(name string) ([]ImageHistory, error) {
 //
 // See http://goo.gl/znj0wM for more details.
 func (c *Client) RemoveImage(name string) error {
-	_, status, err := c.do("DELETE", "/images/"+name, nil)
+	_, status, err := c.do("DELETE", "/images/"+name, nil, false)
+	if status == http.StatusNotFound {
+		return ErrNoSuchImage
+	}
+	return err
+}
+
+// RemoveImageOptions present the set of options available for removing an image
+// from a registry.
+//
+// See http://goo.gl/6V48bF for more details.
+type RemoveImageOptions struct {
+	Force   bool `qs:"force"`
+	NoPrune bool `qs:"noprune"`
+}
+
+// RemoveImageExtended removes an image by its name or ID.
+// Extra params can be passed, see RemoveImageOptions
+//
+// See http://goo.gl/znj0wM for more details.
+func (c *Client) RemoveImageExtended(name string, opts RemoveImageOptions) error {
+	uri := fmt.Sprintf("/images/%s?%s", name, queryString(&opts))
+	_, status, err := c.do("DELETE", uri, nil, false)
 	if status == http.StatusNotFound {
 		return ErrNoSuchImage
 	}
@@ -142,7 +174,7 @@ func (c *Client) RemoveImage(name string) error {
 //
 // See http://goo.gl/Q112NY for more details.
 func (c *Client) InspectImage(name string) (*Image, error) {
-	body, status, err := c.do("GET", "/images/"+name+"/json", nil)
+	body, status, err := c.do("GET", "/images/"+name+"/json", nil, false)
 	if status == http.StatusNotFound {
 		return nil, ErrNoSuchImage
 	}
@@ -153,7 +185,7 @@ func (c *Client) InspectImage(name string) (*Image, error) {
 	var image Image
 
 	// if the caller elected to skip checking the server's version, assume it's the latest
-	if c.SkipServerVersionCheck || c.expectedAPIVersion.GreaterThanOrEqualTo(apiVersion1_12) {
+	if c.SkipServerVersionCheck || c.expectedAPIVersion.GreaterThanOrEqualTo(apiVersion112) {
 		err = json.Unmarshal(body, &image)
 		if err != nil {
 			return nil, err
@@ -198,21 +230,6 @@ type PushImageOptions struct {
 	RawJSONStream bool      `qs:"-"`
 }
 
-// AuthConfiguration represents authentication options to use in the PushImage
-// method. It represents the authentication in the Docker index server.
-type AuthConfiguration struct {
-	Username      string `json:"username,omitempty"`
-	Password      string `json:"password,omitempty"`
-	Email         string `json:"email,omitempty"`
-	ServerAddress string `json:"serveraddress,omitempty"`
-}
-
-// AuthConfigurations represents authentication options to use for the
-// PushImage method accommodating the new X-Registry-Config header
-type AuthConfigurations struct {
-	Configs map[string]AuthConfiguration `json:"configs"`
-}
-
 // PushImage pushes an image to a remote registry, logging progress to w.
 //
 // An empty instance of AuthConfiguration may be used for unauthenticated
@@ -242,7 +259,7 @@ type PullImageOptions struct {
 	RawJSONStream bool      `qs:"-"`
 }
 
-// PullImage pulls an image from a remote registry, logging progress to w.
+// PullImage pulls an image from a remote registry, logging progress to opts.OutputStream.
 //
 // See http://goo.gl/ACyYNS for more details.
 func (c *Client) PullImage(opts PullImageOptions, auth AuthConfiguration) error {
@@ -288,6 +305,24 @@ func (c *Client) ExportImage(opts ExportImageOptions) error {
 	return c.stream("GET", fmt.Sprintf("/images/%s/get", opts.Name), true, false, nil, nil, opts.OutputStream, nil)
 }
 
+// ExportImagesOptions represent the options for ExportImages Docker API call
+//
+// See http://goo.gl/YeZzQK for more details.
+type ExportImagesOptions struct {
+	Names        []string
+	OutputStream io.Writer `qs:"-"`
+}
+
+// ExportImages exports one or more images (as a tar file) into the stream
+//
+// See http://goo.gl/YeZzQK for more details.
+func (c *Client) ExportImages(opts ExportImagesOptions) error {
+	if opts.Names == nil || len(opts.Names) == 0 {
+		return ErrMustSpecifyNames
+	}
+	return c.stream("GET", "/images/get?"+queryString(&opts), true, false, nil, nil, opts.OutputStream, nil)
+}
+
 // ImportImageOptions present the set of informations available for importing
 // an image from a source file or the stdin.
 //
@@ -330,6 +365,7 @@ func (c *Client) ImportImage(opts ImportImageOptions) error {
 // http://goo.gl/tlPXPu.
 type BuildImageOptions struct {
 	Name                string             `qs:"t"`
+	Dockerfile          string             `qs:"dockerfile"`
 	NoCache             bool               `qs:"nocache"`
 	SuppressOutput      bool               `qs:"q"`
 	RmTmpContainer      bool               `qs:"rm"`
@@ -392,7 +428,8 @@ func (c *Client) TagImage(name string, opts TagImageOptions) error {
 		return ErrNoSuchImage
 	}
 	_, status, err := c.do("POST", fmt.Sprintf("/images/"+name+"/tag?%s",
-		queryString(&opts)), nil)
+		queryString(&opts)), nil, false)
+
 	if status == http.StatusNotFound {
 		return ErrNoSuchImage
 	}
@@ -442,7 +479,7 @@ type APIImageSearch struct {
 //
 // See http://goo.gl/xI5lLZ for more details.
 func (c *Client) SearchImages(term string) ([]APIImageSearch, error) {
-	body, _, err := c.do("GET", "/images/search?term="+term, nil)
+	body, _, err := c.do("GET", "/images/search?term="+term, nil, false)
 	if err != nil {
 		return nil, err
 	}

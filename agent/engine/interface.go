@@ -14,6 +14,8 @@
 package engine
 
 import (
+	"encoding/json"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
@@ -26,7 +28,7 @@ type TaskEngine interface {
 	// this task engine from processing new tasks
 	Disable()
 
-	TaskEvents() <-chan api.ContainerStateChange
+	TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange)
 	SetSaver(statemanager.Saver)
 
 	// AddTask adds a new task to the task engine and manages its container's
@@ -35,8 +37,8 @@ type TaskEngine interface {
 
 	ListTasks() ([]*api.Task, error)
 
-	UnmarshalJSON([]byte) error
-	MarshalJSON() ([]byte, error)
-
 	Version() (string, error)
+
+	json.Marshaler
+	json.Unmarshaler
 }

@@ -35,6 +35,9 @@ func SetConfig(conf *config.Config) {
 
 // GetAuthconfig retrieves the correct auth configuration for the given image
 func GetAuthconfig(image string) docker.AuthConfiguration {
+	if keyring == nil {
+		return docker.AuthConfiguration{}
+	}
 	authConfig, ok := keyring.Lookup(image)
 	if ok {
 		return authConfig

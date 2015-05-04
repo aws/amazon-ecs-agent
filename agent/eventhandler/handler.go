@@ -29,18 +29,26 @@ var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
 func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	statesaver = saver
 	for {
-		task_events := taskEngine.TaskEvents()
+		taskEvents, containerEvents := taskEngine.TaskEvents()
 
-		for task_events != nil {
+		for taskEvents != nil && containerEvents != nil {
 			select {
-			case event, open := <-task_events:
+			case event, open := <-containerEvents:
 				if !open {
-					task_events = nil
-					log.Error("Task events closed; this should not happen")
+					containerEvents = nil
+					log.Error("Container events closed")
 					break
 				}
 
-				go AddTaskEvent(event, client)
+				AddContainerEvent(event, client)
+			case event, open := <-taskEvents:
+				if !open {
+					taskEvents = nil
+					log.Crit("Task events closed")
+					break
+				}
+
+				AddTaskEvent(event, client)
 			}
 		}
 	}

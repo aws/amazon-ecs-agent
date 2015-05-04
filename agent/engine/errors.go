@@ -1,0 +1,82 @@
+// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
+package engine
+
+import (
+	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+)
+
+// impossibleTransitionError is an error that occurs when an event causes a
+// container to try and transition to a state that it cannot be moved to
+type impossibleTransitionError struct {
+	state api.ContainerStatus
+}
+
+func (err *impossibleTransitionError) Error() string {
+	return "Cannot transition to " + err.state.String()
+}
+func (err *impossibleTransitionError) ErrorName() string { return "ImpossibleStateTransitionError" }
+
+type DockerTimeoutError struct {
+	duration   time.Duration
+	transition string
+}
+
+func (err *DockerTimeoutError) Error() string {
+	return "Could not transition to " + err.transition + "; timed out after waiting " + err.duration.String()
+}
+func (err *DockerTimeoutError) ErrorName() string { return "DockerTimeoutError" }
+
+type ContainerVanishedError struct{}
+
+func (err ContainerVanishedError) Error() string     { return "No container matching saved ID found" }
+func (err ContainerVanishedError) ErrorName() string { return "ContainerVanishedError" }
+
+type CannotXContainerError struct {
+	transition string
+	msg        string
+}
+
+func (err CannotXContainerError) Error() string { return err.msg }
+func (err CannotXContainerError) ErrorName() string {
+	return "Cannot" + err.transition + "ContainerError"
+}
+
+type OutOfMemoryError struct{}
+
+func (err OutOfMemoryError) Error() string     { return "Container killed due to memory usage" }
+func (err OutOfMemoryError) ErrorName() string { return "OutOfMemoryError" }
+
+// DockerStateError is a wrapper around the error docker puts in the '.State.Error' field of its inspect output.
+type DockerStateError struct {
+	dockerError string
+	name        string
+}
+
+func NewDockerStateError(err string) DockerStateError {
+	// Add stringmatching logic as needed to provide better output than docker
+	return DockerStateError{
+		dockerError: err,
+		name:        "DockerStateError",
+	}
+}
+
+func (err DockerStateError) Error() string {
+	return err.dockerError
+}
+func (err DockerStateError) ErrorName() string {
+	return err.name
+}

@@ -43,7 +43,7 @@ func TestAddTask(t *testing.T) {
 	state := NewDockerTaskEngineState()
 
 	testTask := &api.Task{Arn: "test"}
-	state.AddOrUpdateTask(testTask)
+	state.AddTask(testTask)
 
 	if len(state.AllTasks()) != 1 {
 		t.Error("Should have 1 task")
@@ -63,7 +63,7 @@ func TestTwophaseAddContainer(t *testing.T) {
 	testTask := &api.Task{Arn: "test", Containers: []*api.Container{&api.Container{
 		Name: "testContainer",
 	}}}
-	state.AddOrUpdateTask(testTask)
+	state.AddTask(testTask)
 
 	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
 
@@ -136,7 +136,7 @@ func TestRemoveTask(t *testing.T) {
 		Containers: []*api.Container{testContainer},
 	}
 
-	state.AddOrUpdateTask(testTask)
+	state.AddTask(testTask)
 	state.AddContainer(testDockerContainer, testTask)
 
 	tasks := state.AllTasks()
