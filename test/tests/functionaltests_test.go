@@ -14,55 +14,14 @@
 package functional_tests
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
 	"testing"
 	"time"
+
+	. "github.com/aws/amazon-ecs-agent/test/util"
 )
 
-func TestRunSimpleTests(t *testing.T) {
-	simpleTests, err := filepath.Glob(filepath.Join("testdata", "simpletests", "*.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	type simpleTestMetadata struct {
-		TaskDefinition string
-		Timeout        string
-		ExitCodes      map[string]int
-	}
-
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	for _, test := range simpleTests {
-		testData, err := ioutil.ReadFile(test)
-		if err != nil {
-			t.Error(err)
-		}
-		var aTest simpleTestMetadata
-		json.Unmarshal(testData, &aTest)
-		testTask, err := agent.StartTask(t, aTest.TaskDefinition)
-		if err != nil {
-			t.Fatal(err)
-		}
-		timeout, err := time.ParseDuration(aTest.Timeout)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = testTask.WaitStopped(timeout)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for name, code := range aTest.ExitCodes {
-			if exit, ok := testTask.ContainerExitcode(name); !ok || exit != code {
-				t.Error(name, code, exit, ok)
-			}
-		}
-	}
-}
-
+// TestRunManyTasks runs several tasks in short succession and expects them to
+// all run.
 func TestRunManyTasks(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -95,6 +54,7 @@ func TestRunManyTasks(t *testing.T) {
 	}
 }
 
+// TestPullInvalidImage verifies that an invalid image returns an error
 func TestPullInvalidImage(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -104,4 +64,44 @@ func TestPullInvalidImage(t *testing.T) {
 		t.Fatal("Expected to start invalid-image task")
 	}
 	testTask.ExpectErrorType("error", "CannotPulledContainerError", 1*time.Minute)
+}
+
+// TestSavedState verifies that stopping the agent, stopping a container under
+// its control, and starting the agent results in that container being moved to
+// 'stopped'
+func TestSavedState(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "nginx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testTask.WaitRunning(1 * time.Minute)
+
+	dockerId, err := agent.ResolveTaskDockerID(testTask, "nginx")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = agent.StopAgent()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = agent.DockerClient.StopContainer(dockerId, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = agent.StartAgent()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask.WaitStopped(1 * time.Minute)
+}
+
+func TestPortResourceContention(t *testing.T) {
+
 }
