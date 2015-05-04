@@ -124,7 +124,7 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 		if ok {
 			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
 				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
-					empty.hostPath = hostPath
+					empty.HostPath = hostPath
 				}
 			}
 		}
@@ -359,7 +359,8 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 		}
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+			log.Error("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath

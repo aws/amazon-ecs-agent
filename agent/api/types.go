@@ -103,11 +103,11 @@ func (fs *FSHostVolume) SourcePath() string {
 }
 
 type EmptyHostVolume struct {
-	hostPath string
+	HostPath string `json:"hostPath"`
 }
 
 func (e *EmptyHostVolume) SourcePath() string {
-	return e.hostPath
+	return e.HostPath
 }
 
 type ContainerStateChange struct {
