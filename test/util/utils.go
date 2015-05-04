@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package functional_tests
+package util
 
 import (
 	"crypto/md5"
@@ -21,7 +21,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -47,7 +49,8 @@ func init() {
 // task definition where the name matches the folder in which the task
 // definition is present
 func GetTaskDefinition(name string) (string, error) {
-	tdData, err := ioutil.ReadFile(filepath.Join(".", "testdata", "taskdefinitions", name, "task-definition.json"))
+	_, filename, _, _ := runtime.Caller(0)
+	tdData, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), "..", "testdata", "taskdefinitions", name, "task-definition.json"))
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +89,8 @@ type TestAgent struct {
 	Cluster              string
 	TestDir              string
 
-	dockerClient *docker.Client
+	DockerClient *docker.Client
+	t            *testing.T
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
@@ -96,7 +100,7 @@ type TestAgent struct {
 // 'amazon/amazon-ecs-agent:make', the version created locally by running
 // 'make'
 func RunAgent(t *testing.T, version *string) *TestAgent {
-	agent := &TestAgent{}
+	agent := &TestAgent{t: t}
 	agentImage := "amazon/amazon-ecs-agent:make"
 	if version != nil {
 		agentImage = *version
@@ -107,9 +111,9 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 	if err != nil {
 		t.Fatal(err)
 	}
-	agent.dockerClient = dockerClient
+	agent.DockerClient = dockerClient
 
-	image, err := dockerClient.InspectImage(agentImage)
+	_, err = dockerClient.InspectImage(agentImage)
 	if err != nil {
 		err = dockerClient.PullImage(docker.PullImageOptions{Repository: agentImage}, docker.AuthConfiguration{})
 		if err != nil {
@@ -126,10 +130,24 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 	os.Mkdir(datadir, 0755)
 	agent.TestDir = agentTempdir
 	t.Logf("Created directory %s to store test data in", agentTempdir)
-	t.Logf("Launching agent with image: %s\n", image)
-	agentContainer, err := dockerClient.CreateContainer(docker.CreateContainerOptions{
+	err = agent.StartAgent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return agent
+}
+
+func (agent *TestAgent) StopAgent() error {
+	return agent.DockerClient.StopContainer(agent.DockerID, 10)
+}
+
+func (agent *TestAgent) StartAgent() error {
+	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
+	logdir := filepath.Join(agent.TestDir, "logs")
+	datadir := filepath.Join(agent.TestDir, "data")
+	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{
 		Config: &docker.Config{
-			Image: agentImage,
+			Image: agent.Image,
 			ExposedPorts: map[docker.Port]struct{}{
 				"51678/tcp": struct{}{},
 			},
@@ -151,19 +169,19 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 		},
 	})
 	if err != nil {
-		t.Fatal("Could not create agent container", err)
+		agent.t.Fatal("Could not create agent container", err)
 	}
 	agent.DockerID = agentContainer.ID
-	t.Logf("Agent started as docker container: %s\n", agentContainer.ID)
+	agent.t.Logf("Agent started as docker container: %s\n", agentContainer.ID)
 
-	err = dockerClient.StartContainer(agentContainer.ID, nil)
+	err = agent.DockerClient.StartContainer(agentContainer.ID, nil)
 	if err != nil {
-		t.Fatal("Could not start agent container", err)
+		return errors.New("Could not start agent container " + err.Error())
 	}
 
-	containerMetadata, err := dockerClient.InspectContainer(agentContainer.ID)
+	containerMetadata, err := agent.DockerClient.InspectContainer(agentContainer.ID)
 	if err != nil {
-		t.Fatal("Could not inspect agent container", err)
+		return errors.New("Could not inspect agent container: " + err.Error())
 	}
 	agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
 
@@ -188,8 +206,8 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 		time.Sleep(1 * time.Second)
 	}
 	if localMetadata.ContainerInstanceArn == nil {
-		dockerClient.StopContainer(agent.DockerID, 1)
-		t.Fatal("Could not get agent metadata after launching it")
+		agent.DockerClient.StopContainer(agent.DockerID, 1)
+		return errors.New("Could not get agent metadata after launching it")
 	}
 
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
@@ -199,12 +217,12 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 	} else {
 		agent.Version = "UNKNOWN"
 	}
-	t.Logf("Found agent metadata: %+v", localMetadata)
-	return agent
+	agent.t.Logf("Found agent metadata: %+v", localMetadata)
+	return nil
 }
 
 func (agent *TestAgent) Cleanup() {
-	agent.dockerClient.StopContainer(agent.DockerID, 10)
+	agent.StopAgent()
 	os.RemoveAll(agent.TestDir)
 	trueval := true
 	ECS.DeregisterContainerInstance(&ecs.DeregisterContainerInstanceInput{
@@ -253,13 +271,48 @@ func (agent *TestAgent) StartTask(t *testing.T, task string) (*TestTask, error) 
 	return tasks[0], nil
 }
 
+func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string) (string, error) {
+	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskARN)
+	if err != nil {
+		return "", err
+	}
+	bodyData, err := ioutil.ReadAll(agentTaskResp.Body)
+	if err != nil {
+		return "", err
+	}
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(bodyData, &taskResp)
+	if err != nil {
+		return "", err
+	}
+	if len(taskResp.Containers) == 0 {
+		return "", errors.New("No containers in task response")
+	}
+	for _, container := range taskResp.Containers {
+		if container.Name == containerName {
+			return container.DockerId, nil
+		}
+	}
+	return "", errors.New("No containers matched given name")
+}
+
 type TestTask struct {
 	*ecs.Task
 }
 
+func (task *TestTask) Redescribe() {
+	res, err := ECS.DescribeTasks(&ecs.DescribeTasksInput{
+		Cluster: task.ClusterARN,
+		Tasks:   []*string{task.TaskARN},
+	})
+	if err == nil && len(res.Failures) == 0 {
+		task.Task = res.Tasks[0]
+	}
+}
+
 func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 	timer := time.NewTimer(timeout)
-	atStatus := make(chan error)
+	atStatus := make(chan error, 1)
 
 	cancelled := false
 	go func() {
@@ -268,19 +321,13 @@ func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 			return
 		}
 		for *task.LastStatus != status && !cancelled {
-			res, err := ECS.DescribeTasks(&ecs.DescribeTasksInput{
-				Cluster: task.ClusterARN,
-				Tasks:   []*string{task.TaskARN},
-			})
-			if err == nil && len(res.Failures) == 0 {
-				task.Task = res.Tasks[0]
-			}
+			task.Redescribe()
 			if *task.LastStatus == status {
 				break
-				return
 			}
 			if *task.LastStatus == "STOPPED" && status != "STOPPED" {
 				atStatus <- errors.New("Task terminal; will never reach " + status)
+				return
 			}
 			time.Sleep(5 * time.Second)
 		}

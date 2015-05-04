@@ -1,4 +1,6 @@
 {
+  "Name": "DataVolume2",
+  "Description": "Verify that more complex datavolumes (including empty and volumes-from) work as expected; see Related",
   "TaskDefinition": "datavolume2",
   "Version": ">1.0.0",
   "Timeout": "2m",
