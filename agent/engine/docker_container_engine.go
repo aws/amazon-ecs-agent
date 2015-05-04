@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -145,16 +146,23 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	}
 	go func() {
 		reader := bufio.NewReader(pullDebugOut)
-		var line []byte
+		var line string
 		var err error
-		line, _, err = reader.ReadLine()
 		for err == nil {
-			log.Debug("Pulling image", "image", image, "status", string(line[:]))
-			line, _, err = reader.ReadLine()
+			line, err = reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			log.Debug("Pulling image", "image", image, "status", line)
+			if strings.Contains(line, "already being pulled by another client. Waiting.") {
+				// This can mean the deamon is 'hung' in pulling status for this image, but we can't be sure.
+				log.Error("Image 'pull' status marked as already being pulled", "image", image, "status", line)
+			}
 		}
 		if err != nil && err != io.EOF {
 			log.Warn("Error reading pull image status", "image", image, "err", err)
 		}
+		log.Debug("Pulling image complete", "image", image)
 	}()
 	err := client.PullImage(opts, authConfig)
 	if err != nil {

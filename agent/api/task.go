@@ -359,7 +359,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 		}
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path")
+			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath

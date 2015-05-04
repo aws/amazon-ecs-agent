@@ -177,10 +177,14 @@ func (engine *DockerTaskEngine) Disable() {
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
 func (engine *DockerTaskEngine) synchronizeState() {
+	engine.processTasks.Lock()
+	defer engine.processTasks.Unlock()
+
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
+			engine.startTask(task)
 			continue
 		}
 		for _, cont := range conts {

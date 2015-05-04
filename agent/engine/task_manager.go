@@ -103,6 +103,8 @@ func (task *managedTask) overseeTask() {
 	// 'desiredstatus'es which are a construct of the engine used only here,
 	// not present on the backend
 	task.UpdateStatus()
+	// If this was a 'state restore', send all unsent statuses
+	task.emitCurrentStatus()
 	for {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {
@@ -147,6 +149,13 @@ func (task *managedTask) overseeTask() {
 		task.engine.taskStopGroup.Done(task.StopSequenceNumber)
 	}
 	task.cleanupTask()
+}
+
+func (mtask *managedTask) emitCurrentStatus() {
+	for _, container := range mtask.Containers {
+		mtask.engine.emitContainerEvent(mtask.Task, container, "")
+	}
+	mtask.engine.emitTaskEvent(mtask.Task, "")
 }
 
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus, seqnum int64) {

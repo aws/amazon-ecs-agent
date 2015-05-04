@@ -83,8 +83,8 @@ func (state *DockerTaskEngineState) TaskById(cid string) (*api.Task, bool) {
 
 // AddTask adds a new task to the state
 func (state *DockerTaskEngineState) AddTask(task *api.Task) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	state.tasks[task.Arn] = task
 
@@ -94,8 +94,8 @@ func (state *DockerTaskEngineState) AddTask(task *api.Task) {
 // RemoveTask removes a task from this state. It removes all containers and
 // other associated metadata. It does aquire the write lock.
 func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	task, ok := state.tasks[task.Arn]
 	if !ok {
@@ -114,21 +114,12 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 	}
 }
 
-// Lock aquires the write lock for this state.
-func (state *DockerTaskEngineState) Lock() {
-	state.lock.Lock()
-}
-
-// Unlock releases the write lock for this state.
-func (state *DockerTaskEngineState) Unlock() {
-	state.lock.Unlock()
-}
-
-// AddContainer adds a container to the state. It is expected that the caller aquires the
-// write lock before calling this function.
+// AddContainer adds a container to the state.
 // If the container has been added with only a name and no docker-id, this
 // updates the state to include the docker id
 func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer, task *api.Task) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
 	if task == nil || container == nil {
 		log.Crit("Addcontainer called with nil task/container")
 		return
@@ -136,6 +127,7 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 
 	_, exists := state.tasks[task.Arn]
 	if !exists {
+		log.Debug("AddContainer called with unknown task; adding", "arn", task.Arn)
 		state.tasks[task.Arn] = task
 	}
 
