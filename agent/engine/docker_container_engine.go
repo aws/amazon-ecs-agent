@@ -44,6 +44,12 @@ const (
 	stopContainerTimeout    = 1 * time.Minute
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 10 * time.Second
+
+	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
+	// we expect to see output on the pull progress stream. This is to work
+	// around a docker bug which sometimes results in pulls not progressing.
+	dockerPullBeginTimeout = 45 * time.Second
+	dockerPullJitter       = 10 * time.Second
 )
 
 // Interface to make testing it easier
@@ -136,7 +142,8 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
 	pullLock.Lock()
-	defer pullLock.Unlock()
+	ttime.Sleep(utils.AddJitter(0, dockerPullJitter))
+	pullLock.Unlock()
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
@@ -144,6 +151,10 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		Repository:   image,
 		OutputStream: pullWriter,
 	}
+	timeout := ttime.After(dockerPullBeginTimeout)
+	pullBegan := make(chan bool, 1)
+	pullBeganOnce := sync.Once{}
+
 	go func() {
 		reader := bufio.NewReader(pullDebugOut)
 		var line string
@@ -153,6 +164,9 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 			if err != nil {
 				break
 			}
+			pullBeganOnce.Do(func() {
+				pullBegan <- true
+			})
 			log.Debug("Pulling image", "image", image, "status", line)
 			if strings.Contains(line, "already being pulled by another client. Waiting.") {
 				// This can mean the deamon is 'hung' in pulling status for this image, but we can't be sure.
@@ -162,13 +176,35 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		if err != nil && err != io.EOF {
 			log.Warn("Error reading pull image status", "image", image, "err", err)
 		}
+	}()
+	pullFinished := make(chan error, 1)
+	go func() {
+		pullFinished <- client.PullImage(opts, authConfig)
 		log.Debug("Pulling image complete", "image", image)
 	}()
-	err := client.PullImage(opts, authConfig)
-	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+
+	select {
+	case <-pullBegan:
+		break
+	case err := <-pullFinished:
+		if err != nil {
+			return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+		}
+		return DockerContainerMetadata{}
+	case <-timeout:
+		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}}
 	}
-	return DockerContainerMetadata{}
+	log.Debug("Pull began for image", "image", image)
+
+	select {
+	case err := <-pullFinished:
+		if err != nil {
+			return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+		}
+		return DockerContainerMetadata{}
+	case <-timeout:
+		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}}
+	}
 }
 
 func (dg *DockerGoClient) createScratchImageIfNotExists() error {
