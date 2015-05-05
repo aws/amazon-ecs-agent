@@ -337,6 +337,7 @@ func (mtask *managedTask) containerNextState(container *api.Container) (api.Cont
 // none of those changes will be acted upon until this set of requests to
 // docker completes.
 func (task *managedTask) progressContainers() {
+	log.Debug("Progressing task", "task", task.Task)
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
@@ -403,10 +404,12 @@ func (task *managedTask) progressContainers() {
 				// We don't actually care to wait for 'pull' transitions to finish if
 				// we're just heading to stopped since those resources aren't
 				// inherently linked to this task anyways for e.g. gc and so on.
+				log.Debug("All waiting is for pulled transition; exiting early", "map", transitionsMap, "task", task.Task)
 				break
 			}
 		}
 	}
+	log.Debug("Done transitioning all containers for task", "task", task.Task)
 
 	task.UpdateStatus()
 }

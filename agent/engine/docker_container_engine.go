@@ -48,8 +48,7 @@ const (
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work
 	// around a docker bug which sometimes results in pulls not progressing.
-	dockerPullBeginTimeout = 45 * time.Second
-	dockerPullJitter       = 10 * time.Second
+	dockerPullBeginTimeout = 5 * time.Minute
 )
 
 // Interface to make testing it easier
@@ -142,8 +141,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
 	pullLock.Lock()
-	ttime.Sleep(utils.AddJitter(0, dockerPullJitter))
-	pullLock.Unlock()
+	defer pullLock.Unlock()
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
