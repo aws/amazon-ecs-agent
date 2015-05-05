@@ -166,6 +166,7 @@ func main() {
 		log.Crit("Unretriable error starting communicating with ACS", "err", err)
 		os.Exit(exitcodes.ExitTerminal)
 	}
+	log.Crit("ACS Session should never exit")
 }
 
 func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string, sequenceNumber *utilatomic.IncreasingInt64) (statemanager.StateManager, error) {

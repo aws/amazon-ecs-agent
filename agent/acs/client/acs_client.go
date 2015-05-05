@@ -213,7 +213,10 @@ func (cs *clientServer) AddRequestHandler(f RequestHandler) {
 
 // Close closes the underlying connection
 func (cs *clientServer) Close() error {
-	return cs.conn.Close()
+	if cs.conn != nil {
+		return cs.conn.Close()
+	}
+	return errors.New("No connection to close")
 }
 
 // MakeRequest makes a request using the given input. Note, the input *MUST* be

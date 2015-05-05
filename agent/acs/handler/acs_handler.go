@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -52,37 +53,47 @@ var SequenceNumber = utilatomic.NewIncreasingInt64(1)
 // StartSession creates a session with ACS and handles requests using the passed
 // in arguments.
 func StartSession(containerInstanceArn string, credentialProvider credentials.AWSCredentialProvider, cfg *config.Config, taskEngine engine.TaskEngine, ecsclient api.ECSClient, stateManager statemanager.StateManager, acceptInvalidCert bool) error {
-	backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
-	return utils.RetryWithBackoff(backoff, func() error {
-		acsEndpoint, err := ecsclient.DiscoverPollEndpoint(containerInstanceArn)
-		if err != nil {
-			log.Error("Unable to discover poll endpoint", "err", err)
-			return err
+	backoff := utils.NewSimpleBackoff(time.Second, 2*time.Minute, 0.2, 2)
+	for {
+		acsError := func() error {
+			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(containerInstanceArn)
+			if err != nil {
+				log.Error("Unable to discover poll endpoint", "err", err)
+				return err
+			}
+			log.Debug("Connecting to ACS endpoint " + acsEndpoint)
+
+			url := AcsWsUrl(acsEndpoint, cfg.Cluster, containerInstanceArn, taskEngine)
+
+			client := acsclient.New(url, cfg.AWSRegion, credentialProvider, acceptInvalidCert)
+			defer client.Close()
+
+			client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, containerInstanceArn, taskEngine, ecsclient, stateManager))
+			client.AddRequestHandler(heartbeatHandler(client))
+
+			updater.AddAgentUpdateHandlers(client, cfg, stateManager, taskEngine)
+
+			err = client.Connect()
+			if err != nil {
+				log.Error("Error connecting to ACS: " + err.Error())
+				return err
+			}
+			return client.Serve()
+		}()
+		if acsError == nil || acsError == io.EOF {
+			backoff.Reset()
+		} else {
+			log.Info("Error from acs; backing off", "err", acsError)
+			ttime.Sleep(backoff.Duration())
 		}
-
-		url := AcsWsUrl(acsEndpoint, cfg.Cluster, containerInstanceArn, taskEngine)
-
-		client := acsclient.New(url, cfg.AWSRegion, credentialProvider, acceptInvalidCert)
-		defer client.Close()
-
-		client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, containerInstanceArn, taskEngine, ecsclient, stateManager))
-		client.AddRequestHandler(heartbeatHandler(client))
-
-		updater.AddAgentUpdateHandlers(client, cfg, stateManager, taskEngine)
-
-		err = client.Connect()
-		if err != nil {
-			log.Error("Error connecting to ACS: " + err.Error())
-			return err
-		}
-		return client.Serve()
-	})
+	}
 }
 
 // heartbeatHandler starts a timer and listens for acs heartbeats. If there are
 // none for unexpectedly long, it closes the passed in connection.
 func heartbeatHandler(acsConnection io.Closer) func(*ecsacs.HeartbeatMessage) {
 	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+		log.Debug("ACS Connection hasn't had a heartbeat in too long of a timeout; disconnecting")
 		acsConnection.Close()
 	})
 	return func(*ecsacs.HeartbeatMessage) {
