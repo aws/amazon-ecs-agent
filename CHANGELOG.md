@@ -1,7 +1,18 @@
 # Changelog
 
-## Unreleased
-* Feature - Logs rotate hourly and log file names are suffixed with timestamp
+## 1.1.0
+* Feature - Logs rotate hourly and log file names are suffixed with timestamp.
+* Enhancement - Improve error messages for containers (visible as 'reason' in
+  describe calls).
+* Enhancement - Be more permissive in configuration regarding whitespace.
+* Enhancement - Docker 1.6 support.
+* Bug - Resolve an issue where data-volume containers could result in containers
+  stuck in PENDING.
+* Bug - Fixed an issue where unknown images resulted in containers stuck in
+  PENDING.
+* Bug - Correctly sequence task changes to avoid resource contention. For
+  example, stopping and starting a container using a host port should work
+  reliably now.
 
 ## 1.0.0
 
