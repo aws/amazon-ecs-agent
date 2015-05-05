@@ -248,7 +248,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		container.KnownPortBindings = event.PortBindings
 	}
 	if event.Volumes != nil {
-		// No need to emit an event for this; this information is not propogated up yet
 		mtask.UpdateMountPoints(container, event.Volumes)
 	}
 

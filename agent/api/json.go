@@ -143,6 +143,7 @@ func (overrides *ContainerOverrides) UnmarshalJSON(b []byte) error {
 // UnmarshalJSON for TaskVolume determines the name and volume type, and
 // unmarshals it into the appropriate HostVolume fulfilling interfaces
 func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
+	// Format: {name: volumeName, host: emptyVolumeOrHostVolume}
 	intermediate := make(map[string]json.RawMessage)
 	if err := json.Unmarshal(b, &intermediate); err != nil {
 		return err
@@ -155,17 +156,22 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	if host, ok := intermediate["host"]; ok {
-		// fs host type volume, unmarshal as such
-		var hv FSHostVolume
-		err := json.Unmarshal(host, &hv)
+	if rawhostdata, ok := intermediate["host"]; ok {
+		// Default to trying to unmarshal it as a FSHostVolume
+		var hostvolume FSHostVolume
+		err := json.Unmarshal(rawhostdata, &hostvolume)
 		if err != nil {
 			return err
 		}
-		if hv.FSSourcePath == "" {
-			tv.Volume = &EmptyHostVolume{}
+		if hostvolume.FSSourcePath == "" {
+			// If the FSSourcePath is empty, that must mean it was not an
+			// FSHostVolume (empty path is invalid for that type). The only other
+			// type is an empty volume, so unmarshal it as such.
+			emptyVolume := &EmptyHostVolume{}
+			json.Unmarshal(rawhostdata, emptyVolume)
+			tv.Volume = emptyVolume
 		} else {
-			tv.Volume = &hv
+			tv.Volume = &hostvolume
 		}
 		return nil
 	}

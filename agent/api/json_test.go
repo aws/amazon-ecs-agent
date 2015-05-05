@@ -181,6 +181,9 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 		t.Error("Expected v1 to be an empty volume")
 	}
 
+	if v2.Volume.SourcePath() != "/path" {
+		t.Error("Expected v2 to have 'sourcepath' work correctly")
+	}
 	fs, ok := v2.Volume.(*FSHostVolume)
 	if !ok || fs.FSSourcePath != "/path" {
 		t.Error("Unmarshaled v2 didn't match marshalled v2")
