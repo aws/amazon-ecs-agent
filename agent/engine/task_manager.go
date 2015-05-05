@@ -93,18 +93,30 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 func (task *managedTask) overseeTask() {
 	llog := log.New("task", task)
 
-	if task.StartSequenceNumber != 0 {
-		llog.Debug("Waiting for any previous stops to complete", "seqnum", task.StartSequenceNumber)
-		task.engine.taskStopGroup.Wait(task.StartSequenceNumber)
-		llog.Debug("Wait succeeded; ready to start")
-	}
-
 	// Do a single updatestatus at the beginning to create the container
 	// 'desiredstatus'es which are a construct of the engine used only here,
 	// not present on the backend
 	task.UpdateStatus()
 	// If this was a 'state restore', send all unsent statuses
 	task.emitCurrentStatus()
+
+	if task.StartSequenceNumber != 0 && !task.DesiredStatus.Terminal() {
+		llog.Debug("Waiting for any previous stops to complete", "seqnum", task.StartSequenceNumber)
+		othersStopped := make(chan bool, 1)
+		go func() {
+			task.engine.taskStopGroup.Wait(task.StartSequenceNumber)
+			othersStopped <- true
+		}()
+		for !task.waitEvent(othersStopped) {
+			if task.DesiredStatus.Terminal() {
+				// If we end up here, that means we recieved a start then stop for this
+				// task before a task that was expected to stop before it could
+				// actually stop; no point on waiting for that previous task to stop now
+				break
+			}
+		}
+		llog.Debug("Wait over; ready to move towards status: " + task.DesiredStatus.String())
+	}
 	for {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {

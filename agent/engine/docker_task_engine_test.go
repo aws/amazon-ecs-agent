@@ -314,3 +314,52 @@ func TestSteadyStatePoll(t *testing.T) {
 	default:
 	}
 }
+
+func TestStopWithPendingStops(t *testing.T) {
+	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	defer ctrl.Finish()
+	ttime.SetTime(test_time)
+
+	sleepTask1 := testdata.LoadTask("sleep5")
+	sleepTask1.StartSequenceNumber = 5
+	sleepTask2 := testdata.LoadTask("sleep5")
+	sleepTask2.Arn = "arn2"
+
+	eventStream := make(chan engine.DockerContainerChangeEvent)
+
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+
+	err := taskEngine.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	go func() {
+		for {
+			<-taskEvents
+		}
+	}()
+	go func() {
+		for {
+			<-contEvents
+		}
+	}()
+
+	pulling := make(chan bool)
+	client.EXPECT().PullImage(gomock.Any()).Do(func(x interface{}) {
+		<-pulling
+	})
+	taskEngine.AddTask(sleepTask2)
+	stopSleep2 := *sleepTask2
+	stopSleep2.DesiredStatus = api.TaskStopped
+	stopSleep2.StopSequenceNumber = 4
+	taskEngine.AddTask(&stopSleep2)
+
+	taskEngine.AddTask(sleepTask1)
+	stopSleep1 := *sleepTask1
+	stopSleep1.DesiredStatus = api.TaskStopped
+	stopSleep1.StopSequenceNumber = 5
+	taskEngine.AddTask(&stopSleep1)
+	pulling <- true
+	// If we get here without deadlocking, we passed the test
+}

@@ -62,7 +62,8 @@ type DockerTaskEngine struct {
 	// processTasks is a mutex that the task engine must aquire before changing
 	// any task's state which it manages. Since this is a lock that encompasses
 	// all tasks, it must not aquire it for any significant duration
-	processTasks sync.Mutex
+	// The write mutex should be taken when adding and removing tasks from managedTasks.
+	processTasks sync.RWMutex
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -233,9 +234,9 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 			continue
 		}
 		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerId)
-		engine.processTasks.Lock()
+		engine.processTasks.RLock()
 		managedTask, ok := engine.managedTasks[task.Arn]
-		engine.processTasks.Unlock()
+		engine.processTasks.RUnlock()
 
 		if ok {
 			managedTask.dockerMessages <- dockerContainerChange{
@@ -348,7 +349,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 				log.Debug("Event for container not managed", "dockerId", event.DockerId)
 				break
 			}
-			engine.processTasks.Lock()
+			engine.processTasks.RLock()
 			managedTask, ok := engine.managedTasks[task.Arn]
 			if !ok {
 				log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
@@ -356,7 +357,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 			log.Debug("Writing docker event to the associated task", "task", task, "event", event)
 			managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
 			log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
-			engine.processTasks.Unlock()
+			engine.processTasks.RUnlock()
 		}
 	}
 }
@@ -542,9 +543,9 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 	// This is safe because 'applyContainerState' will not mutate the task
 	metadata := engine.applyContainerState(task, container, to)
 
-	engine.processTasks.Lock()
+	engine.processTasks.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
-	engine.processTasks.Unlock()
+	engine.processTasks.RUnlock()
 	if ok {
 		managedTask.dockerMessages <- dockerContainerChange{
 			container: container,
