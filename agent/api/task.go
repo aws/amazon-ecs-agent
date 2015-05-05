@@ -407,7 +407,7 @@ func (task *Task) updateTaskDesiredStatus() {
 	}
 }
 
-// UpdateState updates a task's known and desired statuses to be compatible
+// UpdateStatus updates a task's known and desired statuses to be compatible
 // with all of its containers
 // It will return a bool indicating if there was a change
 func (t *Task) UpdateStatus() bool {

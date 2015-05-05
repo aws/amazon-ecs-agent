@@ -111,7 +111,7 @@ func (task *managedTask) overseeTask() {
 			if task.DesiredStatus.Terminal() {
 				// If we end up here, that means we recieved a start then stop for this
 				// task before a task that was expected to stop before it could
-				// actually stop; no point on waiting for that previous task to stop now
+				// actually stop
 				break
 			}
 		}
@@ -295,29 +295,40 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
 	}
 }
 
-func (mtask *managedTask) containerNextState(container *api.Container) (api.ContainerStatus, bool) {
+// containerNextState determines the next state a container should go to.
+// It returns: The state it should transition to, a bool indicating whether any
+// action is required, and a bool indicating whether a known status change is
+// possible.
+// 'Stopped, false, true' -> "You can move it to known stopped, but you don't have to call a transition function"
+// 'Running, true, true' -> "You can move it to running and you need to call the transition function"
+// 'None, false, false' -> "This should not be moved; it has unresolved dependencies or is complete; no knownstatus change"
+func (mtask *managedTask) containerNextState(container *api.Container) (api.ContainerStatus, bool, bool) {
 	clog := log.New("task", mtask.Task, "container", container)
 
 	if container.KnownStatus == container.DesiredStatus {
 		clog.Debug("Container at desired status", "desired", container.DesiredStatus)
-		return api.ContainerStatusNone, false
+		return api.ContainerStatusNone, false, false
 	}
 	if container.KnownStatus > container.DesiredStatus {
 		clog.Debug("Container past desired status")
-		return api.ContainerStatusNone, false
+		return api.ContainerStatusNone, false, false
 	}
 	if !dependencygraph.DependenciesAreResolved(container, mtask.Containers) {
 		clog.Debug("Can't apply state to container yet; dependencies unresolved", "state", container.DesiredStatus)
-		return api.ContainerStatusNone, false
+		return api.ContainerStatusNone, false, false
 	}
 
 	var nextState api.ContainerStatus
 	if container.DesiredTerminal() {
 		nextState = api.ContainerStopped
+		if container.KnownStatus != api.ContainerRunning {
+			// If it's not currently running we do not need to do anything to make it become stopped.
+			return nextState, false, true
+		}
 	} else {
 		nextState = container.KnownStatus + 1
 	}
-	return nextState, true
+	return nextState, true, true
 }
 
 // progressContainers tries to step forwards all containers that are able to be
@@ -326,20 +337,33 @@ func (mtask *managedTask) containerNextState(container *api.Container) (api.Cont
 // none of those changes will be acted upon until this set of requests to
 // docker completes.
 func (task *managedTask) progressContainers() {
-	transitionsFinished := &sync.WaitGroup{}
+	// max number of transitions length to ensure writes will never block on
+	// these and if we exit early transitions can exit the goroutine and it'll
+	// get GC'd eventually
+	transitionChange := make(chan bool, len(task.Containers))
+	transitionChangeContainer := make(chan string, len(task.Containers))
+
+	// Map of containerName -> applyingTransition
+	transitionsMap := make(map[string]api.ContainerStatus)
 
 	anyCanTransition := false
 	for _, cont := range task.Containers {
-		nextState, canTransition := task.containerNextState(cont)
+		nextState, shouldCallTransitionFunc, canTransition := task.containerNextState(cont)
 		if !canTransition {
 			continue
 		}
 		// At least one container is able to be moved forwards, so we're not deadlocked
 		anyCanTransition = true
-		transitionsFinished.Add(1)
+
+		if !shouldCallTransitionFunc {
+			task.handleContainerChange(dockerContainerChange{cont, DockerContainerChangeEvent{Status: nextState}})
+			continue
+		}
+		transitionsMap[cont.Name] = nextState
 		go func(container *api.Container, nextStatus api.ContainerStatus) {
 			task.engine.transitionContainer(task.Task, container, nextStatus)
-			transitionsFinished.Done()
+			transitionChange <- true
+			transitionChangeContainer <- container.Name
 		}(cont, nextState)
 	}
 
@@ -361,16 +385,28 @@ func (task *managedTask) progressContainers() {
 	// We've kicked off one or more transitions, wait for them to
 	// complete, but keep reading events as we do.. in fact, we have to for
 	// transitions to complete
-	transitionsFinishedChan := make(chan bool)
-	go func() {
-		transitionsFinished.Wait()
-		transitionsFinishedChan <- true
-	}()
-	for !task.waitEvent(transitionsFinishedChan) {
+	for len(transitionsMap) > 0 {
+		if task.waitEvent(transitionChange) {
+			changedContainer := <-transitionChangeContainer
+			log.Debug("Transition for container finished", "task", task.Task, "container", changedContainer)
+			delete(transitionsMap, changedContainer)
+			log.Debug("Still waiting for", "map", transitionsMap)
+		}
+		if task.DesiredStatus.Terminal() || task.KnownStatus.Terminal() {
+			allWaitingOnPulled := true
+			for _, desired := range transitionsMap {
+				if desired != api.ContainerPulled {
+					allWaitingOnPulled = false
+				}
+			}
+			if allWaitingOnPulled {
+				// We don't actually care to wait for 'pull' transitions to finish if
+				// we're just heading to stopped since those resources aren't
+				// inherently linked to this task anyways for e.g. gc and so on.
+				break
+			}
+		}
 	}
-
-	// All attempts to transition containers we sent to docker have completed
-	close(transitionsFinishedChan)
 
 	task.UpdateStatus()
 }
