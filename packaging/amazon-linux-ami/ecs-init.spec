@@ -27,7 +27,7 @@ Source1:       ecs.conf
 
 BuildRequires: golang
 
-Requires:      docker >= 1.3.0, docker <= 1.5.0
+Requires:      docker >= 1.5.0, docker <= 1.6.0
 Requires:      upstart
 
 %global init_dir %{_sysconfdir}/init
@@ -81,8 +81,11 @@ rm scripts/amazon-ecs-init.1.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
-* Wed Apr 29 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
+* Tue May 5 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
+- Cache Agent version 1.1.0
+- Add support for Docker 1.6.0
 - Force cache load on install/upgrade
+- Add man page
 * Thu Mar 26 2015 Samuel Karp <skarp@amazon.com> - 1.0-1
 - Re-start Agent on non-terminal exit codes
 - Enable Agent self-updates
