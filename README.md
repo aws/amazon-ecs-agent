@@ -19,7 +19,7 @@ tl;dr: *On an Amazon ECS Container Instance*
 
 1. `touch /etc/ecs/ecs.config`
 2. `mkdir -p /var/log/ecs`
-3. `docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -p
+3. `docker run --name ecs-agent -d --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -p
 127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log amazon/amazon-ecs-agent`
 
 See also the Advanced Usage section below.
