@@ -66,6 +66,18 @@ func TestPullInvalidImage(t *testing.T) {
 	testTask.ExpectErrorType("error", "CannotPulledContainerError", 1*time.Minute)
 }
 
+// TestOOMContainer verifies that an OOM container returns an error
+func TestOOMContainer(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "oom-container")
+	if err != nil {
+		t.Fatal("Expected to start invalid-image task")
+	}
+	testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
+}
+
 // TestSavedState verifies that stopping the agent, stopping a container under
 // its control, and starting the agent results in that container being moved to
 // 'stopped'
