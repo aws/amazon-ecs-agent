@@ -150,7 +150,10 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		OutputStream: pullWriter,
 	}
 	timeout := ttime.After(dockerPullBeginTimeout)
+	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
+	// It is here to guard against a bug wherin docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
+	// pullBeganOnce ensures we only indicate it began once (since our channel will only be read 0 or 1 times)
 	pullBeganOnce := sync.Once{}
 
 	go func() {
@@ -193,16 +196,13 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}}
 	}
 	log.Debug("Pull began for image", "image", image)
+	defer log.Debug("Pull completed for image", "image", image)
 
-	select {
-	case err := <-pullFinished:
-		if err != nil {
-			return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
-		}
-		return DockerContainerMetadata{}
-	case <-timeout:
-		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}}
+	err := <-pullFinished
+	if err != nil {
+		return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
 	}
+	return DockerContainerMetadata{}
 }
 
 func (dg *DockerGoClient) createScratchImageIfNotExists() error {
