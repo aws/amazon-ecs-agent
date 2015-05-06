@@ -258,6 +258,7 @@ func (agent *TestAgent) StartMultipleTasks(t *testing.T, task string, num int) (
 
 	testTasks := make([]*TestTask, num)
 	for i, task := range resp.Tasks {
+		agent.t.Logf("Started task: %s\n", *task.TaskARN)
 		testTasks[i] = &TestTask{task}
 	}
 	return testTasks, nil
