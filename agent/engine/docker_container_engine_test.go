@@ -141,7 +141,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	metadata := client.CreateContainer(config.Config, config.Name)
+	metadata := client.CreateContainer(config.Config, nil, config.Name)
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
@@ -160,7 +160,7 @@ func TestCreateContainer(t *testing.T) {
 		mockDocker.EXPECT().CreateContainer(config).Return(&docker.Container{ID: "id"}, nil),
 		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.CreateContainer(config.Config, config.Name)
+	metadata := client.CreateContainer(config.Config, nil, config.Name)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -175,12 +175,12 @@ func TestStartContainerTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StartContainer("id", &docker.HostConfig{}).Do(func(x, y interface{}) {
+	mockDocker.EXPECT().StartContainer("id", nil).Do(func(x, y interface{}) {
 		testTime.Warp(startContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	metadata := client.StartContainer("id", &docker.HostConfig{})
+	metadata := client.StartContainer("id")
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
@@ -194,12 +194,11 @@ func TestStartContainer(t *testing.T) {
 	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
-	hostConfig := &docker.HostConfig{}
 	gomock.InOrder(
-		mockDocker.EXPECT().StartContainer("id", hostConfig).Return(nil),
+		mockDocker.EXPECT().StartContainer("id", nil).Return(nil),
 		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.StartContainer("id", hostConfig)
+	metadata := client.StartContainer("id")
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}

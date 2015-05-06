@@ -176,14 +176,14 @@ func (_mr *_MockDockerClientRecorder) ContainerEvents(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents", arg0)
 }
 
-func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 string) engine.DockerContainerMetadata {
-	ret := _m.ctrl.Call(_m, "CreateContainer", _param0, _param1)
+func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string) engine.DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "CreateContainer", _param0, _param1, _param2)
 	ret0, _ := ret[0].(engine.DockerContainerMetadata)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1)
+func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1, arg2)
 }
 
 func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, engine.DockerContainerMetadata) {
@@ -239,14 +239,14 @@ func (_mr *_MockDockerClientRecorder) RemoveContainer(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveContainer", arg0)
 }
 
-func (_m *MockDockerClient) StartContainer(_param0 string, _param1 *go_dockerclient.HostConfig) engine.DockerContainerMetadata {
-	ret := _m.ctrl.Call(_m, "StartContainer", _param0, _param1)
+func (_m *MockDockerClient) StartContainer(_param0 string) engine.DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "StartContainer", _param0)
 	ret0, _ := ret[0].(engine.DockerContainerMetadata)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) StartContainer(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
+func (_mr *_MockDockerClientRecorder) StartContainer(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0)
 }
 
 func (_m *MockDockerClient) StopContainer(_param0 string) engine.DockerContainerMetadata {

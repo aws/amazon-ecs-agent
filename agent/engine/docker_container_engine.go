@@ -56,8 +56,8 @@ type DockerClient interface {
 	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	PullImage(image string) DockerContainerMetadata
-	CreateContainer(*docker.Config, string) DockerContainerMetadata
-	StartContainer(string, *docker.HostConfig) DockerContainerMetadata
+	CreateContainer(*docker.Config, *docker.HostConfig, string) DockerContainerMetadata
+	StartContainer(string) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 
@@ -235,12 +235,12 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 	return err
 }
 
-func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) DockerContainerMetadata {
+func (dg *DockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
 	timeout := ttime.After(createContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.createContainer(ctx, config, name) }()
+	go func() { response <- dg.createContainer(ctx, config, hostConfig, name) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -250,10 +250,10 @@ func (dg *DockerGoClient) CreateContainer(config *docker.Config, name string) Do
 	}
 }
 
-func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Config, name string) DockerContainerMetadata {
+func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
 	client := dg.dockerClient
 
-	containerOptions := docker.CreateContainerOptions{Config: config, Name: name}
+	containerOptions := docker.CreateContainerOptions{Config: config, HostConfig: hostConfig, Name: name}
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	select {
 	case <-ctx.Done():
@@ -267,12 +267,12 @@ func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	return dg.containerMetadata(dockerContainer.ID)
 }
 
-func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfig) DockerContainerMetadata {
+func (dg *DockerGoClient) StartContainer(id string) DockerContainerMetadata {
 	timeout := ttime.After(startContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.startContainer(ctx, id, hostConfig) }()
+	go func() { response <- dg.startContainer(ctx, id) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -282,10 +282,10 @@ func (dg *DockerGoClient) StartContainer(id string, hostConfig *docker.HostConfi
 	}
 }
 
-func (dg *DockerGoClient) startContainer(ctx context.Context, id string, hostConfig *docker.HostConfig) DockerContainerMetadata {
+func (dg *DockerGoClient) startContainer(ctx context.Context, id string) DockerContainerMetadata {
 	client := dg.dockerClient
 
-	err := client.StartContainer(id, hostConfig)
+	err := client.StartContainer(id, nil)
 	select {
 	case <-ctx.Done():
 		// Parent function already timed out; no need to get container metadata

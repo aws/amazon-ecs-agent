@@ -404,6 +404,21 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Creating container", "task", task, "container", container)
+
+	// Resolve HostConfig
+	// we have to do this in create, not start, because docker no longer handles
+	// merging create config with start hostconfig the same; e.g. memory limits
+	// get lost
+	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
+	if !ok {
+		containerMap = make(map[string]*api.DockerContainer)
+	}
+
+	hostConfig, hcerr := task.DockerHostConfig(container, containerMap)
+	if hcerr != nil {
+		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+	}
+
 	config, err := task.DockerConfig(container)
 	if err != nil {
 		return DockerContainerMetadata{Error: api.NamedError(err)}
@@ -426,7 +441,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// name
 	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
 
-	metadata := engine.client.CreateContainer(config, containerName)
+	metadata := engine.client.CreateContainer(config, hostConfig, containerName)
 	if metadata.Error != nil {
 		return metadata
 	}
@@ -446,13 +461,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	if !ok {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
 	}
-
-	hostConfig, err := task.DockerHostConfig(container, containerMap)
-	if err != nil {
-		return DockerContainerMetadata{Error: api.NamedError(err)}
-	}
-
-	return engine.client.StartContainer(dockerContainer.DockerId, hostConfig)
+	return engine.client.StartContainer(dockerContainer.DockerId)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
