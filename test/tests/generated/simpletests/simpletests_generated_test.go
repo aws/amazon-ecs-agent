@@ -83,6 +83,35 @@ func TestDataVolume2(t *testing.T) {
 
 }
 
+// TestLinkVolumeDependencies Tests that the dependency graph of task definitions is resolved correctly
+func TestLinkVolumeDependencies(t *testing.T) {
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "network-link-2")
+	if err != nil {
+		t.Fatal("Could not start task", err)
+	}
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatal("Could not parse timeout", err)
+	}
+	err = testTask.WaitStopped(timeout)
+	if err != nil {
+		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+	}
+
+	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	}
+
+}
+
 // TestNetworkLink Tests that basic network linking works
 func TestNetworkLink(t *testing.T) {
 	// Parallel is opt in because resource constraints could cause test failures

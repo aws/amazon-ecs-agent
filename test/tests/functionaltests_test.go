@@ -103,6 +103,7 @@ func TestSavedState(t *testing.T) {
 }
 
 func TestPortResourceContention(t *testing.T) {
+	t.Skip("Test not finished being written yet")
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
