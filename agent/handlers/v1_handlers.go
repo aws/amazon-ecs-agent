@@ -110,7 +110,7 @@ func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap))
 	} else {
-		log.Warn("Could not find", resourceId)
+		log.Warn("Could not find requsted resource: " + resourceId)
 		responseJSON, _ = json.Marshal(&TaskResponse{})
 		status = statusBadRequest
 	}
