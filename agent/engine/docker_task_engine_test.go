@@ -15,7 +15,6 @@ package engine_test
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/fsouza/go-dockerclient"
 )
 
 var test_time = ttime.NewTestTime()
@@ -64,17 +62,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any()).Do(func(x, y interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId", gomock.Any()).Do(func(id string, hostConfig *docker.HostConfig) {
-			containerMapByArn, _ := taskEngine.(*engine.DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
-			computedHostConfig, _ := sleepTask.DockerHostConfig(container, containerMapByArn)
-			if !reflect.DeepEqual(hostConfig, computedHostConfig) {
-				t.Fatal("Host config mismatch")
-			}
-
+		client.EXPECT().StartContainer("containerId").Do(func(id string) {
 			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
 		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
 	}
@@ -167,11 +159,11 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any()).Do(func(x, y interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId", gomock.Any()).Return(engine.DockerContainerMetadata{Error: &engine.DockerTimeoutError{}})
+		client.EXPECT().StartContainer("containerId").Return(engine.DockerContainerMetadata{Error: &engine.DockerTimeoutError{}})
 
 		// Expect it to try to stop the container before going on;
 		// in the future the agent might optimize to not stop unless the known
@@ -250,17 +242,11 @@ func TestSteadyStatePoll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any()).Do(func(x, y interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId", gomock.Any()).Do(func(id string, hostConfig *docker.HostConfig) {
-			containerMapByArn, _ := taskEngine.(*engine.DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
-			computedHostConfig, _ := sleepTask.DockerHostConfig(container, containerMapByArn)
-			if !reflect.DeepEqual(hostConfig, computedHostConfig) {
-				t.Fatal("Host config mismatch")
-			}
-
+		client.EXPECT().StartContainer("containerId").Do(func(id string) {
 			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
 		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
 	}
