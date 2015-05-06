@@ -103,5 +103,12 @@ func TestSavedState(t *testing.T) {
 }
 
 func TestPortResourceContention(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
 
+	testTask, err := agent.StartTask(t, "bosybox-port-5180")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testTask.WaitRunning(1 * time.Minute)
 }
