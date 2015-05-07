@@ -12,23 +12,24 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-Name:          ecs-init
-Version:       1.0
-Release:       2%{?dist}
-Group:         System Environment/Base
-Vendor:        Amazon.com
-License:       Apache 2.0
-Summary:       Amazon EC2 Container Service initialization application
-BuildArch:     x86_64
-BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+Name:           ecs-init
+Version:        1.0
+Release:        3%{?dist}
+Group:          System Environment/Base
+Vendor:         Amazon.com
+License:        Apache 2.0
+Summary:        Amazon EC2 Container Service initialization application
+BuildArch:      x86_64
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Source0:       sources.tgz
-Source1:       ecs.conf
+Source0:        sources.tgz
+Source1:        ecs.conf
 
-BuildRequires: golang
+BuildRequires:  golang
 
-Requires:      docker >= 1.5.0, docker <= 1.6.0
-Requires:      upstart
+Requires:       docker > 1.5.0, docker <= 1.6.0
+Requires:       upstart
+Requires(post): docker > 1.5.0
 
 %global init_dir %{_sysconfdir}/init
 %global bin_dir %{_libexecdir}
@@ -36,6 +37,7 @@ Requires:      upstart
 %global cache_dir %{_localstatedir}/cache/ecs
 %global data_dir %{_sharedstatedir}/ecs/data
 %global man_dir %{_mandir}/man1
+%global rpmstate_dir /var/run
 
 %description
 ecs-init is a service which may be run to register an EC2 instance as an Amazon
@@ -80,7 +82,41 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/state
 rm scripts/amazon-ecs-init.1.gz
 rm -rf $RPM_BUILD_ROOT
 
+%triggerun -- docker
+# record whether or not our service was running when docker is upgraded
+ecs_status=$(/sbin/status ecs 2>/dev/null || :)
+if grep -qF "start/" <<< "${ecs_status}"; then
+	/sbin/stop ecs >/dev/null 2>&1 || :
+	if [ "$1" -ge 1 ]; then
+		touch %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+	fi
+fi
+
+%triggerpostun -- docker
+# ensures that ecs-init is restarted after docker or ecs-init is upgraded
+if [ "$1" -ge 1 ] && [ -e %{rpmstate_dir}/ecs-init.was-running ]; then
+	/sbin/start ecs >/dev/null 2>&1 || :
+	rm %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 ||:
+fi
+
+%postun
+# stop ecs service and remove semaphore if this package is erased
+if [ "$1" -eq 0 ]; then
+	/sbin/stop ecs >/dev/null 2>&1 || :
+	rm %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+fi
+
+%triggerun -- ecs-init < 1.0-3
+# handle old ecs-init package that does not properly stop
+ecs_status=$(/sbin/status ecs 2>/dev/null || :)
+if grep -qF "start/" <<< "${ecs_status}"; then
+	/sbin/stop ecs >/dev/null 2>&1 || :
+	touch %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+fi
+
 %changelog
+* Wed May 6 2015 Samuel Karp <skarp@amazon.com> - 1.0-3
+- Restart on upgrade if already running
 * Tue May 5 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
 - Cache Agent version 1.1.0
 - Add support for Docker 1.6.0
