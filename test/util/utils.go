@@ -384,3 +384,11 @@ func (task *TestTask) ExpectErrorType(containerName, errType string, timeout tim
 	}
 	return errors.New("Could not find container " + containerName + " in task " + *task.TaskARN)
 }
+
+func (task *TestTask) Stop() error {
+	_, err := ECS.StopTask(&ecs.StopTaskInput{
+		Cluster: task.ClusterARN,
+		Task:    task.TaskARN,
+	})
+	return err
+}
