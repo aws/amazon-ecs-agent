@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.1.0
 * Feature - Logs rotate hourly and log file names are suffixed with timestamp.
 * Enhancement - Improve error messages for containers (visible as 'reason' in
