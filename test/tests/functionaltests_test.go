@@ -114,14 +114,37 @@ func TestSavedState(t *testing.T) {
 	testTask.WaitStopped(1 * time.Minute)
 }
 
+// TestPortResourceContention verifies that running two tasks on the same port
+// in quick-succession does not result in the second one failing to run. It
+// verifies the 'seqnum' serialization stuff works.
 func TestPortResourceContention(t *testing.T) {
-	t.Skip("Test not finished being written yet")
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
-	testTask, err := agent.StartTask(t, "bosybox-port-5180")
+	testTask, err := agent.StartTask(t, "busybox-port-5180")
 	if err != nil {
 		t.Fatal(err)
 	}
-	testTask.WaitRunning(1 * time.Minute)
+	err = testTask.WaitRunning(1 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testTask.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask2, err := agent.StartTask(t, "busybox-port-5180")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = testTask2.WaitRunning(1 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testTask2.Stop()
+
+	go testTask.WaitStopped(2 * time.Minute)
+	testTask2.WaitStopped(2 * time.Minute)
+	// 30 seconds because this busybox ignores sigterm
 }
