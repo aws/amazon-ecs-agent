@@ -91,6 +91,24 @@ type metadataContainer struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+type ErrorMessage struct {
+	Message *string `locationName:"message" type:"string"`
+
+	metadataErrorMessage `json:"-", xml:"-"`
+}
+
+type metadataErrorMessage struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+type ErrorOutput struct {
+	metadataErrorOutput `json:"-", xml:"-"`
+}
+
+type metadataErrorOutput struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
 type HeartbeatMessage struct {
 	Healthy *bool `locationName:"healthy" type:"boolean"`
 
@@ -216,13 +234,13 @@ type metadataPerformUpdateMessage struct {
 }
 
 type PollRequest struct {
-	AgentVersion *VersionInfo `locationName:"agentVersion" type:"structure"`
-
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 
 	metadataPollRequest `json:"-", xml:"-"`
 }
@@ -235,6 +253,8 @@ type PortMapping struct {
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
+
+	Protocol *string `locationName:"protocol" type:"string"`
 
 	metadataPortMapping `json:"-", xml:"-"`
 }
