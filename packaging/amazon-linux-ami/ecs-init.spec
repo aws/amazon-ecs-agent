@@ -14,7 +14,7 @@
 
 Name:           ecs-init
 Version:        1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -38,6 +38,7 @@ Requires(post): docker > 1.5.0
 %global data_dir %{_sharedstatedir}/ecs/data
 %global man_dir %{_mandir}/man1
 %global rpmstate_dir /var/run
+%global running_semaphore %{rpmstate_dir}/ecs-init.was-running
 
 %description
 ecs-init is a service which may be run to register an EC2 instance as an Amazon
@@ -88,33 +89,51 @@ ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
 	/sbin/stop ecs >/dev/null 2>&1 || :
 	if [ "$1" -ge 1 ]; then
-		touch %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+		# write semaphore if this package is still installed
+		touch %{running_semaphore} >/dev/null 2>&1 || :
 	fi
 fi
 
 %triggerpostun -- docker
 # ensures that ecs-init is restarted after docker or ecs-init is upgraded
-if [ "$1" -ge 1 ] && [ -e %{rpmstate_dir}/ecs-init.was-running ]; then
+if [ "$1" -ge 1 ] && [ -e %{running_semaphore} ]; then
 	/sbin/start ecs >/dev/null 2>&1 || :
-	rm %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 ||:
+	rm %{running_semaphore} >/dev/null 2>&1 ||:
 fi
 
 %postun
-# stop ecs service and remove semaphore if this package is erased
-if [ "$1" -eq 0 ]; then
+# record whether or not our service was running when ecs-init is upgraded
+ecs_status=$(/sbin/status ecs 2>/dev/null || :)
+if grep -qF "start/" <<< "${ecs_status}"; then
 	/sbin/stop ecs >/dev/null 2>&1 || :
-	rm %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+	if [ "$1" -ge 1 ]; then
+		# write semaphore if this package is upgraded
+		touch %{running_semaphore} >/dev/null 2>&1 || :
+	fi
+fi
+# remove semaphore if this package is erased
+if [ "$1" -eq 0 ]; then
+	rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
-%triggerun -- ecs-init < 1.0-3
+%triggerun -- ecs-init <= 1.0-3
 # handle old ecs-init package that does not properly stop
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
 	/sbin/stop ecs >/dev/null 2>&1 || :
-	touch %{rpmstate_dir}/ecs-init.was-running >/dev/null 2>&1 || :
+	touch %{running_semaphore} >/dev/null 2>&1 || :
+fi
+
+%posttrans
+# ensure that we restart after the transaction
+if [ -e %{running_semaphore} ]; then
+	/sbin/start ecs >/dev/null 2>&1 || :
+	rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %changelog
+* Mon May 11 2015 Samuel Karp <skarp@amazon.com> - 1.0-4
+- Properly restart if the ecs-init package is upgraded in isolation
 * Wed May 6 2015 Samuel Karp <skarp@amazon.com> - 1.0-3
 - Restart on upgrade if already running
 * Tue May 5 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
