@@ -206,8 +206,13 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPorts),
 	}
+	udpPortResource := ecs.Resource{
+		Name:           utils.Strptr("PORTS_UDP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
+	}
 
-	resources := []*ecs.Resource{&cpuResource, &memResource, &portResource}
+	resources := []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}
 	registerRequest.TotalResources = resources
 
 	resp, err := client.c.RegisterContainerInstance(&registerRequest)

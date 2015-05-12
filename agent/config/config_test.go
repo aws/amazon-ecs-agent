@@ -79,10 +79,17 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 
 func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
+	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
 		t.Error("Wrong value for cluster ", conf.Cluster)
+	}
+	if len(conf.ReservedPortsUDP) != 2 {
+		t.Error("Wrong length for ReservedPortsUDP")
+	}
+	if conf.ReservedPortsUDP[0] != 42 || conf.ReservedPortsUDP[1] != 99 {
+		t.Error("Wrong value for ReservedPortsUDP ", conf.ReservedPortsUDP)
 	}
 }
 

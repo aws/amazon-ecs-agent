@@ -137,11 +137,12 @@ func (cfg *Config) TrimWhitespace() {
 
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint:  "unix:///var/run/docker.sock",
-		ReservedPorts:   []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
-		DataDir:         "/data/",
-		DisableMetrics:  false,
-		DockerGraphPath: "/var/lib/docker",
+		DockerEndpoint:   "unix:///var/run/docker.sock",
+		ReservedPorts:    []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		ReservedPortsUDP: []uint16{},
+		DataDir:          "/data/",
+		DisableMetrics:   false,
+		DockerGraphPath:  "/var/lib/docker",
 	}
 }
 
@@ -203,12 +204,22 @@ func EnvironmentConfig() Config {
 	portDecoder := json.NewDecoder(strings.NewReader(reservedPortEnv))
 	var reservedPorts []uint16
 	err := portDecoder.Decode(&reservedPorts)
-
 	// EOF means the string was blank as opposed to UnexepctedEof which means an
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
 		log.Warn("Invalid format for \"ECS_RESERVED_PORTS\" environment variable; expected a JSON array like [1,2,3].", "err", err)
+	}
+
+	reservedPortUDPEnv := os.Getenv("ECS_RESERVED_PORTS_UDP")
+	portDecoderUDP := json.NewDecoder(strings.NewReader(reservedPortUDPEnv))
+	var reservedPortsUDP []uint16
+	err = portDecoderUDP.Decode(&reservedPortsUDP)
+	// EOF means the string was blank as opposed to UnexepctedEof which means an
+	// invalid parse
+	// Blank is not a warning; we have sane defaults
+	if err != io.EOF && err != nil {
+		log.Warn("Invalid format for \"ECS_RESERVED_PORTS_UDP\" environment variable; expected a JSON array like [1,2,3].", "err", err)
 	}
 
 	updateDownloadDir := os.Getenv("ECS_UPDATE_DOWNLOAD_DIR")
@@ -223,6 +234,7 @@ func EnvironmentConfig() Config {
 		AWSRegion:         awsRegion,
 		DockerEndpoint:    dockerEndpoint,
 		ReservedPorts:     reservedPorts,
+		ReservedPortsUDP:  reservedPortsUDP,
 		DataDir:           dataDir,
 		Checkpoint:        checkpoint,
 		EngineAuthType:    engineAuthType,
