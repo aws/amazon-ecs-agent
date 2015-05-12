@@ -21,7 +21,6 @@ import (
 )
 
 type TaskStatus int32
-type ContainerStatus int32
 
 const (
 	TaskStatusNone TaskStatus = iota
@@ -30,6 +29,8 @@ const (
 	TaskRunning
 	TaskStopped
 )
+
+type ContainerStatus int32
 
 const (
 	ContainerStatusNone ContainerStatus = iota
@@ -41,10 +42,18 @@ const (
 	ContainerZombie // Impossible status to use as a virtual 'max'
 )
 
+type TransportProtocol int32
+
+const (
+	TransportProtocolTCP TransportProtocol = iota
+	TransportProtocolUDP
+)
+
 type PortBinding struct {
 	ContainerPort uint16
 	HostPort      uint16
 	BindIp        string
+	Protocol      TransportProtocol
 }
 
 type TaskOverrides struct{}

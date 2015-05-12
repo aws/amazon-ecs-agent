@@ -33,7 +33,7 @@ func TestTaskOverridden(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name:  "c1",
-				Ports: []PortBinding{PortBinding{10, 10, ""}},
+				Ports: []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
 			},
 		},
 	}
@@ -49,7 +49,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name:  "c1",
-				Ports: []PortBinding{PortBinding{10, 10, ""}},
+				Ports: []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
 			},
 		},
 	}
@@ -164,6 +164,7 @@ func TestTaskFromACS(t *testing.T) {
 					&ecsacs.PortMapping{
 						HostPort:      intptr(800),
 						ContainerPort: intptr(900),
+						Protocol:      strptr("udp"),
 					},
 				},
 				VolumesFrom: []*ecsacs.VolumeFrom{
@@ -213,6 +214,7 @@ func TestTaskFromACS(t *testing.T) {
 					PortBinding{
 						HostPort:      800,
 						ContainerPort: 900,
+						Protocol:      TransportProtocolUDP,
 					},
 				},
 				VolumesFrom: []VolumeFrom{
