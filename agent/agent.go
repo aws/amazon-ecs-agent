@@ -42,6 +42,11 @@ func init() {
 }
 
 func main() {
+	// Use a returning main instead of os.Exiting main to allow defers to run
+	// before exit
+	os.Exit(_main())
+}
+func _main() int {
 	defer seelog.Flush()
 	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
@@ -57,13 +62,13 @@ func main() {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Error("Error loading config", "err", err)
-		os.Exit(exitcodes.ExitTerminal)
+		return exitcodes.ExitTerminal
 	}
 
 	if *versionFlag {
 		versionableEngine := engine.NewTaskEngine(cfg)
 		version.PrintVersion(versionableEngine)
-		os.Exit(exitcodes.ExitSuccess)
+		return exitcodes.ExitSuccess
 	}
 
 	var currentEc2InstanceID, containerInstanceArn string
@@ -77,13 +82,13 @@ func main() {
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
 		if err != nil {
 			log.Crit("Error creating state manager", "err", err)
-			os.Exit(exitcodes.ExitTerminal)
+			return exitcodes.ExitTerminal
 		}
 
 		err = previousState.Load()
 		if err != nil {
 			log.Crit("Error loading previously saved state", "err", err)
-			os.Exit(exitcodes.ExitTerminal)
+			return exitcodes.ExitTerminal
 		}
 
 		if previousCluster != "" {
@@ -94,7 +99,7 @@ func main() {
 			}
 			if previousCluster != configuredCluster {
 				log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", configuredCluster)
-				os.Exit(exitcodes.ExitTerminal)
+				return exitcodes.ExitTerminal
 			}
 			cfg.Cluster = previousCluster
 			log.Info("Restored cluster", "cluster", cfg.Cluster)
@@ -124,7 +129,7 @@ func main() {
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
 	if err != nil {
 		log.Crit("Error creating state manager", "err", err)
-		os.Exit(exitcodes.ExitTerminal)
+		return exitcodes.ExitTerminal
 	}
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
@@ -137,9 +142,9 @@ func main() {
 		if err != nil {
 			log.Error("Error registering", "err", err)
 			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
-				os.Exit(exitcodes.ExitTerminal)
+				return exitcodes.ExitTerminal
 			}
-			os.Exit(exitcodes.ExitError)
+			return exitcodes.ExitError
 		}
 		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
 		// Save our shiny new containerInstanceArn
@@ -164,9 +169,10 @@ func main() {
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
 	if err != nil {
 		log.Crit("Unretriable error starting communicating with ACS", "err", err)
-		os.Exit(exitcodes.ExitTerminal)
+		return exitcodes.ExitTerminal
 	}
 	log.Crit("ACS Session should never exit")
+	return exitcodes.ExitError
 }
 
 func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string, sequenceNumber *utilatomic.IncreasingInt64) (statemanager.StateManager, error) {
