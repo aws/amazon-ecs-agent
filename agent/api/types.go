@@ -49,6 +49,21 @@ const (
 	TransportProtocolUDP
 )
 
+func (tp *TransportProtocol) String() string {
+	if tp == nil {
+		return "tcp"
+	}
+	switch *tp {
+	case TransportProtocolUDP:
+		return "udp"
+	case TransportProtocolTCP:
+		return "tcp"
+	default:
+		log.Crit("Unknown TransportProtocol type!")
+		return "tcp"
+	}
+}
+
 type PortBinding struct {
 	ContainerPort uint16
 	HostPort      uint16

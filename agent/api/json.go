@@ -220,15 +220,5 @@ func (tp *TransportProtocol) MarshalJSON() ([]byte, error) {
 	if tp == nil {
 		return []byte("null"), nil
 	}
-	var result string
-	switch *tp {
-	case TransportProtocolTCP:
-		result = "tcp"
-	case TransportProtocolUDP:
-		result = "udp"
-	default:
-		log.Crit("Unknown TransportProtocol type in marshal")
-		return nil, errors.New("Unknown TransportProtocol type in marshal")
-	}
-	return []byte(`"` + result + `"`), nil
+	return []byte(`"` + tp.String() + `"`), nil
 }
