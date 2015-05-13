@@ -56,7 +56,7 @@ func _main() int {
 	logger.SetLevel(*logLevel)
 	log := logger.ForModule("main")
 
-	log.Info("Starting Agent")
+	log.Info("Starting Agent: " + version.String())
 
 	log.Info("Loading configuration")
 	cfg, err := config.NewConfig()
