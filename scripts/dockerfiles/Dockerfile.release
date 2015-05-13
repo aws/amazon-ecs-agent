@@ -12,7 +12,7 @@
 # permissions and limitations under the License.
 
 # Not from scratch because we also want a little directory structure,
-# specifically /tmp and /data
+# specifically /tmp
 FROM amazon/amazon-ecs-scratch:make
 
 COPY out/amazon-ecs-agent /agent
@@ -21,4 +21,5 @@ COPY out/amazon-ecs-agent /agent
 # https://golang.org/src/pkg/crypto/x509/root_unix.go
 COPY misc/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
+EXPOSE 51678
 ENTRYPOINT ["/agent"]
