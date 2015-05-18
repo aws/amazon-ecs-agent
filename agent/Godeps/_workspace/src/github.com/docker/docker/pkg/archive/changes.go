@@ -13,7 +13,7 @@ import (
 
 	"github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/pools"
 	"github.com/docker/docker/pkg/system"
 )
@@ -176,7 +176,7 @@ func (info *FileInfo) path() string {
 }
 
 func (info *FileInfo) isDir() bool {
-	return info.parent == nil || info.stat.Mode()&syscall.S_IFDIR != 0
+	return info.parent == nil || info.stat.Mode()&syscall.S_IFDIR == syscall.S_IFDIR
 }
 
 func (info *FileInfo) addChanges(oldInfo *FileInfo, changes *[]Change) {
@@ -401,22 +401,22 @@ func ExportChanges(dir string, changes []Change) (Archive, error) {
 					ChangeTime: timestamp,
 				}
 				if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-					logrus.Debugf("Can't write whiteout header: %s", err)
+					log.Debugf("Can't write whiteout header: %s", err)
 				}
 			} else {
 				path := filepath.Join(dir, change.Path)
 				if err := ta.addTarFile(path, change.Path[1:]); err != nil {
-					logrus.Debugf("Can't add file %s to tar: %s", path, err)
+					log.Debugf("Can't add file %s to tar: %s", path, err)
 				}
 			}
 		}
 
 		// Make sure to check the error on Close.
 		if err := ta.TarWriter.Close(); err != nil {
-			logrus.Debugf("Can't close layer: %s", err)
+			log.Debugf("Can't close layer: %s", err)
 		}
 		if err := writer.Close(); err != nil {
-			logrus.Debugf("failed close Changes writer: %s", err)
+			log.Debugf("failed close Changes writer: %s", err)
 		}
 	}()
 	return reader, nil

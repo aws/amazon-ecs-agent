@@ -62,43 +62,48 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/archive",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/fileutils",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/ioutils",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/parsers",
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/pools",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/promise",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/system",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/units",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar",
-			"Comment": "v1.4.1-2850-gccbb93e",
-			"Rev": "ccbb93e1cd38ad0a38455ad054b170f444aa9da3"
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
