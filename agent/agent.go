@@ -47,7 +47,7 @@ func main() {
 	os.Exit(_main())
 }
 func _main() int {
-	defer seelog.Flush()
+	defer log.Flush()
 	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
@@ -81,13 +81,13 @@ func _main() int {
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
 		if err != nil {
-			log.Critf("Error creating state manager: %v", err)
+			log.Criticalf("Error creating state manager: %v", err)
 			return exitcodes.ExitTerminal
 		}
 
 		err = previousState.Load()
 		if err != nil {
-			log.Critf("Error loading previously saved state: %v", err)
+			log.Criticalf("Error loading previously saved state: %v", err)
 			return exitcodes.ExitTerminal
 		}
 
@@ -99,7 +99,7 @@ func _main() int {
 				configuredCluster = config.DEFAULT_CLUSTER_NAME
 			}
 			if previousCluster != configuredCluster {
-				log.Critf("Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?", previousCluster, configuredCluster)
+				log.Criticalf("Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?", previousCluster, configuredCluster)
 				return exitcodes.ExitTerminal
 			}
 			cfg.Cluster = previousCluster
@@ -109,7 +109,7 @@ func _main() int {
 		if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
 			currentEc2InstanceID = instanceIdentityDoc.InstanceId
 		} else {
-			log.Critf("Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
+			log.Criticalf("Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		}
 
 		if previousEc2InstanceID != "" && previousEc2InstanceID != currentEc2InstanceID {
@@ -129,7 +129,7 @@ func _main() int {
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
 	if err != nil {
-		log.Critf("Error creating state manager: %v", err)
+		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
 
@@ -169,10 +169,10 @@ func _main() int {
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
 	if err != nil {
-		log.Critf("Unretriable error starting communicating with ACS: %v", err)
+		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	log.Crit("ACS Session handler should never exit")
+	log.Critical("ACS Session handler should never exit")
 	return exitcodes.ExitError
 }
 
