@@ -18,8 +18,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/awslabs/aws-sdk-go/aws"
-	"github.com/awslabs/aws-sdk-go/service/ecs"
 	"github.com/docker/docker/pkg/system"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
