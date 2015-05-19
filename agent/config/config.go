@@ -227,10 +227,11 @@ func EnvironmentConfig() Config {
 
 func EC2MetadataConfig() Config {
 	iid, err := ec2.GetInstanceIdentityDocument()
-	if err == nil {
-		return Config{AWSRegion: iid.Region, APIEndpoint: ecsEndpoint(iid.Region)}
+	if err != nil {
+		log.Crit("Unable to communicate with EC2 Metadata service to infer region and endpoint: " + err.Error())
+		return Config{}
 	}
-	return Config{}
+	return Config{AWSRegion: iid.Region, APIEndpoint: ecsEndpoint(iid.Region)}
 }
 
 func ecsEndpoint(awsRegion string) string {

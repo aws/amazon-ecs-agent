@@ -34,7 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/cihub/seelog"
+	log "github.com/cihub/seelog"
 )
 
 func init() {
@@ -47,21 +47,20 @@ func main() {
 	os.Exit(_main())
 }
 func _main() int {
-	defer seelog.Flush()
+	defer log.Flush()
 	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
 	flag.Parse()
 
 	logger.SetLevel(*logLevel)
-	log := logger.ForModule("main")
 
-	log.Info("Starting Agent")
+	log.Infof("Starting Agent: %v", version.String())
 
 	log.Info("Loading configuration")
 	cfg, err := config.NewConfig()
 	if err != nil {
-		log.Error("Error loading config", "err", err)
+		log.Errorf("Error loading config: %v", err)
 		return exitcodes.ExitTerminal
 	}
 
@@ -75,19 +74,20 @@ func _main() int {
 	var taskEngine engine.TaskEngine
 
 	if cfg.Checkpoint {
+		log.Info("Checkpointing is enabled. Attempting to load state")
 		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
 		previousTaskEngine := engine.NewTaskEngine(cfg)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
 		if err != nil {
-			log.Crit("Error creating state manager", "err", err)
+			log.Criticalf("Error creating state manager: %v", err)
 			return exitcodes.ExitTerminal
 		}
 
 		err = previousState.Load()
 		if err != nil {
-			log.Crit("Error loading previously saved state", "err", err)
+			log.Criticalf("Error loading previously saved state: %v", err)
 			return exitcodes.ExitTerminal
 		}
 
@@ -95,24 +95,25 @@ func _main() int {
 			// TODO Handle default cluster in a sane and unified way across the codebase
 			configuredCluster := cfg.Cluster
 			if configuredCluster == "" {
+				log.Debug("Setting cluster to default; none configured")
 				configuredCluster = config.DEFAULT_CLUSTER_NAME
 			}
 			if previousCluster != configuredCluster {
-				log.Crit("Data mismatch; saved cluster does not match configured cluster. Perhaps you want to delete the configured checkpoint file?", "saved", previousCluster, "configured", configuredCluster)
+				log.Criticalf("Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?", previousCluster, configuredCluster)
 				return exitcodes.ExitTerminal
 			}
 			cfg.Cluster = previousCluster
-			log.Info("Restored cluster", "cluster", cfg.Cluster)
+			log.Infof("Restored cluster '%v'", cfg.Cluster)
 		}
 
 		if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
 			currentEc2InstanceID = instanceIdentityDoc.InstanceId
 		} else {
-			log.Crit("Unable to access EC2 Metadata service to determine EC2 ID", "err", err)
+			log.Criticalf("Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		}
 
 		if previousEc2InstanceID != "" && previousEc2InstanceID != currentEc2InstanceID {
-			log.Crit("Data mismatch; saved InstanceID does not match current InstanceID. Overwriting old datafile", "current", currentEc2InstanceID, "saved", previousEc2InstanceID)
+			log.Warnf("Data mismatch; saved InstanceID '%v' does not match current InstanceID '%v'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
 
 			// Reset taskEngine; all the other values are still default
 			taskEngine = engine.NewTaskEngine(cfg)
@@ -122,35 +123,39 @@ func _main() int {
 			taskEngine = previousTaskEngine
 		}
 	} else {
-		log.Info("Checkpointing disabled")
+		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		taskEngine = engine.NewTaskEngine(cfg)
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
 	if err != nil {
-		log.Crit("Error creating state manager", "err", err)
+		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
 	awsCreds := auth.ToSDK(credentialProvider)
+	// Preflight request to make sure they're good
+	if preflightCreds, err := awsCreds.Credentials(); err != nil || preflightCreds.AccessKeyID == "" {
+		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
+	}
 	client := api.NewECSClient(awsCreds, cfg, *acceptInsecureCert)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")
 		containerInstanceArn, err = client.RegisterContainerInstance()
 		if err != nil {
-			log.Error("Error registering", "err", err)
+			log.Errorf("Error registering: %v", err)
 			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
 				return exitcodes.ExitTerminal
 			}
 			return exitcodes.ExitError
 		}
-		log.Info("Registration completed successfully", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
+		log.Infof("Registration completed successfully. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
 		// Save our shiny new containerInstanceArn
 		stateManager.Save()
 	} else {
-		log.Info("Restored state", "containerInstance", containerInstanceArn, "cluster", cfg.Cluster)
+		log.Infof("Restored from checkpoint file. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -168,10 +173,10 @@ func _main() int {
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
 	if err != nil {
-		log.Crit("Unretriable error starting communicating with ACS", "err", err)
+		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	log.Crit("ACS Session should never exit")
+	log.Critical("ACS Session handler should never exit")
 	return exitcodes.ExitError
 }
 
