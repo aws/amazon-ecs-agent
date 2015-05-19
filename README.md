@@ -91,6 +91,19 @@ configure them as something other than the defaults.
 | `ECS_UPDATE_DOWNLOAD_DIR` | /cache               | Where to place update tarballs within the container |  |
 | `AWS_SESSION_TOKEN` |                         | The [Session Token](http://docs.aws.amazon.com/STS/latest/UsingSTS/Welcome.html) used for temporary credentials. | Taken from EC2 Instance Metadata |
 
+### Persistence
+
+When running the Amazon ECS Container Agent in production, its `datadir` should be persisted
+across restarts of the Docker container. This prevents that the same Amazon EC2 instance is registered
+multiple times at Amazon ECS with different Container Instance IDs. When the agent is started with 
+an existing `datadir`, it will use the Container Instance ID (and other metadata) of the last run.
+
+To persist the `datadir`, checkpointing needs to be enabled and the `datadir` (if run in a Docker container)
+needs to be mapped to the host filesystem:
+
+`docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -v /var/lib/ecs/data:/data 
+-p 127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log -e ECS_DATADIR=/data/ amazon/amazon-ecs-agent`
+
 ### Flags
 
 The agent also supports the following flags:
