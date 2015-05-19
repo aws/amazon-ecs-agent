@@ -69,7 +69,8 @@ func _main() int {
 
 	if err != nil {
 		log.Criticalf("Error loading config: %v", err)
-		return exitcodes.ExitTerminal
+		// All required config values can be inferred from EC2 Metadata, so this error could be transient.
+		return exitcodes.ExitError
 	}
 	log.Debug("Loaded config: %+v", *cfg)
 

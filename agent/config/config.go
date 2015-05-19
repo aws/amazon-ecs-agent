@@ -232,7 +232,7 @@ var ec2MetadataClient = ec2.DefaultClient
 func EC2MetadataConfig() Config {
 	iid, err := ec2MetadataClient.InstanceIdentityDocument()
 	if err != nil {
-		log.Crit("Unable to communicate with EC2 Metadata service to infer region and endpoint: " + err.Error())
+		log.Crit("Unable to communicate with EC2 Metadata service to infer region: " + err.Error())
 		return Config{}
 	}
 	return Config{AWSRegion: iid.Region}
