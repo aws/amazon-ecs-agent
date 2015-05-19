@@ -135,6 +135,10 @@ func _main() int {
 
 	credentialProvider := auth.NewBasicAWSCredentialProvider()
 	awsCreds := auth.ToSDK(credentialProvider)
+	// Preflight request to make sure they're good
+	if preflightCreds, err := awsCreds.Credentials(); err != nil || preflightCreds.AccessKeyID == "" {
+		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
+	}
 	client := api.NewECSClient(awsCreds, cfg, *acceptInsecureCert)
 
 	if containerInstanceArn == "" {
