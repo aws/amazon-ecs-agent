@@ -14,9 +14,14 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+
+	"code.google.com/p/gomock/gomock"
 )
 
 func TestMerge(t *testing.T) {
@@ -34,6 +39,41 @@ func TestMerge(t *testing.T) {
 	}
 	if conf1.AWSRegion != "us-west-2" {
 		t.Error("Incorrect region")
+	}
+}
+
+func TestBrokenEC2Metadata(t *testing.T) {
+	os.Clearenv()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2MetadataClient = mockEc2Metadata
+
+	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
+
+	_, err := NewConfig()
+	if err == nil {
+		t.Fatal("Expected error when region isn't set and metadata doesn't work")
+	}
+}
+
+func TestBrokenEC2MetadataEndpoint(t *testing.T) {
+	os.Clearenv()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2MetadataClient = mockEc2Metadata
+
+	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
+	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
+
+	config, err := NewConfig()
+	if err != nil {
+		t.Fatal("Expected no error")
+	}
+	if config.AWSRegion != "us-west-2" {
+		t.Fatal("Wrong region: " + config.AWSRegion)
+	}
+	if config.APIEndpoint != "" {
+		t.Fatal("Endpoint env variable not set; endpoint should be blank")
 	}
 }
 

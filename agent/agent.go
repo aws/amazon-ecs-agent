@@ -59,16 +59,19 @@ func _main() int {
 
 	log.Info("Loading configuration")
 	cfg, err := config.NewConfig()
-	if err != nil {
-		log.Errorf("Error loading config: %v", err)
-		return exitcodes.ExitTerminal
-	}
-
+	// Load cfg before doing 'versionFlag' so that it has the DOCKER_HOST
+	// variable loaded if needed
 	if *versionFlag {
 		versionableEngine := engine.NewTaskEngine(cfg)
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
+
+	if err != nil {
+		log.Criticalf("Error loading config: %v", err)
+		return exitcodes.ExitTerminal
+	}
+	log.Debug("Loaded config: %+v", *cfg)
 
 	var currentEc2InstanceID, containerInstanceArn string
 	var taskEngine engine.TaskEngine

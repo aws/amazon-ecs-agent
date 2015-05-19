@@ -33,9 +33,10 @@ type Config struct {
 	// normally would to interact with the daemon. It defaults to
 	// unix:///var/run/docker.sock
 	DockerEndpoint string
-	// AWSRegion is the region to run in (such as "us-east-1"). This value is
-	// used to determine the correct APIEndpoint.
-	AWSRegion string `missing:"warn" trim:"true"`
+	// AWSRegion is the region to run in (such as "us-east-1"). This value will
+	// be inferred from the EC2 metadata service, but if it cannot be found this
+	// will be fatal.
+	AWSRegion string `missing:"fatal" trim:"true"`
 	// ReservedPorts is an array of ports which should be registerd as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
