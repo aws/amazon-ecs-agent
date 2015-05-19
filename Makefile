@@ -51,8 +51,14 @@ release: certs docker-release
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
+SDKPATH=agent/Godeps/_workspace/src/github.com/awslabs/aws-sdk-go
+INFLECTFILE=internal/model/api/inflections.csv
+CUSTOMINFLECTFILE=agent/gogenerate/inflections.csv
+
 gogenerate:
+	cat ${CUSTOMINFLECTFILE} >> ${SDKPATH}/${INFLECTFILE}
 	@cd agent && PATH=$(shell pwd)/scripts/generate:$(PATH) godep go generate ./...
+	git checkout -- ${SDKPATH}/${INFLECTFILE}
 
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt
