@@ -60,7 +60,7 @@ func TestPullImageTimeout(t *testing.T) {
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image"}, docker.AuthConfiguration{}).Do(func(x, y interface{}) {
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
 		testTime.Warp(3 * time.Hour)
 		wait.Wait()
 		// Don't return, verify timeout happens
@@ -81,7 +81,7 @@ func TestPullImage(t *testing.T) {
 	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image"}, docker.AuthConfiguration{}).Return(nil)
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Return(nil)
 
 	metadata := client.PullImage("image")
 	if metadata.Error != nil {

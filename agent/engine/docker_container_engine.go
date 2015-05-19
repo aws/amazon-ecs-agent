@@ -30,11 +30,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/docker/docker/pkg/parsers"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-const dockerStopTimeoutSeconds = 30
+const (
+	dockerStopTimeoutSeconds = 30
+	dockerDefaultTag         = "latest"
+)
 
 // Timelimits for docker operations enforced above docker
 const (
@@ -145,8 +149,11 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
+
+	repository, tag := parsers.ParseRepositoryTag(image)
+	tag = utils.DefaultIfBlank(tag, dockerDefaultTag)
 	opts := docker.PullImageOptions{
-		Repository:   image,
+		Repository:   repository + ":" + tag,
 		OutputStream: pullWriter,
 	}
 	timeout := ttime.After(dockerPullBeginTimeout)
@@ -189,7 +196,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		break
 	case err := <-pullFinished:
 		if err != nil {
-			return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+			return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
 		}
 		return DockerContainerMetadata{}
 	case <-timeout:
@@ -200,7 +207,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 
 	err := <-pullFinished
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Pulled", err.Error()}}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
 	}
 	return DockerContainerMetadata{}
 }

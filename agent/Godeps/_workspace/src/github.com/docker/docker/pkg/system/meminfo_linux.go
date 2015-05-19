@@ -15,8 +15,8 @@ var (
 	ErrMalformed = errors.New("malformed file")
 )
 
-// ReadMemInfo retrieves memory statistics of the host system and returns a
-//  MemInfo type.
+// Retrieve memory statistics of the host system and parse them into a MemInfo
+// type.
 func ReadMemInfo() (*MemInfo, error) {
 	file, err := os.Open("/proc/meminfo")
 	if err != nil {
@@ -26,10 +26,6 @@ func ReadMemInfo() (*MemInfo, error) {
 	return parseMemInfo(file)
 }
 
-// parseMemInfo parses the /proc/meminfo file into
-// a MemInfo object given a io.Reader to the file.
-//
-// Throws error if there are problems reading from the file
 func parseMemInfo(reader io.Reader) (*MemInfo, error) {
 	meminfo := &MemInfo{}
 	scanner := bufio.NewScanner(reader)

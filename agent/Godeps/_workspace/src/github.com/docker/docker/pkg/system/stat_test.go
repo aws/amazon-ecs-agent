@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// TestFromStatT tests fromStatT for a tempfile
 func TestFromStatT(t *testing.T) {
 	file, _, _, dir := prepareFiles(t)
 	defer os.RemoveAll(dir)
