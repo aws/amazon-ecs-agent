@@ -19,8 +19,8 @@ tl;dr: *On an Amazon ECS Container Instance*
 
 1. `touch /etc/ecs/ecs.config`
 2. `mkdir -p /var/log/ecs`
-3. `docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -p
-127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log amazon/amazon-ecs-agent`
+3. `docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -v /var/lib/ecs/data:/data -p
+127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log -e ECS_DATADIR=/data/ amazon/amazon-ecs-agent`
 
 See also the Advanced Usage section below.
 
@@ -94,15 +94,8 @@ configure them as something other than the defaults.
 ### Persistence
 
 When running the Amazon ECS Container Agent in production, its `datadir` should be persisted
-across restarts of the Docker container. This prevents that the same Amazon EC2 instance is registered
-multiple times at Amazon ECS with different Container Instance IDs. When the agent is started with 
-an existing `datadir`, it will use the Container Instance ID (and other metadata) of the last run.
-
-To persist the `datadir`, checkpointing needs to be enabled and the `datadir` (if run in a Docker container)
-needs to be mapped to the host filesystem:
-
-`docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -v /var/lib/ecs/data:/data 
--p 127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log -e ECS_DATADIR=/data/ amazon/amazon-ecs-agent`
+between runs of the Docker container. If this data is not persisted, the Amazon ECS Agent will register
+a new Container Instance ARN on each launch and will not be able to update the state of tasks it previously ran.
 
 ### Flags
 
