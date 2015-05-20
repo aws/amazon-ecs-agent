@@ -219,6 +219,16 @@ func (_mr *_MockDockerClientRecorder) InspectContainer(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectContainer", arg0)
 }
 
+func (_m *MockDockerClient) ListContainers(_param0 bool) engine.ListContainersResponse {
+	ret := _m.ctrl.Call(_m, "ListContainers", _param0)
+	ret0, _ := ret[0].(engine.ListContainersResponse)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) ListContainers(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
+}
+
 func (_m *MockDockerClient) PullImage(_param0 string) engine.DockerContainerMetadata {
 	ret := _m.ctrl.Call(_m, "PullImage", _param0)
 	ret0, _ := ret[0].(engine.DockerContainerMetadata)

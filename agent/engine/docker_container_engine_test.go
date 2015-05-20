@@ -390,3 +390,45 @@ func TestDockerVersion(t *testing.T) {
 		t.Error("Got unexpected version string: " + str)
 	}
 }
+
+func TestListImages(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+
+	containers := []docker.APIContainers{docker.APIContainers{ID: "id"}}
+	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
+	response := client.ListContainers(true)
+	if response.Error != nil {
+		t.Error("Did not expect error")
+	}
+
+	containerIds := response.ContainerIds
+	if len(containerIds) != 1 {
+		t.Error("Unexpected number of containers in list: ", len(containerIds))
+	}
+
+	if containerIds[0] != "id" {
+		t.Error("Unexpected container id in the list: ", containerIds[0])
+	}
+}
+
+func TestListImagesTimeout(t *testing.T) {
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().ListContainers(gomock.Any()).Do(func(x interface{}) {
+		testTime.Warp(listContainersTimeout)
+		wait.Wait()
+		// Don't return, verify timeout happens
+	})
+	response := client.ListContainers(true)
+	if response.Error == nil {
+		t.Error("Expected error for pull timeout")
+	}
+	if response.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+		t.Error("Wrong error type")
+	}
+	wait.Done()
+}

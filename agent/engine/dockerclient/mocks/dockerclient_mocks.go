@@ -95,6 +95,17 @@ func (_mr *_MockClientRecorder) InspectImage(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectImage", arg0)
 }
 
+func (_m *MockClient) ListContainers(_param0 go_dockerclient.ListContainersOptions) ([]go_dockerclient.APIContainers, error) {
+	ret := _m.ctrl.Call(_m, "ListContainers", _param0)
+	ret0, _ := ret[0].([]go_dockerclient.APIContainers)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockClientRecorder) ListContainers(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
+}
+
 func (_m *MockClient) PullImage(_param0 go_dockerclient.PullImageOptions, _param1 go_dockerclient.AuthConfiguration) error {
 	ret := _m.ctrl.Call(_m, "PullImage", _param0, _param1)
 	ret0, _ := ret[0].(error)
