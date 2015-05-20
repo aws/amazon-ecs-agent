@@ -28,12 +28,7 @@ func NewMockClient(ctrl *gomock.Controller) (api.ECSClient, *mock_api.MockECSSDK
 }
 
 type containerSubmitInputMatcher struct {
-	Cluster       string
-	Arn           string
-	ContainerName string
-	Status        api.ContainerStatus
-	ExitCode      *int
-	Reason        *string
+	ecs.SubmitContainerStateChangeInput
 }
 
 func strptr(s string) *string { return &s }
@@ -45,17 +40,20 @@ func int64ptr(i *int) *int64 {
 	j := int64(*i)
 	return &j
 }
-
+func equal(lhs, rhs interface{}) bool {
+	return reflect.DeepEqual(lhs, rhs)
+}
 func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 	rhs := x.(*ecs.SubmitContainerStateChangeInput)
-	if !(lhs.Arn == *rhs.Task && lhs.ContainerName == *rhs.ContainerName && lhs.Status.String() == *rhs.Status && lhs.Cluster == *rhs.Cluster) {
-		return false
-	}
-	if !reflect.DeepEqual(lhs.Reason, rhs.Reason) || !reflect.DeepEqual(int64ptr(lhs.ExitCode), rhs.ExitCode) {
-		return false
-	}
-	return true
+
+	return (equal(lhs.Cluster, rhs.Cluster) &&
+		equal(lhs.ContainerName, rhs.ContainerName) &&
+		equal(lhs.ExitCode, rhs.ExitCode) &&
+		equal(lhs.Reason, rhs.Reason) &&
+		equal(lhs.Status, rhs.Status) &&
+		equal(lhs.Task, rhs.Task))
 }
+
 func (lhs *containerSubmitInputMatcher) String() string {
 	return fmt.Sprintf("%+v", *lhs)
 }
@@ -65,10 +63,12 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	defer mockCtrl.Finish()
 	client, mc := NewMockClient(mockCtrl)
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
-		Cluster:       configuredCluster,
-		Arn:           "arn",
-		ContainerName: "cont",
-		Status:        api.ContainerRunning,
+		ecs.SubmitContainerStateChangeInput{
+			Cluster:       strptr(configuredCluster),
+			Task:          strptr("arn"),
+			ContainerName: strptr("cont"),
+			Status:        strptr("RUNNING"),
+		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
@@ -88,12 +88,14 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	reason := "I exited"
 
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
-		Cluster:       configuredCluster,
-		Arn:           "arn",
-		ContainerName: "cont",
-		Status:        api.ContainerStopped,
-		ExitCode:      &exitCode,
-		Reason:        &reason,
+		ecs.SubmitContainerStateChangeInput{
+			Cluster:       strptr(configuredCluster),
+			Task:          strptr("arn"),
+			ContainerName: strptr("cont"),
+			Status:        strptr("STOPPED"),
+			ExitCode:      int64ptr(&exitCode),
+			Reason:        strptr(reason),
+		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
@@ -115,12 +117,14 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	reason := strings.Repeat("a", api.EcsMaxReasonLength)
 
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
-		Cluster:       configuredCluster,
-		Arn:           "arn",
-		ContainerName: "cont",
-		Status:        api.ContainerStopped,
-		ExitCode:      &exitCode,
-		Reason:        &reason,
+		ecs.SubmitContainerStateChangeInput{
+			Cluster:       strptr(configuredCluster),
+			Task:          strptr("arn"),
+			ContainerName: strptr("cont"),
+			Status:        strptr("STOPPED"),
+			ExitCode:      int64ptr(&exitCode),
+			Reason:        strptr(reason),
+		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
@@ -143,12 +147,14 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	reason := strings.Repeat("a", api.EcsMaxReasonLength+1)
 
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
-		Cluster:       configuredCluster,
-		Arn:           "arn",
-		ContainerName: "cont",
-		Status:        api.ContainerStopped,
-		ExitCode:      &exitCode,
-		Reason:        &trimmedReason,
+		ecs.SubmitContainerStateChangeInput{
+			Cluster:       strptr(configuredCluster),
+			Task:          strptr("arn"),
+			ContainerName: strptr("cont"),
+			Status:        strptr("STOPPED"),
+			ExitCode:      int64ptr(&exitCode),
+			Reason:        strptr(trimmedReason),
+		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
