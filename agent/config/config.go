@@ -15,7 +15,7 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -72,12 +72,13 @@ func (cfg *Config) Complete() bool {
 
 // CheckMissing checks all zero-valued fields for tags of the form
 // missing:STRING and acts based on that string. Current options are: fatal,
-// warn. Fatal will result in a fatal error, warn will result in a warning that
-// the field is missing being logged
-func (cfg *Config) CheckMissingAndDepreciated() {
+// warn. Fatal will result in an error being returned, warn will result in a
+// warning that the field is missing being logged.
+func (cfg *Config) CheckMissingAndDepreciated() error {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
 
+	fatalFields := []string{}
 	for i := 0; i < cfgElem.NumField(); i++ {
 		cfgField := cfgElem.Field(i)
 		if utils.ZeroOrNil(cfgField.Interface()) {
@@ -90,7 +91,7 @@ func (cfg *Config) CheckMissingAndDepreciated() {
 				log.Warn("Configuration key not set", "key", cfgStructField.Field(i).Name)
 			case "fatal":
 				log.Crit("Configuration key not set", "key", cfgStructField.Field(i).Name)
-				os.Exit(1)
+				fatalFields = append(fatalFields, cfgStructField.Field(i).Name)
 			default:
 				log.Warn("Unexpected `missing` tag value", "tag", missingTag)
 			}
@@ -103,6 +104,10 @@ func (cfg *Config) CheckMissingAndDepreciated() {
 			log.Warn("Use of deprecated configuration key", "key", cfgStructField.Field(i).Name, "message", deprecatedTag)
 		}
 	}
+	if len(fatalFields) > 0 {
+		return errors.New("Missing required fields: " + strings.Join(fatalFields, ", "))
+	}
+	return nil
 }
 
 // TrimWhitespace trims whitespace from all string config values with the
@@ -131,11 +136,8 @@ func (cfg *Config) TrimWhitespace() {
 }
 
 func DefaultConfig() Config {
-	awsRegion := "us-west-2"
 	return Config{
-		APIEndpoint:    ecsEndpoint(awsRegion),
 		DockerEndpoint: "unix:///var/run/docker.sock",
-		AWSRegion:      awsRegion,
 		ReservedPorts:  []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
 		DataDir:        "/data/",
 	}
@@ -225,26 +227,28 @@ func EnvironmentConfig() Config {
 	}
 }
 
+var ec2MetadataClient = ec2.DefaultClient
+
 func EC2MetadataConfig() Config {
-	iid, err := ec2.GetInstanceIdentityDocument()
+	iid, err := ec2MetadataClient.InstanceIdentityDocument()
 	if err != nil {
-		log.Crit("Unable to communicate with EC2 Metadata service to infer region and endpoint: " + err.Error())
+		log.Crit("Unable to communicate with EC2 Metadata service to infer region: " + err.Error())
 		return Config{}
 	}
-	return Config{AWSRegion: iid.Region, APIEndpoint: ecsEndpoint(iid.Region)}
+	return Config{AWSRegion: iid.Region}
 }
 
-func ecsEndpoint(awsRegion string) string {
-	endpoint := fmt.Sprintf("ecs.%s.amazonaws.com", awsRegion)
-	return endpoint
-}
-
-func NewConfig() (*Config, error) {
+// NewConfig returns a config struct created by merging environment variables,
+// a config file, and EC2 Metadata info.
+// The 'config' struct it returns can be used, even if an error is returned. An
+// error is returned, however, if the config is incomplete in some way that is
+// considered fatal.
+func NewConfig() (config *Config, err error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
-	config := &ctmp
+	config = &ctmp
 	defer func() {
 		config.TrimWhitespace()
-		config.CheckMissingAndDepreciated()
+		err = config.CheckMissingAndDepreciated()
 		config.Merge(DefaultConfig())
 	}()
 
@@ -255,10 +259,10 @@ func NewConfig() (*Config, error) {
 
 	config.Merge(FileConfig())
 
-	if config.AWSRegion == "" || config.APIEndpoint == "" {
+	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
 		config.Merge(EC2MetadataConfig())
 	}
 
-	return config, nil
+	return config, err
 }
