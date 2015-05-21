@@ -282,10 +282,12 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		hostPort := int64(binding.HostPort)
 		containerPort := int64(binding.ContainerPort)
 		bindIP := binding.BindIp
+		protocol := binding.Protocol.String()
 		networkBindings[i] = &ecs.NetworkBinding{
 			BindIP:        &bindIP,
 			ContainerPort: &containerPort,
 			HostPort:      &hostPort,
+			Protocol:      &protocol,
 		}
 	}
 	req.NetworkBindings = networkBindings
