@@ -522,7 +522,7 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	return changedContainers, nil
 }
 
-// ListContainers lists returns a slice of container IDs.
+// ListContainers returns a slice of container IDs.
 func (dg *DockerGoClient) ListContainers(all bool) ListContainersResponse {
 	timeout := ttime.After(listContainersTimeout)
 
@@ -539,7 +539,6 @@ func (dg *DockerGoClient) ListContainers(all bool) ListContainersResponse {
 func (dg *DockerGoClient) listContainers(all bool) ListContainersResponse {
 	client := dg.dockerClient
 
-	// Empty options object will get us only running containers.
 	containers, err := client.ListContainers(docker.ListContainersOptions{All: all})
 	if err != nil {
 		return ListContainersResponse{Error: err}
