@@ -552,7 +552,7 @@ func (dg *DockerGoClient) listContainers(all bool) ListContainersResponse {
 		containerIDs[i] = container.ID
 	}
 
-	return ListContainersResponse{ContainerIds: containerIDs, Error: nil}
+	return ListContainersResponse{DockerIds: containerIDs, Error: nil}
 }
 
 func (dg *DockerGoClient) Version() (string, error) {

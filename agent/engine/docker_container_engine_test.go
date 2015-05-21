@@ -402,7 +402,7 @@ func TestListImages(t *testing.T) {
 		t.Error("Did not expect error")
 	}
 
-	containerIds := response.ContainerIds
+	containerIds := response.DockerIds
 	if len(containerIds) != 1 {
 		t.Error("Unexpected number of containers in list: ", len(containerIds))
 	}

@@ -42,6 +42,6 @@ type DockerContainerMetadata struct {
 // ListContainersResponse encapsulates the response from the docker client for the
 // ListContainers call.
 type ListContainersResponse struct {
-	ContainerIds []string
-	Error        error
+	DockerIds []string
+	Error     error
 }
