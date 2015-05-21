@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/auth"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/gorilla/websocket"
 )
 
@@ -57,11 +58,11 @@ func (ml *messageLogger) ReadMessage() (int, []byte, error) {
 	return websocket.TextMessage, read, nil
 }
 
-func testCS() (ClientServer, *messageLogger) {
+func testCS() (wsclient.ClientServer, *messageLogger) {
 	testCreds := auth.TestCredentialProvider{}
 	cs := New("localhost:443", "us-east-1", testCreds, true).(*clientServer)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
-	cs.conn = ml
+	cs.Conn = ml
 	return cs, ml
 }
 
@@ -69,7 +70,7 @@ func TestMakeUnrecognizedRequest(t *testing.T) {
 	cs, _ := testCS()
 	// 'testing.T' should not be a known type ;)
 	err := cs.MakeRequest(t)
-	if _, ok := err.(*UnrecognizedACSRequestType); !ok {
+	if _, ok := err.(*wsclient.UnrecognizedWSRequestType); !ok {
 		t.Fatal("Expected unrecognized request type")
 	}
 	_ = err.Error() // This is one of those times when 100% coverage is silly
@@ -287,7 +288,7 @@ func TestConnectClientError(t *testing.T) {
 
 	cs := New(testServer.URL, "us-east-1", auth.TestCredentialProvider{}, true)
 	err := cs.Connect()
-	if _, ok := err.(*acsError); !ok || err.Error() != "InvalidClusterException: Invalid cluster" {
+	if _, ok := err.(*wsclient.WSError); !ok || err.Error() != "InvalidClusterException: Invalid cluster" {
 		t.Error("Did not get correctly typed error: " + err.Error())
 	}
 }

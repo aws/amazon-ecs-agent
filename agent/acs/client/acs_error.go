@@ -14,26 +14,31 @@
 package acsclient
 
 import (
-	"reflect"
-
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 )
 
-// ACSError wraps all the typed errors that ACS may return
-// This will not be needed once the aws-sdk-go generation handles error types
-// more cleanly
-type acsError struct {
-	errObj interface{}
+const errType = "ACSError"
+
+// ACSUnretriableErrors wraps all the typed errors that ACS may return
+type ACSUnretriableErrors struct{}
+
+// Get gets the list of unretriable error types.
+func (err *ACSUnretriableErrors) Get() []interface{} {
+	return unretriableErrors
 }
 
-// NewACSError returns an error corresponding to a typed error returned from
+// acsError implements wsclient.ServiceError interface.
+type acsError struct{}
+
+// NewError returns an error corresponding to a typed error returned from
 // ACS. It is expected that the passed in interface{} is really a struct which
 // has a 'Message' field of type *string. In that case, the Message will be
 // conveyed as part of the Error string as well as the type. It is safe to pass
 // anything into this constructor and it will also work reasonably well with
 // anything fulfilling the 'error' interface.
-func NewACSError(err interface{}) *acsError {
-	return &acsError{err}
+func (ae *acsError) NewError(err interface{}) *wsclient.WSError {
+	return &wsclient.WSError{ErrObj: err, Type: errType, WSUnretriableErrors: &ACSUnretriableErrors{}}
 }
 
 // These errors are all fatal and there's nothing we can do about them.
@@ -44,41 +49,4 @@ var unretriableErrors = []interface{}{
 	&ecsacs.InvalidClusterException{},
 	&ecsacs.InactiveInstanceException{},
 	&ecsacs.AccessDeniedException{},
-}
-
-// Error returns an error string
-func (err *acsError) Error() string {
-	val := reflect.ValueOf(err.errObj)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	var typeStr = "Unknown type"
-	if val.IsValid() {
-		typeStr = val.Type().Name()
-		msg := val.FieldByName("Message")
-		if msg.IsValid() && msg.CanInterface() {
-			str, ok := msg.Interface().(*string)
-			if ok {
-				if str == nil {
-					return typeStr + ": null"
-				}
-				return typeStr + ": " + *str
-			}
-		}
-	}
-
-	if asErr, ok := err.errObj.(error); ok {
-		return "ACSError: " + asErr.Error()
-	}
-	return "ACSError: Unknown error (" + typeStr + ")"
-}
-
-// Retry returns true if this error should be considered retriable
-func (err *acsError) Retry() bool {
-	for _, unretriable := range unretriableErrors {
-		if reflect.TypeOf(err.errObj) == reflect.TypeOf(unretriable) {
-			return false
-		}
-	}
-	return true
 }

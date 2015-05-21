@@ -11,51 +11,51 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package acsclient
+package wsclient
 
-// UnrecognizedACSRequestType specifies that a given type is not recognized.
+// UnrecognizedWSRequestType specifies that a given type is not recognized.
 // This error is not retriable.
-type UnrecognizedACSRequestType struct {
+type UnrecognizedWSRequestType struct {
 	Type string
 }
 
 // Error implements error
-func (u *UnrecognizedACSRequestType) Error() string {
-	return "Could not recognize given argument as a valid type for ACS: " + u.Type
+func (u *UnrecognizedWSRequestType) Error() string {
+	return "Could not recognize given argument as a valid type: " + u.Type
 }
 
 // Retry implements Retriable
-func (u *UnrecognizedACSRequestType) Retry() bool {
+func (u *UnrecognizedWSRequestType) Retry() bool {
 	return false
 }
 
-// NotMarshallableACSRequest represents that the given request input could not be
+// NotMarshallableWSRequest represents that the given request input could not be
 // marshalled
-type NotMarshallableACSRequest struct {
+type NotMarshallableWSRequest struct {
 	Type string
 
-	err error
+	Err error
 }
 
 // Retry implementes Retriable
-func (u *NotMarshallableACSRequest) Retry() bool {
+func (u *NotMarshallableWSRequest) Retry() bool {
 	return false
 }
 
 // Error implements error
-func (u *NotMarshallableACSRequest) Error() string {
-	ret := "Could not marshal ACS Request"
+func (u *NotMarshallableWSRequest) Error() string {
+	ret := "Could not marshal Request"
 	if u.Type != "" {
 		ret += " (" + u.Type + ")"
 	}
-	return ret + ": " + u.err.Error()
+	return ret + ": " + u.Err.Error()
 }
 
-// UndecodableMessage indicates that a message from ACS could not be decoded
+// UndecodableMessage indicates that a message from the backend could not be decoded
 type UndecodableMessage struct {
-	msg string
+	Msg string
 }
 
 func (u *UndecodableMessage) Error() string {
-	return "Could not decode ACS message into any expected format: " + u.msg
+	return "Could not decode message into any expected format: " + u.Msg
 }
