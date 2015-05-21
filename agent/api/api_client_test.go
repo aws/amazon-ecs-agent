@@ -49,6 +49,7 @@ func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 	return (equal(lhs.Cluster, rhs.Cluster) &&
 		equal(lhs.ContainerName, rhs.ContainerName) &&
 		equal(lhs.ExitCode, rhs.ExitCode) &&
+		equal(lhs.NetworkBindings, rhs.NetworkBindings) &&
 		equal(lhs.Reason, rhs.Reason) &&
 		equal(lhs.Status, rhs.Status) &&
 		equal(lhs.Task, rhs.Task))
@@ -68,12 +69,36 @@ func TestSubmitContainerStateChange(t *testing.T) {
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
 			Status:        strptr("RUNNING"),
+			NetworkBindings: []*ecs.NetworkBinding{
+				&ecs.NetworkBinding{
+					BindIP:        strptr("1.2.3.4"),
+					ContainerPort: int64ptr(intptr(1)),
+					HostPort:      int64ptr(intptr(2)),
+				},
+				&ecs.NetworkBinding{
+					BindIP:        strptr("2.2.3.4"),
+					ContainerPort: int64ptr(intptr(3)),
+					HostPort:      int64ptr(intptr(4)),
+				},
+			},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		Status:        api.ContainerRunning,
+		PortBindings: []api.PortBinding{
+			api.PortBinding{
+				BindIp:        "1.2.3.4",
+				ContainerPort: 1,
+				HostPort:      2,
+			},
+			api.PortBinding{
+				BindIp:        "2.2.3.4",
+				ContainerPort: 3,
+				HostPort:      4,
+			},
+		},
 	})
 	if err != nil {
 		t.Errorf("Unable to submit container state change: %v", err)
@@ -95,6 +120,13 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 			Status:        strptr("STOPPED"),
 			ExitCode:      int64ptr(&exitCode),
 			Reason:        strptr(reason),
+			NetworkBindings: []*ecs.NetworkBinding{
+				&ecs.NetworkBinding{
+					BindIP:        strptr(""),
+					ContainerPort: int64ptr(intptr(0)),
+					HostPort:      int64ptr(intptr(0)),
+				},
+			},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
@@ -103,6 +135,9 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		Status:        api.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
+		PortBindings: []api.PortBinding{
+			api.PortBinding{},
+		},
 	})
 	if err != nil {
 		t.Errorf("Unable to submit container state change: %v", err)
@@ -118,12 +153,13 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
-			Cluster:       strptr(configuredCluster),
-			Task:          strptr("arn"),
-			ContainerName: strptr("cont"),
-			Status:        strptr("STOPPED"),
-			ExitCode:      int64ptr(&exitCode),
-			Reason:        strptr(reason),
+			Cluster:         strptr(configuredCluster),
+			Task:            strptr("arn"),
+			ContainerName:   strptr("cont"),
+			Status:          strptr("STOPPED"),
+			ExitCode:        int64ptr(&exitCode),
+			Reason:          strptr(reason),
+			NetworkBindings: []*ecs.NetworkBinding{},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
@@ -148,12 +184,13 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 
 	mc.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
-			Cluster:       strptr(configuredCluster),
-			Task:          strptr("arn"),
-			ContainerName: strptr("cont"),
-			Status:        strptr("STOPPED"),
-			ExitCode:      int64ptr(&exitCode),
-			Reason:        strptr(trimmedReason),
+			Cluster:         strptr(configuredCluster),
+			Task:            strptr("arn"),
+			ContainerName:   strptr("cont"),
+			Status:          strptr("STOPPED"),
+			ExitCode:        int64ptr(&exitCode),
+			Reason:          strptr(trimmedReason),
+			NetworkBindings: []*ecs.NetworkBinding{},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{

@@ -276,8 +276,9 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 	for i, binding := range change.PortBindings {
 		hostPort := int64(binding.HostPort)
 		containerPort := int64(binding.ContainerPort)
+		bindIP := binding.BindIp
 		networkBindings[i] = &ecs.NetworkBinding{
-			BindIP:        &binding.BindIp,
+			BindIP:        &bindIP,
 			ContainerPort: &containerPort,
 			HostPort:      &hostPort,
 		}
