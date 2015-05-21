@@ -38,3 +38,10 @@ type DockerContainerMetadata struct {
 	Error        error
 	Volumes      map[string]string
 }
+
+// ListContainersResponse encapsulates the response from the docker client for the
+// ListContainers call.
+type ListContainersResponse struct {
+	DockerIds []string
+	Error     error
+}

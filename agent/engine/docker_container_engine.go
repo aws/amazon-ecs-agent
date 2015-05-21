@@ -48,6 +48,7 @@ const (
 	stopContainerTimeout    = 1 * time.Minute
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 10 * time.Second
+	listContainersTimeout   = 10 * time.Minute
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work
@@ -69,6 +70,8 @@ type DockerClient interface {
 
 	GetContainerName(string) (string, error)
 	InspectContainer(string) (*docker.Container, error)
+
+	ListContainers(bool) ListContainersResponse
 
 	Version() (string, error)
 }
@@ -517,6 +520,38 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	}()
 
 	return changedContainers, nil
+}
+
+// ListContainers returns a slice of container IDs.
+func (dg *DockerGoClient) ListContainers(all bool) ListContainersResponse {
+	timeout := ttime.After(listContainersTimeout)
+
+	response := make(chan ListContainersResponse, 1)
+	go func() { response <- dg.listContainers(all) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		return ListContainersResponse{Error: &DockerTimeoutError{listContainersTimeout, "listing"}}
+	}
+}
+
+func (dg *DockerGoClient) listContainers(all bool) ListContainersResponse {
+	client := dg.dockerClient
+
+	containers, err := client.ListContainers(docker.ListContainersOptions{All: all})
+	if err != nil {
+		return ListContainersResponse{Error: err}
+	}
+
+	// We get an empty slice if there are no containers to be listed.
+	// Extract container IDs from this list.
+	containerIDs := make([]string, len(containers))
+	for i, container := range containers {
+		containerIDs[i] = container.ID
+	}
+
+	return ListContainersResponse{DockerIds: containerIDs, Error: nil}
 }
 
 func (dg *DockerGoClient) Version() (string, error) {

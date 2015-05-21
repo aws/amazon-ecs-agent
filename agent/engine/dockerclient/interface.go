@@ -16,7 +16,7 @@ package dockerclient
 
 import "github.com/fsouza/go-dockerclient"
 
-// GoDockerClient is an interface specifying the subset of
+// Client is an interface specifying the subset of
 // github.com/fsouza/go-dockerclient.Client that the agent uses.
 type Client interface {
 	AddEventListener(listener chan<- *docker.APIEvents) error
@@ -24,6 +24,7 @@ type Client interface {
 	ImportImage(opts docker.ImportImageOptions) error
 	InspectContainer(id string) (*docker.Container, error)
 	InspectImage(name string) (*docker.Image, error)
+	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	RemoveEventListener(listener chan *docker.APIEvents) error

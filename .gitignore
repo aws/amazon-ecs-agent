@@ -3,3 +3,4 @@ misc/netkitten/netkitten
 out/
 coverage/
 _bin/
+*.swp
