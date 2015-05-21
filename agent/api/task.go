@@ -221,8 +221,10 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Memory:       dockerMem,
 		CPUShares:    int64(container.Cpu),
 		Labels: map[string]string{
-			"com.amazonaws.ecs.task-arn":       task.Arn,
-			"com.amazonaws.ecs.container-name": container.Name,
+			"com.amazonaws.ecs.task-arn":                task.Arn,
+			"com.amazonaws.ecs.container-name":          container.Name,
+			"com.amazonaws.ecs.task-definition-family":  task.Family,
+			"com.amazonaws.ecs.task-definition-version": task.Version,
 		},
 	}
 	return config, nil

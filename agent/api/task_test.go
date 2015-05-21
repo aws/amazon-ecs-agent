@@ -98,7 +98,9 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 
 func TestDockerConfigLabels(t *testing.T) {
 	testTask := &Task{
-		Arn: "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
 		Containers: []*Container{
 			&Container{
 				Name: "c1",
@@ -110,10 +112,14 @@ func TestDockerConfigLabels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(config.Labels, map[string]string{
-		"com.amazonaws.ecs.task-arn":       "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		"com.amazonaws.ecs.container-name": "c1",
-	}) {
+
+	expected := map[string]string{
+		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		"com.amazonaws.ecs.container-name":          "c1",
+		"com.amazonaws.ecs.task-definition-family":  "myFamily",
+		"com.amazonaws.ecs.task-definition-version": "1",
+	}
+	if !reflect.DeepEqual(config.Labels, expected) {
 		t.Fatal("Expected default ecs labels to be set, was: ", config.Labels)
 	}
 }
