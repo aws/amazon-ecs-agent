@@ -22,7 +22,6 @@ import (
 
 	"code.google.com/p/gomock/gomock"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/client/mock"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -31,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	mock_client "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 )
 
 func ptr(i interface{}) interface{} {

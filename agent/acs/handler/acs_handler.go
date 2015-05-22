@@ -35,6 +35,7 @@ import (
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 )
 
 var log = logger.ForModule("acs handler")
@@ -105,7 +106,7 @@ func heartbeatHandler(acsConnection io.Closer) func(*ecsacs.HeartbeatMessage) {
 // takes given payloads, converts them into the internal representation of
 // tasks, and passes them on to the task engine. If there is an issue handling a
 // task, it is moved to stopped. If a task is handled, state is saved.
-func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, client api.ECSClient, stateManager statemanager.Saver) func(payload *ecsacs.PayloadMessage) {
+func payloadMessageHandler(cs wsclient.ClientServer, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, client api.ECSClient, stateManager statemanager.Saver) func(payload *ecsacs.PayloadMessage) {
 	messageBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
 	go func() {
 		for message := range messageBuffer {
@@ -119,7 +120,7 @@ func payloadMessageHandler(cs acsclient.ClientServer, cluster, containerInstance
 }
 
 // handlePayloadMessage attempts to add each task to the taskengine and, if it can, acks the request.
-func handlePayloadMessage(cs acsclient.ClientServer, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
+func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	if payload.MessageId == nil {
 		log.Crit("Recieved a payload with no message id", "payload", payload)
 		return
@@ -151,7 +152,7 @@ func handlePayloadMessage(cs acsclient.ClientServer, cluster, containerInstanceA
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine
-func addPayloadTasks(cs acsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
+func addPayloadTasks(cs wsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
 	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
 	allTasksOk := true
 
@@ -216,7 +217,7 @@ func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
 
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
 // a suitable reason to the backend
-func handleUnrecognizedTask(cs acsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
+func handleUnrecognizedTask(cs wsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
 	if task.Arn == nil {
 		log.Crit("Recieved task with no arn", "task", task, "messageId", *payload.MessageId)
 		return

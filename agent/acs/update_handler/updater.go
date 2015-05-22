@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -36,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 )
 
 var log = logger.ForModule("updater")
@@ -53,7 +53,7 @@ type updater struct {
 	// not
 	updateID   string
 	fs         os.FileSystem
-	acs        acsclient.ClientServer
+	acs        wsclient.ClientServer
 	config     *config.Config
 	httpclient *http.Client
 
@@ -78,7 +78,7 @@ var singleUpdater *updater
 
 // AddAgentUpdateHandlers adds the needed update handlers to perform agent
 // updates
-func AddAgentUpdateHandlers(cs acsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
+func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
 	if cfg.UpdatesEnabled {
 		singleUpdater = &updater{
 			acs:        cs,

@@ -21,9 +21,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 )
 
+var acsErr *acsError
+
+func init() {
+	acsErr = &acsError{}
+}
+
 func TestInvalidInstanceException(t *testing.T) {
 	errMsg := "Invalid instance"
-	err := NewACSError(&ecsacs.InvalidInstanceException{Message: &errMsg})
+	err := acsErr.NewError(&ecsacs.InvalidInstanceException{Message: &errMsg})
 
 	if err.Retry() {
 		t.Fatal("Expected InvalidInstanceException to not be retriable")
@@ -36,7 +42,7 @@ func TestInvalidInstanceException(t *testing.T) {
 
 func TestInvalidClusterException(t *testing.T) {
 	errMsg := "Invalid cluster"
-	err := NewACSError(&ecsacs.InvalidClusterException{Message: &errMsg})
+	err := acsErr.NewError(&ecsacs.InvalidClusterException{Message: &errMsg})
 
 	if err.Retry() {
 		t.Fatal("Expected to not be retriable")
@@ -48,7 +54,7 @@ func TestInvalidClusterException(t *testing.T) {
 }
 
 func TestServerException(t *testing.T) {
-	err := NewACSError(&ecsacs.ServerException{Message: nil})
+	err := acsErr.NewError(&ecsacs.ServerException{Message: nil})
 
 	if !err.Retry() {
 		t.Fatal("Server exceptions are retriable")
@@ -60,7 +66,7 @@ func TestServerException(t *testing.T) {
 }
 
 func TestGenericErrorConversion(t *testing.T) {
-	err := NewACSError(errors.New("generic error"))
+	err := acsErr.NewError(errors.New("generic error"))
 
 	if !err.Retry() {
 		t.Error("Should default to retriable")
@@ -73,7 +79,7 @@ func TestGenericErrorConversion(t *testing.T) {
 
 func TestSomeRandomTypeConversion(t *testing.T) {
 	// This is really just an 'it doesn't panic' check.
-	err := NewACSError(t)
+	err := acsErr.NewError(t)
 	if !err.Retry() {
 		t.Error("Should default to retriable")
 	}
@@ -84,7 +90,7 @@ func TestSomeRandomTypeConversion(t *testing.T) {
 
 func TestBadlyTypedMessage(t *testing.T) {
 	// Another 'does not panic' check
-	err := NewACSError(struct{ Message int }{1})
+	err := acsErr.NewError(struct{ Message int }{1})
 	if !err.Retry() {
 		t.Error("Should default to retriable")
 	}
