@@ -453,7 +453,6 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 // Listen to the docker event stream for container changes and pass them up
 func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
 	client := dg.dockerClient
-
 	events := make(chan *docker.APIEvents)
 
 	err := client.AddEventListener(events)
