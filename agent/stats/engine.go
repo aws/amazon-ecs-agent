@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
@@ -47,6 +48,7 @@ type DockerStatsEngine struct {
 	client          ecsengine.DockerClient
 	containersLock  sync.RWMutex
 	ctx             context.Context
+	dockerGraphPath string
 	events          <-chan ecsengine.DockerContainerChangeEvent
 	metricsMetadata *ecstcs.MetricsMetadata
 	resolver        resolver.ContainerMetadataResolver
@@ -88,10 +90,11 @@ func (resolver *DockerContainerMetadataResolver) ResolveName(dockerID string) (s
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
-func NewDockerStatsEngine() *DockerStatsEngine {
+func NewDockerStatsEngine(cfg *config.Config) *DockerStatsEngine {
 	if dockerStatsEngine == nil {
 		dockerStatsEngine = &DockerStatsEngine{
 			client:             nil,
+			dockerGraphPath:    cfg.DockerGraphPath,
 			resolver:           nil,
 			tasksToContainers:  make(map[string]map[string]*CronContainer),
 			tasksToDefinitions: make(map[string]*taskDefinition),
@@ -301,7 +304,7 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 	}
 
 	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
-	container := newCronContainer(&dockerID, &containerName)
+	container := newCronContainer(&dockerID, &containerName, engine.dockerGraphPath)
 	engine.tasksToContainers[task.Arn][dockerID] = container
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 	container.StartStatsCron()

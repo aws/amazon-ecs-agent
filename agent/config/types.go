@@ -67,4 +67,7 @@ type Config struct {
 	// DisableMetrics configures whether task utilization metrics should be
 	// sent to the ECS telemetry endpoint
 	DisableMetrics bool
+
+	// DockerGraphPath specifies the path for docker graph directory.
+	DockerGraphPath string
 }

@@ -137,9 +137,11 @@ func (cfg *Config) TrimWhitespace() {
 
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint: "unix:///var/run/docker.sock",
-		ReservedPorts:  []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
-		DataDir:        "/data/",
+		DockerEndpoint:  "unix:///var/run/docker.sock",
+		ReservedPorts:   []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		DataDir:         "/data/",
+		DisableMetrics:  false,
+		DockerGraphPath: "/var/lib/docker",
 	}
 }
 
@@ -213,6 +215,7 @@ func EnvironmentConfig() Config {
 	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
 
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
+	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
 	return Config{
 		Cluster:           clusterRef,
@@ -227,6 +230,7 @@ func EnvironmentConfig() Config {
 		UpdatesEnabled:    updatesEnabled,
 		UpdateDownloadDir: updateDownloadDir,
 		DisableMetrics:    disableMetrics,
+		DockerGraphPath:   dockerGraphPath,
 	}
 }
 

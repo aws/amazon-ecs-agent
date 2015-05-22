@@ -28,13 +28,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-var defaultCluster string
-var defaultContainerInstance string
-
-func init() {
-	defaultCluster = "default"
-	defaultContainerInstance = "ci"
-}
+var defaultCluster = "default"
+var defaultContainerInstance = "ci"
 
 type MockTaskEngine struct {
 }
@@ -135,7 +130,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveName("c5").AnyTimes().Return("", fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveName("c6").AnyTimes().Return("n-c6", nil)
 
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 
@@ -271,7 +266,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveName("c1").AnyTimes().Return("n-c1", nil)
 
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 	engine.addContainer("c1")
@@ -314,7 +309,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
-	statsEngine := NewDockerStatsEngine()
+	statsEngine := NewDockerStatsEngine(&cfg)
 	taskEngine := &MockTaskEngine{}
 	err := statsEngine.MustInit(taskEngine, nil)
 	if err == nil {
@@ -323,7 +318,7 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineUninitialized(t *testing.T) {
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = &DockerContainerMetadataResolver{}
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 	engine.addContainer("c1")
@@ -339,7 +334,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatus: api.TaskStopped}, nil)
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
 
 	engine.addContainer("c1")
@@ -352,7 +347,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 func TestStatsEngineClientErrorListingContainers(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	mockDockerClient := mock_engine.NewMockDockerClient(mockCtrl)
 	// Mock client will return error while listing images.
 	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: fmt.Errorf("could not list containers")})

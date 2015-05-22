@@ -46,6 +46,8 @@ var endpoint = utils.DefaultIfBlank(os.Getenv(engine.DOCKER_ENDPOINT_ENV_VARIABL
 
 var client, _ = docker.NewClient(endpoint)
 
+var cfg = config.DefaultConfig()
+
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
 func createGremlin(client *docker.Client) (*docker.Container, error) {
@@ -99,7 +101,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	err := engine.initDockerClient()
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
@@ -190,7 +192,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
-	engine := NewDockerStatsEngine()
+	engine := NewDockerStatsEngine(&cfg)
 	err := engine.initDockerClient()
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
@@ -316,7 +318,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 			Container:  containers[0],
 		},
 		&testTask)
-	statsEngine := NewDockerStatsEngine()
+	statsEngine := NewDockerStatsEngine(&cfg)
 	statsEngine.client, err = engine.NewDockerGoClient()
 	if err != nil {
 		t.Fatal("Error initializing docker client: ", err)

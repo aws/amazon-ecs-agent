@@ -14,24 +14,14 @@
 package stats
 
 import (
-	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/docker/libcontainer"
 	"golang.org/x/net/context"
 )
 
 const (
-	// DockerGraphPath specifies the environment variable to be used to set the
-	// default docker driver path.
-	DockerGraphPath = "ECS_DOCKER_GRAPH_PATH"
-
-	// DefaultDockerGraphPath is the default docker execdriver path to use when
-	// DockerGraphPath is not set.
-	DefaultDockerGraphPath = "/var/lib/docker"
-
 	// DockerExecDriverPath points to the docker exec driver path.
 	DockerExecDriverPath = "execdriver/native"
 
@@ -52,13 +42,6 @@ type ContainerStatsCollector interface {
 // LibcontainerStatsCollector implements ContainerStatsCollector.
 type LibcontainerStatsCollector struct{}
 
-// dockerGraphPath stores the docker exec driver path.
-var dockerGraphPath string
-
-func init() {
-	dockerGraphPath = utils.DefaultIfBlank(os.Getenv(DockerGraphPath), DefaultDockerGraphPath)
-}
-
 // StartStatsCron starts a go routine to periodically pull usage data for the container.
 func (container *CronContainer) StartStatsCron() {
 	// Create the queue to store utilization data from cgroup fs.
@@ -76,7 +59,7 @@ func (container *CronContainer) StopStatsCron() {
 }
 
 // newCronContainer creates a CronContainer object.
-func newCronContainer(dockerID *string, name *string) *CronContainer {
+func newCronContainer(dockerID *string, name *string, dockerGraphPath string) *CronContainer {
 	statePath := filepath.Join(dockerGraphPath, DockerExecDriverPath, *dockerID)
 
 	container := &CronContainer{
@@ -117,7 +100,7 @@ func (collector *LibcontainerStatsCollector) getContainerStats(container *CronCo
 		// Bubble up the error.
 		return nil, err
 	}
-	// lincontainer.GetStats ignores the config argument. So, don't bother providing one.
+	// libcontainer.GetStats ignores the config argument. So, don't bother providing one.
 	containerStats, err := libcontainer.GetStats(nil, state)
 	if err != nil && !isNetworkStatsError(err) {
 		log.Error("Error getting libcontainer stats", "err", err)
