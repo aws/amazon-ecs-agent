@@ -21,7 +21,7 @@ import (
 
 // checkPointSleep is the sleep duration in milliseconds between
 // starting/stopping containers in the test code.
-const checkPointSleep = 300 * time.Millisecond
+const checkPointSleep = 2 * SleepBetweenUsageDataCollection
 
 type MockStatsCollector struct {
 	index int

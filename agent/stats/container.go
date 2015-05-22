@@ -36,7 +36,7 @@ const (
 	DockerExecDriverPath = "execdriver/native"
 
 	// SleepBetweenUsageDataCollection is the sleep duration between collecting usage data for a container.
-	SleepBetweenUsageDataCollection = 100 * time.Millisecond
+	SleepBetweenUsageDataCollection = 500 * time.Millisecond
 
 	// ContainerStatsBufferLength is the number of usage metrics stored in memory for a container. It is calculated as
 	// Number of usage metrics gathered in a second (10) * 60 * Time duration in minutes to store the data for (2)
