@@ -4,3 +4,4 @@ out/
 coverage/
 _bin/
 *.swp
+*.orig

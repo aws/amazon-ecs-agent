@@ -212,6 +212,8 @@ func EnvironmentConfig() Config {
 	updateDownloadDir := os.Getenv("ECS_UPDATE_DOWNLOAD_DIR")
 	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
 
+	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
+
 	return Config{
 		Cluster:           clusterRef,
 		APIEndpoint:       endpoint,
@@ -224,6 +226,7 @@ func EnvironmentConfig() Config {
 		EngineAuthData:    []byte(engineAuthData),
 		UpdatesEnabled:    updatesEnabled,
 		UpdateDownloadDir: updateDownloadDir,
+		DisableMetrics:    disableMetrics,
 	}
 }
 

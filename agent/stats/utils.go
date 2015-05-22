@@ -25,13 +25,13 @@ import (
 // if there's an error reading network stats.
 const networkStatsErrorPattern = "open /sys/class/net/veth.*: no such file or directory"
 
-// NaN32 returns a 32bit NaN.
-func NaN32() float32 {
+// nan32 returns a 32bit NaN.
+func nan32() float32 {
 	return (float32)(math.NaN())
 }
 
-// ToContainerStats returns a new object of the ContainerStats object from libcontainer stats.
-func ToContainerStats(containerStats libcontainer.ContainerStats) *ContainerStats {
+// toContainerStats returns a new object of the ContainerStats object from libcontainer stats.
+func toContainerStats(containerStats libcontainer.ContainerStats) *ContainerStats {
 	return &ContainerStats{
 		cpuUsage:    containerStats.CgroupStats.CpuStats.CpuUsage.TotalUsage,
 		memoryUsage: containerStats.CgroupStats.MemoryStats.Usage,
@@ -39,8 +39,8 @@ func ToContainerStats(containerStats libcontainer.ContainerStats) *ContainerStat
 	}
 }
 
-// CreateContainerStats returns a new object of the ContainerStats object.
-func CreateContainerStats(cpuTime uint64, memBytes uint64, ts time.Time) *ContainerStats {
+// createContainerStats returns a new object of the ContainerStats object.
+func createContainerStats(cpuTime uint64, memBytes uint64, ts time.Time) *ContainerStats {
 	return &ContainerStats{
 		cpuUsage:    cpuTime,
 		memoryUsage: memBytes,
@@ -48,8 +48,8 @@ func CreateContainerStats(cpuTime uint64, memBytes uint64, ts time.Time) *Contai
 	}
 }
 
-// ParseNanoTime returns the time object from a string formatted with RFC3339Nano layout.
-func ParseNanoTime(value string) time.Time {
+// parseNanoTime returns the time object from a string formatted with RFC3339Nano layout.
+func parseNanoTime(value string) time.Time {
 	ts, _ := time.Parse(time.RFC3339Nano, value)
 	return ts
 }

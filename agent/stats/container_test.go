@@ -31,14 +31,14 @@ type MockStatsCollector struct {
 func newMockStatsCollector() *MockStatsCollector {
 	collector := &MockStatsCollector{index: 0}
 	timestamps := []time.Time{
-		ParseNanoTime("2015-02-12T21:22:05.131117533Z"),
-		ParseNanoTime("2015-02-12T21:22:05.232291187Z"),
-		ParseNanoTime("2015-02-12T21:22:05.333776335Z"),
-		ParseNanoTime("2015-02-12T21:22:05.434753595Z"),
-		ParseNanoTime("2015-02-12T21:22:05.535746779Z"),
-		ParseNanoTime("2015-02-12T21:22:05.638709495Z"),
-		ParseNanoTime("2015-02-12T21:22:05.739985398Z"),
-		ParseNanoTime("2015-02-12T21:22:05.840941705Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.232291187Z"),
+		parseNanoTime("2015-02-12T21:22:05.333776335Z"),
+		parseNanoTime("2015-02-12T21:22:05.434753595Z"),
+		parseNanoTime("2015-02-12T21:22:05.535746779Z"),
+		parseNanoTime("2015-02-12T21:22:05.638709495Z"),
+		parseNanoTime("2015-02-12T21:22:05.739985398Z"),
+		parseNanoTime("2015-02-12T21:22:05.840941705Z"),
 	}
 	cpuTimes := []uint64{
 		22400432,
@@ -62,7 +62,7 @@ func newMockStatsCollector() *MockStatsCollector {
 	}
 	collector.stats = make([]ContainerStats, len(timestamps))
 	for i := range timestamps {
-		collector.stats[i] = *CreateContainerStats(cpuTimes[i], memBytes[i], timestamps[i])
+		collector.stats[i] = *createContainerStats(cpuTimes[i], memBytes[i], timestamps[i])
 	}
 	return collector
 }

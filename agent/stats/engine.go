@@ -16,9 +16,7 @@ package stats
 //go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
 
 import (
-	"errors"
-	"os"
-	"strconv"
+	"fmt"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
@@ -26,18 +24,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"golang.org/x/net/context"
-)
-
-const (
-	// DisableStatsEnvVar specifies the environment variable name to
-	// be set to disable metric gathering.
-	DisableStatsEnvVar = "ECS_DISABLE_METRICS"
-
-	// DefaultDisableStatsEnvVarValue specifies the default environment
-	// value for the DisableStatsEnvVar variable.
-	DefaultDisableStatsEnvVarValue = "false"
 )
 
 var log = logger.ForModule("stats")
@@ -73,27 +60,14 @@ type DockerStatsEngine struct {
 // dockerStatsEngine is a singleton object of DockerStatsEngine.
 var dockerStatsEngine *DockerStatsEngine
 
-// isMetricCollectionDisabled stores the value of DisableStatsEnvVar.
-var isMetricCollectionDisabled bool
-
-func init() {
-	setMetricCollectionFlag()
-}
-
-// IsMetricCollectionEnabled returns true if the ECS_DISABLE_METRICS is set to "false".
-// Else, it returns true.
-func IsMetricCollectionEnabled() bool {
-	return !isMetricCollectionDisabled
-}
-
 // ResolveTask resolves the task arn, given container id.
 func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*api.Task, error) {
 	if resolver.dockerTaskEngine == nil {
-		return nil, errors.New("Docker task engine uninitialized.")
+		return nil, fmt.Errorf("Docker task engine uninitialized")
 	}
 	task, found := resolver.dockerTaskEngine.State().TaskById(dockerID)
 	if !found {
-		return nil, errors.New("Could not map docker id to task")
+		return nil, fmt.Errorf("Could not map docker id to task")
 	}
 
 	return task, nil
@@ -102,11 +76,11 @@ func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*
 // ResolveName resolves the container name, given container id.
 func (resolver *DockerContainerMetadataResolver) ResolveName(dockerID string) (string, error) {
 	if resolver.dockerTaskEngine == nil {
-		return "", errors.New("Docker task engine uninitialized.")
+		return "", fmt.Errorf("Docker task engine uninitialized.")
 	}
 	container, found := resolver.dockerTaskEngine.State().ContainerById(dockerID)
 	if !found {
-		return "", errors.New("Could not map docker id to container")
+		return "", fmt.Errorf("Could not map docker id to container")
 	}
 
 	return container.DockerName, nil
@@ -173,99 +147,18 @@ func (engine *DockerStatsEngine) listContainersAndStartEventHandler() {
 	go engine.handleDockerEvents()
 }
 
-// AddContainer adds a container to the map of containers being watched.
-// It also starts the periodic usage data collection for the container.
-func (engine *DockerStatsEngine) AddContainer(dockerID string) {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
-
-	// Make sure that this container belongs to a task and that the task
-	// is not terminal.
-	task, err := engine.resolver.ResolveTask(dockerID)
-	if err != nil {
-		log.Debug("Could not map container to task, ignoring", "err", err, "id", dockerID)
-		return
+// addExistingContainers lists existing containers and adds them to the engine.
+func (engine *DockerStatsEngine) addExistingContainers() error {
+	listContainersResponse := engine.client.ListContainers(false)
+	if listContainersResponse.Error != nil {
+		return listContainersResponse.Error
 	}
 
-	if len(task.Arn) == 0 || len(task.Family) == 0 {
-		log.Debug("Task has invalid fields", "id", dockerID)
-		return
+	for _, containerID := range listContainersResponse.DockerIds {
+		engine.addContainer(containerID)
 	}
 
-	if task.KnownStatus.Terminal() {
-		log.Debug("Task is terminal, ignoring", "id", dockerID)
-		return
-	}
-
-	// Check if this container is already being watched.
-	_, taskExists := engine.tasksToContainers[task.Arn]
-	if taskExists {
-		// task arn exists in map.
-		_, containerExists := engine.tasksToContainers[task.Arn][dockerID]
-		if containerExists {
-			// container arn exists in map.
-			log.Debug("Container already being watched, ignoring", "id", dockerID)
-			return
-		}
-	}
-
-	containerName, err := engine.resolver.ResolveName(dockerID)
-	if err != nil {
-		log.Debug("Could not get name for container, ignoring", "err", err, "id", dockerID)
-		return
-	}
-
-	if !taskExists {
-		// Create a map for the task arn if it doesn't exist yet.
-		engine.tasksToContainers[task.Arn] = make(map[string]*CronContainer)
-	}
-
-	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
-	container := newCronContainer(&dockerID, &containerName)
-	engine.tasksToContainers[task.Arn][dockerID] = container
-	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
-	container.StartStatsCron()
-}
-
-// RemoveContainer deletes the container from the map of containers being watched.
-// It also stops the periodic usage data collection for the container.
-func (engine *DockerStatsEngine) RemoveContainer(dockerID string) {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
-
-	// Make sure that this container belongs to a task.
-	task, err := engine.resolver.ResolveTask(dockerID)
-	if err != nil {
-		log.Debug("Could not map container to task, ignoring", "err", err, "id", dockerID)
-		return
-	}
-
-	_, taskExists := engine.tasksToContainers[task.Arn]
-	if !taskExists {
-		log.Debug("Container not being watched", "id", dockerID)
-		return
-	}
-
-	// task arn exists in map.
-	container, containerExists := engine.tasksToContainers[task.Arn][dockerID]
-	if !containerExists {
-		// container arn does not exist in map.
-		log.Debug("Container not being watched", "id", dockerID)
-		return
-	}
-
-	container.StopStatsCron()
-	delete(engine.tasksToContainers[task.Arn], dockerID)
-	log.Debug("Deleted container from tasks", "id", dockerID)
-
-	if len(engine.tasksToContainers[task.Arn]) == 0 {
-		// No containers in task, delete task arn from map.
-		delete(engine.tasksToContainers, task.Arn)
-		// No need to verify if the key exists in tasksToDefinitions.
-		// Delete will do nothing if the specified key doesn't exist.
-		delete(engine.tasksToDefinitions, task.Arn)
-		log.Debug("Deleted task from tasks", "arn", task.Arn)
-	}
+	return nil
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
@@ -306,7 +199,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 
 	if len(taskMetrics) == 0 {
 		// Not idle. Expect taskMetrics to be there.
-		return nil, nil, errors.New("No task metrics to report")
+		return nil, nil, fmt.Errorf("No task metrics to report")
 	}
 
 	return engine.metricsMetadata, taskMetrics, nil
@@ -324,20 +217,6 @@ func (engine *DockerStatsEngine) initDockerClient() error {
 			return err
 		}
 		engine.client = client
-	}
-
-	return nil
-}
-
-// addExistingContainers lists existing containers and adds them to the engine.
-func (engine *DockerStatsEngine) addExistingContainers() error {
-	listContainersResponse := engine.client.ListContainers(false)
-	if listContainersResponse.Error != nil {
-		return listContainersResponse.Error
-	}
-
-	for _, containerID := range listContainersResponse.DockerIds {
-		engine.AddContainer(containerID)
 	}
 
 	return nil
@@ -365,9 +244,9 @@ func (engine *DockerStatsEngine) handleDockerEvents() {
 			log.Debug("Handling an event: ", "container", event.DockerId, "status", event.Status.String())
 			switch event.Status {
 			case api.ContainerRunning:
-				engine.AddContainer(event.DockerId)
+				engine.addContainer(event.DockerId)
 			case api.ContainerStopped:
-				engine.RemoveContainer(event.DockerId)
+				engine.removeContainer(event.DockerId)
 			default:
 				log.Debug("Ignoring event for container", "id", event.DockerId, "status", event.Status)
 			}
@@ -376,12 +255,105 @@ func (engine *DockerStatsEngine) handleDockerEvents() {
 	log.Crit("Docker event stream closed unexpectedly")
 }
 
+// addContainer adds a container to the map of containers being watched.
+// It also starts the periodic usage data collection for the container.
+func (engine *DockerStatsEngine) addContainer(dockerID string) {
+	engine.containersLock.Lock()
+	defer engine.containersLock.Unlock()
+
+	// Make sure that this container belongs to a task and that the task
+	// is not terminal.
+	task, err := engine.resolver.ResolveTask(dockerID)
+	if err != nil {
+		log.Debug("Could not map container to task, ignoring", "err", err, "id", dockerID)
+		return
+	}
+
+	if len(task.Arn) == 0 || len(task.Family) == 0 {
+		log.Debug("Task has invalid fields", "id", dockerID)
+		return
+	}
+
+	if task.KnownStatus.Terminal() {
+		log.Debug("Task is terminal, ignoring", "id", dockerID)
+		return
+	}
+
+	containerName, err := engine.resolver.ResolveName(dockerID)
+	if err != nil {
+		log.Debug("Could not get name for container, ignoring", "err", err, "id", dockerID)
+		return
+	}
+
+	// Check if this container is already being watched.
+	_, taskExists := engine.tasksToContainers[task.Arn]
+	if taskExists {
+		// task arn exists in map.
+		_, containerExists := engine.tasksToContainers[task.Arn][dockerID]
+		if containerExists {
+			// container arn exists in map.
+			log.Debug("Container already being watched, ignoring", "id", dockerID)
+			return
+		}
+	} else {
+		// Create a map for the task arn if it doesn't exist yet.
+		engine.tasksToContainers[task.Arn] = make(map[string]*CronContainer)
+	}
+
+	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
+	container := newCronContainer(&dockerID, &containerName)
+	engine.tasksToContainers[task.Arn][dockerID] = container
+	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
+	container.StartStatsCron()
+}
+
+// removeContainer deletes the container from the map of containers being watched.
+// It also stops the periodic usage data collection for the container.
+func (engine *DockerStatsEngine) removeContainer(dockerID string) {
+	engine.containersLock.Lock()
+	defer engine.containersLock.Unlock()
+
+	// Make sure that this container belongs to a task.
+	task, err := engine.resolver.ResolveTask(dockerID)
+	if err != nil {
+		log.Debug("Could not map container to task, ignoring", "err", err, "id", dockerID)
+		return
+	}
+
+	_, taskExists := engine.tasksToContainers[task.Arn]
+	if !taskExists {
+		log.Debug("Container not being watched", "id", dockerID)
+		return
+	}
+
+	// task arn exists in map.
+	container, containerExists := engine.tasksToContainers[task.Arn][dockerID]
+	if !containerExists {
+		// container arn does not exist in map.
+		log.Debug("Container not being watched", "id", dockerID)
+		return
+	}
+
+	container.StopStatsCron()
+	delete(engine.tasksToContainers[task.Arn], dockerID)
+	log.Debug("Deleted container from tasks", "id", dockerID)
+
+	if len(engine.tasksToContainers[task.Arn]) == 0 {
+		// No containers in task, delete task arn from map.
+		delete(engine.tasksToContainers, task.Arn)
+		// No need to verify if the key exists in tasksToDefinitions.
+		// Delete will do nothing if the specified key doesn't exist.
+		delete(engine.tasksToDefinitions, task.Arn)
+		log.Debug("Deleted task from tasks", "arn", task.Arn)
+	}
+}
+
 // newDockerContainerMetadataResolver returns a new instance of DockerContainerMetadataResolver.
 func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*DockerContainerMetadataResolver, error) {
 	dockerTaskEngine, ok := taskEngine.(*ecsengine.DockerTaskEngine)
 	if !ok {
 		// Error type casting docker task engine.
-		return nil, errors.New("Could not load docker task engine")
+		return nil, fmt.Errorf("Could not load docker task engine")
 	}
 
 	resolver := &DockerContainerMetadataResolver{
@@ -391,14 +363,6 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 	return resolver, nil
 }
 
-// setMetricCollectionFlag reads the ECS_DISABLE_METRICS env variable and
-// sets the isMetricCollectionDisabled flag appropriately.
-func setMetricCollectionFlag() {
-	disableStatsEnvVarValue := utils.DefaultIfBlank(os.Getenv(DisableStatsEnvVar), DefaultDisableStatsEnvVarValue)
-	// Ignore any errors in parsing.
-	isMetricCollectionDisabled, _ = strconv.ParseBool(disableStatsEnvVarValue)
-}
-
 // getContainerMetricsForTask gets all container metrics for a task arn.
 func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*ecstcs.ContainerMetric, error) {
 	engine.containersLock.Lock()
@@ -406,7 +370,7 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
-		return nil, errors.New("Task not found")
+		return nil, fmt.Errorf("Task not found")
 	}
 
 	var containerMetrics []*ecstcs.ContainerMetric

@@ -14,7 +14,7 @@
 package stats
 
 import (
-	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -75,7 +75,7 @@ func newIntegContainerMetadataResolver() *IntegContainerMetadataResolver {
 func (resolver *IntegContainerMetadataResolver) ResolveTask(containerID string) (*api.Task, error) {
 	task, exists := resolver.containerIDToTask[containerID]
 	if !exists {
-		return nil, errors.New("unmapped container")
+		return nil, fmt.Errorf("unmapped container")
 	}
 
 	return task, nil
@@ -84,7 +84,7 @@ func (resolver *IntegContainerMetadataResolver) ResolveTask(containerID string) 
 func (resolver *IntegContainerMetadataResolver) ResolveName(dockerID string) (string, error) {
 	name, exists := resolver.containerIDToName[dockerID]
 	if !exists {
-		return "", errors.New("unmapped container")
+		return "", fmt.Errorf("unmapped container")
 	}
 
 	return name, nil

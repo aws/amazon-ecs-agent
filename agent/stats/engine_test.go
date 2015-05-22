@@ -14,9 +14,7 @@
 package stats
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -126,23 +124,23 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
-	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, errors.New("unmapped container"))
+	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
 
 	resolver.EXPECT().ResolveName("c1").AnyTimes().Return("n-c1", nil)
 	resolver.EXPECT().ResolveName("c2").AnyTimes().Return("n-c2", nil)
 	resolver.EXPECT().ResolveName("c3").AnyTimes().Return("n-c3", nil)
-	resolver.EXPECT().ResolveName("c4").AnyTimes().Return("", errors.New("unmapped container"))
-	resolver.EXPECT().ResolveName("c5").AnyTimes().Return("", errors.New("unmapped container"))
+	resolver.EXPECT().ResolveName("c4").AnyTimes().Return("", fmt.Errorf("unmapped container"))
+	resolver.EXPECT().ResolveName("c5").AnyTimes().Return("", fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveName("c6").AnyTimes().Return("n-c6", nil)
 
 	engine := NewDockerStatsEngine()
 	engine.resolver = resolver
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 
-	engine.AddContainer("c1")
-	engine.AddContainer("c1")
+	engine.addContainer("c1")
+	engine.addContainer("c1")
 
 	if len(engine.tasksToContainers) != 1 {
 		t.Error("Adding containers failed. Expected num tasks = 1, got: ", len(engine.tasksToContainers))
@@ -157,7 +155,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c1 not found in engine")
 	}
 
-	engine.AddContainer("c2")
+	engine.addContainer("c2")
 	containers, _ = engine.tasksToContainers["t1"]
 	_, exists = containers["c2"]
 	if !exists {
@@ -165,8 +163,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	containerStats := []*ContainerStats{
-		CreateContainerStats(22400432, 1839104, ParseNanoTime("2015-02-12T21:22:05.131117533Z")),
-		CreateContainerStats(116499979, 3649536, ParseNanoTime("2015-02-12T21:22:05.232291187Z")),
+		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
+		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
 	}
 	for _, cronContainer := range containers {
 		for i := 0; i < 2; i++ {
@@ -216,19 +214,19 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Expected non-empty error for non existent task")
 	}
 
-	engine.RemoveContainer("c1")
+	engine.removeContainer("c1")
 	containers, _ = engine.tasksToContainers["t1"]
 	_, exists = containers["c1"]
 	if exists {
 		t.Error("Container c1 not removed from engine")
 	}
-	engine.RemoveContainer("c2")
+	engine.removeContainer("c2")
 	containers, _ = engine.tasksToContainers["t1"]
 	_, exists = containers["c2"]
 	if exists {
 		t.Error("Container c2 not removed from engine")
 	}
-	engine.AddContainer("c3")
+	engine.addContainer("c3")
 	containers, _ = engine.tasksToContainers["t2"]
 	_, exists = containers["c3"]
 	if !exists {
@@ -239,18 +237,18 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	if err == nil {
 		t.Error("Expected non-empty error for empty stats.")
 	}
-	engine.RemoveContainer("c3")
+	engine.removeContainer("c3")
 
 	// Should get an error while adding this container due to unmapped
 	// container to task.
-	engine.AddContainer("c4")
+	engine.addContainer("c4")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
 	}
 	// Should get an error while adding this container due to unmapped
 	// container to name.
-	engine.AddContainer("c5")
+	engine.addContainer("c5")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
@@ -258,7 +256,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	// Should get an error while adding this container due to unmapped
 	// task arn to task definition family.
-	engine.AddContainer("c6")
+	engine.addContainer("c6")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
@@ -276,10 +274,10 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine := NewDockerStatsEngine()
 	engine.resolver = resolver
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
-	engine.AddContainer("c1")
+	engine.addContainer("c1")
 	containerStats := []*ContainerStats{
-		CreateContainerStats(22400432, 1839104, ParseNanoTime("2015-02-12T21:22:05.131117533Z")),
-		CreateContainerStats(116499979, 3649536, ParseNanoTime("2015-02-12T21:22:05.232291187Z")),
+		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
+		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
 	}
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, cronContainer := range containers {
@@ -308,7 +306,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 		t.Errorf("Container Instance Arn not set in metadata. Expected: %s, got: %s", defaultContainerInstance, *metadata.ContainerInstance)
 	}
 
-	engine.RemoveContainer("c1")
+	engine.removeContainer("c1")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
@@ -328,7 +326,7 @@ func TestStatsEngineUninitialized(t *testing.T) {
 	engine := NewDockerStatsEngine()
 	engine.resolver = &DockerContainerMetadataResolver{}
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
-	engine.AddContainer("c1")
+	engine.addContainer("c1")
 	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
@@ -344,7 +342,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	engine := NewDockerStatsEngine()
 	engine.resolver = resolver
 
-	engine.AddContainer("c1")
+	engine.addContainer("c1")
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
@@ -357,7 +355,7 @@ func TestStatsEngineClientErrorListingContainers(t *testing.T) {
 	engine := NewDockerStatsEngine()
 	mockDockerClient := mock_engine.NewMockDockerClient(mockCtrl)
 	// Mock client will return error while listing images.
-	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: errors.New("could not list containers")})
+	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: fmt.Errorf("could not list containers")})
 	engine.client = mockDockerClient
 	mockChannel := make(chan ecsengine.DockerContainerChangeEvent)
 	mockDockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(mockChannel, nil)
@@ -369,28 +367,5 @@ func TestStatsEngineClientErrorListingContainers(t *testing.T) {
 	// list images.
 	if engine.ctx.Err() != context.Canceled {
 		t.Error("Engine context hasn't been canceled")
-	}
-}
-
-func TestStatsEngineDisabledEnvVar(t *testing.T) {
-	os.Unsetenv("ECS_DISABLE_METRICS")
-	setMetricCollectionFlag()
-	if !IsMetricCollectionEnabled() {
-		t.Error("Stats engine disabled when ECS_DISABLE_METRICS is not set")
-	}
-	os.Setenv("ECS_DISABLE_METRICS", "opinion")
-	setMetricCollectionFlag()
-	if !IsMetricCollectionEnabled() {
-		t.Error("Stats engine disabled when ECS_DISABLE_METRICS is neither true nor false")
-	}
-	os.Setenv("ECS_DISABLE_METRICS", "false")
-	setMetricCollectionFlag()
-	if !IsMetricCollectionEnabled() {
-		t.Error("Stats engine disabled when ECS_DISABLE_METRICS is false")
-	}
-	os.Setenv("ECS_DISABLE_METRICS", "true")
-	setMetricCollectionFlag()
-	if IsMetricCollectionEnabled() {
-		t.Error("Stats engine enabled when ECS_DISABLE_METRICS is true")
 	}
 }

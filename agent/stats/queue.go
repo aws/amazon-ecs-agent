@@ -14,7 +14,7 @@
 package stats
 
 import (
-	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -64,7 +64,7 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
-		CPUUsagePerc:      (float32)(NaN32()),
+		CPUUsagePerc:      (float32)(nan32()),
 		MemoryUsageInMegs: (uint32)(rawStat.memoryUsage) / BytesInMB,
 		Timestamp:         rawStat.timestamp,
 		cpuUsage:          rawStat.cpuUsage,
@@ -101,7 +101,7 @@ func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, errors.New("No data in the queue")
+		return nil, fmt.Errorf("No data in the queue")
 	}
 
 	var min, max, sum float64
@@ -163,7 +163,7 @@ func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
 
 	queueLength := len(queue.buffer)
 	if queueLength == 0 {
-		return nil, errors.New("No data in the queue")
+		return nil, fmt.Errorf("No data in the queue")
 	}
 
 	if numStats > queueLength {

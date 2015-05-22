@@ -117,12 +117,13 @@ func (collector *LibcontainerStatsCollector) getContainerStats(container *CronCo
 		// Bubble up the error.
 		return nil, err
 	}
+	// lincontainer.GetStats ignores the config argument. So, don't bother providing one.
 	containerStats, err := libcontainer.GetStats(nil, state)
 	if err != nil && !isNetworkStatsError(err) {
 		log.Error("Error getting libcontainer stats", "err", err)
 		return nil, err
 	}
 
-	cs := ToContainerStats(*containerStats)
+	cs := toContainerStats(*containerStats)
 	return cs, nil
 }

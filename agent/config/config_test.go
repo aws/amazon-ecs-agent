@@ -111,3 +111,14 @@ func TestTrimWhitespace(t *testing.T) {
 		t.Error("Did not match expected", *cfg)
 	}
 }
+
+func TestConfigBoolean(t *testing.T) {
+	os.Setenv("ECS_DISABLE_METRICS", "true")
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DisableMetrics {
+		t.Error("DisableMetrics not set to true")
+	}
+}
