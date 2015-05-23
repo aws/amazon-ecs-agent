@@ -26,22 +26,49 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 		ecsPortBindings    []PortBinding
 	}{
 		{
-			map[docker.Port][]docker.PortBinding{"53/udp": []docker.PortBinding{docker.PortBinding{"1.2.3.4", "55"}}},
-			[]PortBinding{PortBinding{BindIp: "1.2.3.4", HostPort: 55, ContainerPort: 53, Protocol: TransportProtocolUDP}},
+			map[docker.Port][]docker.PortBinding{
+				"53/udp": []docker.PortBinding{docker.PortBinding{"1.2.3.4", "55"}},
+			},
+			[]PortBinding{
+				PortBinding{
+					BindIp:        "1.2.3.4",
+					HostPort:      55,
+					ContainerPort: 53,
+					Protocol:      TransportProtocolUDP,
+				},
+			},
 		},
 		{
-			map[docker.Port][]docker.PortBinding{"80/tcp": []docker.PortBinding{docker.PortBinding{"2.3.4.5", "8080"}, docker.PortBinding{"5.6.7.8", "80"}}},
-			[]PortBinding{PortBinding{BindIp: "2.3.4.5", HostPort: 8080, ContainerPort: 80, Protocol: TransportProtocolTCP}, PortBinding{BindIp: "5.6.7.8", HostPort: 80, ContainerPort: 80, Protocol: TransportProtocolTCP}},
+			map[docker.Port][]docker.PortBinding{
+				"80/tcp": []docker.PortBinding{
+					docker.PortBinding{"2.3.4.5", "8080"},
+					docker.PortBinding{"5.6.7.8", "80"},
+				},
+			},
+			[]PortBinding{
+				PortBinding{
+					BindIp:        "2.3.4.5",
+					HostPort:      8080,
+					ContainerPort: 80,
+					Protocol:      TransportProtocolTCP,
+				},
+				PortBinding{
+					BindIp:        "5.6.7.8",
+					HostPort:      80,
+					ContainerPort: 80,
+					Protocol:      TransportProtocolTCP,
+				},
+			},
 		},
 	}
 
-	for ndx, pair := range pairs {
+	for i, pair := range pairs {
 		converted, err := PortBindingFromDockerPortBinding(pair.dockerPortBindings)
 		if err != nil {
-			t.Errorf("Error converting port binding pair #%v: %v", ndx, err)
+			t.Errorf("Error converting port binding pair #%v: %v", i, err)
 		}
 		if !reflect.DeepEqual(pair.ecsPortBindings, converted) {
-			t.Errorf("Converted bindings didn't match expected for #%v: expected %+v, actual %+v", ndx, pair.ecsPortBindings, converted)
+			t.Errorf("Converted bindings didn't match expected for #%v: expected %+v, actual %+v", i, pair.ecsPortBindings, converted)
 		}
 	}
 }
@@ -52,23 +79,45 @@ func TestPortBindingErrors(t *testing.T) {
 		errorName          string
 	}{
 		{
-			map[docker.Port][]docker.PortBinding{"woof/tcp": []docker.PortBinding{docker.PortBinding{"2.3.4.5", "8080"}, docker.PortBinding{"5.6.7.8", "80"}}},
+			map[docker.Port][]docker.PortBinding{
+				"woof/tcp": []docker.PortBinding{
+					docker.PortBinding{"2.3.4.5", "8080"},
+					docker.PortBinding{"5.6.7.8", "80"},
+				},
+			},
 			UnparseablePortErrorName,
 		},
 		{
-			map[docker.Port][]docker.PortBinding{"80/tcp": []docker.PortBinding{docker.PortBinding{"2.3.4.5", "8080"}, docker.PortBinding{"5.6.7.8", "bark"}}},
+			map[docker.Port][]docker.PortBinding{
+				"80/tcp": []docker.PortBinding{
+					docker.PortBinding{"2.3.4.5", "8080"},
+					docker.PortBinding{"5.6.7.8", "bark"},
+				},
+			},
 			UnparseablePortErrorName,
 		},
 		{
-			map[docker.Port][]docker.PortBinding{"80/tcp": []docker.PortBinding{docker.PortBinding{"2.3.4.5", "8080"}, docker.PortBinding{"5.6.7.8", "bark"}}},
+			map[docker.Port][]docker.PortBinding{
+				"80/bark": []docker.PortBinding{
+					docker.PortBinding{"2.3.4.5", "8080"},
+					docker.PortBinding{"5.6.7.8", "80"},
+				},
+			},
 			UnrecognizedTransportProtocolErrorName,
 		},
 	}
 
-	for ndx, pair := range badInputs {
+	for i, pair := range badInputs {
 		_, err := PortBindingFromDockerPortBinding(pair.dockerPortBindings)
 		if err == nil {
-			t.Errorf("Expected error converting port binding pair #%v", ndx)
+			t.Errorf("Expected error converting port binding pair #%v", i)
+		}
+		namedErr, ok := err.(NamedError)
+		if !ok {
+			t.Errorf("Expected err to implement NamedError")
+		}
+		if namedErr.ErrorName() != pair.errorName {
+			t.Errorf("Expected %s but was %s", pair.errorName, namedErr.ErrorName())
 		}
 	}
 }

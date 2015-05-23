@@ -50,14 +50,14 @@ const (
 	TransportProtocolUDP
 )
 
-func NewTransportProtocol(proto string) (TransportProtocol, error) {
-	switch proto {
+func NewTransportProtocol(protocol string) (TransportProtocol, error) {
+	switch protocol {
 	case "tcp":
 		return TransportProtocolTCP, nil
 	case "udp":
 		return TransportProtocolUDP, nil
 	default:
-		return TransportProtocolTCP, errors.New(proto + " is not a recognized transport protocol")
+		return TransportProtocolTCP, errors.New(protocol + " is not a recognized transport protocol")
 	}
 }
 
