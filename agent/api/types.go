@@ -14,6 +14,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -48,6 +49,17 @@ const (
 	TransportProtocolTCP TransportProtocol = iota
 	TransportProtocolUDP
 )
+
+func NewTransportProtocol(proto string) (TransportProtocol, error) {
+	switch proto {
+	case "tcp":
+		return TransportProtocolTCP, nil
+	case "udp":
+		return TransportProtocolUDP, nil
+	default:
+		return TransportProtocolTCP, errors.New(proto + " is not a recognized transport protocol")
+	}
+}
 
 func (tp *TransportProtocol) String() string {
 	if tp == nil {

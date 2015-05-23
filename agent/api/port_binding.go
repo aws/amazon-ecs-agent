@@ -19,26 +19,36 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+const (
+	UnrecognizedTransportProtocolErrorName = "UnrecognizedTransportProtocol"
+	UnparseablePortErrorName               = "UnparsablePort"
+)
+
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
 func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, NamedError) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
 	for port, bindings := range dockerPortBindings {
-		intPort, err := strconv.Atoi(port.Port())
+		containerPort, err := strconv.Atoi(port.Port())
 		if err != nil {
-			return nil, &DefaultNamedError{Name: "UnparseablePort", Err: "Error parsing docker port as int " + err.Error()}
+			return nil, &DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing docker port as int " + err.Error()}
 		}
-		containerPort := intPort
+		protocol, err := NewTransportProtocol(port.Proto())
+		if err != nil {
+			return nil, &DefaultNamedError{Name: UnrecognizedTransportProtocolErrorName, Err: err.Error()}
+		}
+
 		for _, binding := range bindings {
 			hostPort, err := strconv.Atoi(binding.HostPort)
 			if err != nil {
-				return nil, &DefaultNamedError{Name: "UnparseablePort", Err: "Error parsing port binding as int " + err.Error()}
+				return nil, &DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing port binding as int " + err.Error()}
 			}
 			portBindings = append(portBindings, PortBinding{
 				ContainerPort: uint16(containerPort),
 				HostPort:      uint16(hostPort),
 				BindIp:        binding.HostIP,
+				Protocol:      protocol,
 			})
 		}
 	}
