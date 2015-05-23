@@ -63,4 +63,11 @@ type Config struct {
 	// within the container in order for the external updating process to
 	// correctly handle them.
 	UpdateDownloadDir string
+
+	// DisableMetrics configures whether task utilization metrics should be
+	// sent to the ECS telemetry endpoint
+	DisableMetrics bool
+
+	// DockerGraphPath specifies the path for docker graph directory.
+	DockerGraphPath string
 }

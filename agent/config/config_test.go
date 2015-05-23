@@ -111,3 +111,33 @@ func TestTrimWhitespace(t *testing.T) {
 		t.Error("Did not match expected", *cfg)
 	}
 }
+
+func TestConfigBoolean(t *testing.T) {
+	os.Setenv("ECS_DISABLE_METRICS", "true")
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DisableMetrics {
+		t.Error("DisableMetrics not set to true")
+	}
+}
+
+func TestConfigDefault(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.DockerEndpoint != "unix:///var/run/docker.sock" {
+		t.Error("Default docker endpoint set incorrectly")
+	}
+	if cfg.DataDir != "/data/" {
+		t.Error("Default datadir set incorrectly")
+	}
+	if cfg.DisableMetrics {
+		t.Error("Default disablemetrics set incorrectly")
+	}
+	if len(cfg.ReservedPorts) != 4 {
+		t.Error("Default resered ports set incorrectly")
+	}
+	if cfg.DockerGraphPath != "/var/lib/docker" {
+		t.Error("Default docker graph path set incorrectly")
+	}
+}

@@ -25,6 +25,7 @@ import (
 
 	"github.com/awslabs/aws-sdk-go/internal/model/api"
 	"github.com/awslabs/aws-sdk-go/internal/util"
+	"golang.org/x/tools/imports"
 )
 
 func main() {
@@ -85,6 +86,8 @@ func genTypesOnlyAPI(file string) error {
 		NoRemoveUnusedShapes: true,
 	}
 	api.Attach(file)
+	// to reset imports so that timestamp has an entry in the map.
+	api.APIGoCode()
 
 	var buf bytes.Buffer
 	err := typesOnlyTplAPI.Execute(&buf, api)
@@ -96,8 +99,14 @@ func genTypesOnlyAPI(file string) error {
 
 	// Ignore dir error, filepath will catch it for an invalid path.
 	os.Mkdir(api.PackageName(), 0755)
+	// Fix imports.
+	codeWithImports, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), code)), nil)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 	outFile := filepath.Join(api.PackageName(), "api.go")
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\npackage %s\n\n%s", copyrightHeader, api.PackageName(), code)), 0644)
+	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, codeWithImports)), 0644)
 	if err != nil {
 		return err
 	}

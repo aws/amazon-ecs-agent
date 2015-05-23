@@ -72,6 +72,11 @@
 			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/pkg/mount",
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/parsers",
 			"Comment": "v1.6.2",
 			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
@@ -83,6 +88,11 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/promise",
+			"Comment": "v1.6.2",
+			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/symlink",
 			"Comment": "v1.6.2",
 			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
 		},
@@ -100,6 +110,11 @@
 			"ImportPath": "github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar",
 			"Comment": "v1.6.2",
 			"Rev": "7c8fca2ddb58c8d2c4fb4df31c242886df7dd257"
+		},
+		{
+			"ImportPath": "github.com/docker/libcontainer",
+			"Comment": "v1.4.0-121-g21ed476",
+			"Rev": "21ed4766b1523373b0463af497ef1c6b3b98c2ca"
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
@@ -120,6 +135,14 @@
 		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "169f42267807fe93f4a4b0150583e410aefafe4e"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/ast/astutil",
+			"Rev": "af0a4481dd36113fd967a37a64d887d4b9d3425e"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/imports",
+			"Rev": "af0a4481dd36113fd967a37a64d887d4b9d3425e"
 		}
 	]
 }

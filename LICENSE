@@ -19,6 +19,7 @@ gomock, Copyright 2010-2014 Google Inc.
 AWS SDK for Go, Copyright 2014-2015 Stripe, Inc. and Amazon.com, Inc. or its affiliates
 glog, Copyright 2013-2014 Google Inc.
 kubernetes, Copyright 2014-2015 Google Inc.
+libcontainer, Copyright 2014 Docker, Inc.
 
 each of which are licensed under the Apache License, Version 2.0 (the
 "License"); you may not use this file except in compliance with the
