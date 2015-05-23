@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* Feature - UDP support for port bindings
 
 ## 1.1.0
 * Feature - Logs rotate hourly and log file names are suffixed with timestamp.
