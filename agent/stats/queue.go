@@ -18,7 +18,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	CPUUsageUnit = "Percent"
 
 	// MemoryUsageUnit is the unit of memory usage being reported for a container.
-	MemoryUsageUnit = "Megabytes"
+	MemoryUsageUnit = "Percent"
 
 	// BytesInMB is the number of bytes in a MegaByte. Using MB as it is one of the
 	// units supported by Cloudwatch.

@@ -274,3 +274,23 @@ func TestRegisterBlankCluster(t *testing.T) {
 		t.Errorf("Wrong arn: %v", arn)
 	}
 }
+
+func TestDiscoverTelemetryEndpoint(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc := NewMockClient(mockCtrl)
+	expectedEndpoint := "http://127.0.0.1"
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
+	endpoint, err := client.DiscoverTelemetryEndpoint("containerInstance")
+	if err != nil {
+		t.Error("Error getting telemetry endpoint: ", err)
+	}
+	if expectedEndpoint != endpoint {
+		t.Errorf("Expected telemetry endpoint(%s) != endpoint(%s)", expectedEndpoint, endpoint)
+	}
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("Error getting endpoint"))
+	endpoint, err = client.DiscoverTelemetryEndpoint("containerInstance")
+	if err == nil {
+		t.Error("Expected error getting telemetry endpoint, didn't get any")
+	}
+}

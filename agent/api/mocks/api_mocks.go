@@ -131,6 +131,17 @@ func (_mr *_MockECSClientRecorder) DiscoverPollEndpoint(arg0 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoverPollEndpoint", arg0)
 }
 
+func (_m *MockECSClient) DiscoverTelemetryEndpoint(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "DiscoverTelemetryEndpoint", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockECSClientRecorder) DiscoverTelemetryEndpoint(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoverTelemetryEndpoint", arg0)
+}
+
 func (_m *MockECSClient) RegisterContainerInstance() (string, error) {
 	ret := _m.ctrl.Call(_m, "RegisterContainerInstance")
 	ret0, _ := ret[0].(string)

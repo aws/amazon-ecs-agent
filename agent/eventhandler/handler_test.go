@@ -51,6 +51,9 @@ func (m *MockECSClient) SubmitTaskStateChange(change api.TaskStateChange) utils.
 func (m *MockECSClient) SubmitContainerStateChange(change api.ContainerStateChange) utils.RetriableError {
 	return m.submitContainerStateChange(change)
 }
+func (m *MockECSClient) DiscoverTelemetryEndpoint(string) (string, error) {
+	return "", nil
+}
 
 func mockClient(task taskChangeFn, cont containerChangeFn) api.ECSClient {
 	return &MockECSClient{

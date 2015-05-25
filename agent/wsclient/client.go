@@ -207,9 +207,9 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 		if err != nil {
 			if err != io.EOF {
 				if message != nil {
-					log.Error("Error getting message from acs", "err", err, "message", message)
+					log.Error("Error getting message from ws backend", "err", err, "message", message)
 				} else {
-					log.Error("Error getting message from acs", "err", err)
+					log.Error("Error getting message from ws backend", "err", err)
 				}
 			}
 			break

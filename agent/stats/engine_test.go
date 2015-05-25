@@ -19,12 +19,12 @@ import (
 	"time"
 
 	"code.google.com/p/gomock/gomock"
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"golang.org/x/net/context"
 )
 

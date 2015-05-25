@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -31,6 +32,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -72,7 +76,7 @@ func _main() int {
 		// All required config values can be inferred from EC2 Metadata, so this error could be transient.
 		return exitcodes.ExitError
 	}
-	log.Debug("Loaded config: %+v", *cfg)
+	log.Debug("Loaded config: ", *cfg)
 
 	var currentEc2InstanceID, containerInstanceArn string
 	var taskEngine engine.TaskEngine
@@ -174,6 +178,9 @@ func _main() int {
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
+	// Start metrics session in a go routine
+	go startMetricsSession(containerInstanceArn, credentialProvider, cfg, true, client, taskEngine)
+
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
 	if err != nil {
@@ -199,4 +206,22 @@ func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cl
 		return nil, err
 	}
 	return stateManager, nil
+}
+
+func startMetricsSession(containerInstanceArn string, credentialProvider credentials.AWSCredentialProvider, cfg *config.Config, acceptInvalidCert bool, ecsClient api.ECSClient, taskEngine engine.TaskEngine) {
+	if !cfg.DisableMetrics {
+		statsEngine := stats.NewDockerStatsEngine(cfg)
+		err := statsEngine.MustInit(taskEngine, ecstcs.NewMetricsMetadata(cfg.Cluster, containerInstanceArn))
+		if err != nil {
+			log.Warn("Error initializing metrics engine", "err", err)
+			return
+		}
+		err = tcshandler.StartSession(containerInstanceArn, credentialProvider, cfg, acceptInvalidCert, ecsClient, statsEngine)
+		if err != nil {
+			log.Warn("Error starting metrics session with backend", "err", err)
+			return
+		}
+	} else {
+		log.Warn("Metric collection disabled")
+	}
 }

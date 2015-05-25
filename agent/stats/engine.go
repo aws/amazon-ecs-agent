@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"golang.org/x/net/context"
 )
 
@@ -192,12 +192,14 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 			continue
 		}
 
-		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{
-			TaskArn:               &taskArn,
+		metricTaskArn := taskArn
+		taskMetric := &ecstcs.TaskMetric{
+			TaskArn:               &metricTaskArn,
 			TaskDefinitionFamily:  &taskDef.family,
 			TaskDefinitionVersion: &taskDef.version,
 			ContainerMetrics:      containerMetrics,
-		})
+		}
+		taskMetrics = append(taskMetrics, taskMetric)
 	}
 
 	if len(taskMetrics) == 0 {

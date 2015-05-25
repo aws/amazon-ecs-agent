@@ -50,6 +50,9 @@ type ECSClient interface {
 	// DiscoverPollEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact ACS
 	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
+	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
+	// endpoint at which this Agent should contact Telemetry Service
+	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
@@ -303,4 +306,16 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 	}
 
 	return *resp.Endpoint, nil
+}
+
+func (client *ApiECSClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
+	resp, err := client.c.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
+		ContainerInstance: &containerInstanceArn,
+		Cluster:           &client.config.Cluster,
+	})
+	if err != nil {
+		return "", NewAPIError(err)
+	}
+
+	return *resp.TelemetryEndpoint, nil
 }
