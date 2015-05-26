@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* Feature - Telemetry support for CPU and Memory utilization metrics.
 
 ## 1.1.0
 * Feature - Logs rotate hourly and log file names are suffixed with timestamp.
