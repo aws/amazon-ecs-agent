@@ -31,8 +31,6 @@ import (
 )
 
 const (
-	endpointEnvVar = "ECS_METRICS_BACKEND_HOST"
-
 	// defaultPublishMetricsInterval is the interval at which utilization
 	// metrics from stats engine are published to the backend.
 	defaultPublishMetricsInterval = 30 * time.Second
