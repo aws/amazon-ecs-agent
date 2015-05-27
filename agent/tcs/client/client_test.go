@@ -106,7 +106,6 @@ func TestPublishMetricsRequest(t *testing.T) {
 func testCS() (wsclient.ClientServer, *messageLogger) {
 	testCreds := auth.TestCredentialProvider{}
 	cs := New("localhost:443", "us-east-1", testCreds, true, nil, testPublishMetricsInterval).(*clientServer)
-	go cs.publishTimer.start(nil)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
 	cs.Conn = ml
 	return cs, ml

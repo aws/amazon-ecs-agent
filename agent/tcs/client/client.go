@@ -32,8 +32,9 @@ var log = logger.ForModule("tcs client")
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
-	statsEngine  stats.Engine
-	publishTimer *timer
+	statsEngine            stats.Engine
+	publishTicker          *time.Ticker
+	publishMetricsInterval time.Duration
 	wsclient.ClientServerImpl
 	signer authv4.HttpSigner
 }
@@ -43,9 +44,10 @@ type clientServer struct {
 // before being used.
 func New(url string, region string, credentialProvider credentials.AWSCredentialProvider, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
 	cs := &clientServer{
-		statsEngine:  statsEngine,
-		publishTimer: newTimer(publishMetricsInterval, publishMetrics),
-		signer:       authv4.NewHttpSigner(region, wsclient.ServiceName, credentialProvider, nil),
+		statsEngine:            statsEngine,
+		publishTicker:          nil,
+		publishMetricsInterval: publishMetricsInterval,
+		signer:                 authv4.NewHttpSigner(region, wsclient.ServiceName, credentialProvider, nil),
 	}
 	cs.URL = url
 	cs.Region = region
@@ -68,7 +70,8 @@ func (cs *clientServer) Serve() error {
 
 	// Start the timer function to publish metrics to the backend.
 	if cs.statsEngine != nil {
-		cs.publishTimer.start(cs)
+		cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
+		go cs.publishMetrics()
 	}
 
 	return cs.ConsumeMessages()
@@ -86,7 +89,6 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 
 	// Over the wire we send something like
 	// {"type":"AckRequest","message":{"messageId":"xyz"}}
-	// return cs.Conn.WriteMessage(websocket.TextMessage, send)
 	return cs.Conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -115,7 +117,9 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 
 // Close closes the underlying connection.
 func (cs *clientServer) Close() error {
-	cs.publishTimer.stop()
+	if cs.publishTicker != nil {
+		cs.publishTicker.Stop()
+	}
 	if cs.Conn != nil {
 		return cs.Conn.Close()
 	}
@@ -123,16 +127,18 @@ func (cs *clientServer) Close() error {
 }
 
 // publishMetrics invokes the PublishMetricsRequest on the clientserver object.
-// The argument must be of the clientServer type.
-func publishMetrics(cs interface{}) error {
-	clsrv, ok := cs.(*clientServer)
-	if !ok {
-		return errors.New("Unexpected object type in publishMetric")
+func (cs *clientServer) publishMetrics() {
+	if cs.publishTicker == nil {
+		log.Debug("publish ticker uninitialized")
+		return
 	}
-	metadata, taskMetrics, err := clsrv.statsEngine.GetInstanceMetrics()
-	if err != nil {
-		return err
-	}
+	for range cs.publishTicker.C {
+		metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
+		if err != nil {
+			log.Warn("Error getting instance metrics", "err", err)
+			return
+		}
 
-	return clsrv.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+	}
 }

@@ -49,13 +49,13 @@ func init() {
 
 	tcsTypeMappings = make(map[string]reflect.Type)
 	// This produces a map of:
-	// "MyMessage": TypeOf(ecsacs.MyMessage)
+	// "MyMessage": TypeOf(ecstcs.MyMessage)
 	for _, recognizedType := range recognizedTypes {
 		tcsTypeMappings[reflect.TypeOf(recognizedType).Name()] = reflect.TypeOf(recognizedType)
 	}
 }
 
-// decoder implments wsclient.TypeDecoder.
+// TcsDecoder implments wsclient.TypeDecoder.
 type TcsDecoder struct{}
 
 func (dc *TcsDecoder) NewOfType(tcsType string) (interface{}, bool) {
