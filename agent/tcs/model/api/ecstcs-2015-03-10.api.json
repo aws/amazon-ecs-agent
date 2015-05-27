@@ -90,8 +90,7 @@
         "min":{"shape":"Double"},
         "max":{"shape":"Double"},
         "sampleCount":{"shape":"Integer"},
-        "sum":{"shape":"Double"},
-        "unit":{"shape":"String"}
+        "sum":{"shape":"Double"}
       }
     },
     "ContainerMetadata":{

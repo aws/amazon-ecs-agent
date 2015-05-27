@@ -22,25 +22,9 @@ import (
 )
 
 const (
-	// CPUUsageUnit is the unit of CPU usage being reported for a container.
-	CPUUsageUnit = "Percent"
-
-	// MemoryUsageUnit is the unit of memory usage being reported for a container.
-	MemoryUsageUnit = "Percent"
-
-	// BytesInMB is the number of bytes in a MegaByte. Using MB as it is one of the
-	// units supported by Cloudwatch.
-	// refer http://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
-	BytesInMB = 1000 * 1000
+	// BytesInMiB is the number of bytes in a MebiByte.
+	BytesInMiB = 1024 * 1024
 )
-
-var cpuUsageUnit string
-var memoryUsageUnit string
-
-func init() {
-	cpuUsageUnit = CPUUsageUnit
-	memoryUsageUnit = MemoryUsageUnit
-}
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
@@ -65,7 +49,7 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
 		CPUUsagePerc:      (float32)(nan32()),
-		MemoryUsageInMegs: (uint32)(rawStat.memoryUsage) / BytesInMB,
+		MemoryUsageInMegs: (uint32)(rawStat.memoryUsage) / BytesInMiB,
 		Timestamp:         rawStat.timestamp,
 		cpuUsage:          rawStat.cpuUsage,
 	}
@@ -133,26 +117,12 @@ func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
 func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
-	statsSet, err := queue.getCWStatsSet(getCPUUsagePerc)
-	if err != nil {
-		return nil, err
-	}
-
-	statsSet.Unit = &cpuUsageUnit
-
-	return statsSet, nil
+	return queue.getCWStatsSet(getCPUUsagePerc)
 }
 
 // GetMemoryStatsSet gets the stats set for memory utilization.
 func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
-	statsSet, err := queue.getCWStatsSet(getMemoryUsagePerc)
-	if err != nil {
-		return nil, err
-	}
-
-	statsSet.Unit = &memoryUsageUnit
-
-	return statsSet, nil
+	return queue.getCWStatsSet(getMemoryUsagePerc)
 }
 
 // GetRawUsageStats gets the array of most recent raw UsageStats, in descending

@@ -44,8 +44,6 @@ type CWStatsSet struct {
 
 	Sum *float64 `locationName:"sum" type:"double"`
 
-	Unit *string `locationName:"unit" type:"string"`
-
 	metadataCWStatsSet `json:"-", xml:"-"`
 }
 
