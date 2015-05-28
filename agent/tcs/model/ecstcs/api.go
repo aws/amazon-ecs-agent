@@ -51,22 +51,10 @@ type metadataCWStatsSet struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
-type ContainerMetadata struct {
-	Name *string `locationName:"name" type:"string"`
-
-	metadataContainerMetadata `json:"-", xml:"-"`
-}
-
-type metadataContainerMetadata struct {
-	SDKShapeTraits bool `type:"structure"`
-}
-
 type ContainerMetric struct {
 	CpuStatsSet *CWStatsSet `locationName:"cpuStatsSet" type:"structure"`
 
 	MemoryStatsSet *CWStatsSet `locationName:"memoryStatsSet" type:"structure"`
-
-	Metadata *ContainerMetadata `locationName:"metadata" type:"structure"`
 
 	metadataContainerMetric `json:"-", xml:"-"`
 }

@@ -52,7 +52,7 @@ const (
 	readBufSize = 4096
 
 	// writeBufSize is the size of the write buffer for the ws connection.
-	writeBufSize = 4096
+	writeBufSize = 32768
 )
 
 // ReceivedMessage is the intermediate message used to unmarshal a

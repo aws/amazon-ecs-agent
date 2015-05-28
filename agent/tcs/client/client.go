@@ -28,6 +28,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// tasksInMessage is the maximum number of tasks that can be sent in a message to the backend
+// This is a very conservative estimate assuming max allowed string lengths for all fields.
+const tasksInMessage = 10
+
 var log = logger.ForModule("tcs client")
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
@@ -85,6 +89,7 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 		return err
 	}
 
+	log.Debug("sending payload", "payload", string(payload))
 	data := cs.signRequest(payload)
 
 	// Over the wire we send something like
@@ -139,6 +144,25 @@ func (cs *clientServer) publishMetrics() {
 			return
 		}
 
-		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+		if *metadata.Idle {
+			log.Debug("Idle instance, sending message")
+			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+			return
+		}
+
+		var messageTaskMetrics []*ecstcs.TaskMetric
+		for i := range taskMetrics {
+			messageTaskMetrics = append(messageTaskMetrics, taskMetrics[i])
+			if (i+1)%tasksInMessage == 0 {
+				log.Debug("Sending payload, aggregated tasks", "numtasks", i)
+				cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
+				messageTaskMetrics = messageTaskMetrics[:0]
+			}
+		}
+
+		if len(messageTaskMetrics) > 0 {
+			log.Debug("Sending payload, residual tasks", "numtasks", len(messageTaskMetrics))
+			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
+		}
 	}
 }

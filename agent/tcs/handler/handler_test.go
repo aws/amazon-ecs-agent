@@ -34,7 +34,6 @@ const (
 	testClusterArn             = "arn:aws:ecs:us-east-1:123:cluster/default"
 	testInstanceArn            = "arn:aws:ecs:us-east-1:123:container-instance/abc"
 	testPublishMetricsInterval = 1 * time.Millisecond
-	testContainerName          = "c1"
 )
 
 type mockStatsEngine struct{}
@@ -119,7 +118,6 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 	ci := testInstanceArn
 	taskArn := testTaskArn
 	taskDefinitionFamily := testTaskDefinitionFamily
-	containerName := testContainerName
 	var fval float64
 	fval = rand.Float64()
 	var ival int64
@@ -145,9 +143,6 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 							Min:         &fval,
 							SampleCount: &ival,
 							Sum:         &fval,
-						},
-						Metadata: &ecstcs.ContainerMetadata{
-							Name: &containerName,
 						},
 					},
 				},

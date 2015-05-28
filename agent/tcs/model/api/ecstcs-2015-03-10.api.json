@@ -93,16 +93,9 @@
         "sum":{"shape":"Double"}
       }
     },
-    "ContainerMetadata":{
-      "type":"structure",
-      "members":{
-        "name":{"shape":"String"}
-      }
-    },
     "ContainerMetric":{
       "type":"structure",
       "members":{
-        "metadata":{"shape":"ContainerMetadata"},
         "cpuStatsSet":{"shape":"CWStatsSet"},
         "memoryStatsSet":{"shape":"CWStatsSet"}
       }

@@ -75,19 +75,6 @@ func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*
 	return task, nil
 }
 
-// ResolveName resolves the container name, given container id.
-func (resolver *DockerContainerMetadataResolver) ResolveName(dockerID string) (string, error) {
-	if resolver.dockerTaskEngine == nil {
-		return "", fmt.Errorf("Docker task engine uninitialized.")
-	}
-	container, found := resolver.dockerTaskEngine.State().ContainerById(dockerID)
-	if !found {
-		return "", fmt.Errorf("Could not map docker id to container")
-	}
-
-	return container.DockerName, nil
-}
-
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config) *DockerStatsEngine {
@@ -284,7 +271,6 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 		return
 	}
 
-	containerName, err := engine.resolver.ResolveName(dockerID)
 	if err != nil {
 		log.Debug("Could not get name for container, ignoring", "err", err, "id", dockerID)
 		return
@@ -306,7 +292,7 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 	}
 
 	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
-	container := newCronContainer(&dockerID, &containerName, engine.dockerGraphPath)
+	container := newCronContainer(&dockerID, engine.dockerGraphPath)
 	engine.tasksToContainers[task.Arn][dockerID] = container
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 	container.StartStatsCron()
@@ -395,9 +381,6 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 		}
 
 		containerMetrics = append(containerMetrics, &ecstcs.ContainerMetric{
-			Metadata: &ecstcs.ContainerMetadata{
-				Name: container.containerMetadata.Name,
-			},
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
 		})

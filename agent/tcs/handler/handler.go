@@ -96,7 +96,6 @@ func startSession(url string, region string, credentialProvider credentials.AWSC
 	defer client.Close()
 
 	client.AddRequestHandler(heartbeatHandler(client))
-
 	err := client.Connect()
 	if err != nil {
 		log.Error("Error connecting to TCS: " + err.Error())
