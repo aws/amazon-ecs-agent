@@ -27,6 +27,8 @@ const (
 	agentIntrospectionPort = "51678"
 	logDir                 = "/log"
 	dataDir                = "/data"
+	execDriverDir          = "/var/lib/docker/execdriver"
+	readOnly               = ":ro"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -164,6 +166,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
+		config.CgroupDirectory() + ":" + config.CgroupDirectory() + readOnly,
+		config.ExecDriverDirectory() + ":" + execDriverDir + readOnly,
 	}
 	portBindings := map[godocker.Port][]godocker.PortBinding{
 		agentIntrospectionPort + "/tcp": []godocker.PortBinding{

@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.0
-Release:        5%{?dist}
+Version:        1.2.0
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -27,9 +27,9 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker > 1.5.0, docker <= 1.6.2
+Requires:       docker >= 1.6.0, docker <= 1.6.2
 Requires:       upstart
-Requires(post): docker > 1.5.0
+Requires(post): docker >= 1.6.0
 
 %global init_dir %{_sysconfdir}/init
 %global bin_dir %{_libexecdir}
@@ -132,6 +132,10 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Jun 6 2015 Samuel Karp <skarp@amazon.com> - 1.2.0-1
+- Update versioning scheme to match Agent version
+- Cache Agent version 1.2.0
+- Mount cgroup and execdriver directories for Telemetry feature
 * Mon Jun 1 2015 Samuel Karp <skarp@amazon.com> - 1.0-5
 - Add support for Docker 1.6.2
 * Mon May 11 2015 Samuel Karp <skarp@amazon.com> - 1.0-4

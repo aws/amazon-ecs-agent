@@ -70,7 +70,7 @@ func AgentTarball() string {
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
 func AgentRemoteTarball() string {
-	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.1.0.tar"
+	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.2.0.tar"
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
@@ -81,4 +81,12 @@ func AgentRemoteTarballMD5() string {
 // DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
 func DesiredImageLocatorFile() string {
 	return CacheDirectory() + "/desired-image"
+}
+
+func CgroupDirectory() string {
+	return "/cgroup"
+}
+
+func ExecDriverDirectory() string {
+	return "/var/run/docker/execdriver"
 }
