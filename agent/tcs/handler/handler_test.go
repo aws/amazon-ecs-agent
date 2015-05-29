@@ -123,10 +123,12 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 	var ival int64
 	ival = rand.Int63n(10)
 	ts := time.Now()
+	idle := false
 	return &ecstcs.PublishMetricsRequest{
 		Metadata: &ecstcs.MetricsMetadata{
 			Cluster:           &cluster,
 			ContainerInstance: &ci,
+			Idle:              &idle,
 		},
 		TaskMetrics: []*ecstcs.TaskMetric{
 			&ecstcs.TaskMetric{

@@ -33,7 +33,7 @@ func TestTaskOverridden(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name:  "c1",
-				Ports: []PortBinding{PortBinding{10, 10, ""}},
+				Ports: []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
 			},
 		},
 	}
@@ -44,12 +44,37 @@ func TestTaskOverridden(t *testing.T) {
 	}
 }
 
+func TestDockerConfigPortBinding(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			&Container{
+				Name:  "c1",
+				Ports: []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}, PortBinding{20, 20, "", TransportProtocolUDP}},
+			},
+		},
+	}
+
+	config, err := testTask.DockerConfig(testTask.Containers[0])
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, ok := config.ExposedPorts["10/tcp"]
+	if !ok {
+		t.Fatal("Could not get exposed ports 10/tcp")
+	}
+	_, ok = config.ExposedPorts["20/udp"]
+	if !ok {
+		t.Fatal("Could not get exposed ports 20/udp")
+	}
+}
+
 func TestDockerHostConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*Container{
 			&Container{
 				Name:  "c1",
-				Ports: []PortBinding{PortBinding{10, 10, ""}},
+				Ports: []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}, PortBinding{20, 20, "", TransportProtocolUDP}},
 			},
 		},
 	}
@@ -67,6 +92,19 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		t.Fatal("Wrong number of bindings")
 	}
 	if bindings[0].HostPort != "10" {
+		t.Error("Wrong hostport")
+	}
+	if bindings[0].HostIP != "0.0.0.0" {
+		t.Error("Wrong hostIP")
+	}
+	bindings, ok = config.PortBindings["20/udp"]
+	if !ok {
+		t.Fatal("Could not get port bindings")
+	}
+	if len(bindings) != 1 {
+		t.Fatal("Wrong number of bindings")
+	}
+	if bindings[0].HostPort != "20" {
 		t.Error("Wrong hostport")
 	}
 	if bindings[0].HostIP != "0.0.0.0" {
@@ -164,6 +202,7 @@ func TestTaskFromACS(t *testing.T) {
 					&ecsacs.PortMapping{
 						HostPort:      intptr(800),
 						ContainerPort: intptr(900),
+						Protocol:      strptr("udp"),
 					},
 				},
 				VolumesFrom: []*ecsacs.VolumeFrom{
@@ -213,6 +252,7 @@ func TestTaskFromACS(t *testing.T) {
 					PortBinding{
 						HostPort:      800,
 						ContainerPort: 900,
+						Protocol:      TransportProtocolUDP,
 					},
 				},
 				VolumesFrom: []VolumeFrom{

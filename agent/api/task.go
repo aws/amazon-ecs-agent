@@ -234,7 +234,7 @@ func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struc
 	dockerExposedPorts := make(map[docker.Port]struct{})
 
 	for _, portBinding := range container.Ports {
-		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/tcp")
+		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 	return dockerExposedPorts
@@ -323,7 +323,7 @@ func (task *Task) dockerPortMap(container *Container) map[docker.Port][]docker.P
 	dockerPortMap := make(map[docker.Port][]docker.PortBinding)
 
 	for _, portBinding := range container.Ports {
-		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/tcp")
+		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
 		currentMappings, existing := dockerPortMap[dockerPort]
 		if existing {
 			dockerPortMap[dockerPort] = append(currentMappings, docker.PortBinding{HostIP: "0.0.0.0", HostPort: strconv.Itoa(int(portBinding.HostPort))})

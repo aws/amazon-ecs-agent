@@ -21,6 +21,7 @@ package tcsclient
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -65,6 +66,12 @@ func (ml *messageLogger) ReadMessage() (int, []byte, error) {
 	return websocket.TextMessage, read, nil
 }
 
+type mockStatsEngine struct{}
+
+func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	return nil, nil, fmt.Errorf("uninitialized")
+}
+
 func TestPayloadHandlerCalled(t *testing.T) {
 	cs, ml := testCS()
 
@@ -105,7 +112,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 
 func testCS() (wsclient.ClientServer, *messageLogger) {
 	testCreds := auth.TestCredentialProvider{}
-	cs := New("localhost:443", "us-east-1", testCreds, true, nil, testPublishMetricsInterval).(*clientServer)
+	cs := New("localhost:443", "us-east-1", testCreds, true, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
 	cs.Conn = ml
 	return cs, ml

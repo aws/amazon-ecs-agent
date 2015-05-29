@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* Feature - UDP support for port bindings
 * Feature - Telemetry support for CPU and Memory utilization metrics.
 
 ## 1.1.0

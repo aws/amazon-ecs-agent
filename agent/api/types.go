@@ -14,6 +14,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -21,7 +22,6 @@ import (
 )
 
 type TaskStatus int32
-type ContainerStatus int32
 
 const (
 	TaskStatusNone TaskStatus = iota
@@ -30,6 +30,8 @@ const (
 	TaskRunning
 	TaskStopped
 )
+
+type ContainerStatus int32
 
 const (
 	ContainerStatusNone ContainerStatus = iota
@@ -41,10 +43,44 @@ const (
 	ContainerZombie // Impossible status to use as a virtual 'max'
 )
 
+type TransportProtocol int32
+
+const (
+	TransportProtocolTCP TransportProtocol = iota
+	TransportProtocolUDP
+)
+
+func NewTransportProtocol(protocol string) (TransportProtocol, error) {
+	switch protocol {
+	case "tcp":
+		return TransportProtocolTCP, nil
+	case "udp":
+		return TransportProtocolUDP, nil
+	default:
+		return TransportProtocolTCP, errors.New(protocol + " is not a recognized transport protocol")
+	}
+}
+
+func (tp *TransportProtocol) String() string {
+	if tp == nil {
+		return "tcp"
+	}
+	switch *tp {
+	case TransportProtocolUDP:
+		return "udp"
+	case TransportProtocolTCP:
+		return "tcp"
+	default:
+		log.Crit("Unknown TransportProtocol type!")
+		return "tcp"
+	}
+}
+
 type PortBinding struct {
 	ContainerPort uint16
 	HostPort      uint16
 	BindIp        string
+	Protocol      TransportProtocol
 }
 
 type TaskOverrides struct{}

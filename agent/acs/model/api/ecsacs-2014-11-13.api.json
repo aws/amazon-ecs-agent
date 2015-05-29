@@ -10,6 +10,14 @@
     "protocol":"json"
   },
   "operations":{
+    "Error":{
+      "name":"Error",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ErrorMessage"}
+    },
     "Heartbeat":{
       "name":"Heartbeat",
       "http":{
@@ -146,6 +154,12 @@
       "key":{"shape":"String"},
       "value":{"shape":"String"}
     },
+    "ErrorMessage":{
+      "type":"structure",
+      "members":{
+        "message":{"shape":"String"}
+      }
+    },
     "HeartbeatMessage":{
       "type":"structure",
       "members":{
@@ -228,14 +242,15 @@
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
         "seqNum":{"shape":"Integer"},
-        "agentVersion":{"shape":"VersionInfo"}
+        "versionInfo":{"shape":"VersionInfo"}
       }
     },
     "PortMapping":{
       "type":"structure",
       "members":{
         "containerPort":{"shape":"Integer"},
-        "hostPort":{"shape":"Integer"}
+        "hostPort":{"shape":"Integer"},
+        "protocol":{"shape":"TransportProtocol"}
       }
     },
     "PortMappingList":{
@@ -279,6 +294,13 @@
     "TaskList":{
       "type":"list",
       "member":{"shape":"Task"}
+    },
+    "TransportProtocol":{
+      "type":"string",
+      "enum":[
+        "tcp",
+        "udp"
+      ]
     },
     "UpdateInfo":{
       "type":"structure",

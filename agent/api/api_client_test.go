@@ -74,11 +74,13 @@ func TestSubmitContainerStateChange(t *testing.T) {
 					BindIP:        strptr("1.2.3.4"),
 					ContainerPort: int64ptr(intptr(1)),
 					HostPort:      int64ptr(intptr(2)),
+					Protocol:      strptr("tcp"),
 				},
 				&ecs.NetworkBinding{
 					BindIP:        strptr("2.2.3.4"),
 					ContainerPort: int64ptr(intptr(3)),
 					HostPort:      int64ptr(intptr(4)),
+					Protocol:      strptr("udp"),
 				},
 			},
 		},
@@ -97,6 +99,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 				BindIp:        "2.2.3.4",
 				ContainerPort: 3,
 				HostPort:      4,
+				Protocol:      api.TransportProtocolUDP,
 			},
 		},
 	})
@@ -125,6 +128,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 					BindIP:        strptr(""),
 					ContainerPort: int64ptr(intptr(0)),
 					HostPort:      int64ptr(intptr(0)),
+					Protocol:      strptr("tcp"),
 				},
 			},
 		},
@@ -224,6 +228,17 @@ func TestRegisterContainerInstance(t *testing.T) {
 		if *req.InstanceIdentityDocumentSignature != "signature" {
 			t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
 		}
+		if len(req.TotalResources) != 4 {
+			t.Errorf("Wrong length of TotalResources, expected 4 but was %d", len(req.TotalResources))
+		}
+		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+		if !ok {
+			t.Error("Could not find resource \"PORTS_UDP\"")
+		}
+		if *resource.Type != "STRINGSET" {
+			t.Errorf("Wrong type for resource \"PORTS_UDP\".  Expected \"STRINGSET\" but was \"%s\"", resource.Type)
+		}
+
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)
 
 	arn, err := client.RegisterContainerInstance()
@@ -233,6 +248,15 @@ func TestRegisterContainerInstance(t *testing.T) {
 	if arn != "registerArn" {
 		t.Errorf("Wrong arn: %v", arn)
 	}
+}
+
+func findResource(resources []*ecs.Resource, name string) (*ecs.Resource, bool) {
+	for _, resource := range resources {
+		if name == *resource.Name {
+			return resource, true
+		}
+	}
+	return nil, false
 }
 
 func TestRegisterBlankCluster(t *testing.T) {

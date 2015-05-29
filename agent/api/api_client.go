@@ -209,8 +209,13 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPorts),
 	}
+	udpPortResource := ecs.Resource{
+		Name:           utils.Strptr("PORTS_UDP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
+	}
 
-	resources := []*ecs.Resource{&cpuResource, &memResource, &portResource}
+	resources := []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}
 	registerRequest.TotalResources = resources
 
 	resp, err := client.c.RegisterContainerInstance(&registerRequest)
@@ -280,10 +285,12 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 		hostPort := int64(binding.HostPort)
 		containerPort := int64(binding.ContainerPort)
 		bindIP := binding.BindIp
+		protocol := binding.Protocol.String()
 		networkBindings[i] = &ecs.NetworkBinding{
 			BindIP:        &bindIP,
 			ContainerPort: &containerPort,
 			HostPort:      &hostPort,
+			Protocol:      &protocol,
 		}
 	}
 	req.NetworkBindings = networkBindings

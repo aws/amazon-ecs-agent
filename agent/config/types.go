@@ -37,9 +37,13 @@ type Config struct {
 	// be inferred from the EC2 metadata service, but if it cannot be found this
 	// will be fatal.
 	AWSRegion string `missing:"fatal" trim:"true"`
+
 	// ReservedPorts is an array of ports which should be registerd as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
+	// ReservedPortsUDP is an array of UDP ports which should be registered as
+	// unavailable. If not set, it defaults to [].
+	ReservedPortsUDP []uint16
 
 	// DataDir is the directory data is saved to in order to preserve state
 	// across agent restarts. It is only used if "Checkpoint" is true as well.
