@@ -90,20 +90,12 @@
         "min":{"shape":"Double"},
         "max":{"shape":"Double"},
         "sampleCount":{"shape":"Integer"},
-        "sum":{"shape":"Double"},
-        "unit":{"shape":"String"}
-      }
-    },
-    "ContainerMetadata":{
-      "type":"structure",
-      "members":{
-        "name":{"shape":"String"}
+        "sum":{"shape":"Double"}
       }
     },
     "ContainerMetric":{
       "type":"structure",
       "members":{
-        "metadata":{"shape":"ContainerMetadata"},
         "cpuStatsSet":{"shape":"CWStatsSet"},
         "memoryStatsSet":{"shape":"CWStatsSet"}
       }

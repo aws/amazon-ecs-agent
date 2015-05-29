@@ -59,13 +59,12 @@ func (container *CronContainer) StopStatsCron() {
 }
 
 // newCronContainer creates a CronContainer object.
-func newCronContainer(dockerID *string, name *string, dockerGraphPath string) *CronContainer {
+func newCronContainer(dockerID *string, dockerGraphPath string) *CronContainer {
 	statePath := filepath.Join(dockerGraphPath, DockerExecDriverPath, *dockerID)
 
 	container := &CronContainer{
 		containerMetadata: &ContainerMetadata{
 			DockerID: dockerID,
-			Name:     name,
 		},
 		statePath: statePath,
 	}

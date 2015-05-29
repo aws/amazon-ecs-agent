@@ -52,7 +52,7 @@ const (
 	readBufSize = 4096
 
 	// writeBufSize is the size of the write buffer for the ws connection.
-	writeBufSize = 4096
+	writeBufSize = 32768
 )
 
 // ReceivedMessage is the intermediate message used to unmarshal a
@@ -207,9 +207,9 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 		if err != nil {
 			if err != io.EOF {
 				if message != nil {
-					log.Error("Error getting message from acs", "err", err, "message", message)
+					log.Error("Error getting message from ws backend", "err", err, "message", message)
 				} else {
-					log.Error("Error getting message from acs", "err", err)
+					log.Error("Error getting message from ws backend", "err", err)
 				}
 			}
 			break

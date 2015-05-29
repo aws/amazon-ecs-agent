@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -72,7 +73,7 @@ func _main() int {
 		// All required config values can be inferred from EC2 Metadata, so this error could be transient.
 		return exitcodes.ExitError
 	}
-	log.Debug("Loaded config: %+v", *cfg)
+	log.Debugf("Loaded config: %+v", *cfg)
 
 	var currentEc2InstanceID, containerInstanceArn string
 	var taskEngine engine.TaskEngine
@@ -141,7 +142,11 @@ func _main() int {
 	awsCreds := auth.ToSDK(credentialProvider)
 	// Preflight request to make sure they're good
 	if preflightCreds, err := awsCreds.Credentials(); err != nil || preflightCreds.AccessKeyID == "" {
-		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
+		if preflightCreds != nil {
+			log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
+		} else {
+			log.Warnf("Error getting preflight credentials: %v", err)
+		}
 	}
 	client := api.NewECSClient(awsCreds, cfg, *acceptInsecureCert)
 
@@ -173,6 +178,18 @@ func _main() int {
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
+
+	telemetrySessionParams := tcshandler.TelemetrySessionParams{
+		ContainerInstanceArn: containerInstanceArn,
+		CredentialProvider:   credentialProvider,
+		Cfg:                  cfg,
+		AcceptInvalidCert:    *acceptInsecureCert,
+		EcsClient:            client,
+		TaskEngine:           taskEngine,
+	}
+
+	// Start metrics session in a go routine
+	go tcshandler.StartMetricsSession(telemetrySessionParams)
 
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)

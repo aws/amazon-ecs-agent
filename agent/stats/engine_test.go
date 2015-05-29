@@ -19,12 +19,12 @@ import (
 	"time"
 
 	"code.google.com/p/gomock/gomock"
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"golang.org/x/net/context"
 )
 
@@ -122,13 +122,6 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
-
-	resolver.EXPECT().ResolveName("c1").AnyTimes().Return("n-c1", nil)
-	resolver.EXPECT().ResolveName("c2").AnyTimes().Return("n-c2", nil)
-	resolver.EXPECT().ResolveName("c3").AnyTimes().Return("n-c3", nil)
-	resolver.EXPECT().ResolveName("c4").AnyTimes().Return("", fmt.Errorf("unmapped container"))
-	resolver.EXPECT().ResolveName("c5").AnyTimes().Return("", fmt.Errorf("unmapped container"))
-	resolver.EXPECT().ResolveName("c6").AnyTimes().Return("n-c6", nil)
 
 	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
@@ -241,13 +234,6 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)
 	}
-	// Should get an error while adding this container due to unmapped
-	// container to name.
-	engine.addContainer("c5")
-	err = validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
-	}
 
 	// Should get an error while adding this container due to unmapped
 	// task arn to task definition family.
@@ -264,7 +250,6 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
-	resolver.EXPECT().ResolveName("c1").AnyTimes().Return("n-c1", nil)
 
 	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver

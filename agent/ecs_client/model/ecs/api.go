@@ -1859,6 +1859,7 @@ type NetworkBinding struct {
 	// The port number on the host that is used with the network binding.
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
+	// The protocol used for the network binding. The default is TCP.
 	Protocol *string `locationName:"protocol" type:"string"`
 
 	metadataNetworkBinding `json:"-", xml:"-"`
@@ -1894,6 +1895,7 @@ type PortMapping struct {
 	// reserved ports (automatically assigned ports do not count toward this limit).
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
+	// The protocol used for the port mapping. The default is TCP.
 	Protocol *string `locationName:"protocol" type:"string"`
 
 	metadataPortMapping `json:"-", xml:"-"`

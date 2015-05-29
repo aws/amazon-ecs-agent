@@ -1756,7 +1756,10 @@
           "shape":"BoxedInteger",
           "documentation":"<p>The port number on the host that is used with the network binding.</p>"
         },
-        "protocol":{"shape":"TransportProtocol"}
+        "protocol":{
+          "shape":"TransportProtocol",
+          "documentation":"<p>The protocol used for the network binding. The default is TCP.</p>"
+        }
       }
     },
     "NetworkBindings":{
@@ -1781,7 +1784,10 @@
           "shape":"Integer",
           "documentation":"<p>The port number on the container instance to reserve for your container. You can specify a non-reserved host port for your container port mapping, or you can omit the <code>hostPort</code> (or set it to <code>0</code>) while specifying a <code>containerPort</code> and your container will automatically receive a port in the 49153 to 65535 port range. You should not attempt to specify a host port in the 49153 to 65535 port range, since these are reserved for automatic assignment.</p> <p>The default reserved ports are 22 for SSH, the Docker ports 2375 and 2376, and the Amazon ECS Container Agent port 51678. Any host port that was previously specified in a running task is also reserved while the task is running (once a task stops, the host port is released).The current reserved ports are displayed in the <code>remainingResources</code> of <a>DescribeContainerInstances</a> output, and a container instance may have up to 50 reserved ports at a time, including the default reserved ports (automatically assigned ports do not count toward this limit).</p>"
         },
-        "protocol":{"shape":"TransportProtocol"}
+        "protocol":{
+          "shape":"TransportProtocol",
+          "documentation":"<p>The protocol used for the port mapping. The default is TCP.</p>"
+        }
       },
       "documentation":"<p>Port mappings allow containers to access ports on the host container instance to send or receive traffic. Port mappings are specified as part of the container definition.</p>"
     },
