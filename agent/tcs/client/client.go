@@ -149,7 +149,7 @@ func (cs *clientServer) publishMetrics() {
 		if *metadata.Idle {
 			// Idle instance, send message and return.
 			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
-			return
+			continue
 		}
 
 		var messageTaskMetrics []*ecstcs.TaskMetric

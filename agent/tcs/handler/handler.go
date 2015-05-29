@@ -96,6 +96,7 @@ func startSession(url string, region string, credentialProvider credentials.AWSC
 	defer client.Close()
 
 	client.AddRequestHandler(heartbeatHandler(client))
+	client.AddRequestHandler(ackPublishMetricHandler)
 	err := client.Connect()
 	if err != nil {
 		log.Error("Error connecting to TCS: " + err.Error())
@@ -113,6 +114,13 @@ func heartbeatHandler(tcsConnection io.Closer) func(*ecstcs.HeartbeatMessage) {
 	return func(*ecstcs.HeartbeatMessage) {
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
+}
+
+// ackPublishMetricHandler consumes the ack message from the backend. THe backend sends
+// the ack each time it processes a metric message. The handler for this is essentially
+// noop now.
+func ackPublishMetricHandler(*ecstcs.AckPublishMetric) {
+	log.Debug("Received AckPublishMetric from tcs")
 }
 
 // formatURL returns formatted url for tcs endpoint.
