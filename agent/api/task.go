@@ -219,7 +219,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Volumes:      dockerVolumes,
 		Env:          dockerEnv,
 		Memory:       dockerMem,
-		CPUShares:    int64(container.Cpu),
+		CPUShares:    task.dockerCpuShares(container.Cpu),
 		Labels: map[string]string{
 			"com.amazonaws.ecs.task-arn":                task.Arn,
 			"com.amazonaws.ecs.container-name":          container.Name,
@@ -228,6 +228,16 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		},
 	}
 	return config, nil
+}
+
+// Docker silently converts 0 to 1024 CPU shares, which is probably not what we want.
+// Instead, we convert 0 to 1 to be closer to expected behavior.
+func (task *Task) dockerCpuShares(containerCpu uint) int64 {
+	if containerCpu <= 0 {
+		log.Debug("Converting CPU shares of 0 to 1", "task", task.Arn)
+		return 1
+	}
+	return int64(containerCpu)
 }
 
 func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struct{} {
