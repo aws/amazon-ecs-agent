@@ -15,7 +15,7 @@ package tcsclient
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -69,14 +69,16 @@ func New(url string, region string, credentialProvider credentials.AWSCredential
 func (cs *clientServer) Serve() error {
 	log.Debug("Starting websocket poll loop")
 	if cs.Conn == nil {
-		return errors.New("nil connection")
+		return fmt.Errorf("nil connection")
+	}
+
+	if cs.statsEngine == nil {
+		return fmt.Errorf("uninitialized stats engine")
 	}
 
 	// Start the timer function to publish metrics to the backend.
-	if cs.statsEngine != nil {
-		cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
-		go cs.publishMetrics()
-	}
+	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
+	go cs.publishMetrics()
 
 	return cs.ConsumeMessages()
 }
