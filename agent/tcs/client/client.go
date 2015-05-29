@@ -145,7 +145,7 @@ func (cs *clientServer) publishMetrics() {
 		}
 
 		if *metadata.Idle {
-			log.Debug("Idle instance, sending message")
+			// Idle instance, send message and return.
 			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
 			return
 		}
@@ -154,14 +154,14 @@ func (cs *clientServer) publishMetrics() {
 		for i := range taskMetrics {
 			messageTaskMetrics = append(messageTaskMetrics, taskMetrics[i])
 			if (i+1)%tasksInMessage == 0 {
-				log.Debug("Sending payload, aggregated tasks", "numtasks", i)
+				// Construct payload with tasksInMessage number of task metrics and send to backend.
 				cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
 				messageTaskMetrics = messageTaskMetrics[:0]
 			}
 		}
 
 		if len(messageTaskMetrics) > 0 {
-			log.Debug("Sending payload, residual tasks", "numtasks", len(messageTaskMetrics))
+			// Send remaining task metrics to backend.
 			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
 		}
 	}
