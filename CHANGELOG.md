@@ -1,8 +1,19 @@
 # Changelog
 
-## Unreleased
-* Feature - UDP support for port bindings
-* Feature - Telemetry support for CPU and Memory utilization metrics.
+## 1.2.0
+* Feature - UDP support for port bindings.
+* Feature - Set labels on launched containers with `task-arn`,
+  `container-name`, `task-definition-family`, and `task-definition-revision`.
+* Enhancement - Logging improvements.
+* Bug - Improved the behavior when CPU shares in a `Container Definition` are
+  set to 0.
+* Bug - Fixed an issue where `BindIP` could be reported incorrectly.
+* Bug - Resolved an issue computing API endpoint when region is provided.
+* Bug - Fixed an issue where not specifiying a tag would pull all image tags.
+* Bug - Resolved an issue where some logs would not flush on exit.
+* Bug - Resolved an issue where some instance identity documents would fail to
+  parse.
+
 
 ## 1.1.0
 * Feature - Logs rotate hourly and log file names are suffixed with timestamp.
