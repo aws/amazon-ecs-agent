@@ -318,3 +318,15 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 		t.Error("Expected error getting telemetry endpoint, didn't get any")
 	}
 }
+
+func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc := NewMockClient(mockCtrl)
+	pollEndpoint := "http://127.0.0.1"
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	_, err := client.DiscoverTelemetryEndpoint("containerInstance")
+	if err == nil {
+		t.Error("Expected error getting telemetry endpoint with old response")
+	}
+}

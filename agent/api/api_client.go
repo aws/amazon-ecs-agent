@@ -323,6 +323,9 @@ func (client *ApiECSClient) DiscoverTelemetryEndpoint(containerInstanceArn strin
 	if err != nil {
 		return "", NewAPIError(err)
 	}
+	if resp.TelemetryEndpoint == nil {
+		return "", &APIError{err: errors.New("No telemetry endpoint returned; nil"), Retriable: false}
+	}
 
 	return *resp.TelemetryEndpoint, nil
 }
