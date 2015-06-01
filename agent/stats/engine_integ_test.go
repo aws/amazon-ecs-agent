@@ -103,7 +103,7 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 }
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
-	// This hsould be a functional test. Upgrading to docker 1.6 breaks our ability to
+	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test in short mode")
 	engine := NewDockerStatsEngine(&cfg)
@@ -194,7 +194,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 }
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
-	// This hsould be a functional test. Upgrading to docker 1.6 breaks our ability to
+	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test in short mode")
 	engine := NewDockerStatsEngine(&cfg)
@@ -280,7 +280,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 }
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
-	// This hsould be a functional test. Upgrading to docker 1.6 breaks our ability to
+	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test in short mode")
 	taskEngine := engine.NewTaskEngine(&config.Config{})
