@@ -194,6 +194,9 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 		return nil, nil, fmt.Errorf("No task metrics to report")
 	}
 
+	// Reset current stats. Retaining older stats results in incorrect utilization stats
+	// until they are removed from the queue.
+	engine.resetStats()
 	return engine.metricsMetadata, taskMetrics, nil
 }
 
@@ -384,9 +387,21 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
 		})
+
 	}
 
 	return containerMetrics, nil
+}
+
+// resetStats resets stats for all watched containers.
+func (engine *DockerStatsEngine) resetStats() {
+	engine.containersLock.Lock()
+	defer engine.containersLock.Unlock()
+	for _, containerMap := range engine.tasksToContainers {
+		for _, container := range containerMap {
+			container.statsQueue.Reset()
+		}
+	}
 }
 
 // newMetricsMetadata creates the singleton metadata object.

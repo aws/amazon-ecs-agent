@@ -48,6 +48,11 @@ var client, _ = docker.NewClient(endpoint)
 
 var cfg = config.DefaultConfig()
 
+func init() {
+	// Set DockerGraphPath as per changes in 1.6
+	cfg.DockerGraphPath = "/var/run/docker"
+}
+
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
 func createGremlin(client *docker.Client) (*docker.Container, error) {
