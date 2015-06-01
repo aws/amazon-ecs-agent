@@ -14,7 +14,7 @@
 
 Name:           ecs-init
 Version:        1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker > 1.5.0, docker <= 1.6.0
+Requires:       docker > 1.5.0, docker <= 1.6.2
 Requires:       upstart
 Requires(post): docker > 1.5.0
 
@@ -132,6 +132,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Mon Jun 1 2015 Samuel Karp <skarp@amazon.com> - 1.0-5
+- Add support for Docker 1.6.2
 * Mon May 11 2015 Samuel Karp <skarp@amazon.com> - 1.0-4
 - Properly restart if the ecs-init package is upgraded in isolation
 * Wed May 6 2015 Samuel Karp <skarp@amazon.com> - 1.0-3
