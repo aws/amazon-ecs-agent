@@ -15,6 +15,7 @@ package tcshandler
 
 import (
 	"errors"
+	"io"
 	"math/rand"
 	"net/url"
 	"strings"
@@ -105,6 +106,35 @@ func TestStartSession(t *testing.T) {
 	}
 }
 
+func TestSessionConenctionClosedByRemote(t *testing.T) {
+	// Start test server.
+	closeWS := make(chan bool)
+	server, serverChan, _, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
+	defer server.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		t.Error(<-serverErr)
+	}()
+	sleepBeforeClose := 10 * time.Millisecond
+	go func() {
+		time.Sleep(sleepBeforeClose)
+		closeWS <- true
+		close(serverChan)
+	}()
+
+	// Start a session with the test server.
+	err = startSession(server.URL, "us-east-1", auth.TestCredentialProvider{}, true, &mockStatsEngine{}, testPublishMetricsInterval)
+
+	if err == nil {
+		t.Error("Expected io.EOF on closed connection")
+	}
+	if err != io.EOF {
+		t.Error("Expected io.EOF on closed connection, got: ", err)
+	}
+}
+
 func getPayloadFromRequest(request string) (string, error) {
 	lines := strings.Split(request, "\r\n")
 	if len(lines) > 0 {
@@ -113,6 +143,7 @@ func getPayloadFromRequest(request string) (string, error) {
 
 	return "", errors.New("Could not get payload")
 }
+
 func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 	cluster := testClusterArn
 	ci := testInstanceArn
