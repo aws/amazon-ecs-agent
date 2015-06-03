@@ -29,8 +29,8 @@ const (
 	SleepBetweenUsageDataCollection = 500 * time.Millisecond
 
 	// ContainerStatsBufferLength is the number of usage metrics stored in memory for a container. It is calculated as
-	// Number of usage metrics gathered in a second (10) * 60 * Time duration in minutes to store the data for (2)
-	ContainerStatsBufferLength = 1200
+	// Number of usage metrics gathered in a second (2) * 60 * Time duration in minutes to store the data for (2)
+	ContainerStatsBufferLength = 240
 )
 
 // ContainerStatsCollector defines methods to get container stats. This interface is defined to

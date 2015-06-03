@@ -139,32 +139,42 @@ func (cs *clientServer) publishMetrics() {
 		log.Debug("publish ticker uninitialized")
 		return
 	}
+
+	// Publish metrics immediately after we connect and wait for ticks. This makes
+	// sure that there is no data loss when a scheduled metrics publishing fails
+	// due to a connection reset.
+	cs.publishMetricsOnce()
 	for range cs.publishTicker.C {
-		metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
-		if err != nil {
-			log.Warn("Error getting instance metrics", "err", err)
-			return
-		}
+		cs.publishMetricsOnce()
+	}
+}
 
-		if *metadata.Idle {
-			// Idle instance, send message and return.
-			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
-			continue
-		}
+// publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
+func (cs *clientServer) publishMetricsOnce() {
+	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
+	if err != nil {
+		log.Warn("Error getting instance metrics", "err", err)
+		return
+	}
 
-		var messageTaskMetrics []*ecstcs.TaskMetric
-		for i := range taskMetrics {
-			messageTaskMetrics = append(messageTaskMetrics, taskMetrics[i])
-			if (i+1)%tasksInMessage == 0 {
-				// Construct payload with tasksInMessage number of task metrics and send to backend.
-				cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
-				messageTaskMetrics = messageTaskMetrics[:0]
-			}
-		}
+	if *metadata.Idle {
+		// Idle instance, send message and return.
+		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+		return
+	}
 
-		if len(messageTaskMetrics) > 0 {
-			// Send remaining task metrics to backend.
+	var messageTaskMetrics []*ecstcs.TaskMetric
+	for i := range taskMetrics {
+		messageTaskMetrics = append(messageTaskMetrics, taskMetrics[i])
+		if (i+1)%tasksInMessage == 0 {
+			// Construct payload with tasksInMessage number of task metrics and send to backend.
 			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
+			messageTaskMetrics = messageTaskMetrics[:0]
 		}
+	}
+
+	if len(messageTaskMetrics) > 0 {
+		// Send remaining task metrics to backend.
+		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
 	}
 }

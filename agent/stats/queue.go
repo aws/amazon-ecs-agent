@@ -41,6 +41,11 @@ func NewQueue(maxSize int) *Queue {
 	}
 }
 
+// Reset resets the stats queue.
+func (queue *Queue) Reset() {
+	queue.buffer = queue.buffer[:0]
+}
+
 // Add adds a new set of container stats to the queue.
 func (queue *Queue) Add(rawStat *ContainerStats) {
 	queue.bufferLock.Lock()
@@ -64,6 +69,45 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 	}
 
 	queue.buffer = append(queue.buffer, stat)
+}
+
+// GetCPUStatsSet gets the stats set for CPU utilization.
+func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
+	return queue.getCWStatsSet(getCPUUsagePerc)
+}
+
+// GetMemoryStatsSet gets the stats set for memory utilization.
+func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
+	return queue.getCWStatsSet(getMemoryUsagePerc)
+}
+
+// GetRawUsageStats gets the array of most recent raw UsageStats, in descending
+// order of timestamps.
+func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
+	queue.bufferLock.Lock()
+	defer queue.bufferLock.Unlock()
+
+	queueLength := len(queue.buffer)
+	if queueLength == 0 {
+		return nil, fmt.Errorf("No data in the queue")
+	}
+
+	if numStats > queueLength {
+		numStats = queueLength
+	}
+
+	usageStats := make([]UsageStats, numStats)
+	for i := 0; i < numStats; i++ {
+		// Order such that usageStats[i].timestamp > usageStats[i+1].timestamp
+		rawUsageStat := queue.buffer[queueLength-i-1]
+		usageStats[i] = UsageStats{
+			CPUUsagePerc:      rawUsageStat.CPUUsagePerc,
+			MemoryUsageInMegs: rawUsageStat.MemoryUsageInMegs,
+			Timestamp:         rawUsageStat.Timestamp,
+		}
+	}
+
+	return usageStats, nil
 }
 
 func getCPUUsagePerc(s *UsageStats) float64 {
@@ -113,43 +157,4 @@ func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
 		SampleCount: &sampleCount,
 		Sum:         &sum,
 	}, nil
-}
-
-// GetCPUStatsSet gets the stats set for CPU utilization.
-func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
-	return queue.getCWStatsSet(getCPUUsagePerc)
-}
-
-// GetMemoryStatsSet gets the stats set for memory utilization.
-func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
-	return queue.getCWStatsSet(getMemoryUsagePerc)
-}
-
-// GetRawUsageStats gets the array of most recent raw UsageStats, in descending
-// order of timestamps.
-func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
-	queue.bufferLock.Lock()
-	defer queue.bufferLock.Unlock()
-
-	queueLength := len(queue.buffer)
-	if queueLength == 0 {
-		return nil, fmt.Errorf("No data in the queue")
-	}
-
-	if numStats > queueLength {
-		numStats = queueLength
-	}
-
-	usageStats := make([]UsageStats, numStats)
-	for i := 0; i < numStats; i++ {
-		// Order such that usageStats[i].timestamp > usageStats[i+1].timestamp
-		rawUsageStat := queue.buffer[queueLength-i-1]
-		usageStats[i] = UsageStats{
-			CPUUsagePerc:      rawUsageStat.CPUUsagePerc,
-			MemoryUsageInMegs: rawUsageStat.MemoryUsageInMegs,
-			Timestamp:         rawUsageStat.Timestamp,
-		}
-	}
-
-	return usageStats, nil
 }

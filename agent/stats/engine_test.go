@@ -109,6 +109,13 @@ func validateIdleContainerMetrics(engine *DockerStatsEngine) error {
 	return nil
 }
 
+func createFakeContainerStats() []*ContainerStats {
+	return []*ContainerStats{
+		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
+		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
+	}
+}
+
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -150,13 +157,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c2 not found in engine")
 	}
 
-	containerStats := []*ContainerStats{
-		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
-		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
-	}
 	for _, cronContainer := range containers {
-		for i := 0; i < 2; i++ {
-			cronContainer.statsQueue.Add(containerStats[i])
+		for _, fakeContainerStats := range createFakeContainerStats() {
+			cronContainer.statsQueue.Add(fakeContainerStats)
 		}
 	}
 

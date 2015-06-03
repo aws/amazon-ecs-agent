@@ -32,8 +32,10 @@ func nan32() float32 {
 
 // toContainerStats returns a new object of the ContainerStats object from libcontainer stats.
 func toContainerStats(containerStats libcontainer.ContainerStats) *ContainerStats {
+	// The length of PercpuUsage represents the number of cores in an instance.
+	numCores := uint64(len(containerStats.CgroupStats.CpuStats.CpuUsage.PercpuUsage))
 	return &ContainerStats{
-		cpuUsage:    containerStats.CgroupStats.CpuStats.CpuUsage.TotalUsage,
+		cpuUsage:    containerStats.CgroupStats.CpuStats.CpuUsage.TotalUsage / numCores,
 		memoryUsage: containerStats.CgroupStats.MemoryStats.Usage,
 		timestamp:   time.Now(),
 	}
