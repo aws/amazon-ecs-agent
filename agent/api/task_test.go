@@ -69,7 +69,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	}
 }
 
-func TestDockerConfigCPUShareMinimum(t *testing.T) {
+func TestDockerConfigCPUShareZero(t *testing.T) {
 	testTask := &Task{
 		Containers: []*Container{
 			&Container{
@@ -84,8 +84,28 @@ func TestDockerConfigCPUShareMinimum(t *testing.T) {
 		t.Error(err)
 	}
 
-	if config.CPUShares != 1 {
-		t.Error("CPU shares of 0 did not get changed to 1")
+	if config.CPUShares != 2 {
+		t.Error("CPU shares of 0 did not get changed to 2")
+	}
+}
+
+func TestDockerConfigCPUShareMinimum(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+				Cpu:  1,
+			},
+		},
+	}
+
+	config, err := testTask.DockerConfig(testTask.Containers[0])
+	if err != nil {
+		t.Error(err)
+	}
+
+	if config.CPUShares != 2 {
+		t.Error("CPU shares of 1 did not get changed to 2")
 	}
 }
 

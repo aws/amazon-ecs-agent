@@ -233,9 +233,9 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 // Docker silently converts 0 to 1024 CPU shares, which is probably not what we want.
 // Instead, we convert 0 to 1 to be closer to expected behavior.
 func (task *Task) dockerCpuShares(containerCpu uint) int64 {
-	if containerCpu <= 0 {
-		log.Debug("Converting CPU shares of 0 to 1", "task", task.Arn)
-		return 1
+	if containerCpu <= 1 {
+		log.Debug("Converting CPU shares to allowed minimum of 2", "task", task.Arn, "cpuShares", containerCpu)
+		return 2
 	}
 	return int64(containerCpu)
 }
