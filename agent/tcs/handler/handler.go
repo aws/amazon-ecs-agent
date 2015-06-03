@@ -95,8 +95,18 @@ func startSession(url string, region string, credentialProvider credentials.AWSC
 
 	defer client.Close()
 
-	client.AddRequestHandler(heartbeatHandler(client))
-	client.AddRequestHandler(ackPublishMetricHandler)
+	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
+	// we receive a heartbeat from the server or when a publish metrics message
+	// is acked.
+	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+		// Close the connection if there haven't been any messages received from backend
+		// for a long time.
+		log.Debug("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
+		client.Close()
+	})
+	defer timer.Stop()
+	client.AddRequestHandler(heartbeatHandler(timer))
+	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	err := client.Connect()
 	if err != nil {
 		log.Error("Error connecting to TCS: " + err.Error())
@@ -105,22 +115,21 @@ func startSession(url string, region string, credentialProvider credentials.AWSC
 	return client.Serve()
 }
 
-// heartbeatHandler starts a timer and listens for tcs heartbeats. If there are
-// none for unexpectedly long, it closes the passed in connection.
-func heartbeatHandler(tcsConnection io.Closer) func(*ecstcs.HeartbeatMessage) {
-	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
-		tcsConnection.Close()
-	})
+// heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.
+func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 	return func(*ecstcs.HeartbeatMessage) {
+		log.Debug("Received HeartbeatMessage from tcs")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
 }
 
 // ackPublishMetricHandler consumes the ack message from the backend. THe backend sends
-// the ack each time it processes a metric message. The handler for this is essentially
-// noop now.
-func ackPublishMetricHandler(*ecstcs.AckPublishMetric) {
-	log.Debug("Received AckPublishMetric from tcs")
+// the ack each time it processes a metric message.
+func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
+	return func(*ecstcs.AckPublishMetric) {
+		log.Debug("Received AckPublishMetric from tcs")
+		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
+	}
 }
 
 // formatURL returns formatted url for tcs endpoint.

@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -32,7 +33,7 @@ func StartMockServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<
 		ws, err := upgrader.Upgrade(w, r, nil)
 		go func() {
 			<-closeWS
-			ws.Close()
+			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 		}()
 		if err != nil {
 			errChan <- err

@@ -258,7 +258,7 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 func (cs *ClientServerImpl) handleMessage(data []byte) {
 	typedMessage, typeStr, err := DecodeData(data, cs.TypeDecoder)
 	if err != nil {
-		log.Warn("Unable to handle message from acs", "err", err)
+		log.Warn("Unable to handle message from backend", "err", err)
 		return
 	}
 
