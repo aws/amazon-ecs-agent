@@ -45,9 +45,27 @@ const (
 
 var test_client = ec2MetadataClientImpl{client: testHttpClient{}}
 
+var testInstanceIdentityDoc = `{
+  "privateIp" : "172.1.1.1",
+  "devpayProductCodes" : null,
+  "availabilityZone" : "us-east-1a",
+  "version" : "2010-08-31",
+  "region" : "us-east-1",
+  "accountId" : "012345678901",
+  "instanceId" : "i-01234567",
+  "billingProducts" : [ "bp-01234567" ],
+  "imageId" : "ami-12345678",
+  "instanceType" : "t2.micro",
+  "kernelId" : null,
+  "ramdiskId" : null,
+  "pendingTime" : "2015-06-04T22:16:06Z",
+  "architecture" : "x86_64"
+}`
+
 var test_response = map[string]string{
 	test_client.ResourceServiceUrl(SECURITY_CREDENTIALS_RESOURCE):                  TEST_ROLE_NAME,
 	test_client.ResourceServiceUrl(SECURITY_CREDENTIALS_RESOURCE + TEST_ROLE_NAME): string(ignoreError(json.Marshal(MakeTestRoleCredentials())).([]byte)),
+	test_client.ResourceServiceUrl(INSTANCE_IDENTITY_DOCUMENT_RESOURCE):            testInstanceIdentityDoc,
 }
 
 type testHttpClient struct{}
@@ -75,5 +93,15 @@ func TestDefaultCredentials(t *testing.T) {
 	testCredentials := MakeTestRoleCredentials()
 	if credentials.AccessKeyId != testCredentials.AccessKeyId {
 		t.Fail()
+	}
+}
+
+func TestGetInstanceIdentityDoc(t *testing.T) {
+	doc, err := test_client.InstanceIdentityDocument()
+	if err != nil {
+		t.Fatal("Expected to be able to get doc")
+	}
+	if doc.Region != "us-east-1" {
+		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
 	}
 }

@@ -43,20 +43,11 @@ type RoleCredentials struct {
 }
 
 type InstanceIdentityDocument struct {
-	InstanceId         string    `json:"instanceId"`
-	BillingProducts    *string   `json:"billingProducts"`
-	ImageId            string    `json:"imageId"`
-	Architecture       *string   `json:"architecture"`
-	PendingTime        time.Time `json:"pendingTime"`
-	InstanceType       string    `json:"instanceType"`
-	AccountId          string    `json:"accountId"`
-	KernelId           *string   `json:"kernelId"`
-	RamdiskId          *string   `json:"ramdiskId"`
-	Region             string    `json:"region"`
-	Version            string    `json:"version"`
-	PrivateIp          *string   `json:"privateIp"`
-	DevpayProductCodes *string   `json:"devpayProductCodes"`
-	AvailabilityZone   string    `json:"availabilityZone"`
+	InstanceId       string  `json:"instanceId"`
+	InstanceType     string  `json:"instanceType"`
+	Region           string  `json:"region"`
+	PrivateIp        *string `json:"privateIp"`
+	AvailabilityZone string  `json:"availabilityZone"`
 }
 
 type HttpClient interface {
