@@ -1,0 +1,146 @@
+#!/bin/bash
+# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the
+# "License"). You may not use this file except in compliance
+#  with the License. A copy of the License is located at
+#
+#     http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+
+DRYRUN=true
+
+AWS_PROFILE=""
+AWS_REGION="us-west-2"
+AMI_ID="ami-e7527ed7" #amzn-ami-hvm-2015.03.0.x86_64-gp2
+S3_BUCKET=""
+KEY_NAME=""
+SECURITY_GROUP=""
+INSTANCE_PROFILE=""
+GIT_REPO="https://github.com/aws/amazon-ecs-agent.git"
+GIT_BRANCH="dev"
+
+source $(dirname "${0}")/publishing-common.sh
+
+usage() {
+	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
+	echo
+	echo "This script stages a new version of the Amazon EC2 Container Agent built from a clean EC2 instance."
+	echo "To run this script, you must have the following resources:"
+	echo "* A local AWS profile with permissions for \"ec2:run-instances\""
+	echo "* An S3 bucket for the staging destination"
+	echo "* An IAM profile with permissions to write to that S3 bucket (\"s3:PutObject\" and \"s3:PutObjectAcl\")"
+	echo
+	echo "Options"
+	echo "  -d  true|false      Dryrun (default is true)"
+	echo "  -p  PROFILE         AWS CLI Profile (default is none)"
+	echo "  -b  BUCKET          AWS S3 Bucket"
+	echo "  -k  SSH_KEY         SSH key name"
+	echo "  -s  SECURITY_GROUP  Security group name"
+	echo "  -i  IAM_ROLE        IAM Role name"
+	echo "  -g  GIT_REPO        Git repository (default is https://github.com/aws/amazon-ecs-agent.git)"
+	echo "  -r  GIT_BRANCH      Git branch (default is dev)"
+	echo "  -h                  Display this help message"
+}
+
+while getopts ":d:p:b:k:s:i:g:r:h" opt; do
+	case ${opt} in
+		d)
+			if [[ "${OPTARG}" = "false" ]]; then
+				DRYRUN=false
+			fi
+			;;
+		p)
+			AWS_PROFILE="${OPTARG}"
+			;;
+		b)
+			S3_BUCKET="${OPTARG}"
+			;;
+		k)
+			KEY_NAME="${OPTARG}"
+			;;
+		s)
+			SECURITY_GROUP="${OPTARG}"
+			;;
+		i)
+			INSTANCE_PROFILE="${OPTARG}"
+			;;
+		g)
+			GIT_REPO="${OPTARG}"
+			;;
+		r)
+			GIT_BRANCH="${OPTARG}"
+			;;
+		\?)
+			echo "Invalid option -${OPTARG}" >&2
+			usage
+			exit 1
+			;;
+		:)
+			echo "Option -${OPTARG} requires an argument." >&2
+			usage
+			exit 1
+			;;
+		h)
+			usage
+			exit 0
+			;;
+	esac
+done
+
+if [ -z "${S3_BUCKET}" ] || [ -z "${KEY_NAME}" ] || [ -z "${INSTANCE_PROFILE}" ]; then
+	usage
+	exit 1
+fi
+
+ec2_work_root="/var/lib/ec2-stage"
+ec2_gopath="${ec2_work_root}/go"
+ec2_build_root="${ec2_gopath}/src/github.com/aws"
+userdata=$(cat << EOU
+#!/bin/bash
+
+mkdir -p /var/log/ec2-stage
+exec > >(tee -a /var/log/ec2-stage/userdata.log)
+
+yum -y install docker golang git
+service docker start
+mkdir -p ${ec2_build_root}
+export GOPATH=${ec2_gopath}
+cd ${ec2_build_root}
+git clone ${GIT_REPO}
+cd amazon-ecs-agent
+git checkout ${GIT_BRANCH}
+make get-deps
+scripts/stage -b ${S3_BUCKET} -d false
+shutdown -hP now
+EOU
+)
+
+encoded_user_data=$(base64 <<< "${userdata}")
+
+profile=""
+if [[ -n "${AWS_PROFILE}" ]]; then
+	profile="--profile=${AWS_PROFILE}"
+fi
+
+echo "Starting an EC2 instance with the following user-data:"
+echo "======================================================"
+echo "${userdata}"
+echo "======================================================"
+echo
+dryval aws ${profile} "--region=${AWS_REGION}" \
+	ec2 run-instances \
+	"--image-id=${AMI_ID}" \
+	"--key-name=${KEY_NAME}" \
+	"--security-groups=${SECURITY_GROUP}" \
+	"--user-data=${encoded_user_data}" \
+	"--instance-type=t2.medium" \
+	"--instance-initiated-shutdown-behavior=terminate" \
+	"--iam-instance-profile=Name=${INSTANCE_PROFILE}"
