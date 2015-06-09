@@ -83,6 +83,11 @@ type RequestHandler interface{}
 // ClientServer is a combined client and server for the backend websocket connection
 type ClientServer interface {
 	AddRequestHandler(RequestHandler)
+	// SetAnyRequestHandler takes a function with the signature 'func(i
+	// interface{})' and calls it with every message the server passes down.
+	// Only a single 'AnyRequestHandler' will be active at a given time for a
+	// ClientServer
+	SetAnyRequestHandler(RequestHandler)
 	MakeRequest(input interface{}) error
 	Connect() error
 	Serve() error
@@ -101,6 +106,10 @@ type ClientServerImpl struct {
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
 	RequestHandlers map[string]RequestHandler
+	// AnyRequestHandler is a request handler that, if set, is called on every
+	// message with said message. It will be called before a RequestHandler is
+	// called. It must take a single interface{} argument.
+	AnyRequestHandler RequestHandler
 	// URL is the full url to the backend, including path, querystring, and so on.
 	URL string
 	ClientServer
@@ -184,6 +193,10 @@ func (cs *ClientServerImpl) AddRequestHandler(f RequestHandler) {
 	cs.RequestHandlers[firstArgTypeStr] = f
 }
 
+func (cs *ClientServerImpl) SetAnyRequestHandler(f RequestHandler) {
+	cs.AnyRequestHandler = f
+}
+
 // MakeRequest makes a request using the given input. Note, the input *MUST* be
 // a pointer to a valid backend type that this client recognises
 func (cs *ClientServerImpl) MakeRequest(input interface{}) error {
@@ -260,6 +273,10 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	if err != nil {
 		log.Warn("Unable to handle message from backend", "err", err)
 		return
+	}
+
+	if cs.AnyRequestHandler != nil {
+		reflect.ValueOf(cs.AnyRequestHandler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
 	}
 
 	if handler, ok := cs.RequestHandlers[typeStr]; ok {

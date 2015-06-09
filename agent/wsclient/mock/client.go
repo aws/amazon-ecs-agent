@@ -89,3 +89,11 @@ func (_m *MockClientServer) Serve() error {
 func (_mr *_MockClientServerRecorder) Serve() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Serve")
 }
+
+func (_m *MockClientServer) SetAnyRequestHandler(_param0 wsclient.RequestHandler) {
+	_m.ctrl.Call(_m, "SetAnyRequestHandler", _param0)
+}
+
+func (_mr *_MockClientServerRecorder) SetAnyRequestHandler(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetAnyRequestHandler", arg0)
+}

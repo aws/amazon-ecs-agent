@@ -54,6 +54,17 @@ func (t *TestTime) After(d time.Duration) <-chan time.Time {
 	return done
 }
 
+// AfterFunc returns a timer and calls a function after a given time
+// taking into account time-warping
+func (t *TestTime) AfterFunc(d time.Duration, f func()) *time.Timer {
+	timer := time.AfterFunc(d, f)
+	go func() {
+		t.Sleep(d)
+		timer.Reset(0)
+	}()
+	return timer
+}
+
 // Sleep sleeps the given duration in mock-time; that is to say that Warps will
 // reduce the amount of time slept and LudicrousSpeed will cause instant
 // success.

@@ -1,11 +1,14 @@
 package handler_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -13,11 +16,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/gorilla/websocket"
 
 	"github.com/golang/mock/gomock"
 )
+
+const samplePayloadMessage = `{"type":"PayloadMessage","message":{"messageId":"123","tasks":[{"taskDefinitionAccountId":"123","containers":[{"environment":{},"name":"name","cpu":1,"essential":true,"memory":1,"portMappings":[],"overrides":"{}","image":"i","mountPoints":[],"volumesFrom":[]}],"version":"3","volumes":[],"family":"f","arn":"arn","desiredStatus":"RUNNING"}],"generatedAt":1,"clusterArn":"1","containerInstanceArn":"1","seqNum":1}}`
 
 func TestAcsWsUrl(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -68,13 +74,13 @@ func TestHandlerReconnects(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ecsclient.EXPECT().DiscoverPollEndpoint("myArn").Return(server.URL, nil).AnyTimes()
+	ecsclient.EXPECT().DiscoverPollEndpoint("myArn").Return(server.URL, nil).Times(10)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
+	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		handler.StartSession("myArn", credentials.NewCredentialProvider("", ""), &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true)
-		// This should never return
+		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.NewCredentialProvider("", ""), &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
 		ended <- true
 	}()
 	start := time.Now()
@@ -88,9 +94,62 @@ func TestHandlerReconnects(t *testing.T) {
 
 	select {
 	case <-ended:
-		t.Fatal("Should never stop session")
+		t.Fatal("Should not have stopped session")
 	default:
 	}
+	cancel()
+	<-ended
+}
+
+func TestHeartbeatOnlyWhenIdle(t *testing.T) {
+	testTime := ttime.NewTestTime()
+	ttime.SetTime(testTime)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	ecsclient := mock_api.NewMockECSClient(ctrl)
+	statemanager := statemanager.NewNoopStateManager()
+
+	closeWS := make(chan bool)
+	server, serverIn, requestsChan, errChan, err := startMockAcsServer(t, closeWS)
+	defer server.Close()
+	defer close(serverIn)
+
+	go func() { <-requestsChan }()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We're testing that it does not reconnect here; must be the case
+	ecsclient.EXPECT().DiscoverPollEndpoint("myArn").Return(server.URL, nil).Times(1)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ended := make(chan bool, 1)
+	go func() {
+		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.NewCredentialProvider("", ""), &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		ended <- true
+	}()
+
+	taskAdded := make(chan bool)
+	taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(interface{}) {
+		taskAdded <- true
+	}).Times(10)
+	for i := 0; i < 10; i++ {
+		serverIn <- samplePayloadMessage
+		testTime.Warp(1 * time.Minute)
+		<-taskAdded
+	}
+
+	select {
+	case <-ended:
+		t.Fatal("Should not have stop session")
+	case err := <-errChan:
+		t.Fatal("Error should not have been returned from server", err)
+	default:
+	}
+	cancel()
+	<-ended
 }
 
 func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
@@ -105,6 +164,7 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 			<-closeWS
 			ws.WriteMessage(websocket.CloseMessage, nil)
 			ws.Close()
+			errChan <- io.EOF
 		}()
 		if err != nil {
 			errChan <- err

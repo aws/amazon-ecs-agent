@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/net/context"
+
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
@@ -51,36 +53,87 @@ const payloadMessageBufferSize = 10
 // the last sequence number successfully handled.
 var SequenceNumber = utilatomic.NewIncreasingInt64(1)
 
+// StartSessionArguments is a struct representing all the things this handler
+// needs... This is really a hack to get by-name instead of positional
+// arguments since there are too many for positional to be wieldy
+type StartSessionArguments struct {
+	ContainerInstanceArn string
+	CredentialProvider   credentials.AWSCredentialProvider
+	Config               *config.Config
+	TaskEngine           engine.TaskEngine
+	ECSClient            api.ECSClient
+	StateManager         statemanager.StateManager
+	AcceptInvalidCert    bool
+}
+
 // StartSession creates a session with ACS and handles requests using the passed
 // in arguments.
-func StartSession(containerInstanceArn string, credentialProvider credentials.AWSCredentialProvider, cfg *config.Config, taskEngine engine.TaskEngine, ecsclient api.ECSClient, stateManager statemanager.StateManager, acceptInvalidCert bool) error {
-	backoff := utils.NewSimpleBackoff(time.Second, 2*time.Minute, 0.2, 2)
+func StartSession(ctx context.Context, args StartSessionArguments) error {
+	ecsclient := args.ECSClient
+	cfg := args.Config
+	backoff := utils.NewSimpleBackoff(250*time.Millisecond, 2*time.Minute, 0.2, 1.5)
 	for {
 		acsError := func() error {
-			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(containerInstanceArn)
+			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(args.ContainerInstanceArn)
 			if err != nil {
 				log.Error("Unable to discover poll endpoint", "err", err)
 				return err
 			}
 			log.Debug("Connecting to ACS endpoint " + acsEndpoint)
 
-			url := AcsWsUrl(acsEndpoint, cfg.Cluster, containerInstanceArn, taskEngine)
+			url := AcsWsUrl(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
 
-			client := acsclient.New(url, cfg.AWSRegion, credentialProvider, acceptInvalidCert)
+			client := acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
 			defer client.Close()
 
-			client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, containerInstanceArn, taskEngine, ecsclient, stateManager))
-			client.AddRequestHandler(heartbeatHandler(client))
+			timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+				log.Warn("ACS Connection hasn't had any activity for too long; closing connection")
+				closeErr := client.Close()
+				if closeErr != nil {
+					log.Warn("Error disconnecting: " + closeErr.Error())
+				}
+			})
+			defer timer.Stop()
+			// Any message from the server resets the disconnect timeout
+			client.SetAnyRequestHandler(anyMessageHandler(timer))
+			client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine, args.ECSClient, args.StateManager))
+			// Ignore heartbeat messages; anyMessageHandler gets 'em
+			client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
-			updater.AddAgentUpdateHandlers(client, cfg, stateManager, taskEngine)
+			updater.AddAgentUpdateHandlers(client, cfg, args.StateManager, args.TaskEngine)
 
 			err = client.Connect()
 			if err != nil {
 				log.Error("Error connecting to ACS: " + err.Error())
 				return err
 			}
-			return client.Serve()
+			ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+				// If we do not have an error connecting and remain connected for at
+				// least 5 or so minutes, reset the backoff. This prevents disconnect
+				// errors that only happen infrequently from damaging the
+				// reconnectability as significantly.
+				backoff.Reset()
+			})
+
+			serveErr := make(chan error, 1)
+			go func() {
+				serveErr <- client.Serve()
+			}()
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case err := <-serveErr:
+				return err
+			}
 		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if acsError == nil || acsError == io.EOF {
 			backoff.Reset()
 		} else {
@@ -90,14 +143,11 @@ func StartSession(containerInstanceArn string, credentialProvider credentials.AW
 	}
 }
 
-// heartbeatHandler starts a timer and listens for acs heartbeats. If there are
-// none for unexpectedly long, it closes the passed in connection.
-func heartbeatHandler(acsConnection io.Closer) func(*ecsacs.HeartbeatMessage) {
-	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
-		log.Debug("ACS Connection hasn't had a heartbeat in too long of a timeout; disconnecting")
-		acsConnection.Close()
-	})
-	return func(*ecsacs.HeartbeatMessage) {
+// anyMessageHandler handles any server message. Any server message means the
+// connection is active and thus the heartbeat disconnect should not occur
+func anyMessageHandler(timer *time.Timer) func(interface{}) {
+	return func(interface{}) {
+		log.Debug("ACS activity occured")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
 }

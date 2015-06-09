@@ -20,6 +20,8 @@ import (
 	"runtime"
 	"time"
 
+	"golang.org/x/net/context"
+
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/auth"
@@ -68,6 +70,8 @@ func _main() int {
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
+
+	ctx := context.Background()
 
 	if err != nil {
 		log.Criticalf("Error loading config: %v", err)
@@ -189,7 +193,15 @@ func _main() int {
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
 	log.Info("Beginning Polling for updates")
-	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
+	err = acshandler.StartSession(ctx, acshandler.StartSessionArguments{
+		AcceptInvalidCert:    *acceptInsecureCert,
+		Config:               cfg,
+		ContainerInstanceArn: containerInstanceArn,
+		CredentialProvider:   credentialProvider,
+		ECSClient:            client,
+		StateManager:         stateManager,
+		TaskEngine:           taskEngine,
+	})
 	if err != nil {
 		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal
