@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -180,18 +179,6 @@ func _main() int {
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
-
-	telemetrySessionParams := tcshandler.TelemetrySessionParams{
-		ContainerInstanceArn: containerInstanceArn,
-		CredentialProvider:   credentialProvider,
-		Cfg:                  cfg,
-		AcceptInvalidCert:    *acceptInsecureCert,
-		EcsClient:            client,
-		TaskEngine:           taskEngine,
-	}
-
-	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(telemetrySessionParams)
 
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(containerInstanceArn, credentialProvider, cfg, taskEngine, client, stateManager, *acceptInsecureCert)
