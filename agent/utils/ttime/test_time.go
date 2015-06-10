@@ -54,14 +54,57 @@ func (t *TestTime) After(d time.Duration) <-chan time.Time {
 	return done
 }
 
+type testTimer struct {
+	active    bool
+	expiresAt time.Time
+	duration  time.Duration
+	f         func()
+	testTime  *TestTime
+	sync.Mutex
+}
+
+func (timer *testTimer) Reset(d time.Duration) bool {
+	timer.Lock()
+	defer timer.Unlock()
+
+	active := timer.active
+	timer.active = true
+	timer.expiresAt = timer.testTime.Now().Add(d)
+	timer.duration = d
+	go timer.run()
+	return active
+}
+
+func (timer *testTimer) Stop() bool {
+	timer.Lock()
+	defer timer.Unlock()
+
+	active := timer.active
+	timer.active = false
+	return active
+}
+
+func (timer *testTimer) run() {
+	timer.testTime.Sleep(timer.duration)
+	timer.Lock()
+	defer timer.Unlock()
+	if timer.active && timer.testTime.Now().Sub(timer.expiresAt) >= 0 {
+		timer.active = false
+		timer.f()
+	}
+}
+
 // AfterFunc returns a timer and calls a function after a given time
 // taking into account time-warping
-func (t *TestTime) AfterFunc(d time.Duration, f func()) *time.Timer {
-	timer := time.AfterFunc(d, f)
-	go func() {
-		t.Sleep(d)
-		timer.Reset(0)
-	}()
+func (t *TestTime) AfterFunc(d time.Duration, f func()) Timer {
+	timer := &testTimer{
+		active:    true,
+		expiresAt: t.Now().Add(d),
+		f:         f,
+		testTime:  t,
+		duration:  d,
+	}
+	go timer.run()
 	return timer
 }
 

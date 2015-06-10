@@ -145,7 +145,7 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 
 // anyMessageHandler handles any server message. Any server message means the
 // connection is active and thus the heartbeat disconnect should not occur
-func anyMessageHandler(timer *time.Timer) func(interface{}) {
+func anyMessageHandler(timer ttime.Timer) func(interface{}) {
 	return func(interface{}) {
 		log.Debug("ACS activity occured")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))

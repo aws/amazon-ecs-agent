@@ -8,7 +8,12 @@ type Time interface {
 	Now() time.Time
 	Sleep(d time.Duration)
 	After(d time.Duration) <-chan time.Time
-	AfterFunc(d time.Duration, f func()) *time.Timer
+	AfterFunc(d time.Duration, f func()) Timer
+}
+
+type Timer interface {
+	Reset(d time.Duration) bool
+	Stop() bool
 }
 
 // DefaultTime is a Time that behaves normally
@@ -34,7 +39,7 @@ func (*DefaultTime) After(d time.Duration) <-chan time.Time {
 // AfterFunc waits for the duration to elapse and then calls f in its own
 // goroutine. It returns a Timer that can be used to cancel the call using its
 // Stop method.
-func (*DefaultTime) AfterFunc(d time.Duration, f func()) *time.Timer {
+func (*DefaultTime) AfterFunc(d time.Duration, f func()) Timer {
 	return time.AfterFunc(d, f)
 }
 
@@ -65,6 +70,6 @@ func After(t time.Duration) <-chan time.Time {
 }
 
 // AfterFunc calls the implementations AfterFunc method
-func AfterFunc(d time.Duration, f func()) *time.Timer {
+func AfterFunc(d time.Duration, f func()) Timer {
 	return _time.AfterFunc(d, f)
 }
