@@ -36,6 +36,7 @@ import (
 )
 
 var ECS *ecs.ECS
+var Cluster string
 
 func init() {
 	if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
@@ -43,11 +44,21 @@ func init() {
 	} else {
 		ECS = ecs.New(nil)
 	}
+
+	Cluster = "ecs-functional-tests"
+	if envCluster := os.Getenv("ECS_CLUSTER"); envCluster != "" {
+		Cluster = envCluster
+	}
 }
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
 // task definition where the name matches the folder in which the task
-// definition is present
+// definition is present. In order to avoid re-registering a task definition
+// when it has already been regestered in the past, this registers a task
+// definition of the pattern 'family-md5sum' with md5sum being the input task
+// definition json's md5. This special family name is checked for existence
+// before a new one is registered and it is assumed that if it exists, the task
+// definition currently represented by the file was registered as such already.
 func GetTaskDefinition(name string) (string, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	tdData, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), "..", "testdata", "taskdefinitions", name, "task-definition.json"))
@@ -152,6 +163,7 @@ func (agent *TestAgent) StartAgent() error {
 				"51678/tcp": struct{}{},
 			},
 			Env: []string{
+				"ECS_CLUSTER=" + Cluster,
 				"ECS_DATADIR=/data",
 				"ECS_LOGLEVEL=debug",
 				"ECS_LOGFILE=/logs/integ_agent.log",

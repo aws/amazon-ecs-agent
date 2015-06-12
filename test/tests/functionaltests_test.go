@@ -63,7 +63,7 @@ func TestPullInvalidImage(t *testing.T) {
 	if err != nil {
 		t.Fatal("Expected to start invalid-image task")
 	}
-	testTask.ExpectErrorType("error", "CannotPulledContainerError", 1*time.Minute)
+	testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute)
 }
 
 // TestOOMContainer verifies that an OOM container returns an error
