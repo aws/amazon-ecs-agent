@@ -7,5 +7,5 @@
   "ExitCodes": {
     "exit": 42
   },
-  "Related": ["forums#176057", "gh#52"]
+  "Related": ["https://forums.aws.amazon.com/thread.jspa?threadID=176057", "https://github.com/aws/amazon-ecs-agent/issues/52"]
 }
