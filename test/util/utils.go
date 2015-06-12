@@ -284,6 +284,32 @@ func (agent *TestAgent) StartTask(t *testing.T, task string) (*TestTask, error) 
 	return tasks[0], nil
 }
 
+func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overrides []*ecs.ContainerOverride) (*TestTask, error) {
+	td, err := GetTaskDefinition(task)
+	if err != nil {
+		return nil, err
+	}
+	t.Logf("Task definition: %s", td)
+
+	resp, err := ECS.StartTask(&ecs.StartTaskInput{
+		Cluster:            &agent.Cluster,
+		ContainerInstances: []*string{&agent.ContainerInstanceArn},
+		TaskDefinition:     &td,
+		Overrides: &ecs.TaskOverride{
+			ContainerOverrides: overrides,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Failures) != 0 || len(resp.Tasks) == 0 {
+		return nil, errors.New("Failure starting task: " + *resp.Failures[0].Reason)
+	}
+
+	agent.t.Logf("Started task: %s\n", *resp.Tasks[0].TaskARN)
+	return &TestTask{resp.Tasks[0]}, nil
+}
+
 func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string) (string, error) {
 	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskARN)
 	if err != nil {
