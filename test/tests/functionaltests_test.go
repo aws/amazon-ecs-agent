@@ -18,6 +18,7 @@ import (
 	"time"
 
 	. "github.com/aws/amazon-ecs-agent/test/util"
+	"github.com/awslabs/aws-sdk-go/service/ecs"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -147,4 +148,29 @@ func TestPortResourceContention(t *testing.T) {
 	go testTask.WaitStopped(2 * time.Minute)
 	testTask2.WaitStopped(2 * time.Minute)
 	// 30 seconds because this busybox ignores sigterm
+}
+
+func strptr(s string) *string { return &s }
+
+func TestCommandOverrides(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	task, err := agent.StartTaskWithOverrides(t, "simple-exit", []*ecs.ContainerOverride{
+		&ecs.ContainerOverride{
+			Name:    strptr("exit"),
+			Command: []*string{strptr("sh"), strptr("-c"), strptr("exit 21")},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = task.WaitStopped(2 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exitCode, _ := task.ContainerExitcode("exit"); exitCode != 21 {
+		t.Errorf("Expected exit code of 21; got %v", exitCode)
+	}
 }
