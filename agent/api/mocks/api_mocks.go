@@ -17,10 +17,10 @@
 package mock_api
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	utils "github.com/aws/amazon-ecs-agent/agent/utils"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of ECSSDK interface

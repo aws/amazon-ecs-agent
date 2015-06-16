@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"

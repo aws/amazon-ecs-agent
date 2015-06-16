@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 )
 
 func TestMerge(t *testing.T) {

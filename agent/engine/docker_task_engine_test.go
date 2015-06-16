@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"code.google.com/p/gomock/gomock"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/golang/mock/gomock"
 )
 
 var test_time = ttime.NewTestTime()

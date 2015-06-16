@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"

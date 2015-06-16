@@ -17,8 +17,8 @@
 package mock_stats
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of Engine interface
