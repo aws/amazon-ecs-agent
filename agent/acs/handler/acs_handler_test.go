@@ -16,7 +16,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/gorilla/websocket"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 )
 
 func TestAcsWsUrl(t *testing.T) {

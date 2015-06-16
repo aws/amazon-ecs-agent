@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"strings"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 )
 
 // Helpers for testing request equality

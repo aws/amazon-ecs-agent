@@ -17,8 +17,8 @@
 package mock_dockerclient
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of Client interface

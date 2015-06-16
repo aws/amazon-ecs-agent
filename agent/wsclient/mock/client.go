@@ -17,8 +17,8 @@
 package mock_wsclient
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of ClientServer interface

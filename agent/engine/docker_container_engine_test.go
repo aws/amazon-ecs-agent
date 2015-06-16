@@ -29,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/fsouza/go-dockerclient"
 
-	"code.google.com/p/gomock/gomock"
+	"github.com/golang/mock/gomock"
 )
 
 func dockerclientSetup(t *testing.T) (*mock_dockerclient.MockClient, *DockerGoClient, *ttime.TestTime, func()) {
