@@ -80,6 +80,7 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
+	os.Setenv("ECS_RESERVED_MEMORY", "20")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -90,6 +91,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if conf.ReservedPortsUDP[0] != 42 || conf.ReservedPortsUDP[1] != 99 {
 		t.Error("Wrong value for ReservedPortsUDP ", conf.ReservedPortsUDP)
+	}
+	if conf.ReservedMemory != 20 {
+		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
 	}
 }
 
@@ -146,5 +150,8 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.DockerGraphPath != "/var/lib/docker" {
 		t.Error("Default docker graph path set incorrectly")
+	}
+	if cfg.ReservedMemory != 0 {
+		t.Error("Default reserved memory set incorrectly")
 	}
 }
