@@ -193,6 +193,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string
 	integerStr := "INTEGER"
 
 	cpu, mem := getCpuAndMemory()
+	mem = mem - int64(client.config.ReservedMemory)
 
 	cpuResource := ecs.Resource{
 		Name:         utils.Strptr("CPU"),

@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -143,6 +144,7 @@ func DefaultConfig() Config {
 		DataDir:          "/data/",
 		DisableMetrics:   false,
 		DockerGraphPath:  "/var/lib/docker",
+		ReservedMemory:   0,
 	}
 }
 
@@ -228,6 +230,21 @@ func EnvironmentConfig() Config {
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
 	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
+	reservedMemoryEnv := os.Getenv("ECS_RESERVED_MEMORY")
+	var reservedMemory64 uint64
+	var reservedMemory uint16
+	if reservedMemoryEnv == "" {
+		reservedMemory = 0
+	} else {
+		reservedMemory64, err = strconv.ParseUint(reservedMemoryEnv, 10, 16)
+		if err != nil {
+			log.Warn("Invalid format for \"ECS_RESERVED_MEMORY\" environment variable; expected unsigned integer.", "err", err)
+			reservedMemory = 0
+		} else {
+			reservedMemory = uint16(reservedMemory64)
+		}
+	}
+
 	return Config{
 		Cluster:           clusterRef,
 		APIEndpoint:       endpoint,
@@ -243,6 +260,7 @@ func EnvironmentConfig() Config {
 		UpdateDownloadDir: updateDownloadDir,
 		DisableMetrics:    disableMetrics,
 		DockerGraphPath:   dockerGraphPath,
+		ReservedMemory:    reservedMemory,
 	}
 }
 

@@ -74,4 +74,8 @@ type Config struct {
 
 	// DockerGraphPath specifies the path for docker graph directory.
 	DockerGraphPath string
+
+	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
+	// other than containers managed by ECS
+	ReservedMemory uint16
 }
