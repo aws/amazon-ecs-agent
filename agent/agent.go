@@ -74,7 +74,7 @@ func _main() int {
 		// All required config values can be inferred from EC2 Metadata, so this error could be transient.
 		return exitcodes.ExitError
 	}
-	log.Debugf("Loaded config: %+v", *cfg)
+	log.Debug("Loaded config: " + cfg.String())
 
 	var currentEc2InstanceID, containerInstanceArn string
 	var taskEngine engine.TaskEngine
