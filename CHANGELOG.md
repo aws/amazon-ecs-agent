@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+* Security issue - Avoid logging configured AuthData at the debug level on startup
+* Feature - Add configuration option for reserving memory from the ECS Agent
+
 ## 1.2.0
 * Feature - UDP support for port bindings.
 * Feature - Set labels on launched containers with `task-arn`,
