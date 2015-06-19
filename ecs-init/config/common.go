@@ -70,7 +70,7 @@ func AgentTarball() string {
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
 func AgentRemoteTarball() string {
-	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.2.0.tar"
+	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.2.1.tar"
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
