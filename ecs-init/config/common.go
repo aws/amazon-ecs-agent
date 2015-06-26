@@ -13,6 +13,11 @@
 
 package config
 
+import (
+	"os"
+	"strings"
+)
+
 const (
 	// AgentImageName is the name of the Docker image containing the Agent
 	AgentImageName = "amazon/amazon-ecs-agent:latest"
@@ -22,6 +27,8 @@ const (
 
 	// AgentLogFile is the name of the log file used by the Agent
 	AgentLogFile = "ecs-agent.log"
+
+	UnixSocketPrefix = "unix://"
 )
 
 // AgentConfigDirectory returns the location on disk for configuration
@@ -89,4 +96,11 @@ func CgroupDirectory() string {
 
 func ExecDriverDirectory() string {
 	return "/var/run/docker/execdriver"
+}
+
+func DockerUnixSocket() string {
+	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
+		return strings.TrimPrefix(dockerHost, UnixSocketPrefix)
+	}
+	return "/var/run/docker.sock"
 }
