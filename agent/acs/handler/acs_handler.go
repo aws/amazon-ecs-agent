@@ -43,8 +43,15 @@ import (
 var log = logger.ForModule("acs handler")
 
 // The maximum time to wait between heartbeats without disconnecting
-const heartbeatTimeout = 5 * time.Minute
-const heartbeatJitter = 3 * time.Minute
+const (
+	heartbeatTimeout = 5 * time.Minute
+	heartbeatJitter  = 3 * time.Minute
+
+	connectionBackoffMin        = 250 * time.Millisecond
+	connectionBackoffMax        = 2 * time.Minute
+	connectionBackoffJitter     = 0.2
+	connectionBackoffMultiplier = 1.5
+)
 
 // Maximum number of payload messages to queue up without having handled previous ones.
 const payloadMessageBufferSize = 10
@@ -71,7 +78,7 @@ type StartSessionArguments struct {
 func StartSession(ctx context.Context, args StartSessionArguments) error {
 	ecsclient := args.ECSClient
 	cfg := args.Config
-	backoff := utils.NewSimpleBackoff(250*time.Millisecond, 2*time.Minute, 0.2, 1.5)
+	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	for {
 		acsError := func() error {
 			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(args.ContainerInstanceArn)
