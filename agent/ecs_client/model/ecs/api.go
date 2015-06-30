@@ -967,6 +967,14 @@ type ContainerDefinition struct {
 	// (https://docs.docker.com/reference/builder/#entrypoint).
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
 
+	// If the TTY parameter of a container is marked as true, the container will be started and a
+	// psuedo TTY will be allocated. This is equivalent to the command line option `docker run -t`.
+	Tty *bool `locationName:"tty" type:"boolean"`
+
+	// If the OPENSTDIN parameter of a container is marked as true, the container will keep stdin open
+	// even if the container is not attached. This is equivalent to the command line option `docker run -i`.
+	OpenStdin *bool `locationName:"openStdin" type:"boolean"`
+
 	// The environment variables to pass to a container.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
 

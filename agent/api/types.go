@@ -198,6 +198,8 @@ type Container struct {
 	Ports       []PortBinding `json:"portMappings"`
 	Essential   bool
 	EntryPoint  *[]string
+	Tty         bool
+	OpenStdin   bool
 	Environment map[string]string  `json:"environment"`
 	Overrides   ContainerOverrides `json:"overrides"`
 

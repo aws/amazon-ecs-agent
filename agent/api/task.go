@@ -214,6 +214,8 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 	config := &docker.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
+	        Tty:          container.Tty,
+     	        OpenStdin:    container.OpenStdin,
 		Entrypoint:   entryPoint,
 		ExposedPorts: task.dockerExposedPorts(container),
 		Volumes:      dockerVolumes,
