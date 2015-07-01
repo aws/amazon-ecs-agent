@@ -222,6 +222,29 @@ func TestDockerConfigLabels(t *testing.T) {
 	}
 }
 
+func TestDockerRunCommandFlags(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			&Container{
+				Name:  "c1",
+			        Tty: true,
+			        OpenStdin: true,
+			},
+		},
+	}
+	config, err := testTask.DockerConfig(testTask.Containers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !config.Tty {
+		t.Fatal("Expected tty to be true, got false")
+	}
+	if !config.OpenStdin {
+		t.Fatal("Expected openStdin to be true, got false")
+	}
+}
+
 func TestTaskFromACS(t *testing.T) {
 	strptr := func(s string) *string {
 		return &s
