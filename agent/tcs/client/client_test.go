@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
 
@@ -111,7 +111,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 }
 
 func testCS() (wsclient.ClientServer, *messageLogger) {
-	testCreds := auth.TestCredentialProvider{}
+	testCreds := credentials.AnonymousCredentials
 	cs := New("localhost:443", "us-east-1", testCreds, true, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
 	cs.Conn = ml

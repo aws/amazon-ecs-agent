@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
 
@@ -59,7 +59,7 @@ func (ml *messageLogger) ReadMessage() (int, []byte, error) {
 }
 
 func testCS() (wsclient.ClientServer, *messageLogger) {
-	testCreds := auth.TestCredentialProvider{}
+	testCreds := credentials.AnonymousCredentials
 	cs := New("localhost:443", "us-east-1", testCreds, true).(*clientServer)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
 	cs.Conn = ml
@@ -215,7 +215,7 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := New(server.URL, "us-east-1", auth.TestCredentialProvider{}, true)
+	cs := New(server.URL, "us-east-1", credentials.AnonymousCredentials, true)
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
 		err = cs.Connect()
@@ -286,7 +286,7 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := New(testServer.URL, "us-east-1", auth.TestCredentialProvider{}, true)
+	cs := New(testServer.URL, "us-east-1", credentials.AnonymousCredentials, true)
 	err := cs.Connect()
 	if _, ok := err.(*wsclient.WSError); !ok || err.Error() != "InvalidClusterException: Invalid cluster" {
 		t.Error("Did not get correctly typed error: " + err.Error())

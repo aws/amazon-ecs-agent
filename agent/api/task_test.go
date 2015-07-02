@@ -245,7 +245,7 @@ func TestTaskFromACS(t *testing.T) {
 				Cpu:         intptr(10),
 				Command:     []*string{strptr("command"), strptr("command2")},
 				EntryPoint:  []*string{strptr("sh"), strptr("-c")},
-				Environment: &map[string]*string{"key": strptr("value")},
+				Environment: map[string]*string{"key": strptr("value")},
 				Essential:   boolptr(true),
 				Image:       strptr("image:tag"),
 				Links:       []*string{strptr("link1"), strptr("link2")},

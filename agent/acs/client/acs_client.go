@@ -21,9 +21,9 @@ package acsclient
 import (
 	"errors"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 var log = logger.ForModule("acs client")
@@ -36,7 +36,7 @@ type clientServer struct {
 // New returns a client/server to bidirectionally communicate with ACS
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, region string, credentialProvider credentials.AWSCredentialProvider, acceptInvalidCert bool) wsclient.ClientServer {
+func New(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool) wsclient.ClientServer {
 	cs := &clientServer{}
 	cs.URL = url
 	cs.Region = region

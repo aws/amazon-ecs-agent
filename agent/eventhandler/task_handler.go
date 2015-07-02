@@ -94,7 +94,7 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 			defer events.Unlock()
 			log.Debug("Aquired lock!")
 
-			var err utils.RetriableError
+			var err error
 
 			if events.Len() == 0 {
 				log.Debug("No events left; not retrying more")
@@ -111,8 +111,8 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 			if event.containerShouldBeSent() {
 				llog.Info("Sending container change", "change", event.containerChange)
 				err = client.SubmitContainerStateChange(event.containerChange)
-				if err == nil || !err.Retry() {
-					// submitted or can't be retried; ensure we don't retry it
+				if err == nil {
+					// submitted; ensure we don't retry it
 					event.containerSent = true
 					if event.containerChange.SentStatus != nil {
 						*event.containerChange.SentStatus = event.containerChange.Status
@@ -128,7 +128,7 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 			} else if event.taskShouldBeSent() {
 				llog.Info("Sending task change", "change", event.taskChange)
 				err = client.SubmitTaskStateChange(event.taskChange)
-				if err == nil || !err.Retry() {
+				if err == nil {
 					// submitted or can't be retried; ensure we don't retry it
 					event.taskSent = true
 					if event.taskChange.SentStatus != nil {

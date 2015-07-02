@@ -13,14 +13,26 @@
 
 package ecsacs
 
+import "github.com/aws/aws-sdk-go/aws/awsutil"
+
 type AccessDeniedException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataAccessDeniedException `json:"-", xml:"-"`
+	metadataAccessDeniedException `json:"-" xml:"-"`
 }
 
 type metadataAccessDeniedException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s AccessDeniedException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s AccessDeniedException) GoString() string {
+	return s.String()
 }
 
 type AckRequest struct {
@@ -30,31 +42,61 @@ type AckRequest struct {
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
-	metadataAckRequest `json:"-", xml:"-"`
+	metadataAckRequest `json:"-" xml:"-"`
 }
 
 type metadataAckRequest struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s AckRequest) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s AckRequest) GoString() string {
+	return s.String()
+}
+
 type BadRequestException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataBadRequestException `json:"-", xml:"-"`
+	metadataBadRequestException `json:"-" xml:"-"`
 }
 
 type metadataBadRequestException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s BadRequestException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s BadRequestException) GoString() string {
+	return s.String()
+}
+
 type CloseMessage struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataCloseMessage `json:"-", xml:"-"`
+	metadataCloseMessage `json:"-" xml:"-"`
 }
 
 type metadataCloseMessage struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s CloseMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s CloseMessage) GoString() string {
+	return s.String()
 }
 
 type Container struct {
@@ -64,7 +106,7 @@ type Container struct {
 
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
 
-	Environment *map[string]*string `locationName:"environment" type:"map"`
+	Environment map[string]*string `locationName:"environment" type:"map"`
 
 	Essential *bool `locationName:"essential" type:"boolean"`
 
@@ -84,87 +126,177 @@ type Container struct {
 
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 
-	metadataContainer `json:"-", xml:"-"`
+	metadataContainer `json:"-" xml:"-"`
 }
 
 type metadataContainer struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s Container) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s Container) GoString() string {
+	return s.String()
+}
+
 type ErrorMessage struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataErrorMessage `json:"-", xml:"-"`
+	metadataErrorMessage `json:"-" xml:"-"`
 }
 
 type metadataErrorMessage struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s ErrorMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ErrorMessage) GoString() string {
+	return s.String()
+}
+
 type ErrorOutput struct {
-	metadataErrorOutput `json:"-", xml:"-"`
+	metadataErrorOutput `json:"-" xml:"-"`
 }
 
 type metadataErrorOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s ErrorOutput) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ErrorOutput) GoString() string {
+	return s.String()
+}
+
 type HeartbeatMessage struct {
 	Healthy *bool `locationName:"healthy" type:"boolean"`
 
-	metadataHeartbeatMessage `json:"-", xml:"-"`
+	metadataHeartbeatMessage `json:"-" xml:"-"`
 }
 
 type metadataHeartbeatMessage struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s HeartbeatMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatMessage) GoString() string {
+	return s.String()
+}
+
 type HeartbeatOutput struct {
-	metadataHeartbeatOutput `json:"-", xml:"-"`
+	metadataHeartbeatOutput `json:"-" xml:"-"`
 }
 
 type metadataHeartbeatOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s HeartbeatOutput) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatOutput) GoString() string {
+	return s.String()
+}
+
 type HostVolumeProperties struct {
 	SourcePath *string `locationName:"sourcePath" type:"string"`
 
-	metadataHostVolumeProperties `json:"-", xml:"-"`
+	metadataHostVolumeProperties `json:"-" xml:"-"`
 }
 
 type metadataHostVolumeProperties struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s HostVolumeProperties) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HostVolumeProperties) GoString() string {
+	return s.String()
+}
+
 type InactiveInstanceException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataInactiveInstanceException `json:"-", xml:"-"`
+	metadataInactiveInstanceException `json:"-" xml:"-"`
 }
 
 type metadataInactiveInstanceException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s InactiveInstanceException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s InactiveInstanceException) GoString() string {
+	return s.String()
+}
+
 type InvalidClusterException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataInvalidClusterException `json:"-", xml:"-"`
+	metadataInvalidClusterException `json:"-" xml:"-"`
 }
 
 type metadataInvalidClusterException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s InvalidClusterException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s InvalidClusterException) GoString() string {
+	return s.String()
+}
+
 type InvalidInstanceException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataInvalidInstanceException `json:"-", xml:"-"`
+	metadataInvalidInstanceException `json:"-" xml:"-"`
 }
 
 type metadataInvalidInstanceException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s InvalidInstanceException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s InvalidInstanceException) GoString() string {
+	return s.String()
 }
 
 type MountPoint struct {
@@ -174,11 +306,21 @@ type MountPoint struct {
 
 	SourceVolume *string `locationName:"sourceVolume" type:"string"`
 
-	metadataMountPoint `json:"-", xml:"-"`
+	metadataMountPoint `json:"-" xml:"-"`
 }
 
 type metadataMountPoint struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s MountPoint) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s MountPoint) GoString() string {
+	return s.String()
 }
 
 type NackRequest struct {
@@ -190,11 +332,21 @@ type NackRequest struct {
 
 	Reason *string `locationName:"reason" type:"string"`
 
-	metadataNackRequest `json:"-", xml:"-"`
+	metadataNackRequest `json:"-" xml:"-"`
 }
 
 type metadataNackRequest struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s NackRequest) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s NackRequest) GoString() string {
+	return s.String()
 }
 
 type PayloadMessage struct {
@@ -210,11 +362,21 @@ type PayloadMessage struct {
 
 	Tasks []*Task `locationName:"tasks" type:"list"`
 
-	metadataPayloadMessage `json:"-", xml:"-"`
+	metadataPayloadMessage `json:"-" xml:"-"`
 }
 
 type metadataPayloadMessage struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s PayloadMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s PayloadMessage) GoString() string {
+	return s.String()
 }
 
 type PerformUpdateMessage struct {
@@ -226,11 +388,21 @@ type PerformUpdateMessage struct {
 
 	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
 
-	metadataPerformUpdateMessage `json:"-", xml:"-"`
+	metadataPerformUpdateMessage `json:"-" xml:"-"`
 }
 
 type metadataPerformUpdateMessage struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s PerformUpdateMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s PerformUpdateMessage) GoString() string {
+	return s.String()
 }
 
 type PollRequest struct {
@@ -242,11 +414,21 @@ type PollRequest struct {
 
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 
-	metadataPollRequest `json:"-", xml:"-"`
+	metadataPollRequest `json:"-" xml:"-"`
 }
 
 type metadataPollRequest struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s PollRequest) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s PollRequest) GoString() string {
+	return s.String()
 }
 
 type PortMapping struct {
@@ -256,21 +438,41 @@ type PortMapping struct {
 
 	Protocol *string `locationName:"protocol" type:"string"`
 
-	metadataPortMapping `json:"-", xml:"-"`
+	metadataPortMapping `json:"-" xml:"-"`
 }
 
 type metadataPortMapping struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s PortMapping) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s PortMapping) GoString() string {
+	return s.String()
+}
+
 type ServerException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataServerException `json:"-", xml:"-"`
+	metadataServerException `json:"-" xml:"-"`
 }
 
 type metadataServerException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s ServerException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ServerException) GoString() string {
+	return s.String()
 }
 
 type StageUpdateMessage struct {
@@ -282,11 +484,21 @@ type StageUpdateMessage struct {
 
 	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
 
-	metadataStageUpdateMessage `json:"-", xml:"-"`
+	metadataStageUpdateMessage `json:"-" xml:"-"`
 }
 
 type metadataStageUpdateMessage struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s StageUpdateMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s StageUpdateMessage) GoString() string {
+	return s.String()
 }
 
 type Task struct {
@@ -306,19 +518,39 @@ type Task struct {
 
 	Volumes []*Volume `locationName:"volumes" type:"list"`
 
-	metadataTask `json:"-", xml:"-"`
+	metadataTask `json:"-" xml:"-"`
 }
 
 type metadataTask struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s Task) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s Task) GoString() string {
+	return s.String()
+}
+
 type UpdateFailureOutput struct {
-	metadataUpdateFailureOutput `json:"-", xml:"-"`
+	metadataUpdateFailureOutput `json:"-" xml:"-"`
 }
 
 type metadataUpdateFailureOutput struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s UpdateFailureOutput) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s UpdateFailureOutput) GoString() string {
+	return s.String()
 }
 
 type UpdateInfo struct {
@@ -326,11 +558,21 @@ type UpdateInfo struct {
 
 	Signature *string `locationName:"signature" type:"string"`
 
-	metadataUpdateInfo `json:"-", xml:"-"`
+	metadataUpdateInfo `json:"-" xml:"-"`
 }
 
 type metadataUpdateInfo struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s UpdateInfo) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s UpdateInfo) GoString() string {
+	return s.String()
 }
 
 type VersionInfo struct {
@@ -340,11 +582,21 @@ type VersionInfo struct {
 
 	DockerVersion *string `locationName:"dockerVersion" type:"string"`
 
-	metadataVersionInfo `json:"-", xml:"-"`
+	metadataVersionInfo `json:"-" xml:"-"`
 }
 
 type metadataVersionInfo struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s VersionInfo) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s VersionInfo) GoString() string {
+	return s.String()
 }
 
 type Volume struct {
@@ -352,11 +604,21 @@ type Volume struct {
 
 	Name *string `locationName:"name" type:"string"`
 
-	metadataVolume `json:"-", xml:"-"`
+	metadataVolume `json:"-" xml:"-"`
 }
 
 type metadataVolume struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s Volume) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s Volume) GoString() string {
+	return s.String()
 }
 
 type VolumeFrom struct {
@@ -364,9 +626,19 @@ type VolumeFrom struct {
 
 	SourceContainer *string `locationName:"sourceContainer" type:"string"`
 
-	metadataVolumeFrom `json:"-", xml:"-"`
+	metadataVolumeFrom `json:"-" xml:"-"`
 }
 
 type metadataVolumeFrom struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s VolumeFrom) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s VolumeFrom) GoString() string {
+	return s.String()
 }

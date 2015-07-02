@@ -13,11 +13,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 
 	"github.com/golang/mock/gomock"
@@ -80,7 +80,8 @@ func TestHandlerReconnects(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.NewCredentialProvider("", ""), &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		// This should never return
 		ended <- true
 	}()
 	start := time.Now()
@@ -127,7 +128,7 @@ func TestHeartbeatOnlyWhenIdle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.NewCredentialProvider("", ""), &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
 		ended <- true
 	}()
 

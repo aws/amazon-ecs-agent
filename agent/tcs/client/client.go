@@ -20,12 +20,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
 
@@ -41,18 +41,16 @@ type clientServer struct {
 	publishTicker          *time.Ticker
 	publishMetricsInterval time.Duration
 	wsclient.ClientServerImpl
-	signer authv4.HttpSigner
 }
 
 // New returns a client/server to bidirectionally communicate with the backend.
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, region string, credentialProvider credentials.AWSCredentialProvider, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
+func New(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
 	cs := &clientServer{
 		statsEngine:            statsEngine,
 		publishTicker:          nil,
 		publishMetricsInterval: publishMetricsInterval,
-		signer:                 authv4.NewHttpSigner(region, wsclient.ServiceName, credentialProvider, nil),
 	}
 	cs.URL = url
 	cs.Region = region
@@ -101,12 +99,11 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 }
 
 func (cs *clientServer) signRequest(payload []byte) []byte {
-	signer := authv4.NewHttpSigner(cs.Region, "ecs", cs.CredentialProvider, nil)
 	reqBody := bytes.NewBuffer(payload)
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, reqBody)
-	signer.SignHttpRequest(request)
+	utils.SignHTTPRequest(request, cs.Region, "ecs", cs.CredentialProvider)
 
 	var data []byte
 	for k, vs := range request.Header {

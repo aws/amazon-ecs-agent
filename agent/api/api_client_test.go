@@ -15,13 +15,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 const configuredCluster = "mycluster"
 
 func NewMockClient(ctrl *gomock.Controller) (api.ECSClient, *mock_api.MockECSSDK) {
-	client := api.NewECSClient(aws.DetectCreds("", "", ""), &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, false)
+	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, false)
 	mock := mock_api.NewMockECSSDK(ctrl)
 	client.(*api.ApiECSClient).SetSDK(mock)
 	return client, mock
@@ -266,7 +268,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := api.NewECSClient(aws.DetectCreds("", "", ""), &config.Config{Cluster: "", AWSRegion: "us-east-1"}, false)
+	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, false)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*api.ApiECSClient).SetSDK(mc)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
@@ -276,7 +278,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
-		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, aws.Error(errors.New("No such cluster"))),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "No such cluster", errors.New("No such cluster"))),
 		mc.EXPECT().CreateCluster(&ecs.CreateClusterInput{ClusterName: &defaultCluster}).Return(&ecs.CreateClusterOutput{Cluster: &ecs.Cluster{ClusterName: &defaultCluster}}, nil),
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),

@@ -19,7 +19,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/docker/docker/pkg/system"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -45,10 +46,10 @@ type ECSClient interface {
 	RegisterContainerInstance(existingContainerInstanceArn string) (string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
-	SubmitTaskStateChange(change TaskStateChange) utils.RetriableError
+	SubmitTaskStateChange(change TaskStateChange) error
 	// SubmitContainerStateChange sends a state change and returns an error
 	// indicating if it was submitted
-	SubmitContainerStateChange(change ContainerStateChange) utils.RetriableError
+	SubmitContainerStateChange(change ContainerStateChange) error
 	// DiscoverPollEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact ACS
 	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
@@ -70,7 +71,7 @@ type ECSSDK interface {
 
 // ApiECSClient implements ECSClient
 type ApiECSClient struct {
-	credentialProvider aws.CredentialsProvider
+	credentialProvider *credentials.Credentials
 	config             *config.Config
 	insecureSkipVerify bool
 	c                  ECSSDK
@@ -97,13 +98,16 @@ const (
 	RoundtripTimeout = 5 * time.Second
 )
 
-func NewECSClient(credentialProvider aws.CredentialsProvider, config *config.Config, insecureSkipVerify bool) ECSClient {
+const ecsApiMaxRetries = 5
+
+func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, insecureSkipVerify bool) ECSClient {
 	httpClient := httpclient.New(RoundtripTimeout, insecureSkipVerify)
 
 	ecsConfig := &aws.Config{
 		Credentials: credentialProvider,
 		Region:      config.AWSRegion,
 		HTTPClient:  httpClient,
+		MaxRetries:  ecsApiMaxRetries,
 	}
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = config.APIEndpoint
@@ -161,7 +165,7 @@ func (client *ApiECSClient) RegisterContainerInstance(containerInstanceArn strin
 		// register again
 		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
-			return "", NewAPIError(err)
+			return "", err
 		}
 	}
 	return client.registerContainerInstance(clusterRef, containerInstanceArn)
@@ -227,16 +231,16 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string, contain
 	resp, err := client.c.RegisterContainerInstance(&registerRequest)
 	if err != nil {
 		log.Error("Could not register", "err", err)
-		return "", NewAPIError(err)
+		return "", err
 	}
 	log.Info("Registered!")
 	return *resp.ContainerInstance.ContainerInstanceARN, nil
 }
 
-func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) utils.RetriableError {
+func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) error {
 	if change.Status == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return NewAPIError(errors.New("SubmitTaskStateChange called with an invalid change"))
+		return errors.New("SubmitTaskStateChange called with an invalid change")
 	}
 
 	if change.Status != TaskRunning && change.Status != TaskStopped {
@@ -254,12 +258,12 @@ func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) utils.
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
-		return NewAPIError(err)
+		return err
 	}
 	return nil
 }
 
-func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChange) utils.RetriableError {
+func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChange) error {
 	req := ecs.SubmitContainerStateChangeInput{
 		Cluster:       &client.config.Cluster,
 		Task:          &change.TaskArn,
@@ -304,7 +308,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 	_, err := client.c.SubmitContainerStateChange(&req)
 	if err != nil {
 		log.Warn("Could not submit a container state change", "change", change, "err", err)
-		return NewAPIError(err)
+		return err
 	}
 	return nil
 }
@@ -315,7 +319,7 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 		Cluster:           &client.config.Cluster,
 	})
 	if err != nil {
-		return "", NewAPIError(err)
+		return "", err
 	}
 
 	return *resp.Endpoint, nil
@@ -327,10 +331,10 @@ func (client *ApiECSClient) DiscoverTelemetryEndpoint(containerInstanceArn strin
 		Cluster:           &client.config.Cluster,
 	})
 	if err != nil {
-		return "", NewAPIError(err)
+		return "", err
 	}
 	if resp.TelemetryEndpoint == nil {
-		return "", &APIError{err: errors.New("No telemetry endpoint returned; nil"), Retriable: false}
+		return "", errors.New("No telemetry endpoint returned; nil")
 	}
 
 	return *resp.TelemetryEndpoint, nil

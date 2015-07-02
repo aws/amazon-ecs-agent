@@ -19,7 +19,6 @@ package mock_api
 import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	utils "github.com/aws/amazon-ecs-agent/agent/utils"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -153,9 +152,9 @@ func (_mr *_MockECSClientRecorder) RegisterContainerInstance(arg0 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RegisterContainerInstance", arg0)
 }
 
-func (_m *MockECSClient) SubmitContainerStateChange(_param0 api.ContainerStateChange) utils.RetriableError {
+func (_m *MockECSClient) SubmitContainerStateChange(_param0 api.ContainerStateChange) error {
 	ret := _m.ctrl.Call(_m, "SubmitContainerStateChange", _param0)
-	ret0, _ := ret[0].(utils.RetriableError)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -163,9 +162,9 @@ func (_mr *_MockECSClientRecorder) SubmitContainerStateChange(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SubmitContainerStateChange", arg0)
 }
 
-func (_m *MockECSClient) SubmitTaskStateChange(_param0 api.TaskStateChange) utils.RetriableError {
+func (_m *MockECSClient) SubmitTaskStateChange(_param0 api.TaskStateChange) error {
 	ret := _m.ctrl.Call(_m, "SubmitTaskStateChange", _param0)
-	ret0, _ := ret[0].(utils.RetriableError)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 

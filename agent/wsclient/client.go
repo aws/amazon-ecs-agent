@@ -31,10 +31,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/internal/protocol/json/jsonutil"
 	"github.com/gorilla/websocket"
 )
 
@@ -100,7 +100,7 @@ type ClientServer interface {
 type ClientServerImpl struct {
 	AcceptInvalidCert  bool
 	Conn               WebsocketConn
-	CredentialProvider credentials.AWSCredentialProvider
+	CredentialProvider *credentials.Credentials
 	Region             string
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:
@@ -126,12 +126,11 @@ func (cs *ClientServerImpl) Connect() error {
 		return err
 	}
 
-	signer := authv4.NewHttpSigner(cs.Region, ServiceName, cs.CredentialProvider, nil)
-
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, nil)
-	signer.SignHttpRequest(request)
+	// Sign the request; we'll send its headers via the websocket client which includes the signature
+	utils.SignHTTPRequest(request, cs.Region, ServiceName, cs.CredentialProvider)
 
 	// url.Host might not have the port, but tls.Dial needs it
 	dialHost := parsedURL.Host

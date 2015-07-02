@@ -13,26 +13,50 @@
 
 package ecstcs
 
-import "time"
+import (
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+)
 
 type AckPublishMetric struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataAckPublishMetric `json:"-", xml:"-"`
+	metadataAckPublishMetric `json:"-" xml:"-"`
 }
 
 type metadataAckPublishMetric struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s AckPublishMetric) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s AckPublishMetric) GoString() string {
+	return s.String()
+}
+
 type BadRequestException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataBadRequestException `json:"-", xml:"-"`
+	metadataBadRequestException `json:"-" xml:"-"`
 }
 
 type metadataBadRequestException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s BadRequestException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s BadRequestException) GoString() string {
+	return s.String()
 }
 
 type CWStatsSet struct {
@@ -44,11 +68,21 @@ type CWStatsSet struct {
 
 	Sum *float64 `locationName:"sum" type:"double"`
 
-	metadataCWStatsSet `json:"-", xml:"-"`
+	metadataCWStatsSet `json:"-" xml:"-"`
 }
 
 type metadataCWStatsSet struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s CWStatsSet) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s CWStatsSet) GoString() string {
+	return s.String()
 }
 
 type ContainerMetric struct {
@@ -56,39 +90,79 @@ type ContainerMetric struct {
 
 	MemoryStatsSet *CWStatsSet `locationName:"memoryStatsSet" type:"structure"`
 
-	metadataContainerMetric `json:"-", xml:"-"`
+	metadataContainerMetric `json:"-" xml:"-"`
 }
 
 type metadataContainerMetric struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s ContainerMetric) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ContainerMetric) GoString() string {
+	return s.String()
+}
+
 type HeartbeatMessage struct {
 	Healthy *bool `locationName:"healthy" type:"boolean"`
 
-	metadataHeartbeatMessage `json:"-", xml:"-"`
+	metadataHeartbeatMessage `json:"-" xml:"-"`
 }
 
 type metadataHeartbeatMessage struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s HeartbeatMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatMessage) GoString() string {
+	return s.String()
+}
+
 type HeartbeatOutput struct {
-	metadataHeartbeatOutput `json:"-", xml:"-"`
+	metadataHeartbeatOutput `json:"-" xml:"-"`
 }
 
 type metadataHeartbeatOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s HeartbeatOutput) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatOutput) GoString() string {
+	return s.String()
+}
+
 type InvalidParameterException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataInvalidParameterException `json:"-", xml:"-"`
+	metadataInvalidParameterException `json:"-" xml:"-"`
 }
 
 type metadataInvalidParameterException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s InvalidParameterException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s InvalidParameterException) GoString() string {
+	return s.String()
 }
 
 type MetricsMetadata struct {
@@ -98,11 +172,21 @@ type MetricsMetadata struct {
 
 	Idle *bool `locationName:"idle" type:"boolean"`
 
-	metadataMetricsMetadata `json:"-", xml:"-"`
+	metadataMetricsMetadata `json:"-" xml:"-"`
 }
 
 type metadataMetricsMetadata struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s MetricsMetadata) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s MetricsMetadata) GoString() string {
+	return s.String()
 }
 
 type PublishMetricsRequest struct {
@@ -112,31 +196,61 @@ type PublishMetricsRequest struct {
 
 	Timestamp *time.Time `locationName:"timestamp" type:"timestamp" timestampFormat:"unix"`
 
-	metadataPublishMetricsRequest `json:"-", xml:"-"`
+	metadataPublishMetricsRequest `json:"-" xml:"-"`
 }
 
 type metadataPublishMetricsRequest struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s PublishMetricsRequest) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s PublishMetricsRequest) GoString() string {
+	return s.String()
+}
+
 type ResourceValidationException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataResourceValidationException `json:"-", xml:"-"`
+	metadataResourceValidationException `json:"-" xml:"-"`
 }
 
 type metadataResourceValidationException struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s ResourceValidationException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ResourceValidationException) GoString() string {
+	return s.String()
+}
+
 type ServerException struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataServerException `json:"-", xml:"-"`
+	metadataServerException `json:"-" xml:"-"`
 }
 
 type metadataServerException struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s ServerException) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s ServerException) GoString() string {
+	return s.String()
 }
 
 type StartTelemetrySessionRequest struct {
@@ -144,21 +258,41 @@ type StartTelemetrySessionRequest struct {
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
-	metadataStartTelemetrySessionRequest `json:"-", xml:"-"`
+	metadataStartTelemetrySessionRequest `json:"-" xml:"-"`
 }
 
 type metadataStartTelemetrySessionRequest struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// String returns the string representation
+func (s StartTelemetrySessionRequest) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s StartTelemetrySessionRequest) GoString() string {
+	return s.String()
+}
+
 type StopTelemetrySessionMessage struct {
 	Message *string `locationName:"message" type:"string"`
 
-	metadataStopTelemetrySessionMessage `json:"-", xml:"-"`
+	metadataStopTelemetrySessionMessage `json:"-" xml:"-"`
 }
 
 type metadataStopTelemetrySessionMessage struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s StopTelemetrySessionMessage) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s StopTelemetrySessionMessage) GoString() string {
+	return s.String()
 }
 
 type TaskMetric struct {
@@ -170,9 +304,19 @@ type TaskMetric struct {
 
 	TaskDefinitionVersion *string `locationName:"taskDefinitionVersion" type:"string"`
 
-	metadataTaskMetric `json:"-", xml:"-"`
+	metadataTaskMetric `json:"-" xml:"-"`
 }
 
 type metadataTaskMetric struct {
 	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s TaskMetric) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s TaskMetric) GoString() string {
+	return s.String()
 }

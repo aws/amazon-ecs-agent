@@ -17,7 +17,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 func TestPortBindingFromDockerPortBinding(t *testing.T) {

@@ -23,8 +23,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/awslabs/aws-sdk-go/internal/model/api"
-	"github.com/awslabs/aws-sdk-go/internal/util"
+	"github.com/aws/aws-sdk-go/internal/model/api"
+	"github.com/aws/aws-sdk-go/internal/util"
 	"golang.org/x/tools/imports"
 )
 
@@ -60,7 +60,7 @@ func _main() int {
 	flag.BoolVar(&typesOnly, "typesOnly", false, "only generate types")
 	flag.Parse()
 
-	apiFiles, err := filepath.Glob("./api/*.json")
+	apiFiles, err := filepath.Glob("./api/api-2.json")
 	if err != nil {
 		fmt.Println("Error listing api json files: ", err)
 		return 1
@@ -81,16 +81,17 @@ func _main() int {
 }
 
 func genTypesOnlyAPI(file string) error {
-	api := &api.API{
+	apiGen := &api.API{
 		NoInflections:        true,
 		NoRemoveUnusedShapes: true,
 	}
-	api.Attach(file)
+	apiGen.Attach(file)
+	apiGen.Setup()
 	// to reset imports so that timestamp has an entry in the map.
-	api.APIGoCode()
+	apiGen.APIGoCode()
 
 	var buf bytes.Buffer
-	err := typesOnlyTplAPI.Execute(&buf, api)
+	err := typesOnlyTplAPI.Execute(&buf, apiGen)
 	if err != nil {
 		panic(err)
 	}
@@ -98,14 +99,14 @@ func genTypesOnlyAPI(file string) error {
 	code = util.GoFmt(code)
 
 	// Ignore dir error, filepath will catch it for an invalid path.
-	os.Mkdir(api.PackageName(), 0755)
+	os.Mkdir(apiGen.PackageName(), 0755)
 	// Fix imports.
-	codeWithImports, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), code)), nil)
+	codeWithImports, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", apiGen.PackageName(), code)), nil)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-	outFile := filepath.Join(api.PackageName(), "api.go")
+	outFile := filepath.Join(apiGen.PackageName(), "api.go")
 	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, codeWithImports)), 0644)
 	if err != nil {
 		return err
@@ -114,8 +115,20 @@ func genTypesOnlyAPI(file string) error {
 }
 
 func genFull(file string) error {
+	// Heavily inspired by https://github.com/aws/aws-sdk-go/blob/45ba2f817fbf625fe48cf9b51fae13e5dfba6171/internal/model/cli/gen-api/main.go#L36
+	// That code is copyright Amazon
 	api := &api.API{}
 	api.Attach(file)
+	paginatorsFile := strings.Replace(file, "api-2.json", "paginators-1.json", -1)
+	if _, err := os.Stat(paginatorsFile); err == nil {
+		api.AttachPaginators(paginatorsFile)
+	}
+
+	docsFile := strings.Replace(file, "api-2.json", "docs-2.json", -1)
+	if _, err := os.Stat(docsFile); err == nil {
+		api.AttachDocs(docsFile)
+	}
+	api.Setup()
 
 	// Ignore dir error, filepath will catch it for an invalid path.
 	os.Mkdir(api.PackageName(), 0755)

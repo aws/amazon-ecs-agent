@@ -21,23 +21,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
-type containerChangeFn func(change api.ContainerStateChange) utils.RetriableError
-type taskChangeFn func(change api.TaskStateChange) utils.RetriableError
+type containerChangeFn func(change api.ContainerStateChange) error
+type taskChangeFn func(change api.TaskStateChange) error
 
 type MockECSClient struct {
 	submitTaskStateChange      taskChangeFn
 	submitContainerStateChange containerChangeFn
 }
 
-func (m *MockECSClient) CredentialProvider() credentials.AWSCredentialProvider {
-	return auth.TestCredentialProvider{}
+func (m *MockECSClient) CredentialProvider() *credentials.Credentials {
+	return credentials.AnonymousCredentials
 }
 func (m *MockECSClient) RegisterContainerInstance(string) (string, error) {
 	return "", nil
@@ -45,10 +43,10 @@ func (m *MockECSClient) RegisterContainerInstance(string) (string, error) {
 func (m *MockECSClient) DiscoverPollEndpoint(string) (string, error) {
 	return "", nil
 }
-func (m *MockECSClient) SubmitTaskStateChange(change api.TaskStateChange) utils.RetriableError {
+func (m *MockECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
 	return m.submitTaskStateChange(change)
 }
-func (m *MockECSClient) SubmitContainerStateChange(change api.ContainerStateChange) utils.RetriableError {
+func (m *MockECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
 	return m.submitContainerStateChange(change)
 }
 func (m *MockECSClient) DiscoverTelemetryEndpoint(string) (string, error) {
@@ -95,7 +93,7 @@ func TestSendsEvents(t *testing.T) {
 	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
 
 	client := mockClient(
-		func(change api.TaskStateChange) utils.RetriableError {
+		func(change api.TaskStateChange) error {
 			atomic.AddInt32(&taskCalls, 1)
 			err := <-taskError
 			if err == nil {
@@ -110,7 +108,7 @@ func TestSendsEvents(t *testing.T) {
 			atomic.AddInt32(&taskUnretriableErrors, 1)
 			return err
 		},
-		func(change api.ContainerStateChange) utils.RetriableError {
+		func(change api.ContainerStateChange) error {
 			atomic.AddInt32(&contCalls, 1)
 			err := <-contError
 			if err == nil {

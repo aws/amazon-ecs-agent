@@ -16,36 +16,49 @@
 			"Rev": "55eb11d21d2a31a3cc93838241d04800f52e823d"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/aws",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/aws",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/endpoints",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/endpoints",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/model/api",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/model/api",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/json/jsonutil",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/jsonrpc",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/jsonrpc",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/xml/xmlutil",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/rest",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/signer/v4",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/xml/xmlutil",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/util",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/signer/v4",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/util",
+			"Comment": "v0.6.4-22-g469e9fb",
+			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
 			"ImportPath": "github.com/cihub/seelog",

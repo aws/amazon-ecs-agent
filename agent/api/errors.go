@@ -14,41 +14,15 @@
 package api
 
 import (
-	"net/http"
 	"strings"
 
-	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 const INSTANCE_TYPE_CHANGED_ERROR_MESSAGE = "Container instance type changes are not supported."
 
-// Implements Error & Retriable
-type APIError struct {
-	err       error
-	Retriable bool
-}
-
-func NewAPIError(err error) *APIError {
-	if apierr, ok := err.(aws.APIError); ok {
-		// ClientExceptions are not retriable
-		if apierr.Code == "ClientException" || (apierr.StatusCode >= http.StatusBadRequest && apierr.StatusCode < http.StatusInternalServerError) {
-			return &APIError{err, false}
-		}
-	}
-
-	return &APIError{err, true}
-}
-
-func (apiErr *APIError) Retry() bool {
-	return apiErr.Retriable
-}
-
-func (apiErr *APIError) Error() string {
-	return apiErr.err.Error()
-}
-
-func (apiErr *APIError) IsInstanceTypeChangedError() bool {
-	return strings.Contains(apiErr.Error(), INSTANCE_TYPE_CHANGED_ERROR_MESSAGE)
+func IsInstanceTypeChangedError(err awserr.Error) bool {
+	return strings.Contains(err.Message(), INSTANCE_TYPE_CHANGED_ERROR_MESSAGE)
 }
 
 type badVolumeError struct {

@@ -28,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -38,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 var log = logger.ForModule("acs handler")
@@ -65,7 +65,7 @@ var SequenceNumber = utilatomic.NewIncreasingInt64(1)
 // arguments since there are too many for positional to be wieldy
 type StartSessionArguments struct {
 	ContainerInstanceArn string
-	CredentialProvider   credentials.AWSCredentialProvider
+	CredentialProvider   *credentials.Credentials
 	Config               *config.Config
 	TaskEngine           engine.TaskEngine
 	ECSClient            api.ECSClient

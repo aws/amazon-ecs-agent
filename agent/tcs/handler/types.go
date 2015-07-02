@@ -18,13 +18,13 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/authv4/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 type TelemetrySessionParams struct {
 	ContainerInstanceArn string
-	CredentialProvider   credentials.AWSCredentialProvider
+	CredentialProvider   *credentials.Credentials
 	Cfg                  *config.Config
 	AcceptInvalidCert    bool
 	EcsClient            api.ECSClient

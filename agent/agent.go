@@ -24,7 +24,6 @@ import (
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/auth"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -37,6 +36,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	log "github.com/cihub/seelog"
 )
 
@@ -143,17 +144,12 @@ func _main() int {
 		return exitcodes.ExitTerminal
 	}
 
-	credentialProvider := auth.NewBasicAWSCredentialProvider()
-	awsCreds := auth.ToSDK(credentialProvider)
+	credentialProvider := aws.DefaultChainCredentials
 	// Preflight request to make sure they're good
-	if preflightCreds, err := awsCreds.Credentials(); err != nil || preflightCreds.AccessKeyID == "" {
-		if preflightCreds != nil {
-			log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
-		} else {
-			log.Warnf("Error getting preflight credentials: %v", err)
-		}
+	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
+		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
 	}
-	client := api.NewECSClient(awsCreds, cfg, *acceptInsecureCert)
+	client := api.NewECSClient(credentialProvider, cfg, *acceptInsecureCert)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")
@@ -173,7 +169,7 @@ func _main() int {
 		_, err = client.RegisterContainerInstance(containerInstanceArn)
 		if err != nil {
 			log.Errorf("Error registering: %v", err)
-			if apiError, ok := err.(*api.APIError); ok && apiError.IsInstanceTypeChangedError() {
+			if awserr, ok := err.(awserr.Error); ok && api.IsInstanceTypeChangedError(awserr) {
 				log.Criticalf("The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance. Error: %v", err)
 				return exitcodes.ExitTerminal
 			}
