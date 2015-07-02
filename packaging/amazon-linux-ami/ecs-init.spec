@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.2.1
-Release:        2%{?dist}
+Version:        1.3.0
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -132,9 +132,11 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Thu Jul 2 2015 Samuel Karp <skarp@amazon.com> - 1.3.0-1
+- Cache Agent version 1.3.0
 * Fri Jun 19 2015 Euan Kemp <euank@amazon.com> - 1.2.1-2
 - Cache Agent version 1.2.1
-* Tue Jun 6 2015 Samuel Karp <skarp@amazon.com> - 1.2.0-1
+* Tue Jun 2 2015 Samuel Karp <skarp@amazon.com> - 1.2.0-1
 - Update versioning scheme to match Agent version
 - Cache Agent version 1.2.0
 - Mount cgroup and execdriver directories for Telemetry feature
