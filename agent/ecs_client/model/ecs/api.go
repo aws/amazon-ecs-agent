@@ -165,6 +165,18 @@ func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInsta
 
 // Deregisters an Amazon ECS container instance from the specified cluster.
 // This instance will no longer be available to run tasks.
+//
+// If you intend to use the container instance for some other purpose after
+// deregistration, you should stop all of the tasks running on the container
+// instance before deregistration to avoid any orphaned tasks from consuming
+// resources.
+//
+// Deregistering a container instance removes the instance from a cluster,
+// but it does not terminate the EC2 instance; if you are finished using the
+// instance, be sure to terminate it in the Amazon EC2 console to stop billing.
+//
+// When you terminate a container instance, it is automatically deregistered
+// from your cluster.
 func (c *ECS) DeregisterContainerInstance(input *DeregisterContainerInstanceInput) (output *DeregisterContainerInstanceOutput, err error) {
 	req, out := c.DeregisterContainerInstanceRequest(input)
 	output = out
@@ -193,10 +205,16 @@ func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInp
 	return
 }
 
-// NOT YET IMPLEMENTED.
+// Deregisters the specified task definition by family and revision. Upon deregistration,
+// the task definition is marked as INACTIVE. Existing tasks and services that
+// reference an INACTIVE task definition continue to run without disruption.
+// Existing services that reference an INACTIVE task definition can still scale
+// up or down by modifying the service's desired count.
 //
-// Deregisters the specified task definition. You will no longer be able to
-// run tasks from this definition after deregistration.
+// You cannot use an INACTIVE task definition to run new tasks or create new
+// services, and you cannot update an existing service to reference an INACTIVE
+// task definition (although there may be up to a 10 minute window following
+// deregistration where these restrictions have not yet taken effect).
 func (c *ECS) DeregisterTaskDefinition(input *DeregisterTaskDefinitionInput) (output *DeregisterTaskDefinitionOutput, err error) {
 	req, out := c.DeregisterTaskDefinitionRequest(input)
 	output = out
@@ -315,7 +333,10 @@ func (c *ECS) DescribeTaskDefinitionRequest(input *DescribeTaskDefinitionInput) 
 
 // Describes a task definition. You can specify a family and revision to find
 // information on a specific task definition, or you can simply specify the
-// family to find the latest revision in that family.
+// family to find the latest ACTIVE revision in that family.
+//
+//  You can only describe INACTIVE task definitions while an active task or
+// service references them.
 func (c *ECS) DescribeTaskDefinition(input *DescribeTaskDefinitionInput) (output *DescribeTaskDefinitionOutput, err error) {
 	req, out := c.DescribeTaskDefinitionRequest(input)
 	output = out
@@ -493,8 +514,9 @@ func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamilie
 	return
 }
 
-// Returns a list of task definition families that are registered to your account.
-// You can filter the results with the familyPrefix parameter.
+// Returns a list of task definition families that are registered to your account
+// (which may include task definition families that no longer have any ACTIVE
+// task definitions). You can filter the results with the familyPrefix parameter.
 func (c *ECS) ListTaskDefinitionFamilies(input *ListTaskDefinitionFamiliesInput) (output *ListTaskDefinitionFamiliesOutput, err error) {
 	req, out := c.ListTaskDefinitionFamiliesRequest(input)
 	output = out
@@ -524,7 +546,8 @@ func (c *ECS) ListTaskDefinitionsRequest(input *ListTaskDefinitionsInput) (req *
 }
 
 // Returns a list of task definitions that are registered to your account. You
-// can filter the results by family name with the familyPrefix parameter.
+// can filter the results by family name with the familyPrefix parameter or
+// by status with the status parameter.
 func (c *ECS) ListTaskDefinitions(input *ListTaskDefinitionsInput) (output *ListTaskDefinitionsOutput, err error) {
 	req, out := c.ListTaskDefinitionsRequest(input)
 	output = out
@@ -554,8 +577,8 @@ func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *aws.Request, output 
 }
 
 // Returns a list of tasks for a specified cluster. You can filter the results
-// by family name or by a particular container instance with the family and
-// containerInstance parameters.
+// by family name, by a particular container instance, or by the desired status
+// of the task with the family, containerInstance, and desiredStatus parameters.
 func (c *ECS) ListTasks(input *ListTasksInput) (output *ListTasksOutput, err error) {
 	req, out := c.ListTasksRequest(input)
 	output = out
@@ -810,6 +833,16 @@ func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req
 }
 
 // Updates the Amazon ECS container agent on a specified container instance.
+// Updating the Amazon ECS container agent does not interrupt running tasks
+// or services on the container instance. The process for updating the agent
+// differs depending on whether your container instance was launched with the
+// Amazon ECS-optimized AMI or another operating system.
+//
+// UpdateContainerAgent requires the Amazon ECS-optimized AMI or Amazon Linux
+// with the ecs-init service installed and running. For help updating the Amazon
+// ECS container agent on other operating systems, see Manually Updating the
+// Amazon ECS Container Agent (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html#manually_update_agent)
+// in the Amazon EC2 Container Service Developer Guide.
 func (c *ECS) UpdateContainerAgent(input *UpdateContainerAgentInput) (output *UpdateContainerAgentOutput, err error) {
 	req, out := c.UpdateContainerAgentRequest(input)
 	output = out
@@ -866,8 +899,6 @@ var opUpdateService *aws.Operation
 // task requests. Each account receives a default cluster the first time you
 // use the Amazon ECS service, but you may also create other clusters. Clusters
 // may contain more than one instance type simultaneously.
-//
-//  During the preview, each account is limited to two clusters.
 type Cluster struct {
 	// The number of services that are running on the cluster in an ACTIVE state.
 	// You can view these services with ListServices.
@@ -950,8 +981,20 @@ type ContainerDefinition struct {
 	// higher CPU usage if the other container was not using it, but if both tasks
 	// were 100% active all of the time, they would be limited to 512 CPU units.
 	//
-	// If this parameter is omitted, 0 CPU units are reserved for the container,
-	// and it will only receive CPU time when other containers are not using it.
+	// The Docker daemon on the container instance uses the CPU value to calculate
+	// the relative CPU share ratios for running containers. For more information,
+	// see CPU share constraint (https://docs.docker.com/reference/run/#cpu-share-constraint)
+	// in the Docker documentation. The minimum valid CPU share value that the Linux
+	// kernel will allow is 2; however, the CPU parameter is not required, and you
+	// can use CPU values below 2 in your container definitions. For CPU values
+	// below 2 (including null), the behavior varies based on your Amazon ECS container
+	// agent version:
+	//
+	//   Agent versions less than or equal to 1.1.0: Null and zero CPU values are
+	// passed to Docker as 0, which Docker then converts to 1,024 CPU shares. CPU
+	// values of 1 are passed to Docker as 1, which the Linux kernel converts to
+	// 2 CPU shares.  Agent versions greater than or equal to 1.2.0: Null, zero,
+	// and CPU values of 1 are passed to Docker as 2.
 	CPU *int64 `locationName:"cpu" type:"integer"`
 
 	// The CMD that is passed to the container. For more information on the Docker
@@ -988,6 +1031,11 @@ type ContainerDefinition struct {
 	// construct is analogous to name:alias in Docker links. For more information
 	// on linking Docker containers, see https://docs.docker.com/userguide/dockerlinks/
 	// (https://docs.docker.com/userguide/dockerlinks/).
+	//
+	//  Containers that are collocated on a single container instance may be able
+	// to communicate with each other without requiring links or host port mappings.
+	// Network isolation is achieved on the container instance using security groups
+	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
 	// The number of MiB of memory reserved for the container. If your container
@@ -1055,6 +1103,8 @@ type ContainerInstance struct {
 	// ACTIVE indicates that the container instance can accept tasks.
 	Status *string `locationName:"status" type:"string"`
 
+	// The version information for the Amazon ECS container agent and Docker daemon
+	// running on the container instance.
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 
 	metadataContainerInstance `json:"-", xml:"-"`
@@ -1070,6 +1120,11 @@ type ContainerOverride struct {
 	// The command to send to the container that overrides the default command from
 	// the Docker image or the task definition.
 	Command []*string `locationName:"command" type:"list"`
+
+	// The environment variables to send to the container. You can add new environment
+	// variables, which are added to the container at launch, or you can override
+	// the existing environment variables from the Docker image or the task definition.
+	Environment []*KeyValuePair `locationName:"environment" type:"list"`
 
 	// The name of the container that receives the override.
 	Name *string `locationName:"name" type:"string"`
@@ -1131,11 +1186,14 @@ type CreateServiceInput struct {
 	Role *string `locationName:"role" type:"string"`
 
 	// The name of your service. Up to 255 letters (uppercase and lowercase), numbers,
-	// hyphens, and underscores are allowed.
+	// hyphens, and underscores are allowed. Service names must be unique within
+	// a cluster, but you can have similarly named services in multiple clusters
+	// within a region or across multiple regions.
 	ServiceName *string `locationName:"serviceName" type:"string" required:"true"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
-	// of the task definition that you want to run in your service.
+	// of the task definition that you want to run in your service. If a revision
+	// is not specified, the latest ACTIVE revision is used.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 
 	metadataCreateServiceInput `json:"-", xml:"-"`
@@ -1252,10 +1310,14 @@ type DeregisterContainerInstanceInput struct {
 	// container instance UUID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_UUID.
 	ContainerInstance *string `locationName:"containerInstance" type:"string" required:"true"`
 
-	// Force the deregistration of the container instance. You can use the force
-	// parameter if you have several tasks running on a container instance and you
-	// don't want to run StopTask for each task before deregistering the container
-	// instance.
+	// Force the deregistration of the container instance. If you have tasks running
+	// on the container instance when you deregister it with the force option, these
+	// tasks remain running and they will continue to pass Elastic Load Balancing
+	// load balancer health checks until you terminate the instance or the tasks
+	// stop through some other means, but they are orphaned (no longer monitored
+	// or accounted for by Amazon ECS). If an orphaned task on your container instance
+	// is part of an Amazon ECS service, then the service scheduler will start another
+	// copy of that task on a different container instance if possible.
 	Force *bool `locationName:"force" type:"boolean"`
 
 	metadataDeregisterContainerInstanceInput `json:"-", xml:"-"`
@@ -1279,7 +1341,7 @@ type metadataDeregisterContainerInstanceOutput struct {
 
 type DeregisterTaskDefinitionInput struct {
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
-	// of the task definition that you want to deregister.
+	// of the task definition that you want to deregister. You must specify a revision.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 
 	metadataDeregisterTaskDefinitionInput `json:"-", xml:"-"`
@@ -1384,7 +1446,7 @@ type metadataDescribeServicesOutput struct {
 }
 
 type DescribeTaskDefinitionInput struct {
-	// The family for the latest revision, family and revision (family:revision)
+	// The family for the latest ACTIVE revision, family and revision (family:revision)
 	// for a specific revision in the family, or full Amazon Resource Name (ARN)
 	// of the task definition that you want to describe.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
@@ -1468,6 +1530,7 @@ type metadataDiscoverPollEndpointOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// A failed resource.
 type Failure struct {
 	// The Amazon Resource Name (ARN) of the failed resource.
 	ARN *string `locationName:"arn" type:"string"`
@@ -1495,11 +1558,14 @@ type metadataHostVolumeProperties struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// A key and value pair object.
 type KeyValuePair struct {
-	// The name of the key value pair.
+	// The name of the key value pair. For environment variables, this is the name
+	// of the environment variable.
 	Name *string `locationName:"name" type:"string"`
 
-	// The value of the key value pair.
+	// The value of the key value pair. For environment variables, this is the value
+	// of the environment variable.
 	Value *string `locationName:"value" type:"string"`
 
 	metadataKeyValuePair `json:"-", xml:"-"`
@@ -1714,6 +1780,22 @@ type ListTaskDefinitionsInput struct {
 	// to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
 
+	// The order in which to sort the results. Valid values are ASC and DESC. By
+	// default (ASC), task definitions are listed lexicographically by family name
+	// and in ascending numerical order by revision so that the newest task definitions
+	// in a family are listed last. Setting this parameter to DESC reverses the
+	// sort order on family name and revision so that the newest task definitions
+	// in a family are listed first.
+	Sort *string `locationName:"sort" type:"string"`
+
+	// The task definition status that you want to filter the ListTaskDefinitions
+	// results with. By default, only ACTIVE task definitions are listed. By setting
+	// this parameter to INACTIVE, you can view task definitions that are INACTIVE
+	// as long as an active task or service still references them. If you paginate
+	// the resulting output, be sure to keep the status value constant in each subsequent
+	// request.
+	Status *string `locationName:"status" type:"string"`
+
 	metadataListTaskDefinitionsInput `json:"-", xml:"-"`
 }
 
@@ -1859,7 +1941,7 @@ type NetworkBinding struct {
 	// The port number on the host that is used with the network binding.
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
-	// The protocol used for the network binding. The default is TCP.
+	// The protocol used for the network binding.
 	Protocol *string `locationName:"protocol" type:"string"`
 
 	metadataNetworkBinding `json:"-", xml:"-"`
@@ -1875,16 +1957,23 @@ type metadataNetworkBinding struct {
 type PortMapping struct {
 	// The port number on the container that is bound to the user-specified or automatically
 	// assigned host port. If you specify a container port and not a host port,
-	// your container will automatically receive a host port in the 49153 to 65535
-	// port range.
+	// your container will automatically receive a host port in the ephemeral port
+	// range (for more information, see hostPort).
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
 	// The port number on the container instance to reserve for your container.
 	// You can specify a non-reserved host port for your container port mapping,
 	// or you can omit the hostPort (or set it to 0) while specifying a containerPort
-	// and your container will automatically receive a port in the 49153 to 65535
-	// port range. You should not attempt to specify a host port in the 49153 to
-	// 65535 port range, since these are reserved for automatic assignment.
+	// and your container will automatically receive a port in the ephemeral port
+	// range for your container instance operating system and Docker version.
+	//
+	// The default ephemeral port range is 49153 to 65535, and this range is used
+	// for Docker versions prior to 1.6.0. For Docker version 1.6.0 and later, the
+	// Docker daemon tries to read the ephemeral port range from /proc/sys/net/ipv4/ip_local_port_range;
+	// if this kernel parameter is unavailable, the default ephemeral port range
+	// is used. You should not attempt to specify a host port in the ephemeral port
+	// range, since these are reserved for automatic assignment. In general, ports
+	// below 32768 are outside of the ephemeral port range.
 	//
 	// The default reserved ports are 22 for SSH, the Docker ports 2375 and 2376,
 	// and the Amazon ECS Container Agent port 51678. Any host port that was previously
@@ -1895,7 +1984,8 @@ type PortMapping struct {
 	// reserved ports (automatically assigned ports do not count toward this limit).
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
-	// The protocol used for the port mapping. The default is TCP.
+	// The protocol used for the port mapping. Valid values are tcp and udp. The
+	// default is tcp.
 	Protocol *string `locationName:"protocol" type:"string"`
 
 	metadataPortMapping `json:"-", xml:"-"`
@@ -1911,12 +2001,23 @@ type RegisterContainerInstanceInput struct {
 	// the default cluster is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	ContainerInstanceARN *string `locationName:"containerInstanceArn" type:"string"`
+
+	// The instance identity document for the Amazon EC2 instance to register. This
+	// document can be found by running the following command from the instance:
+	// curl http://169.254.169.254/latest/dynamic/instance-identity/document/
 	InstanceIdentityDocument *string `locationName:"instanceIdentityDocument" type:"string"`
 
+	// The instance identity document signature for the Amazon EC2 instance to register.
+	// This signature can be found by running the following command from the instance:
+	// curl http://169.254.169.254/latest/dynamic/instance-identity/signature/
 	InstanceIdentityDocumentSignature *string `locationName:"instanceIdentityDocumentSignature" type:"string"`
 
+	// The resources available on the instance.
 	TotalResources []*Resource `locationName:"totalResources" type:"list"`
 
+	// The version information for the Amazon ECS container agent and Docker daemon
+	// running on the container instance.
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 
 	metadataRegisterContainerInstanceInput `json:"-", xml:"-"`
@@ -2013,9 +2114,15 @@ type RunTaskInput struct {
 	Count *int64 `locationName:"count" type:"integer"`
 
 	// A list of container overrides in JSON format that specify the name of a container
-	// in the specified task definition and the command it should run instead of
-	// its default. A total of 8192 characters are allowed for overrides. This limit
-	// includes the JSON formatting characters of the override structure.
+	// in the specified task definition and the overrides it should receive. You
+	// can override the default command for a container (that is specified in the
+	// task definition or Docker image) with a command override. You can also override
+	// existing environment variables (that are specified in the task definition
+	// or Docker image) on a container or add new environment variables to it with
+	// an environment override.
+	//
+	//  A total of 8192 characters are allowed for overrides. This limit includes
+	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
 	// An optional tag specified when a task is started. For example if you automatically
@@ -2029,7 +2136,8 @@ type RunTaskInput struct {
 	StartedBy *string `locationName:"startedBy" type:"string"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
-	// of the task definition that you want to run.
+	// of the task definition that you want to run. If a revision is not specified,
+	// the latest ACTIVE revision is used.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 
 	metadataRunTaskInput `json:"-", xml:"-"`
@@ -2140,9 +2248,15 @@ type StartTaskInput struct {
 	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
 
 	// A list of container overrides in JSON format that specify the name of a container
-	// in the specified task definition and the command it should run instead of
-	// its default. A total of 8192 characters are allowed for overrides. This limit
-	// includes the JSON formatting characters of the override structure.
+	// in the specified task definition and the overrides it should receive. You
+	// can override the default command for a container (that is specified in the
+	// task definition or Docker image) with a command override. You can also override
+	// existing environment variables (that are specified in the task definition
+	// or Docker image) on a container or add new environment variables to it with
+	// an environment override.
+	//
+	//  A total of 8192 characters are allowed for overrides. This limit includes
+	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
 	// An optional tag specified when a task is started. For example if you automatically
@@ -2156,7 +2270,8 @@ type StartTaskInput struct {
 	StartedBy *string `locationName:"startedBy" type:"string"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
-	// of the task definition that you want to start.
+	// of the task definition that you want to start. If a revision is not specified,
+	// the latest ACTIVE revision is used.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 
 	metadataStartTaskInput `json:"-", xml:"-"`
@@ -2335,9 +2450,13 @@ type TaskDefinition struct {
 	// The revision of the task in a particular family. You can think of the revision
 	// as a version number of a task definition in a family. When you register a
 	// task definition for the first time, the revision is 1, and each time you
-	// register a task definition in the same family, the revision value increases
-	// by one.
+	// register a new revision of a task definition in the same family, the revision
+	// value always increases by one (even if you have deregistered previous revisions
+	// in this family).
 	Revision *int64 `locationName:"revision" type:"integer"`
+
+	// The status of the task definition.
+	Status *string `locationName:"status" type:"string"`
 
 	// The full Amazon Resource Name (ARN) of the of the task definition.
 	TaskDefinitionARN *string `locationName:"taskDefinitionArn" type:"string"`
@@ -2411,10 +2530,11 @@ type UpdateServiceInput struct {
 	Service *string `locationName:"service" type:"string" required:"true"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
-	// of the task definition that you want to run in your service. If you modify
-	// the task definition with UpdateService, Amazon ECS spawns a task with the
-	// new version of the task definition and then stops an old task after the new
-	// version is running.
+	// of the task definition that you want to run in your service. If a revision
+	// is not specified, the latest ACTIVE revision is used. If you modify the task
+	// definition with UpdateService, Amazon ECS spawns a task with the new version
+	// of the task definition and then stops an old task after the new version is
+	// running.
 	TaskDefinition *string `locationName:"taskDefinition" type:"string"`
 
 	metadataUpdateServiceInput `json:"-", xml:"-"`
