@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+
+* Feature - Add support for re-registering a container instance.
+
 ## 1.2.1
 
 * Security issue - Avoid logging configured AuthData at the debug level on startup
