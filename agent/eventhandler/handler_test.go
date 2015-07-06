@@ -39,7 +39,7 @@ type MockECSClient struct {
 func (m *MockECSClient) CredentialProvider() credentials.AWSCredentialProvider {
 	return auth.TestCredentialProvider{}
 }
-func (m *MockECSClient) RegisterContainerInstance() (string, error) {
+func (m *MockECSClient) RegisterContainerInstance(string) (string, error) {
 	return "", nil
 }
 func (m *MockECSClient) DiscoverPollEndpoint(string) (string, error) {

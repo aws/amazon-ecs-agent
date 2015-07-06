@@ -934,6 +934,7 @@ type metadataCluster struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// A docker container that is part of a task.
 type Container struct {
 	// The Amazon Resource Name (ARN) of the container.
 	ContainerARN *string `locationName:"containerArn" type:"string"`
@@ -947,6 +948,7 @@ type Container struct {
 	// The name of the container.
 	Name *string `locationName:"name" type:"string"`
 
+	// The network bindings associated with the container.
 	NetworkBindings []*NetworkBinding `locationName:"networkBindings" type:"list"`
 
 	// A short (255 max characters) human-readable string to provide additional
@@ -1114,8 +1116,7 @@ type metadataContainerInstance struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
-// The name of a container in a task definition and the command it should run
-// instead of its default.
+// The overrides that should be sent to a container.
 type ContainerOverride struct {
 	// The command to send to the container that overrides the default command from
 	// the Docker image or the task definition.
@@ -1252,6 +1253,7 @@ type metadataDeleteServiceInput struct {
 }
 
 type DeleteServiceOutput struct {
+	// Details on a service within a cluster
 	Service *Service `locationName:"service" type:"structure"`
 
 	metadataDeleteServiceOutput `json:"-", xml:"-"`
@@ -1261,6 +1263,7 @@ type metadataDeleteServiceOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// The details of an Amazon ECS service deployment.
 type Deployment struct {
 	// The Unix time in seconds and milliseconds when the service was created.
 	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
@@ -1545,6 +1548,7 @@ type metadataFailure struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a container instance host volume.
 type HostVolumeProperties struct {
 	// The path on the host container instance that is presented to the container.
 	// If this parameter is empty, then the Docker daemon has assigned a host path
@@ -1892,6 +1896,7 @@ type metadataListTasksOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a load balancer that is used with a service.
 type LoadBalancer struct {
 	// The name of the container to associate with the load balancer.
 	ContainerName *string `locationName:"containerName" type:"string"`
@@ -1912,6 +1917,7 @@ type metadataLoadBalancer struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a volume mount point that is used in a container definition.
 type MountPoint struct {
 	// The path on the container to mount the host volume at.
 	ContainerPath *string `locationName:"containerPath" type:"string"`
@@ -1931,6 +1937,8 @@ type metadataMountPoint struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on the network bindings between a container and its host container
+// instance.
 type NetworkBinding struct {
 	// The IP address that the container is bound to on the container instance.
 	BindIP *string `locationName:"bindIP" type:"string"`
@@ -2001,6 +2009,8 @@ type RegisterContainerInstanceInput struct {
 	// the default cluster is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	// The Amazon Resource Name (ARN) of the container instance (if it was previously
+	// registered).
 	ContainerInstanceARN *string `locationName:"containerInstanceArn" type:"string"`
 
 	// The instance identity document for the Amazon EC2 instance to register. This
@@ -2062,6 +2072,7 @@ type metadataRegisterTaskDefinitionInput struct {
 }
 
 type RegisterTaskDefinitionOutput struct {
+	// Details of a task definition.
 	TaskDefinition *TaskDefinition `locationName:"taskDefinition" type:"structure"`
 
 	metadataRegisterTaskDefinitionOutput `json:"-", xml:"-"`
@@ -2162,6 +2173,7 @@ type metadataRunTaskOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a service within a cluster
 type Service struct {
 	// The Amazon Resource Name (ARN) of the of the cluster that hosts the service.
 	ClusterARN *string `locationName:"clusterArn" type:"string"`
@@ -2218,6 +2230,7 @@ type metadataService struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on an event associated with a service.
 type ServiceEvent struct {
 	// The Unix time in seconds and milliseconds when the event was triggered.
 	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
@@ -2314,6 +2327,7 @@ type metadataStopTaskInput struct {
 }
 
 type StopTaskOutput struct {
+	// Details on a task in a cluster.
 	Task *Task `locationName:"task" type:"structure"`
 
 	metadataStopTaskOutput `json:"-", xml:"-"`
@@ -2398,6 +2412,7 @@ type metadataSubmitTaskStateChangeOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a task in a cluster.
 type Task struct {
 	// The Amazon Resource Name (ARN) of the of the cluster that hosts the task.
 	ClusterARN *string `locationName:"clusterArn" type:"string"`
@@ -2436,6 +2451,7 @@ type metadataTask struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details of a task definition.
 type TaskDefinition struct {
 	// A list of container definitions in JSON format that describe the different
 	// containers that make up your task. For more information on container definition
@@ -2473,8 +2489,7 @@ type metadataTaskDefinition struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
-// A list of container overrides in JSON format that specify the name of a container
-// in a task definition and the command it should run instead of its default.
+// The overrides associated with a task.
 type TaskOverride struct {
 	// One or more container overrides sent to a task.
 	ContainerOverrides []*ContainerOverride `locationName:"containerOverrides" type:"list"`
@@ -2555,6 +2570,8 @@ type metadataUpdateServiceOutput struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// The Docker and Amazon ECS container agent version information on a container
+// instance.
 type VersionInfo struct {
 	// The Git commit hash for the Amazon ECS container agent build on the amazon-ecs-agent
 	//  (https://github.com/aws/amazon-ecs-agent/commits/master) GitHub repository.
@@ -2573,6 +2590,7 @@ type metadataVersionInfo struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// A data volume used in a task definition.
 type Volume struct {
 	// The path on the host container instance that is presented to the containers
 	// which access the volume. If this parameter is empty, then the Docker daemon
@@ -2590,6 +2608,7 @@ type metadataVolume struct {
 	SDKShapeTraits bool `type:"structure"`
 }
 
+// Details on a data volume from another container.
 type VolumeFrom struct {
 	// If this value is true, the container has read-only access to the volume.
 	// If this value is false, then the container can write to the volume. The default

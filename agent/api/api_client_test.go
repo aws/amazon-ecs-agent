@@ -219,6 +219,9 @@ func TestRegisterContainerInstance(t *testing.T) {
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+		if *req.ContainerInstanceARN != "arn:test" {
+			t.Errorf("Wrong container instance ARN: %v", *req.ContainerInstanceARN)
+		}
 		if *req.Cluster != configuredCluster {
 			t.Errorf("Wrong cluster: %v", *req.Cluster)
 		}
@@ -241,7 +244,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)
 
-	arn, err := client.RegisterContainerInstance()
+	arn, err := client.RegisterContainerInstance("arn:test")
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -290,7 +293,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 		}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil),
 	)
 
-	arn, err := client.RegisterContainerInstance()
+	arn, err := client.RegisterContainerInstance("")
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}

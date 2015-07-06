@@ -15,9 +15,12 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/awslabs/aws-sdk-go/aws"
 )
+
+const INSTANCE_TYPE_CHANGED_ERROR_MESSAGE = "Container instance type changes are not supported."
 
 // Implements Error & Retriable
 type APIError struct {
@@ -42,6 +45,10 @@ func (apiErr *APIError) Retry() bool {
 
 func (apiErr *APIError) Error() string {
 	return apiErr.err.Error()
+}
+
+func (apiErr *APIError) IsInstanceTypeChangedError() bool {
+	return strings.Contains(apiErr.Error(), INSTANCE_TYPE_CHANGED_ERROR_MESSAGE)
 }
 
 type badVolumeError struct {

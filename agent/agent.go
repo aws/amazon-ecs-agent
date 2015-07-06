@@ -153,7 +153,7 @@ func _main() int {
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")
-		containerInstanceArn, err = client.RegisterContainerInstance()
+		containerInstanceArn, err = client.RegisterContainerInstance("")
 		if err != nil {
 			log.Errorf("Error registering: %v", err)
 			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
@@ -166,6 +166,14 @@ func _main() int {
 		stateManager.Save()
 	} else {
 		log.Infof("Restored from checkpoint file. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
+		_, err = client.RegisterContainerInstance(containerInstanceArn)
+		if err != nil {
+			log.Errorf("Error registering: %v", err)
+			if apiError, ok := err.(*api.APIError); ok && apiError.IsInstanceTypeChangedError() {
+				log.Criticalf("The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance. Error: %v", err)
+				return exitcodes.ExitTerminal
+			}
+		}
 	}
 
 	// Begin listening to the docker daemon and saving changes

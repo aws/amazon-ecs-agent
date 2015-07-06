@@ -39,8 +39,10 @@ var log = logger.ForModule("api client")
 type ECSClient interface {
 	// RegisterContainerInstance calculates the appropriate resources, creates
 	// the default cluster if necessary, and returns the registered
-	// ContainerInstanceARN if successful.
-	RegisterContainerInstance() (string, error)
+	// ContainerInstanceARN if successful. Supplying a non-empty container
+	// instance ARN allows a container instance to update its registered
+	// resources.
+	RegisterContainerInstance(existingContainerInstanceArn string) (string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitTaskStateChange(change TaskStateChange) utils.RetriableError
@@ -140,7 +142,7 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 	return *resp.Cluster.ClusterName, nil
 }
 
-func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
+func (client *ApiECSClient) RegisterContainerInstance(containerInstanceArn string) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -151,7 +153,7 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(clusterRef)
+		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
@@ -162,11 +164,14 @@ func (client *ApiECSClient) RegisterContainerInstance() (string, error) {
 			return "", NewAPIError(err)
 		}
 	}
-	return client.registerContainerInstance(clusterRef)
+	return client.registerContainerInstance(clusterRef, containerInstanceArn)
 }
 
-func (client *ApiECSClient) registerContainerInstance(clusterRef string) (string, error) {
+func (client *ApiECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
+	if containerInstanceArn != "" {
+		registerRequest.ContainerInstanceARN = &containerInstanceArn
+	}
 
 	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
