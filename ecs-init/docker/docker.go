@@ -29,6 +29,7 @@ const (
 	dataDir                = "/data"
 	execDriverDir          = "/var/lib/docker/execdriver"
 	readOnly               = ":ro"
+	defaultDockerEndpoint  = "/var/run/docker.sock"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -161,7 +162,7 @@ func (c *Client) loadEnvVariables() []string {
 
 func (c *Client) getHostConfig() *godocker.HostConfig {
 	binds := []string{
-		defaultDockerEndpoint + ":" + defaultDockerEndpoint,
+		config.DockerUnixSocket() + ":" + defaultDockerEndpoint,
 		config.LogDirectory() + ":" + logDir,
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),

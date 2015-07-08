@@ -18,11 +18,9 @@ package docker
 import (
 	"io/ioutil"
 
-	godocker "github.com/fsouza/go-dockerclient"
-)
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 
-const (
-	defaultDockerEndpoint = "/var/run/docker.sock"
+	godocker "github.com/fsouza/go-dockerclient"
 )
 
 type dockerclient interface {
@@ -41,7 +39,7 @@ type _dockerclient struct {
 }
 
 func newDockerClient() (*_dockerclient, error) {
-	client, err := godocker.NewVersionedClient("unix://"+defaultDockerEndpoint, "1.15")
+	client, err := godocker.NewVersionedClient(config.UnixSocketPrefix+config.DockerUnixSocket(), "1.15")
 	if err != nil {
 		return nil, err
 	}
