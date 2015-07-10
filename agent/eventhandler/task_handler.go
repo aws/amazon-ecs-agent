@@ -118,13 +118,12 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 						*event.containerChange.SentStatus = event.containerChange.Status
 					}
 					statesaver.Save()
-					if err != nil {
-						llog.Error("Unretriable error submitting container state change", "err", err)
-					} else {
-						llog.Debug("Submitted container")
-					}
+					llog.Debug("Submitted container state change")
+					backoff.Reset()
 					events.Remove(eventToSubmit)
-				} // else, leave event on and retry it next loop through
+				} else {
+					llog.Error("Unretriable error submitting container state change", "err", err)
+				}
 			} else if event.taskShouldBeSent() {
 				llog.Info("Sending task change", "change", event.taskChange)
 				err = client.SubmitTaskStateChange(event.taskChange)
@@ -135,13 +134,11 @@ func SubmitTaskEvents(events *eventList, client api.ECSClient) {
 						*event.taskChange.SentStatus = event.taskChange.Status
 					}
 					statesaver.Save()
-					if err != nil {
-						llog.Error("Unretriable error submitting container state change", "err", err)
-					} else {
-						llog.Debug("Submitted container")
-						backoff.Reset()
-					}
+					llog.Debug("Submitted task state change")
+					backoff.Reset()
 					events.Remove(eventToSubmit)
+				} else {
+					llog.Error("Unretriable error submitting container state change", "err", err)
 				}
 			} else {
 				// Shouldn't be sent as either a task or container change event; must have been already sent
