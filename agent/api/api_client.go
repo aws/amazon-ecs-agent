@@ -113,6 +113,8 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 		ecsConfig.Endpoint = config.APIEndpoint
 	}
 	client := ecs.New(ecsConfig)
+	client.Handlers.AfterRetry.Clear()
+	client.Handlers.AfterRetry.PushBack(ECSRetryHandler)
 	ec2metadataclient := ec2.DefaultClient
 	return &ApiECSClient{
 		credentialProvider: credentialProvider,
