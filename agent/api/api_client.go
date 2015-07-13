@@ -15,6 +15,7 @@ package api
 
 import (
 	"errors"
+	"net/http"
 	"runtime"
 	"time"
 
@@ -84,6 +85,12 @@ func (client *ApiECSClient) SetSDK(sdk ECSSDK) {
 	client.c = sdk
 }
 
+// SetHTTPClient overrides the client's http client to the given one. This is useful for injecting a
+// test implementation
+func (client *ApiECSClient) SetHTTPClient(httpClient *http.Client) {
+	client.c.(*ecs.ECS).Config.HTTPClient.Transport = httpClient.Transport
+}
+
 // SetEC2MetadataClient overrides the EC2 Metadata Client to the given one.
 // This is useful for injecting a test implementation
 func (client *ApiECSClient) SetEC2MetadataClient(ec2MetadataClient ec2.EC2MetadataClient) {
@@ -98,21 +105,17 @@ const (
 	RoundtripTimeout = 5 * time.Second
 )
 
-const ecsApiMaxRetries = 5
-
 func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, insecureSkipVerify bool) ECSClient {
 	httpClient := httpclient.New(RoundtripTimeout, insecureSkipVerify)
 
-	ecsConfig := &aws.Config{
-		Credentials: credentialProvider,
-		Region:      config.AWSRegion,
-		HTTPClient:  httpClient,
-		MaxRetries:  ecsApiMaxRetries,
-	}
+	ecsConfig := aws.DefaultConfig.Copy()
+	ecsConfig.Credentials = credentialProvider
+	ecsConfig.Region = config.AWSRegion
+	ecsConfig.HTTPClient = httpClient
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = config.APIEndpoint
 	}
-	client := ecs.New(ecsConfig)
+	client := ecs.New(&ecsConfig)
 	client.Handlers.AfterRetry.Clear()
 	client.Handlers.AfterRetry.PushBack(ECSRetryHandler)
 	ec2metadataclient := ec2.DefaultClient

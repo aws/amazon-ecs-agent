@@ -66,3 +66,25 @@ func SuccessResponse(body string) *http.Response {
 func (m *httpMatcher) String() string {
 	return "HTTP Matcher: " + m.method + " " + m.url
 }
+
+type httpOpMatcher struct {
+	operation string
+}
+
+func (m *httpOpMatcher) Matches(x interface{}) bool {
+	req, ok := x.(*http.Request)
+	if !ok {
+		return false
+	}
+	return req.Header.Get("x-amz-target") == m.operation
+}
+
+func (m *httpOpMatcher) String() string {
+	return "HTTP Operation matcher: " + m.operation
+}
+
+func NewHTTPOperationMatcher(op string) gomock.Matcher {
+	return &httpOpMatcher{
+		operation: op,
+	}
+}
