@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
@@ -149,7 +150,7 @@ func _main() int {
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
 	}
-	client := api.NewECSClient(credentialProvider, cfg, *acceptInsecureCert)
+	client := api.NewECSClient(credentialProvider, cfg, httpclient.New(api.RoundtripTimeout, *acceptInsecureCert))
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")

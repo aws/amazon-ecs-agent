@@ -26,7 +26,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
@@ -74,7 +73,6 @@ type ECSSDK interface {
 type ApiECSClient struct {
 	credentialProvider *credentials.Credentials
 	config             *config.Config
-	insecureSkipVerify bool
 	c                  ECSSDK
 	ec2metadata        ec2.EC2MetadataClient
 }
@@ -83,12 +81,6 @@ type ApiECSClient struct {
 // test implementation
 func (client *ApiECSClient) SetSDK(sdk ECSSDK) {
 	client.c = sdk
-}
-
-// SetHTTPClient overrides the client's http client to the given one. This is useful for injecting a
-// test implementation
-func (client *ApiECSClient) SetHTTPClient(httpClient *http.Client) {
-	client.c.(*ecs.ECS).Config.HTTPClient.Transport = httpClient.Transport
 }
 
 // SetEC2MetadataClient overrides the EC2 Metadata Client to the given one.
@@ -105,9 +97,7 @@ const (
 	RoundtripTimeout = 5 * time.Second
 )
 
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, insecureSkipVerify bool) ECSClient {
-	httpClient := httpclient.New(RoundtripTimeout, insecureSkipVerify)
-
+func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client) ECSClient {
 	ecsConfig := aws.DefaultConfig.Copy()
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = config.AWSRegion
@@ -122,7 +112,6 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	return &ApiECSClient{
 		credentialProvider: credentialProvider,
 		config:             config,
-		insecureSkipVerify: insecureSkipVerify,
 		c:                  client,
 		ec2metadata:        ec2metadataclient,
 	}

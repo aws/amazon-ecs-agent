@@ -45,43 +45,44 @@ const opSubmitTaskStateChange = "SubmitTaskStateChange"
 
 // ECSRetryHandler defines how to retry ECS service calls. It behaves like the default retry handler, except for the SubmitStateChange operations where it has a massive upper limit on retry counts
 func ECSRetryHandler(r *aws.Request) {
-	if r.Operation != nil && (r.Operation.Name == opSubmitContainerStateChange || r.Operation.Name == opSubmitTaskStateChange) {
-		// For these operations, fake the retry count for the sake of the WillRetry check.
-		// Do this by temporarily setting it to 0 before calling that check.
-		// We still keep the value around for sleep calculations
-		// See https://github.com/aws/aws-sdk-go/blob/b2d953f489cf94029392157225e893d7b69cd447/aws/handler_functions.go#L107
-		// for this code's inspiration
-		realRetryCount := r.RetryCount
-		if r.RetryCount < maxSubmitRetryCount {
-			r.RetryCount = 0
+	if r.Operation == nil || (r.Operation.Name != opSubmitContainerStateChange && r.Operation.Name != opSubmitTaskStateChange) {
+		aws.AfterRetryHandler(r)
+		return
+	}
+	// else this is a Submit*StateChange operation
+	// For these operations, fake the retry count for the sake of the WillRetry check.
+	// Do this by temporarily setting it to 0 before calling that check.
+	// We still keep the value around for sleep calculations
+	// See https://github.com/aws/aws-sdk-go/blob/b2d953f489cf94029392157225e893d7b69cd447/aws/handler_functions.go#L107
+	// for this code's inspiration
+	realRetryCount := r.RetryCount
+	if r.RetryCount < maxSubmitRetryCount {
+		r.RetryCount = 0
+	}
+
+	r.Retryable.Set(r.Service.ShouldRetry(r))
+	if r.WillRetry() {
+		r.RetryCount = realRetryCount
+		if r.RetryCount > 20 {
+			// Hardcoded max for calling RetryRules here because it *will* overflow if you let it and result in sleeping negative time
+			r.RetryDelay = maxSubmitRetryDelay
+		} else {
+			r.RetryDelay = durationMin(maxSubmitRetryDelay, r.Service.RetryRules(r))
 		}
+		// AddJitter is purely additive, so subtracting half the amount of jitter
+		// makes it average out to RetryDelay
+		ttime.Sleep(utils.AddJitter(r.RetryDelay-submitRetryDelayJitter/2, submitRetryDelayJitter))
 
-		r.Retryable.Set(r.Service.ShouldRetry(r))
-		if r.WillRetry() {
-			r.RetryCount = realRetryCount
-			if r.RetryCount > 20 {
-				// Hardcoded max for calling RetryRules here because it *will* overflow if you let it and result in sleeping negative time
-				r.RetryDelay = maxSubmitRetryDelay
-			} else {
-				r.RetryDelay = durationMin(maxSubmitRetryDelay, r.Service.RetryRules(r))
-			}
-			// AddJitter is purely additive, so subtracting half the amount of jitter
-			// makes it average out to RetrryDelay
-			ttime.Sleep(utils.AddJitter(r.RetryDelay-submitRetryDelayJitter/2, submitRetryDelayJitter))
-
-			if r.Error != nil {
-				if err, ok := r.Error.(awserr.Error); ok {
-					if isCodeExpiredCreds(err.Code()) {
-						r.Config.Credentials.Expire()
-					}
+		if r.Error != nil {
+			if err, ok := r.Error.(awserr.Error); ok {
+				if isCodeExpiredCreds(err.Code()) {
+					r.Config.Credentials.Expire()
 				}
 			}
-
-			r.RetryCount++
-			r.Error = nil
 		}
-	} else {
-		aws.AfterRetryHandler(r)
+
+		r.RetryCount++
+		r.Error = nil
 	}
 }
 

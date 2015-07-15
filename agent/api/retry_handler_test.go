@@ -46,15 +46,13 @@ func operationErrorResp(status int, body string) *http.Response {
 
 func setup(t *testing.T) (*gomock.Controller, ECSClient, *mock_http.MockRoundTripper) {
 	ctrl := gomock.NewController(t)
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{AWSRegion: "us-east-1"}, true)
 	mockRoundTripper := mock_http.NewMockRoundTripper(ctrl)
+	mockHttpClient := httpclient.New(1*time.Second, true)
+	mockHttpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockRoundTripper)
+	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{AWSRegion: "us-east-1"}, mockHttpClient)
 	testTime := ttime.NewTestTime()
 	testTime.LudicrousSpeed(true)
 	ttime.SetTime(testTime)
-
-	httpClient := httpclient.New(10*time.Second, true)
-	httpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockRoundTripper)
-	client.(*ApiECSClient).SetHTTPClient(httpClient)
 
 	return ctrl, client, mockRoundTripper
 }
