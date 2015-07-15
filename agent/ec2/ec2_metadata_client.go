@@ -21,6 +21,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -30,6 +33,11 @@ const (
 	INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE = "/2014-02-25/dynamic/instance-identity/signature"
 	SIGNED_INSTANCE_IDENTITY_DOCUMENT_RESOURCE    = "/2014-02-25/dynamic/instance-identity/pkcs7"
 	EC2_METADATA_REQUEST_TIMEOUT                  = time.Duration(1 * time.Second)
+)
+
+const (
+	metadataRetries    = 3
+	metadataRetryDelay = 2 * time.Second
 )
 
 type RoleCredentials struct {
@@ -124,11 +132,22 @@ func (c *ec2MetadataClientImpl) ResourceServiceUrl(path string) string {
 func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 	endpoint := c.ResourceServiceUrl(path)
 
-	resp, err := c.client.Get(endpoint)
+	var err error
+	var resp *http.Response
+	for i := 0; i < metadataRetries; i++ {
+		resp, err = c.client.Get(endpoint)
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+		}
+		if err == nil && resp.StatusCode == 200 {
+			break
+		}
+		seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v, %v", resp.StatusCode, err)
+		ttime.Sleep(metadataRetryDelay)
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
 	return ioutil.ReadAll(resp.Body)
 }
