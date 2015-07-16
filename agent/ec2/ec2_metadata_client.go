@@ -144,6 +144,9 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 		if err == nil && resp.StatusCode == 200 {
 			return nil
 		}
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
 		if err == nil {
 			seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
 			return fmt.Errorf("Error contacting EC2 Metadata service; non-200 response: %v", resp.StatusCode)
