@@ -72,16 +72,18 @@ type ec2MetadataClientImpl struct {
 	client HttpClient
 }
 
-func NewEC2MetadataClient() EC2MetadataClient {
-	var lowTimeoutDial http.RoundTripper = &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: EC2_METADATA_REQUEST_TIMEOUT,
-		}).Dial,
+func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
+	if httpClient == nil {
+		var lowTimeoutDial http.RoundTripper = &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout: EC2_METADATA_REQUEST_TIMEOUT,
+			}).Dial,
+		}
+
+		httpClient = &http.Client{Transport: lowTimeoutDial}
 	}
 
-	httpClient := http.Client{Transport: lowTimeoutDial}
-
-	return &ec2MetadataClientImpl{client: &httpClient}
+	return &ec2MetadataClientImpl{client: httpClient}
 }
 
 func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
@@ -142,7 +144,7 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 		if err == nil && resp.StatusCode == 200 {
 			break
 		}
-		seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v, %v", resp.StatusCode, err)
+		seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
 		ttime.Sleep(metadataRetryDelay)
 	}
 	if err != nil {
@@ -153,7 +155,7 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 }
 
 // DefaultClient is the client used for package level methods.
-var DefaultClient = NewEC2MetadataClient()
+var DefaultClient = NewEC2MetadataClient(nil)
 
 // ReadResource reads a given path from the EC2 metadata service using the
 // default client

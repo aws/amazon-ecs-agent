@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ec2
+package ec2_test
 
 import (
 	"bytes"
@@ -21,10 +21,15 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/golang/mock/gomock"
 )
 
-func MakeTestRoleCredentials() RoleCredentials {
-	return RoleCredentials{
+func makeTestRoleCredentials() ec2.RoleCredentials {
+	return ec2.RoleCredentials{
 		Code:            "Success",
 		LastUpdated:     time.Now(),
 		Type:            "AWS-HMAC",
@@ -40,10 +45,8 @@ func ignoreError(v interface{}, _ error) interface{} {
 }
 
 const (
-	TEST_ROLE_NAME = "test-role"
+	testRoleName = "test-role"
 )
-
-var test_client = ec2MetadataClientImpl{client: testHttpClient{}}
 
 var testInstanceIdentityDoc = `{
   "privateIp" : "172.1.1.1",
@@ -62,46 +65,100 @@ var testInstanceIdentityDoc = `{
   "architecture" : "x86_64"
 }`
 
-var test_response = map[string]string{
-	test_client.ResourceServiceUrl(SECURITY_CREDENTIALS_RESOURCE):                  TEST_ROLE_NAME,
-	test_client.ResourceServiceUrl(SECURITY_CREDENTIALS_RESOURCE + TEST_ROLE_NAME): string(ignoreError(json.Marshal(MakeTestRoleCredentials())).([]byte)),
-	test_client.ResourceServiceUrl(INSTANCE_IDENTITY_DOCUMENT_RESOURCE):            testInstanceIdentityDoc,
+func testSuccessResponse(s string) (*http.Response, error) {
+	return &http.Response{
+		Status:     "200 OK",
+		StatusCode: 200,
+		Proto:      "HTTP/1.0",
+		Body:       ioutil.NopCloser(bytes.NewReader([]byte(s))),
+	}, nil
 }
 
-type testHttpClient struct{}
-
-// Get is a mock of the http.Client.Get that reads its responses from the map
-// above and defaults to erroring.
-func (c testHttpClient) Get(url string) (*http.Response, error) {
-	resp, ok := test_response[url]
-	if ok {
-		return &http.Response{
-			Status:     "200 OK",
-			StatusCode: 200,
-			Proto:      "HTTP/1.0",
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(resp))),
-		}, nil
-	}
-	return nil, errors.New("404")
+func testErrorResponse() (*http.Response, error) {
+	return &http.Response{
+		Status:     "500 Broken",
+		StatusCode: 500,
+		Proto:      "HTTP/1.0",
+	}, nil
 }
 
 func TestDefaultCredentials(t *testing.T) {
-	credentials, err := test_client.DefaultCredentials()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.SECURITY_CREDENTIALS_RESOURCE).Return(testSuccessResponse(testRoleName))
+	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.SECURITY_CREDENTIALS_RESOURCE + testRoleName).Return(testSuccessResponse(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte))))
+
+	credentials, err := testClient.DefaultCredentials()
 	if err != nil {
 		t.Fail()
 	}
-	testCredentials := MakeTestRoleCredentials()
+	testCredentials := makeTestRoleCredentials()
 	if credentials.AccessKeyId != testCredentials.AccessKeyId {
 		t.Fail()
 	}
 }
 
 func TestGetInstanceIdentityDoc(t *testing.T) {
-	doc, err := test_client.InstanceIdentityDocument()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testSuccessResponse(testInstanceIdentityDoc))
+
+	doc, err := testClient.InstanceIdentityDocument()
 	if err != nil {
 		t.Fatal("Expected to be able to get doc")
 	}
 	if doc.Region != "us-east-1" {
 		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
+	}
+}
+
+func TestRetriesOnError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+	testTime := ttime.NewTestTime()
+	testTime.LudicrousSpeed(true)
+	ttime.SetTime(testTime)
+
+	gomock.InOrder(
+		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")),
+		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testErrorResponse()),
+		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testSuccessResponse(testInstanceIdentityDoc)),
+	)
+
+	doc, err := testClient.InstanceIdentityDocument()
+	if err != nil {
+		t.Fatal("Expected to be able to get doc")
+	}
+	if doc.Region != "us-east-1" {
+		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
+	}
+}
+
+func TestErrorPropogatesUp(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+	testTime := ttime.NewTestTime()
+	testTime.LudicrousSpeed(true)
+	ttime.SetTime(testTime)
+
+	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")).AnyTimes()
+
+	_, err := testClient.InstanceIdentityDocument()
+	if err == nil {
+		t.Fatal("Expected error to result")
 	}
 }
