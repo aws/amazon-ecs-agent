@@ -16,13 +16,14 @@ package ec2
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
 
@@ -36,8 +37,10 @@ const (
 )
 
 const (
-	metadataRetries    = 3
-	metadataRetryDelay = 2 * time.Second
+	metadataRetries            = 5
+	metadataRetryMaxDelay      = 2 * time.Second
+	metadataRetryStartDelay    = 250 * time.Millisecond
+	metadataRetryDelayMultiple = 2
 )
 
 type RoleCredentials struct {
@@ -136,16 +139,21 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 
 	var err error
 	var resp *http.Response
-	for i := 0; i < metadataRetries; i++ {
+	utils.RetryNWithBackoff(utils.NewSimpleBackoff(metadataRetryStartDelay, metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2), metadataRetries, func() error {
 		resp, err = c.client.Get(endpoint)
-		if resp != nil && resp.Body != nil {
-			defer resp.Body.Close()
-		}
 		if err == nil && resp.StatusCode == 200 {
-			break
+			return nil
 		}
-		seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
-		ttime.Sleep(metadataRetryDelay)
+		if err == nil {
+			seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
+			return fmt.Errorf("Error contacting EC2 Metadata service; non-200 response: %v", resp.StatusCode)
+		} else {
+			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
+			return err
+		}
+	})
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
 	}
 	if err != nil {
 		return nil, err
