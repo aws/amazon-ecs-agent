@@ -242,7 +242,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			t.Error("Could not find resource \"PORTS_UDP\"")
 		}
 		if *resource.Type != "STRINGSET" {
-			t.Errorf("Wrong type for resource \"PORTS_UDP\".  Expected \"STRINGSET\" but was \"%s\"", resource.Type)
+			t.Errorf("Wrong type for resource \"PORTS_UDP\".  Expected \"STRINGSET\" but was \"%s\"", *resource.Type)
 		}
 
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)

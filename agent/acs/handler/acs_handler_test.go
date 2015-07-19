@@ -91,7 +91,15 @@ func TestHandlerReconnects(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		handler.StartSession(ctx, handler.StartSessionArguments{
+			ContainerInstanceArn: "myArn",
+			CredentialProvider:   credentials.AnonymousCredentials,
+			Config:               &config.Config{Cluster: "someCluster"},
+			TaskEngine:           taskEngine,
+			ECSClient:            ecsclient,
+			StateManager:         statemanager,
+			AcceptInvalidCert:    true,
+		})
 		// This should never return
 		ended <- true
 	}()
@@ -142,7 +150,15 @@ func TestHeartbeatOnlyWhenIdle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		handler.StartSession(ctx, handler.StartSessionArguments{
+			ContainerInstanceArn: "myArn",
+			CredentialProvider:   credentials.AnonymousCredentials,
+			Config:               &config.Config{Cluster: "someCluster"},
+			TaskEngine:           taskEngine,
+			ECSClient:            ecsclient,
+			StateManager:         statemanager,
+			AcceptInvalidCert:    true,
+		})
 		ended <- true
 	}()
 

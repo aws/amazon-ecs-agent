@@ -50,7 +50,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		meta := engine.DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{status, meta}
+		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -95,7 +95,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
-	eventStream <- engine.DockerContainerChangeEvent{api.ContainerStopped, engine.DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+	eventStream <- engine.DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: engine.DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -147,7 +147,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		meta := engine.DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{status, meta}
+		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -230,7 +230,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		meta := engine.DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{status, meta}
+		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)

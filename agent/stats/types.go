@@ -31,7 +31,7 @@ type UsageStats struct {
 	CPUUsagePerc      float32   `json:"cpuUsagePerc"`
 	MemoryUsageInMegs uint32    `json:"memoryUsageInMegs"`
 	Timestamp         time.Time `json:"timestamp"`
-	cpuUsage          uint64    `json:"-"`
+	cpuUsage          uint64
 }
 
 // ContainerMetadata contains meta-data information for a container.

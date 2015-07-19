@@ -27,7 +27,7 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 	}{
 		{
 			map[docker.Port][]docker.PortBinding{
-				"53/udp": []docker.PortBinding{docker.PortBinding{"1.2.3.4", "55"}},
+				"53/udp": []docker.PortBinding{docker.PortBinding{HostIP: "1.2.3.4", HostPort: "55"}},
 			},
 			[]PortBinding{
 				PortBinding{
@@ -41,8 +41,8 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 		{
 			map[docker.Port][]docker.PortBinding{
 				"80/tcp": []docker.PortBinding{
-					docker.PortBinding{"2.3.4.5", "8080"},
-					docker.PortBinding{"5.6.7.8", "80"},
+					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
+					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			[]PortBinding{
@@ -81,8 +81,8 @@ func TestPortBindingErrors(t *testing.T) {
 		{
 			map[docker.Port][]docker.PortBinding{
 				"woof/tcp": []docker.PortBinding{
-					docker.PortBinding{"2.3.4.5", "8080"},
-					docker.PortBinding{"5.6.7.8", "80"},
+					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
+					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			UnparseablePortErrorName,
@@ -90,8 +90,8 @@ func TestPortBindingErrors(t *testing.T) {
 		{
 			map[docker.Port][]docker.PortBinding{
 				"80/tcp": []docker.PortBinding{
-					docker.PortBinding{"2.3.4.5", "8080"},
-					docker.PortBinding{"5.6.7.8", "bark"},
+					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
+					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "bark"},
 				},
 			},
 			UnparseablePortErrorName,
@@ -99,8 +99,8 @@ func TestPortBindingErrors(t *testing.T) {
 		{
 			map[docker.Port][]docker.PortBinding{
 				"80/bark": []docker.PortBinding{
-					docker.PortBinding{"2.3.4.5", "8080"},
-					docker.PortBinding{"5.6.7.8", "80"},
+					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
+					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			UnrecognizedTransportProtocolErrorName,

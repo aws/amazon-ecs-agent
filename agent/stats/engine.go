@@ -235,7 +235,11 @@ func (engine *DockerStatsEngine) handleDockerEvents() {
 		select {
 		case <-engine.ctx.Done():
 			return
-		case event := <-engine.events:
+		case event, ok := <-engine.events:
+			if !ok {
+				log.Crit("Docker event stream closed unexpectedly")
+				return
+			}
 			log.Debug("Handling an event: ", "container", event.DockerId, "status", event.Status.String())
 			switch event.Status {
 			case api.ContainerRunning:
@@ -247,7 +251,6 @@ func (engine *DockerStatsEngine) handleDockerEvents() {
 			}
 		}
 	}
-	log.Crit("Docker event stream closed unexpectedly")
 }
 
 // addContainer adds a container to the map of containers being watched.
