@@ -206,7 +206,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		dockerMem = DOCKER_MINIMUM_MEMORY
 	}
 
-	entryPoint := []string{}
+	var entryPoint []string
 	if container.EntryPoint != nil {
 		entryPoint = *container.EntryPoint
 	}
