@@ -579,14 +579,24 @@ func TestLinking(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
-	if err != nil {
-		t.Error("Error dialing simple container" + err.Error())
-	}
-
-	response, err := ioutil.ReadAll(conn)
-	if err != nil {
-		t.Error(err)
+	var response []byte
+	for i := 0; i < 10; i++ {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
+		if err != nil {
+			t.Log("Error dialing simple container" + err.Error())
+		}
+		response, err = ioutil.ReadAll(conn)
+		if err != nil {
+			t.Error("Error reading response", err)
+		}
+		if len(response) > 0 {
+			break
+		}
+		// Retry for a non-blank response. The container in docker 1.7+ sometimes
+		// isn't up quickly enough and we get a blank response. It's still unclear
+		// to me if this is a docker bug or netkitten bug
+		t.Log("Retrying getting response from container; got nothing")
+		time.Sleep(100 * time.Millisecond)
 	}
 	if string(response) != "hello linker" {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")
