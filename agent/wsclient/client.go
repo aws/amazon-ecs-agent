@@ -150,6 +150,7 @@ func (cs *ClientServerImpl) Connect() error {
 		defer httpResponse.Body.Close()
 	}
 	if err != nil {
+		defer wsConn.Close()
 		var resp []byte
 		if httpResponse != nil {
 			var readErr error

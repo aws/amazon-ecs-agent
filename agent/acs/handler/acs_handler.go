@@ -311,14 +311,14 @@ func clearStrChannel(c <-chan string) {
 	}
 }
 
-func ackMessageId(cs wsclient.ClientServer, cluster, containerInstanceArn, mid string) {
+func ackMessageId(cs wsclient.ClientServer, cluster, containerInstanceArn, messageID string) {
 	err := cs.MakeRequest(&ecsacs.AckRequest{
 		Cluster:           &cluster,
 		ContainerInstance: &containerInstanceArn,
-		MessageId:         &mid,
+		MessageId:         &messageID,
 	})
 	if err != nil {
-		log.Warn("Error 'ack'ing request", "MessageID", mid)
+		log.Warn("Error 'ack'ing request", "MessageID", messageID)
 	}
 }
 
