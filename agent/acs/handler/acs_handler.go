@@ -79,6 +79,9 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 	ecsclient := args.ECSClient
 	cfg := args.Config
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
+
+	payloadBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
+
 	for {
 		acsError := func() error {
 			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(args.ContainerInstanceArn)
@@ -103,7 +106,7 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 			defer timer.Stop()
 			// Any message from the server resets the disconnect timeout
 			client.SetAnyRequestHandler(anyMessageHandler(timer))
-			client.AddRequestHandler(payloadMessageHandler(client, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine, args.ECSClient, args.StateManager))
+			client.AddRequestHandler(payloadMessageHandler(payloadBuffer))
 			// Ignore heartbeat messages; anyMessageHandler gets 'em
 			client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
@@ -127,11 +130,15 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 				serveErr <- client.Serve()
 			}()
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case err := <-serveErr:
-				return err
+			for {
+				select {
+				case payload := <-payloadBuffer:
+					handlePayloadMessage(client, cfg.Cluster, args.ContainerInstanceArn, payload, args.TaskEngine, ecsclient, args.StateManager)
+				case <-ctx.Done():
+					return ctx.Err()
+				case err := <-serveErr:
+					return err
+				}
 			}
 		}()
 
@@ -163,20 +170,15 @@ func anyMessageHandler(timer ttime.Timer) func(interface{}) {
 // takes given payloads, converts them into the internal representation of
 // tasks, and passes them on to the task engine. If there is an issue handling a
 // task, it is moved to stopped. If a task is handled, state is saved.
-func payloadMessageHandler(cs wsclient.ClientServer, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, client api.ECSClient, stateManager statemanager.Saver) func(payload *ecsacs.PayloadMessage) {
-	messageBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
-	go func() {
-		for message := range messageBuffer {
-			handlePayloadMessage(cs, cluster, containerInstanceArn, message, taskEngine, client, stateManager)
-		}
-	}()
-
+func payloadMessageHandler(messageBuffer chan<- *ecsacs.PayloadMessage) func(payload *ecsacs.PayloadMessage) {
 	return func(payload *ecsacs.PayloadMessage) {
 		messageBuffer <- payload
 	}
 }
 
 // handlePayloadMessage attempts to add each task to the taskengine and, if it can, acks the request.
+// Note that this function is called synchronously from a single goroutine.
+// This is to allow ordering of requests with regards to sequencenumber.
 func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	if payload.MessageId == nil {
 		log.Crit("Recieved a payload with no message id", "payload", payload)
@@ -191,14 +193,17 @@ func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceAr
 		return
 	}
 	if allTasksHandled {
-		err = cs.MakeRequest(&ecsacs.AckRequest{
-			Cluster:           &cluster,
-			ContainerInstance: &containerInstanceArn,
-			MessageId:         payload.MessageId,
-		})
-		if err != nil {
-			log.Warn("Error 'ack'ing request", "MessageID", *payload.MessageId)
-		}
+		go func() {
+			// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
+			err := cs.MakeRequest(&ecsacs.AckRequest{
+				Cluster:           &cluster,
+				ContainerInstance: &containerInstanceArn,
+				MessageId:         payload.MessageId,
+			})
+			if err != nil {
+				log.Warn("Error 'ack'ing request", "MessageID", *payload.MessageId)
+			}
+		}()
 		// Record the sequence number as well
 		if payload.SeqNum != nil {
 			SequenceNumber.Set(*payload.SeqNum)
