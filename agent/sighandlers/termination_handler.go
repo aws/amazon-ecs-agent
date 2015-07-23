@@ -11,9 +11,11 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// sighandlers handle signals and behave appropriately. Currently, the only
-// supported signal is SIGTERM which causes state to be flushed to disk before
-// exiting.
+// sighandlers handle signals and behave appropriately.
+// SIGTERM:
+//   Flush state to disk and exit
+// SIGUSR1:
+//   Print a dump of goroutines to the logger and DON'T exit
 package sighandlers
 
 import (

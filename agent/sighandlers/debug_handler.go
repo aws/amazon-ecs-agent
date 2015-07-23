@@ -11,9 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// sighandlers handle signals and behave appropriately. Currently, the only
-// supported signal is SIGTERM which causes state to be flushed to disk before
-// exiting.
 package sighandlers
 
 import (
