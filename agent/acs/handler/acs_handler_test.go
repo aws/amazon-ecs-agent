@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"runtime"
+	"runtime/pprof"
 	"testing"
 	"time"
 
@@ -69,10 +72,18 @@ func TestHandlerReconnects(t *testing.T) {
 	statemanager := statemanager.NewNoopStateManager()
 
 	closeWS := make(chan bool)
-	server, serverIn, _, _, err := startMockAcsServer(t, closeWS)
+	server, serverIn, requests, errs, err := startMockAcsServer(t, closeWS)
 	if err != nil {
 		t.Fatal(err)
 	}
+	go func() {
+		for {
+			select {
+			case <-requests:
+			case <-errs:
+			}
+		}
+	}()
 
 	ecsclient.EXPECT().DiscoverPollEndpoint("myArn").Return(server.URL, nil).Times(10)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
@@ -113,10 +124,13 @@ func TestHeartbeatOnlyWhenIdle(t *testing.T) {
 
 	closeWS := make(chan bool)
 	server, serverIn, requestsChan, errChan, err := startMockAcsServer(t, closeWS)
-	defer server.Close()
 	defer close(serverIn)
 
-	go func() { <-requestsChan }()
+	go func() {
+		for {
+			<-requestsChan
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,15 +163,17 @@ func TestHeartbeatOnlyWhenIdle(t *testing.T) {
 		t.Fatal("Error should not have been returned from server", err)
 	default:
 	}
+	go server.Close()
 	cancel()
 	<-ended
 }
 
 func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
-	serverChan := make(chan string)
-	requestsChan := make(chan string)
-	errChan := make(chan error)
+	serverChan := make(chan string, 1)
+	requestsChan := make(chan string, 1)
+	errChan := make(chan error, 1)
 
+	serverRestart := make(chan bool, 1)
 	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
@@ -165,6 +181,7 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 			<-closeWS
 			ws.WriteMessage(websocket.CloseMessage, nil)
 			ws.Close()
+			serverRestart <- true
 			errChan <- io.EOF
 		}()
 		if err != nil {
@@ -178,14 +195,85 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 				requestsChan <- string(msg)
 			}
 		}()
-		for str := range serverChan {
-			err := ws.WriteMessage(websocket.TextMessage, []byte(str))
-			if err != nil {
-				errChan <- err
+		for {
+			select {
+			case str := <-serverChan:
+				err := ws.WriteMessage(websocket.TextMessage, []byte(str))
+				if err != nil {
+					errChan <- err
+				}
+			case <-serverRestart:
+				// Quit listening to serverChan if we've been closed
+				return
 			}
 		}
 	})
 
 	server := httptest.NewTLSServer(handler)
 	return server, serverChan, requestsChan, errChan, nil
+}
+
+func TestHandlerDoesntLeakGouroutines(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	ecsclient := mock_api.NewMockECSClient(ctrl)
+	statemanager := statemanager.NewNoopStateManager()
+	testTime := ttime.NewTestTime()
+	ttime.SetTime(testTime)
+
+	closeWS := make(chan bool)
+	server, serverIn, requests, errs, err := startMockAcsServer(t, closeWS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			select {
+			case <-requests:
+			case <-errs:
+			}
+		}
+	}()
+
+	timesConnected := 0
+	ecsclient.EXPECT().DiscoverPollEndpoint("myArn").Return(server.URL, nil).AnyTimes().Do(func(_ interface{}) {
+		timesConnected++
+	})
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+	taskEngine.EXPECT().AddTask(gomock.Any()).AnyTimes()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ended := make(chan bool, 1)
+	go func() {
+		handler.StartSession(ctx, handler.StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsclient, statemanager, true})
+		ended <- true
+	}()
+	// Warm it up
+	serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true}}`
+	serverIn <- samplePayloadMessage
+
+	beforeGoroutines := runtime.NumGoroutine()
+	for i := 0; i < 100; i++ {
+		serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true}}`
+		serverIn <- samplePayloadMessage
+		closeWS <- true
+	}
+
+	cancel()
+	testTime.Cancel()
+	<-ended
+
+	afterGoroutines := runtime.NumGoroutine()
+
+	t.Logf("Gorutines after 1 and after 100 acs messages: %v and %v", beforeGoroutines, afterGoroutines)
+
+	if timesConnected < 50 {
+		t.Fatal("Expected times connected to be a large number, was ", timesConnected)
+	}
+	if afterGoroutines > beforeGoroutines+5 {
+		t.Error("Goroutine leak, oh no!")
+		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	}
+
 }

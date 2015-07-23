@@ -3,6 +3,8 @@ package ttime
 import (
 	"sync"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 // TestTime implements a time that is able to be moved forward easily
@@ -15,19 +17,31 @@ type TestTime struct {
 
 	// Whenever we warp around or toggle LudicrousSpeed, broadcast to any waiting sleeps so they can recalculate remaining time
 	timeChange *sync.Cond
+
+	ctx    context.Context
+	cancel func()
 }
 
 // NewTestTime returns a default TestTime. It will not be LudicrousSpeed and
 // will behave like a normal time
 func NewTestTime() *TestTime {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &TestTime{
 		timeChange: sync.NewCond(&sync.Mutex{}),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 }
 
 // Warp moves the mock time forwards by the given duration.
 func (t *TestTime) Warp(d time.Duration) {
 	t.warped += d
+	t.timeChange.Broadcast()
+}
+
+// Cancel cancels all pending sleeps
+func (t *TestTime) Cancel() {
+	t.cancel()
 	t.timeChange.Broadcast()
 }
 
@@ -123,16 +137,32 @@ func (t *TestTime) Sleep(d time.Duration) {
 	// Calculate the 'real' end time so previously applied Warps work as
 	// expected. Add in the 'slept' time to ensure sleeps accumulate time
 	endTime := time.Now().Add(t.slept).Add(d)
+	timer := time.NewTimer(endTime.Sub(t.Now()))
+	done := make(chan bool, 1)
 	for remainingTime := endTime.Sub(t.Now()); remainingTime > 0; remainingTime = endTime.Sub(t.Now()) {
+		select {
+		case <-t.ctx.Done():
+			return
+		default:
+		}
 		if t.IsLudicrousSpeed {
 			t.Warp(remainingTime)
 			break
 		}
+		timer.Reset(remainingTime)
 		go func(remaining time.Duration) {
-			time.Sleep(remainingTime)
-			t.timeChange.Broadcast()
+			select {
+			case <-timer.C:
+				t.timeChange.Broadcast()
+			case <-done:
+				return
+			case <-t.ctx.Done():
+				return
+			}
 		}(remainingTime)
 
 		t.timeChange.Wait()
 	}
+	timer.Stop()
+	done <- true
 }
