@@ -81,6 +81,19 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 
 	payloadBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
+	ackBuffer := make(chan string, payloadMessageBufferSize)
+
+	go func() {
+		// Handle any payloads async. For correctness, they must be handled in order, hence the buffered channel which is added to synchronously.
+		for {
+			select {
+			case payload := <-payloadBuffer:
+				handlePayloadMessage(ackBuffer, cfg.Cluster, args.ContainerInstanceArn, payload, args.TaskEngine, ecsclient, args.StateManager)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	for {
 		acsError := func() error {
@@ -93,8 +106,12 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 
 			url := AcsWsUrl(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
 
+			clearStrChannel(ackBuffer)
 			client := acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
 			defer client.Close()
+			// Clear the ackbuffer whenever we get a new client because acks of
+			// messageids don't have any value across sessions
+			defer clearStrChannel(ackBuffer)
 
 			timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 				log.Warn("ACS Connection hasn't had any activity for too long; closing connection")
@@ -132,8 +149,8 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 
 			for {
 				select {
-				case payload := <-payloadBuffer:
-					handlePayloadMessage(client, cfg.Cluster, args.ContainerInstanceArn, payload, args.TaskEngine, ecsclient, args.StateManager)
+				case mid := <-ackBuffer:
+					ackMessageId(client, cfg.Cluster, args.ContainerInstanceArn, mid)
 				case <-ctx.Done():
 					return ctx.Err()
 				case err := <-serveErr:
@@ -177,14 +194,12 @@ func payloadMessageHandler(messageBuffer chan<- *ecsacs.PayloadMessage) func(pay
 }
 
 // handlePayloadMessage attempts to add each task to the taskengine and, if it can, acks the request.
-// Note that this function is called synchronously from a single goroutine.
-// This is to allow ordering of requests with regards to sequencenumber.
-func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
+func handlePayloadMessage(responseChan chan<- string, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	if payload.MessageId == nil {
 		log.Crit("Recieved a payload with no message id", "payload", payload)
 		return
 	}
-	allTasksHandled := addPayloadTasks(cs, client, cluster, containerInstanceArn, payload, taskEngine)
+	allTasksHandled := addPayloadTasks(client, cluster, containerInstanceArn, payload, taskEngine)
 	// save the state of tasks we know about after passing them to the task engine
 	err := saver.Save()
 	if err != nil {
@@ -195,14 +210,7 @@ func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceAr
 	if allTasksHandled {
 		go func() {
 			// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
-			err := cs.MakeRequest(&ecsacs.AckRequest{
-				Cluster:           &cluster,
-				ContainerInstance: &containerInstanceArn,
-				MessageId:         payload.MessageId,
-			})
-			if err != nil {
-				log.Warn("Error 'ack'ing request", "MessageID", *payload.MessageId)
-			}
+			responseChan <- *payload.MessageId
 		}()
 		// Record the sequence number as well
 		if payload.SeqNum != nil {
@@ -214,7 +222,7 @@ func handlePayloadMessage(cs wsclient.ClientServer, cluster, containerInstanceAr
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine
-func addPayloadTasks(cs wsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
+func addPayloadTasks(client api.ECSClient, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
 	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
 	allTasksOk := true
 
@@ -227,7 +235,7 @@ func addPayloadTasks(cs wsclient.ClientServer, client api.ECSClient, cluster, co
 		}
 		apiTask, err := api.TaskFromACS(task, payload)
 		if err != nil {
-			handleUnrecognizedTask(cs, client, cluster, containerInstanceArn, task, err, payload)
+			handleUnrecognizedTask(client, cluster, containerInstanceArn, task, err, payload)
 			allTasksOk = false
 			continue
 		}
@@ -279,7 +287,7 @@ func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
 
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
 // a suitable reason to the backend
-func handleUnrecognizedTask(cs wsclient.ClientServer, client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
+func handleUnrecognizedTask(client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
 	if task.Arn == nil {
 		log.Crit("Recieved task with no arn", "task", task, "messageId", *payload.MessageId)
 		return
@@ -291,6 +299,27 @@ func handleUnrecognizedTask(cs wsclient.ClientServer, client api.ECSClient, clus
 		Status:  api.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
 	}, client)
+}
+
+func clearStrChannel(c <-chan string) {
+	for {
+		select {
+		case <-c:
+		default:
+			return
+		}
+	}
+}
+
+func ackMessageId(cs wsclient.ClientServer, cluster, containerInstanceArn, mid string) {
+	err := cs.MakeRequest(&ecsacs.AckRequest{
+		Cluster:           &cluster,
+		ContainerInstance: &containerInstanceArn,
+		MessageId:         &mid,
+	})
+	if err != nil {
+		log.Warn("Error 'ack'ing request", "MessageID", mid)
+	}
 }
 
 // AcsWsUrl returns the websocket url for ACS given the endpoint.
