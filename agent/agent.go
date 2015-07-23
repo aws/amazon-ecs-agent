@@ -73,6 +73,7 @@ func _main() int {
 		return exitcodes.ExitSuccess
 	}
 
+	sighandlers.StartDebugHandler()
 	ctx := context.Background()
 
 	if err != nil {
