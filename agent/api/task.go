@@ -211,6 +211,18 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		entryPoint = *container.EntryPoint
 	}
 
+	labels := map[string]string{
+		"com.amazonaws.ecs.task-arn":                task.Arn,
+		"com.amazonaws.ecs.container-name":          container.Name,
+		"com.amazonaws.ecs.task-definition-family":  task.Family,
+		"com.amazonaws.ecs.task-definition-version": task.Version,
+	}
+	for k, v := range container.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+
 	config := &docker.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
@@ -220,12 +232,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Env:          dockerEnv,
 		Memory:       dockerMem,
 		CPUShares:    task.dockerCpuShares(container.Cpu),
-		Labels: map[string]string{
-			"com.amazonaws.ecs.task-arn":                task.Arn,
-			"com.amazonaws.ecs.container-name":          container.Name,
-			"com.amazonaws.ecs.task-definition-family":  task.Family,
-			"com.amazonaws.ecs.task-definition-version": task.Version,
-		},
+		Labels:       labels,
 	}
 	return config, nil
 }

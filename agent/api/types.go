@@ -200,6 +200,7 @@ type Container struct {
 	EntryPoint  *[]string
 	Environment map[string]string  `json:"environment"`
 	Overrides   ContainerOverrides `json:"overrides"`
+	Labels      map[string]string  `json:"labels"`
 
 	DesiredStatus ContainerStatus `json:"desiredStatus"`
 	KnownStatus   ContainerStatus
