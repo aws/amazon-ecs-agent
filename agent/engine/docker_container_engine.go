@@ -120,6 +120,11 @@ func NewDockerGoClient() (*DockerGoClient, error) {
 func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
 	timeout := ttime.After(pullImageTimeout)
 
+	// Workaround for devicemapper bug. See:
+	// https://github.com/docker/docker/issues/9718
+	pullLock.Lock()
+	defer pullLock.Unlock()
+
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.pullImage(image) }()
 	select {
@@ -145,10 +150,6 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	}
 
 	authConfig := dockerauth.GetAuthconfig(image)
-	// Workaround for devicemapper bug. See:
-	// https://github.com/docker/docker/issues/9718
-	pullLock.Lock()
-	defer pullLock.Unlock()
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()

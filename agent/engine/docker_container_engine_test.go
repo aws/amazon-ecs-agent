@@ -15,6 +15,7 @@ package engine
 
 import (
 	"errors"
+	"io"
 	"reflect"
 	"strconv"
 	"sync"
@@ -54,7 +55,7 @@ func (matcher *pullImageOptsMatcher) Matches(x interface{}) bool {
 	return matcher.image == x.(docker.PullImageOptions).Repository
 }
 
-func TestPullImageTimeout(t *testing.T) {
+func TestPullImageOutputTimeout(t *testing.T) {
 	mockDocker, client, testTime, done := dockerclientSetup(t)
 	defer done()
 
@@ -73,6 +74,39 @@ func TestPullImageTimeout(t *testing.T) {
 	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
+
+	// cleanup
+	wait.Done()
+}
+
+func TestPullImageGlobalTimeout(t *testing.T) {
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
+		opts, ok := x.(docker.PullImageOptions)
+		if !ok {
+			t.Error("Cannot cast argument to PullImageOptions")
+		}
+		io.WriteString(opts.OutputStream, "string\n")
+		testTime.Warp(3 * time.Hour)
+		wait.Wait()
+		// Don't return, verify timeout happens
+	})
+
+	metadata := client.PullImage("image")
+	if metadata.Error == nil {
+		t.Error("Expected error for pull timeout")
+	}
+	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+		t.Error("Wrong error type")
+	}
+
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image2:latest"}, gomock.Any())
+	_ = client.PullImage("image2")
+
 	// cleanup
 	wait.Done()
 }
