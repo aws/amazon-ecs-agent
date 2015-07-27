@@ -202,6 +202,13 @@ func TestDockerConfigLabels(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name: "c1",
+				Labels: map[string]string{
+					"com.company.environment": "production",
+
+					// these labels are set explicitly by the agent
+					// and a task definition's labels will not be permitted to overwrite them
+					"com.amazonaws.ecs.task-arn": "thisshouldntbeallowedtobeset",
+				},
 			},
 		},
 	}
@@ -216,6 +223,7 @@ func TestDockerConfigLabels(t *testing.T) {
 		"com.amazonaws.ecs.container-name":          "c1",
 		"com.amazonaws.ecs.task-definition-family":  "myFamily",
 		"com.amazonaws.ecs.task-definition-version": "1",
+		"com.company.environment":                   "production",
 	}
 	if !reflect.DeepEqual(config.Labels, expected) {
 		t.Fatal("Expected default ecs labels to be set, was: ", config.Labels)
