@@ -90,6 +90,24 @@ func validateIdleContainerMetrics(engine *DockerStatsEngine) error {
 	if err != nil {
 		return err
 	}
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		return err
+	}
+	if !*metadata.Idle {
+		return fmt.Errorf("Expected idle metadata to be true")
+	}
+	if !*metadata.Fin {
+		return fmt.Errorf("Fin not set to true when idle")
+	}
+	if len(taskMetrics) != 0 {
+		return fmt.Errorf("Expected empty task metrics, got a list of length: %d", len(taskMetrics))
+	}
+
+	return nil
+}
+
+func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
 	if metadata == nil {
 		return fmt.Errorf("Metadata is nil")
 	}
@@ -99,11 +117,8 @@ func validateIdleContainerMetrics(engine *DockerStatsEngine) error {
 	if *metadata.ContainerInstance != defaultContainerInstance {
 		return fmt.Errorf("Expected container instance in metadata to be %s, got %s", defaultContainerInstance, *metadata.ContainerInstance)
 	}
-	if !*metadata.Idle {
-		return fmt.Errorf("Expected idle metadata to be true")
-	}
-	if len(taskMetrics) != 0 {
-		return fmt.Errorf("Expected empty task metrics, got a list of length: %d", len(taskMetrics))
+	if len(*metadata.MessageId) == 0 {
+		return fmt.Errorf("Empty MessageId")
 	}
 
 	return nil
@@ -132,7 +147,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
-	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 
 	engine.addContainer("c1")
 	engine.addContainer("c1")
@@ -178,16 +194,10 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Error gettting instance metrics: ", err)
 	}
 
-	if metadata == nil {
-		t.Fatal("Metadata is nil")
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		t.Error("Error validating metadata: ", err)
 	}
-	if *metadata.Cluster != defaultCluster {
-		t.Error("Expected cluster in metadata to be: ", defaultCluster, " got: ", *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		t.Error("Expected container instance in metadata to be: ", defaultContainerInstance, " got: ", *metadata.ContainerInstance)
-	}
-
 	if len(taskMetrics) != 1 {
 		t.Error("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
 	}
@@ -256,7 +266,8 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 
 	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = resolver
-	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 	engine.addContainer("c1")
 	containerStats := []*ContainerStats{
 		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
@@ -282,11 +293,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	if *taskMetrics[0].TaskArn != "t1" {
 		t.Error("Incorrect task arn. Expected: t1, got: ", *taskMetrics[0].TaskArn)
 	}
-	if *metadata.Cluster != defaultCluster {
-		t.Errorf("Cluster Arn not set in metadata. Expected: %s, got: %s", defaultCluster, *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		t.Errorf("Container Instance Arn not set in metadata. Expected: %s, got: %s", defaultContainerInstance, *metadata.ContainerInstance)
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		t.Error("Error validating metadata: ", err)
 	}
 
 	engine.removeContainer("c1")
@@ -299,7 +308,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 	statsEngine := NewDockerStatsEngine(&cfg)
 	taskEngine := &MockTaskEngine{}
-	err := statsEngine.MustInit(taskEngine, nil)
+	err := statsEngine.MustInit(taskEngine, "", "")
 	if err == nil {
 		t.Error("Expected error in engine initialization, got nil")
 	}
@@ -308,9 +317,9 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 func TestStatsEngineUninitialized(t *testing.T) {
 	engine := NewDockerStatsEngine(&cfg)
 	engine.resolver = &DockerContainerMetadataResolver{}
-	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 	engine.addContainer("c1")
-	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatal("Error validating metadata: ", err)

@@ -142,6 +142,10 @@
 			"Rev": "87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9"
 		},
 		{
+			"ImportPath": "github.com/pborman/uuid",
+			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
+		},
+		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
 		},

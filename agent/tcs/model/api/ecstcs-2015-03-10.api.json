@@ -124,7 +124,9 @@
       "members":{
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
-        "idle":{"shape":"Boolean"}
+        "messageId":{"shape":"String"},
+        "idle":{"shape":"Boolean"},
+        "fin":{"shape":"Boolean"}
       }
     },
     "PublishMetricsRequest":{

@@ -20,6 +20,7 @@ AWS SDK for Go, Copyright 2014-2015 Stripe, Inc. and Amazon.com, Inc. or its aff
 glog, Copyright 2013-2014 Google Inc.
 kubernetes, Copyright 2014-2015 Google Inc.
 libcontainer, Copyright 2014 Docker, Inc.
+uuid, Copyright (c) 2009,2014 Google Inc.
 
 each of which are licensed under the Apache License, Version 2.0 (the
 "License"); you may not use this file except in compliance with the
@@ -151,6 +152,7 @@ Golang net, Copyright (c) 2009 The Go Authors
 Gorilla Context, Copyright (c) 2012 Rodrigo Moraes
 Gorilla Mux, Copyright (c) 2012 Rodrigo Moraes
 seelog, Copyright (c) 2012, Cloud Instruments Co., Ltd.
+uuid, Copyright (c) 2009,2014 Google Inc.
 
 each of which are licensed under the following terms and conditions:
 

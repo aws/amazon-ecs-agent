@@ -105,7 +105,7 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
-	t.Skip("Skipping integ test in short mode")
+	t.Skip("Skipping integ test as this is really a functional test")
 	engine := NewDockerStatsEngine(&cfg)
 	err := engine.initDockerClient()
 	if err != nil {
@@ -130,7 +130,8 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	time.Sleep(checkPointSleep)
 
 	engine.resolver = resolver
-	engine.metricsMetadata = newMetricsMetadata(&defaultCluster, &defaultContainerInstance)
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 
 	err = client.StartContainer(container.ID, nil)
 	if err != nil {
@@ -152,15 +153,9 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	if err != nil {
 		t.Error("Error gettting instance metrics: ", err)
 	}
-
-	if metadata == nil {
-		t.Fatal("Metadata is nil")
-	}
-	if *metadata.Cluster != defaultCluster {
-		t.Error("Expected cluster in metadata to be: ", defaultCluster, " got: ", *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		t.Error("Expected container instance in metadata to be: ", defaultContainerInstance, " got: ", *metadata.ContainerInstance)
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		t.Error("Error validating metadata: ", err)
 	}
 
 	if len(taskMetrics) != 1 {
@@ -196,7 +191,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 func TestStatsEngineWithNewContainers(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
-	t.Skip("Skipping integ test in short mode")
+	t.Skip("Skipping integ test as this is really a functional test")
 	engine := NewDockerStatsEngine(&cfg)
 	err := engine.initDockerClient()
 	if err != nil {
@@ -239,14 +234,9 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 		t.Error("Error gettting instance metrics: ", err)
 	}
 
-	if metadata == nil {
-		t.Fatal("Metadata is nil")
-	}
-	if *metadata.Cluster != defaultCluster {
-		t.Error("Expected cluster in metadata to be: ", defaultCluster, " got: ", *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		t.Error("Expected container instance in metadata to be: ", defaultContainerInstance, " got: ", *metadata.ContainerInstance)
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		t.Error("Error validating metadata: ", err)
 	}
 
 	if len(taskMetrics) != 1 {
@@ -282,7 +272,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
-	t.Skip("Skipping integ test in short mode")
+	t.Skip("Skipping integ test as this is really a functional test")
 	taskEngine := engine.NewTaskEngine(&config.Config{})
 	container, err := createGremlin(client)
 	if err != nil {
@@ -328,7 +318,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error initializing docker client: ", err)
 	}
-	err = statsEngine.MustInit(taskEngine, newMetricsMetadata(&defaultCluster, &defaultContainerInstance))
+	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
 	}
@@ -356,14 +346,9 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	if len(taskMetrics) != 1 {
 		t.Error("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
 	}
-	if metadata == nil {
-		t.Fatal("Metadata is nil")
-	}
-	if *metadata.Cluster != defaultCluster {
-		t.Error("Expected cluster in metadata to be: ", defaultCluster, " got: ", *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		t.Error("Expected container instance in metadata to be: ", defaultContainerInstance, " got: ", *metadata.ContainerInstance)
+	err = validateMetricsMetadata(metadata)
+	if err != nil {
+		t.Error("Error validating metadata: ", err)
 	}
 
 	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 1)

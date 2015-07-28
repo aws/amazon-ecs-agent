@@ -33,6 +33,9 @@ import (
 
 const (
 	testPublishMetricsInterval = 1 * time.Second
+	testMessageId              = "testMessageId"
+	testCluster                = "default"
+	testContainerInstance      = "containerInstance"
 )
 
 type messageLogger struct {
@@ -72,6 +75,48 @@ func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
+type idleStatsEngine struct{}
+
+func (engine *idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	idle := true
+	messageId := testMessageId
+	cluster := testCluster
+	containerInstance := testContainerInstance
+	metadata := &ecstcs.MetricsMetadata{
+		Cluster:           &cluster,
+		ContainerInstance: &containerInstance,
+		Idle:              &idle,
+		MessageId:         &messageId,
+	}
+	return metadata, []*ecstcs.TaskMetric{}, nil
+}
+
+type nonIdleStatsEngine struct {
+	numTasks int
+}
+
+func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	idle := false
+	messageId := testMessageId
+	cluster := testCluster
+	containerInstance := testContainerInstance
+	metadata := &ecstcs.MetricsMetadata{
+		Cluster:           &cluster,
+		ContainerInstance: &containerInstance,
+		Idle:              &idle,
+		MessageId:         &messageId,
+	}
+	var taskMetrics []*ecstcs.TaskMetric
+	for i := 0; i < engine.numTasks; i++ {
+		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{})
+	}
+	return metadata, taskMetrics, nil
+}
+
+func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
+	return &nonIdleStatsEngine{numTasks: numTasks}
+}
+
 func TestPayloadHandlerCalled(t *testing.T) {
 	cs, ml := testCS()
 
@@ -108,6 +153,50 @@ func TestPublishMetricsRequest(t *testing.T) {
 	}
 
 	cs.Close()
+}
+
+func TestPublishOnceIdleStatsEngine(t *testing.T) {
+	cs := clientServer{
+		statsEngine: &idleStatsEngine{},
+	}
+	requests, err := cs.metricsToPublishMetricRequests()
+	if err != nil {
+		t.Fatal("Error creating publishmetricrequests: ", err)
+	}
+	if len(requests) != 1 {
+		t.Errorf("Expected %d requests, got %d", 1, len(requests))
+	}
+	lastRequest := requests[0]
+	if !*lastRequest.Metadata.Fin {
+		t.Error("Fin not set to true in Last request")
+	}
+}
+
+func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
+	expectedRequests := 3
+	// Cretes 21 task metrics, which translate to 3 batches,
+	// {[Task1, Task2, ...Task10], [Task11, Task12, ...Task20], [Task21]}
+	numTasks := (tasksInMessage * (expectedRequests - 1)) + 1
+	cs := clientServer{
+		statsEngine: newNonIdleStatsEngine(numTasks),
+	}
+	requests, err := cs.metricsToPublishMetricRequests()
+	if err != nil {
+		t.Fatal("Error creating publishmetricrequests: ", err)
+	}
+	if len(requests) != expectedRequests {
+		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))
+	}
+	lastRequest := requests[expectedRequests-1]
+	if !*lastRequest.Metadata.Fin {
+		t.Error("Fin not set to true in last request")
+	}
+	requests = requests[:(expectedRequests - 1)]
+	for i, request := range requests {
+		if *request.Metadata.Fin {
+			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
+		}
+	}
 }
 
 func testCS() (wsclient.ClientServer, *messageLogger) {

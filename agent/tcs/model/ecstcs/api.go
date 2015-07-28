@@ -170,9 +170,13 @@ type MetricsMetadata struct {
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
+	Fin *bool `locationName:"fin" type:"boolean"`
+
 	Idle *bool `locationName:"idle" type:"boolean"`
 
-	metadataMetricsMetadata `json:"-" xml:"-"`
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	metadataMetricsMetadata `json:"-", xml:"-"`
 }
 
 type metadataMetricsMetadata struct {
