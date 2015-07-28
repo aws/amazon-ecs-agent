@@ -94,7 +94,6 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 
 	log.Debug("sending payload", "payload", string(payload))
 	data := cs.signRequest(payload)
-	log.Debug("sending payload", "payload", string(payload), "data", string(data))
 
 	// Over the wire we send something like
 	// {"type":"AckRequest","message":{"messageId":"xyz"}}
