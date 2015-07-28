@@ -78,7 +78,7 @@ func (state *DockerTaskEngineState) TaskById(cid string) (*api.Task, bool) {
 	if !found {
 		return nil, false
 	}
-	return state.TaskByArn(arn)
+	return state.taskByArn(arn)
 }
 
 // AddTask adds a new task to the state
@@ -150,6 +150,10 @@ func (state *DockerTaskEngineState) TaskByArn(arn string) (*api.Task, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
+	return state.taskByArn(arn)
+}
+
+func (state *DockerTaskEngineState) taskByArn(arn string) (*api.Task, bool) {
 	t, ok := state.tasks[arn]
 	return t, ok
 }
