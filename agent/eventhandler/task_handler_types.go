@@ -37,6 +37,14 @@ type sendableEvent struct {
 	taskChange api.TaskStateChange
 }
 
+func (event sendableEvent) String() string {
+	if event.isContainerEvent {
+		return "ContainerChange: " + event.containerChange.String()
+	} else {
+		return "TaskChange: " + event.taskChange.String()
+	}
+}
+
 func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
 	return &sendableEvent{
 		isContainerEvent: true,

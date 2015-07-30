@@ -161,6 +161,23 @@ type ContainerStateChange struct {
 	SentStatus *ContainerStatus
 }
 
+func (c *ContainerStateChange) String() string {
+	res := fmt.Sprintf("%s %s -> %s", c.TaskArn, c.ContainerName, c.Status.String())
+	if c.ExitCode != nil {
+		res += ", Exit " + strconv.Itoa(*c.ExitCode) + ", "
+	}
+	if c.Reason != "" {
+		res += ", Reason " + c.Reason
+	}
+	if len(c.PortBindings) != 0 {
+		res += fmt.Sprintf(", Ports %v", c.PortBindings)
+	}
+	if c.SentStatus != nil {
+		res += ", Known Sent: " + c.SentStatus.String()
+	}
+	return res
+}
+
 type TaskStateChange struct {
 	TaskArn string
 	Status  TaskStatus
@@ -171,6 +188,14 @@ type TaskStateChange struct {
 	// hook into storing metadata about the task on the task such that it follows
 	// the lifecycle of the task and so on.
 	SentStatus *TaskStatus
+}
+
+func (t *TaskStateChange) String() string {
+	res := fmt.Sprintf("%s -> %s", t.TaskArn, t.Status.String())
+	if t.SentStatus != nil {
+		res += ", Known Sent: " + t.SentStatus.String()
+	}
+	return res
 }
 
 func (t *Task) String() string {

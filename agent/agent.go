@@ -20,8 +20,6 @@ import (
 	"runtime"
 	"time"
 
-	"golang.org/x/net/context"
-
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -40,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	log "github.com/cihub/seelog"
+	"golang.org/x/net/context"
 )
 
 func init() {

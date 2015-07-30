@@ -60,7 +60,7 @@ func mockClient(task taskChangeFn, cont containerChangeFn) api.ECSClient {
 }
 
 func contEvent(arn string) api.ContainerStateChange {
-	return api.ContainerStateChange{TaskArn: arn, Status: api.ContainerRunning}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning}
 }
 func taskEvent(arn string) api.TaskStateChange {
 	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning}
