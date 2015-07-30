@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.1
+* Feature - Add debug handler for SIGUSR1.
+* Enhancement - Trim untrusted cert from CA bundle.
+* Enhancement - Add retries to EC2 Metadata fetches.
+* Enhancement - Logging improvements.
+* Bug - Resolved an issue with ACS heartbeats.
+* Bug - Fixed memory leak in ACS payload handler.
+* Bug - Fixed multiple deadlocks.
+
 ## 1.3.0
 
 * Feature - Add support for re-registering a container instance.
