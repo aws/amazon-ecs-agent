@@ -22,6 +22,7 @@ package tcsclient
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -107,8 +108,10 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata,
 		MessageId:         &messageId,
 	}
 	var taskMetrics []*ecstcs.TaskMetric
-	for i := 0; i < engine.numTasks; i++ {
-		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{})
+	var i int64
+	for i = 0; int(i) < engine.numTasks; i++ {
+		taskArn := "task/" + strconv.FormatInt(i, 10)
+		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
 	}
 	return metadata, taskMetrics, nil
 }
@@ -183,6 +186,16 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	requests, err := cs.metricsToPublishMetricRequests()
 	if err != nil {
 		t.Fatal("Error creating publishmetricrequests: ", err)
+	}
+	taskArns := make(map[string]bool)
+	for _, request := range requests {
+		for _, taskMetric := range request.TaskMetrics {
+			_, exists := taskArns[*taskMetric.TaskArn]
+			if exists {
+				t.Fatal("Duplicate task arn in requests: ", *taskMetric.TaskArn)
+			}
+			taskArns[*taskMetric.TaskArn] = true
+		}
 	}
 	if len(requests) != expectedRequests {
 		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))

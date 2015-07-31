@@ -190,7 +190,7 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		requestMetadata := fromMetricsMetadata(metadata, fin)
 		if (i+1)%tasksInMessage == 0 {
 			// Construct payload with tasksInMessage number of task metrics and send to backend.
-			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
 	}
@@ -220,4 +220,12 @@ func fromMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.Met
 		MessageId:         &messageId,
 		Fin:               &fin,
 	}
+}
+
+// copyTaskMetrics copies a slice of TaskMetric objects to another slice. This is needed as we
+// reset the source slice after creating a new PublishMetricsRequest object.
+func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
+	to := make([]*ecstcs.TaskMetric, len(from))
+	copy(to, from)
+	return to
 }
