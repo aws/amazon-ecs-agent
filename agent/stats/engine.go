@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/aws-sdk-go/aws"
 	"golang.org/x/net/context"
 )
 
@@ -159,14 +160,11 @@ func (engine *DockerStatsEngine) addExistingContainers() error {
 func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	var taskMetrics []*ecstcs.TaskMetric
 	idle := engine.isIdle()
-	cluster := engine.cluster
-	containerInstance := engine.containerInstanceArn
-	messageId := uuid.NewRandom().String()
 	metricsMetadata := &ecstcs.MetricsMetadata{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstance,
-		Idle:              &idle,
-		MessageId:         &messageId,
+		Cluster:           aws.String(engine.cluster),
+		ContainerInstance: aws.String(engine.containerInstanceArn),
+		Idle:              aws.Boolean(idle),
+		MessageId:         aws.String(uuid.NewRandom().String()),
 	}
 
 	if idle {

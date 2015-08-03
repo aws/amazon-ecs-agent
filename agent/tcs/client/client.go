@@ -169,8 +169,7 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 
 	var requests []*ecstcs.PublishMetricsRequest
 	if *metadata.Idle {
-		fin := true
-		metadata.Fin = &fin
+		metadata.Fin = aws.Boolean(true)
 		// Idle instance, we have only one request to send to backend.
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
 		return requests, nil
@@ -180,14 +179,13 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 
 	for i, taskMetric := range taskMetrics {
 		messageTaskMetrics = append(messageTaskMetrics, taskMetric)
-		var fin bool
+		var requestMetadata *ecstcs.MetricsMetadata
 		if (i + 1) == numTasks {
 			// If this is the last task to send, set fin to true
-			fin = true
+			requestMetadata = copyMetricsMetadata(metadata, true)
 		} else {
-			fin = false
+			requestMetadata = copyMetricsMetadata(metadata, false)
 		}
-		requestMetadata := fromMetricsMetadata(metadata, fin)
 		if (i+1)%tasksInMessage == 0 {
 			// Construct payload with tasksInMessage number of task metrics and send to backend.
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
@@ -196,29 +194,24 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 	}
 
 	if len(messageTaskMetrics) > 0 {
-		fin := true
-		requestMetadata := fromMetricsMetadata(metadata, fin)
+		// Create the new metadata object and set fin to true as this is the last message in the payload.
+		requestMetadata := copyMetricsMetadata(metadata, true)
 		// Create a request with remaining task metrics.
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
 	}
 	return requests, nil
 }
 
-// fromMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata objecy.
+// copyMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata object.
 // It copies all the fields from the source object to the new object and sets the 'Fin' field
 // as specified by the argument.
-func fromMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.MetricsMetadata {
-	idle := *metadata.Idle
-	cluster := *metadata.Cluster
-	containerInstance := *metadata.ContainerInstance
-	messageId := *metadata.MessageId
-
+func copyMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.MetricsMetadata {
 	return &ecstcs.MetricsMetadata{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstance,
-		Idle:              &idle,
-		MessageId:         &messageId,
-		Fin:               &fin,
+		Cluster:           aws.String(*metadata.Cluster),
+		ContainerInstance: aws.String(*metadata.ContainerInstance),
+		Idle:              aws.Boolean(*metadata.Idle),
+		MessageId:         aws.String(*metadata.MessageId),
+		Fin:               aws.Boolean(fin),
 	}
 }
 

@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
@@ -79,15 +80,11 @@ func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []
 type idleStatsEngine struct{}
 
 func (engine *idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	idle := true
-	messageId := testMessageId
-	cluster := testCluster
-	containerInstance := testContainerInstance
 	metadata := &ecstcs.MetricsMetadata{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstance,
-		Idle:              &idle,
-		MessageId:         &messageId,
+		Cluster:           aws.String(testCluster),
+		ContainerInstance: aws.String(testContainerInstance),
+		Idle:              aws.Boolean(true),
+		MessageId:         aws.String(testMessageId),
 	}
 	return metadata, []*ecstcs.TaskMetric{}, nil
 }
@@ -97,15 +94,11 @@ type nonIdleStatsEngine struct {
 }
 
 func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	idle := false
-	messageId := testMessageId
-	cluster := testCluster
-	containerInstance := testContainerInstance
 	metadata := &ecstcs.MetricsMetadata{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstance,
-		Idle:              &idle,
-		MessageId:         &messageId,
+		Cluster:           aws.String(testCluster),
+		ContainerInstance: aws.String(testContainerInstance),
+		Idle:              aws.Boolean(false),
+		MessageId:         aws.String(testMessageId),
 	}
 	var taskMetrics []*ecstcs.TaskMetric
 	var i int64
