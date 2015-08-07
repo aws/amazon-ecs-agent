@@ -15,6 +15,7 @@ package api
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"strconv"
 	"testing"
@@ -137,6 +138,36 @@ func TestSubmitRetriesStopOnSuccess(t *testing.T) {
 	)
 
 	err := client.SubmitContainerStateChange(ContainerStateChange{ContainerName: "foo", TaskArn: "bar", Status: ContainerRunning})
+	if err != nil {
+		t.Fatal("Expected it to succeed after retrying")
+	}
+}
+
+func TestSubmitHandlesNilHttpResponse(t *testing.T) {
+	ctrl, client, mockRoundTripper := setup(t)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("SubmitContainerStateChange"))).Return(nil, errors.New("Something went terribly wrong in net/http")),
+		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("SubmitContainerStateChange"))).Return(mock_http.SuccessResponse("{}"), nil),
+	)
+
+	err := client.SubmitContainerStateChange(ContainerStateChange{ContainerName: "foo", TaskArn: "bar", Status: ContainerRunning})
+	if err != nil {
+		t.Fatal("Expected it to succeed after retrying")
+	}
+}
+
+func TestOtherHandlesNilHttpResponse(t *testing.T) {
+	ctrl, client, mockRoundTripper := setup(t)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("DiscoverPollEndpoint"))).Return(nil, errors.New("Something went terribly wrong in net/http")),
+		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("DiscoverPollEndpoint"))).Return(mock_http.SuccessResponse(`{"endpoint":"foobar"}`), nil),
+	)
+
+	_, err := client.DiscoverPollEndpoint("foo")
 	if err != nil {
 		t.Fatal("Expected it to succeed after retrying")
 	}
