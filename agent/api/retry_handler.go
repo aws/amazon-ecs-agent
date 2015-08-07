@@ -60,7 +60,10 @@ func ECSRetryHandler(r *aws.Request) {
 		r.RetryCount = 0
 	}
 
-	r.Retryable.Set(r.Service.ShouldRetry(r))
+	if !r.Retryable.IsSet() {
+		r.Retryable.Set(r.Service.ShouldRetry(r))
+	}
+
 	if r.WillRetry() {
 		r.RetryCount = realRetryCount
 		if r.RetryCount > 20 {
