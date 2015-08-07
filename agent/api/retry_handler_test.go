@@ -14,130 +14,55 @@
 package api
 
 import (
-	"bytes"
-	"net/http"
-	"strconv"
+	"errors"
 	"testing"
-	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/golang/mock/gomock"
 )
 
-func versionedOperation(op string) string {
-	return "AmazonEC2ContainerServiceV20141113." + op
-}
-
-func operationErrorResp(status int, body string) *http.Response {
-	return &http.Response{
-		Status:     strconv.Itoa(status) + " foobar",
-		StatusCode: status,
-		Proto:      "HTTP/1.1",
-		ProtoMinor: 1,
-		ProtoMajor: 1,
-		Body:       aws.ReadSeekCloser(bytes.NewReader([]byte(body))),
+func TestExtendedRetryMaxDelayHandler(t *testing.T) {
+	maxDelayRetries := uint(2)
+	maxExtraRetries := uint(10)
+	retryCounts := []uint{}
+	// inject fake awsAfterRetryHandler to just collect retry counts
+	awsAfterRetryHandler = func(r *aws.Request) {
+		retryCounts = append(retryCounts, r.RetryCount)
+		r.Error = nil
 	}
-}
 
-func setup(t *testing.T) (*gomock.Controller, ECSClient, *mock_http.MockRoundTripper) {
-	ctrl := gomock.NewController(t)
-	mockRoundTripper := mock_http.NewMockRoundTripper(ctrl)
-	mockHttpClient := httpclient.New(1*time.Second, true)
-	mockHttpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockRoundTripper)
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{AWSRegion: "us-east-1"}, mockHttpClient)
-	testTime := ttime.NewTestTime()
-	testTime.LudicrousSpeed(true)
-	ttime.SetTime(testTime)
+	extendedRetryMaxDelayHandler := extendedRetryMaxDelayHandlerFactory(maxExtraRetries)
 
-	return ctrl, client, mockRoundTripper
-}
-
-func TestNoClientExceptionRetries(t *testing.T) {
-	ctrl, client, mockRoundTripper := setup(t)
-	defer ctrl.Finish()
-
-	mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("DiscoverPollEndpoint"))).Return(operationErrorResp(400, `{"__type":"ClientException","message":"something went wrong"}`), nil)
-
-	_, err := client.DiscoverPollEndpoint("foo")
-	if err == nil {
-		t.Fatal("Expected an error to have been propogated up")
+	request := &aws.Request{
+		Service: &aws.Service{
+			DefaultMaxRetries: maxDelayRetries,
+			Config: &aws.Config{
+				MaxRetries: -1,
+			},
+		},
 	}
-}
-
-func TestServerExceptionRetries(t *testing.T) {
-	ctrl, client, mockRoundTripper := setup(t)
-	defer ctrl.Finish()
-
-	timesCalled := 0
-	// This resp.Body song and dance is because it *must* be reset between
-	// retries for the sdk to behave sanely; it rewinds request bodies, not
-	// response bodies. The actual server would, indeed put a new body each time
-	// so this is not a bad thing to do
-	resp := operationErrorResp(500, `{"__type":"BadStuffHappenedException","message":"something went wrong"}`)
-	mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("DiscoverPollEndpoint"))).AnyTimes().Do(func(_ interface{}) {
-		timesCalled++
-		resp.Body = operationErrorResp(500, `{"__type":"BadStuffHappenedException","message":"something went wrong"}`).Body
-	}).Return(resp, nil).AnyTimes()
-
-	start := ttime.Now()
-	_, err := client.DiscoverPollEndpoint("foo")
-	if err == nil {
-		t.Error("Expected it to error after retrying")
+	var count uint
+	for count = 0; request.Error == nil; count++ {
+		request.Error = errors.New("")
+		extendedRetryMaxDelayHandler(request)
 	}
-	duration := ttime.Since(start)
-	if duration < 100*time.Millisecond {
-		t.Error("Retries should have taken some time; took " + duration.String())
+
+	if count != (maxDelayRetries + maxExtraRetries + 1) {
+		t.Errorf("Should have been called %d times but was %d", maxDelayRetries+maxExtraRetries+1, count)
 	}
-	if timesCalled < 2 || timesCalled > 10 {
-		// Actaully 4 at the time of writing, but a reasonable range is fine
-		t.Error("Retries should happen a reasonable number of times")
+
+	for i := uint(0); i < maxDelayRetries; i++ {
+		if retryCounts[i] != i {
+			t.Errorf("Expected retry count for attempt %d to be %d, but was %d", i, i, retryCounts[i])
+		}
 	}
-}
 
-func TestSubmitRetries(t *testing.T) {
-	ctrl, client, mockRoundTripper := setup(t)
-	defer ctrl.Finish()
-
-	timesCalled := 0
-	resp := operationErrorResp(500, `{"__type":"SubmitContainerStateChangeException","message":"something broke horribly"}`)
-	mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("SubmitContainerStateChange"))).AnyTimes().Do(func(_ interface{}) {
-		timesCalled++
-		resp.Body = operationErrorResp(500, `{"__type":"SubmitContainerStateChangeException","message":"something broke horribly"}`).Body
-	}).Return(resp, nil)
-
-	start := ttime.Now()
-	err := client.SubmitContainerStateChange(ContainerStateChange{ContainerName: "foo", TaskArn: "bar", Status: ContainerRunning})
-	if err == nil {
-		t.Fatal("Expected it to error after retrying")
+	for i := maxDelayRetries; i < count-1; i++ {
+		if retryCounts[i] != maxDelayRetries-1 {
+			t.Errorf("Expected retry count for attempt %d to be %d, but was %d", i, maxDelayRetries-1, retryCounts[i])
+		}
 	}
-	duration := ttime.Since(start)
-	if duration < 23*time.Hour || duration > 25*time.Hour {
-		t.Fatal("Retries should have taken roughly 24 hours; took " + duration.String())
-	}
-	if timesCalled < 10 {
-		t.Fatal("Expected to be called many times")
-	}
-}
 
-func TestSubmitRetriesStopOnSuccess(t *testing.T) {
-	ctrl, client, mockRoundTripper := setup(t)
-	defer ctrl.Finish()
-
-	resp := operationErrorResp(500, `{"__type":"SubmitContainerStateChangeException","message":"something broke horribly"}`)
-	gomock.InOrder(
-		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("SubmitContainerStateChange"))).Times(20).Do(func(_ interface{}) {
-			resp.Body = operationErrorResp(500, `{"__type":"SubmitContainerStateChangeException","message":"something broke horribly"}`).Body
-		}).Return(resp, nil),
-		mockRoundTripper.EXPECT().RoundTrip(mock_http.NewHTTPOperationMatcher(versionedOperation("SubmitContainerStateChange"))).Return(mock_http.SuccessResponse("{}"), nil),
-	)
-
-	err := client.SubmitContainerStateChange(ContainerStateChange{ContainerName: "foo", TaskArn: "bar", Status: ContainerRunning})
-	if err != nil {
-		t.Fatal("Expected it to succeed after retrying")
+	if request.RetryCount != maxDelayRetries+maxExtraRetries {
+		t.Errorf("Expected retry count for attempt %d to be %d, but was %d", count-1, maxDelayRetries+maxExtraRetries, request.RetryCount)
 	}
 }

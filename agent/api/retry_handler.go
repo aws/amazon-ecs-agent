@@ -14,95 +14,62 @@
 package api
 
 import (
-	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
-const maxSubmitRetryDelay = 5 * time.Minute
-const submitRetryDelayJitter = 3 * time.Minute
+const (
+	// submitStateChangeMaxDelayRetries is the initial set of retries where delay
+	// between retries grows exponentially at 2^n * 30ms.  This should be roughly
+	// 5 minutes of delay at the last growing retry.
+	// 5 min = 2^n * 30 ms
+	// 300000 ms = 2^n * 30 ms
+	// 10000 ms = 2^n
+	// n ~= 13.3
+	submitStateChangeMaxDelayRetries = 14
 
-// maxSubmitRetryCount is how many times it will try to send the
-// Submit*StateChange results on retriable errors before giving up forever.
-// The below number was arrived at by estimating the number for retrying for 24 hours.
-// The base retry handler does 2*n * 50 milliseconds of sleep.
-// First we figure out how many retries it needs to reach 5 minutes:
-// 5 min = \sum_{i=0}^n{2^i * 50 ms}
-// 300000 ms = \sum_{i=0}^n{2^i} * 50ms
-// 6000 = 2^{n+1} - 1
-// n ~= 11.5
-// So the first 12 tries will take just over 5 minutes, meaning that to get 24 hours we have:
-// 24 hours ~= 12 baseTries * 5min / 12 baseTries + n extraTries * 5min/extraTry
-// extraTries = 288
-// retries = 12 + 288
-const maxSubmitRetryCount = 12 + 288
+	// submitStateChangeExtraRetries is the set of retries (at the max delay per
+	// retry of roughly 5 minutes) which should reach roughly 24 hours of elapsed
+	// time.
+	// delay = 2^(14) * 30ms = 491520 ms ~= 8 minutes
+	// baseTryTime = \sum_{i=0}^14{2^i * 30 ms} ~= 16 minutes
+	// 24 hours ~= 16 minutes + (n * 8 minutes)
+	// n ~= 178
+	submitStateChangeExtraRetries = 178
+)
 
-const opSubmitContainerStateChange = "SubmitContainerStateChange"
-const opSubmitTaskStateChange = "SubmitTaskStateChange"
+// newSubmitStateChangeClient returns a client intended to be used for
+// Submit*StateChange APIs which has the behavior of retrying the call on
+// retriable errors for an extended period of time (roughly 24 hours).
+func newSubmitStateChangeClient(awsConfig *aws.Config) *ecs.ECS {
+	sscConfig := awsConfig.Copy()
+	sscConfig.MaxRetries = submitStateChangeMaxDelayRetries
+	client := ecs.New(&sscConfig)
+	client.Handlers.AfterRetry.Clear()
+	client.Handlers.AfterRetry.PushBack(
+		extendedRetryMaxDelayHandlerFactory(submitStateChangeExtraRetries))
+	client.DefaultMaxRetries = submitStateChangeMaxDelayRetries
+	return client
+}
 
-// ECSRetryHandler defines how to retry ECS service calls. It behaves like the default retry handler, except for the SubmitStateChange operations where it has a massive upper limit on retry counts
-func ECSRetryHandler(r *aws.Request) {
-	if r.Operation == nil || (r.Operation.Name != opSubmitContainerStateChange && r.Operation.Name != opSubmitTaskStateChange) {
-		aws.AfterRetryHandler(r)
-		return
-	}
-	// else this is a Submit*StateChange operation
-	// For these operations, fake the retry count for the sake of the WillRetry check.
-	// Do this by temporarily setting it to 0 before calling that check.
-	// We still keep the value around for sleep calculations
-	// See https://github.com/aws/aws-sdk-go/blob/b2d953f489cf94029392157225e893d7b69cd447/aws/handler_functions.go#L107
-	// for this code's inspiration
-	realRetryCount := r.RetryCount
-	if r.RetryCount < maxSubmitRetryCount {
-		r.RetryCount = 0
-	}
+var awsAfterRetryHandler = func(r *aws.Request) {
+	aws.AfterRetryHandler(r)
+}
 
-	r.Retryable.Set(r.Service.ShouldRetry(r))
-	if r.WillRetry() {
-		r.RetryCount = realRetryCount
-		if r.RetryCount > 20 {
-			// Hardcoded max for calling RetryRules here because it *will* overflow if you let it and result in sleeping negative time
-			r.RetryDelay = maxSubmitRetryDelay
-		} else {
-			r.RetryDelay = durationMin(maxSubmitRetryDelay, r.Service.RetryRules(r))
+// ExtendedRetryMaxDelayHandlerFactory returns a function which can be used as an AfterRetryHandler
+// in the AWS Go SDK.  This AfterRetryHandler can be used to have a large number of retries where
+// the initial delay between backoff grows exponentially (2^n * 30ms; defined in service.retryRules)
+// and extra retries are performed at the maximum delay of the initial exponential growth.
+func extendedRetryMaxDelayHandlerFactory(maxExtendedRetries uint) func(r *aws.Request) {
+	return func(r *aws.Request) {
+		realRetryCount := r.RetryCount
+		maxDelayRetries := r.MaxRetries()
+		if r.RetryCount >= (maxDelayRetries + maxExtendedRetries) {
+			return
+		} else if r.RetryCount >= maxDelayRetries {
+			r.RetryCount = maxDelayRetries - 1
 		}
-		// AddJitter is purely additive, so subtracting half the amount of jitter
-		// makes it average out to RetryDelay
-		ttime.Sleep(utils.AddJitter(r.RetryDelay-submitRetryDelayJitter/2, submitRetryDelayJitter))
-
-		if r.Error != nil {
-			if err, ok := r.Error.(awserr.Error); ok {
-				if isCodeExpiredCreds(err.Code()) {
-					r.Config.Credentials.Expire()
-				}
-			}
-		}
-
-		r.RetryCount++
-		r.Error = nil
+		awsAfterRetryHandler(r)
+		r.RetryCount = (realRetryCount + 1)
 	}
-}
-
-func durationMin(d1 time.Duration, d2 time.Duration) time.Duration {
-	if d1 < d2 {
-		return d1
-	}
-	return d2
-}
-
-// credsExpiredCodes is a collection of error codes which signify the credentials
-// need to be refreshed. Expired tokens require refreshing of credentials, and
-// resigning before the request can be retried.
-var credsExpiredCodes = map[string]struct{}{
-	"ExpiredToken":          {},
-	"ExpiredTokenException": {},
-	"RequestExpired":        {}, // EC2 Only
-}
-
-func isCodeExpiredCreds(code string) bool {
-	_, ok := credsExpiredCodes[code]
-	return ok
 }

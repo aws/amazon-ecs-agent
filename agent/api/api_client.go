@@ -64,23 +64,33 @@ type ECSClient interface {
 type ECSSDK interface {
 	CreateCluster(*ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error)
 	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
+	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
+}
+
+type ECSSubmitStateSDK interface {
 	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
-	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
 }
 
 // ApiECSClient implements ECSClient
 type ApiECSClient struct {
-	credentialProvider *credentials.Credentials
-	config             *config.Config
-	c                  ECSSDK
-	ec2metadata        ec2.EC2MetadataClient
+	credentialProvider      *credentials.Credentials
+	config                  *config.Config
+	standardClient          ECSSDK
+	submitStateChangeClient ECSSubmitStateSDK
+	ec2metadata             ec2.EC2MetadataClient
 }
 
 // SetSDK overrides the SDK to the given one. This is useful for injecting a
 // test implementation
 func (client *ApiECSClient) SetSDK(sdk ECSSDK) {
-	client.c = sdk
+	client.standardClient = sdk
+}
+
+// SetSubmitStateChangeSDK overrides the SDK to the given one. This is useful
+// for injecting a test implementation
+func (client *ApiECSClient) SetSubmitStateChangeSDK(sdk ECSSubmitStateSDK) {
+	client.submitStateChangeClient = sdk
 }
 
 // SetEC2MetadataClient overrides the EC2 Metadata Client to the given one.
@@ -105,15 +115,15 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = config.APIEndpoint
 	}
-	client := ecs.New(&ecsConfig)
-	client.Handlers.AfterRetry.Clear()
-	client.Handlers.AfterRetry.PushBack(ECSRetryHandler)
+	standardClient := ecs.New(&ecsConfig)
+	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
 	ec2metadataclient := ec2.DefaultClient
 	return &ApiECSClient{
-		credentialProvider: credentialProvider,
-		config:             config,
-		c:                  client,
-		ec2metadata:        ec2metadataclient,
+		credentialProvider:      credentialProvider,
+		config:                  config,
+		standardClient:          standardClient,
+		submitStateChangeClient: submitStateChangeClient,
+		ec2metadata:             ec2metadataclient,
 	}
 }
 
@@ -131,7 +141,7 @@ func getCpuAndMemory() (int64, int64) {
 
 // CreateCluster creates a cluster from a given name and returns its arn
 func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
-	resp, err := client.c.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
+	resp, err := client.standardClient.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
 		log.Crit("Could not register", "err", err)
 		return "", err
@@ -222,7 +232,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string, contain
 	resources := []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}
 	registerRequest.TotalResources = resources
 
-	resp, err := client.c.RegisterContainerInstance(&registerRequest)
+	resp, err := client.standardClient.RegisterContainerInstance(&registerRequest)
 	if err != nil {
 		log.Error("Could not register", "err", err)
 		return "", err
@@ -244,7 +254,7 @@ func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) error 
 	}
 
 	status := change.Status.String()
-	_, err := client.c.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
+	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
 		Cluster: &client.config.Cluster,
 		Task:    &change.TaskArn,
 		Status:  &status,
@@ -299,7 +309,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 	}
 	req.NetworkBindings = networkBindings
 
-	_, err := client.c.SubmitContainerStateChange(&req)
+	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&req)
 	if err != nil {
 		log.Warn("Could not submit a container state change", "change", change, "err", err)
 		return err
@@ -308,7 +318,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 }
 
 func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.c.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
+	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           &client.config.Cluster,
 	})
@@ -320,7 +330,7 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 }
 
 func (client *ApiECSClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.c.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
+	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           &client.config.Cluster,
 	})

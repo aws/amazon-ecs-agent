@@ -13,4 +13,4 @@
 
 package api
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSClient mocks/api_mocks.go
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSSubmitStateSDK,ECSClient mocks/api_mocks.go
