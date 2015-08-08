@@ -24,4 +24,4 @@ Before running these tests, you should build the ECS Agent and tag its image as
 These tests should be run on an EC2 instance able to correctly run the ECS
 agent and access the ECS APIs.
 
-They may be run with `go test -v ./...`
+They may be run with `go test -tags functional -v ./...`

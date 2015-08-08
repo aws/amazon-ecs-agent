@@ -1,3 +1,4 @@
+// +build functional
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -17,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/aws/amazon-ecs-agent/test/util"
-	"github.com/awslabs/aws-sdk-go/service/ecs"
+	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	"github.com/aws/aws-sdk-go/service/ecs"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to

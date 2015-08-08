@@ -11,7 +11,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry gremlin gogenerate
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin gogenerate
 
 all: docker
 
@@ -81,6 +81,9 @@ test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
+
+run-functional-tests:
+	cd agent/functional_tests && GOPATH=$(shell pwd)/agent/Godeps/_workspace:${GOPATH} go test -tags functional -timeout=20m -v ./...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)

@@ -1,3 +1,4 @@
+// +build functional
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -22,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/aws/amazon-ecs-agent/test/util"
+	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 )
 
 // TestDataVolume Check that basic data volumes work
