@@ -19,12 +19,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pborman/uuid"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/aws-sdk-go/aws"
 	"golang.org/x/net/context"
 )
 
@@ -45,13 +48,14 @@ type Engine interface {
 // DockerStatsEngine is used to monitor docker container events and to report
 // utlization metrics of the same.
 type DockerStatsEngine struct {
-	client          ecsengine.DockerClient
-	containersLock  sync.RWMutex
-	ctx             context.Context
-	dockerGraphPath string
-	events          <-chan ecsengine.DockerContainerChangeEvent
-	metricsMetadata *ecstcs.MetricsMetadata
-	resolver        resolver.ContainerMetadataResolver
+	client               ecsengine.DockerClient
+	cluster              string
+	containerInstanceArn string
+	containersLock       sync.RWMutex
+	ctx                  context.Context
+	dockerGraphPath      string
+	events               <-chan ecsengine.DockerContainerChangeEvent
+	resolver             resolver.ContainerMetadataResolver
 	// tasksToContainers maps task arns to a map of container ids to CronContainer objects.
 	tasksToContainers map[string]map[string]*CronContainer
 	// tasksToDefinitions maps task arns to task definiton name and family metadata objects.
@@ -92,14 +96,15 @@ func NewDockerStatsEngine(cfg *config.Config) *DockerStatsEngine {
 }
 
 // MustInit initializes fields of the DockerStatsEngine object.
-func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, md *ecstcs.MetricsMetadata) error {
+func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
 	log.Info("Initializing stats engine")
 	err := engine.initDockerClient()
 	if err != nil {
 		return err
 	}
 
-	engine.metricsMetadata = md
+	engine.cluster = cluster
+	engine.containerInstanceArn = containerInstanceArn
 
 	engine.resolver, err = newDockerContainerMetadataResolver(taskEngine)
 	if err != nil {
@@ -155,10 +160,18 @@ func (engine *DockerStatsEngine) addExistingContainers() error {
 func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	var taskMetrics []*ecstcs.TaskMetric
 	idle := engine.isIdle()
-	engine.metricsMetadata.Idle = &idle
+	metricsMetadata := &ecstcs.MetricsMetadata{
+		Cluster:           aws.String(engine.cluster),
+		ContainerInstance: aws.String(engine.containerInstanceArn),
+		Idle:              aws.Boolean(idle),
+		MessageId:         aws.String(uuid.NewRandom().String()),
+	}
+
 	if idle {
 		log.Debug("Instance is idle. No task metrics to report")
-		return engine.metricsMetadata, taskMetrics, nil
+		fin := true
+		metricsMetadata.Fin = &fin
+		return metricsMetadata, taskMetrics, nil
 	}
 
 	for taskArn := range engine.tasksToContainers {
@@ -197,7 +210,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 	// Reset current stats. Retaining older stats results in incorrect utilization stats
 	// until they are removed from the queue.
 	engine.resetStats()
-	return engine.metricsMetadata, taskMetrics, nil
+	return metricsMetadata, taskMetrics, nil
 }
 
 func (engine *DockerStatsEngine) isIdle() bool {
@@ -298,7 +311,7 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 	}
 
 	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
-	container := newCronContainer(&dockerID, engine.dockerGraphPath)
+	container := newCronContainer(dockerID, engine.dockerGraphPath)
 	engine.tasksToContainers[task.Arn][dockerID] = container
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 	container.StartStatsCron()

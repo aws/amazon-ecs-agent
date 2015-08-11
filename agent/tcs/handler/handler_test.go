@@ -34,6 +34,7 @@ const (
 	testTaskDefinitionFamily   = "task-def"
 	testClusterArn             = "arn:aws:ecs:us-east-1:123:cluster/default"
 	testInstanceArn            = "arn:aws:ecs:us-east-1:123:container-instance/abc"
+	testMessageId              = "testMessageId"
 	testPublishMetricsInterval = 1 * time.Millisecond
 )
 
@@ -155,11 +156,13 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 	ival = rand.Int63n(10)
 	ts := time.Now()
 	idle := false
+	messageId := testMessageId
 	return &ecstcs.PublishMetricsRequest{
 		Metadata: &ecstcs.MetricsMetadata{
 			Cluster:           &cluster,
 			ContainerInstance: &ci,
 			Idle:              &idle,
+			MessageId:         &messageId,
 		},
 		TaskMetrics: []*ecstcs.TaskMetric{
 			&ecstcs.TaskMetric{

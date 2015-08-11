@@ -78,7 +78,7 @@ func TestContainerStatsAggregation(t *testing.T) {
 	dockerID := "container1"
 	container = &CronContainer{
 		containerMetadata: &ContainerMetadata{
-			DockerID: &dockerID,
+			DockerID: dockerID,
 		},
 	}
 	container.statsCollector = newMockStatsCollector()

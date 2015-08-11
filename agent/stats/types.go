@@ -36,7 +36,7 @@ type UsageStats struct {
 
 // ContainerMetadata contains meta-data information for a container.
 type ContainerMetadata struct {
-	DockerID *string `json:"-"`
+	DockerID string `json:"-"`
 }
 
 // CronContainer abstracts methods to gather and aggregate utilization data for a container.

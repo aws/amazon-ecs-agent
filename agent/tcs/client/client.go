@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
@@ -103,18 +105,14 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, reqBody)
-	utils.SignHTTPRequest(request, cs.Region, "ecs", cs.CredentialProvider)
+	utils.SignHTTPRequest(request, cs.Region, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
 
-	var data []byte
-	for k, vs := range request.Header {
-		for _, v := range vs {
-			data = append(data, k...)
-			data = append(data, ": "...)
-			data = append(data, v...)
-			data = append(data, "\r\n"...)
-		}
-	}
-	data = append(data, "\r\n"...)
+	request.Header.Add("Host", request.Host)
+	var dataBuffer bytes.Buffer
+	request.Header.Write(&dataBuffer)
+	io.WriteString(&dataBuffer, "\r\n")
+
+	data := dataBuffer.Bytes()
 	data = append(data, payload...)
 
 	return data
@@ -149,30 +147,78 @@ func (cs *clientServer) publishMetrics() {
 
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
 func (cs *clientServer) publishMetricsOnce() {
-	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
+	// Get the list of objects to send to backend.
+	requests, err := cs.metricsToPublishMetricRequests()
 	if err != nil {
 		log.Warn("Error getting instance metrics", "err", err)
-		return
 	}
 
+	// Make the publish metrics request to the backend.
+	for _, request := range requests {
+		cs.MakeRequest(request)
+	}
+}
+
+// metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
+// objects.
+func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetricsRequest, error) {
+	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	var requests []*ecstcs.PublishMetricsRequest
 	if *metadata.Idle {
-		// Idle instance, send message and return.
-		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
-		return
+		metadata.Fin = aws.Boolean(true)
+		// Idle instance, we have only one request to send to backend.
+		requests = append(requests, ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+		return requests, nil
 	}
-
 	var messageTaskMetrics []*ecstcs.TaskMetric
-	for i := range taskMetrics {
-		messageTaskMetrics = append(messageTaskMetrics, taskMetrics[i])
+	numTasks := len(taskMetrics)
+
+	for i, taskMetric := range taskMetrics {
+		messageTaskMetrics = append(messageTaskMetrics, taskMetric)
+		var requestMetadata *ecstcs.MetricsMetadata
+		if (i + 1) == numTasks {
+			// If this is the last task to send, set fin to true
+			requestMetadata = copyMetricsMetadata(metadata, true)
+		} else {
+			requestMetadata = copyMetricsMetadata(metadata, false)
+		}
 		if (i+1)%tasksInMessage == 0 {
 			// Construct payload with tasksInMessage number of task metrics and send to backend.
-			cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
 	}
 
 	if len(messageTaskMetrics) > 0 {
-		// Send remaining task metrics to backend.
-		cs.MakeRequest(ecstcs.NewPublishMetricsRequest(metadata, messageTaskMetrics))
+		// Create the new metadata object and set fin to true as this is the last message in the payload.
+		requestMetadata := copyMetricsMetadata(metadata, true)
+		// Create a request with remaining task metrics.
+		requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
 	}
+	return requests, nil
+}
+
+// copyMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata object.
+// It copies all the fields from the source object to the new object and sets the 'Fin' field
+// as specified by the argument.
+func copyMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.MetricsMetadata {
+	return &ecstcs.MetricsMetadata{
+		Cluster:           aws.String(*metadata.Cluster),
+		ContainerInstance: aws.String(*metadata.ContainerInstance),
+		Idle:              aws.Boolean(*metadata.Idle),
+		MessageId:         aws.String(*metadata.MessageId),
+		Fin:               aws.Boolean(fin),
+	}
+}
+
+// copyTaskMetrics copies a slice of TaskMetric objects to another slice. This is needed as we
+// reset the source slice after creating a new PublishMetricsRequest object.
+func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
+	to := make([]*ecstcs.TaskMetric, len(from))
+	copy(to, from)
+	return to
 }

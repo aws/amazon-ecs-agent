@@ -51,7 +51,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 
 	if !disabled {
 		statsEngine := stats.NewDockerStatsEngine(params.Cfg)
-		err := statsEngine.MustInit(params.TaskEngine, ecstcs.NewMetricsMetadata(params.Cfg.Cluster, params.ContainerInstanceArn))
+		err := statsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster, params.ContainerInstanceArn)
 		if err != nil {
 			log.Warn("Error initializing metrics engine", "err", err)
 			return

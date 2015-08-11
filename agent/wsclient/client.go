@@ -130,7 +130,7 @@ func (cs *ClientServerImpl) Connect() error {
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, nil)
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	utils.SignHTTPRequest(request, cs.Region, ServiceName, cs.CredentialProvider)
+	utils.SignHTTPRequest(request, cs.Region, ServiceName, cs.CredentialProvider, nil)
 
 	// url.Host might not have the port, but tls.Dial needs it
 	dialHost := parsedURL.Host

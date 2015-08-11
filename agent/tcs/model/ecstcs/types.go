@@ -15,14 +15,6 @@ package ecstcs
 
 import "time"
 
-// NewMetricsMetadata creates a MetricsMetadata object.
-func NewMetricsMetadata(cluster string, containerInstanceArn string) *MetricsMetadata {
-	return &MetricsMetadata{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstanceArn,
-	}
-}
-
 // NewPublishMetricsRequest creates a PublishMetricsRequest object.
 func NewPublishMetricsRequest(metadata *MetricsMetadata, taskMetrics []*TaskMetric) *PublishMetricsRequest {
 	timestamp := time.Now()

@@ -14,6 +14,7 @@
 package utils
 
 import (
+	"io"
 	"net/http"
 	"time"
 
@@ -23,7 +24,7 @@ import (
 )
 
 // SignHTTPRequest signs an http.Request struct with authv4 using the given region, service, and credentials.
-func SignHTTPRequest(req *http.Request, region, service string, creds *credentials.Credentials) {
+func SignHTTPRequest(req *http.Request, region, service string, creds *credentials.Credentials, body io.ReadSeeker) {
 	v4.Sign(&aws.Request{
 		Service: &aws.Service{
 			SigningRegion: region,
@@ -33,6 +34,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *credentia
 			},
 		},
 		HTTPRequest: req,
+		Body:        body,
 		Time:        time.Now(),
 	})
 }
