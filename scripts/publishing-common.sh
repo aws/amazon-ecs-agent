@@ -22,9 +22,9 @@ export IMAGE_TAG_VERSION="v${VERSION}"
 
 dryval() {
 	if ${DRYRUN} ; then
-		echo "DRYRUN: ${@}"
+		echo "DRYRUN: ${@}" 1>&2
 	else
-		echo "RUNNING: ${@}"
+		echo "RUNNING: ${@}" 1>&2
 		"${@}"
 	fi
 }
