@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0
+* Feature - Telemetry reporting for Services and Clusters.
+* Bug - Fixed an issue where some network errors would cause a panic.
+
 ## 1.3.1
 * Feature - Add debug handler for SIGUSR1.
 * Enhancement - Trim untrusted cert from CA bundle.

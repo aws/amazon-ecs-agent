@@ -24,7 +24,7 @@ package version
 //go:generate go run gen/version-gen.go
 
 // Version is the version of the Agent
-const Version = "1.3.1"
+const Version = "1.4.0"
 
 // GitDirty indicates the cleanliness of the git repo when this agent was built
 const GitDirty = true
