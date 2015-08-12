@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.3.1
+Version:        1.4.0
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -132,6 +132,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Aug 11 2015 Samuel Karp <skarp@amazon.com> - 1.4.0-1
+- Cache Agent version 1.4.0
 * Thu Jul 30 2015 Samuel Karp <skarp@amazon.com> - 1.3.1-1
 - Cache Agent version 1.3.1
 - Read Docker endpoint from environment variable DOCKER_HOST if present
