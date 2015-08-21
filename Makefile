@@ -26,9 +26,13 @@ static: gogenerate
 	@cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -ldflags '-s' -o ../out/amazon-ecs-agent .
 	@git checkout -- agent/version/version.go
 
+# 'golang-base' builds a Go binary patched for CVE-2015-5739, CVE-2015-5740, and CVE-2015-5741
+golang-base:
+	@docker build -f scripts/dockerfiles/Dockerfile.golang -t "amazon/amazon-ecs-agent-build:golang" .
+
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
 # directory
-build-in-docker:
+build-in-docker: golang-base
 	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
 	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
 
@@ -41,7 +45,7 @@ docker: certs build-in-docker
 
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
-docker-release:
+docker-release: golang-base
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
 
