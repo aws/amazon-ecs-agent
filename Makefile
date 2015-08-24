@@ -17,14 +17,12 @@ all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
 # everything every time
-gobuild: gogenerate
-	@cd agent && godep go build -o ../out/amazon-ecs-agent .
-	@git checkout -- agent/version/version.go
+gobuild:
+	./scripts/build false
 
 # Basic go build
-static: gogenerate
-	@cd agent && CGO_ENABLED=0 godep go build -installsuffix cgo -a -ldflags '-s' -o ../out/amazon-ecs-agent .
-	@git checkout -- agent/version/version.go
+static:
+	./scripts/build
 
 # 'golang-base' builds a Go binary patched for CVE-2015-5739, CVE-2015-5740, and CVE-2015-5741
 golang-base:
@@ -34,7 +32,7 @@ golang-base:
 # directory
 build-in-docker: golang-base
 	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
-	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
+	@docker run --net=none -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
@@ -47,11 +45,11 @@ docker: certs build-in-docker
 # 'RELEASE' mode
 docker-release: golang-base
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
-	@docker run -v "$(shell pwd)/out:/out" -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
+	@docker run --net=none -v "$(shell pwd)/out:/out" -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
 
 # Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release
-	@cd scripts && ./create-amazon-ecs-scratch
+	@./scripts/create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
@@ -61,7 +59,7 @@ CUSTOMINFLECTFILE=agent/gogenerate/inflections.csv
 
 gogenerate:
 	cat ${CUSTOMINFLECTFILE} >> ${SDKPATH}/${INFLECTFILE}
-	@cd agent && PATH=$(shell pwd)/scripts/generate:$(PATH) godep go generate ./...
+	./scripts/gogenerate
 	git checkout -- ${SDKPATH}/${INFLECTFILE}
 
 # We need to bundle certificates with our scratch-based container
@@ -70,16 +68,15 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-short-test: gogenerate
-	cd agent && godep go test -short -timeout=25s -v -cover ./...
-	@git checkout -- agent/version/version.go
+short-test:
+	. ./scripts/shared_env && go test -short -timeout=25s -v ./agent/...
 
 # Run our 'test' registry needed for integ tests
 test-registry: netkitten volumes-test
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
-	cd agent && godep go test -timeout=120s -v -cover ./...
+	. ./scripts/shared_env && go test -timeout=120s -v -cover ./...
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
@@ -87,7 +84,7 @@ test-in-docker:
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests:
-	cd agent/functional_tests && GOPATH=$(shell pwd)/agent/Godeps/_workspace:${GOPATH} go test -tags functional -timeout=20m -v ./...
+	. ./scripts/shared_env && go test -tags functional -timeout=20m -v ./agent/functional_tests/...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)

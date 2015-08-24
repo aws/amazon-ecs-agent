@@ -1,4 +1,5 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#!/bin/bash
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -11,14 +12,12 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM amazon/amazon-ecs-agent-build:golang
-MAINTAINER Amazon Web Services, Inc.
+set -e
 
-RUN mkdir /out
-VOLUME ['/out']
+# Normalize to working directory being build root (up one level from ./scripts)
+ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+cd "${ROOT}"
 
-RUN mkdir -p /go/src/github.com/aws/
+source ./scripts/shared_env
 
-WORKDIR /go/src/github.com/aws/amazon-ecs-agent
-
-CMD ["make", "static"]
+go generate ./agent/...

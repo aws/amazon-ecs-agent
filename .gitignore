@@ -5,3 +5,5 @@ coverage/
 _bin/
 *.swp
 *.orig
+/agent/version/_version.go
+.agignore

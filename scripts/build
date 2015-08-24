@@ -12,12 +12,39 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-make get-deps
-make static
-mv out/amazon-ecs-agent /out 2>/dev/null || true
+# This script builds a copy of the agent.
+# It exists to wrap go build and properly make a static binary, as well as to
+# correctly setup versioning before creating the binary
 
-buildErr=$?
-if [[ $buildErr != 0 ]]; then
-	echo "Agent build exited with error: $buildErr"
-	exit $buildErr
+set -e
+
+# Pass in whether you want to build a static binary (true|false) and whether
+# the resulting binary should be moved to an output directory
+# The second option exists so that if built in a container, the result can be moved to a shared volume mount
+static=${1:-true}
+output_directory=${2:-}
+
+# Normalize to working directory being build root (up one level from ./scripts)
+ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+cd "${ROOT}"
+
+source ./scripts/shared_env
+
+# Versioning stuff. We run the generator to setup the version and then always
+# restore ourselves to a clean state
+cp agent/version/version.go agent/version/_version.go
+trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
+
+cd ./agent/version/
+go run gen/version-gen.go
+
+cd "${ROOT}"
+if [[ "${static}" == "true" ]]; then
+	CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "-s" -o out/amazon-ecs-agent ./agent/
+else
+  go build -o out/amazon-ecs-agent ./agent/
+fi
+
+if [[ -n "${output_directory}" ]]; then
+  mv out/amazon-ecs-agent "${output_directory}"
 fi

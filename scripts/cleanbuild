@@ -12,6 +12,9 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+# This script is meant for use inside the clean build dockerfile and makes
+# assumptions related to that. It should not be run on its own.
+
 cd /src/amazon-ecs-agent
 DIRTY_WARNING=$(cat <<EOW
 ***WARNING***
@@ -31,4 +34,4 @@ git clone --quiet /src/amazon-ecs-agent /go/src/github.com/aws/amazon-ecs-agent
 export ECS_RELEASE="cleanbuild"
 
 cd /go/src/github.com/aws/amazon-ecs-agent
-exec ./scripts/build
+exec ./scripts/build true /out
