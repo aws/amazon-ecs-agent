@@ -6,27 +6,32 @@ The Amazon ECS Container Agent is software developed for the [Amazon EC2 Contain
 
 It runs on Container Instances and starts containers on behalf of Amazon ECS.
 
-## Basic Usage
+## Usage
 
-### Docker Image
+The best source of information on running this software is the [AWS Documentation](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html).
 
-The Amazon ECS Container Agent should be run in a docker container and may be
-downloaded from our [Docker Hub
-Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
-Documentation on running it properly may be found on the Repository page.
+### On the Amazon Linux AMI
 
-tl;dr: *On an Amazon ECS Container Instance*
+On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an init package which can be used via `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
+
+### On Other AMIs
+
+The Amazon ECS Container Agent may also be run in a Docker container on an EC2 Instance with a recent Docker version installed.
+A Docker image is available in our [Docker Hub Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
+
+*Note: The below command should work on most AMIs, but the cgroup and execdriver path may differ in some cases*
 
 ```bash
+$ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
 $ touch /etc/ecs/ecs.config
-$ mkdir -p /var/log/ecs
-$ docker run --name ecs-agent -d \
+$ docker run --name ecs-agent \
+    --restart on-failure:10 -d \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/log/ecs:/log \
     -v /var/lib/ecs/data:/data \
     -v /var/lib/docker:/var/lib/docker \
-    -v /cgroup:/cgroup:ro \
-    -v /var/run/docker/execdriver/native:/var/run/docker/execdriver/native:ro \
+    -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
+    -v /var/run/docker/execdriver/native:/var/lib/docker/execdriver/native:ro \
     -p 127.0.0.1:51678:51678 \
     --env-file /etc/ecs/ecs.config \
     -e ECS_LOGFILE=/log/ecs-agent.log \
