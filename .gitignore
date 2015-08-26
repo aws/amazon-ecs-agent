@@ -6,4 +6,5 @@ _bin/
 *.swp
 *.orig
 /agent/version/_version.go
+/misc/gremlin/gremlin
 .agignore

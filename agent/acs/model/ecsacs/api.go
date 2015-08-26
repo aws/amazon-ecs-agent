@@ -104,6 +104,8 @@ type Container struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
+
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
 
 	Environment map[string]*string `locationName:"environment" type:"map"`
@@ -140,6 +142,30 @@ func (s Container) String() string {
 
 // GoString returns the string representation
 func (s Container) GoString() string {
+	return s.String()
+}
+
+type DockerConfig struct {
+	Config *string `locationName:"config" type:"string"`
+
+	HostConfig *string `locationName:"hostConfig" type:"string"`
+
+	Version *string `locationName:"version" type:"string"`
+
+	metadataDockerConfig `json:"-" xml:"-"`
+}
+
+type metadataDockerConfig struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s DockerConfig) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s DockerConfig) GoString() string {
 	return s.String()
 }
 

@@ -1,4 +1,5 @@
 {
+  "version":"2.0",
   "metadata":{
     "apiVersion":"2014-11-13",
     "endpointPrefix":"ecsacs",
@@ -142,12 +143,21 @@
         "overrides":{"shape":"String"},
         "portMappings":{"shape":"PortMappingList"},
         "mountPoints":{"shape":"MountPointList"},
-        "volumesFrom":{"shape":"VolumeFromList"}
+        "volumesFrom":{"shape":"VolumeFromList"},
+        "dockerConfig":{"shape":"DockerConfig"}
       }
     },
     "ContainerList":{
       "type":"list",
       "member":{"shape":"Container"}
+    },
+    "DockerConfig":{
+      "type":"structure",
+      "members":{
+        "version":{"shape":"String"},
+        "config":{"shape":"String"},
+        "hostConfig":{"shape":"String"}
+      }
     },
     "EnvironmentVariables":{
       "type":"map",
