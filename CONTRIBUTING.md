@@ -14,9 +14,6 @@ an issue to discuss it.
 Development takes place against the `dev` branch of this repository and pull
 requests should be opened against that branch.
 
-Non-code changes, such as updating the README, may be against master if they are
-applicable to master.
-
 ### Testing
 
 Any contributions should pass all tests, including those not run by our
