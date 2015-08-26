@@ -76,30 +76,6 @@
 			"Rev": "469e9fb72a9c4fd6b645f7994b278e2290fa0231"
 		},
 		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/aws",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/endpoints",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/json/jsonutil",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/protocol/jsonrpc",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/internal/signer/v4",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
-			"ImportPath": "github.com/awslabs/aws-sdk-go/service/ecs",
-			"Rev": "a79c7d95c012010822e27aaa5551927f5e8a6ab6"
-		},
-		{
 			"ImportPath": "github.com/cihub/seelog",
 			"Comment": "go1.1-57-g0fa7e41",
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
