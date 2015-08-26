@@ -17,10 +17,22 @@ Documentation on running it properly may be found on the Repository page.
 
 tl;dr: *On an Amazon ECS Container Instance*
 
-1. `touch /etc/ecs/ecs.config`
-2. `mkdir -p /var/log/ecs`
-3. `docker run --name ecs-agent -d -v /var/run/docker.sock:/var/run/docker.sock -v /var/log/ecs:/log -v /var/lib/ecs/data:/data -p
-127.0.0.1:51678:51678 --env-file /etc/ecs/ecs.config -e ECS_LOGFILE=/log/ecs-agent.log -e ECS_DATADIR=/data/ amazon/amazon-ecs-agent`
+```bash
+$ touch /etc/ecs/ecs.config
+$ mkdir -p /var/log/ecs
+$ docker run --name ecs-agent -d \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/log/ecs:/log \
+    -v /var/lib/ecs/data:/data \
+    -v /var/lib/docker:/var/lib/docker \
+    -v /cgroup:/cgroup:ro \
+    -v /var/run/docker/execdriver/native:/var/run/docker/execdriver/native:ro \
+    -p 127.0.0.1:51678:51678 \
+    --env-file /etc/ecs/ecs.config \
+    -e ECS_LOGFILE=/log/ecs-agent.log \
+    -e ECS_DATADIR=/data/ \
+    amazon/amazon-ecs-agent
+```
 
 See also the Advanced Usage section below.
 
