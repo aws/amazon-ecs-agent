@@ -239,18 +239,58 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 
 	expectedOutput := rawHostConfigInput
 
-	for i := 0; i < reflect.TypeOf(expectedOutput).NumField(); i++ {
-		expectedValue := reflect.ValueOf(expectedOutput).Field(i)
-		// All the values we actaully expect to see are valid and non-nil
-		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
-			continue
-		}
-		expected := expectedValue.Interface()
-		actual := reflect.ValueOf(*config).Field(i).Interface()
-		if !reflect.DeepEqual(expected, actual) {
-			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expectedOutput).Field(i).Name, expected, actual)
-		}
+	assertSetStructFieldsEqual(t, expectedOutput, *config)
+}
+
+func TestDockerHostConfigRawConfigMerging(t *testing.T) {
+	// Use a struct that will marshal to the actual message we expect; not
+	// docker.HostConfig which will include a lot of zero values.
+	rawHostConfigInput := struct {
+		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
+		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
+	}{
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
 	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name:        "c1",
+				Image:       "image",
+				Cpu:         50,
+				Memory:      100,
+				VolumesFrom: []VolumeFrom{VolumeFrom{SourceContainer: "c2"}},
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+			&Container{
+				Name: "c2",
+			},
+		},
+	}
+
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	expected := docker.HostConfig{
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
+	}
+
+	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
@@ -372,18 +412,53 @@ func TestDockerConfigRawConfig(t *testing.T) {
 	expectedOutput := rawConfigInput
 	expectedOutput.CPUShares = 2
 
-	for i := 0; i < reflect.TypeOf(expectedOutput).NumField(); i++ {
-		expectedValue := reflect.ValueOf(expectedOutput).Field(i)
-		// All the values we actaully expect to see are valid and non-nil
-		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
-			continue
-		}
-		expected := expectedValue.Interface()
-		actual := reflect.ValueOf(*config).Field(i).Interface()
-		if !reflect.DeepEqual(expected, actual) {
-			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expectedOutput).Field(i).Name, expected, actual)
-		}
+	assertSetStructFieldsEqual(t, expectedOutput, *config)
+}
+
+func TestDockerConfigRawConfigMerging(t *testing.T) {
+	// Use a struct that will marshal to the actual message we expect; not
+	// docker.Config which will include a lot of zero values.
+	rawConfigInput := struct {
+		User string `json:"User,omitempty" yaml:"User,omitempty"`
+	}{
+		User: "user",
 	}
+
+	rawConfig, err := json.Marshal(&rawConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name:   "c1",
+				Image:  "image",
+				Cpu:    50,
+				Memory: 100,
+				DockerConfig: DockerConfig{
+					Config: strptr(string(rawConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0])
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	expected := docker.Config{
+		Memory:    100 * 1024 * 1024,
+		CPUShares: 50,
+		Image:     "image",
+		User:      "user",
+	}
+
+	assertSetStructFieldsEqual(t, expected, *config)
 }
 
 func TestBadDockerConfigRawConfig(t *testing.T) {
@@ -543,5 +618,20 @@ func TestTaskFromACS(t *testing.T) {
 	}
 	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
 		t.Fatal("Should be equal")
+	}
+}
+
+func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
+	for i := 0; i < reflect.TypeOf(expected).NumField(); i++ {
+		expectedValue := reflect.ValueOf(expected).Field(i)
+		// All the values we actaully expect to see are valid and non-nil
+		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
+			continue
+		}
+		expectedVal := expectedValue.Interface()
+		actualVal := reflect.ValueOf(actual).Field(i).Interface()
+		if !reflect.DeepEqual(expectedVal, actualVal) {
+			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expected).Field(i).Name, expectedVal, actualVal)
+		}
 	}
 }
