@@ -25,6 +25,7 @@ type Client interface {
 	InspectContainer(id string) (*docker.Container, error)
 	InspectImage(name string) (*docker.Image, error)
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
+	Ping() error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	RemoveEventListener(listener chan *docker.APIEvents) error
