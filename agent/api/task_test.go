@@ -14,11 +14,15 @@
 package api
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/fsouza/go-dockerclient"
 )
+
+func strptr(s string) *string { return &s }
 
 func dockerMap(task *Task) map[string]*DockerContainer {
 	m := make(map[string]*DockerContainer)
@@ -194,6 +198,83 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	}
 }
 
+func TestDockerHostConfigRawConfig(t *testing.T) {
+	rawHostConfigInput := docker.HostConfig{
+		Privileged:     true,
+		ReadonlyRootfs: true,
+		DNS:            []string{"dns1, dns2"},
+		DNSSearch:      []string{"dns.search"},
+		ExtraHosts:     []string{"extra:hosts"},
+		SecurityOpt:    []string{"foo", "bar"},
+		LogConfig: docker.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+		Ulimits: []docker.ULimit{docker.ULimit{Name: "ulimit name", Soft: 10, Hard: 100}},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	expectedOutput := rawHostConfigInput
+
+	for i := 0; i < reflect.TypeOf(expectedOutput).NumField(); i++ {
+		expectedValue := reflect.ValueOf(expectedOutput).Field(i)
+		// All the values we actaully expect to see are valid and non-nil
+		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
+			continue
+		}
+		expected := expectedValue.Interface()
+		actual := reflect.ValueOf(*config).Field(i).Interface()
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expectedOutput).Field(i).Name, expected, actual)
+		}
+	}
+}
+
+func TestBadDockerHostConfigRawConfig(t *testing.T) {
+	for _, badHostConfig := range []string{"malformed", `{"Privileged": "wrongType"}`} {
+		testTask := Task{
+			Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+			Family:  "myFamily",
+			Version: "1",
+			Containers: []*Container{
+				&Container{
+					Name: "c1",
+					DockerConfig: DockerConfig{
+						HostConfig: strptr(badHostConfig),
+					},
+				},
+			},
+		}
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
+		if err == nil {
+			t.Fatal("Expected error, was none for: " + badHostConfig)
+		}
+	}
+}
+
 func TestDockerConfigLabels(t *testing.T) {
 	testTask := &Task{
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
@@ -222,10 +303,112 @@ func TestDockerConfigLabels(t *testing.T) {
 	}
 }
 
-func TestTaskFromACS(t *testing.T) {
-	strptr := func(s string) *string {
-		return &s
+func TestDockerConfigMergesLabels(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					Config: strptr(`{"Labels":{"key":"value"}}`),
+				},
+			},
+		},
 	}
+
+	config, err := testTask.DockerConfig(testTask.Containers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]string{
+		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		"com.amazonaws.ecs.container-name":          "c1",
+		"com.amazonaws.ecs.task-definition-family":  "myFamily",
+		"com.amazonaws.ecs.task-definition-version": "1",
+		"key": "value",
+	}
+	if !reflect.DeepEqual(config.Labels, expected) {
+		t.Fatal("Expected default ecs labels to be set, was: ", config.Labels)
+	}
+}
+
+func TestDockerConfigRawConfig(t *testing.T) {
+	rawConfigInput := docker.Config{
+		Hostname:        "hostname",
+		Domainname:      "domainname",
+		NetworkDisabled: true,
+		DNS:             []string{"dnsfoo", "dnsbar"},
+		WorkingDir:      "workdir",
+		User:            "user",
+	}
+
+	rawConfig, err := json.Marshal(&rawConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					Config: strptr(string(rawConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0])
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	expectedOutput := rawConfigInput
+	expectedOutput.CPUShares = 2
+
+	for i := 0; i < reflect.TypeOf(expectedOutput).NumField(); i++ {
+		expectedValue := reflect.ValueOf(expectedOutput).Field(i)
+		// All the values we actaully expect to see are valid and non-nil
+		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
+			continue
+		}
+		expected := expectedValue.Interface()
+		actual := reflect.ValueOf(*config).Field(i).Interface()
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expectedOutput).Field(i).Name, expected, actual)
+		}
+	}
+}
+
+func TestBadDockerConfigRawConfig(t *testing.T) {
+	for _, badConfig := range []string{"malformed", `{"Labels": "wrongType"}`} {
+		testTask := Task{
+			Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+			Family:  "myFamily",
+			Version: "1",
+			Containers: []*Container{
+				&Container{
+					Name: "c1",
+					DockerConfig: DockerConfig{
+						Config: strptr(badConfig),
+					},
+				},
+			},
+		}
+		_, err := testTask.DockerConfig(testTask.Containers[0])
+		if err == nil {
+			t.Fatal("Expected error, was none for: " + badConfig)
+		}
+	}
+}
+
+func TestTaskFromACS(t *testing.T) {
 	intptr := func(i int64) *int64 {
 		return &i
 	}
@@ -270,6 +453,11 @@ func TestTaskFromACS(t *testing.T) {
 						ReadOnly:        boolptr(true),
 						SourceContainer: strptr("volumeLink"),
 					},
+				},
+				DockerConfig: &ecsacs.DockerConfig{
+					Config:     strptr("config json"),
+					HostConfig: strptr("hostconfig json"),
+					Version:    strptr("version string"),
 				},
 			},
 		},
@@ -320,6 +508,11 @@ func TestTaskFromACS(t *testing.T) {
 						ReadOnly:        true,
 						SourceContainer: "volumeLink",
 					},
+				},
+				DockerConfig: DockerConfig{
+					Config:     strptr("config json"),
+					HostConfig: strptr("hostconfig json"),
+					Version:    strptr("version string"),
 				},
 			},
 		},

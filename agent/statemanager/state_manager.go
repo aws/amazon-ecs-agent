@@ -42,7 +42,8 @@ import (
 //   b) remove 'DEAD', 'UNKNOWN' state from ever being marshalled (backward and
 //      forward compatible)
 // 3) Add 'Protocol' field to 'portMappings' and 'KnownPortBindings'
-const EcsDataVersion = 3
+// 4) Add 'DockerConfig' struct
+const EcsDataVersion = 4
 
 // Filename in the ECS_DATADIR
 const ecsDataFile = "ecs_agent_data.json"

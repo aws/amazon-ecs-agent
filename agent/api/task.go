@@ -220,13 +220,28 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Env:          dockerEnv,
 		Memory:       dockerMem,
 		CPUShares:    task.dockerCpuShares(container.Cpu),
-		Labels: map[string]string{
-			"com.amazonaws.ecs.task-arn":                task.Arn,
-			"com.amazonaws.ecs.container-name":          container.Name,
-			"com.amazonaws.ecs.task-definition-family":  task.Family,
-			"com.amazonaws.ecs.task-definition-version": task.Version,
-		},
+		Labels:       map[string]string{},
 	}
+
+	if container.DockerConfig.Config != nil {
+		err := json.Unmarshal([]byte(*container.DockerConfig.Config), &config)
+		if err != nil {
+			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
+		}
+	}
+
+	// Augment labels with some metadata from the agent. Explicitly do this last
+	// such that it will always override duplicates in the provided raw config
+	// data.
+	for key, value := range map[string]string{
+		"com.amazonaws.ecs.task-arn":                task.Arn,
+		"com.amazonaws.ecs.container-name":          container.Name,
+		"com.amazonaws.ecs.task-definition-family":  task.Family,
+		"com.amazonaws.ecs.task-definition-version": task.Version,
+	} {
+		config.Labels[key] = value
+	}
+
 	return config, nil
 }
 
@@ -300,6 +315,14 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
 	}
+
+	if container.DockerConfig.HostConfig != nil {
+		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
+		if err != nil {
+			return nil, &HostConfigError{"Unable to decode given host config: " + err.Error()}
+		}
+	}
+
 	return hostConfig, nil
 }
 

@@ -212,19 +212,20 @@ type ContainerOverrides struct {
 }
 
 type Container struct {
-	Name        string
-	Image       string
-	Command     []string
-	Cpu         uint
-	Memory      uint
-	Links       []string
-	VolumesFrom []VolumeFrom  `json:"volumesFrom"`
-	MountPoints []MountPoint  `json:"mountPoints"`
-	Ports       []PortBinding `json:"portMappings"`
-	Essential   bool
-	EntryPoint  *[]string
-	Environment map[string]string  `json:"environment"`
-	Overrides   ContainerOverrides `json:"overrides"`
+	Name         string
+	Image        string
+	Command      []string
+	Cpu          uint
+	Memory       uint
+	Links        []string
+	VolumesFrom  []VolumeFrom  `json:"volumesFrom"`
+	MountPoints  []MountPoint  `json:"mountPoints"`
+	Ports        []PortBinding `json:"portMappings"`
+	Essential    bool
+	EntryPoint   *[]string
+	Environment  map[string]string  `json:"environment"`
+	Overrides    ContainerOverrides `json:"overrides"`
+	DockerConfig DockerConfig       `json:"dockerConfig"`
 
 	DesiredStatus ContainerStatus `json:"desiredStatus"`
 	KnownStatus   ContainerStatus
@@ -247,6 +248,15 @@ type Container struct {
 
 	// Not upstream; todo move this out into a wrapper type
 	StatusLock sync.Mutex
+}
+
+// DockerConfig represents additional metadata about a container to run. It's
+// remodeled from the `ecsacs` api model file. Eventually it should not exist
+// once this remodeling is refactored out.
+type DockerConfig struct {
+	Config     *string `json:"config"`
+	HostConfig *string `json:"hostConfig"`
+	Version    *string `json:"version"`
 }
 
 // VolumeFrom is a volume which references another container as its source.
