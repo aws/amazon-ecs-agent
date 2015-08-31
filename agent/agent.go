@@ -170,11 +170,12 @@ func _main() int {
 		log.Infof("Restored from checkpoint file. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
 		_, err = client.RegisterContainerInstance(containerInstanceArn)
 		if err != nil {
-			log.Errorf("Error registering: %v", err)
+			log.Errorf("Error re-registering: %v", err)
 			if awserr, ok := err.(awserr.Error); ok && api.IsInstanceTypeChangedError(awserr) {
 				log.Criticalf("The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance. Error: %v", err)
 				return exitcodes.ExitTerminal
 			}
+			return exitcodes.ExitError
 		}
 	}
 
