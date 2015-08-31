@@ -488,6 +488,10 @@
         {
           "shape":"ClusterNotFoundException",
           "exception":true
+        },
+        {
+          "shape":"ServiceNotFoundException",
+          "exception":true
         }
       ]
     },
@@ -748,6 +752,17 @@
         "FAILED"
       ]
     },
+    "Attribute":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "value":{"shape":"String"}
+      }
+    },
+    "Attributes":{
+      "type":"list",
+      "member":{"shape":"Attribute"}
+    },
     "Boolean":{"type":"boolean"},
     "BoxedBoolean":{
       "type":"boolean",
@@ -843,7 +858,8 @@
         "agentConnected":{"shape":"Boolean"},
         "runningTasksCount":{"shape":"Integer"},
         "pendingTasksCount":{"shape":"Integer"},
-        "agentUpdateStatus":{"shape":"AgentUpdateStatus"}
+        "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
+        "attributes":{"shape":"Attributes"}
       }
     },
     "ContainerInstances":{
@@ -1268,7 +1284,8 @@
         "instanceIdentityDocumentSignature":{"shape":"String"},
         "totalResources":{"shape":"Resources"},
         "versionInfo":{"shape":"VersionInfo"},
-        "containerInstanceArn":{"shape":"String"}
+        "containerInstanceArn":{"shape":"String"},
+        "attributes":{"shape":"Attributes"}
       }
     },
     "RegisterContainerInstanceResponse":{

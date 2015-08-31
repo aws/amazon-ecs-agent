@@ -773,6 +773,12 @@ func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *aws.Request, output *S
 }
 
 // Stops a running task.
+//
+// When StopTask is called on a task, the equivalent of docker stop is issued
+// to the containers running in the task. This results in a SIGTERM and a 30-second
+// timeout, after which SIGKILL is sent and the containers are forcibly stopped.
+// If the container handles the SIGTERM gracefully and exits within 30 seconds
+// from receiving it, no SIGKILL is sent.
 func (c *ECS) StopTask(input *StopTaskInput) (*StopTaskOutput, error) {
 	req, out := c.StopTaskRequest(input)
 	err := req.Send()
@@ -911,10 +917,38 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *aws.Request,
 // of the task when UpdateService is run. If your cluster cannot support another
 // instantiation of the task used in your service, you can reduce the desired
 // count of your service by one before modifying the task definition.
+//
+// When UpdateService replaces a task during an update, the equivalent of docker
+// stop is issued to the containers running in the task. This results in a SIGTERM
+// and a 30-second timeout, after which SIGKILL is sent and the containers are
+// forcibly stopped. If the container handles the SIGTERM gracefully and exits
+// within 30 seconds from receiving it, no SIGKILL is sent.
 func (c *ECS) UpdateService(input *UpdateServiceInput) (*UpdateServiceOutput, error) {
 	req, out := c.UpdateServiceRequest(input)
 	err := req.Send()
 	return out, err
+}
+
+type Attribute struct {
+	Name *string `locationName:"name" type:"string"`
+
+	Value *string `locationName:"value" type:"string"`
+
+	metadataAttribute `json:"-" xml:"-"`
+}
+
+type metadataAttribute struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s Attribute) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s Attribute) GoString() string {
+	return s.String()
 }
 
 // A regional grouping of one or more container instances on which you can run
@@ -1016,7 +1050,12 @@ type ContainerDefinition struct {
 	// CPU units with other containers on the instance with the same ratio as their
 	// allocated amount.
 	//
-	// For example, if you run a single-container task on a single-core instance
+	//  You can determine the number of CPU units that are available per Amazon
+	// EC2 instance type by multiplying the vCPUs listed for that instance type
+	// on the Amazon EC2 Instances (http://aws.amazon.com/ec2/instance-types/) detail
+	// page by 1,024.
+	//
+	//  For example, if you run a single-container task on a single-core instance
 	// type with 512 CPU units specified for that container, and that is the only
 	// task running on the container instance, that container could use the full
 	// 1,024 CPU unit share at any given time. However, if you launched another
@@ -1129,6 +1168,8 @@ type ContainerInstance struct {
 	// The status of the most recent agent update. If an update has never been requested,
 	// this value is NULL.
 	AgentUpdateStatus *string `locationName:"agentUpdateStatus" type:"string"`
+
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
 	// The Amazon Resource Name (ARN) of the container instance. The ARN contains
 	// the arn:aws:ecs namespace, followed by the region of the container instance,
@@ -2256,7 +2297,7 @@ type ListTaskDefinitionsOutput struct {
 	// there are no more results to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
 
-	// The list of task definition Amazon Resource Name (ARN) entries for the ListTaskDefintions
+	// The list of task definition Amazon Resource Name (ARN) entries for the ListTaskDefinitions
 	// request.
 	TaskDefinitionARNs []*string `locationName:"taskDefinitionArns" type:"list"`
 
@@ -2516,6 +2557,8 @@ func (s PortMapping) GoString() string {
 }
 
 type RegisterContainerInstanceInput struct {
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
+
 	// The short name or full Amazon Resource Name (ARN) of the cluster that you
 	// want to register your container instance with. If you do not specify a cluster,
 	// the default cluster is assumed..
