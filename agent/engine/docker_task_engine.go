@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -125,7 +126,7 @@ func (engine *DockerTaskEngine) Init() error {
 
 func (engine *DockerTaskEngine) initDockerClient() error {
 	if engine.client == nil {
-		client, err := NewDockerGoClient()
+		client, err := NewDockerGoClient(nil)
 		if err != nil {
 			return err
 		}
@@ -404,6 +405,10 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Creating container", "task", task, "container", container)
+	client := engine.client
+	if container.DockerConfig.Version != nil {
+		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+	}
 
 	// Resolve HostConfig
 	// we have to do this in create, not start, because docker no longer handles
@@ -441,7 +446,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// name
 	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
 
-	metadata := engine.client.CreateContainer(config, hostConfig, containerName)
+	metadata := client.CreateContainer(config, hostConfig, containerName)
 	if metadata.Error != nil {
 		return metadata
 	}
@@ -452,6 +457,11 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Starting container", "task", task, "container", container)
+	client := engine.client
+	if container.DockerConfig.Version != nil {
+		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+	}
+
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container belongs to unrecognized task " + task.Arn}}
@@ -461,7 +471,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	if !ok {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
 	}
-	return engine.client.StartContainer(dockerContainer.DockerId)
+	return client.StartContainer(dockerContainer.DockerId)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -571,6 +581,18 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 // It returns an internal representation of the state of this DockerTaskEngine.
 func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 	return engine.state
+}
+
+// Capabilities returns the supported capabilities of this agent / docker-client pair.
+// Currently. it just passes up what remote api versions docker supports, but
+// eventually will likely have to do more.
+func (engine *DockerTaskEngine) Capabilities() []string {
+	capabilities := make([]string, 0)
+	for _, version := range engine.client.SupportedVersions() {
+		// Note, arbitrarily chosen string, quite possibly will change.
+		capabilities = append(capabilities, "com.amazonaws.ecs.agent-capabilities.docker.remote-api."+string(version))
+	}
+	return capabilities
 }
 
 // Version returns the underlying docker version.

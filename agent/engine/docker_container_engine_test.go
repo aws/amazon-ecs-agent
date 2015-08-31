@@ -25,7 +25,9 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
@@ -33,11 +35,13 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-func dockerclientSetup(t *testing.T) (*mock_dockerclient.MockClient, *DockerGoClient, *ttime.TestTime, func()) {
+func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *DockerGoClient, *ttime.TestTime, func()) {
 	ctrl := gomock.NewController(t)
-	mockDocker := mock_dockerclient.NewMockClient(ctrl)
-	client := &DockerGoClient{}
-	client.SetGoDockerClient(mockDocker)
+	mockDocker := mock_dockeriface.NewMockClient(ctrl)
+	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
+	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
+	client, _ := NewDockerGoClient(factory)
 	testTime := ttime.NewTestTime()
 	ttime.SetTime(testTime)
 	return mockDocker, client, testTime, ctrl.Finish
@@ -465,4 +469,68 @@ func TestListImagesTimeout(t *testing.T) {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
+}
+
+func TestPingFailError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDocker := mock_dockeriface.NewMockClient(ctrl)
+	mockDocker.EXPECT().Ping().Return(errors.New("err"))
+	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
+	_, err := NewDockerGoClient(factory)
+	if err == nil {
+		t.Fatal("Expected ping error to result in constructor fail")
+	}
+}
+
+func TestUsesVersionedClient(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDocker := mock_dockeriface.NewMockClient(ctrl)
+	mockDocker.EXPECT().Ping().Return(nil)
+	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
+	client, err := NewDockerGoClient(factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vclient := client.WithVersion(dockerclient.DockerVersion("1.20"))
+
+	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDocker, nil)
+	mockDocker.EXPECT().StartContainer(gomock.Any(), gomock.Any()).Return(nil)
+	mockDocker.EXPECT().InspectContainer(gomock.Any()).Return(nil, errors.New("err"))
+
+	vclient.StartContainer("foo")
+}
+
+func TestUnavailableVersionError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDocker := mock_dockeriface.NewMockClient(ctrl)
+	mockDocker.EXPECT().Ping().Return(nil)
+	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
+	client, err := NewDockerGoClient(factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vclient := client.WithVersion(dockerclient.DockerVersion("1.21"))
+
+	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
+
+	metadata := vclient.StartContainer("foo")
+
+	if metadata.Error == nil {
+		t.Fatal("Expected error, didn't get one")
+	}
+	if namederr, ok := metadata.Error.(api.NamedError); ok {
+		if namederr.ErrorName() != "CannotGetDockerclientError" {
+			t.Fatal("Wrong error name, expected CannotGetDockerclientError but got " + namederr.ErrorName())
+		}
+	} else {
+		t.Fatal("Error was not a named error")
+	}
 }

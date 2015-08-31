@@ -67,6 +67,10 @@ func (engine *MockTaskEngine) Version() (string, error) {
 	return "", nil
 }
 
+func (engine *MockTaskEngine) Capabilities() []string {
+	return []string{}
+}
+
 func (engine *MockTaskEngine) Disable() {
 }
 

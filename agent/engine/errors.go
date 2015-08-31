@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
 
 // impossibleTransitionError is an error that occurs when an event causes a
@@ -79,4 +80,20 @@ func (err DockerStateError) Error() string {
 }
 func (err DockerStateError) ErrorName() string {
 	return err.name
+}
+
+type CannotGetDockerClientError struct {
+	version dockerclient.DockerVersion
+	err     error
+}
+
+func (c CannotGetDockerClientError) Error() string {
+	if c.version != "" {
+		return "(v" + string(c.version) + ") - " + c.err.Error()
+	}
+	return c.err.Error()
+}
+
+func (CannotGetDockerClientError) ErrorName() string {
+	return "CannotGetDockerclientError"
 }

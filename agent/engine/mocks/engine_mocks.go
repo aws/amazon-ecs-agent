@@ -19,6 +19,7 @@ package mock_engine
 import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	engine "github.com/aws/amazon-ecs-agent/agent/engine"
+	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
@@ -54,6 +55,16 @@ func (_m *MockTaskEngine) AddTask(_param0 *api.Task) error {
 
 func (_mr *_MockTaskEngineRecorder) AddTask(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTask", arg0)
+}
+
+func (_m *MockTaskEngine) Capabilities() []string {
+	ret := _m.ctrl.Call(_m, "Capabilities")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+func (_mr *_MockTaskEngineRecorder) Capabilities() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Capabilities")
 }
 
 func (_m *MockTaskEngine) Disable() {
@@ -269,6 +280,16 @@ func (_mr *_MockDockerClientRecorder) StopContainer(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StopContainer", arg0)
 }
 
+func (_m *MockDockerClient) SupportedVersions() []dockerclient.DockerVersion {
+	ret := _m.ctrl.Call(_m, "SupportedVersions")
+	ret0, _ := ret[0].([]dockerclient.DockerVersion)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) SupportedVersions() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SupportedVersions")
+}
+
 func (_m *MockDockerClient) Version() (string, error) {
 	ret := _m.ctrl.Call(_m, "Version")
 	ret0, _ := ret[0].(string)
@@ -278,4 +299,14 @@ func (_m *MockDockerClient) Version() (string, error) {
 
 func (_mr *_MockDockerClientRecorder) Version() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Version")
+}
+
+func (_m *MockDockerClient) WithVersion(_param0 dockerclient.DockerVersion) engine.DockerClient {
+	ret := _m.ctrl.Call(_m, "WithVersion", _param0)
+	ret0, _ := ret[0].(engine.DockerClient)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) WithVersion(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WithVersion", arg0)
 }

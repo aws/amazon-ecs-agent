@@ -17,7 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/golang/mock/gomock"
 )
 
@@ -25,12 +26,12 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := mock_dockerclient.NewMockClient(ctrl)
+	mockClient := mock_dockeriface.NewMockClient(ctrl)
 	mockClient.EXPECT().Ping()
 
 	expectedEndpoint := "expectedEndpoint"
 
-	newVersionedClient = func(endpoint, version string) (Client, error) {
+	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		if endpoint != expectedEndpoint {
 			t.Errorf("Expected endpoint %s but was %s", expectedEndpoint, endpoint)
 		}
@@ -54,12 +55,12 @@ func TestGetClientCached(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := mock_dockerclient.NewMockClient(ctrl)
+	mockClient := mock_dockeriface.NewMockClient(ctrl)
 	mockClient.EXPECT().Ping()
 
 	expectedEndpoint := "expectedEndpoint"
 
-	newVersionedClient = func(endpoint, version string) (Client, error) {
+	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		if endpoint != expectedEndpoint {
 			t.Errorf("Expected endpoint %s but was %s", expectedEndpoint, endpoint)
 		}
@@ -91,10 +92,10 @@ func TestGetClientFailCreateNotCached(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := mock_dockerclient.NewMockClient(ctrl)
+	mockClient := mock_dockeriface.NewMockClient(ctrl)
 
 	calledOnce := false
-	newVersionedClient = func(endpoint, version string) (Client, error) {
+	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		if calledOnce {
 			return mockClient, nil
 		}
@@ -126,9 +127,9 @@ func TestGetClientFailPingNotCached(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := mock_dockerclient.NewMockClient(ctrl)
+	mockClient := mock_dockeriface.NewMockClient(ctrl)
 
-	newVersionedClient = func(endpoint, version string) (Client, error) {
+	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		return mockClient, nil
 	}
 
@@ -158,19 +159,19 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient117 := mock_dockerclient.NewMockClient(ctrl)
-	mockClient118 := mock_dockerclient.NewMockClient(ctrl)
-	mockClient119 := mock_dockerclient.NewMockClient(ctrl)
-	mockClient120 := mock_dockerclient.NewMockClient(ctrl)
+	mockClient117 := mock_dockeriface.NewMockClient(ctrl)
+	mockClient118 := mock_dockeriface.NewMockClient(ctrl)
+	mockClient119 := mock_dockeriface.NewMockClient(ctrl)
+	mockClient120 := mock_dockeriface.NewMockClient(ctrl)
 
 	expectedEndpoint := "expectedEndpoint"
 
-	newVersionedClient = func(endpoint, version string) (Client, error) {
+	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		if endpoint != expectedEndpoint {
 			t.Errorf("Expected endpoint %s but was %s", expectedEndpoint, endpoint)
 		}
 
-		switch dockerVersion(version) {
+		switch DockerVersion(version) {
 		case version_1_17:
 			return mockClient117, nil
 		case version_1_18:
@@ -190,7 +191,7 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	mockClient119.EXPECT().Ping()
 	mockClient120.EXPECT().Ping()
 
-	expectedVersions := []dockerVersion{version_1_17, version_1_19, version_1_20}
+	expectedVersions := []DockerVersion{version_1_17, version_1_19, version_1_20}
 
 	factory := NewFactory(expectedEndpoint)
 	versions := factory.FindAvailableVersions()

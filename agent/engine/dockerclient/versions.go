@@ -16,25 +16,26 @@ package dockerclient
 import (
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-type dockerVersion string
+type DockerVersion string
 
 const (
-	version_1_17 dockerVersion = "1.17"
-	version_1_18 dockerVersion = "1.18"
-	version_1_19 dockerVersion = "1.19"
-	version_1_20 dockerVersion = "1.20"
+	version_1_17 DockerVersion = "1.17"
+	version_1_18 DockerVersion = "1.18"
+	version_1_19 DockerVersion = "1.19"
+	version_1_20 DockerVersion = "1.20"
 
 	defaultVersion = version_1_17
 )
 
-var supportedVersions []dockerVersion
+var supportedVersions []DockerVersion
 
 func init() {
-	supportedVersions = []dockerVersion{
+	supportedVersions = []DockerVersion{
 		version_1_17,
 		version_1_18,
 		version_1_19,
@@ -44,40 +45,40 @@ func init() {
 
 type Factory interface {
 	// GetDefaultClient returns a versioned client for the default version
-	GetDefaultClient() (Client, error)
+	GetDefaultClient() (dockeriface.Client, error)
 
 	// GetClient returns a client with the specified version
-	GetClient(version dockerVersion) (Client, error)
+	GetClient(version DockerVersion) (dockeriface.Client, error)
 
 	// FindAvailableVersions tests each supported version and returns a slice
 	// of available versions
-	FindAvailableVersions() []dockerVersion
+	FindAvailableVersions() []DockerVersion
 }
 
 type factory struct {
 	endpoint string
 	lock     sync.Mutex
-	clients  map[dockerVersion]Client
+	clients  map[DockerVersion]dockeriface.Client
 }
 
 // newVersionedClient is a variable such that the implementation can be
 // swapped out for unit tests
-var newVersionedClient = func(endpoint, version string) (Client, error) {
+var newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 	return docker.NewVersionedClient(endpoint, version)
 }
 
-func NewFactory(endpoint string) *factory {
+func NewFactory(endpoint string) Factory {
 	return &factory{
 		endpoint: endpoint,
-		clients:  make(map[dockerVersion]Client),
+		clients:  make(map[DockerVersion]dockeriface.Client),
 	}
 }
 
-func (f *factory) GetDefaultClient() (Client, error) {
+func (f *factory) GetDefaultClient() (dockeriface.Client, error) {
 	return f.GetClient(defaultVersion)
 }
 
-func (f *factory) GetClient(version dockerVersion) (Client, error) {
+func (f *factory) GetClient(version DockerVersion) (dockeriface.Client, error) {
 	client, ok := f.clients[version]
 	if ok {
 		return client, nil
@@ -106,8 +107,8 @@ func (f *factory) GetClient(version dockerVersion) (Client, error) {
 	return client, nil
 }
 
-func (f *factory) FindAvailableVersions() []dockerVersion {
-	var availableVersions []dockerVersion
+func (f *factory) FindAvailableVersions() []DockerVersion {
+	var availableVersions []DockerVersion
 	for _, version := range supportedVersions {
 		_, err := f.GetClient(version)
 		if err == nil {

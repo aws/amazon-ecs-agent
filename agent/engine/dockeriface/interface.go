@@ -11,8 +11,9 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package dockerclient contains code dealing closely with the go-dockerclient package
-package dockerclient
+// Package dockeriface contains an interface for go-dockerclient matching the
+// subset used by the agent
+package dockeriface
 
 import "github.com/fsouza/go-dockerclient"
 
