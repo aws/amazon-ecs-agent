@@ -220,7 +220,6 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Env:          dockerEnv,
 		Memory:       dockerMem,
 		CPUShares:    task.dockerCpuShares(container.Cpu),
-		Labels:       map[string]string{},
 	}
 
 	if container.DockerConfig.Config != nil {
@@ -228,6 +227,9 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		if err != nil {
 			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
+	}
+	if config.Labels == nil {
+		config.Labels = make(map[string]string)
 	}
 
 	// Augment labels with some metadata from the agent. Explicitly do this last

@@ -415,6 +415,32 @@ func TestDockerConfigRawConfig(t *testing.T) {
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
 
+func TestDockerConfigRawConfigNilLabel(t *testing.T) {
+	rawConfig, err := json.Marshal(&struct{ Labels map[string]string }{nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					Config: strptr(string(rawConfig)),
+				},
+			},
+		},
+	}
+
+	_, configErr := testTask.DockerConfig(testTask.Containers[0])
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+}
+
 func TestDockerConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
 	// docker.Config which will include a lot of zero values.
