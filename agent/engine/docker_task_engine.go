@@ -42,6 +42,8 @@ const (
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
+	cfg *config.Config
+
 	// state stores all tasks this task engine is aware of, including their
 	// current state and mappings to/from dockerId and name.
 	// This is used to checkpoint state to disk so tasks may survive agent
@@ -73,6 +75,7 @@ type DockerTaskEngine struct {
 // is also initialized.
 func NewDockerTaskEngine(cfg *config.Config) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
+		cfg:    cfg,
 		client: nil,
 		saver:  statemanager.NewNoopStateManager(),
 
@@ -584,14 +587,23 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 }
 
 // Capabilities returns the supported capabilities of this agent / docker-client pair.
-// Currently. it just passes up what remote api versions docker supports, but
-// eventually will likely have to do more.
 func (engine *DockerTaskEngine) Capabilities() []string {
-	capabilities := make([]string, 0)
-	for _, version := range engine.client.SupportedVersions() {
-		// Note, arbitrarily chosen string, quite possibly will change.
-		capabilities = append(capabilities, "com.amazonaws.ecs.agent-capabilities.docker.remote-api."+string(version))
+	capabilities := []string{
+		"com.amazonaws.ecs.capability.privileged-container",
 	}
+	versions := make(map[dockerclient.DockerVersion]bool)
+	for _, version := range engine.client.SupportedVersions() {
+		capabilities = append(capabilities, "com.amazonaws.ecs.capability.docker-remote-api."+string(version))
+		versions[version] = true
+	}
+
+	for _, loggingDriver := range engine.cfg.AvailableLoggingDrivers {
+		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
+		if _, ok := versions[requiredVersion]; ok {
+			capabilities = append(capabilities, "com.amazonaws.ecs.capability.logging-driver."+string(loggingDriver))
+		}
+	}
+
 	return capabilities
 }
 

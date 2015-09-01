@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/golang/mock/gomock"
 )
@@ -81,6 +82,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
 	os.Setenv("ECS_RESERVED_MEMORY", "20")
+	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -94,6 +96,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if conf.ReservedMemory != 20 {
 		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
+	}
+	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
+		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
 	}
 }
 
@@ -117,7 +122,7 @@ func TestTrimWhitespace(t *testing.T) {
 		AWSRegion: " us-east-1\r\t",
 		DataDir:   "/trailing/space/directory ",
 	}
-	cfg.TrimWhitespace()
+	cfg.trimWhitespace()
 	if !reflect.DeepEqual(cfg, &Config{Cluster: "asdf", AWSRegion: "us-east-1", DataDir: "/trailing/space/directory "}) {
 		t.Error("Did not match expected", *cfg)
 	}
@@ -153,5 +158,28 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.ReservedMemory != 0 {
 		t.Error("Default reserved memory set incorrectly")
+	}
+	if !reflect.DeepEqual(cfg.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.JsonFileDriver}) {
+		t.Error("Default logging drivers set incorrectly")
+	}
+}
+
+func TestBadLoggingDriverSerialization(t *testing.T) {
+	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\"malformed]")
+
+	conf := EnvironmentConfig()
+	if len(conf.AvailableLoggingDrivers) != 0 {
+		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
+	}
+}
+
+func TestInvalidLoggingDriver(t *testing.T) {
+	conf := DefaultConfig()
+	conf.AWSRegion = "us-west-2"
+	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"invalid-logging-driver"}
+
+	err := conf.validate()
+	if err == nil {
+		t.Error("Should be error with invalid-logging-driver")
 	}
 }

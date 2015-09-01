@@ -111,6 +111,7 @@ configure them as something other than the defaults.
 | `ECS_DOCKER_GRAPHPATH`   | /var/lib/docker | Used to create the path to the state file of containers launched. The state file is used to read utilization metrics of containers. | /var/lib/docker |
 | `AWS_SESSION_TOKEN` |                         | The [Session Token](http://docs.aws.amazon.com/STS/latest/UsingSTS/Welcome.html) used for temporary credentials. | Taken from EC2 Instance Metadata |
 | `ECS_RESERVED_MEMORY` | 32 | Memory, in MB, to reserve for use by things other than containers managed by ECS. | 0 |
+| `ECS_AVAILABLE_LOGGING_DRIVERS` | `["json-file","syslog"]` | Which logging drivers are available on the Container Instance. | `["json-file"]` |
 
 ### Persistence
 

@@ -24,22 +24,22 @@ import (
 type DockerVersion string
 
 const (
-	version_1_17 DockerVersion = "1.17"
-	version_1_18 DockerVersion = "1.18"
-	version_1_19 DockerVersion = "1.19"
-	version_1_20 DockerVersion = "1.20"
+	Version_1_17 DockerVersion = "1.17"
+	Version_1_18 DockerVersion = "1.18"
+	Version_1_19 DockerVersion = "1.19"
+	Version_1_20 DockerVersion = "1.20"
 
-	defaultVersion = version_1_17
+	defaultVersion = Version_1_17
 )
 
 var supportedVersions []DockerVersion
 
 func init() {
 	supportedVersions = []DockerVersion{
-		version_1_17,
-		version_1_18,
-		version_1_19,
-		version_1_20,
+		Version_1_17,
+		Version_1_18,
+		Version_1_19,
+		Version_1_20,
 	}
 }
 

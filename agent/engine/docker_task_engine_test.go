@@ -15,12 +15,14 @@ package engine_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -348,4 +350,37 @@ func TestStopWithPendingStops(t *testing.T) {
 	taskEngine.AddTask(&stopSleep1)
 	pulling <- true
 	// If we get here without deadlocking, we passed the test
+}
+
+func TestCapabilities(t *testing.T) {
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JsonFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+	}
+	ctrl, client, taskEngine := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_17,
+		dockerclient.Version_1_18,
+	})
+
+	capabilities := taskEngine.Capabilities()
+
+	expectedCapabilities := []string{
+		"com.amazonaws.ecs.capability.privileged-container",
+		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
+		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
+		"com.amazonaws.ecs.capability.logging-driver.json-file",
+		"com.amazonaws.ecs.capability.logging-driver.syslog",
+	}
+
+	if !reflect.DeepEqual(capabilities, expectedCapabilities) {
+		t.Errorf("Expected capabilities %v, but got capabilities %v", expectedCapabilities, capabilities)
+	}
 }

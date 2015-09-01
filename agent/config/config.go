@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
@@ -60,8 +61,8 @@ func (lhs *Config) Merge(rhs Config) *Config {
 	return lhs //make it chainable
 }
 
-// Complete returns true if all fields of the config are populated / nonzero
-func (cfg *Config) Complete() bool {
+// complete returns true if all fields of the config are populated / nonzero
+func (cfg *Config) complete() bool {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 
 	for i := 0; i < cfgElem.NumField(); i++ {
@@ -72,11 +73,11 @@ func (cfg *Config) Complete() bool {
 	return true
 }
 
-// CheckMissing checks all zero-valued fields for tags of the form
+// checkMissingAndDeprecated checks all zero-valued fields for tags of the form
 // missing:STRING and acts based on that string. Current options are: fatal,
 // warn. Fatal will result in an error being returned, warn will result in a
 // warning that the field is missing being logged.
-func (cfg *Config) CheckMissingAndDepreciated() error {
+func (cfg *Config) checkMissingAndDepreciated() error {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
 
@@ -112,9 +113,9 @@ func (cfg *Config) CheckMissingAndDepreciated() error {
 	return nil
 }
 
-// TrimWhitespace trims whitespace from all string config values with the
+// trimWhitespace trims whitespace from all string config values with the
 // `trim` tag
-func (cfg *Config) TrimWhitespace() {
+func (cfg *Config) trimWhitespace() {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
 
@@ -139,13 +140,14 @@ func (cfg *Config) TrimWhitespace() {
 
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint:   "unix:///var/run/docker.sock",
-		ReservedPorts:    []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
-		ReservedPortsUDP: []uint16{},
-		DataDir:          "/data/",
-		DisableMetrics:   false,
-		DockerGraphPath:  "/var/lib/docker",
-		ReservedMemory:   0,
+		DockerEndpoint:          "unix:///var/run/docker.sock",
+		ReservedPorts:           []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		ReservedPortsUDP:        []uint16{},
+		DataDir:                 "/data/",
+		DisableMetrics:          false,
+		DockerGraphPath:         "/var/lib/docker",
+		ReservedMemory:          0,
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
 	}
 }
 
@@ -246,22 +248,34 @@ func EnvironmentConfig() Config {
 		}
 	}
 
+	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
+	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
+	var availableLoggingDrivers []dockerclient.LoggingDriver
+	err = loggingDriverDecoder.Decode(&availableLoggingDrivers)
+	// EOF means the string was blank as opposed to UnexepctedEof which means an
+	// invalid parse
+	// Blank is not a warning; we have sane defaults
+	if err != io.EOF && err != nil {
+		log.Warn("Invalid format for \"ECS_AVAILABLE_LOGGING_DRIVERS\" environment variable; expected a JSON array like [\"json-file\",\"syslog\"].", "err", err)
+	}
+
 	return Config{
-		Cluster:           clusterRef,
-		APIEndpoint:       endpoint,
-		AWSRegion:         awsRegion,
-		DockerEndpoint:    dockerEndpoint,
-		ReservedPorts:     reservedPorts,
-		ReservedPortsUDP:  reservedPortsUDP,
-		DataDir:           dataDir,
-		Checkpoint:        checkpoint,
-		EngineAuthType:    engineAuthType,
-		EngineAuthData:    []byte(engineAuthData),
-		UpdatesEnabled:    updatesEnabled,
-		UpdateDownloadDir: updateDownloadDir,
-		DisableMetrics:    disableMetrics,
-		DockerGraphPath:   dockerGraphPath,
-		ReservedMemory:    reservedMemory,
+		Cluster:                 clusterRef,
+		APIEndpoint:             endpoint,
+		AWSRegion:               awsRegion,
+		DockerEndpoint:          dockerEndpoint,
+		ReservedPorts:           reservedPorts,
+		ReservedPortsUDP:        reservedPortsUDP,
+		DataDir:                 dataDir,
+		Checkpoint:              checkpoint,
+		EngineAuthType:          engineAuthType,
+		EngineAuthData:          []byte(engineAuthData),
+		UpdatesEnabled:          updatesEnabled,
+		UpdateDownloadDir:       updateDownloadDir,
+		DisableMetrics:          disableMetrics,
+		DockerGraphPath:         dockerGraphPath,
+		ReservedMemory:          reservedMemory,
+		AvailableLoggingDrivers: availableLoggingDrivers,
 	}
 }
 
@@ -285,12 +299,12 @@ func NewConfig() (config *Config, err error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
 	config = &ctmp
 	defer func() {
-		config.TrimWhitespace()
-		err = config.CheckMissingAndDepreciated()
+		config.trimWhitespace()
+		err = config.validate()
 		config.Merge(DefaultConfig())
 	}()
 
-	if config.Complete() {
+	if config.complete() {
 		// No need to do file / network IO
 		return config, nil
 	}
@@ -303,6 +317,27 @@ func NewConfig() (config *Config, err error) {
 	}
 
 	return config, err
+}
+
+// validate performs validation over members of the Config struct
+func (config *Config) validate() error {
+	err := config.checkMissingAndDepreciated()
+	if err != nil {
+		return err
+	}
+
+	var badDrivers []string
+	for _, driver := range config.AvailableLoggingDrivers {
+		_, ok := dockerclient.LoggingDriverMinimumVersion[driver]
+		if !ok {
+			badDrivers = append(badDrivers, string(driver))
+		}
+	}
+	if len(badDrivers) > 0 {
+		return errors.New("Invalid logging drivers: " + strings.Join(badDrivers, ", "))
+	}
+
+	return nil
 }
 
 // String returns a lossy string representation of the config suitable for human readable display.

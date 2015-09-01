@@ -64,14 +64,14 @@ func TestGetClientCached(t *testing.T) {
 		if endpoint != expectedEndpoint {
 			t.Errorf("Expected endpoint %s but was %s", expectedEndpoint, endpoint)
 		}
-		if version != string(version_1_18) {
-			t.Errorf("Expected version %s but was %s", version_1_18, version)
+		if version != string(Version_1_18) {
+			t.Errorf("Expected version %s but was %s", Version_1_18, version)
 		}
 		return mockClient, nil
 	}
 
 	factory := NewFactory(expectedEndpoint)
-	client, err := factory.GetClient(version_1_18)
+	client, err := factory.GetClient(Version_1_18)
 	if err != nil {
 		t.Fatal("err should be nil")
 	}
@@ -79,7 +79,7 @@ func TestGetClientCached(t *testing.T) {
 		t.Error("Client returned by GetDefaultClient differs from mockClient")
 	}
 
-	client, err = factory.GetClient(version_1_18)
+	client, err = factory.GetClient(Version_1_18)
 	if err != nil {
 		t.Fatal("err should be nil")
 	}
@@ -104,7 +104,7 @@ func TestGetClientFailCreateNotCached(t *testing.T) {
 	}
 
 	factory := NewFactory("")
-	client, err := factory.GetClient(version_1_19)
+	client, err := factory.GetClient(Version_1_19)
 	if err == nil {
 		t.Fatal("err should not be nil")
 	}
@@ -114,7 +114,7 @@ func TestGetClientFailCreateNotCached(t *testing.T) {
 
 	mockClient.EXPECT().Ping()
 
-	client, err = factory.GetClient(version_1_19)
+	client, err = factory.GetClient(Version_1_19)
 	if err != nil {
 		t.Fatal("err should be nil")
 	}
@@ -136,7 +136,7 @@ func TestGetClientFailPingNotCached(t *testing.T) {
 	mockClient.EXPECT().Ping().Return(fmt.Errorf("Test error!"))
 
 	factory := NewFactory("")
-	client, err := factory.GetClient(version_1_20)
+	client, err := factory.GetClient(Version_1_20)
 	if err == nil {
 		t.Fatal("err should not be nil")
 	}
@@ -146,7 +146,7 @@ func TestGetClientFailPingNotCached(t *testing.T) {
 
 	mockClient.EXPECT().Ping()
 
-	client, err = factory.GetClient(version_1_20)
+	client, err = factory.GetClient(Version_1_20)
 	if err != nil {
 		t.Fatal("err should be nil")
 	}
@@ -172,13 +172,13 @@ func TestFindAvailableVersiosn(t *testing.T) {
 		}
 
 		switch DockerVersion(version) {
-		case version_1_17:
+		case Version_1_17:
 			return mockClient117, nil
-		case version_1_18:
+		case Version_1_18:
 			return mockClient118, nil
-		case version_1_19:
+		case Version_1_19:
 			return mockClient119, nil
-		case version_1_20:
+		case Version_1_20:
 			return mockClient120, nil
 		default:
 			t.Fatal("Unrecognized version")
@@ -191,7 +191,7 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	mockClient119.EXPECT().Ping()
 	mockClient120.EXPECT().Ping()
 
-	expectedVersions := []DockerVersion{version_1_17, version_1_19, version_1_20}
+	expectedVersions := []DockerVersion{Version_1_17, Version_1_19, Version_1_20}
 
 	factory := NewFactory(expectedEndpoint)
 	versions := factory.FindAvailableVersions()
