@@ -83,6 +83,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
 	os.Setenv("ECS_RESERVED_MEMORY", "20")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
+	os.Setenv("ECS_SELINUX_CAPABLE", "true")
+	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -99,6 +101,12 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
+	}
+	if !conf.SELinuxCapable {
+		t.Error("Wrong value for SELinuxCapable")
+	}
+	if !conf.AppArmorCapable {
+		t.Error("Wrong value for AppArmorCapable")
 	}
 }
 

@@ -86,4 +86,12 @@ type Config struct {
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver
+
+	// SELinxuCapable specifies whether the Agent is capable of using SELinux
+	// security options
+	SELinuxCapable bool
+
+	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
+	// security options
+	AppArmorCapable bool
 }

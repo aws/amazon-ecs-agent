@@ -361,6 +361,8 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
+		SELinuxCapable:  true,
+		AppArmorCapable: true,
 	}
 	ctrl, client, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()
@@ -378,6 +380,8 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
 		"com.amazonaws.ecs.capability.logging-driver.json-file",
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
+		"com.amazonaws.ecs.capability.selinux",
+		"com.amazonaws.ecs.capability.apparmor",
 	}
 
 	if !reflect.DeepEqual(capabilities, expectedCapabilities) {

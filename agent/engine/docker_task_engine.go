@@ -35,6 +35,7 @@ import (
 const (
 	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
+	capabilityPrefix             = "com.amazonaws.ecs.capability."
 )
 
 // The DockerTaskEngine interacts with docker to implement a task
@@ -589,19 +590,26 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 // Capabilities returns the supported capabilities of this agent / docker-client pair.
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{
-		"com.amazonaws.ecs.capability.privileged-container",
+		capabilityPrefix + "privileged-container",
 	}
 	versions := make(map[dockerclient.DockerVersion]bool)
 	for _, version := range engine.client.SupportedVersions() {
-		capabilities = append(capabilities, "com.amazonaws.ecs.capability.docker-remote-api."+string(version))
+		capabilities = append(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
 		versions[version] = true
 	}
 
 	for _, loggingDriver := range engine.cfg.AvailableLoggingDrivers {
 		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
 		if _, ok := versions[requiredVersion]; ok {
-			capabilities = append(capabilities, "com.amazonaws.ecs.capability.logging-driver."+string(loggingDriver))
+			capabilities = append(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
 		}
+	}
+
+	if engine.cfg.SELinuxCapable {
+		capabilities = append(capabilities, capabilityPrefix+"selinux")
+	}
+	if engine.cfg.AppArmorCapable {
+		capabilities = append(capabilities, capabilityPrefix+"apparmor")
 	}
 
 	return capabilities
