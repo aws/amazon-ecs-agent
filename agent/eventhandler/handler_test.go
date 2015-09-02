@@ -37,7 +37,7 @@ type MockECSClient struct {
 func (m *MockECSClient) CredentialProvider() *credentials.Credentials {
 	return credentials.AnonymousCredentials
 }
-func (m *MockECSClient) RegisterContainerInstance(string) (string, error) {
+func (m *MockECSClient) RegisterContainerInstance(string, []string) (string, error) {
 	return "", nil
 }
 func (m *MockECSClient) DiscoverPollEndpoint(string) (string, error) {

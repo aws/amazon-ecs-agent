@@ -45,6 +45,9 @@ type DockerTaskEngine struct {
 
 	cfg *config.Config
 
+	initialized  bool
+	mustInitLock sync.Mutex
+
 	// state stores all tasks this task engine is aware of, including their
 	// current state and mappings to/from dockerId and name.
 	// This is used to checkpoint state to disk so tasks may survive agent
@@ -59,7 +62,8 @@ type DockerTaskEngine struct {
 	taskEvents      chan api.TaskStateChange
 	saver           statemanager.Saver
 
-	client DockerClient
+	client     DockerClient
+	clientLock sync.Mutex
 
 	stopEngine context.CancelFunc
 
@@ -124,35 +128,50 @@ func (engine *DockerTaskEngine) Init() error {
 	engine.synchronizeState()
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(ctx)
-
+	engine.initialized = true
 	return nil
 }
 
 func (engine *DockerTaskEngine) initDockerClient() error {
-	if engine.client == nil {
-		client, err := NewDockerGoClient(nil)
-		if err != nil {
-			return err
-		}
-		engine.client = client
+	if engine.client != nil {
+		return nil
 	}
+
+	engine.clientLock.Lock()
+	defer engine.clientLock.Unlock()
+	if engine.client != nil {
+		return nil
+	}
+	client, err := NewDockerGoClient(nil)
+	if err != nil {
+		return err
+	}
+	engine.client = client
+
 	return nil
 }
 
 // SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
 func (engine *DockerTaskEngine) SetDockerClient(client DockerClient) {
+	engine.clientLock.Lock()
+	engine.clientLock.Unlock()
 	engine.client = client
 }
 
 // MustInit blocks and retries until an engine can be initialized.
 func (engine *DockerTaskEngine) MustInit() {
-	if engine.client != nil {
+	if engine.initialized {
 		return
 	}
+	engine.mustInitLock.Lock()
+	defer engine.mustInitLock.Unlock()
 
 	errorOnce := sync.Once{}
 	taskEngineConnectBackoff := utils.NewSimpleBackoff(200*time.Millisecond, 2*time.Second, 0.20, 1.5)
 	utils.RetryWithBackoff(taskEngineConnectBackoff, func() error {
+		if engine.initialized {
+			return nil
+		}
 		err := engine.Init()
 		if err != nil {
 			errorOnce.Do(func() {
@@ -589,6 +608,10 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 
 // Capabilities returns the supported capabilities of this agent / docker-client pair.
 func (engine *DockerTaskEngine) Capabilities() []string {
+	err := engine.initDockerClient()
+	if err != nil {
+		return nil
+	}
 	capabilities := []string{
 		capabilityPrefix + "privileged-container",
 	}

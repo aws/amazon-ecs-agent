@@ -221,6 +221,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	client.(*api.ApiECSClient).SetEC2MetadataClient(mockEC2Metadata)
 
+	capabilities := []string{"capability1", "capability2"}
+
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
@@ -246,10 +248,21 @@ func TestRegisterContainerInstance(t *testing.T) {
 		if *resource.Type != "STRINGSET" {
 			t.Errorf("Wrong type for resource \"PORTS_UDP\".  Expected \"STRINGSET\" but was \"%s\"", *resource.Type)
 		}
+		if len(req.Attributes) != len(capabilities) {
+			t.Errorf("Wrong lenght of Attributes, expected %d but was %d", len(capabilities), len(req.Attributes))
+		}
+		for i, _ := range capabilities {
+			if req.Attributes[i].Name == nil {
+				t.Errorf("nil name for attribute %d", i)
+			}
+			if *req.Attributes[i].Name != capabilities[i] {
+				t.Errorf("Wrong attribute, expected %s but was %s", capabilities[i], req.Attributes[i])
+			}
+		}
 
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil)
 
-	arn, err := client.RegisterContainerInstance("arn:test")
+	arn, err := client.RegisterContainerInstance("arn:test", capabilities)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -298,7 +311,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 		}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceARN: aws.String("registerArn")}}, nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("")
+	arn, err := client.RegisterContainerInstance("", nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}

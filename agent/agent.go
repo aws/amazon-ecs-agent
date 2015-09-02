@@ -146,6 +146,8 @@ func _main() int {
 		return exitcodes.ExitTerminal
 	}
 
+	capabilities := taskEngine.Capabilities()
+
 	credentialProvider := aws.DefaultChainCredentials
 	// Preflight request to make sure they're good
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
@@ -155,7 +157,7 @@ func _main() int {
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")
-		containerInstanceArn, err = client.RegisterContainerInstance("")
+		containerInstanceArn, err = client.RegisterContainerInstance("", capabilities)
 		if err != nil {
 			log.Errorf("Error registering: %v", err)
 			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
@@ -168,7 +170,7 @@ func _main() int {
 		stateManager.Save()
 	} else {
 		log.Infof("Restored from checkpoint file. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
-		_, err = client.RegisterContainerInstance(containerInstanceArn)
+		_, err = client.RegisterContainerInstance(containerInstanceArn, capabilities)
 		if err != nil {
 			log.Errorf("Error re-registering: %v", err)
 			if awserr, ok := err.(awserr.Error); ok && api.IsInstanceTypeChangedError(awserr) {
