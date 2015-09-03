@@ -224,6 +224,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(), envVariables, t)
 	expectKey("ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(), envVariables, t)
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
+	expectKey("ECS_AVAILABLE_LOGGING_DRIVERS=[\"json-file\",\"syslog\"]", envVariables, t)
 
 	if len(cfg.ExposedPorts) != 1 {
 		t.Errorf("Expected exactly 1 element to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))

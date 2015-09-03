@@ -136,11 +136,12 @@ func (c *Client) getContainerConfig() *godocker.Config {
 
 	// default environment variables
 	envVariables := map[string]string{
-		"ECS_LOGFILE":                logDir + "/" + config.AgentLogFile,
-		"ECS_DATADIR":                dataDir,
-		"ECS_AGENT_CONFIG_FILE_PATH": config.AgentJSONConfigFile(),
-		"ECS_UPDATE_DOWNLOAD_DIR":    config.CacheDirectory(),
-		"ECS_UPDATES_ENABLED":        "true",
+		"ECS_LOGFILE":                   logDir + "/" + config.AgentLogFile,
+		"ECS_DATADIR":                   dataDir,
+		"ECS_AGENT_CONFIG_FILE_PATH":    config.AgentJSONConfigFile(),
+		"ECS_UPDATE_DOWNLOAD_DIR":       config.CacheDirectory(),
+		"ECS_UPDATES_ENABLED":           "true",
+		"ECS_AVAILABLE_LOGGING_DRIVERS": "[\"json-file\",\"syslog\"]",
 	}
 
 	// merge in user-supplied environment variables
