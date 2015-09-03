@@ -14,9 +14,10 @@
 package functional_tests
 
 import (
-	_ "github.com/aws/aws-sdk-go/service/ec2"
-	_ "github.com/aws/aws-sdk-go/service/ecs"
 	"testing"
+
+	_ "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	_ "github.com/aws/aws-sdk-go/service/ec2"
 )
 
 // go test seems to require at least one non-tagged test to exist even when

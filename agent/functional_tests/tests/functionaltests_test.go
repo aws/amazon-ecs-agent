@@ -19,12 +19,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
-	"github.com/aws/aws-sdk-go/service/ecs"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -177,6 +178,61 @@ func TestCommandOverrides(t *testing.T) {
 	}
 	if exitCode, _ := task.ContainerExitcode("exit"); exitCode != 21 {
 		t.Errorf("Expected exit code of 21; got %v", exitCode)
+	}
+}
+
+func TestLabels(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	task, err := agent.StartTask(t, "labels")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = task.WaitStopped(2 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerId, err := agent.ResolveTaskDockerID(task, "labeled")
+	if err != nil {
+		t.Fatal(err)
+	}
+	container, err := agent.DockerClient.InspectContainer(dockerId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if container.Config.Labels["label1"] != "" || container.Config.Labels["com.foo.label2"] != "value" {
+		t.Fatalf("Labels did not match expected; expected to contain label1: com.foo.label2:value, got %v", container.Config.Labels)
+	}
+}
+
+func TestLogdriverOptions(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	task, err := agent.StartTask(t, "logdriver-jsonfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = task.WaitStopped(2 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerId, err := agent.ResolveTaskDockerID(task, "exit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	container, err := agent.DockerClient.InspectContainer(dockerId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if container.HostConfig.LogConfig.Type != "json-file" {
+		t.Errorf("Expected json-file type logconfig, was %v", container.HostConfig.LogConfig.Type)
+	}
+	if !reflect.DeepEqual(map[string]string{"max-file": "50", "max-size": "50k"}, container.HostConfig.LogConfig.Config) {
+		t.Errorf("Expected max-file:50 max-size:50k for logconfig options, got %v", container.HostConfig.LogConfig.Config)
 	}
 }
 

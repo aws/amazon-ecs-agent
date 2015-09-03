@@ -29,9 +29,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -39,16 +39,22 @@ var ECS *ecs.ECS
 var Cluster string
 
 func init() {
+	ecsconfig := aws.DefaultConfig.Copy()
 	if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
-		ECS = ecs.New(&aws.Config{Region: iid.Region})
-	} else {
-		ECS = ecs.New(nil)
+		ecsconfig.Region = iid.Region
+	}
+	if envEndpoint := os.Getenv("ECS_BACKEND_HOST"); envEndpoint != "" {
+		ecsconfig.Endpoint = envEndpoint
 	}
 
+	ECS = ecs.New(&ecsconfig)
 	Cluster = "ecs-functional-tests"
 	if envCluster := os.Getenv("ECS_CLUSTER"); envCluster != "" {
 		Cluster = envCluster
 	}
+	ECS.CreateCluster(&ecs.CreateClusterInput{
+		ClusterName: aws.String(Cluster),
+	})
 }
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -175,6 +181,9 @@ func (agent *TestAgent) StartAgent() error {
 			"ECS_DATADIR=/data",
 			"ECS_LOGLEVEL=debug",
 			"ECS_LOGFILE=/logs/integ_agent.log",
+			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
+			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
+			"AWS_SECRET_ACCESS_KEY=" + os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		},
 	}
 
