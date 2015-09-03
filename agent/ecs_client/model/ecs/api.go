@@ -1084,6 +1084,18 @@ type ContainerDefinition struct {
 	// CMD parameter, see https://docs.docker.com/reference/builder/#cmd (https://docs.docker.com/reference/builder/#cmd).
 	Command []*string `locationName:"command" type:"list"`
 
+	DNSSearchDomains []*string `locationName:"dnsSearchDomains" type:"list"`
+
+	DNSServers []*string `locationName:"dnsServers" type:"list"`
+
+	DisableNetworking *bool `locationName:"disableNetworking" type:"boolean"`
+
+	DockerLabels map[string]*string `locationName:"dockerLabels" type:"map"`
+
+	DockerSecurityOptions []*string `locationName:"dockerSecurityOptions" type:"list"`
+
+	Domainname *string `locationName:"domainname" type:"string"`
+
 	// Early versions of the Amazon ECS container agent do not properly handle entryPoint
 	// parameters. If you have problems using entryPoint, update your container
 	// agent or enter your commands and arguments as command array items instead.
@@ -1104,6 +1116,10 @@ type ContainerDefinition struct {
 	//  All tasks must have at least one essential container.
 	Essential *bool `locationName:"essential" type:"boolean"`
 
+	ExtraHosts []*HostEntry `locationName:"extraHosts" type:"list"`
+
+	Hostname *string `locationName:"hostname" type:"string"`
+
 	// The image used to start a container. This string is passed directly to the
 	// Docker daemon. Images in the Docker Hub registry are available by default.
 	// Other repositories are specified with repository-url/image:tag.
@@ -1121,6 +1137,8 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
+	LogConfiguration *LogConfiguration `locationName:"logConfiguration" type:"structure"`
+
 	// The number of MiB of memory reserved for the container. If your container
 	// attempts to exceed the memory allocated here, the container is killed.
 	Memory *int64 `locationName:"memory" type:"integer"`
@@ -1136,8 +1154,18 @@ type ContainerDefinition struct {
 	// The list of port mappings for the container.
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
 
+	Privileged *bool `locationName:"privileged" type:"boolean"`
+
+	ReadonlyRootFilesystem *bool `locationName:"readonlyRootFilesystem" type:"boolean"`
+
+	Ulimits []*Ulimit `locationName:"ulimits" type:"list"`
+
+	User *string `locationName:"user" type:"string"`
+
 	// Data volumes to mount from another container.
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
+
+	WorkingDirectory *string `locationName:"workingDirectory" type:"string"`
 
 	metadataContainerDefinition `json:"-" xml:"-"`
 }
@@ -1921,6 +1949,28 @@ func (s Failure) GoString() string {
 	return s.String()
 }
 
+type HostEntry struct {
+	Hostname *string `type:"string"`
+
+	IPAddress *string `locationName:"IpAddress" type:"string"`
+
+	metadataHostEntry `json:"-" xml:"-"`
+}
+
+type metadataHostEntry struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s HostEntry) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s HostEntry) GoString() string {
+	return s.String()
+}
+
 // Details on a container instance host volume.
 type HostVolumeProperties struct {
 	// The path on the host container instance that is presented to the container.
@@ -2437,6 +2487,28 @@ func (s LoadBalancer) String() string {
 
 // GoString returns the string representation
 func (s LoadBalancer) GoString() string {
+	return s.String()
+}
+
+type LogConfiguration struct {
+	LogDriver *string `locationName:"logDriver" type:"string"`
+
+	Options map[string]*string `locationName:"options" type:"map"`
+
+	metadataLogConfiguration `json:"-" xml:"-"`
+}
+
+type metadataLogConfiguration struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s LogConfiguration) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s LogConfiguration) GoString() string {
 	return s.String()
 }
 
@@ -3253,6 +3325,30 @@ func (s TaskOverride) String() string {
 
 // GoString returns the string representation
 func (s TaskOverride) GoString() string {
+	return s.String()
+}
+
+type Ulimit struct {
+	HardLimit *int64 `locationName:"hardLimit" type:"integer"`
+
+	Name *string `locationName:"name" type:"string"`
+
+	SoftLimit *int64 `locationName:"softLimit" type:"integer"`
+
+	metadataUlimit `json:"-" xml:"-"`
+}
+
+type metadataUlimit struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s Ulimit) String() string {
+	return awsutil.StringValue(s)
+}
+
+// GoString returns the string representation
+func (s Ulimit) GoString() string {
 	return s.String()
 }
 

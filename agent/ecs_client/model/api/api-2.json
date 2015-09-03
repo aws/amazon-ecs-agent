@@ -839,7 +839,21 @@
         "command":{"shape":"StringList"},
         "environment":{"shape":"EnvironmentVariables"},
         "mountPoints":{"shape":"MountPointList"},
-        "volumesFrom":{"shape":"VolumeFromList"}
+        "volumesFrom":{"shape":"VolumeFromList"},
+        "hostname":{"shape":"String"},
+        "domainname":{"shape":"String"},
+        "user":{"shape":"String"},
+        "workingDirectory":{"shape":"String"},
+        "disableNetworking":{"shape":"BoxedBoolean"},
+        "privileged":{"shape":"BoxedBoolean"},
+        "readonlyRootFilesystem":{"shape":"BoxedBoolean"},
+        "dnsServers":{"shape":"StringList"},
+        "dnsSearchDomains":{"shape":"StringList"},
+        "extraHosts":{"shape":"HostEntryList"},
+        "dockerSecurityOptions":{"shape":"StringList"},
+        "dockerLabels":{"shape":"DockerLabelsMap"},
+        "ulimits":{"shape":"UlimitList"},
+        "logConfiguration":{"shape":"LogConfiguration"}
       }
     },
     "ContainerDefinitions":{
@@ -1082,6 +1096,11 @@
         "telemetryEndpoint":{"shape":"String"}
       }
     },
+    "DockerLabelsMap":{
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
+    },
     "Double":{"type":"double"},
     "EnvironmentVariables":{
       "type":"list",
@@ -1097,6 +1116,17 @@
     "Failures":{
       "type":"list",
       "member":{"shape":"Failure"}
+    },
+    "HostEntry":{
+      "type":"structure",
+      "members":{
+        "Hostname":{"shape":"String"},
+        "IpAddress":{"shape":"String"}
+      }
+    },
+    "HostEntryList":{
+      "type":"list",
+      "member":{"shape":"HostEntry"}
     },
     "HostVolumeProperties":{
       "type":"structure",
@@ -1225,6 +1255,18 @@
     "LoadBalancers":{
       "type":"list",
       "member":{"shape":"LoadBalancer"}
+    },
+    "LogConfiguration":{
+      "type":"structure",
+      "members":{
+        "logDriver":{"shape":"String"},
+        "options":{"shape":"LogConfigurationOptionsMap"}
+      }
+    },
+    "LogConfigurationOptionsMap":{
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
     },
     "Long":{"type":"long"},
     "MissingVersionException":{
@@ -1527,6 +1569,18 @@
         "tcp",
         "udp"
       ]
+    },
+    "Ulimit":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "softLimit":{"shape":"Integer"},
+        "hardLimit":{"shape":"Integer"}
+      }
+    },
+    "UlimitList":{
+      "type":"list",
+      "member":{"shape":"Ulimit"}
     },
     "UpdateContainerAgentRequest":{
       "type":"structure",
