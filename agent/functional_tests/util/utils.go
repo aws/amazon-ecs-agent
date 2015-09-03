@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -253,8 +254,13 @@ func (agent *TestAgent) StartAgent() error {
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
 	agent.Cluster = localMetadata.Cluster
 	if localMetadata.Version != "" {
-		agent.Version = localMetadata.Version
-	} else {
+		versionNumberRegex := regexp.MustCompile(` v(\d+\.\d+\.\d+) `)
+		versionNumberStr := versionNumberRegex.FindStringSubmatch(localMetadata.Version)
+		if len(versionNumberStr) == 2 {
+			agent.Version = string(versionNumberStr[1])
+		}
+	}
+	if agent.Version == "" {
 		agent.Version = "UNKNOWN"
 	}
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
@@ -361,6 +367,20 @@ func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string
 		}
 	}
 	return "", errors.New("No containers matched given name")
+}
+
+func (agent *TestAgent) RequireVersion(version string) {
+	if agent.Version == "UNKNOWN" {
+		agent.t.Skipf("Skipping test requiring version %v; agent version unknown", version)
+	}
+
+	matches, err := Version(agent.Version).Matches(version)
+	if err != nil {
+		agent.t.Skipf("Skipping test requiring version %v; could not compare because of error: %v", version, err)
+	}
+	if !matches {
+		agent.t.Skipf("Skipping test requiring version %v; agent version %v", version, agent.Version)
+	}
 }
 
 type TestTask struct {

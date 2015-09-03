@@ -66,6 +66,7 @@ func Test{{ $el.Name }}(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" { t.Parallel() }
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion("{{ $el.Version }}")
 
 	testTask, err := agent.StartTask(t, "{{ $el.TaskDefinition }}")
 	if err != nil {
@@ -101,6 +102,7 @@ func main() {
 		Timeout        string
 		ExitCodes      map[string]int
 		Tags           []string
+		Version        string
 	}
 
 	_, filename, _, _ := runtime.Caller(0)

@@ -35,6 +35,7 @@ func TestDataVolume(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.0.0")
 
 	testTask, err := agent.StartTask(t, "datavolume")
 	if err != nil {
@@ -64,6 +65,7 @@ func TestDataVolume2(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">1.0.0")
 
 	testTask, err := agent.StartTask(t, "datavolume2")
 	if err != nil {
@@ -93,6 +95,7 @@ func TestDisableNetworking(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "network-disabled")
 	if err != nil {
@@ -122,6 +125,7 @@ func TestDnsSearchDomains(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "dns-search-domains")
 	if err != nil {
@@ -151,6 +155,7 @@ func TestDnsServers(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "dns-servers")
 	if err != nil {
@@ -180,6 +185,7 @@ func TestExtraHosts(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "extra-hosts")
 	if err != nil {
@@ -209,6 +215,7 @@ func TestHostname(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "hostname")
 	if err != nil {
@@ -238,6 +245,7 @@ func TestLinkVolumeDependencies(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.0.0")
 
 	testTask, err := agent.StartTask(t, "network-link-2")
 	if err != nil {
@@ -267,6 +275,7 @@ func TestNetworkLink(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.0.0")
 
 	testTask, err := agent.StartTask(t, "network-link")
 	if err != nil {
@@ -296,6 +305,7 @@ func TestPrivileged(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "privileged")
 	if err != nil {
@@ -325,6 +335,7 @@ func TestReadonlyRootfs(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "readonly-rootfs")
 	if err != nil {
@@ -354,6 +365,7 @@ func TestSimpleExit(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.0.0")
 
 	testTask, err := agent.StartTask(t, "simple-exit")
 	if err != nil {
@@ -383,6 +395,7 @@ func TestNofilesULimit(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "nofiles-ulimit")
 	if err != nil {
@@ -412,6 +425,7 @@ func TestWorkingDir(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "working-dir")
 	if err != nil {

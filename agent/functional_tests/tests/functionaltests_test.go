@@ -184,6 +184,7 @@ func TestCommandOverrides(t *testing.T) {
 func TestLabels(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	task, err := agent.StartTask(t, "labels")
 	if err != nil {
@@ -210,6 +211,7 @@ func TestLabels(t *testing.T) {
 func TestLogdriverOptions(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
 
 	task, err := agent.StartTask(t, "logdriver-jsonfile")
 	if err != nil {
