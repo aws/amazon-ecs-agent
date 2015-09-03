@@ -4,7 +4,7 @@
 
 // Package docker provides a client for the Docker remote API.
 //
-// See http://goo.gl/G3plxW for more details on the remote API.
+// See https://goo.gl/G3plxW for more details on the remote API.
 package docker
 
 import (
@@ -28,10 +28,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/opts"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/homedir"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/stdcopy"
 	"time"
+
+	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts"
+	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/homedir"
+	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy"
 )
 
 const userAgent = "go-dockerclient"
@@ -44,6 +45,8 @@ var (
 	ErrConnectionRefused = errors.New("cannot connect to Docker endpoint")
 
 	apiVersion112, _ = NewAPIVersion("1.12")
+
+	apiVersion119, _ = NewAPIVersion("1.19")
 )
 
 // APIVersion is an internal representation of a version of the Remote API.
@@ -325,7 +328,7 @@ func (c *Client) checkAPIVersion() error {
 
 // Ping pings the docker server
 //
-// See http://goo.gl/stJENm for more details.
+// See https://goo.gl/kQCfJj for more details.
 func (c *Client) Ping() error {
 	path := "/_ping"
 	body, status, err := c.do("GET", path, doOptions{})
@@ -461,9 +464,13 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 	address := c.endpointURL.Path
 	if streamOptions.stdout == nil {
 		streamOptions.stdout = ioutil.Discard
+	} else if t, ok := streamOptions.stdout.(io.Closer); ok {
+		defer t.Close()
 	}
 	if streamOptions.stderr == nil {
 		streamOptions.stderr = ioutil.Discard
+	} else if t, ok := streamOptions.stderr.(io.Closer); ok {
+		defer t.Close()
 	}
 	if protocol == "unix" {
 		dial, err := net.Dial(protocol, address)
@@ -582,6 +589,8 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 		return err
 	}
 	req.Header.Set("Content-Type", "plain/text")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", "tcp")
 	protocol := c.endpointURL.Scheme
 	address := c.endpointURL.Path
 	if protocol != "unix" {
@@ -611,13 +620,16 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 	defer rwc.Close()
 	errChanOut := make(chan error, 1)
 	errChanIn := make(chan error, 1)
-	exit := make(chan bool)
 	go func() {
-		defer close(exit)
-		defer close(errChanOut)
+		defer func() {
+			if hijackOptions.in != nil {
+				if closer, ok := hijackOptions.in.(io.Closer); ok {
+					closer.Close()
+				}
+			}
+		}()
 		var err error
 		if hijackOptions.setRawTerminal {
-			// When TTY is ON, use regular copy
 			_, err = io.Copy(hijackOptions.stdout, br)
 		} else {
 			_, err = stdcopy.StdCopy(hijackOptions.stdout, hijackOptions.stderr, br)
@@ -625,21 +637,21 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 		errChanOut <- err
 	}()
 	go func() {
+		var err error
 		if hijackOptions.in != nil {
-			_, err := io.Copy(rwc, hijackOptions.in)
-			errChanIn <- err
+			_, err = io.Copy(rwc, hijackOptions.in)
 		}
+		errChanIn <- err
 		rwc.(interface {
 			CloseWrite() error
 		}).CloseWrite()
 	}()
-	<-exit
-	select {
-	case err = <-errChanIn:
-		return err
-	case err = <-errChanOut:
-		return err
+	errIn := <-errChanIn
+	errOut := <-errChanOut
+	if errIn != nil {
+		return errIn
 	}
+	return errOut
 }
 
 func (c *Client) getURL(path string) string {

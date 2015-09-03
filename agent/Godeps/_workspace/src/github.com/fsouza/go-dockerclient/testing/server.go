@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	mathrand "math/rand"
 	"net"
 	"net/http"
@@ -22,8 +23,8 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/stdcopy"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/gorilla/mux"
+	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy"
+	"github.com/fsouza/go-dockerclient/external/github.com/gorilla/mux"
 )
 
 var nameRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]+$`)
@@ -43,6 +44,8 @@ type DockerServer struct {
 	images         []docker.Image
 	iMut           sync.RWMutex
 	imgIDs         map[string]string
+	networks       []*docker.Network
+	netMut         sync.RWMutex
 	listener       net.Listener
 	mux            *mux.Router
 	hook           func(*http.Request)
@@ -124,6 +127,9 @@ func (s *DockerServer) buildMuxer() {
 	s.mux.Path("/_ping").Methods("GET").HandlerFunc(s.handlerWrapper(s.pingDocker))
 	s.mux.Path("/images/load").Methods("POST").HandlerFunc(s.handlerWrapper(s.loadImage))
 	s.mux.Path("/images/{id:.*}/get").Methods("GET").HandlerFunc(s.handlerWrapper(s.getImage))
+	s.mux.Path("/networks").Methods("GET").HandlerFunc(s.handlerWrapper(s.listNetworks))
+	s.mux.Path("/networks/{id:.*}").Methods("GET").HandlerFunc(s.handlerWrapper(s.networkInfo))
+	s.mux.Path("/networks").Methods("POST").HandlerFunc(s.handlerWrapper(s.createNetwork))
 }
 
 // SetHook changes the hook function used by the server.
@@ -527,7 +533,7 @@ func (s *DockerServer) startContainer(w http.ResponseWriter, r *http.Request) {
 	}
 	container.HostConfig = &hostConfig
 	if container.State.Running {
-		http.Error(w, "Container already running", http.StatusBadRequest)
+		http.Error(w, "", http.StatusNotModified)
 		return
 	}
 	container.State.Running = true
@@ -605,14 +611,34 @@ func (s *DockerServer) attachContainer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	wg := sync.WaitGroup{}
+	if r.URL.Query().Get("stdin") == "1" {
+		wg.Add(1)
+		go func() {
+			ioutil.ReadAll(conn)
+			wg.Done()
+		}()
+	}
 	outStream := stdcopy.NewStdWriter(conn, stdcopy.Stdout)
 	if container.State.Running {
-		fmt.Fprintf(outStream, "Container %q is running\n", container.ID)
+		fmt.Fprintf(outStream, "Container is running\n")
 	} else {
-		fmt.Fprintf(outStream, "Container %q is not running\n", container.ID)
+		fmt.Fprintf(outStream, "Container is not running\n")
 	}
 	fmt.Fprintln(outStream, "What happened?")
 	fmt.Fprintln(outStream, "Something happened")
+	wg.Wait()
+	if r.URL.Query().Get("stream") == "1" {
+		for {
+			time.Sleep(1e6)
+			s.cMut.RLock()
+			if !container.State.Running {
+				s.cMut.RUnlock()
+				break
+			}
+			s.cMut.RUnlock()
+		}
+	}
 	conn.Close()
 }
 
@@ -980,4 +1006,78 @@ func (s *DockerServer) getExec(id string) (*docker.ExecInspect, error) {
 		}
 	}
 	return nil, errors.New("exec not found")
+}
+
+func (s *DockerServer) findNetwork(idOrName string) (*docker.Network, int, error) {
+	s.netMut.RLock()
+	defer s.netMut.RUnlock()
+	for i, network := range s.networks {
+		if network.ID == idOrName || network.Name == idOrName {
+			return network, i, nil
+		}
+	}
+	return nil, -1, errors.New("No such network")
+}
+
+func (s *DockerServer) listNetworks(w http.ResponseWriter, r *http.Request) {
+	s.netMut.RLock()
+	result := make([]docker.Network, 0, len(s.networks))
+	for _, network := range s.networks {
+		result = append(result, *network)
+	}
+	s.netMut.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
+}
+
+func (s *DockerServer) networkInfo(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	network, _, err := s.findNetwork(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(network)
+}
+
+// isValidName validates configuration objects supported by libnetwork
+func isValidName(name string) bool {
+	if name == "" || strings.Contains(name, ".") {
+		return false
+	}
+	return true
+}
+
+func (s *DockerServer) createNetwork(w http.ResponseWriter, r *http.Request) {
+	var config *docker.CreateNetworkOptions
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&config)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !isValidName(config.Name) {
+		http.Error(w, "Invalid network name", http.StatusBadRequest)
+		return
+	}
+	if n, _, _ := s.findNetwork(config.Name); n != nil {
+		http.Error(w, "network already exists", http.StatusForbidden)
+		return
+	}
+
+	generatedID := s.generateID()
+	network := docker.Network{
+		Name: config.Name,
+		ID:   generatedID,
+		Type: config.NetworkType,
+	}
+	s.netMut.Lock()
+	s.networks = append(s.networks, &network)
+	s.netMut.Unlock()
+	w.WriteHeader(http.StatusCreated)
+	var c = struct{ ID string }{ID: network.ID}
+	json.NewEncoder(w).Encode(c)
 }
