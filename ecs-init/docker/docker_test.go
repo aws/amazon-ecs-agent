@@ -320,6 +320,33 @@ func TestStartAgentEnvFile(t *testing.T) {
 	}
 }
 
+func TestGetContainerConfigWithFileOverrides(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	envFile := "\nECS_UPDATES_ENABLED=false\nAGENT_TEST_VAR2=\"val2\"=val2\n"
+
+	mockFS := NewMockfileSystem(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
+
+	client := &Client{
+		fs: mockFS,
+	}
+	cfg := client.getContainerConfig()
+
+	envVariables := make(map[string]struct{})
+	for _, envVar := range cfg.Env {
+		envVariables[envVar] = struct{}{}
+	}
+	expectKey("ECS_UPDATES_ENABLED=false", envVariables, t)
+	expectKey("AGENT_TEST_VAR2=\"val2\"=val2", envVariables, t)
+	if _, ok := envVariables["ECS_UPDATES_ENABLED=true"]; ok {
+		t.Errorf("Did not expect ECS_UPDATES_ENABLED=true to be defined")
+	}
+
+}
+
 func TestStopAgentError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

@@ -133,13 +133,25 @@ func (c *Client) StartAgent() (int, error) {
 }
 
 func (c *Client) getContainerConfig() *godocker.Config {
-	env := append(c.loadEnvVariables(),
-		"ECS_LOGFILE="+logDir+"/"+config.AgentLogFile,
-		"ECS_DATADIR="+dataDir,
-		"ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(),
-		"ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(),
-		"ECS_UPDATES_ENABLED=true",
-	)
+
+	// default environment variables
+	envVariables := map[string]string{
+		"ECS_LOGFILE":                logDir + "/" + config.AgentLogFile,
+		"ECS_DATADIR":                dataDir,
+		"ECS_AGENT_CONFIG_FILE_PATH": config.AgentJSONConfigFile(),
+		"ECS_UPDATE_DOWNLOAD_DIR":    config.CacheDirectory(),
+		"ECS_UPDATES_ENABLED":        "true",
+	}
+
+	// merge in user-supplied environment variables
+	for envKey, envValue := range c.loadEnvVariables() {
+		envVariables[envKey] = envValue
+	}
+
+	var env []string
+	for envKey, envValue := range envVariables {
+		env = append(env, envKey+"="+envValue)
+	}
 
 	exposedPorts := map[godocker.Port]struct{}{
 		agentIntrospectionPort + "/tcp": struct{}{},
@@ -152,12 +164,24 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 }
 
-func (c *Client) loadEnvVariables() []string {
+func (c *Client) loadEnvVariables() map[string]string {
+	envVariables := make(map[string]string)
+
 	file, err := c.fs.ReadFile(config.AgentConfigFile())
 	if err != nil {
-		return make([]string, 0)
+		return envVariables
 	}
-	return strings.Split(strings.TrimSpace(string(file)), "\n")
+
+	lines := strings.Split(strings.TrimSpace(string(file)), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		envVariables[parts[0]] = parts[1]
+	}
+
+	return envVariables
 }
 
 func (c *Client) getHostConfig() *godocker.HostConfig {
