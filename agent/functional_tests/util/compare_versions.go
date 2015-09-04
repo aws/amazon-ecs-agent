@@ -21,58 +21,121 @@ import (
 
 type Version string
 
-func (lhs Version) Matches(selector string) (bool, error) {
-	if strings.HasPrefix(selector, ">=") {
-		if string(lhs) == selector[2:] {
-			return true, nil
-		}
-		lessthan, err := lhs.lessThan(Version(selector[2:]))
-		return !lessthan, err
-	} else if strings.HasPrefix(selector, ">") {
-		lessthan, err := lhs.lessThan(Version(selector[1:]))
-		return !lessthan, err
-	} else if strings.HasPrefix(selector, "<=") {
-		if string(lhs) == selector[2:] {
-			return true, nil
-		}
-		lessthan, err := lhs.lessThan(Version(selector[2:]))
-		return lessthan, err
-	} else if strings.HasPrefix(selector, "<") {
-		lessthan, err := lhs.lessThan(Version(selector[1:]))
-		return lessthan, err
-	}
-	lessthan, err := lhs.lessThan(Version(selector))
-	return !lessthan, err
+type semver struct {
+	major             int
+	minor             int
+	patch             int
+	preReleaseVersion string
+	buildMetadata     string
 }
 
-func (lhs Version) lessThan(rhs Version) (bool, error) {
-	lhsParts := strings.Split(string(lhs), ".")
-	if len(lhsParts) != 3 {
-		return false, fmt.Errorf("Unrecognized version '%v'; must have two dots", lhs)
+func (lhs Version) Matches(selector string) (bool, error) {
+	lhsVersion, err := parseSemver(string(lhs))
+	if err != nil {
+		return false, err
 	}
-	rhsParts := strings.Split(string(rhs), ".")
-	if len(rhsParts) != 3 {
-		return false, fmt.Errorf("Unrecognized version '%v'; must have two dots", rhs)
+	if strings.HasPrefix(selector, ">=") {
+		rhsVersion, err := parseSemver(selector[2:])
+		if err != nil {
+			return false, err
+		}
+		return compareSemver(lhsVersion, rhsVersion) >= 0, nil
+	} else if strings.HasPrefix(selector, ">") {
+		rhsVersion, err := parseSemver(selector[1:])
+		if err != nil {
+			return false, err
+		}
+		return compareSemver(lhsVersion, rhsVersion) > 0, nil
+	} else if strings.HasPrefix(selector, "<=") {
+		rhsVersion, err := parseSemver(selector[2:])
+		if err != nil {
+			return false, err
+		}
+		return compareSemver(lhsVersion, rhsVersion) <= 0, nil
+	} else if strings.HasPrefix(selector, "<") {
+		rhsVersion, err := parseSemver(selector[1:])
+		if err != nil {
+			return false, err
+		}
+		return compareSemver(lhsVersion, rhsVersion) < 0, nil
 	}
 
-	for i := 0; i < 3; i++ {
-		lhsVal, err := strconv.Atoi(lhsParts[i])
-		if err != nil {
-			return false, fmt.Errorf("Invalid part of version '%s', part %s was not an integer", lhs, lhsParts[i])
-		}
-		rhsVal, err := strconv.Atoi(rhsParts[i])
-		if err != nil {
-			return false, fmt.Errorf("Invalid part of version '%s', part %s was not an integer", rhs, rhsParts[i])
-		}
-		if lhsVal > rhsVal {
-			return false, nil
-		}
-		if rhsVal > lhsVal {
-			return true, nil
-		}
+	rhsVersion, err := parseSemver(selector)
+	if err != nil {
+		return false, err
 	}
-	if lhs == rhs {
-		return false, nil
+	return compareSemver(lhsVersion, rhsVersion) == 0, nil
+}
+
+func parseSemver(version string) (semver, error) {
+	var result semver
+	// 0.0.0-some-prealpha-stuff.1+12345
+	versionAndMetadata := strings.SplitN(version, "+", 2)
+	// [0.0.0-some-prealpha-stuff.1, 12345]
+	if len(versionAndMetadata) == 2 {
+		result.buildMetadata = versionAndMetadata[1]
 	}
-	return true, nil
+	versionAndPrerelease := strings.SplitN(versionAndMetadata[0], "-", 2)
+	// [0.0.0, some-prealpha-stuff.1]
+	if len(versionAndPrerelease) == 2 {
+		result.preReleaseVersion = versionAndPrerelease[1]
+	}
+	versionStr := versionAndPrerelease[0]
+	versionParts := strings.SplitN(versionStr, ".", 3)
+	// [0, 0, 0]
+	if len(versionParts) != 3 {
+		return result, fmt.Errorf("Not enough '.' characters in the version part")
+	}
+	major, err := strconv.Atoi(versionParts[0])
+	if err != nil {
+		return result, fmt.Errorf("Cannot parse major version as int: %v", err)
+	}
+	minor, err := strconv.Atoi(versionParts[1])
+	if err != nil {
+		return result, fmt.Errorf("Cannot parse minor version as int: %v", err)
+	}
+	patch, err := strconv.Atoi(versionParts[2])
+	if err != nil {
+		return result, fmt.Errorf("Cannot parse patch version as int: %v", err)
+	}
+	result.major = major
+	result.minor = minor
+	result.patch = patch
+	return result, nil
+}
+
+// compareSemver compares two semvers, 'lhs' and 'rhs', and returns -1 if lhs is less
+// than rhs, 0 if they are equal, and 1 lhs is greater than rhs
+func compareSemver(lhs, rhs semver) int {
+	if lhs.major < rhs.major {
+		return -1
+	}
+	if lhs.major > rhs.major {
+		return 1
+	}
+	if lhs.minor < rhs.minor {
+		return -1
+	}
+	if lhs.minor > rhs.minor {
+		return 1
+	}
+	if lhs.patch < rhs.patch {
+		return -1
+	}
+	if lhs.patch > rhs.patch {
+		return 1
+	}
+	if lhs.preReleaseVersion != "" && rhs.preReleaseVersion == "" {
+		return -1
+	}
+	if lhs.preReleaseVersion == "" && rhs.preReleaseVersion != "" {
+		return 1
+	}
+	if lhs.preReleaseVersion < rhs.preReleaseVersion {
+		return -1
+	}
+	if lhs.preReleaseVersion > rhs.preReleaseVersion {
+		return 1
+	}
+	return 0
 }

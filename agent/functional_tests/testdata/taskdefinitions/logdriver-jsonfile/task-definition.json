@@ -3,8 +3,8 @@
   "containerDefinitions": [{
     "image": "busybox:latest",
     "name": "exit",
-    "cpu": 10,
     "memory": 10,
+    "cpu": 10,
     "logConfiguration": {
       "logDriver": "json-file",
       "options": {

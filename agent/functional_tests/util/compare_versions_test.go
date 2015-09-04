@@ -15,68 +15,72 @@ package util
 
 import "testing"
 
-func TestVersionLessThan(t *testing.T) {
+func TestParseSemver(t *testing.T) {
 	testCases := []struct {
-		lhs            string
-		rhs            string
-		expectedError  bool
-		expectedOutput bool // ignored if an error is expected
+		input  string
+		output semver
 	}{
 		{
-			lhs:            "1.0.0",
-			rhs:            "0.0.1",
-			expectedOutput: false,
+			input: "1.0.0",
+			output: semver{
+				major: 1,
+				minor: 0,
+				patch: 0,
+			},
 		},
 		{
-			lhs:            "0.0.1",
-			rhs:            "1.0.0",
-			expectedOutput: true,
+			input: "5.2.3",
+			output: semver{
+				major: 5,
+				minor: 2,
+				patch: 3,
+			},
 		},
 		{
-			lhs:            "1.2.3",
-			rhs:            "1.2.4",
-			expectedOutput: true,
+			input: "1.0.0-rc-3",
+			output: semver{
+				major:             1,
+				minor:             0,
+				patch:             0,
+				preReleaseVersion: "rc-3",
+			},
 		},
 		{
-			lhs:            "2.2.3",
-			rhs:            "1.9.9",
-			expectedOutput: false,
+			input: "1.0.0+sha.xyz",
+			output: semver{
+				major:         1,
+				minor:         0,
+				patch:         0,
+				buildMetadata: "sha.xyz",
+			},
 		},
 		{
-			lhs:           "2.2",
-			rhs:           "1.9.1",
-			expectedError: true,
-		},
-		{
-			lhs:           "2.2.2",
-			rhs:           "1",
-			expectedError: true,
-		},
-		{
-			lhs:           "",
-			rhs:           "1",
-			expectedError: true,
-		},
-		{
-			lhs:            "1.1.1",
-			rhs:            "1.1.1",
-			expectedOutput: false,
+			input: "1.0.0-rc1+sha.xyz",
+			output: semver{
+				major:             1,
+				minor:             0,
+				patch:             0,
+				preReleaseVersion: "rc1",
+				buildMetadata:     "sha.xyz",
+			},
 		},
 	}
 
 	for i, testCase := range testCases {
-		result, err := Version(testCase.lhs).lessThan(Version(testCase.rhs))
-		if testCase.expectedError {
-			if err == nil {
-				t.Errorf("#%v: expected error, did not get one", i)
-			}
-		} else {
-			if err != nil {
-				t.Errorf("#%v: unexpected error: %v", i, err)
-			}
-			if result != testCase.expectedOutput {
-				t.Errorf("#%v: expected %v but got %v", i, testCase.expectedOutput, result)
-			}
+		result, err := parseSemver(testCase.input)
+		if err != nil {
+			t.Errorf("#%v: Error parsing %v: %v", i, testCase.input, err)
+		}
+		if result != testCase.output {
+			t.Errorf("#%v: Expected %v, got %v", i, testCase.output, result)
+		}
+	}
+
+	invalidCases := []string{"foo", "", "bar", "1.2", "x.y.z", "1.x.y", "1.1.z"}
+	for i, invalidCase := range invalidCases {
+		_, err := parseSemver(invalidCase)
+		if err == nil {
+			t.Errorf("#%v: Expected error, didn't get one. Input: %v", i, invalidCase)
 		}
 	}
 }
@@ -115,6 +119,36 @@ func TestVersionMatches(t *testing.T) {
 		{
 			version:        "0.1.0",
 			selector:       "<=1.0.0",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.0.0-dev",
+			selector:       "<1.0.0",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.0.0-alpha",
+			selector:       "<1.0.0-beta",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.0.0",
+			selector:       "<1.1.0",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.1.0",
+			selector:       "<1.1.1",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.1.1",
+			selector:       ">1.1.0",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.1.0",
+			selector:       ">1.0.0",
 			expectedOutput: true,
 		},
 	}
