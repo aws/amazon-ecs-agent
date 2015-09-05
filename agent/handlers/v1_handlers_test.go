@@ -15,6 +15,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+	"github.com/golang/mock/gomock"
 )
 
 const TestContainerInstanceArn = "test_container_instance_arn"
@@ -206,4 +210,35 @@ func TestBackendMapping(t *testing.T) {
 	}
 	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
 	backendMappingTestHelper(containers, &testTask, "", "STOPPED", t)
+}
+
+func TestLicenseHandler(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockResponseWriter := mock_http.NewMockResponseWriter(mockCtrl)
+	mockLicenseProvider := mock_utils.NewMockLicenseProvider(mockCtrl)
+
+	licenseProvider = mockLicenseProvider
+
+	text := "text here"
+	mockLicenseProvider.EXPECT().GetText().Return(text, nil)
+	mockResponseWriter.EXPECT().Write([]byte(text))
+
+	LicenseHandler(mockResponseWriter, nil)
+}
+
+func TestLicenseHandlerError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockResponseWriter := mock_http.NewMockResponseWriter(mockCtrl)
+	mockLicenseProvider := mock_utils.NewMockLicenseProvider(mockCtrl)
+
+	licenseProvider = mockLicenseProvider
+
+	mockLicenseProvider.EXPECT().GetText().Return("", errors.New("test error"))
+	mockResponseWriter.EXPECT().WriteHeader(http.StatusInternalServerError)
+
+	LicenseHandler(mockResponseWriter, nil)
 }

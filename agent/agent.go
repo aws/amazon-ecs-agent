@@ -15,6 +15,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	mathrand "math/rand"
 	"os"
 	"runtime"
@@ -57,7 +58,19 @@ func _main() int {
 	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
 	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
 	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
+	licenseFlag := flag.Bool("license", false, "Print the LICENSE and NOTICE files and exit")
 	flag.Parse()
+
+	if *licenseFlag {
+		license := utils.NewLicenseProvider()
+		text, err := license.GetText()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return exitcodes.ExitError
+		}
+		fmt.Println(text)
+		return exitcodes.ExitSuccess
+	}
 
 	logger.SetLevel(*logLevel)
 

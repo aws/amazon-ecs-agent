@@ -16,6 +16,7 @@
 FROM amazon/amazon-ecs-scratch:make
 
 COPY out/amazon-ecs-agent /agent
+COPY ["LICENSE", "NOTICE", "/"]
 
 # Copy our bundled certs to the first place go will check: see
 # https://golang.org/src/pkg/crypto/x509/root_unix.go

@@ -40,4 +40,7 @@ cat << EOF
 $(mockgen "$package" "$interfaces")
 EOF
 )
+
+mkdir -p $(dirname ${outputfile})
+
 echo "$data" | goimports > "${outputfile}"

@@ -158,10 +158,22 @@ func TasksV1RequestHandlerMaker(taskEngine engine.TaskEngine) func(http.Response
 	}
 }
 
+var licenseProvider = utils.NewLicenseProvider()
+
+func LicenseHandler(w http.ResponseWriter, h *http.Request) {
+	text, err := licenseProvider.GetText()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.Write([]byte(text))
+	}
+}
+
 func ServeHttp(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *config.Config) {
 	serverFunctions := map[string]func(w http.ResponseWriter, r *http.Request){
 		"/v1/metadata": MetadataV1RequestHandlerMaker(containerInstanceArn, cfg),
 		"/v1/tasks":    TasksV1RequestHandlerMaker(taskEngine),
+		"/license":     LicenseHandler,
 	}
 
 	paths := make([]string, 0, len(serverFunctions))
