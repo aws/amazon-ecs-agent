@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
@@ -47,11 +48,9 @@ func TestBrokenEC2Metadata(t *testing.T) {
 	os.Clearenv()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	ec2MetadataClient = mockEc2Metadata
-
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
 
-	_, err := NewConfig()
+	_, err := NewConfig(mockEc2Metadata)
 	if err == nil {
 		t.Fatal("Expected error when region isn't set and metadata doesn't work")
 	}
@@ -61,12 +60,11 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	os.Clearenv()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	ec2MetadataClient = mockEc2Metadata
 
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
 	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
 
-	config, err := NewConfig()
+	config, err := NewConfig(mockEc2Metadata)
 	if err != nil {
 		t.Fatal("Expected no error")
 	}
@@ -118,7 +116,7 @@ func TestTrimWhitespace(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "default \r")
 	os.Setenv("ECS_ENGINE_AUTH_TYPE", "dockercfg\r")
 
-	cfg, err := NewConfig()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +140,7 @@ func TestTrimWhitespace(t *testing.T) {
 
 func TestConfigBoolean(t *testing.T) {
 	os.Setenv("ECS_DISABLE_METRICS", "true")
-	cfg, err := NewConfig()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
 	}

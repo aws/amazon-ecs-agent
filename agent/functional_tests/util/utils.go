@@ -41,8 +41,16 @@ var Cluster string
 
 func init() {
 	ecsconfig := aws.DefaultConfig.Copy()
-	if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
-		ecsconfig.Region = iid.Region
+	if region := os.Getenv("AWS_REGION"); region != "" {
+		ecsconfig.Region = region
+	}
+	if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
+		ecsconfig.Region = region
+	}
+	if ecsconfig.Region == "" {
+		if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
+			ecsconfig.Region = iid.Region
+		}
 	}
 	if envEndpoint := os.Getenv("ECS_BACKEND_HOST"); envEndpoint != "" {
 		ecsconfig.Endpoint = envEndpoint
@@ -184,8 +192,10 @@ func (agent *TestAgent) StartAgent() error {
 			"ECS_LOGFILE=/logs/integ_agent.log",
 			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
 			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
+			"AWS_DEFAULT_REGION=" + ECS.Config.Region,
 			"AWS_SECRET_ACCESS_KEY=" + os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		},
+		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
 	}
 
 	hostConfig := &docker.HostConfig{

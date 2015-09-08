@@ -55,11 +55,16 @@ func main() {
 }
 func _main() int {
 	defer log.Flush()
-	versionFlag := flag.Bool("version", false, "Print the agent version information and exit")
-	acceptInsecureCert := flag.Bool("k", false, "Do not verify ssl certs")
-	logLevel := flag.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
-	licenseFlag := flag.Bool("license", false, "Print the LICENSE and NOTICE files and exit")
-	flag.Parse()
+	flagset := flag.NewFlagSet("Amazon ECS Agent", flag.ContinueOnError)
+	versionFlag := flagset.Bool("version", false, "Print the agent version information and exit")
+	logLevel := flagset.String("loglevel", "", "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]")
+	acceptInsecureCert := flagset.Bool("k", false, "Disable SSL certificate verification. We do not recommend setting this option.")
+	licenseFlag := flagset.Bool("license", false, "Print the LICENSE and NOTICE files and exit")
+	blackholeEc2Metadata := flagset.Bool("blackhole-ec2-metadata", false, "Blackhole the EC2 Metadata requests. Setting this option can cause the ECS Agent to fail to work properly.  We do not recommend setting this option")
+	err := flagset.Parse(os.Args[1:])
+	if err != nil {
+		return exitcodes.ExitTerminal
+	}
 
 	if *licenseFlag {
 		license := utils.NewLicenseProvider()
@@ -73,11 +78,14 @@ func _main() int {
 	}
 
 	logger.SetLevel(*logLevel)
+	ec2MetadataClient := ec2.DefaultClient
+	if *blackholeEc2Metadata {
+		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
+	}
 
 	log.Infof("Starting Agent: %v", version.String())
-
 	log.Info("Loading configuration")
-	cfg, err := config.NewConfig()
+	cfg, err := config.NewConfig(ec2MetadataClient)
 	// Load cfg before doing 'versionFlag' so that it has the DOCKER_HOST
 	// variable loaded if needed
 	if *versionFlag {
@@ -132,7 +140,7 @@ func _main() int {
 			log.Infof("Restored cluster '%v'", cfg.Cluster)
 		}
 
-		if instanceIdentityDoc, err := ec2.GetInstanceIdentityDocument(); err == nil {
+		if instanceIdentityDoc, err := ec2MetadataClient.InstanceIdentityDocument(); err == nil {
 			currentEc2InstanceID = instanceIdentityDoc.InstanceId
 		} else {
 			log.Criticalf("Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
@@ -166,7 +174,7 @@ func _main() int {
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
 	}
-	client := api.NewECSClient(credentialProvider, cfg, httpclient.New(api.RoundtripTimeout, *acceptInsecureCert))
+	client := api.NewECSClient(credentialProvider, cfg, httpclient.New(api.RoundtripTimeout, *acceptInsecureCert), ec2MetadataClient)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")

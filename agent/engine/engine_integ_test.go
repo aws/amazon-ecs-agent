@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
@@ -114,7 +115,7 @@ func createTestTask(arn string) *api.Task {
 var cfg *config.Config
 
 func init() {
-	cfg, _ = config.NewConfig()
+	cfg, _ = config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	taskEngine = NewDockerTaskEngine(cfg)
 }
 

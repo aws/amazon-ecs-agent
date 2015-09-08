@@ -93,12 +93,6 @@ func (client *ApiECSClient) SetSubmitStateChangeSDK(sdk ECSSubmitStateSDK) {
 	client.submitStateChangeClient = sdk
 }
 
-// SetEC2MetadataClient overrides the EC2 Metadata Client to the given one.
-// This is useful for injecting a test implementation
-func (client *ApiECSClient) SetEC2MetadataClient(ec2MetadataClient ec2.EC2MetadataClient) {
-	client.ec2metadata = ec2MetadataClient
-}
-
 const (
 	ECS_SERVICE = "ecs"
 
@@ -107,7 +101,7 @@ const (
 	RoundtripTimeout = 5 * time.Second
 )
 
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client) ECSClient {
+func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client, ec2MetadataClient ec2.EC2MetadataClient) ECSClient {
 	ecsConfig := aws.DefaultConfig.Copy()
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = config.AWSRegion
@@ -117,13 +111,12 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	}
 	standardClient := ecs.New(&ecsConfig)
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
-	ec2metadataclient := ec2.DefaultClient
 	return &ApiECSClient{
 		credentialProvider:      credentialProvider,
 		config:                  config,
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
-		ec2metadata:             ec2metadataclient,
+		ec2metadata:             ec2MetadataClient,
 	}
 }
 

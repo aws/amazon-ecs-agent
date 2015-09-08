@@ -286,10 +286,8 @@ func EnvironmentConfig() Config {
 	}
 }
 
-var ec2MetadataClient = ec2.DefaultClient
-
-func EC2MetadataConfig() Config {
-	iid, err := ec2MetadataClient.InstanceIdentityDocument()
+func EC2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
+	iid, err := ec2client.InstanceIdentityDocument()
 	if err != nil {
 		log.Crit("Unable to communicate with EC2 Metadata service to infer region: " + err.Error())
 		return Config{}
@@ -302,7 +300,7 @@ func EC2MetadataConfig() Config {
 // The 'config' struct it returns can be used, even if an error is returned. An
 // error is returned, however, if the config is incomplete in some way that is
 // considered fatal.
-func NewConfig() (config *Config, err error) {
+func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 	ctmp := EnvironmentConfig() //Environment overrides all else
 	config = &ctmp
 	defer func() {
@@ -320,7 +318,7 @@ func NewConfig() (config *Config, err error) {
 
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
-		config.Merge(EC2MetadataConfig())
+		config.Merge(EC2MetadataConfig(ec2client))
 	}
 
 	return config, err

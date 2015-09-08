@@ -23,8 +23,8 @@ import (
 
 const configuredCluster = "mycluster"
 
-func NewMockClient(ctrl *gomock.Controller) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient)
+func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
+	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*api.ApiECSClient).SetSDK(mockSDK)
@@ -67,7 +67,7 @@ func (lhs *containerSubmitInputMatcher) String() string {
 func TestSubmitContainerStateChange(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl)
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
 			Cluster:       strptr(configuredCluster),
@@ -116,7 +116,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 func TestSubmitContainerStateChangeFull(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl)
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	exitCode := 20
 	reason := "I exited"
 
@@ -156,7 +156,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 func TestSubmitContainerStateChangeReason(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl)
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	exitCode := 20
 	reason := strings.Repeat("a", api.EcsMaxReasonLength)
 
@@ -186,7 +186,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl)
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	exitCode := 20
 	trimmedReason := strings.Repeat("a", api.EcsMaxReasonLength)
 	reason := strings.Repeat("a", api.EcsMaxReasonLength+1)
@@ -217,9 +217,8 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 func TestRegisterContainerInstance(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	client.(*api.ApiECSClient).SetEC2MetadataClient(mockEC2Metadata)
+	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata)
 
 	capabilities := []string{"capability1", "capability2"}
 
@@ -283,12 +282,11 @@ func findResource(resources []*ecs.Resource, name string) (*ecs.Resource, bool) 
 func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient)
+	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient, mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*api.ApiECSClient).SetSDK(mc)
-	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	client.(*api.ApiECSClient).SetEC2MetadataClient(mockEC2Metadata)
 
 	defaultCluster := config.DEFAULT_CLUSTER_NAME
 	gomock.InOrder(
@@ -323,7 +321,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 func TestDiscoverTelemetryEndpoint(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl)
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	expectedEndpoint := "http://127.0.0.1"
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := client.DiscoverTelemetryEndpoint("containerInstance")
@@ -343,7 +341,7 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl)
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	pollEndpoint := "http://127.0.0.1"
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := client.DiscoverTelemetryEndpoint("containerInstance")

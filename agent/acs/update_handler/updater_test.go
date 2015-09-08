@@ -121,11 +121,9 @@ func (m *nackRequestMatcher) Matches(nack interface{}) bool {
 		return false
 	}
 	if m.ContainerInstance != nil && *m.ContainerInstance != *other.ContainerInstance {
-		fmt.Println(*other.ContainerInstance)
 		return false
 	}
 	if m.MessageId != nil && *m.MessageId != *other.MessageId {
-		fmt.Println(*other.MessageId)
 		return false
 	}
 	if m.Reason != nil && *m.Reason != *other.Reason {

@@ -15,7 +15,6 @@ package eventhandler
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -205,8 +204,6 @@ func TestSendsEvents(t *testing.T) {
 	// N events should be waiting for potential errors; verify this is so
 	time.Sleep(5 * time.Millisecond)
 	if contCalls != concurrentEventCalls {
-		fmt.Println(contCalls)
-		fmt.Println(concurrentEventCalls)
 		t.Error("Too many event calls got through concurrently")
 	}
 	// Let one through
