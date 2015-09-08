@@ -208,6 +208,40 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	}
 }
 
+// TestStartStopUnpulledImageDigest ensures that an unpulled image with
+// specified digest is successfully pulled, run, and stopped via docker.
+func TestStartStopUnpulledImageDigest(t *testing.T) {
+	imageDigest := "tianon/true@sha256:30ed58eecb0a44d8df936ce2efce107c9ac20410c915866da4c6a33a3795d057"
+	taskEngine := setup(t)
+	// Ensure this image isn't pulled by deleting it
+	removeImage(imageDigest)
+
+	testTask := createTestTask("testStartUnpulledDigest")
+	testTask.Containers[0].Image = imageDigest
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	defer discardEvents(contEvents)()
+
+	go taskEngine.AddTask(testTask)
+
+	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+
+	for taskEvent := range taskEvents {
+		if taskEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		expected_event := expected_events[0]
+		expected_events = expected_events[1:]
+		if taskEvent.Status != expected_event {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		}
+		if len(expected_events) == 0 {
+			break
+		}
+	}
+}
+
 // TestPortForward runs a container serving data on the randomly chosen port
 // 24751 and verifies that when you do forward the port you can access it and if
 // you don't forward the port you can't

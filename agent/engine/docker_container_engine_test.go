@@ -127,6 +127,33 @@ func TestPullImage(t *testing.T) {
 	}
 }
 
+func TestPullImageTag(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:mytag"}, gomock.Any()).Return(nil)
+
+	metadata := client.PullImage("image:mytag")
+	if metadata.Error != nil {
+		t.Error("Expected pull to succeed")
+	}
+}
+
+func TestPullImageDigest(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().PullImage(
+		&pullImageOptsMatcher{"image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"},
+		gomock.Any(),
+	).Return(nil)
+
+	metadata := client.PullImage("image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb")
+	if metadata.Error != nil {
+		t.Error("Expected pull to succeed")
+	}
+}
+
 func TestPullEmptyvolumeImage(t *testing.T) {
 	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()

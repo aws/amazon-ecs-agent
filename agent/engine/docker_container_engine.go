@@ -193,9 +193,14 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	defer pullWriter.Close()
 
 	repository, tag := parsers.ParseRepositoryTag(image)
-	tag = utils.DefaultIfBlank(tag, dockerDefaultTag)
+	if tag == "" {
+		repository = repository + ":" + dockerDefaultTag
+	} else {
+		repository = image
+	}
+
 	opts := docker.PullImageOptions{
-		Repository:   repository + ":" + tag,
+		Repository:   repository,
 		OutputStream: pullWriter,
 	}
 	timeout := ttime.After(dockerPullBeginTimeout)
