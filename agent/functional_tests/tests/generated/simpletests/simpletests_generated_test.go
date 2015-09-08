@@ -176,6 +176,36 @@ func TestDnsServers(t *testing.T) {
 
 }
 
+// TestDomainname Check that domainname works
+func TestDomainname(t *testing.T) {
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
+
+	testTask, err := agent.StartTask(t, "domainname")
+	if err != nil {
+		t.Fatal("Could not start task", err)
+	}
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatal("Could not parse timeout", err)
+	}
+	err = testTask.WaitStopped(timeout)
+	if err != nil {
+		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+	}
+
+	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	}
+
+}
+
 // TestExtraHosts Check that extra hosts works
 func TestExtraHosts(t *testing.T) {
 	// Parallel is opt in because resource constraints could cause test failures
@@ -398,6 +428,36 @@ func TestNofilesULimit(t *testing.T) {
 	agent.RequireVersion(">=1.5.0")
 
 	testTask, err := agent.StartTask(t, "nofiles-ulimit")
+	if err != nil {
+		t.Fatal("Could not start task", err)
+	}
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatal("Could not parse timeout", err)
+	}
+	err = testTask.WaitStopped(timeout)
+	if err != nil {
+		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+	}
+
+	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	}
+
+}
+
+// TestUserNobody Check that user works
+func TestUserNobody(t *testing.T) {
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.5.0")
+
+	testTask, err := agent.StartTask(t, "user-nobody")
 	if err != nil {
 		t.Fatal("Could not start task", err)
 	}
