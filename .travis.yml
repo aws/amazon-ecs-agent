@@ -1,4 +1,5 @@
 language: go
+sudo: false
 go:
     - 1.4
 before_install: ./scripts/hack/symlink-gopath-travisci
