@@ -655,10 +655,10 @@ func TestDockerCfgAuth(t *testing.T) {
 	removeImage(testAuthRegistryImage)
 
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
-	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`)
+	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
 	defer func() {
-		cfg.EngineAuthData = nil
+		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
 		cfg.EngineAuthType = ""
 	}()
 
@@ -704,10 +704,10 @@ func TestDockerAuth(t *testing.T) {
 	taskEngine := setup(t)
 	removeImage(testAuthRegistryImage)
 
-	cfg.EngineAuthData = []byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`)
+	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`))
 	cfg.EngineAuthType = "docker"
 	defer func() {
-		cfg.EngineAuthData = nil
+		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
 		cfg.EngineAuthType = ""
 	}()
 

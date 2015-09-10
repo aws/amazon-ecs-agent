@@ -69,7 +69,7 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 short-test:
-	. ./scripts/shared_env && go test -short -timeout=25s -v ./agent/...
+	. ./scripts/shared_env && go test -short -timeout=25s ./agent/...
 
 # Run our 'test' registry needed for integ tests
 test-registry: netkitten volumes-test

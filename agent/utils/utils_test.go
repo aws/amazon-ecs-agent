@@ -77,6 +77,14 @@ func TestZeroOrNil(t *testing.T) {
 		t.Error("[] is Zero")
 	}
 
+	if ZeroOrNil(struct{ uncomparable []uint16 }{uncomparable: []uint16{1, 2, 3}}) {
+		t.Error("Uncomparable structs are never zero")
+	}
+
+	if ZeroOrNil(struct{ uncomparable []uint16 }{uncomparable: nil}) {
+		t.Error("Uncomparable structs are never zero")
+	}
+
 }
 
 func TestSlicesDeepEqual(t *testing.T) {

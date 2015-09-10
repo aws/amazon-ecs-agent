@@ -48,6 +48,9 @@ func ZeroOrNil(obj interface{}) bool {
 		return value.Len() == 0
 	}
 	zero := reflect.Zero(reflect.TypeOf(obj))
+	if !value.Type().Comparable() {
+		return false
+	}
 	if obj == zero.Interface() {
 		return true
 	}

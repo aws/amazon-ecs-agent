@@ -62,7 +62,7 @@ type Config struct {
 	EngineAuthType string `trim:"true"`
 	// EngineAuthData contains authentication data. Please see the documentation
 	// for EngineAuthType for more information.
-	EngineAuthData json.RawMessage
+	EngineAuthData *SensitiveRawMessage
 
 	// UpdatesEnabled specifies whether updates should be applied to this agent.
 	// Default true
@@ -94,4 +94,38 @@ type Config struct {
 	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
 	// security options
 	AppArmorCapable bool
+}
+
+// sensitiveData is a struct to store some data that should not be logged or
+// printed.
+// This struct is a Stringer which will not print its contents with 'String'.
+// It is a json.Marshaler and json.Unmarshaler and will present its actual
+// contents in plaintext when read/written from/to json.
+type SensitiveRawMessage struct {
+	contents json.RawMessage
+}
+
+func NewSensitiveRawMessage(data json.RawMessage) *SensitiveRawMessage {
+	return &SensitiveRawMessage{contents: data}
+}
+
+func (data SensitiveRawMessage) String() string {
+	return "[redacted]"
+}
+
+func (data SensitiveRawMessage) GoString() string {
+	return "[redacted]"
+}
+
+func (data SensitiveRawMessage) Contents() json.RawMessage {
+	return data.contents
+}
+
+func (data SensitiveRawMessage) MarshalJSON() ([]byte, error) {
+	return data.contents, nil
+}
+
+func (data *SensitiveRawMessage) UnmarshalJSON(jsonData []byte) error {
+	data.contents = json.RawMessage(jsonData)
+	return nil
 }

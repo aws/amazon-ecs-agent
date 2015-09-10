@@ -47,7 +47,7 @@ func TestDockerCfgAuth(t *testing.T) {
 		`}`), ""))
 	// Avoid accidentally loading the test-runner's .dockercfg
 	credentialprovider.SetPreferredDockercfgPath("/dev/null")
-	SetConfig(&config.Config{EngineAuthType: "dockercfg", EngineAuthData: authData})
+	SetConfig(&config.Config{EngineAuthType: "dockercfg", EngineAuthData: config.NewSensitiveRawMessage(authData)})
 
 	for ndx, pair := range expectedPairs {
 		authConfig := GetAuthconfig(pair.Image)

@@ -52,9 +52,13 @@ func (creds *ecsCredentials) Provide() credentialprovider.DockerConfig {
 	case "dockercfg":
 		fallthrough
 	case "docker":
-		err := json.Unmarshal(creds.EngineAuthData, &providedCreds)
-		if err != nil {
-			log.Error("Unable to decode provided docker credentials", "type", creds.EngineAuthType)
+		if creds.EngineAuthData != nil {
+			err := json.Unmarshal(creds.EngineAuthData.Contents(), &providedCreds)
+			if err != nil {
+				log.Error("Unable to decode provided docker credentials", "type", creds.EngineAuthType)
+			}
+		} else {
+			log.Error("AuthType config specified, but AuthData not set")
 		}
 	case "":
 	default:

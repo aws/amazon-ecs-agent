@@ -31,7 +31,7 @@ var testPairs = []testPair{
 	testPair{
 		config.Config{
 			EngineAuthType: "docker",
-			EngineAuthData: []byte(`{"https://index.docker.io/v1/":{"username":"user","password":"swordfish","email":"user@email"}}`),
+			EngineAuthData: config.NewSensitiveRawMessage([]byte(`{"https://index.docker.io/v1/":{"username":"user","password":"swordfish","email":"user@email"}}`)),
 		},
 		credentialprovider.DockerConfig{
 			"https://index.docker.io/v1/": credentialprovider.DockerConfigEntry{
@@ -44,7 +44,7 @@ var testPairs = []testPair{
 	testPair{
 		config.Config{
 			EngineAuthType: "dockercfg",
-			EngineAuthData: []byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"}}`),
+			EngineAuthData: config.NewSensitiveRawMessage([]byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"}}`)),
 		},
 		credentialprovider.DockerConfig{
 			"my.registry.tld": credentialprovider.DockerConfigEntry{
@@ -57,8 +57,8 @@ var testPairs = []testPair{
 	testPair{
 		config.Config{
 			EngineAuthType: "dockercfg",
-			EngineAuthData: []byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"},` +
-				`"my-other-registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("other:creds")) + `"}}`),
+			EngineAuthData: config.NewSensitiveRawMessage([]byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"},` +
+				`"my-other-registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("other:creds")) + `"}}`)),
 		},
 		credentialprovider.DockerConfig{
 			"my.registry.tld": credentialprovider.DockerConfigEntry{
@@ -87,11 +87,11 @@ func TestProvide(t *testing.T) {
 var failingProvides = []config.Config{
 	config.Config{
 		EngineAuthType: "unknown",
-		EngineAuthData: []byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"}}`),
+		EngineAuthData: config.NewSensitiveRawMessage([]byte(`{"my.registry.tld":{"auth":"` + base64.StdEncoding.EncodeToString([]byte("test:dragon")) + `","email":"test@email"}}`)),
 	},
 	config.Config{
 		EngineAuthType: "dockercfg",
-		EngineAuthData: []byte(`{"my.registry.tld":{"auth":"malformedbase64data"}}`),
+		EngineAuthData: config.NewSensitiveRawMessage([]byte(`{"my.registry.tld":{"auth":"malformedbase64data"}}`)),
 	},
 }
 

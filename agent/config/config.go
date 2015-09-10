@@ -272,7 +272,7 @@ func EnvironmentConfig() Config {
 		DataDir:                 dataDir,
 		Checkpoint:              checkpoint,
 		EngineAuthType:          engineAuthType,
-		EngineAuthData:          []byte(engineAuthData),
+		EngineAuthData:          NewSensitiveRawMessage([]byte(engineAuthData)),
 		UpdatesEnabled:          updatesEnabled,
 		UpdateDownloadDir:       updateDownloadDir,
 		DisableMetrics:          disableMetrics,
