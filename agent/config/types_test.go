@@ -19,9 +19,25 @@ import (
 	"testing"
 )
 
-func TestSensitiveDataImplements(t *testing.T) {
+func TestSensitiveRawMessageImplements(t *testing.T) {
 	var _ fmt.Stringer = SensitiveRawMessage{}
 	var _ fmt.GoStringer = SensitiveRawMessage{}
 	var _ json.Marshaler = SensitiveRawMessage{}
 	var _ json.Unmarshaler = &SensitiveRawMessage{}
+}
+
+func TestSensitiveRawMessage(t *testing.T) {
+	sensitive := NewSensitiveRawMessage(json.RawMessage("secret"))
+
+	for i, str := range []string{
+		sensitive.String(),
+		sensitive.GoString(),
+		fmt.Sprintf("%v", sensitive),
+		fmt.Sprintf("%#v", sensitive),
+		fmt.Sprint(sensitive),
+	} {
+		if str != "[redacted]" {
+			t.Errorf("#%v: expected redacted, got %s", i, str)
+		}
+	}
 }

@@ -96,8 +96,8 @@ type Config struct {
 	AppArmorCapable bool
 }
 
-// sensitiveData is a struct to store some data that should not be logged or
-// printed.
+// SensitiveRawMessage is a struct to store some data that should not be logged
+// or printed.
 // This struct is a Stringer which will not print its contents with 'String'.
 // It is a json.Marshaler and json.Unmarshaler and will present its actual
 // contents in plaintext when read/written from/to json.
@@ -105,6 +105,8 @@ type SensitiveRawMessage struct {
 	contents json.RawMessage
 }
 
+// NewSensitiveRawMessage returns a new encapsulated json.RawMessage that
+// cannot be accidentally logged via .String/.GoString/%v/%#v
 func NewSensitiveRawMessage(data json.RawMessage) *SensitiveRawMessage {
 	return &SensitiveRawMessage{contents: data}
 }

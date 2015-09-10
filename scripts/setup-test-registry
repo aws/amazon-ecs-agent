@@ -15,6 +15,14 @@
 # Run a local registry on the 'well known' port 51670 if it is not running.
 # Also push images we will need to it.
 
+# registry:2 from 2015-09-15
+REGISTRY_IMAGE="registry@sha256:b7de4f6226df56d18f83296efa77dedf9bb72e79838167be0484a3078836fab2"
+# nginx:latest from  2015-09-15
+NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
+
+ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+cd "${ROOT}"
+
 REGISTRY_CONTAINER_NAME=test-ecs-registry
 status=$(docker inspect -f "{{ .State.Running }}" "$REGISTRY_CONTAINER_NAME")
 if [[ "$status" == "false" ]]; then
@@ -24,7 +32,7 @@ fi
 # This will fail if we already have one running, but that's fine. We'll see it
 # running and push our image to it to make sure it's there
 if [[ "$status" != "true" ]]; then
-	docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p 127.0.0.1:51670:5000 registry
+	docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p "127.0.0.1:51670:5000" "${REGISTRY_IMAGE}"
 fi
 
 # Wait for it to be started which might include downloading the image
@@ -50,3 +58,20 @@ for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test"; do
 	docker tag -f "$image:make" "127.0.0.1:51670/$image:latest"
 	docker push "127.0.0.1:51670/$image:latest"
 done
+
+for image in "busybox"; do
+  docker pull ${image}
+  docker tag -f "${image}" "127.0.0.1:51670/${image}"
+  docker push "127.0.0.1:51670/${image}"
+done
+
+# Now setup a v2 registry with auth... aka nginx with basic auth in front of it
+REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
+status=$(docker inspect -f "{{ .State.Running }}" "${REGISTRY_AUTH_CONTAINER_NAME}")
+if [[ "$status" == "false" ]]; then
+  docker rm -f "${REGISTRY_AUTH_CONTAINER_NAME}"
+fi
+
+if [[ "$status" != "true" ]]; then
+  docker run -d -p "127.0.0.1:51671:80" --link "${REGISTRY_CONTAINER_NAME}:registry" --name="${REGISTRY_AUTH_CONTAINER_NAME}" -v "${ROOT}/scripts/registry/nginx-auth:/etc/nginx" "${NGINX_IMAGE}"
+fi

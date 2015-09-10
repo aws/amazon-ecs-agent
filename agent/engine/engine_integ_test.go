@@ -15,10 +15,8 @@ package engine
 
 import (
 	"encoding/base64"
-	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -113,58 +111,11 @@ func createTestTask(arn string) *api.Task {
 	}
 }
 
-func runProxyAuthRegistry() {
-	// Run a basic-auth registry that proxies through to the regular registry
-	// Only need to proxy through gets (at least for now)
-	http.ListenAndServe(testAuthRegistryHost, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/_ping" {
-			w.Write([]byte(`true`))
-			return
-		}
-
-		token := r.Header.Get("Authorization")
-		validToken := "123abc"
-		if !strings.Contains(token, validToken) {
-			// No token, check basicauth
-			// Don't use .BasicAuth method to be go1.3 compatible
-			user := ""
-			pass := ""
-			basicAuth := r.Header.Get("Authorization")
-			decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(basicAuth, "Basic "))
-			if err == nil {
-				parts := strings.Split(string(decoded), ":")
-				user = parts[0]
-				if len(parts) > 1 {
-					pass = parts[1]
-				}
-			}
-			if user != testAuthUser || pass != testAuthPass {
-				w.WriteHeader(403)
-				w.Write([]byte(`permission denied`))
-				return
-			}
-			// Regular auth fine, set token
-			tokenString := "signature=123abc,access=read"
-			w.Header().Set("WWW-Authenticate", "Token "+tokenString)
-			w.Header().Set("X-Docker-Token", tokenString)
-		}
-
-		// Else, proxy through
-		resp, err := http.Get("http://" + testRegistryHost + r.URL.Path)
-		if err != nil {
-			w.WriteHeader(404)
-			return
-		}
-		io.Copy(w, resp.Body)
-	}))
-}
-
 var cfg *config.Config
 
 func init() {
 	cfg, _ = config.NewConfig()
 	taskEngine = NewDockerTaskEngine(cfg)
-	go runProxyAuthRegistry()
 }
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
@@ -174,6 +125,19 @@ func removeImage(img string) {
 	client, _ := docker.NewClient(endpoint)
 
 	client.RemoveImage(img)
+}
+
+func dialWithRetries(proto string, address string, tries int, timeout time.Duration) (net.Conn, error) {
+	var err error
+	var conn net.Conn
+	for i := 0; i < tries; i++ {
+		conn, err = net.DialTimeout(proto, address, timeout)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return conn, err
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -269,7 +233,7 @@ func TestPortForward(t *testing.T) {
 			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
 		}
 	}
-	_, err := net.DialTimeout("tcp", "127.0.0.1:24751", 20*time.Millisecond)
+	_, err := net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
 	if err == nil {
 		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
 	}
@@ -310,7 +274,7 @@ func TestPortForward(t *testing.T) {
 		}
 	}
 
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 20*time.Millisecond)
+	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -381,9 +345,7 @@ func TestMultiplePortForwards(t *testing.T) {
 		}
 	}
 
-	time.Sleep(10 * time.Millisecond) // Give nc time to liseten
-
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 20*time.Millisecond)
+	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container 1 " + err.Error())
 	}
@@ -393,7 +355,7 @@ func TestMultiplePortForwards(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'ecs test container1'")
 	}
 	t.Log("Read first container")
-	conn, err = net.DialTimeout("tcp", "127.0.0.1:24752", 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", "127.0.0.1:24752", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container 2 " + err.Error())
 	}
@@ -467,9 +429,7 @@ PortsBound:
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
-	time.Sleep(10 * time.Millisecond) // Give nc time to liseten
-
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 20*time.Millisecond)
+	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -541,9 +501,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
-	time.Sleep(10 * time.Millisecond) // Give nc time to liseten
-
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 20*time.Millisecond)
+	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -553,9 +511,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
 	}
 
-	time.Sleep(10 * time.Millisecond) // Give nc time to liseten
-
-	conn, err = net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_2)), 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_2)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -775,8 +731,8 @@ func TestVolumesFrom(t *testing.T) {
 			break
 		}
 	}
-	time.Sleep(10 * time.Millisecond)
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
+
+	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
 	if err != nil {
 		t.Error("Could not dial listening container" + err.Error())
 	}

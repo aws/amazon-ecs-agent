@@ -71,7 +71,7 @@ misc/certs/ca-certificates.crt:
 short-test:
 	. ./scripts/shared_env && go test -short -timeout=25s ./agent/...
 
-# Run our 'test' registry needed for integ tests
+# Run our 'test' registry needed for integ and functional tests
 test-registry: netkitten volumes-test
 	@./scripts/setup-test-registry
 
@@ -83,7 +83,7 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests:
+run-functional-tests: test-registry
 	. ./scripts/shared_env && go test -tags functional -timeout=20m -v ./agent/functional_tests/...
 
 netkitten:
