@@ -99,9 +99,15 @@ type TestAgent struct {
 	ContainerInstanceArn string
 	Cluster              string
 	TestDir              string
+	Logdir               string
+	Options              *AgentOptions
 
 	DockerClient *docker.Client
 	t            *testing.T
+}
+
+type AgentOptions struct {
+	ExtraEnvironment map[string]string
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
@@ -110,14 +116,11 @@ type TestAgent struct {
 // tag that may be used to run the agent. It defaults to
 // 'amazon/amazon-ecs-agent:make', the version created locally by running
 // 'make'
-func RunAgent(t *testing.T, version *string) *TestAgent {
+func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
 	agentImage := "amazon/amazon-ecs-agent:make"
 	if envImage := os.Getenv("ECS_AGENT_IMAGE"); envImage != "" {
 		agentImage = envImage
-	}
-	if version != nil {
-		agentImage = *version
 	}
 	agent.Image = agentImage
 
@@ -143,6 +146,7 @@ func RunAgent(t *testing.T, version *string) *TestAgent {
 	os.Mkdir(logdir, 0755)
 	os.Mkdir(datadir, 0755)
 	agent.TestDir = agentTempdir
+	agent.Options = options
 	t.Logf("Created directory %s to store test data in", agentTempdir)
 	err = agent.StartAgent()
 	if err != nil {
@@ -159,29 +163,41 @@ func (agent *TestAgent) StartAgent() error {
 	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
 	logdir := filepath.Join(agent.TestDir, "logs")
 	datadir := filepath.Join(agent.TestDir, "data")
+	agent.Logdir = logdir
+
+	dockerConfig := &docker.Config{
+		Image: agent.Image,
+		ExposedPorts: map[docker.Port]struct{}{
+			"51678/tcp": struct{}{},
+		},
+		Env: []string{
+			"ECS_CLUSTER=" + Cluster,
+			"ECS_DATADIR=/data",
+			"ECS_LOGLEVEL=debug",
+			"ECS_LOGFILE=/logs/integ_agent.log",
+		},
+	}
+
+	hostConfig := &docker.HostConfig{
+		Binds: []string{
+			"/var/run/docker.sock:/var/run/docker.sock",
+			logdir + ":/logs",
+			datadir + ":/data",
+		},
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
+		},
+	}
+
+	if agent.Options != nil {
+		for key, value := range agent.Options.ExtraEnvironment {
+			dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
+		}
+	}
+
 	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
-			Image: agent.Image,
-			ExposedPorts: map[docker.Port]struct{}{
-				"51678/tcp": struct{}{},
-			},
-			Env: []string{
-				"ECS_CLUSTER=" + Cluster,
-				"ECS_DATADIR=/data",
-				"ECS_LOGLEVEL=debug",
-				"ECS_LOGFILE=/logs/integ_agent.log",
-			},
-		},
-		HostConfig: &docker.HostConfig{
-			Binds: []string{
-				"/var/run/docker.sock:/var/run/docker.sock",
-				logdir + ":/logs",
-				datadir + ":/data",
-			},
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
-			},
-		},
+		Config:     dockerConfig,
+		HostConfig: hostConfig,
 	})
 	if err != nil {
 		agent.t.Fatal("Could not create agent container", err)
