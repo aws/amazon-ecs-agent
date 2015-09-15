@@ -607,6 +607,20 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 }
 
 // Capabilities returns the supported capabilities of this agent / docker-client pair.
+// Currently, the following capabilities are possible:
+//
+//    com.amazonaws.ecs.capability.privileged-container
+//    com.amazonaws.ecs.capability.docker-remote-api.1.17
+//    com.amazonaws.ecs.capability.docker-remote-api.1.18
+//    com.amazonaws.ecs.capability.docker-remote-api.1.19
+//    com.amazonaws.ecs.capability.docker-remote-api.1.20
+//    com.amazonaws.ecs.capability.logging-driver.json-file
+//    com.amazonaws.ecs.capability.logging-driver.syslog
+//    com.amazonaws.ecs.capability.logging-driver.fluentd
+//    com.amazonaws.ecs.capability.logging-driver.journald
+//    com.amazonaws.ecs.capability.logging-driver.gelf
+//    com.amazonaws.ecs.capability.selinux
+//    com.amazonaws.ecs.capability.apparmor
 func (engine *DockerTaskEngine) Capabilities() []string {
 	err := engine.initDockerClient()
 	if err != nil {
