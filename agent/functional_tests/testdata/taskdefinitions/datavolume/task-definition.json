@@ -5,7 +5,7 @@
     "host": {}
   }],
   "containerDefinitions": [{
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "name": "exit",
     "cpu": 10,
     "memory": 10,
@@ -15,7 +15,7 @@
     }],
     "command": ["sh", "-c", "while true; do sleep 1; [ -f /data/success ] && exit 42; done"]
   }, {
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "name": "dataSource",
     "cpu": 10,
     "memory": 10,
@@ -25,7 +25,7 @@
     }],
     "command": ["sh", "-c", "touch /data/success"]
   }, {
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "name": "data-volume-source",
     "cpu": 10,
     "memory": 10,

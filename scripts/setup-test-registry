@@ -14,6 +14,7 @@
 
 # Run a local registry on the 'well known' port 51670 if it is not running.
 # Also push images we will need to it.
+set -e
 
 # registry:2 from 2015-09-15
 REGISTRY_IMAGE="registry@sha256:b7de4f6226df56d18f83296efa77dedf9bb72e79838167be0484a3078836fab2"
@@ -24,7 +25,7 @@ ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
 REGISTRY_CONTAINER_NAME=test-ecs-registry
-status=$(docker inspect -f "{{ .State.Running }}" "$REGISTRY_CONTAINER_NAME")
+status=$(docker inspect -f "{{ .State.Running }}" "$REGISTRY_CONTAINER_NAME") || true
 if [[ "$status" == "false" ]]; then
 	docker rm -f "$REGISTRY_CONTAINER_NAME"
 fi
@@ -53,21 +54,31 @@ fi
 sleep 2
 
 # Make sure our images are pushed to it
+mirror_image() {
+  docker pull $1
+  mirror_local_image $@
+}
+
+mirror_local_image() {
+  docker tag -f $1 $2
+  docker push $2
+}
 
 for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test"; do
-	docker tag -f "$image:make" "127.0.0.1:51670/$image:latest"
-	docker push "127.0.0.1:51670/$image:latest"
+  mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 
-for image in "busybox"; do
-  docker pull ${image}
-  docker tag -f "${image}" "127.0.0.1:51670/${image}"
-  docker push "127.0.0.1:51670/${image}"
-done
+BUSYBOX_IMAGE="busybox@sha256:ced99ae82473e7dea723e6c467f409ed8f051bda04760e07fd5f476638c33507"
+NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
+PYTHON2_IMAGE="python@sha256:3a1e82d95d0e75677cdac237b0174425d8ae94dd11d1ef14db73075f1e34c06c"
+
+mirror_image ${BUSYBOX_IMAGE} "127.0.0.1:51670/busybox:latest"
+mirror_image ${NGINX_IMAGE} "127.0.0.1:51670/nginx:latest"
+mirror_image ${PYTHON2_IMAGE} "127.0.0.1:51670/python:2"
 
 # Now setup a v2 registry with auth... aka nginx with basic auth in front of it
 REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
-status=$(docker inspect -f "{{ .State.Running }}" "${REGISTRY_AUTH_CONTAINER_NAME}")
+status=$(docker inspect -f "{{ .State.Running }}" "${REGISTRY_AUTH_CONTAINER_NAME}") || true
 if [[ "$status" == "false" ]]; then
   docker rm -f "${REGISTRY_AUTH_CONTAINER_NAME}"
 fi

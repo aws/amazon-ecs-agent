@@ -2,13 +2,13 @@
   "family": "ecsinteg-network-link",
   "containerDefinitions": [{
     "name": "nginx",
-    "image": "nginx:latest",
+    "image": "127.0.0.1:51670/nginx:latest",
     "cpu": 20,
     "memory": 20,
     "essential": true
   }, {
     "name": "exit",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "cpu": 10,
     "memory": 10,
     "links": ["nginx:nginx"],

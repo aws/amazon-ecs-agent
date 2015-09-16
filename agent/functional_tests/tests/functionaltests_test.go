@@ -97,7 +97,10 @@ func TestSavedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testTask.WaitRunning(1 * time.Minute)
+	err = testTask.WaitRunning(1 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dockerId, err := agent.ResolveTaskDockerID(testTask, "nginx")
 	if err != nil {

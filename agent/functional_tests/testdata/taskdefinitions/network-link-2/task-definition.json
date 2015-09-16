@@ -2,7 +2,7 @@
   "family": "ecsftest-network-link-2",
   "containerDefinitions": [{
     "name": "a",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "cpu": 0,
     "memory": 8,
     "essential": true,
@@ -10,7 +10,7 @@
   },
   {
     "name": "b",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "links": ["a:a"],
     "cpu": 0,
     "memory": 8,
@@ -19,7 +19,7 @@
   },
   {
     "name": "bb",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "links": ["a:a"],
     "volumesFrom": [{"sourceContainer": "a"}],
     "cpu": 0,
@@ -29,7 +29,7 @@
   },
   {
     "name": "c",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "links": ["a:a", "bb:bb", "b:b"],
     "volumesFrom": [{"sourceContainer": "a"}],
     "cpu": 0,
@@ -39,7 +39,7 @@
   },
   {
     "name": "d",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "volumesFrom": [{"sourceContainer": "c"}],
     "cpu": 0,
     "memory": 8,
@@ -48,7 +48,7 @@
   },
   {
     "name": "exit",
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "cpu": 0,
     "memory": 8,
     "links": ["d:d"],

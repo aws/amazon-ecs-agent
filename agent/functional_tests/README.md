@@ -19,9 +19,13 @@ handling production work-loads.
 Before running these tests, you should build the ECS Agent and tag its image as
 `amazon/amazon-ecs-agent:make`.
 
+You should also run the registry the tests pull from. This can most easily be done via `make test-registry`.
+
 ## Running
 
 These tests should be run on an EC2 instance able to correctly run the ECS
 agent and access the ECS APIs.
 
-They may be run with `go test -tags functional -v ./...`
+The best way to run them is via the `make run-functional-tests` target.
+
+Thay may also be manually run with `go test -tags functional -v ./...`,

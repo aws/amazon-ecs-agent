@@ -1,7 +1,7 @@
 {
   "family": "ecsinteg-simple-exit",
   "containerDefinitions": [{
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "name": "exit",
     "cpu": 10,
     "memory": 10,
