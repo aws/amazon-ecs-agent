@@ -132,7 +132,7 @@ func TestPortResourceContention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testTask.WaitRunning(1 * time.Minute)
+	err = testTask.WaitRunning(2 * time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestPortResourceContention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testTask2.WaitRunning(1 * time.Minute)
+	err = testTask2.WaitRunning(2 * time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,6 @@ func TestPortResourceContention(t *testing.T) {
 
 	go testTask.WaitStopped(2 * time.Minute)
 	testTask2.WaitStopped(2 * time.Minute)
-	// 30 seconds because this busybox ignores sigterm
 }
 
 func strptr(s string) *string { return &s }

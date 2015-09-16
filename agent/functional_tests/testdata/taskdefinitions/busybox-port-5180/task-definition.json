@@ -1,7 +1,7 @@
 {
   "family": "ecsftest-busybox-port-5180",
   "containerDefinitions": [{
-    "image": "busybox:latest",
+    "image": "127.0.0.1:51670/busybox:latest",
     "name": "sleep",
     "portBindings": [{
       "containerPort": 80,
