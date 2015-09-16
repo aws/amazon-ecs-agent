@@ -85,6 +85,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
+	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -101,6 +102,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
+	}
+	if !conf.PrivilegedDisabled {
+		t.Error("Wrong value for PrivilegedDisabled")
 	}
 	if !conf.SELinuxCapable {
 		t.Error("Wrong value for SELinuxCapable")
@@ -166,6 +170,9 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.ReservedMemory != 0 {
 		t.Error("Default reserved memory set incorrectly")
+	}
+	if cfg.PrivilegedDisabled {
+		t.Error("Default PrivilegedDisabled set incorrectly")
 	}
 	if !reflect.DeepEqual(cfg.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.JsonFileDriver}) {
 		t.Error("Default logging drivers set incorrectly")
