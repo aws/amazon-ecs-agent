@@ -91,11 +91,11 @@ func DesiredImageLocatorFile() string {
 }
 
 func CgroupDirectory() string {
-	return "/cgroup"
+	return cgroupDirectory
 }
 
 func ExecDriverDirectory() string {
-	return "/var/run/docker/execdriver"
+	return execDriverDirectory
 }
 
 func DockerUnixSocket() string {

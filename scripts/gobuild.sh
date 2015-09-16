@@ -21,9 +21,13 @@ export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
 mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"
 cd "${SRCPATH}/ecs-init"
-if [ "$1" = "dev" ]; then
+if [[ "$1" == "dev" ]]; then
 	go build -tags 'development' -o "${TOPWD}/amazon-ecs-init"
 else
-	CGO_ENABLED=0 go build -a -x -ldflags '-s' -o "${TOPWD}/amazon-ecs-init"
+	tags=""
+	if [[ "$1" != "" ]]; then
+		tags="-tags '$1'"
+	fi
+	CGO_ENABLED=0 go build -a ${tags} -x -ldflags '-s' -o "${TOPWD}/amazon-ecs-init"
 fi
 rm -r "${BUILDDIR}"
