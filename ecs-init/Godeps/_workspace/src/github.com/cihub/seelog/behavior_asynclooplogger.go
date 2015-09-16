@@ -46,11 +46,11 @@ func (asnLoopLogger *asyncLoopLogger) processItem() (closed bool) {
 	asnLoopLogger.queueHasElements.L.Lock()
 	defer asnLoopLogger.queueHasElements.L.Unlock()
 
-	for asnLoopLogger.msgQueue.Len() == 0 && !asnLoopLogger.closed {
+	for asnLoopLogger.msgQueue.Len() == 0 && !asnLoopLogger.Closed() {
 		asnLoopLogger.queueHasElements.Wait()
 	}
 
-	if asnLoopLogger.closed {
+	if asnLoopLogger.Closed() {
 		return true
 	}
 
@@ -59,7 +59,7 @@ func (asnLoopLogger *asyncLoopLogger) processItem() (closed bool) {
 }
 
 func (asnLoopLogger *asyncLoopLogger) processQueue() {
-	for !asnLoopLogger.closed {
+	for !asnLoopLogger.Closed() {
 		closed := asnLoopLogger.processItem()
 
 		if closed {

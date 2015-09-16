@@ -55,10 +55,13 @@ func (syncLogger *syncLogger) Close() {
 	syncLogger.m.Lock()
 	defer syncLogger.m.Unlock()
 
-	if !syncLogger.closed {
+	if !syncLogger.Closed() {
 		if err := syncLogger.config.RootDispatcher.Close(); err != nil {
 			reportInternalError(err)
 		}
+		syncLogger.closedM.Lock()
+		syncLogger.closed = true
+		syncLogger.closedM.Unlock()
 	}
 }
 
@@ -66,7 +69,7 @@ func (syncLogger *syncLogger) Flush() {
 	syncLogger.m.Lock()
 	defer syncLogger.m.Unlock()
 
-	if !syncLogger.closed {
+	if !syncLogger.Closed() {
 		syncLogger.config.RootDispatcher.Flush()
 	}
 }

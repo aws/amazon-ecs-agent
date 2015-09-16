@@ -310,18 +310,16 @@ func (rw *rollingFileWriter) deleteOldRolls(history []string) error {
 		}
 
 		// Put the final file set to zip file.
-		err = createZip(rw.archivePath, files)
-		if err != nil {
+		if err = createZip(rw.archivePath, files); err != nil {
 			return err
 		}
 	}
-
+	var err error
 	// In all cases (archive files or not) the files should be deleted.
 	for i := 0; i < rollsToDelete; i++ {
-		rollPath := filepath.Join(rw.currentDirPath, history[i])
-		err := tryRemoveFile(rollPath)
-		if err != nil {
-			return err
+		// Try best to delete files without breaking the loop.
+		if err = tryRemoveFile(filepath.Join(rw.currentDirPath, history[i])); err != nil {
+			reportInternalError(err)
 		}
 	}
 
@@ -358,7 +356,6 @@ func (rw *rollingFileWriter) Write(bytes []byte) (n int, err error) {
 		if err != nil {
 			return 0, err
 		}
-
 		// Current history of all previous log files.
 		// For file roller it may be like this:
 		//     * ...
@@ -376,7 +373,6 @@ func (rw *rollingFileWriter) Write(bytes []byte) (n int, err error) {
 		if err != nil {
 			return 0, err
 		}
-
 		// Renames current file to create a new roll history entry
 		// For file roller it may be like this:
 		//     * ...
@@ -394,20 +390,17 @@ func (rw *rollingFileWriter) Write(bytes []byte) (n int, err error) {
 			// Create first rname name
 			newRollMarkerName = rw.self.getNewHistoryRollFileName("")
 		}
-
 		if len(newRollMarkerName) != 0 {
 			newHistoryName = rw.createFullFileName(rw.fileName, newRollMarkerName)
 		} else {
 			newHistoryName = rw.fileName
 		}
-
 		if newHistoryName != rw.fileName {
 			err = os.Rename(filepath.Join(rw.currentDirPath, rw.fileName), filepath.Join(rw.currentDirPath, newHistoryName))
 			if err != nil {
 				return 0, err
 			}
 		}
-
 		// Finally, add the newly added history file to the history archive
 		// and, if after that the archive exceeds the allowed max limit, older rolls
 		// must the removed/archived.
@@ -579,11 +572,13 @@ type rollTimeFileTailsSlice struct {
 }
 
 func (p rollTimeFileTailsSlice) Len() int { return len(p.data) }
+
 func (p rollTimeFileTailsSlice) Less(i, j int) bool {
 	t1, _ := time.ParseInLocation(p.pattern, p.data[i], time.Local)
 	t2, _ := time.ParseInLocation(p.pattern, p.data[j], time.Local)
 	return t1.Before(t2)
 }
+
 func (p rollTimeFileTailsSlice) Swap(i, j int) { p.data[i], p.data[j] = p.data[j], p.data[i] }
 
 func (rwt *rollingFileWriterTime) sortFileRollNamesAsc(fs []string) ([]string, error) {

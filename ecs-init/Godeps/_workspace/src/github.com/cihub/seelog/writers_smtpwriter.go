@@ -74,14 +74,12 @@ func newSMTPWriter(sa, sn string, ras []string, hn, hp, un, pwd string, cacdps [
 }
 
 func prepareMessage(senderAddr, senderName, subject string, body []byte, headers []string) []byte {
-	headerLines := fmt.Sprintf(rfc5321SubjectPattern, senderName, senderAddr, subject);
-
+	headerLines := fmt.Sprintf(rfc5321SubjectPattern, senderName, senderAddr, subject)
 	// Build header lines if configured.
 	if headers != nil && len(headers) > 0 {
 		headerLines += strings.Join(headers, "\n")
 		headerLines += "\n"
 	}
-
 	return append([]byte(headerLines), body...)
 }
 
@@ -104,7 +102,6 @@ func getTLSConfig(pemFileDirPaths []string, hostName string) (config *tls.Config
 		}
 		return false
 	}
-
 	for _, pemFileDirPath := range pemFileDirPaths {
 		pemFilePaths, err := getDirFilePaths(pemFileDirPath, pemFilePathFilter, false)
 		if err != nil {
@@ -120,7 +117,6 @@ func getTLSConfig(pemFileDirPaths []string, hostName string) (config *tls.Config
 			}
 		}
 	}
-
 	config = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: hostName}
 	isAppended := config.RootCAs.AppendCertsFromPEM(pemEncodedContent)
 	if !isAppended {
@@ -213,6 +209,6 @@ func (smtpw *smtpWriter) Write(data []byte) (int, error) {
 
 // Close closes down SMTP-connection.
 func (smtpw *smtpWriter) Close() error {
-	// Do nothing as Write method opens and closes connection automatically
+	// Do nothing as Write method opens and closes connection automatically.
 	return nil
 }

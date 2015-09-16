@@ -25,6 +25,7 @@
 package seelog
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -37,13 +38,13 @@ import (
 const (
 	FormatterSymbol = '%'
 )
+
 const (
-	formatterSymbolString   = "%"
 	formatterParameterStart = '('
 	formatterParameterEnd   = ')'
 )
 
-// These are the time and date formats that are used when %Date or %Time format aliases are used.
+// Time and date formats used for %Date and %Time aliases.
 const (
 	DateDefaultFormat = "2006-01-02"
 	TimeFormat        = "15:04:05"
@@ -51,18 +52,18 @@ const (
 
 var DefaultMsgFormat = "%Ns [%Level] %Msg%n"
 
-var defaultformatter *formatter
-var msgonlyformatter *formatter
+var (
+	defaultformatter *formatter
+	msgonlyformatter *formatter
+)
 
 func init() {
 	var err error
-	defaultformatter, err = newFormatter(DefaultMsgFormat)
-	if err != nil {
-		fmt.Println("Error during defaultformatter creation: " + err.Error())
+	if defaultformatter, err = newFormatter(DefaultMsgFormat); err != nil {
+		reportInternalError(fmt.Errorf("error during creating defaultformatter: %s", err))
 	}
-	msgonlyformatter, err = newFormatter("%Msg")
-	if err != nil {
-		fmt.Println("Error during msgonlyformatter creation: " + err.Error())
+	if msgonlyformatter, err = newFormatter("%Msg"); err != nil {
+		reportInternalError(fmt.Errorf("error during creating msgonlyformatter: %s", err))
 	}
 }
 
@@ -148,57 +149,51 @@ type formatter struct {
 
 // newFormatter creates a new formatter using a format string
 func newFormatter(formatString string) (*formatter, error) {
-	newformatter := new(formatter)
-	newformatter.fmtStringOriginal = formatString
-
-	err := newformatter.buildFormatterFuncs()
-	if err != nil {
+	fmtr := new(formatter)
+	fmtr.fmtStringOriginal = formatString
+	if err := buildFormatterFuncs(fmtr); err != nil {
 		return nil, err
 	}
-
-	return newformatter, nil
+	return fmtr, nil
 }
 
-func (formatter *formatter) buildFormatterFuncs() error {
-	formatter.formatterFuncs = make([]FormatterFunc, 0)
-	var fmtString string
-	for i := 0; i < len(formatter.fmtStringOriginal); i++ {
-		char := formatter.fmtStringOriginal[i]
-		if char != FormatterSymbol {
-			fmtString += string(char)
+func buildFormatterFuncs(formatter *formatter) error {
+	var (
+		fsbuf  = new(bytes.Buffer)
+		fsolm1 = len(formatter.fmtStringOriginal) - 1
+	)
+	for i := 0; i <= fsolm1; i++ {
+		if char := formatter.fmtStringOriginal[i]; char != FormatterSymbol {
+			fsbuf.WriteByte(char)
 			continue
 		}
-
-		isEndOfStr := i == len(formatter.fmtStringOriginal)-1
-		if isEndOfStr {
-			return fmt.Errorf("format error: %v - last symbol", formatterSymbolString)
+		// Check if the index is at the end of the string.
+		if i == fsolm1 {
+			return fmt.Errorf("format error: %c cannot be last symbol", FormatterSymbol)
 		}
-
-		isDoubledFormatterSymbol := formatter.fmtStringOriginal[i+1] == FormatterSymbol
-		if isDoubledFormatterSymbol {
-			fmtString += formatterSymbolString
+		// Check if the formatter symbol is doubled and skip it as nonmatching.
+		if formatter.fmtStringOriginal[i+1] == FormatterSymbol {
+			fsbuf.WriteRune(FormatterSymbol)
 			i++
 			continue
 		}
-
-		function, nextI, err := formatter.extractFormatterFunc(i + 1)
+		function, ni, err := formatter.extractFormatterFunc(i + 1)
 		if err != nil {
 			return err
 		}
-
-		fmtString += "%v"
-		i = nextI
+		// Append formatting string "%v".
+		fsbuf.Write([]byte{37, 118})
+		i = ni
 		formatter.formatterFuncs = append(formatter.formatterFuncs, function)
 	}
-
-	formatter.fmtString = fmtString
+	formatter.fmtString = fsbuf.String()
 	return nil
 }
 
 func (formatter *formatter) extractFormatterFunc(index int) (FormatterFunc, int, error) {
 	letterSequence := formatter.extractLetterSequence(index)
 	if len(letterSequence) == 0 {
-		return nil, 0, fmt.Errorf("format error: lack of formatter after %v. At %v", formatterSymbolString, index)
+		return nil, 0, fmt.Errorf("format error: lack of formatter after %c at %d", FormatterSymbol, index)
 	}
 
 	function, formatterLength, ok := formatter.findFormatterFunc(letterSequence)

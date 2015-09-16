@@ -17,9 +17,9 @@ import (
 	"errors"
 	"testing"
 
-	"code.google.com/p/gomock/gomock"
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	godocker "github.com/fsouza/go-dockerclient"
+	"github.com/golang/mock/gomock"
 )
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {

@@ -15,11 +15,12 @@ package engine
 
 import (
 	"bytes"
-	"code.google.com/p/gomock/gomock"
 	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/golang/mock/gomock"
 )
 
 func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {

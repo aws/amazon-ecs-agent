@@ -21,7 +21,7 @@ import (
 	http "net/http"
 	os "os"
 
-	gomock "code.google.com/p/gomock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of httpGetter interface
