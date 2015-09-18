@@ -436,7 +436,7 @@ func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 		return err
 	case <-timer.C:
 		cancelled = true
-		return errors.New("Timed out waiting for task to reach" + status + ": " + *task.TaskDefinitionArn + ", " + *task.TaskArn)
+		return errors.New("Timed out waiting for task to reach " + status + ": " + *task.TaskDefinitionArn + ", " + *task.TaskArn)
 	}
 }
 

@@ -69,7 +69,7 @@ func TestPullInvalidImage(t *testing.T) {
 
 	testTask, err := agent.StartTask(t, "invalid-image")
 	if err != nil {
-		t.Fatal("Expected to start invalid-image task")
+		t.Fatalf("Expected to start invalid-image task: %v", err)
 	}
 	testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute)
 }
@@ -81,7 +81,7 @@ func TestOOMContainer(t *testing.T) {
 
 	testTask, err := agent.StartTask(t, "oom-container")
 	if err != nil {
-		t.Fatal("Expected to start invalid-image task")
+		t.Fatalf("Expected to start invalid-image task: %v", err)
 	}
 	testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
 }
@@ -149,7 +149,7 @@ func TestPortResourceContention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testTask2.WaitRunning(2 * time.Minute)
+	err = testTask2.WaitRunning(4 * time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
