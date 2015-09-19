@@ -1,13 +1,15 @@
-package aws_test
+package request_test
 
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/internal/test/unit"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/stretchr/testify/assert"
 )
 
 var _ = unit.Imported
@@ -28,7 +30,7 @@ func TestPagination(t *testing.T) {
 	db.Handlers.Unmarshal.Clear()
 	db.Handlers.UnmarshalMeta.Clear()
 	db.Handlers.ValidateResponse.Clear()
-	db.Handlers.Build.PushBack(func(r *aws.Request) {
+	db.Handlers.Build.PushBack(func(r *request.Request) {
 		in := r.Params.(*dynamodb.ListTablesInput)
 		if in == nil {
 			tokens = append(tokens, "")
@@ -36,12 +38,12 @@ func TestPagination(t *testing.T) {
 			tokens = append(tokens, *in.ExclusiveStartTableName)
 		}
 	})
-	db.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	db.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = resps[reqNum]
 		reqNum++
 	})
 
-	params := &dynamodb.ListTablesInput{Limit: aws.Long(2)}
+	params := &dynamodb.ListTablesInput{Limit: aws.Int64(2)}
 	err := db.ListTablesPages(params, func(p *dynamodb.ListTablesOutput, last bool) bool {
 		numPages++
 		for _, t := range p.TableNames {
@@ -80,7 +82,7 @@ func TestPaginationEachPage(t *testing.T) {
 	db.Handlers.Unmarshal.Clear()
 	db.Handlers.UnmarshalMeta.Clear()
 	db.Handlers.ValidateResponse.Clear()
-	db.Handlers.Build.PushBack(func(r *aws.Request) {
+	db.Handlers.Build.PushBack(func(r *request.Request) {
 		in := r.Params.(*dynamodb.ListTablesInput)
 		if in == nil {
 			tokens = append(tokens, "")
@@ -88,12 +90,12 @@ func TestPaginationEachPage(t *testing.T) {
 			tokens = append(tokens, *in.ExclusiveStartTableName)
 		}
 	})
-	db.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	db.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = resps[reqNum]
 		reqNum++
 	})
 
-	params := &dynamodb.ListTablesInput{Limit: aws.Long(2)}
+	params := &dynamodb.ListTablesInput{Limit: aws.Int64(2)}
 	req, _ := db.ListTablesRequest(params)
 	err := req.EachPage(func(p interface{}, last bool) bool {
 		numPages++
@@ -133,12 +135,12 @@ func TestPaginationEarlyExit(t *testing.T) {
 	db.Handlers.Unmarshal.Clear()
 	db.Handlers.UnmarshalMeta.Clear()
 	db.Handlers.ValidateResponse.Clear()
-	db.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	db.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = resps[reqNum]
 		reqNum++
 	})
 
-	params := &dynamodb.ListTablesInput{Limit: aws.Long(2)}
+	params := &dynamodb.ListTablesInput{Limit: aws.Int64(2)}
 	err := db.ListTablesPages(params, func(p *dynamodb.ListTablesOutput, last bool) bool {
 		numPages++
 		if numPages == 2 {
@@ -164,7 +166,7 @@ func TestSkipPagination(t *testing.T) {
 	client.Handlers.Unmarshal.Clear()
 	client.Handlers.UnmarshalMeta.Clear()
 	client.Handlers.ValidateResponse.Clear()
-	client.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	client.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = &s3.HeadBucketOutput{}
 	})
 
@@ -189,17 +191,17 @@ func TestPaginationTruncation(t *testing.T) {
 
 	reqNum := &count
 	resps := []*s3.ListObjectsOutput{
-		{IsTruncated: aws.Boolean(true), Contents: []*s3.Object{{Key: aws.String("Key1")}}},
-		{IsTruncated: aws.Boolean(true), Contents: []*s3.Object{{Key: aws.String("Key2")}}},
-		{IsTruncated: aws.Boolean(false), Contents: []*s3.Object{{Key: aws.String("Key3")}}},
-		{IsTruncated: aws.Boolean(true), Contents: []*s3.Object{{Key: aws.String("Key4")}}},
+		{IsTruncated: aws.Bool(true), Contents: []*s3.Object{{Key: aws.String("Key1")}}},
+		{IsTruncated: aws.Bool(true), Contents: []*s3.Object{{Key: aws.String("Key2")}}},
+		{IsTruncated: aws.Bool(false), Contents: []*s3.Object{{Key: aws.String("Key3")}}},
+		{IsTruncated: aws.Bool(true), Contents: []*s3.Object{{Key: aws.String("Key4")}}},
 	}
 
 	client.Handlers.Send.Clear() // mock sending
 	client.Handlers.Unmarshal.Clear()
 	client.Handlers.UnmarshalMeta.Clear()
 	client.Handlers.ValidateResponse.Clear()
-	client.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	client.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = resps[*reqNum]
 		*reqNum++
 	})
@@ -218,7 +220,7 @@ func TestPaginationTruncation(t *testing.T) {
 	// Try again without truncation token at all
 	count = 0
 	resps[1].IsTruncated = nil
-	resps[2].IsTruncated = aws.Boolean(true)
+	resps[2].IsTruncated = aws.Bool(true)
 	results = []string{}
 	err = client.ListObjectsPages(params, func(p *s3.ListObjectsOutput, last bool) bool {
 		results = append(results, *p.Contents[0].Key)
@@ -260,12 +262,12 @@ var benchDb = func() *dynamodb.DynamoDB {
 func BenchmarkCodegenIterator(b *testing.B) {
 	reqNum := 0
 	db := benchDb()
-	db.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	db.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = benchResps[reqNum]
 		reqNum++
 	})
 
-	input := &dynamodb.ListTablesInput{Limit: aws.Long(2)}
+	input := &dynamodb.ListTablesInput{Limit: aws.Int64(2)}
 	iter := func(fn func(*dynamodb.ListTablesOutput, bool) bool) error {
 		page, _ := db.ListTablesRequest(input)
 		for ; page != nil; page = page.NextPage() {
@@ -289,12 +291,12 @@ func BenchmarkCodegenIterator(b *testing.B) {
 func BenchmarkEachPageIterator(b *testing.B) {
 	reqNum := 0
 	db := benchDb()
-	db.Handlers.Unmarshal.PushBack(func(r *aws.Request) {
+	db.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = benchResps[reqNum]
 		reqNum++
 	})
 
-	input := &dynamodb.ListTablesInput{Limit: aws.Long(2)}
+	input := &dynamodb.ListTablesInput{Limit: aws.Int64(2)}
 	for i := 0; i < b.N; i++ {
 		reqNum = 0
 		req, _ := db.ListTablesRequest(input)
