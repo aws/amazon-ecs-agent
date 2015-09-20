@@ -40,20 +40,20 @@ var ECS *ecs.ECS
 var Cluster string
 
 func init() {
-	ecsconfig := aws.DefaultConfig.Copy()
+	var ecsconfig aws.Config
 	if region := os.Getenv("AWS_REGION"); region != "" {
-		ecsconfig.Region = region
+		ecsconfig.Region = &region
 	}
 	if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
-		ecsconfig.Region = region
+		ecsconfig.Region = &region
 	}
-	if ecsconfig.Region == "" {
+	if ecsconfig.Region == nil {
 		if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
-			ecsconfig.Region = iid.Region
+			ecsconfig.Region = &iid.Region
 		}
 	}
 	if envEndpoint := os.Getenv("ECS_BACKEND_HOST"); envEndpoint != "" {
-		ecsconfig.Endpoint = envEndpoint
+		ecsconfig.Endpoint = &envEndpoint
 	}
 
 	ECS = ecs.New(&ecsconfig)
@@ -314,7 +314,7 @@ func (agent *TestAgent) StartMultipleTasks(t *testing.T, task string, num int) (
 
 	testTasks := make([]*TestTask, num)
 	for i, task := range resp.Tasks {
-		agent.t.Logf("Started task: %s\n", *task.TaskARN)
+		agent.t.Logf("Started task: %s\n", *task.TaskArn)
 		testTasks[i] = &TestTask{task}
 	}
 	return testTasks, nil
@@ -350,12 +350,12 @@ func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overri
 		return nil, errors.New("Failure starting task: " + *resp.Failures[0].Reason)
 	}
 
-	agent.t.Logf("Started task: %s\n", *resp.Tasks[0].TaskARN)
+	agent.t.Logf("Started task: %s\n", *resp.Tasks[0].TaskArn)
 	return &TestTask{resp.Tasks[0]}, nil
 }
 
 func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string) (string, error) {
-	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskARN)
+	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskArn)
 	if err != nil {
 		return "", err
 	}
@@ -399,8 +399,8 @@ type TestTask struct {
 
 func (task *TestTask) Redescribe() {
 	res, err := ECS.DescribeTasks(&ecs.DescribeTasksInput{
-		Cluster: task.ClusterARN,
-		Tasks:   []*string{task.TaskARN},
+		Cluster: task.ClusterArn,
+		Tasks:   []*string{task.TaskArn},
 	})
 	if err == nil && len(res.Failures) == 0 {
 		task.Task = res.Tasks[0]
@@ -436,7 +436,7 @@ func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 		return err
 	case <-timer.C:
 		cancelled = true
-		return errors.New("Timed out waiting for task to reach" + status + ": " + *task.TaskDefinitionARN + ", " + *task.TaskARN)
+		return errors.New("Timed out waiting for task to reach" + status + ": " + *task.TaskDefinitionArn + ", " + *task.TaskArn)
 	}
 }
 
@@ -478,13 +478,13 @@ func (task *TestTask) ExpectErrorType(containerName, errType string, timeout tim
 		}
 		return nil
 	}
-	return errors.New("Could not find container " + containerName + " in task " + *task.TaskARN)
+	return errors.New("Could not find container " + containerName + " in task " + *task.TaskArn)
 }
 
 func (task *TestTask) Stop() error {
 	_, err := ECS.StopTask(&ecs.StopTaskInput{
-		Cluster: task.ClusterARN,
-		Task:    task.TaskARN,
+		Cluster: task.ClusterArn,
+		Task:    task.TaskArn,
 	})
 	return err
 }

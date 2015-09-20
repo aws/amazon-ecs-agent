@@ -18,6 +18,9 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/service"
+	"github.com/aws/aws-sdk-go/aws/service/serviceinfo"
 )
 
 func TestExtendedRetryMaxDelayHandler(t *testing.T) {
@@ -25,25 +28,27 @@ func TestExtendedRetryMaxDelayHandler(t *testing.T) {
 	maxExtraRetries := uint(10)
 	retryCounts := []uint{}
 	// inject fake awsAfterRetryHandler to just collect retry counts
-	awsAfterRetryHandler = func(r *aws.Request) {
+	awsAfterRetryHandler = func(r *request.Request) {
 		retryCounts = append(retryCounts, r.RetryCount)
 		r.Error = nil
 	}
 
 	extendedRetryMaxDelayHandler := extendedRetryMaxDelayHandlerFactory(maxExtraRetries)
 
-	request := &aws.Request{
-		Service: &aws.Service{
+	request := &request.Request{
+		Retryer: service.DefaultRetryer{&service.Service{
 			DefaultMaxRetries: maxDelayRetries,
-			Config: &aws.Config{
-				MaxRetries: -1,
+			ServiceInfo: serviceinfo.ServiceInfo{
+				Config: &aws.Config{
+					MaxRetries: aws.Int(-1),
+				},
 			},
-		},
+		}},
 	}
 	var count uint
 	for count = 0; request.Error == nil; count++ {
 		request.Error = errors.New("")
-		extendedRetryMaxDelayHandler(request)
+		extendedRetryMaxDelayHandler.Fn(request)
 	}
 
 	if count != (maxDelayRetries + maxExtraRetries + 1) {

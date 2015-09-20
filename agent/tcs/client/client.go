@@ -169,7 +169,7 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 
 	var requests []*ecstcs.PublishMetricsRequest
 	if *metadata.Idle {
-		metadata.Fin = aws.Boolean(true)
+		metadata.Fin = aws.Bool(true)
 		// Idle instance, we have only one request to send to backend.
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
 		return requests, nil
@@ -209,9 +209,9 @@ func copyMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.Met
 	return &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(*metadata.Cluster),
 		ContainerInstance: aws.String(*metadata.ContainerInstance),
-		Idle:              aws.Boolean(*metadata.Idle),
+		Idle:              aws.Bool(*metadata.Idle),
 		MessageId:         aws.String(*metadata.MessageId),
-		Fin:               aws.Boolean(fin),
+		Fin:               aws.Bool(fin),
 	}
 }
 

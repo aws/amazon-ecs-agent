@@ -16,6 +16,8 @@ package api
 import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/corehandlers"
+	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 const (
@@ -43,33 +45,38 @@ const (
 // retriable errors for an extended period of time (roughly 24 hours).
 func newSubmitStateChangeClient(awsConfig *aws.Config) *ecs.ECS {
 	sscConfig := awsConfig.Copy()
-	sscConfig.MaxRetries = submitStateChangeMaxDelayRetries
-	client := ecs.New(&sscConfig)
+	sscConfig.MaxRetries = aws.Int(submitStateChangeMaxDelayRetries)
+	client := ecs.New(sscConfig)
 	client.Handlers.AfterRetry.Clear()
-	client.Handlers.AfterRetry.PushBack(
+	client.Handlers.AfterRetry.PushBackNamed(
 		extendedRetryMaxDelayHandlerFactory(submitStateChangeExtraRetries))
 	client.DefaultMaxRetries = submitStateChangeMaxDelayRetries
 	return client
 }
 
-var awsAfterRetryHandler = func(r *aws.Request) {
-	aws.AfterRetryHandler(r)
+var awsAfterRetryHandler = func(r *request.Request) {
+	corehandlers.AfterRetryHandler.Fn(r)
 }
 
-// ExtendedRetryMaxDelayHandlerFactory returns a function which can be used as an AfterRetryHandler
-// in the AWS Go SDK.  This AfterRetryHandler can be used to have a large number of retries where
-// the initial delay between backoff grows exponentially (2^n * 30ms; defined in service.retryRules)
-// and extra retries are performed at the maximum delay of the initial exponential growth.
-func extendedRetryMaxDelayHandlerFactory(maxExtendedRetries uint) func(r *aws.Request) {
-	return func(r *aws.Request) {
-		realRetryCount := r.RetryCount
-		maxDelayRetries := r.MaxRetries()
-		if r.RetryCount >= (maxDelayRetries + maxExtendedRetries) {
-			return
-		} else if r.RetryCount >= maxDelayRetries {
-			r.RetryCount = maxDelayRetries - 1
-		}
-		awsAfterRetryHandler(r)
-		r.RetryCount = (realRetryCount + 1)
+// ExtendedRetryMaxDelayHandlerFactory returns a Handler which can be used as
+// an AfterRetryHandler in the AWS Go SDK.  This AfterRetryHandler can be used
+// to have a large number of retries where the initial delay between backoff
+// grows exponentially (2^n * 30ms; defined in service.retryRules) and extra
+// retries are performed at the maximum delay of the initial exponential
+// growth.
+func extendedRetryMaxDelayHandlerFactory(maxExtendedRetries uint) request.NamedHandler {
+	return request.NamedHandler{
+		Name: "ExtendedRetryHandler",
+		Fn: func(r *request.Request) {
+			realRetryCount := r.RetryCount
+			maxDelayRetries := r.MaxRetries()
+			if r.RetryCount >= (maxDelayRetries + maxExtendedRetries) {
+				return
+			} else if r.RetryCount >= maxDelayRetries {
+				r.RetryCount = maxDelayRetries - 1
+			}
+			awsAfterRetryHandler(r)
+			r.RetryCount = (realRetryCount + 1)
+		},
 	}
 }

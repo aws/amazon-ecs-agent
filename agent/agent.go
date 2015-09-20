@@ -37,8 +37,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	log "github.com/cihub/seelog"
 	"golang.org/x/net/context"
 )
@@ -169,7 +169,7 @@ func _main() int {
 
 	capabilities := taskEngine.Capabilities()
 
-	credentialProvider := aws.DefaultChainCredentials
+	credentialProvider := defaults.DefaultChainCredentials
 	// Preflight request to make sure they're good
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)

@@ -102,12 +102,12 @@ const (
 )
 
 func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client, ec2MetadataClient ec2.EC2MetadataClient) ECSClient {
-	ecsConfig := aws.DefaultConfig.Copy()
+	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
-	ecsConfig.Region = config.AWSRegion
+	ecsConfig.Region = &config.AWSRegion
 	ecsConfig.HTTPClient = httpClient
 	if config.APIEndpoint != "" {
-		ecsConfig.Endpoint = config.APIEndpoint
+		ecsConfig.Endpoint = &config.APIEndpoint
 	}
 	standardClient := ecs.New(&ecsConfig)
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
@@ -171,7 +171,7 @@ func (client *ApiECSClient) RegisterContainerInstance(containerInstanceArn strin
 func (client *ApiECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	if containerInstanceArn != "" {
-		registerRequest.ContainerInstanceARN = &containerInstanceArn
+		registerRequest.ContainerInstanceArn = &containerInstanceArn
 	}
 
 	for _, attribute := range attributes {
@@ -237,7 +237,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string, contain
 		return "", err
 	}
 	log.Info("Registered!")
-	return *resp.ContainerInstance.ContainerInstanceARN, nil
+	return *resp.ContainerInstance.ContainerInstanceArn, nil
 }
 
 func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) error {

@@ -60,30 +60,24 @@ func _main() int {
 	flag.BoolVar(&typesOnly, "typesOnly", false, "only generate types")
 	flag.Parse()
 
-	apiFiles, err := filepath.Glob("./api/api-2.json")
-	if err != nil {
-		fmt.Println("Error listing api json files: ", err)
-		return 1
+	apiFile := "./api/api-2.json"
+	var err error
+	if typesOnly {
+		err = genTypesOnlyAPI(apiFile)
+	} else {
+		err = genFull(apiFile)
 	}
-	for _, file := range apiFiles {
-		var err error
-		if typesOnly {
-			err = genTypesOnlyAPI(file)
-		} else {
-			err = genFull(file)
-		}
-		if err != nil {
-			fmt.Println(err)
-			return 1
-		}
+	if err != nil {
+		fmt.Println(err)
+		return 1
 	}
 	return 0
 }
 
 func genTypesOnlyAPI(file string) error {
 	apiGen := &api.API{
-		NoInflections:        true,
-		NoRemoveUnusedShapes: true,
+		NoRemoveUnusedShapes:   true,
+		NoRenameToplevelShapes: true,
 	}
 	apiGen.Attach(file)
 	apiGen.Setup()
@@ -130,16 +124,26 @@ func genFull(file string) error {
 	}
 	api.Setup()
 
+	processedApiCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.APIGoCode())), nil)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 	// Ignore dir error, filepath will catch it for an invalid path.
 	os.Mkdir(api.PackageName(), 0755)
 	outFile := filepath.Join(api.PackageName(), "api.go")
-	err := ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\npackage %s\n\n%s", copyrightHeader, api.PackageName(), api.APIGoCode())), 0644)
+	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedApiCode)), 0644)
 	if err != nil {
 		return err
 	}
 
+	processedServiceCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.ServiceGoCode())), nil)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 	outFile = filepath.Join(api.PackageName(), "service.go")
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\npackage %s\n\n%s", copyrightHeader, api.PackageName(), api.ServiceGoCode())), 0644)
+	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedServiceCode)), 0644)
 	if err != nil {
 		return err
 	}

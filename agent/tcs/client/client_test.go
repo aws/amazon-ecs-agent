@@ -83,7 +83,7 @@ func (engine *idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Boolean(true),
+		Idle:              aws.Bool(true),
 		MessageId:         aws.String(testMessageId),
 	}
 	return metadata, []*ecstcs.TaskMetric{}, nil
@@ -97,7 +97,7 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata,
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Boolean(false),
+		Idle:              aws.Bool(false),
 		MessageId:         aws.String(testMessageId),
 	}
 	var taskMetrics []*ecstcs.TaskMetric
