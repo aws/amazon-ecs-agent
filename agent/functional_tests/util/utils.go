@@ -192,7 +192,7 @@ func (agent *TestAgent) StartAgent() error {
 			"ECS_LOGFILE=/logs/integ_agent.log",
 			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
 			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
-			"AWS_DEFAULT_REGION=" + ECS.Config.Region,
+			"AWS_DEFAULT_REGION=" + *ECS.Config.Region,
 			"AWS_SECRET_ACCESS_KEY=" + os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		},
 		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),

@@ -31,7 +31,7 @@ type metadataAckPublishMetric struct {
 
 // String returns the string representation
 func (s AckPublishMetric) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -51,7 +51,7 @@ type metadataBadRequestException struct {
 
 // String returns the string representation
 func (s BadRequestException) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -77,7 +77,7 @@ type metadataCWStatsSet struct {
 
 // String returns the string representation
 func (s CWStatsSet) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -99,7 +99,7 @@ type metadataContainerMetric struct {
 
 // String returns the string representation
 func (s ContainerMetric) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -119,7 +119,7 @@ type metadataHeartbeatMessage struct {
 
 // String returns the string representation
 func (s HeartbeatMessage) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -137,7 +137,7 @@ type metadataHeartbeatOutput struct {
 
 // String returns the string representation
 func (s HeartbeatOutput) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -157,7 +157,7 @@ type metadataInvalidParameterException struct {
 
 // String returns the string representation
 func (s InvalidParameterException) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -176,7 +176,7 @@ type MetricsMetadata struct {
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
-	metadataMetricsMetadata `json:"-", xml:"-"`
+	metadataMetricsMetadata `json:"-" xml:"-"`
 }
 
 type metadataMetricsMetadata struct {
@@ -185,7 +185,7 @@ type metadataMetricsMetadata struct {
 
 // String returns the string representation
 func (s MetricsMetadata) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -209,7 +209,7 @@ type metadataPublishMetricsRequest struct {
 
 // String returns the string representation
 func (s PublishMetricsRequest) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -229,7 +229,7 @@ type metadataResourceValidationException struct {
 
 // String returns the string representation
 func (s ResourceValidationException) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -249,7 +249,7 @@ type metadataServerException struct {
 
 // String returns the string representation
 func (s ServerException) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -271,7 +271,7 @@ type metadataStartTelemetrySessionRequest struct {
 
 // String returns the string representation
 func (s StartTelemetrySessionRequest) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -291,7 +291,7 @@ type metadataStopTelemetrySessionMessage struct {
 
 // String returns the string representation
 func (s StopTelemetrySessionMessage) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
@@ -317,7 +317,7 @@ type metadataTaskMetric struct {
 
 // String returns the string representation
 func (s TaskMetric) String() string {
-	return awsutil.StringValue(s)
+	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
