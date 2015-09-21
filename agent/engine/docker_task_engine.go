@@ -627,7 +627,7 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 		return nil
 	}
 	capabilities := []string{}
-	if !engine.cfg.PrivilegedDisabled {
+	if engine.cfg.PrivilegedCapable {
 		capabilities = append(capabilities, capabilityPrefix+"privileged-container")
 	}
 	versions := make(map[dockerclient.DockerVersion]bool)

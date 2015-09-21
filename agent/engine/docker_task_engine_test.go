@@ -361,9 +361,9 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
-		PrivilegedDisabled: false,
-		SELinuxCapable:     true,
-		AppArmorCapable:    true,
+		PrivilegedCapable: true,
+		SELinuxCapable:    true,
+		AppArmorCapable:   true,
 	}
 	ctrl, client, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()

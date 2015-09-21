@@ -148,6 +148,7 @@ func DefaultConfig() Config {
 		DockerGraphPath:         "/var/lib/docker",
 		ReservedMemory:          0,
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
+		PrivilegedCapable:       true,
 	}
 }
 
@@ -259,7 +260,7 @@ func EnvironmentConfig() Config {
 		log.Warn("Invalid format for \"ECS_AVAILABLE_LOGGING_DRIVERS\" environment variable; expected a JSON array like [\"json-file\",\"syslog\"].", "err", err)
 	}
 
-	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
+	privilegedCapable := utils.ParseBool(os.Getenv("ECS_PRIVILEGED_CAPABLE"), true)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
 
@@ -280,7 +281,7 @@ func EnvironmentConfig() Config {
 		DockerGraphPath:         dockerGraphPath,
 		ReservedMemory:          reservedMemory,
 		AvailableLoggingDrivers: availableLoggingDrivers,
-		PrivilegedDisabled:      privilegedDisabled,
+		PrivilegedCapable:       privilegedCapable,
 		SELinuxCapable:          seLinuxCapable,
 		AppArmorCapable:         appArmorCapable,
 	}
