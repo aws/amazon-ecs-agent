@@ -31,6 +31,21 @@ Requires:       docker >= 1.6.0, docker <= 1.7.1
 Requires:       upstart
 Requires(post): docker >= 1.6.0
 
+Provides:       bundled(docker)
+Provides:       bundled(golang(github.com/docker/docker/pkg/archive))
+Provides:       bundled(golang(github.com/docker/docker/pkg/fileutils))
+Provides:       bundled(golang(github.com/docker/docker/pkg/ioutils))
+Provides:       bundled(golang(github.com/docker/docker/pkg/pools))
+Provides:       bundled(golang(github.com/docker/docker/pkg/promise))
+Provides:       bundled(golang(github.com/docker/docker/pkg/system))
+Provides:       bundled(golang(github.com/docker/docker/pkg/units))
+Provides:       bundled(golang(github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar))
+Provides:       bundled(golang(github.com/fsouza/go-dockerclient))
+Provides:       bundled(golang(code.google.com/p/gomock/gomock))
+Provides:       bundled(golang-logrus)
+Provides:       bundled(golang(github.com/Sirupsen/logrus))
+Provides:       bundled(golang(github.com/cihub/seelog))
+
 %global init_dir %{_sysconfdir}/init
 %global bin_dir %{_libexecdir}
 %global	conf_dir %{_sysconfdir}/ecs
