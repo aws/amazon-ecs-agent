@@ -754,6 +754,7 @@
     },
     "Attribute":{
       "type":"structure",
+      "required":["name"],
       "members":{
         "name":{"shape":"String"},
         "value":{"shape":"String"}
@@ -841,7 +842,6 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "hostname":{"shape":"String"},
-        "domainname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
         "disableNetworking":{"shape":"BoxedBoolean"},
@@ -1098,7 +1098,10 @@
     },
     "DockerLabelsMap":{
       "type":"map",
-      "key":{"shape":"String"},
+      "key":{
+        "shape":"String",
+        "required":true
+      },
       "value":{"shape":"String"}
     },
     "Double":{"type":"double"},
@@ -1119,6 +1122,10 @@
     },
     "HostEntry":{
       "type":"structure",
+      "required":[
+        "Hostname",
+        "IpAddress"
+      ],
       "members":{
         "Hostname":{"shape":"String"},
         "IpAddress":{"shape":"String"}
@@ -1258,15 +1265,29 @@
     },
     "LogConfiguration":{
       "type":"structure",
+      "required":["logDriver"],
       "members":{
-        "logDriver":{"shape":"String"},
+        "logDriver":{"shape":"LogDriver"},
         "options":{"shape":"LogConfigurationOptionsMap"}
       }
     },
     "LogConfigurationOptionsMap":{
       "type":"map",
-      "key":{"shape":"String"},
+      "key":{
+        "shape":"String",
+        "required":true
+      },
       "value":{"shape":"String"}
+    },
+    "LogDriver":{
+      "type":"string",
+      "enum":[
+        "json-file",
+        "syslog",
+        "journald",
+        "gelf",
+        "fluentd"
+      ]
     },
     "Long":{"type":"long"},
     "MissingVersionException":{
@@ -1353,6 +1374,10 @@
       "members":{
         "taskDefinition":{"shape":"TaskDefinition"}
       }
+    },
+    "RequiresAttributes":{
+      "type":"list",
+      "member":{"shape":"Attribute"}
     },
     "Resource":{
       "type":"structure",
@@ -1542,7 +1567,8 @@
         "family":{"shape":"String"},
         "revision":{"shape":"Integer"},
         "volumes":{"shape":"VolumeList"},
-        "status":{"shape":"TaskDefinitionStatus"}
+        "status":{"shape":"TaskDefinitionStatus"},
+        "requiresAttributes":{"shape":"RequiresAttributes"}
       }
     },
     "TaskDefinitionStatus":{
@@ -1572,8 +1598,13 @@
     },
     "Ulimit":{
       "type":"structure",
+      "required":[
+        "name",
+        "softLimit",
+        "hardLimit"
+      ],
       "members":{
-        "name":{"shape":"String"},
+        "name":{"shape":"UlimitName"},
         "softLimit":{"shape":"Integer"},
         "hardLimit":{"shape":"Integer"}
       }
@@ -1581,6 +1612,26 @@
     "UlimitList":{
       "type":"list",
       "member":{"shape":"Ulimit"}
+    },
+    "UlimitName":{
+      "type":"string",
+      "enum":[
+        "core",
+        "cpu",
+        "data",
+        "fsize",
+        "locks",
+        "memlock",
+        "msgqueue",
+        "nice",
+        "nofile",
+        "nproc",
+        "rss",
+        "rtprio",
+        "rttime",
+        "sigpending",
+        "stack"
+      ]
     },
     "UpdateContainerAgentRequest":{
       "type":"structure",

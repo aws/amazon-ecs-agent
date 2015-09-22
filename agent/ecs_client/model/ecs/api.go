@@ -930,7 +930,7 @@ func (c *ECS) UpdateService(input *UpdateServiceInput) (*UpdateServiceOutput, er
 }
 
 type Attribute struct {
-	Name *string `locationName:"name" type:"string"`
+	Name *string `locationName:"name" type:"string" required:"true"`
 
 	Value *string `locationName:"value" type:"string"`
 
@@ -1093,8 +1093,6 @@ type ContainerDefinition struct {
 	DockerLabels map[string]*string `locationName:"dockerLabels" type:"map"`
 
 	DockerSecurityOptions []*string `locationName:"dockerSecurityOptions" type:"list"`
-
-	Domainname *string `locationName:"domainname" type:"string"`
 
 	// Early versions of the Amazon ECS container agent do not properly handle entryPoint
 	// parameters. If you have problems using entryPoint, update your container
@@ -1950,9 +1948,9 @@ func (s Failure) GoString() string {
 }
 
 type HostEntry struct {
-	Hostname *string `type:"string"`
+	Hostname *string `type:"string" required:"true"`
 
-	IpAddress *string `type:"string"`
+	IpAddress *string `type:"string" required:"true"`
 
 	metadataHostEntry `json:"-" xml:"-"`
 }
@@ -2491,7 +2489,7 @@ func (s LoadBalancer) GoString() string {
 }
 
 type LogConfiguration struct {
-	LogDriver *string `locationName:"logDriver" type:"string"`
+	LogDriver *string `locationName:"logDriver" type:"string" required:"true" enum:"LogDriver"`
 
 	Options map[string]*string `locationName:"options" type:"map"`
 
@@ -3270,6 +3268,8 @@ type TaskDefinition struct {
 	// of your task definition.
 	Family *string `locationName:"family" type:"string"`
 
+	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`
+
 	// The revision of the task in a particular family. You can think of the revision
 	// as a version number of a task definition in a family. When you register a
 	// task definition for the first time, the revision is 1, and each time you
@@ -3329,11 +3329,11 @@ func (s TaskOverride) GoString() string {
 }
 
 type Ulimit struct {
-	HardLimit *int64 `locationName:"hardLimit" type:"integer"`
+	HardLimit *int64 `locationName:"hardLimit" type:"integer" required:"true"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `locationName:"name" type:"string" required:"true" enum:"UlimitName"`
 
-	SoftLimit *int64 `locationName:"softLimit" type:"integer"`
+	SoftLimit *int64 `locationName:"softLimit" type:"integer" required:"true"`
 
 	metadataUlimit `json:"-" xml:"-"`
 }
@@ -3571,6 +3571,19 @@ const (
 )
 
 const (
+	// @enum LogDriver
+	LogDriverJsonFile = "json-file"
+	// @enum LogDriver
+	LogDriverSyslog = "syslog"
+	// @enum LogDriver
+	LogDriverJournald = "journald"
+	// @enum LogDriver
+	LogDriverGelf = "gelf"
+	// @enum LogDriver
+	LogDriverFluentd = "fluentd"
+)
+
+const (
 	// @enum SortOrder
 	SortOrderAsc = "ASC"
 	// @enum SortOrder
@@ -3589,4 +3602,37 @@ const (
 	TransportProtocolTcp = "tcp"
 	// @enum TransportProtocol
 	TransportProtocolUdp = "udp"
+)
+
+const (
+	// @enum UlimitName
+	UlimitNameCore = "core"
+	// @enum UlimitName
+	UlimitNameCpu = "cpu"
+	// @enum UlimitName
+	UlimitNameData = "data"
+	// @enum UlimitName
+	UlimitNameFsize = "fsize"
+	// @enum UlimitName
+	UlimitNameLocks = "locks"
+	// @enum UlimitName
+	UlimitNameMemlock = "memlock"
+	// @enum UlimitName
+	UlimitNameMsgqueue = "msgqueue"
+	// @enum UlimitName
+	UlimitNameNice = "nice"
+	// @enum UlimitName
+	UlimitNameNofile = "nofile"
+	// @enum UlimitName
+	UlimitNameNproc = "nproc"
+	// @enum UlimitName
+	UlimitNameRss = "rss"
+	// @enum UlimitName
+	UlimitNameRtprio = "rtprio"
+	// @enum UlimitName
+	UlimitNameRttime = "rttime"
+	// @enum UlimitName
+	UlimitNameSigpending = "sigpending"
+	// @enum UlimitName
+	UlimitNameStack = "stack"
 )
