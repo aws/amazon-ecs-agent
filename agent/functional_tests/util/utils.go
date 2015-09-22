@@ -354,7 +354,22 @@ func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overri
 	return &TestTask{resp.Tasks[0]}, nil
 }
 
+// ResolveTaskDockerID determines the Docker ID for a container within a given
+// task that has been run by the Agent.
 func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string) (string, error) {
+	var err error
+	var dockerId string
+	for i := 0; i < 5; i++ {
+		dockerId, err = agent.resolveTaskDockerID(task, containerName)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return dockerId, err
+}
+
+func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string) (string, error) {
 	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskArn)
 	if err != nil {
 		return "", err
