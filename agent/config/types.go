@@ -87,9 +87,9 @@ type Config struct {
 	// with Docker.  If not set, it defaults to ["json-file"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver
 
-	// PrivilegedDisabled specified whether the Agent is capable of launching
+	// PrivilegedCapable specified whether the Agent is capable of launching
 	// tasks with privileged containers
-	PrivilegedDisabled bool
+	PrivilegedCapable bool
 
 	// SELinxuCapable specifies whether the Agent is capable of using SELinux
 	// security options
