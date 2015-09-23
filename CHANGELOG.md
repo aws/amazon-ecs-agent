@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+* Feature - Add support for additional Docker features.
+* Feature - Detect and register capabilities.
+* Feature - Add -license flag and /license handler.
+* Enhancement - Properly handle throttling.
+* Enhancement - Make it harder to accidentally expose sensitive data.
+* Enhancement - Increased reliability in functional tests.
+* Bug - Fixed potential divide-by-zero error with metrics.
+
 ## 1.4.0
 * Feature - Telemetry reporting for Services and Clusters.
 * Bug - Fixed an issue where some network errors would cause a panic.
