@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.4.0
-Release:        2%{?dist}
+Version:        1.5.0
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -147,6 +147,10 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Wed Sep 23 2015 Samuel Karp <skarp@amazon.com> - 1.5.0-1
+- Cache Agent version 1.5.0
+- Improved merge strategy for user-supplied environment variables
+- Add default supported logging drivers
 * Wed Aug 26 2015 Samuel Karp <skarp@amazon.com> - 1.4.0-2
 - Add support for Docker 1.7.1
 * Tue Aug 11 2015 Samuel Karp <skarp@amazon.com> - 1.4.0-1
