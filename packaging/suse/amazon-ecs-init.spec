@@ -17,7 +17,7 @@
 
 %define short_name amazon-ecs
 Name:           amazon-ecs-init
-Version:        1.4.0.2
+Version:        1.4.0
 Release:        0
 Summary:        Amazon EC2 Container Service Initialization
 License:        Apache-2.0
