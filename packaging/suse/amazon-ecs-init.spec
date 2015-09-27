@@ -25,6 +25,7 @@ Group:          System Environment/Base
 Url:            https://github.com/aws/amazon-ecs-init
 Source0:        %{name}-%{version}.tar.gz
 Source1:        %{short_name}.service
+Patch1:         cgroup_location.patch
 BuildRequires:  go
 BuildRequires:  systemd
 Requires:       docker >= 1.6.0
@@ -40,6 +41,7 @@ Amazon EC2.
 
 %prep
 %setup -q -n %{name}-%{version}
+%patch1
 
 %build
 ./scripts/gobuild.sh
