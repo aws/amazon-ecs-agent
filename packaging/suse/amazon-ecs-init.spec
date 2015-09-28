@@ -34,7 +34,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:  %ix86 x86_64
 
 %description
-The Amazon Container Service initialization will start the ECS agent.
+The Amazon EC2 Container Service initialization will start the ECS agent.
 The ECS agent runs in a container and is needed to support integration
 between the aws-cli ecs command line tool and an instance running in
 Amazon EC2.
