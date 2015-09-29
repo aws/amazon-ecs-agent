@@ -929,9 +929,12 @@ func (c *ECS) UpdateService(input *UpdateServiceInput) (*UpdateServiceOutput, er
 	return out, err
 }
 
+// The attributes applicable to a container instance when it is registered.
 type Attribute struct {
+	// The name of the container instance attribute.
 	Name *string `locationName:"name" type:"string" required:"true"`
 
+	// The value of the container instance attribute.
 	Value *string `locationName:"value" type:"string"`
 
 	metadataAttribute `json:"-" xml:"-"`
@@ -966,7 +969,7 @@ type Cluster struct {
 	// name. For example, arn:aws:ecs:region:012345678910:cluster/test.
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
-	// A user-generated string that you can use to identify your cluster.
+	// A user-generated string that you use to identify your cluster.
 	ClusterName *string `locationName:"clusterName" type:"string"`
 
 	// The number of tasks in the cluster that are in the PENDING state.
@@ -1044,15 +1047,21 @@ func (s Container) GoString() string {
 // Container definitions are used in task definitions to describe the different
 // containers that are launched as part of a task.
 type ContainerDefinition struct {
-	// The CMD that is passed to the container. For more information on the Docker
-	// CMD parameter, see https://docs.docker.com/reference/builder/#cmd (https://docs.docker.com/reference/builder/#cmd).
+	// The command that is passed to the container. This parameter maps to Cmd in
+	// the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the COMMAND parameter to docker run. For more information, see https://docs.docker.com/reference/builder/#cmd
+	// (https://docs.docker.com/reference/builder/#cmd).
 	Command []*string `locationName:"command" type:"list"`
 
 	// The number of cpu units reserved for the container. A container instance
 	// has 1,024 cpu units for every CPU core. This parameter specifies the minimum
 	// amount of CPU to reserve for a container, and containers share unallocated
 	// CPU units with other containers on the instance with the same ratio as their
-	// allocated amount.
+	// allocated amount. This parameter maps to CpuShares in the Create a container
+	// (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --cpu-shares option to docker run.
 	//
 	//  You can determine the number of CPU units that are available per Amazon
 	// EC2 instance type by multiplying the vCPUs listed for that instance type
@@ -1084,26 +1093,62 @@ type ContainerDefinition struct {
 	// and CPU values of 1 are passed to Docker as 2.
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	// When this parameter is true, networking is disabled within the container.
+	// This parameter maps to NetworkDisabled in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/).
 	DisableNetworking *bool `locationName:"disableNetworking" type:"boolean"`
 
+	// A list of DNS search domains that are presented to the container. This parameter
+	// maps to DnsSearch in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --dns-search option to docker run.
 	DnsSearchDomains []*string `locationName:"dnsSearchDomains" type:"list"`
 
+	// A list of DNS servers that are presented to the container. This parameter
+	// maps to Dns in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --dns option to docker run.
 	DnsServers []*string `locationName:"dnsServers" type:"list"`
 
+	// A key/value map of labels to add to the container. This parameter maps to
+	// Labels in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --label option to docker run. This parameter requires version 1.18
+	// of the Docker Remote API or greater on your container instance. To check
+	// the Docker Remote API version on your container instance, log into your container
+	// instance and run the following command: sudo docker version | grep "Server
+	// API version"
 	DockerLabels map[string]*string `locationName:"dockerLabels" type:"map"`
 
+	// A list of strings to provide custom labels for SELinux and AppArmor multi-level
+	// security systems. This parameter maps to SecurityOpt in the Create a container
+	// (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --security-opt option to docker run.
+	//
+	//  The Amazon ECS container agent running on a container instance must register
+	// with the ECS_SELINUX_CAPABLE=true or ECS_APPARMOR_CAPABLE=true environment
+	// variables before containers placed on that instance can use these security
+	// options. For more information, see Amazon ECS Container Agent Configuration
+	// (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/developerguide/ecs-agent-config.html)
+	// in the Amazon EC2 Container Service Developer Guide.
 	DockerSecurityOptions []*string `locationName:"dockerSecurityOptions" type:"list"`
 
 	// Early versions of the Amazon ECS container agent do not properly handle entryPoint
 	// parameters. If you have problems using entryPoint, update your container
 	// agent or enter your commands and arguments as command array items instead.
 	//
-	//  The ENTRYPOINT that is passed to the container. For more information on
-	// the Docker ENTRYPOINT parameter, see https://docs.docker.com/reference/builder/#entrypoint
+	//  The entry point that is passed to the container. This parameter maps to
+	// Entrypoint in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --entrypoint option to docker run. For more information, see https://docs.docker.com/reference/builder/#entrypoint
 	// (https://docs.docker.com/reference/builder/#entrypoint).
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
 
-	// The environment variables to pass to a container.
+	// The environment variables to pass to a container. This parameter maps to
+	// Env in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --env option to docker run.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
 
 	// If the essential parameter of a container is marked as true, the failure
@@ -1114,20 +1159,38 @@ type ContainerDefinition struct {
 	//  All tasks must have at least one essential container.
 	Essential *bool `locationName:"essential" type:"boolean"`
 
+	// A list of hostnames and IP address mappings to append to the /etc/hosts file
+	// on the container. This parameter maps to ExtraHosts in the Create a container
+	// (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --add-host option to docker run.
 	ExtraHosts []*HostEntry `locationName:"extraHosts" type:"list"`
 
+	// The hostname you would like to use for your container. This parameter maps
+	// to Hostname in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --hostname option to docker run.
 	Hostname *string `locationName:"hostname" type:"string"`
 
 	// The image used to start a container. This string is passed directly to the
 	// Docker daemon. Images in the Docker Hub registry are available by default.
-	// Other repositories are specified with repository-url/image:tag.
+	// Other repositories are specified with repository-url/image:tag. Up to 255
+	// letters (uppercase and lowercase), numbers, hyphens, underscores, colons,
+	// periods, forward slashes, and number signs are allowed. This parameter maps
+	// to Image in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the IMAGE parameter of docker run.
 	Image *string `locationName:"image" type:"string"`
 
 	// The link parameter allows containers to communicate with each other without
-	// the need for port mappings, using the name parameter. The name:internalName
-	// construct is analogous to name:alias in Docker links. For more information
-	// on linking Docker containers, see https://docs.docker.com/userguide/dockerlinks/
-	// (https://docs.docker.com/userguide/dockerlinks/).
+	// the need for port mappings, using the name parameter and optionally, an alias
+	// for the link. This construct is analogous to name:alias in Docker links.
+	// Up to 255 letters (uppercase and lowercase), numbers, hyphens, and underscores
+	// are allowed for each name and alias. For more information on linking Docker
+	// containers, see https://docs.docker.com/userguide/dockerlinks/ (https://docs.docker.com/userguide/dockerlinks/).
+	// This parameter maps to PortBindings in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --link option to docker run.
 	//
 	//  Containers that are collocated on a single container instance may be able
 	// to communicate with each other without requiring links or host port mappings.
@@ -1135,34 +1198,92 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
+	// The log configuration specification for the container. This parameter maps
+	// to LogConfig in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --log-driver option to docker run. This parameter requires version
+	// 1.18 of the Docker Remote API or greater on your container instance. To check
+	// the Docker Remote API version on your container instance, log into your container
+	// instance and run the following command: sudo docker version | grep "Server
+	// API version"
+	//
+	//  The Amazon ECS container agent running on a container instance must register
+	// the logging drivers available on that instance with the ECS_AVAILABLE_LOGGING_DRIVERS
+	// environment variable before containers placed on that instance can use these
+	// log configuration options. For more information, see Amazon ECS Container
+	// Agent Configuration (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/developerguide/ecs-agent-config.html)
+	// in the Amazon EC2 Container Service Developer Guide.
 	LogConfiguration *LogConfiguration `locationName:"logConfiguration" type:"structure"`
 
 	// The number of MiB of memory reserved for the container. If your container
-	// attempts to exceed the memory allocated here, the container is killed.
+	// attempts to exceed the memory allocated here, the container is killed. This
+	// parameter maps to Memory in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --memory option to docker run.
 	Memory *int64 `locationName:"memory" type:"integer"`
 
-	// The mount points for data volumes in your container.
+	// The mount points for data volumes in your container. This parameter maps
+	// to Volumes in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --volume option to docker run.
 	MountPoints []*MountPoint `locationName:"mountPoints" type:"list"`
 
 	// The name of a container. If you are linking multiple containers together
 	// in a task definition, the name of one container can be entered in the links
-	// of another container to connect the containers.
+	// of another container to connect the containers. Up to 255 letters (uppercase
+	// and lowercase), numbers, hyphens, and underscores are allowed. This parameter
+	// maps to name in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --name option to docker run.
 	Name *string `locationName:"name" type:"string"`
 
-	// The list of port mappings for the container.
+	// The list of port mappings for the container. This parameter maps to PortBindings
+	// in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --publish option to docker run.
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
 
+	// When this parameter is true, the container is given elevated privileges on
+	// the host container instance (similar to the root user). This parameter maps
+	// to Privileged in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --privileged option to docker run.
 	Privileged *bool `locationName:"privileged" type:"boolean"`
 
+	// When this parameter is true, the container is given read-only access to its
+	// root file system. This parameter maps to ReadonlyRootfs in the Create a container
+	// (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --read-only option to docker run.
 	ReadonlyRootFilesystem *bool `locationName:"readonlyRootFilesystem" type:"boolean"`
 
+	// A list of ulimits to set in the container. This parameter maps to Ulimits
+	// in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --ulimit option to docker run. Valid naming values are available
+	// in the ulimitNameMapping variable of the pkg/ulimit/ulimit.go (https://github.com/docker/docker/blob/master/pkg/ulimit/ulimit.go)
+	// file in the Docker source code. This parameter requires version 1.18 of the
+	// Docker Remote API or greater on your container instance. To check the Docker
+	// Remote API version on your container instance, log into your container instance
+	// and run the following command: sudo docker version | grep "Server API version"
 	Ulimits []*Ulimit `locationName:"ulimits" type:"list"`
 
+	// The user name to use inside the container. This parameter maps to User in
+	// the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --user option to docker run.
 	User *string `locationName:"user" type:"string"`
 
-	// Data volumes to mount from another container.
+	// Data volumes to mount from another container. This parameter maps to VolumesFrom
+	// in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --volumes-from option to docker run.
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 
+	// The working directory in which to run commands inside the container. This
+	// parameter maps to WorkingDir in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
+	// and the --workdir option to docker run.
 	WorkingDirectory *string `locationName:"workingDirectory" type:"string"`
 
 	metadataContainerDefinition `json:"-" xml:"-"`
@@ -1195,12 +1316,14 @@ type ContainerInstance struct {
 	// this value is NULL.
 	AgentUpdateStatus *string `locationName:"agentUpdateStatus" type:"string" enum:"AgentUpdateStatus"`
 
+	// The attributes set for the container instance by the Amazon ECS container
+	// agent at instance registration.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
 	// The Amazon Resource Name (ARN) of the container instance. The ARN contains
 	// the arn:aws:ecs namespace, followed by the region of the container instance,
 	// the AWS account ID of the container instance owner, the container-instance
-	// namespace, and then the container instance UUID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_UUID.
+	// namespace, and then the container instance ID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_ID.
 	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
 
 	// The Amazon EC2 instance ID of the container instance.
@@ -1326,8 +1449,7 @@ type CreateServiceInput struct {
 	ClientToken *string `locationName:"clientToken" type:"string"`
 
 	// The short name or full Amazon Resource Name (ARN) of the cluster that you
-	// want to run your service on. If you do not specify a cluster, the default
-	// cluster is assumed.
+	// want to run your service on.
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// The number of instantiations of the specified task definition that you would
@@ -1438,7 +1560,8 @@ func (s DeleteClusterOutput) GoString() string {
 }
 
 type DeleteServiceInput struct {
-	// The name of the cluster that hosts the service you want to delete.
+	// The name of the cluster that hosts the service you want to delete. If you
+	// do not specify a cluster, the default cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// The name of the service you want to delete.
@@ -1462,7 +1585,7 @@ func (s DeleteServiceInput) GoString() string {
 }
 
 type DeleteServiceOutput struct {
-	// Details on a service within a cluster
+	// The full description of the deleted service.
 	Service *Service `locationName:"service" type:"structure"`
 
 	metadataDeleteServiceOutput `json:"-" xml:"-"`
@@ -1535,11 +1658,11 @@ type DeregisterContainerInstanceInput struct {
 	// the default cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The container instance UUID or full Amazon Resource Name (ARN) of the container
+	// The container instance ID or full Amazon Resource Name (ARN) of the container
 	// instance you want to deregister. The ARN contains the arn:aws:ecs namespace,
 	// followed by the region of the container instance, the AWS account ID of the
 	// container instance owner, the container-instance namespace, and then the
-	// container instance UUID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_UUID.
+	// container instance ID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_ID.
 	ContainerInstance *string `locationName:"containerInstance" type:"string" required:"true"`
 
 	// Force the deregistration of the container instance. If you have tasks running
@@ -1660,6 +1783,7 @@ type DescribeClustersOutput struct {
 	// The list of clusters.
 	Clusters []*Cluster `locationName:"clusters" type:"list"`
 
+	// Any failures associated with the call.
 	Failures []*Failure `locationName:"failures" type:"list"`
 
 	metadataDescribeClustersOutput `json:"-" xml:"-"`
@@ -1685,7 +1809,7 @@ type DescribeContainerInstancesInput struct {
 	// the default cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// A space-separated list of container instance UUIDs or full Amazon Resource
+	// A space-separated list of container instance IDs or full Amazon Resource
 	// Name (ARN) entries.
 	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
 
@@ -1710,6 +1834,7 @@ type DescribeContainerInstancesOutput struct {
 	// The list of container instances.
 	ContainerInstances []*ContainerInstance `locationName:"containerInstances" type:"list"`
 
+	// Any failures associated with the call.
 	Failures []*Failure `locationName:"failures" type:"list"`
 
 	metadataDescribeContainerInstancesOutput `json:"-" xml:"-"`
@@ -1730,7 +1855,8 @@ func (s DescribeContainerInstancesOutput) GoString() string {
 }
 
 type DescribeServicesInput struct {
-	// The name of the cluster that hosts the service you want to describe.
+	// The name of the cluster that hosts the service you want to describe. If you
+	// do not specify a cluster, the default cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// A list of services you want to describe.
@@ -1827,7 +1953,7 @@ type DescribeTasksInput struct {
 	// cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// A space-separated list of task UUIDs or full Amazon Resource Name (ARN) entries.
+	// A space-separated list of task IDs or full Amazon Resource Name (ARN) entries.
 	Tasks []*string `locationName:"tasks" type:"list" required:"true"`
 
 	metadataDescribeTasksInput `json:"-" xml:"-"`
@@ -1848,6 +1974,7 @@ func (s DescribeTasksInput) GoString() string {
 }
 
 type DescribeTasksOutput struct {
+	// Any failures associated with the call.
 	Failures []*Failure `locationName:"failures" type:"list"`
 
 	// The list of tasks.
@@ -1874,11 +2001,11 @@ type DiscoverPollEndpointInput struct {
 	// The cluster that the container instance belongs to.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The container instance UUID or full Amazon Resource Name (ARN) of the container
+	// The container instance ID or full Amazon Resource Name (ARN) of the container
 	// instance. The ARN contains the arn:aws:ecs namespace, followed by the region
 	// of the container instance, the AWS account ID of the container instance owner,
-	// the container-instance namespace, and then the container instance UUID. For
-	// example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_UUID.
+	// the container-instance namespace, and then the container instance ID. For
+	// example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_ID.
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
 	metadataDiscoverPollEndpointInput `json:"-" xml:"-"`
@@ -1947,10 +2074,14 @@ func (s Failure) GoString() string {
 	return s.String()
 }
 
+// Hostnames and IP address entries that are added to the /etc/hosts file of
+// a container via the extraHosts parameter of its ContainerDefinition.
 type HostEntry struct {
-	Hostname *string `type:"string" required:"true"`
+	// The hostname to use in the /etc/hosts entry.
+	Hostname *string `locationName:"hostname" type:"string" required:"true"`
 
-	IpAddress *string `type:"string" required:"true"`
+	// The IP address to use in the /etc/hosts entry.
+	IpAddress *string `locationName:"ipAddress" type:"string" required:"true"`
 
 	metadataHostEntry `json:"-" xml:"-"`
 }
@@ -2372,7 +2503,7 @@ type ListTasksInput struct {
 	// cluster is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The container instance UUID or full Amazon Resource Name (ARN) of the container
+	// The container instance ID or full Amazon Resource Name (ARN) of the container
 	// instance that you want to filter the ListTasks results with. Specifying a
 	// containerInstance will limit the results to tasks that belong to that container
 	// instance.
@@ -2488,9 +2619,20 @@ func (s LoadBalancer) GoString() string {
 	return s.String()
 }
 
+// Log configuration options to send to a custom log driver for the container.
 type LogConfiguration struct {
+	// The log driver to use for the container. This parameter requires version
+	// 1.18 of the Docker Remote API or greater on your container instance. To check
+	// the Docker Remote API version on your container instance, log into your container
+	// instance and run the following command: sudo docker version | grep "Server
+	// API version"
 	LogDriver *string `locationName:"logDriver" type:"string" required:"true" enum:"LogDriver"`
 
+	// The configuration options to send to the log driver. This parameter requires
+	// version 1.19 of the Docker Remote API or greater on your container instance.
+	// To check the Docker Remote API version on your container instance, log into
+	// your container instance and run the following command: sudo docker version
+	// | grep "Server API version"
 	Options map[string]*string `locationName:"options" type:"map"`
 
 	metadataLogConfiguration `json:"-" xml:"-"`
@@ -2541,7 +2683,9 @@ func (s MountPoint) GoString() string {
 }
 
 // Details on the network bindings between a container and its host container
-// instance.
+// instance. After a task reaches the RUNNING status, manual and automatic host
+// and container port assignments are visible in the networkBindings section
+// of DescribeTasks API responses.
 type NetworkBinding struct {
 	// The IP address that the container is bound to on the container instance.
 	BindIP *string `locationName:"bindIP" type:"string"`
@@ -2574,7 +2718,9 @@ func (s NetworkBinding) GoString() string {
 
 // Port mappings allow containers to access ports on the host container instance
 // to send or receive traffic. Port mappings are specified as part of the container
-// definition.
+// definition. After a task reaches the RUNNING status, manual and automatic
+// host and container port assignments are visible in the networkBindings section
+// of DescribeTasks API responses.
 type PortMapping struct {
 	// The port number on the container that is bound to the user-specified or automatically
 	// assigned host port. If you specify a container port and not a host port,
@@ -2627,6 +2773,7 @@ func (s PortMapping) GoString() string {
 }
 
 type RegisterContainerInstanceInput struct {
+	// The container instance attributes that this container instance supports.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
 	// The short name or full Amazon Resource Name (ARN) of the cluster that you
@@ -2727,7 +2874,7 @@ func (s RegisterTaskDefinitionInput) GoString() string {
 }
 
 type RegisterTaskDefinitionOutput struct {
-	// Details of a task definition.
+	// The full description of the registered task definition.
 	TaskDefinition *TaskDefinition `locationName:"taskDefinition" type:"structure"`
 
 	metadataRegisterTaskDefinitionOutput `json:"-" xml:"-"`
@@ -2844,7 +2991,7 @@ func (s RunTaskInput) GoString() string {
 }
 
 type RunTaskOutput struct {
-	// Any failed tasks from your RunTask action are listed here.
+	// Any failures associated with the call.
 	Failures []*Failure `locationName:"failures" type:"list"`
 
 	// A full description of the tasks that were run. Each task that was successfully
@@ -2969,7 +3116,7 @@ type StartTaskInput struct {
 	// cluster is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The container instance UUIDs or full Amazon Resource Name (ARN) entries for
+	// The container instance IDs or full Amazon Resource Name (ARN) entries for
 	// the container instances on which you would like to place your task.
 	//
 	//  The list of container instances to start tasks on is limited to 10.
@@ -3020,7 +3167,7 @@ func (s StartTaskInput) GoString() string {
 }
 
 type StartTaskOutput struct {
-	// Any failed tasks from your StartTask action are listed here.
+	// Any failures associated with the call.
 	Failures []*Failure `locationName:"failures" type:"list"`
 
 	// A full description of the tasks that were started. Each task that was successfully
@@ -3050,7 +3197,7 @@ type StopTaskInput struct {
 	// is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The task UUIDs or full Amazon Resource Name (ARN) entry of the task you would
+	// The task ID or full Amazon Resource Name (ARN) entry of the task you would
 	// like to stop.
 	Task *string `locationName:"task" type:"string" required:"true"`
 
@@ -3112,7 +3259,7 @@ type SubmitContainerStateChangeInput struct {
 	// The status of the state change request.
 	Status *string `locationName:"status" type:"string"`
 
-	// The task UUID or full Amazon Resource Name (ARN) of the task that hosts the
+	// The task ID or full Amazon Resource Name (ARN) of the task that hosts the
 	// container.
 	Task *string `locationName:"task" type:"string"`
 
@@ -3165,8 +3312,8 @@ type SubmitTaskStateChangeInput struct {
 	// The status of the state change request.
 	Status *string `locationName:"status" type:"string"`
 
-	// The task UUID or full Amazon Resource Name (ARN) of the task in the state
-	// change request.
+	// The task ID or full Amazon Resource Name (ARN) of the task in the state change
+	// request.
 	Task *string `locationName:"task" type:"string"`
 
 	metadataSubmitTaskStateChangeInput `json:"-" xml:"-"`
@@ -3268,6 +3415,7 @@ type TaskDefinition struct {
 	// of your task definition.
 	Family *string `locationName:"family" type:"string"`
 
+	// The container instance attributes required by your task.
 	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`
 
 	// The revision of the task in a particular family. You can think of the revision
@@ -3328,11 +3476,15 @@ func (s TaskOverride) GoString() string {
 	return s.String()
 }
 
+// The ulimit settings to pass to the container.
 type Ulimit struct {
+	// The hard limit for the ulimit type.
 	HardLimit *int64 `locationName:"hardLimit" type:"integer" required:"true"`
 
+	// The type of the ulimit.
 	Name *string `locationName:"name" type:"string" required:"true" enum:"UlimitName"`
 
+	// The soft limit for the ulimit type.
 	SoftLimit *int64 `locationName:"softLimit" type:"integer" required:"true"`
 
 	metadataUlimit `json:"-" xml:"-"`
@@ -3358,7 +3510,7 @@ type UpdateContainerAgentInput struct {
 	// cluster is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The container instance UUID or full Amazon Resource Name (ARN) entries for
+	// The container instance ID or full Amazon Resource Name (ARN) entries for
 	// the container instance on which you would like to update the Amazon ECS container
 	// agent.
 	ContainerInstance *string `locationName:"containerInstance" type:"string" required:"true"`

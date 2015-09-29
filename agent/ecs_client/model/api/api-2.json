@@ -1123,12 +1123,12 @@
     "HostEntry":{
       "type":"structure",
       "required":[
-        "Hostname",
-        "IpAddress"
+        "hostname",
+        "ipAddress"
       ],
       "members":{
-        "Hostname":{"shape":"String"},
-        "IpAddress":{"shape":"String"}
+        "hostname":{"shape":"String"},
+        "ipAddress":{"shape":"String"}
       }
     },
     "HostEntryList":{
