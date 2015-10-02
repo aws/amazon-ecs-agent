@@ -17,7 +17,7 @@
 
 %define short_name amazon-ecs
 Name:           amazon-ecs-init
-Version:        1.4.0
+Version:        1.5.0
 Release:        0
 Summary:        Amazon EC2 Container Service Initialization
 License:        Apache-2.0
@@ -44,7 +44,7 @@ Amazon EC2.
 %patch1
 
 %build
-./scripts/gobuild.sh
+./scripts/gobuild.sh suse
 gzip -c scripts/amazon-ecs-init.1 > scripts/amazon-ecs-init.1.gz
 
 %install
