@@ -1,4 +1,4 @@
-// +build !suse
+// +build suse
 
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,6 +16,6 @@
 package config
 
 const (
-	cgroupDirectory     = "/cgroup"
+	cgroupDirectory     = "/sys/fs/cgroup"
 	execDriverDirectory = "/var/run/docker/execdriver"
 )
