@@ -73,7 +73,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
-		tcsError := discoverEndpointAndStartSession(params, statsEngine)
+		tcsError := startTelemetrySession(params, statsEngine)
 		if tcsError == nil || tcsError == io.EOF {
 			backoff.Reset()
 		} else {
@@ -83,7 +83,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 	}
 }
 
-func discoverEndpointAndStartSession(params TelemetrySessionParams, statsEngine stats.Engine) error {
+func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	tcsEndpoint, err := params.EcsClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
 		log.Error("Unable to discover poll endpoint", "err", err)

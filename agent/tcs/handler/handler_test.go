@@ -145,9 +145,9 @@ func TestDiscoverEndpointAndStartSession(t *testing.T) {
 	mockEcs := mock_api.NewMockECSClient(ctrl)
 	mockEcs.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return("", errors.New("error"))
 
-	err := discoverEndpointAndStartSession(TelemetrySessionParams{EcsClient: mockEcs}, nil)
+	err := startTelemetrySession(TelemetrySessionParams{EcsClient: mockEcs}, nil)
 	if err == nil {
-		t.Error("Expected error from discoverEndpointAndStartSession when DiscoverTelemetryEndpoint returns error")
+		t.Error("Expected error from startTelemetrySession when DiscoverTelemetryEndpoint returns error")
 	}
 }
 
