@@ -1,0 +1,11 @@
+--- ecs-init/config/common.go.orig
++++ ecs-init/config/common.go
+@@ -91,7 +91,7 @@ func DesiredImageLocatorFile() string {
+ }
+ 
+ func CgroupDirectory() string {
+-	return "/cgroup"
++	return "/sys/fs/cgroup"
+ }
+ 
+ func ExecDriverDirectory() string {
