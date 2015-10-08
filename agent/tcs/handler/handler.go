@@ -73,14 +73,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
-		tcsEndpoint, err := params.EcsClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
-		if err != nil {
-			log.Error("Unable to discover poll endpoint", "err", err)
-			return err
-		}
-		log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
-		url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
-		tcsError := startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval)
+		tcsError := startTelemetrySession(params, statsEngine)
 		if tcsError == nil || tcsError == io.EOF {
 			backoff.Reset()
 		} else {
@@ -88,6 +81,17 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 			ttime.Sleep(backoff.Duration())
 		}
 	}
+}
+
+func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
+	tcsEndpoint, err := params.EcsClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
+	if err != nil {
+		log.Error("Unable to discover poll endpoint", "err", err)
+		return err
+	}
+	log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
+	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
+	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval)
 }
 
 func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) error {

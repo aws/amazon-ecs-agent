@@ -22,11 +22,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/golang/mock/gomock"
 )
 
 const (
@@ -133,6 +135,19 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	}
 	if err != io.EOF {
 		t.Error("Expected io.EOF on closed connection, got: ", err)
+	}
+}
+
+func TestDiscoverEndpointAndStartSession(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockEcs := mock_api.NewMockECSClient(ctrl)
+	mockEcs.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return("", errors.New("error"))
+
+	err := startTelemetrySession(TelemetrySessionParams{EcsClient: mockEcs}, nil)
+	if err == nil {
+		t.Error("Expected error from startTelemetrySession when DiscoverTelemetryEndpoint returns error")
 	}
 }
 
