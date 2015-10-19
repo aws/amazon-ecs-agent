@@ -66,7 +66,7 @@ short-test:
 	. ./scripts/shared_env && go test -short -timeout=25s ./agent/...
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test
+test-registry: netkitten volumes-test squid
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
@@ -85,6 +85,12 @@ netkitten:
 
 volumes-test:
 	cd misc/volumes-test; $(MAKE) $(MFLAGS)
+
+# TODO, replace this with a build on dockerhub or a mechanism for the
+# functional tests themselves to build this
+.PHONY: squid
+squid:
+	cd misc/squid; $(MAKE) $(MFLAGS)
 
 gremlin:
 	cd misc/gremlin; $(MAKE) $(MFLAGS)

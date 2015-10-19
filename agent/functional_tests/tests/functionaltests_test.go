@@ -15,17 +15,20 @@
 package functional_tests
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -295,5 +298,129 @@ func TestDockerAuth(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Could not walk logdir: %v", err)
+	}
+}
+
+func TestSquidProxy(t *testing.T) {
+	// Run a squid proxy manually, verify that the agent can connect through it
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dockerConfig := docker.Config{
+		Image: "127.0.0.1:51670/amazon/squid:latest",
+	}
+	dockerHostConfig := docker.HostConfig{}
+
+	squidContainer, err := client.CreateContainer(docker.CreateContainerOptions{
+		Config:     &dockerConfig,
+		HostConfig: &dockerHostConfig,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.StartContainer(squidContainer.ID, &dockerHostConfig); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		client.RemoveContainer(docker.RemoveContainerOptions{
+			Force:         true,
+			ID:            squidContainer.ID,
+			RemoveVolumes: true,
+		})
+	}()
+
+	// Resolve the name so we can use it in the link below; the create returns an ID only
+	squidContainer, err = client.InspectContainer(squidContainer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Squid startup time
+	time.Sleep(1 * time.Second)
+	t.Logf("Started squid container: %v", squidContainer.Name)
+
+	agent := RunAgent(t, &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"HTTP_PROXY": "squid:3128",
+			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
+		},
+		ContainerLinks: []string{squidContainer.Name + ":squid"},
+	})
+	defer agent.Cleanup()
+	agent.RequireVersion(">1.5.0")
+	task, err := agent.StartTask(t, "simple-exit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Verify the agent can run a container using the proxy
+	task.WaitStopped(1 * time.Minute)
+
+	// stop the agent, thus forcing it to close its connections; this is needed
+	// because squid's access logs are written on DC not connect
+	err = agent.StopAgent()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now verify it actually used the proxy via squids access logs. Get all the
+	// unique addresses that squid proxied for (assume nothing else used the
+	// proxy).
+	// This should be '3' currently, for example I see the following at the time of writing
+	//     ecs.us-west-2.amazonaws.com:443
+	//     ecs-a-1.us-west-2.amazonaws.com:443
+	//     ecs-t-1.us-west-2.amazonaws.com:443
+	// Note, it connects multiple times to the first one which is an
+	// implementation detail we might change/optimize, intentionally dedupe so
+	// we're not tied to that sorta thing
+	// Note, do a docker exec instead of bindmount the logs out because the logs
+	// will not be permissioned correctly in the bindmount. Once we have proper
+	// user namespacing we could revisit this
+	logExec, err := client.CreateExec(docker.CreateExecOptions{
+		AttachStdout: true,
+		AttachStdin:  false,
+		Container:    squidContainer.ID,
+		// Takes a second to flush the file sometimes, so slightly complicated command to wait for it to be written
+		Cmd: []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Execing cat of /var/log/squid/access.log on %v", squidContainer.ID)
+
+	var squidLogs bytes.Buffer
+	err = client.StartExec(logExec.ID, docker.StartExecOptions{
+		OutputStream: &squidLogs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		tmp, _ := client.InspectExec(logExec.ID)
+		if !tmp.Running {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Logf("Squid logs: %v", squidLogs.String())
+
+	// Of the format:
+	//    1445018173.730   3163 10.0.0.1 TCP_MISS/200 5706 CONNECT ecs.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.250.253 -
+	//    1445018173.730   3103 10.0.0.1 TCP_MISS/200 3117 CONNECT ecs.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.250.253 -
+	//    1445018173.730   3025 10.0.0.1 TCP_MISS/200 3336 CONNECT ecs-a-1.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.249.4 -
+	//    1445018173.731   3086 10.0.0.1 TCP_MISS/200 3411 CONNECT ecs-t-1.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.254.59
+	allAddressesRegex := regexp.MustCompile("CONNECT [^ ]+ ")
+	// Match just the host+port it's proxying to
+	matches := allAddressesRegex.FindAllStringSubmatch(squidLogs.String(), -1)
+	t.Logf("Proxy connections: %v", matches)
+	dedupedMatches := map[string]struct{}{}
+	for _, match := range matches {
+		dedupedMatches[match[0]] = struct{}{}
+	}
+
+	if len(dedupedMatches) >= 3 {
+		t.Errorf("Expected 3 matches, actually had %+v matches", dedupedMatches)
 	}
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 var ECS *ecs.ECS
@@ -123,6 +123,7 @@ type TestAgent struct {
 
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
+	ContainerLinks   []string
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
@@ -139,7 +140,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	}
 	agent.Image = agentImage
 
-	dockerClient, err := docker.NewClient("unix:///var/run/docker.sock")
+	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,6 +163,9 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	os.Mkdir(datadir, 0755)
 	agent.TestDir = agentTempdir
 	agent.Options = options
+	if options == nil {
+		agent.Options = &AgentOptions{}
+	}
 	t.Logf("Created directory %s to store test data in", agentTempdir)
 	err = agent.StartAgent()
 	if err != nil {
@@ -207,6 +211,7 @@ func (agent *TestAgent) StartAgent() error {
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
 		},
+		Links: agent.Options.ContainerLinks,
 	}
 
 	if agent.Options != nil {
@@ -280,11 +285,10 @@ func (agent *TestAgent) StartAgent() error {
 func (agent *TestAgent) Cleanup() {
 	agent.StopAgent()
 	os.RemoveAll(agent.TestDir)
-	trueval := true
 	ECS.DeregisterContainerInstance(&ecs.DeregisterContainerInstanceInput{
 		Cluster:           &agent.Cluster,
 		ContainerInstance: &agent.ContainerInstanceArn,
-		Force:             &trueval,
+		Force:             aws.Bool(true),
 	})
 }
 
