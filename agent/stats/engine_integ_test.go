@@ -314,7 +314,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		},
 		&testTask)
 	statsEngine := NewDockerStatsEngine(&cfg)
-	statsEngine.client, err = engine.NewDockerGoClient(nil)
+	statsEngine.client, err = engine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")))
 	if err != nil {
 		t.Fatal("Error initializing docker client: ", err)
 	}

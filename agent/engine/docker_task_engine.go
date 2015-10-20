@@ -24,7 +24,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -91,7 +90,6 @@ func NewDockerTaskEngine(cfg *config.Config) *DockerTaskEngine {
 		containerEvents: make(chan api.ContainerStateChange),
 		taskEvents:      make(chan api.TaskStateChange),
 	}
-	dockerauth.SetConfig(cfg)
 
 	return dockerTaskEngine
 }
@@ -142,7 +140,7 @@ func (engine *DockerTaskEngine) initDockerClient() error {
 	if engine.client != nil {
 		return nil
 	}
-	client, err := NewDockerGoClient(nil)
+	client, err := NewDockerGoClient(nil, engine.cfg.EngineAuthType, engine.cfg.EngineAuthData)
 	if err != nil {
 		return err
 	}

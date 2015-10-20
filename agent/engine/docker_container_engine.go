@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
@@ -100,12 +101,14 @@ type DockerClient interface {
 type DockerGoClient struct {
 	clientFactory dockerclient.Factory
 	version       dockerclient.DockerVersion
+	auth          dockerauth.DockerAuthProvider
 }
 
 func (dg *DockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
 	return &DockerGoClient{
 		clientFactory: dg.clientFactory,
 		version:       version,
+		auth:          dg.auth,
 	}
 }
 
@@ -120,7 +123,7 @@ type DockerImageResponse struct {
 }
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory) (*DockerGoClient, error) {
+func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage) (*DockerGoClient, error) {
 	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 	if clientFactory == nil {
 		clientFactory = dockerclient.NewFactory(endpoint)
@@ -142,6 +145,7 @@ func NewDockerGoClient(clientFactory dockerclient.Factory) (*DockerGoClient, err
 
 	return &DockerGoClient{
 		clientFactory: clientFactory,
+		auth:          dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
 	}, nil
 }
 
@@ -187,7 +191,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		return DockerContainerMetadata{}
 	}
 
-	authConfig := dockerauth.GetAuthconfig(image)
+	authConfig := dg.auth.GetAuthconfig(image)
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()

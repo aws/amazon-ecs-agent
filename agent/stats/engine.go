@@ -220,7 +220,7 @@ func (engine *DockerStatsEngine) isIdle() bool {
 // initDockerClient initializes engine's docker client.
 func (engine *DockerStatsEngine) initDockerClient() error {
 	if engine.client == nil {
-		client, err := ecsengine.NewDockerGoClient(nil)
+		client, err := ecsengine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")))
 		if err != nil {
 			return err
 		}

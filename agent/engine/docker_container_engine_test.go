@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
@@ -41,7 +42,7 @@ func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *DockerGoCli
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory)
+	client, _ := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}))
 	testTime := ttime.NewTestTime()
 	ttime.SetTime(testTime)
 	return mockDocker, client, testTime, ctrl.Finish
@@ -505,7 +506,7 @@ func TestPingFailError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(errors.New("err"))
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	_, err := NewDockerGoClient(factory)
+	_, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}))
 	if err == nil {
 		t.Fatal("Expected ping error to result in constructor fail")
 	}
@@ -518,7 +519,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory)
+	client, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,7 +540,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory)
+	client, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}))
 	if err != nil {
 		t.Fatal(err)
 	}
