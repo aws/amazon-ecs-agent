@@ -20,7 +20,7 @@ func loggerConfig() string {
 			<console />`
 	if logfile != "" {
 		config += `<rollingfile filename="` + logfile + `" type="date"
-			 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />`
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />`
 	}
 	config += `
 		</outputs>
