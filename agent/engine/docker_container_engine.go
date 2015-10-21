@@ -44,8 +44,8 @@ const (
 // Timelimits for docker operations enforced above docker
 const (
 	pullImageTimeout        = 2 * time.Hour
-	createContainerTimeout  = 1 * time.Minute
-	startContainerTimeout   = 1 * time.Minute
+	createContainerTimeout  = 3 * time.Minute
+	startContainerTimeout   = 1*time.Minute + 30*time.Second
 	stopContainerTimeout    = 1 * time.Minute
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 10 * time.Second
