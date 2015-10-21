@@ -6,11 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/credentialprovider",
-			"Comment": "v0.14.1-612-g2215a64",
-			"Rev": "2215a645673e63529bc1f3a8b32d039a61b7ab77"
-		},
-		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",
 			"Comment": "v0.9.9-3-g7553d52",
 			"Rev": "7553d5227962c0f226768d0435881e99ec0cab35"
@@ -71,11 +66,6 @@
 			"Rev": "7553d5227962c0f226768d0435881e99ec0cab35"
 		},
 		{
-			"ImportPath": "github.com/aws/aws-sdk-go/service/ecs",
-			"Comment": "v0.9.9-3-g7553d52",
-			"Rev": "7553d5227962c0f226768d0435881e99ec0cab35"
-		},
-		{
 			"ImportPath": "github.com/cihub/seelog",
 			"Comment": "go1.1-57-g0fa7e41",
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
@@ -113,10 +103,6 @@
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
 			"Rev": "134c9ac46b51ace9135c81efe9aa9895d346c1cf"
-		},
-		{
-			"ImportPath": "github.com/golang/glog",
-			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
 		},
 		{
 			"ImportPath": "github.com/golang/mock/gomock",
