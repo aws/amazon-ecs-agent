@@ -234,6 +234,8 @@ func TestPortForward(t *testing.T) {
 			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
 		}
 	}
+
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	_, err := net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
 	if err == nil {
 		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
@@ -275,6 +277,7 @@ func TestPortForward(t *testing.T) {
 		}
 	}
 
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -346,6 +349,7 @@ func TestMultiplePortForwards(t *testing.T) {
 		}
 	}
 
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container 1 " + err.Error())
@@ -430,6 +434,7 @@ PortsBound:
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -502,6 +507,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -732,7 +738,7 @@ func TestVolumesFrom(t *testing.T) {
 			break
 		}
 	}
-
+	time.Sleep(50*time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
 	if err != nil {
 		t.Error("Could not dial listening container" + err.Error())
