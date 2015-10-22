@@ -420,7 +420,7 @@ func TestSquidProxy(t *testing.T) {
 		dedupedMatches[match[0]] = struct{}{}
 	}
 
-	if len(dedupedMatches) >= 3 {
-		t.Errorf("Expected 3 matches, actually had %+v matches", dedupedMatches)
+	if len(dedupedMatches) < 3 {
+		t.Errorf("Expected 3 matches, actually had %d matches: %+v", len(dedupedMatches), dedupedMatches)
 	}
 }
