@@ -68,7 +68,7 @@ for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "ama
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 
-BUSYBOX_IMAGE="busybox@sha256:ced99ae82473e7dea723e6c467f409ed8f051bda04760e07fd5f476638c33507"
+BUSYBOX_IMAGE="busybox@sha256:5551dbdfc48d66734d0f01cafee0952cb6e8eeecd1e2492240bf2fd9640c2279"
 NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
 PYTHON2_IMAGE="python@sha256:3a1e82d95d0e75677cdac237b0174425d8ae94dd11d1ef14db73075f1e34c06c"
 

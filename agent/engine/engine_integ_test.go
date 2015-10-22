@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -44,11 +43,7 @@ var testAuthPass = "swordfish"
 
 var test_time = ttime.NewTestTime()
 
-var taskEngine *DockerTaskEngine
-
-var initOnce sync.Once
-
-func setup(t *testing.T) TaskEngine {
+func setup(t *testing.T) (TaskEngine, func()) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -58,11 +53,12 @@ func setup(t *testing.T) TaskEngine {
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
-	initOnce.Do(func() {
-		taskEngine.Init()
-	})
+	taskEngine := NewDockerTaskEngine(cfg)
+	taskEngine.Init()
 	ttime.SetTime(test_time)
-	return taskEngine
+	return taskEngine, func() {
+		taskEngine.Shutdown()
+	}
 }
 
 func discardEvents(from interface{}) func() {
@@ -116,7 +112,6 @@ var cfg *config.Config
 
 func init() {
 	cfg, _ = config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	taskEngine = NewDockerTaskEngine(cfg)
 }
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
@@ -144,7 +139,8 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
 
@@ -177,7 +173,8 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
 	imageDigest := "tianon/true@sha256:30ed58eecb0a44d8df936ce2efce107c9ac20410c915866da4c6a33a3795d057"
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(imageDigest)
 
@@ -211,7 +208,8 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 // 24751 and verifies that when you do forward the port you can access it and if
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -235,7 +233,7 @@ func TestPortForward(t *testing.T) {
 		}
 	}
 
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	_, err := net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
 	if err == nil {
 		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
@@ -277,7 +275,7 @@ func TestPortForward(t *testing.T) {
 		}
 	}
 
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -319,7 +317,8 @@ func TestPortForward(t *testing.T) {
 // TestMultiplePortForwards tests that two links containers in the same task can
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
 
@@ -349,7 +348,7 @@ func TestMultiplePortForwards(t *testing.T) {
 		}
 	}
 
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container 1 " + err.Error())
@@ -387,7 +386,8 @@ func TestMultiplePortForwards(t *testing.T) {
 // TestDynamicPortForward runs a container serving data on a port chosen by the
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -434,7 +434,7 @@ PortsBound:
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -460,7 +460,8 @@ PortsBound:
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -507,7 +508,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 		t.Error("Could not find the port mapping for 24751!")
 	}
 
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 10, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
@@ -547,7 +548,8 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // prints "hello linker" and then links a container that proxies that data to
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	testTask := createTestTask("TestLinking")
 	testTask.Containers = append(testTask.Containers, createTestContainer())
@@ -614,12 +616,13 @@ func TestLinking(t *testing.T) {
 }
 
 func TestDockerCfgAuth(t *testing.T) {
-	taskEngine := setup(t)
-	removeImage(testAuthRegistryImage)
-
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
+
+	removeImage(testAuthRegistryImage)
+	taskEngine, done := setup(t)
+	defer done()
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
 		cfg.EngineAuthType = ""
@@ -664,15 +667,16 @@ func TestDockerCfgAuth(t *testing.T) {
 }
 
 func TestDockerAuth(t *testing.T) {
-	taskEngine := setup(t)
-	removeImage(testAuthRegistryImage)
-
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`))
 	cfg.EngineAuthType = "docker"
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
 		cfg.EngineAuthType = ""
 	}()
+
+	taskEngine, done := setup(t)
+	defer done()
+	removeImage(testAuthRegistryImage)
 
 	testTask := createTestTask("testDockerAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
@@ -713,7 +717,8 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestVolumesFrom(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -738,7 +743,7 @@ func TestVolumesFrom(t *testing.T) {
 			break
 		}
 	}
-	time.Sleep(50*time.Millisecond) // wait for Docker
+	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
 	if err != nil {
 		t.Error("Could not dial listening container" + err.Error())
@@ -768,7 +773,8 @@ func TestVolumesFrom(t *testing.T) {
 
 func TestVolumesFromRO(t *testing.T) {
 	t.Skip("Temporarily disabled due to docker bug in 1.7*")
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -813,7 +819,8 @@ func TestVolumesFromRO(t *testing.T) {
 }
 
 func TestHostVolumeMount(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -849,7 +856,8 @@ func TestHostVolumeMount(t *testing.T) {
 }
 
 func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -883,7 +891,8 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 }
 
 func TestSweepContainer(t *testing.T) {
-	taskEngine := setup(t)
+	taskEngine, done := setup(t)
+	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
