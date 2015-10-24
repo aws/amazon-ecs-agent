@@ -14,10 +14,12 @@
 package api
 
 import (
+	"os"
 	"errors"
 	"net/http"
 	"runtime"
 	"time"
+	"strconv"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -206,6 +208,18 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string, contain
 
 	cpu, mem := getCpuAndMemory()
 	mem = mem - int64(client.config.ReservedMemory)
+
+	// Allows for extra over allocation of memory.
+	extraMem := os.Getenv("ECS_EXTRA_MEM")
+	if m, err := strconv.Atoi(extraMem); err == nil {
+		mem = mem + int64(m)
+	}
+
+	// Alows for extra over allocation of cpu.
+	extraCPU := os.Getenv("ECS_EXTRA_CPU")
+	if c, err := strconv.Atoi(extraCPU); err == nil {
+		cpu = cpu + int64(c)
+	}
 
 	cpuResource := ecs.Resource{
 		Name:         utils.Strptr("CPU"),
