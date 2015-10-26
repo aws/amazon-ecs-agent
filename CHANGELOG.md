@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0
+
+* Feature - Add experimental HTTP proxy support.
+* Enhancement - No longer erroneously store an archive of all logs in the
+  container, greatly decreasing memory and CPU usage when rotating at the
+  hour.
+* Enhancement - Increase `docker create` timeout to improve reliability under
+  some workloads.
+* Bug - Resolved an issue where private repositories required a schema in
+  `AuthData` to work.
+* Bug - Fixed issue whereby metric submission could fail and never retry.
+
 ## 1.5.0
 * Feature - Add support for additional Docker features.
 * Feature - Detect and register capabilities.
