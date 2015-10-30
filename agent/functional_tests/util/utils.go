@@ -153,7 +153,10 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 			t.Fatal("Could not launch agent", err)
 		}
 	}
-	agentTempdir, err := ioutil.TempDir("", "ecs_integ_testdata")
+
+	tmpdirOverride := os.Getenv("ECS_FTEST_TMP")
+
+	agentTempdir, err := ioutil.TempDir(tmpdirOverride, "ecs_integ_testdata")
 	if err != nil {
 		t.Fatal("Could not create temp dir for test")
 	}
@@ -284,7 +287,12 @@ func (agent *TestAgent) StartAgent() error {
 
 func (agent *TestAgent) Cleanup() {
 	agent.StopAgent()
-	os.RemoveAll(agent.TestDir)
+	if agent.t.Failed() {
+		agent.t.Logf("Preserving test dir for failed test %s", agent.TestDir)
+	} else {
+		agent.t.Logf("Removing test dir for passed test %s", agent.TestDir)
+		os.RemoveAll(agent.TestDir)
+	}
 	ECS.DeregisterContainerInstance(&ecs.DeregisterContainerInstanceInput{
 		Cluster:           &agent.Cluster,
 		ContainerInstance: &agent.ContainerInstanceArn,
