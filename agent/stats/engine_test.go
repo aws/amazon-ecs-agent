@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -349,7 +348,7 @@ func TestStatsEngineClientErrorListingContainers(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	engine := NewDockerStatsEngine(&cfg)
-	mockDockerClient := mock_engine.NewMockDockerClient(mockCtrl)
+	mockDockerClient := ecsengine.NewMockDockerClient(mockCtrl)
 	// Mock client will return error while listing images.
 	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: fmt.Errorf("could not list containers")})
 	engine.client = mockDockerClient

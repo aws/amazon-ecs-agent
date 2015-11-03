@@ -16,7 +16,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -31,7 +31,7 @@ const samplePayloadMessage = `{"type":"PayloadMessage","message":{"messageId":"1
 func TestAcsWsUrl(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
 
 	taskEngine.EXPECT().Version().Return("Docker version result", nil)
 
@@ -67,7 +67,7 @@ func TestAcsWsUrl(t *testing.T) {
 func TestHandlerReconnects(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
 	ecsclient := mock_api.NewMockECSClient(ctrl)
 	statemanager := statemanager.NewNoopStateManager()
 
@@ -126,7 +126,7 @@ func TestHeartbeatOnlyWhenIdle(t *testing.T) {
 	ttime.SetTime(testTime)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
 	ecsclient := mock_api.NewMockECSClient(ctrl)
 	statemanager := statemanager.NewNoopStateManager()
 
@@ -232,7 +232,7 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
 	ecsclient := mock_api.NewMockECSClient(ctrl)
 	statemanager := statemanager.NewNoopStateManager()
 	testTime := ttime.NewTestTime()

@@ -23,7 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/golang/mock/gomock"
@@ -31,9 +30,9 @@ import (
 
 var test_time = ttime.NewTestTime()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *mock_engine.MockDockerClient, engine.TaskEngine) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *engine.MockDockerClient, engine.TaskEngine) {
 	ctrl := gomock.NewController(t)
-	client := mock_engine.NewMockDockerClient(ctrl)
+	client := engine.NewMockDockerClient(ctrl)
 	taskEngine := engine.NewTaskEngine(cfg)
 	taskEngine.(*engine.DockerTaskEngine).SetDockerClient(client)
 	return ctrl, client, taskEngine
