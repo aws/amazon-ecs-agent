@@ -8,3 +8,4 @@ _bin/
 /agent/version/_version.go
 /misc/gremlin/gremlin
 .agignore
+*.sublime-*

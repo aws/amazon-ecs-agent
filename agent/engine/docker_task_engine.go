@@ -466,6 +466,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// we die before 'createContainer' returns because we can inspect by
 	// name
 	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
+	engine.saver.ForceSave()
 
 	metadata := client.CreateContainer(config, hostConfig, containerName)
 	if metadata.Error != nil {

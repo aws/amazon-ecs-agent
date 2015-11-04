@@ -104,9 +104,11 @@ type basicStateManager struct {
 
 	state *state // pointers to the data we should save / load into
 
-	sync.Mutex                // guards save times
-	lastSave        time.Time //the last time a save completed
-	nextPlannedSave time.Time //the next time a save is planned
+	saveTimesLock   sync.Mutex // guards save times
+	lastSave        time.Time  //the last time a save completed
+	nextPlannedSave time.Time  //the next time a save is planned
+
+	savingLock sync.Mutex // guards marshal, write, and move
 }
 
 // NewStateManager constructs a new StateManager which saves data at the
@@ -156,8 +158,8 @@ func AddSaveable(name string, saveable Saveable) Option {
 // Save triggers a save to file, though respects a minimum save interval to wait
 // between saves.
 func (manager *basicStateManager) Save() error {
-	manager.Lock()
-	defer manager.Unlock()
+	manager.saveTimesLock.Lock()
+	defer manager.saveTimesLock.Unlock()
 	if time.Since(manager.lastSave) >= minSaveInterval {
 		// we can just save
 		err := manager.ForceSave()
@@ -186,6 +188,8 @@ func (manager *basicStateManager) Save() error {
 // In addition, the StateManager internally buffers save requests in order to
 // only save at most every STATE_SAVE_INTERVAL.
 func (manager *basicStateManager) ForceSave() error {
+	manager.savingLock.Lock()
+	defer manager.savingLock.Unlock()
 	log.Info("Saving state!")
 	s := manager.state
 	s.Version = EcsDataVersion

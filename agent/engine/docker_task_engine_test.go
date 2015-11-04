@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine_test
+package engine
 
 import (
 	"errors"
@@ -21,43 +21,43 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/golang/mock/gomock"
 )
 
-var test_time = ttime.NewTestTime()
+var dte_test_time = ttime.NewTestTime()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *engine.MockDockerClient, engine.TaskEngine) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, TaskEngine) {
 	ctrl := gomock.NewController(t)
-	client := engine.NewMockDockerClient(ctrl)
-	taskEngine := engine.NewTaskEngine(cfg)
-	taskEngine.(*engine.DockerTaskEngine).SetDockerClient(client)
+	client := NewMockDockerClient(ctrl)
+	taskEngine := NewTaskEngine(cfg)
+	taskEngine.(*DockerTaskEngine).SetDockerClient(client)
 	return ctrl, client, taskEngine
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(test_time)
+	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
-	eventStream := make(chan engine.DockerContainerChangeEvent)
+	eventStream := make(chan DockerContainerChangeEvent)
 
-	dockerEvent := func(status api.ContainerStatus) engine.DockerContainerChangeEvent {
-		meta := engine.DockerContainerMetadata{
+	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
+		meta := DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(engine.DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -65,11 +65,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
-		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
 		client.EXPECT().StartContainer("containerId").Do(func(id string) {
 			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
-		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
 	err := taskEngine.Init()
@@ -96,7 +96,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
-	eventStream <- engine.DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: engine.DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -123,11 +123,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	client.EXPECT().RemoveContainer("containerId").Return(nil)
 
-	test_time.Warp(4 * time.Hour)
+	dte_test_time.Warp(4 * time.Hour)
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
 
 	for {
-		tasks, _ := taskEngine.(*engine.DockerTaskEngine).ListTasks()
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
 		if len(tasks) == 0 {
 			break
 		}
@@ -138,23 +138,23 @@ func TestBatchContainerHappyPath(t *testing.T) {
 func TestStartTimeoutThenStart(t *testing.T) {
 	ctrl, client, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(test_time)
+	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
-	eventStream := make(chan engine.DockerContainerChangeEvent)
+	eventStream := make(chan DockerContainerChangeEvent)
 
-	dockerEvent := func(status api.ContainerStatus) engine.DockerContainerChangeEvent {
-		meta := engine.DockerContainerMetadata{
+	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
+		meta := DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(engine.DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -162,14 +162,14 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		}
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
-		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId").Return(engine.DockerContainerMetadata{Error: &engine.DockerTimeoutError{}})
+		client.EXPECT().StartContainer("containerId").Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
 
 		// Expect it to try to stop the container before going on;
 		// in the future the agent might optimize to not stop unless the known
 		// status is running, at which poitn this can be safeuly removed
-		client.EXPECT().StopContainer("containerId").Return(engine.DockerContainerMetadata{Error: errors.New("Cannot start")})
+		client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: errors.New("Cannot start")})
 	}
 
 	err := taskEngine.Init()
@@ -201,7 +201,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	}
 
 	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer("containerId").Return(engine.DockerContainerMetadata{Error: errors.New("Cannot start")})
+	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: errors.New("Cannot start")})
 	// Now surprise surprise, it actually did start!
 	eventStream <- dockerEvent(api.ContainerRunning)
 
@@ -221,23 +221,23 @@ func TestStartTimeoutThenStart(t *testing.T) {
 func TestSteadyStatePoll(t *testing.T) {
 	ctrl, client, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(test_time)
+	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
-	eventStream := make(chan engine.DockerContainerChangeEvent)
+	eventStream := make(chan DockerContainerChangeEvent)
 
-	dockerEvent := func(status api.ContainerStatus) engine.DockerContainerChangeEvent {
-		meta := engine.DockerContainerMetadata{
+	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
+		meta := DockerContainerMetadata{
 			DockerId: "containerId",
 		}
-		return engine.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(engine.DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -245,11 +245,11 @@ func TestSteadyStatePoll(t *testing.T) {
 		}
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
-		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
 		client.EXPECT().StartContainer("containerId").Do(func(id string) {
 			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
-		}).Return(engine.DockerContainerMetadata{DockerId: "containerId"})
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
 	err := taskEngine.Init()
@@ -276,15 +276,15 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	// Two steady state oks, one stop
 	gomock.InOrder(
-		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, engine.DockerContainerMetadata{DockerId: "containerId"}).Times(2),
-		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, engine.DockerContainerMetadata{DockerId: "containerId"}),
+		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, DockerContainerMetadata{DockerId: "containerId"}).Times(2),
+		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, DockerContainerMetadata{DockerId: "containerId"}),
 	)
 	// Due to how the mock time works, we actually have to warp 10 minutes per
 	// steady-state event. That's 10 per timeout + 10 per describe * 1 container.
 	// The reason for this is the '.After' call happens regardless of whether the
 	// value gets read, and the test sleep will add that time to elapsed, even
 	// though in real-time-units that much time would not have elapsed.
-	test_time.Warp(60 * time.Minute)
+	dte_test_time.Warp(60 * time.Minute)
 
 	contEvent := <-contEvents
 	if contEvent.Status != api.ContainerStopped {
@@ -305,14 +305,14 @@ func TestSteadyStatePoll(t *testing.T) {
 func TestStopWithPendingStops(t *testing.T) {
 	ctrl, client, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(test_time)
+	ttime.SetTime(dte_test_time)
 
 	sleepTask1 := testdata.LoadTask("sleep5")
 	sleepTask1.StartSequenceNumber = 5
 	sleepTask2 := testdata.LoadTask("sleep5")
 	sleepTask2.Arn = "arn2"
 
-	eventStream := make(chan engine.DockerContainerChangeEvent)
+	eventStream := make(chan DockerContainerChangeEvent)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 
@@ -349,6 +349,37 @@ func TestStopWithPendingStops(t *testing.T) {
 	taskEngine.AddTask(&stopSleep1)
 	pulling <- true
 	// If we get here without deadlocking, we passed the test
+}
+
+func TestCreateContainerForceSave(t *testing.T) {
+	ctrl, client, privateTaskEngine := mocks(t, &config.Config{})
+	saver := mock_statemanager.NewMockStateManager(ctrl)
+	defer ctrl.Finish()
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine.SetSaver(saver)
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+
+	gomock.InOrder(
+		saver.EXPECT().ForceSave().Do(func() interface{} {
+			task, ok := taskEngine.state.TaskByArn(sleepTask.Arn)
+			if task == nil || !ok {
+				t.Fatalf("Expected task with arn %s", sleepTask.Arn)
+			}
+			_, ok = task.ContainerByName("sleep5")
+			if !ok {
+				t.Error("Expected container sleep5")
+			}
+			return nil
+		}),
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()),
+	)
+
+	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+	if metadata.Error != nil {
+		t.Error("Unexpected error", metadata.Error)
+	}
 }
 
 func TestCapabilities(t *testing.T) {
