@@ -114,6 +114,10 @@
         "messageId":{"shape":"String"}
       }
     },
+    "AuthenticationType":{
+      "type":"string",
+      "enum":["ecr"]
+    },
     "BadRequestException":{
       "type":"structure",
       "members":{
@@ -144,7 +148,8 @@
         "portMappings":{"shape":"PortMappingList"},
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
-        "dockerConfig":{"shape":"DockerConfig"}
+        "dockerConfig":{"shape":"DockerConfig"},
+        "registryAuthentication":{"shape":"RegistryAuthenticationData"}
       }
     },
     "ContainerList":{
@@ -157,6 +162,14 @@
         "version":{"shape":"String"},
         "config":{"shape":"String"},
         "hostConfig":{"shape":"String"}
+      }
+    },
+    "ECRAuthData":{
+      "type":"structure",
+      "members":{
+        "registryId":{"shape":"String"},
+        "region":{"shape":"String"},
+        "endpointOverride":{"shape":"String"}
       }
     },
     "EnvironmentVariables":{
@@ -266,6 +279,13 @@
     "PortMappingList":{
       "type":"list",
       "member":{"shape":"PortMapping"}
+    },
+    "RegistryAuthenticationData":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"AuthenticationType"},
+        "ecrAuthData":{"shape":"ECRAuthData"}
+      }
     },
     "ServerException":{
       "type":"structure",

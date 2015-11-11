@@ -126,6 +126,8 @@ type Container struct {
 
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
 
+	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
+
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 
 	metadataContainer `json:"-" xml:"-"`
@@ -166,6 +168,30 @@ func (s DockerConfig) String() string {
 
 // GoString returns the string representation
 func (s DockerConfig) GoString() string {
+	return s.String()
+}
+
+type ECRAuthData struct {
+	EndpointOverride *string `locationName:"endpointOverride" type:"string"`
+
+	Region *string `locationName:"region" type:"string"`
+
+	RegistryId *string `locationName:"registryId" type:"string"`
+
+	metadataECRAuthData `json:"-" xml:"-"`
+}
+
+type metadataECRAuthData struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s ECRAuthData) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ECRAuthData) GoString() string {
 	return s.String()
 }
 
@@ -478,6 +504,28 @@ func (s PortMapping) String() string {
 
 // GoString returns the string representation
 func (s PortMapping) GoString() string {
+	return s.String()
+}
+
+type RegistryAuthenticationData struct {
+	EcrAuthData *ECRAuthData `locationName:"ecrAuthData" type:"structure"`
+
+	Type *string `locationName:"type" type:"string" enum:"AuthenticationType"`
+
+	metadataRegistryAuthenticationData `json:"-" xml:"-"`
+}
+
+type metadataRegistryAuthenticationData struct {
+	SDKShapeTraits bool `type:"structure"`
+}
+
+// String returns the string representation
+func (s RegistryAuthenticationData) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RegistryAuthenticationData) GoString() string {
 	return s.String()
 }
 
