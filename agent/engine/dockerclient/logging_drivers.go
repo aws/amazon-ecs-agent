@@ -21,6 +21,7 @@ const (
 	JournaldDriver LoggingDriver = "journald"
 	GelfDriver     LoggingDriver = "gelf"
 	FluentdDriver  LoggingDriver = "fluentd"
+	AwslogsDriver  LoggingDriver = "awslogs"
 )
 
 var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{
@@ -29,4 +30,5 @@ var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{
 	JournaldDriver: Version_1_19,
 	GelfDriver:     Version_1_20,
 	FluentdDriver:  Version_1_20,
+	AwslogsDriver:  Version_1_21,
 }
