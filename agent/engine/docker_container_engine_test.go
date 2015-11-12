@@ -36,7 +36,7 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *DockerGoClient, *ttime.TestTime, func()) {
+func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, DockerClient, *ttime.TestTime, func()) {
 	ctrl := gomock.NewController(t)
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)

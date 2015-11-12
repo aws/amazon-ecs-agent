@@ -99,14 +99,14 @@ type DockerClient interface {
 // 3) Versioning: It abstracts over multiple client versions to allow juggling
 //    appropriately there.
 // Implements DockerClient
-type DockerGoClient struct {
+type dockerGoClient struct {
 	clientFactory dockerclient.Factory
 	version       dockerclient.DockerVersion
 	auth          dockerauth.DockerAuthProvider
 }
 
-func (dg *DockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
-	return &DockerGoClient{
+func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
+	return &dockerGoClient{
 		clientFactory: dg.clientFactory,
 		version:       version,
 		auth:          dg.auth,
@@ -124,7 +124,7 @@ type DockerImageResponse struct {
 }
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage) (*DockerGoClient, error) {
+func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage) (DockerClient, error) {
 	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 	if clientFactory == nil {
 		clientFactory = dockerclient.NewFactory(endpoint)
@@ -144,20 +144,20 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 		return nil, err
 	}
 
-	return &DockerGoClient{
+	return &dockerGoClient{
 		clientFactory: clientFactory,
 		auth:          dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
 	}, nil
 }
 
-func (dg *DockerGoClient) dockerClient() (dockeriface.Client, error) {
+func (dg *dockerGoClient) dockerClient() (dockeriface.Client, error) {
 	if dg.version == "" {
 		return dg.clientFactory.GetDefaultClient()
 	}
 	return dg.clientFactory.GetClient(dg.version)
 }
 
-func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
+func (dg *dockerGoClient) PullImage(image string) DockerContainerMetadata {
 	timeout := ttime.After(pullImageTimeout)
 
 	// Workaround for devicemapper bug. See:
@@ -175,7 +175,7 @@ func (dg *DockerGoClient) PullImage(image string) DockerContainerMetadata {
 	}
 }
 
-func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
+func (dg *dockerGoClient) pullImage(image string) DockerContainerMetadata {
 	log.Debug("Pulling image", "image", image)
 	client, err := dg.dockerClient()
 	if err != nil {
@@ -264,7 +264,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 	return DockerContainerMetadata{}
 }
 
-func (dg *DockerGoClient) createScratchImageIfNotExists() error {
+func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return err
@@ -297,7 +297,7 @@ func (dg *DockerGoClient) createScratchImageIfNotExists() error {
 	return err
 }
 
-func (dg *DockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
+func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
 	timeout := ttime.After(createContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
@@ -312,7 +312,7 @@ func (dg *DockerGoClient) CreateContainer(config *docker.Config, hostConfig *doc
 	}
 }
 
-func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
+func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
@@ -332,7 +332,7 @@ func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	return dg.containerMetadata(dockerContainer.ID)
 }
 
-func (dg *DockerGoClient) StartContainer(id string) DockerContainerMetadata {
+func (dg *dockerGoClient) StartContainer(id string) DockerContainerMetadata {
 	timeout := ttime.After(startContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
@@ -347,7 +347,7 @@ func (dg *DockerGoClient) StartContainer(id string) DockerContainerMetadata {
 	}
 }
 
-func (dg *DockerGoClient) startContainer(ctx context.Context, id string) DockerContainerMetadata {
+func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerContainerMetadata {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
@@ -375,7 +375,7 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 	return api.ContainerStopped
 }
 
-func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, DockerContainerMetadata) {
+func (dg *dockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, DockerContainerMetadata) {
 	dockerContainer, err := dg.InspectContainer(dockerId)
 	if err != nil {
 		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotXContainerError{"Describe", err.Error()}}
@@ -383,7 +383,7 @@ func (dg *DockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatu
 	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
 
-func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
+func (dg *dockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
 	timeout := ttime.After(inspectContainerTimeout)
 
 	type inspectResponse struct {
@@ -403,7 +403,7 @@ func (dg *DockerGoClient) InspectContainer(dockerId string) (*docker.Container, 
 	}
 }
 
-func (dg *DockerGoClient) inspectContainer(dockerId string) (*docker.Container, error) {
+func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, error) {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return nil, err
@@ -411,7 +411,7 @@ func (dg *DockerGoClient) inspectContainer(dockerId string) (*docker.Container, 
 	return client.InspectContainer(dockerId)
 }
 
-func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
+func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
 	timeout := ttime.After(stopContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
@@ -428,7 +428,7 @@ func (dg *DockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 	}
 }
 
-func (dg *DockerGoClient) stopContainer(ctx context.Context, dockerId string) DockerContainerMetadata {
+func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) DockerContainerMetadata {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
@@ -452,7 +452,7 @@ func (dg *DockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	return metadata
 }
 
-func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
+func (dg *dockerGoClient) RemoveContainer(dockerId string) error {
 	timeout := ttime.After(removeContainerTimeout)
 
 	response := make(chan error, 1)
@@ -465,7 +465,7 @@ func (dg *DockerGoClient) RemoveContainer(dockerId string) error {
 	}
 }
 
-func (dg *DockerGoClient) removeContainer(dockerId string) error {
+func (dg *dockerGoClient) removeContainer(dockerId string) error {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return err
@@ -473,7 +473,7 @@ func (dg *DockerGoClient) removeContainer(dockerId string) error {
 	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
 }
 
-func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
+func (dg *dockerGoClient) GetContainerName(id string) (string, error) {
 	container, err := dg.InspectContainer(id)
 	if err != nil {
 		return "", err
@@ -481,7 +481,7 @@ func (dg *DockerGoClient) GetContainerName(id string) (string, error) {
 	return container.Name, nil
 }
 
-func (dg *DockerGoClient) containerMetadata(id string) DockerContainerMetadata {
+func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Inspect", err.Error()}}
@@ -520,7 +520,7 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 }
 
 // Listen to the docker event stream for container changes and pass them up
-func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
+func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return nil, err
@@ -623,7 +623,7 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 }
 
 // ListContainers returns a slice of container IDs.
-func (dg *DockerGoClient) ListContainers(all bool) ListContainersResponse {
+func (dg *dockerGoClient) ListContainers(all bool) ListContainersResponse {
 	timeout := ttime.After(listContainersTimeout)
 
 	response := make(chan ListContainersResponse, 1)
@@ -636,7 +636,7 @@ func (dg *DockerGoClient) ListContainers(all bool) ListContainersResponse {
 	}
 }
 
-func (dg *DockerGoClient) listContainers(all bool) ListContainersResponse {
+func (dg *dockerGoClient) listContainers(all bool) ListContainersResponse {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return ListContainersResponse{Error: err}
@@ -657,11 +657,11 @@ func (dg *DockerGoClient) listContainers(all bool) ListContainersResponse {
 	return ListContainersResponse{DockerIds: containerIDs, Error: nil}
 }
 
-func (dg *DockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
+func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
 	return dg.clientFactory.FindAvailableVersions()
 }
 
-func (dg *DockerGoClient) Version() (string, error) {
+func (dg *dockerGoClient) Version() (string, error) {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return "", err
