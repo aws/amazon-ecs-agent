@@ -192,7 +192,7 @@ func (dg *DockerGoClient) pullImage(image string) DockerContainerMetadata {
 		return DockerContainerMetadata{}
 	}
 
-	authConfig := dg.auth.GetAuthconfig(image)
+	authConfig, _ := dg.auth.GetAuthconfig(image)
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()

@@ -13,9 +13,6 @@
 
 // Portions copyright 2012-2015 Docker, Inc.  Please see LICENSE for applicable
 // license terms and NOTICE for applicable notices.
-
-// Package dockerauth handles storing auth configuration information for Docker
-// registries
 package dockerauth
 
 import (
@@ -27,11 +24,6 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	docker "github.com/fsouza/go-dockerclient"
 )
-
-// DockerAuthProvider is something that can give the auth information for a given docker image
-type DockerAuthProvider interface {
-	GetAuthconfig(image string) docker.AuthConfiguration
-}
 
 func NewDockerAuthProvider(authType string, authData json.RawMessage) DockerAuthProvider {
 	return &dockerAuthProvider{
@@ -53,7 +45,7 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string) docker.AuthConfiguration {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string) (docker.AuthConfiguration, error) {
 	// Ignore 'tag', not used in auth determination
 	repository, _ := parsers.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap
@@ -62,7 +54,7 @@ func (authProvider *dockerAuthProvider) GetAuthconfig(image string) docker.AuthC
 	indexName, _ := splitReposName(repository)
 
 	if isDockerhubHostname(indexName) {
-		return authDataMap[dockerRegistryKey]
+		return authDataMap[dockerRegistryKey], nil
 	}
 
 	// Try to find the longest match that at least matches the hostname
@@ -91,9 +83,9 @@ func (authProvider *dockerAuthProvider) GetAuthconfig(image string) docker.AuthC
 		}
 	}
 	if longestKey != "" {
-		return authDataMap[longestKey]
+		return authDataMap[longestKey], nil
 	}
-	return docker.AuthConfiguration{}
+	return docker.AuthConfiguration{}, nil
 }
 
 // Normalize all auth types into a uniform 'dockerAuths' type.

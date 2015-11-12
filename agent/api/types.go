@@ -212,20 +212,21 @@ type ContainerOverrides struct {
 }
 
 type Container struct {
-	Name         string
-	Image        string
-	Command      []string
-	Cpu          uint
-	Memory       uint
-	Links        []string
-	VolumesFrom  []VolumeFrom  `json:"volumesFrom"`
-	MountPoints  []MountPoint  `json:"mountPoints"`
-	Ports        []PortBinding `json:"portMappings"`
-	Essential    bool
-	EntryPoint   *[]string
-	Environment  map[string]string  `json:"environment"`
-	Overrides    ContainerOverrides `json:"overrides"`
-	DockerConfig DockerConfig       `json:"dockerConfig"`
+	Name                   string
+	Image                  string
+	Command                []string
+	Cpu                    uint
+	Memory                 uint
+	Links                  []string
+	VolumesFrom            []VolumeFrom  `json:"volumesFrom"`
+	MountPoints            []MountPoint  `json:"mountPoints"`
+	Ports                  []PortBinding `json:"portMappings"`
+	Essential              bool
+	EntryPoint             *[]string
+	Environment            map[string]string           `json:"environment"`
+	Overrides              ContainerOverrides          `json:"overrides"`
+	DockerConfig           DockerConfig                `json:"dockerConfig"`
+	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
 	DesiredStatus ContainerStatus `json:"desiredStatus"`
 	KnownStatus   ContainerStatus
@@ -263,6 +264,17 @@ type DockerConfig struct {
 type VolumeFrom struct {
 	SourceContainer string `json:"sourceContainer"`
 	ReadOnly        bool   `json:"readOnly"`
+}
+
+type RegistryAuthenticationData struct {
+	Type        string       `json:"type"`
+	ECRAuthData *ECRAuthData `json:"ecrAuthData"`
+}
+
+type ECRAuthData struct {
+	EndpointOverride string `json:"endpointOverride"`
+	Region           string `json:"region"`
+	RegistryId       string `json:"registryId"`
 }
 
 func (c *Container) String() string {
