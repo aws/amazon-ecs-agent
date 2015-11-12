@@ -317,6 +317,10 @@ func (dg *DockerGoClient) createContainer(ctx context.Context, config *docker.Co
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
+	// Hardcode the network we are going to use (xplenty/overlay)
+	// For this agent to work we must create this network (once) first.
+	hostConfig.NetworkMode = "xplenty"
+
 	containerOptions := docker.CreateContainerOptions{Config: config, HostConfig: hostConfig, Name: name}
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	select {
