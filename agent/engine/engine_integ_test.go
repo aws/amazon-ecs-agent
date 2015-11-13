@@ -54,7 +54,7 @@ func setup(t *testing.T) (TaskEngine, func()) {
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
-	taskEngine := NewDockerTaskEngine(cfg)
+	taskEngine := NewDockerTaskEngine(cfg, false)
 	taskEngine.Init()
 	ttime.SetTime(test_time)
 	return taskEngine, func() {

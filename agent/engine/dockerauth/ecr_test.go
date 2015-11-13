@@ -88,7 +88,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 		}).Return(&ecrapi.GetAuthorizationTokenOutput{
 		AuthorizationData: []*ecrapi.AuthorizationData{
 			&ecrapi.AuthorizationData{
-				ProxyEndpoint:      aws.String(proxyEndpoint),
+				ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 				AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			},
 		},
@@ -139,7 +139,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 		}).Return(&ecrapi.GetAuthorizationTokenOutput{
 		AuthorizationData: []*ecrapi.AuthorizationData{
 			&ecrapi.AuthorizationData{
-				ProxyEndpoint:      aws.String("notproxy"),
+				ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 				AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			},
 		},

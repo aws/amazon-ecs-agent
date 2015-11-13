@@ -92,7 +92,7 @@ func _main() int {
 	// Load cfg before doing 'versionFlag' so that it has the DOCKER_HOST
 	// variable loaded if needed
 	if *versionFlag {
-		versionableEngine := engine.NewTaskEngine(cfg)
+		versionableEngine := engine.NewTaskEngine(cfg, *acceptInsecureCert)
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
@@ -113,7 +113,7 @@ func _main() int {
 	if cfg.Checkpoint {
 		log.Info("Checkpointing is enabled. Attempting to load state")
 		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
-		previousTaskEngine := engine.NewTaskEngine(cfg)
+		previousTaskEngine := engine.NewTaskEngine(cfg, *acceptInsecureCert)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
@@ -153,7 +153,7 @@ func _main() int {
 			log.Warnf("Data mismatch; saved InstanceID '%v' does not match current InstanceID '%v'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
 
 			// Reset taskEngine; all the other values are still default
-			taskEngine = engine.NewTaskEngine(cfg)
+			taskEngine = engine.NewTaskEngine(cfg, *acceptInsecureCert)
 		} else {
 			// Use the values we loaded if there's no issue
 			containerInstanceArn = previousContainerInstanceArn
@@ -161,7 +161,7 @@ func _main() int {
 		}
 	} else {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		taskEngine = engine.NewTaskEngine(cfg)
+		taskEngine = engine.NewTaskEngine(cfg, *acceptInsecureCert)
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)

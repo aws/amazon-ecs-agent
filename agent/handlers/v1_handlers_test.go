@@ -65,7 +65,7 @@ func getResponseBodyFromLocalHost(url string, t *testing.T) []byte {
 }
 
 func TestServeHttp(t *testing.T) {
-	taskEngine := engine.NewTaskEngine(&config.Config{})
+	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
 	containers := []*api.Container{
 		&api.Container{
 			Name: "c1",
@@ -157,7 +157,7 @@ func TestServeHttp(t *testing.T) {
 }
 
 func backendMappingTestHelper(containers []*api.Container, testTask *api.Task, desiredStatus string, knownStatus string, t *testing.T) {
-	taskEngine := engine.NewTaskEngine(&config.Config{})
+	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)

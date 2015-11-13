@@ -23,6 +23,6 @@ import (
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine(cfg *config.Config) TaskEngine {
-	return NewDockerTaskEngine(cfg)
+func NewTaskEngine(cfg *config.Config, acceptInsecureCert bool) TaskEngine {
+	return NewDockerTaskEngine(cfg, acceptInsecureCert)
 }

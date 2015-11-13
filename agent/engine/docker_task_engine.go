@@ -43,7 +43,8 @@ const (
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
-	cfg *config.Config
+	cfg                *config.Config
+	acceptInsecureCert bool
 
 	initialized  bool
 	mustInitLock sync.Mutex
@@ -78,11 +79,12 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, acceptInsecureCert bool) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
-		cfg:    cfg,
-		client: nil,
-		saver:  statemanager.NewNoopStateManager(),
+		cfg:                cfg,
+		acceptInsecureCert: acceptInsecureCert,
+		client:             nil,
+		saver:              statemanager.NewNoopStateManager(),
 
 		state:         dockerstate.NewDockerTaskEngineState(),
 		managedTasks:  make(map[string]*managedTask),
@@ -141,7 +143,7 @@ func (engine *DockerTaskEngine) initDockerClient() error {
 	if engine.client != nil {
 		return nil
 	}
-	client, err := NewDockerGoClient(nil, engine.cfg.EngineAuthType, engine.cfg.EngineAuthData)
+	client, err := NewDockerGoClient(nil, engine.cfg.EngineAuthType, engine.cfg.EngineAuthData, engine.acceptInsecureCert)
 	if err != nil {
 		return err
 	}
@@ -421,8 +423,7 @@ func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Pulling container", "task", task, "container", container)
-
-	return engine.client.PullImage(container.Image)
+	return engine.client.PullImage(container.Image, container.RegistryAuthentication)
 }
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {

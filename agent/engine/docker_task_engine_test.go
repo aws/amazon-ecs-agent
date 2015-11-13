@@ -33,7 +33,7 @@ var dte_test_time = ttime.NewTestTime()
 func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, TaskEngine) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
-	taskEngine := NewTaskEngine(cfg)
+	taskEngine := NewTaskEngine(cfg, false)
 	taskEngine.(*DockerTaskEngine).SetDockerClient(client)
 	return ctrl, client, taskEngine
 }
@@ -57,7 +57,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -154,7 +154,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -237,7 +237,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 
-		client.EXPECT().PullImage(container.Image).Return(DockerContainerMetadata{})
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		if err != nil {
@@ -333,7 +333,7 @@ func TestStopWithPendingStops(t *testing.T) {
 	}()
 
 	pulling := make(chan bool)
-	client.EXPECT().PullImage(gomock.Any()).Do(func(x interface{}) {
+	client.EXPECT().PullImage(gomock.Any(), nil).Do(func(x, y interface{}) {
 		<-pulling
 	})
 	taskEngine.AddTask(sleepTask2)

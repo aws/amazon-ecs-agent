@@ -273,7 +273,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test as this is really a functional test")
-	taskEngine := engine.NewTaskEngine(&config.Config{})
+	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatal("Error creating container", err)
@@ -314,7 +314,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		},
 		&testTask)
 	statsEngine := NewDockerStatsEngine(&cfg)
-	statsEngine.client, err = engine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")))
+	statsEngine.client, err = engine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")), false)
 	if err != nil {
 		t.Fatal("Error initializing docker client: ", err)
 	}

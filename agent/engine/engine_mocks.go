@@ -239,14 +239,14 @@ func (_mr *_MockDockerClientRecorder) ListContainers(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
 }
 
-func (_m *MockDockerClient) PullImage(_param0 string) DockerContainerMetadata {
-	ret := _m.ctrl.Call(_m, "PullImage", _param0)
+func (_m *MockDockerClient) PullImage(_param0 string, _param1 *api.RegistryAuthenticationData) DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "PullImage", _param0, _param1)
 	ret0, _ := ret[0].(DockerContainerMetadata)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) PullImage(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PullImage", arg0)
+func (_mr *_MockDockerClientRecorder) PullImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PullImage", arg0, arg1)
 }
 
 func (_m *MockDockerClient) RemoveContainer(_param0 string) error {

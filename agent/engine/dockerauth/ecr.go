@@ -31,6 +31,8 @@ type ecrAuthProvider struct {
 	client   ecr.ECRSDK
 }
 
+const proxyEndpointScheme = "https://"
+
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
 // credentials for pulling from Amazon EC2 Container Registry
 func NewECRAuthProvider(authData *api.ECRAuthData, clientFactory ecr.ECRFactory) DockerAuthProvider {
@@ -62,7 +64,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string) (docker.AuthCon
 	}
 	for _, authData := range output.AuthorizationData {
 		if authData.ProxyEndpoint != nil &&
-			strings.HasPrefix(image, aws.StringValue(authData.ProxyEndpoint)) &&
+			strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(authData.ProxyEndpoint)) &&
 			authData.AuthorizationToken != nil {
 			return extractToken(authData)
 		}

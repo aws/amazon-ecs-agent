@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
@@ -68,7 +69,7 @@ type DockerClient interface {
 	WithVersion(dockerclient.DockerVersion) DockerClient
 	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
-	PullImage(image string) DockerContainerMetadata
+	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 	CreateContainer(*docker.Config, *docker.HostConfig, string) DockerContainerMetadata
 	StartContainer(string) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
@@ -100,9 +101,10 @@ type DockerClient interface {
 //    appropriately there.
 // Implements DockerClient
 type dockerGoClient struct {
-	clientFactory dockerclient.Factory
-	version       dockerclient.DockerVersion
-	auth          dockerauth.DockerAuthProvider
+	clientFactory    dockerclient.Factory
+	version          dockerclient.DockerVersion
+	auth             dockerauth.DockerAuthProvider
+	ecrClientFactory ecr.ECRFactory
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
@@ -124,7 +126,7 @@ type DockerImageResponse struct {
 }
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage) (DockerClient, error) {
+func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage, acceptInsecureCert bool) (DockerClient, error) {
 	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 	if clientFactory == nil {
 		clientFactory = dockerclient.NewFactory(endpoint)
@@ -145,8 +147,9 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 	}
 
 	return &dockerGoClient{
-		clientFactory: clientFactory,
-		auth:          dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
+		clientFactory:    clientFactory,
+		auth:             dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
+		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
 	}, nil
 }
 
@@ -157,7 +160,7 @@ func (dg *dockerGoClient) dockerClient() (dockeriface.Client, error) {
 	return dg.clientFactory.GetClient(dg.version)
 }
 
-func (dg *dockerGoClient) PullImage(image string) DockerContainerMetadata {
+func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
 	timeout := ttime.After(pullImageTimeout)
 
 	// Workaround for devicemapper bug. See:
@@ -166,7 +169,7 @@ func (dg *dockerGoClient) PullImage(image string) DockerContainerMetadata {
 	defer pullLock.Unlock()
 
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.pullImage(image) }()
+	go func() { response <- dg.pullImage(image, authData) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -175,7 +178,7 @@ func (dg *dockerGoClient) PullImage(image string) DockerContainerMetadata {
 	}
 }
 
-func (dg *dockerGoClient) pullImage(image string) DockerContainerMetadata {
+func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
 	log.Debug("Pulling image", "image", image)
 	client, err := dg.dockerClient()
 	if err != nil {
@@ -192,7 +195,10 @@ func (dg *dockerGoClient) pullImage(image string) DockerContainerMetadata {
 		return DockerContainerMetadata{}
 	}
 
-	authConfig, _ := dg.auth.GetAuthconfig(image)
+	authConfig, err := dg.getAuthdata(image, authData)
+	if err != nil {
+		return DockerContainerMetadata{Error: err}
+	}
 
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
@@ -295,6 +301,18 @@ func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 		InputStream: reader,
 	})
 	return err
+}
+
+func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+	if authData == nil || authData.Type != "ecr" {
+		return dg.auth.GetAuthconfig(image)
+	}
+	provider := dockerauth.NewECRAuthProvider(authData.ECRAuthData, dg.ecrClientFactory)
+	authConfig, err := provider.GetAuthconfig(image)
+	if err != nil {
+		return authConfig, CannotXContainerError{"PullECR", err.Error()}
+	}
+	return authConfig, nil
 }
 
 func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
