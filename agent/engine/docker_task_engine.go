@@ -652,6 +652,10 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 		capabilities = append(capabilities, capabilityPrefix+"apparmor")
 	}
 
+	if _, ok := versions[dockerclient.Version_1_19]; ok {
+		capabilities = append(capabilities, capabilityPrefix+"ecr-auth")
+	}
+
 	return capabilities
 }
 

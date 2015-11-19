@@ -419,3 +419,24 @@ func TestCapabilities(t *testing.T) {
 		t.Errorf("Expected capabilities %v, but got capabilities %v", expectedCapabilities, capabilities)
 	}
 }
+
+func TestCapabilitiesECR(t *testing.T) {
+	conf := &config.Config{}
+	ctrl, client, taskEngine := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_19,
+	})
+
+	capabilities := taskEngine.Capabilities()
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[capability] = true
+	}
+
+	if _, ok := capMap["com.amazonaws.ecs.capability.ecr-auth"]; !ok {
+		t.Errorf("Could not find ECR capability when expected; got capabilities %v", capabilities)
+	}
+}
