@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -176,7 +177,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 	// acs says it should be if it is compatible
 	llog.Debug("New acs transition", "status", desiredStatus.String(), "seqnum", seqnum, "taskSeqnum", mtask.StopSequenceNumber)
 	if desiredStatus <= mtask.DesiredStatus {
-		llog.Debug("Redundant transition; ignoring", "old", mtask.DesiredStatus.String(), "new", desiredStatus.String())
+		llog.Debug("Redundant task transition; ignoring", "old", mtask.DesiredStatus.String(), "new", desiredStatus.String())
 		return
 	}
 	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.StopSequenceNumber == 0 {
@@ -223,7 +224,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 	if event.Status <= container.KnownStatus {
-		llog.Info("Redundant status change; ignoring", "current", container.KnownStatus.String(), "change", event.Status.String())
+		seelog.Infof("Redundant container state change for task %s: %s to %s, but already %s", mtask.Task, container, event.Status, container.KnownStatus)
 		return
 	}
 	container.KnownStatus = event.Status

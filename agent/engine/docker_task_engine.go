@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -466,6 +467,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// we die before 'createContainer' returns because we can inspect by
 	// name
 	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
+	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
 	metadata := client.CreateContainer(config, hostConfig, containerName)
@@ -473,7 +475,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		return metadata
 	}
 	engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerId, DockerName: containerName, Container: container}, task)
-	log.Info("Created container successfully", "task", task, "container", container)
+	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerId)
 	return metadata
 }
 

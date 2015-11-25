@@ -233,6 +233,9 @@ func TestCreateContainer(t *testing.T) {
 	if metadata.DockerId != "id" {
 		t.Error("Wrong id")
 	}
+	if metadata.ExitCode != nil {
+		t.Error("Expected a created container to not have an exit code")
+	}
 }
 
 func TestStartContainerTimeout(t *testing.T) {
@@ -407,7 +410,8 @@ func TestContainerEvents(t *testing.T) {
 		stoppedContainer := &docker.Container{
 			ID: "cid3" + strconv.Itoa(i),
 			State: docker.State{
-				ExitCode: 20,
+				FinishedAt: time.Now(),
+				ExitCode:   20,
 			},
 		}
 		mockDocker.EXPECT().InspectContainer("cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)

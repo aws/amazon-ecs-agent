@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/cihub/seelog"
 	"github.com/docker/docker/pkg/parsers"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -504,7 +505,8 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
-	if dockerContainer.State.Running == false {
+	if !dockerContainer.State.Running && !dockerContainer.State.FinishedAt.IsZero() {
+		// Only record an exitcode if it has exited
 		metadata.ExitCode = &dockerContainer.State.ExitCode
 	}
 	if dockerContainer.State.Error != "" {
@@ -559,24 +561,49 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				fallthrough
 			case "kill":
 				status = api.ContainerStopped
+			case "rename":
+				// TODO, ensure this wasn't one of our containers. This isn't critical
+				// because we typically have the docker id stored too and a wrong name
+				// won't be fatal once we do
+				continue
+			case "restart":
+			case "resize":
 			case "destroy":
 			case "unpause":
-				// These two result in us falling through to inspect the container even
-				// though generally it won't cause any change
+				// These result in us falling through to inspect the container, some
+				// out of caution, some because it's a form of state change
+
 			case "pause":
+				// non image events that aren't of interest currently
 				fallthrough
+			case "exec_create":
+				fallthrough
+			case "exec_start":
+				fallthrough
+			case "top":
+				fallthrough
+			case "attach":
+				fallthrough
+			// image events
 			case "export":
 				fallthrough
-			// Image events
 			case "pull":
 				fallthrough
+			case "push":
+				fallthrough
+			case "tag":
+				fallthrough
 			case "untag":
+				fallthrough
+			case "import":
 				fallthrough
 			case "delete":
 				// No interest in image events
 				continue
 			default:
-				log.Info("Unknown status event! Maybe docker updated? ", "status", event.Status)
+				// Because docker emits new events even when you use an old event api
+				// version, it's not that big a deal
+				seelog.Debugf("Unknown status event from docker: %s", event.Status)
 			}
 
 			metadata := dg.containerMetadata(containerId)

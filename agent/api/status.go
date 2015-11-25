@@ -20,9 +20,9 @@ var taskStatusMap = map[string]TaskStatus{
 	"STOPPED": TaskStopped,
 }
 
-func (ts *TaskStatus) String() string {
+func (ts TaskStatus) String() string {
 	for k, v := range taskStatusMap {
-		if v == *ts {
+		if v == ts {
 			return k
 		}
 	}
@@ -52,9 +52,9 @@ var containerStatusMap = map[string]ContainerStatus{
 	"STOPPED": ContainerStopped,
 }
 
-func (cs *ContainerStatus) String() string {
+func (cs ContainerStatus) String() string {
 	for k, v := range containerStatusMap {
-		if v == *cs {
+		if v == cs {
 			return k
 		}
 	}
@@ -93,16 +93,10 @@ func (cs *ContainerStatus) BackendRecognized() bool {
 	return *cs == ContainerRunning || *cs == ContainerStopped
 }
 
-func (cs *ContainerStatus) Terminal() bool {
-	if cs == nil {
-		return false
-	}
-	return *cs == ContainerStopped
+func (cs ContainerStatus) Terminal() bool {
+	return cs == ContainerStopped
 }
 
-func (ts *TaskStatus) Terminal() bool {
-	if ts == nil {
-		return false
-	}
-	return *ts == TaskStopped
+func (ts TaskStatus) Terminal() bool {
+	return ts == TaskStopped
 }

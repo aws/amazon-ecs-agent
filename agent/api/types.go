@@ -199,7 +199,7 @@ func (t *TaskStateChange) String() string {
 }
 
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s-%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.KnownStatus.String(), t.DesiredStatus.String())
+	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.KnownStatus.String(), t.DesiredStatus.String())
 	res += " Containers: ["
 	for _, c := range t.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.KnownStatus.String(), c.DesiredStatus.String())
@@ -266,7 +266,7 @@ type VolumeFrom struct {
 }
 
 func (c *Container) String() string {
-	ret := fmt.Sprintf("%s-%s (%s->%s)", c.Name, c.Image, c.KnownStatus.String(), c.DesiredStatus.String())
+	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image, c.KnownStatus.String(), c.DesiredStatus.String())
 	if c.KnownExitCode != nil {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}
