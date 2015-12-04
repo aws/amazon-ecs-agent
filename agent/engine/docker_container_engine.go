@@ -557,8 +557,6 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				fallthrough
 			case "die":
 				fallthrough
-			case "oom":
-				fallthrough
 			case "kill":
 				status = api.ContainerStopped
 			case "rename":
@@ -573,6 +571,12 @@ func (dg *DockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				// These result in us falling through to inspect the container, some
 				// out of caution, some because it's a form of state change
 
+			case "oom":
+				seelog.Infof("process within container %v died due to OOM", event.ID)
+				// "oom" can either means any process got OOM'd, but doesn't always
+				// mean the container dies (non-init processes). If the container also
+				// dies, you see a "die" status as well; we'll update suitably there
+				fallthrough
 			case "pause":
 				// non image events that aren't of interest currently
 				fallthrough

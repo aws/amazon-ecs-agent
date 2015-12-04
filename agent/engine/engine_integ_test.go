@@ -34,6 +34,7 @@ import (
 )
 
 var testRegistryHost = "127.0.0.1:51670"
+var testBusyboxImage = testRegistryHost + "/busybox:latest"
 var testRegistryImage = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
 var testAuthRegistryHost = "127.0.0.1:51671"
 var testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
@@ -935,5 +936,62 @@ func TestSweepContainer(t *testing.T) {
 	}
 	if ok {
 		t.Error("Expected container to have been sweept but was not")
+	}
+}
+
+// This integ test is meant to validate the docker assumptions related to
+// https://github.com/aws/amazon-ecs-agent/issues/261
+// Namely, this test verifies that Docker does emit a 'die' event after an OOM
+// event if the init dies.
+func TestInitOOMEvent(t *testing.T) {
+	taskEngine, done := setup(t)
+	defer done()
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	defer discardEvents(taskEvents)()
+
+	testTask := createTestTask("oomtest")
+	testTask.Containers[0].Memory = 20
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Command = []string{"sh", "-c", `x="a"; while true; do x=$x$x$x; done`}
+	// should cause sh to get oomkilled as pid 1
+
+	go taskEngine.AddTask(testTask)
+
+	expected_events := []api.ContainerStatus{api.ContainerRunning, api.ContainerStopped}
+
+	var contEvent api.ContainerStateChange
+	for contEvent = range contEvents {
+		if contEvent.TaskArn != testTask.Arn {
+			continue
+		}
+
+		expected_event := expected_events[0]
+		expected_events = expected_events[1:]
+		if contEvent.Status != expected_event {
+			t.Error("Got event " + contEvent.Status.String() + " but expected " + expected_event.String())
+		}
+		if len(expected_events) == 0 {
+			break
+		}
+	}
+
+	if contEvent.ExitCode == nil {
+		t.Error("Expected exitcode to be set")
+	} else if *contEvent.ExitCode != 137 {
+		t.Errorf("Expected exitcode to be 137, not %v", *contEvent.ExitCode)
+	}
+
+	dockerVersion, err := taskEngine.Version()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(dockerVersion, " 1.9.") {
+		// Skip the final check for some versions of docker
+		t.Logf("Docker version is 1.9.x (%s); not checking OOM reason", dockerVersion)
+		return
+	}
+	if !strings.HasPrefix(contEvent.Reason, OutOfMemoryError{}.ErrorName()) {
+		t.Errorf("Expected reason to have OOM error, was: %v", contEvent.Reason)
 	}
 }

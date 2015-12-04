@@ -436,7 +436,7 @@ func TestContainerEvents(t *testing.T) {
 	}
 
 	// Verify the following events do not translate into our event stream
-	for _, eventStatus := range []string{"pause", "export", "pull", "untag", "delete"} {
+	for _, eventStatus := range []string{"pause", "export", "pull", "untag", "delete", "oom"} {
 		events <- &docker.APIEvents{ID: "123", Status: eventStatus}
 		select {
 		case <-dockerEvents:
