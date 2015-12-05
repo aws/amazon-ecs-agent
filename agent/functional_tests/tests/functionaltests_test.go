@@ -74,7 +74,9 @@ func TestPullInvalidImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected to start invalid-image task: %v", err)
 	}
-	testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute)
+	if err = testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute); err != nil {
+		t.Error(err)
+	}
 }
 
 // TestOOMContainer verifies that an OOM container returns an error
@@ -86,7 +88,9 @@ func TestOOMContainer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected to start invalid-image task: %v", err)
 	}
-	testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
+	if err = testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute); err != nil {
+		t.Error(err)
+	}
 }
 
 // TestSavedState verifies that stopping the agent, stopping a container under
