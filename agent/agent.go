@@ -84,6 +84,9 @@ func _main() int {
 	}
 
 	log.Infof("Starting Agent: %v", version.String())
+	if *acceptInsecureCert {
+		log.Warn("SSL certificate verification disabled. This is not recommended.")
+	}
 	log.Info("Loading configuration")
 	cfg, err := config.NewConfig(ec2MetadataClient)
 	// Load cfg before doing 'versionFlag' so that it has the DOCKER_HOST
