@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.6.0
+Version:        1.7.0
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker >= 1.6.0, docker <= 1.7.1
+Requires:       docker >= 1.6.0, docker <= 1.9.1
 Requires:       upstart
 Requires(post): docker >= 1.6.0
 
@@ -147,6 +147,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Dec 8 2015 Samuel Karp <skarp@amazon.com> - 1.7.0-1
+- Cache Agent version 1.7.0
+- Add support for Docker 1.9.1
 * Wed Oct 21 2015 Samuel Karp <skarp@amazon.com> - 1.6.0-1
 - Cache Agent version 1.6.0
 - Updated source dependencies
