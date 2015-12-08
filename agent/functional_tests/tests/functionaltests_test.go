@@ -81,6 +81,7 @@ func TestPullInvalidImage(t *testing.T) {
 
 // TestOOMContainer verifies that an OOM container returns an error
 func TestOOMContainer(t *testing.T) {
+	RequireDockerVersion(t, "<1.9.0,>1.9.1") // https://github.com/docker/docker/issues/18510
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 

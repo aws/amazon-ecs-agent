@@ -151,6 +151,21 @@ func TestVersionMatches(t *testing.T) {
 			selector:       ">1.0.0",
 			expectedOutput: true,
 		},
+		{
+			version:        "1.1.0",
+			selector:       "2.1.0,1.1.0",
+			expectedOutput: true,
+		},
+		{
+			version:        "2.0.0",
+			selector:       "2.1.0,1.1.0",
+			expectedOutput: false,
+		},
+		{
+			version:        "1.9.1",
+			selector:       ">=1.9.0,<=1.9.1",
+			expectedOutput: true,
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -159,7 +174,7 @@ func TestVersionMatches(t *testing.T) {
 			t.Errorf("#%v: Unexpected error %v", i, err)
 		}
 		if result != testCase.expectedOutput {
-			t.Errorf("#%v: expected %v but got %v", i, testCase.expectedOutput, result)
+			t.Errorf("#%v: %v(%v) expected %v but got %v", i, testCase.version, testCase.selector, testCase.expectedOutput, result)
 		}
 	}
 }

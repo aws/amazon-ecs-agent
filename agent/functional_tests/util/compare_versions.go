@@ -29,11 +29,34 @@ type semver struct {
 	buildMetadata     string
 }
 
+// Matches returns whether or not a version matches a given selector.
+// The selector can be any of the following:
+//
+// * x.y.z -- Matches a version exactly the same as the selector version
+// * >=x.y.z -- Matches a version greater than or equal to the selector version
+// * >x.y.z -- Matches a version greater than the selector version
+// * <=x.y.z -- Matches a version less than or equal to the selector version
+// * <x.y.z -- Matches a version less than the selector version
+// * x.y.z,a.b.c -- Matches if the version matches either of the two selector versions
 func (lhs Version) Matches(selector string) (bool, error) {
 	lhsVersion, err := parseSemver(string(lhs))
 	if err != nil {
 		return false, err
 	}
+
+	if strings.Contains(selector, ",") {
+		orElements := strings.Split(selector, ",")
+		for _, el := range orElements {
+			if elMatches, err := lhs.Matches(el); err != nil {
+				return false, err
+			} else if elMatches {
+				return true, nil
+			}
+		}
+		// No elements matched
+		return false, nil
+	}
+
 	if strings.HasPrefix(selector, ">=") {
 		rhsVersion, err := parseSemver(selector[2:])
 		if err != nil {

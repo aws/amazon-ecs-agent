@@ -515,3 +515,25 @@ func (task *TestTask) Stop() error {
 	})
 	return err
 }
+
+func RequireDockerVersion(t *testing.T, selector string) {
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		t.Fatalf("Could not get docker client to check version: %v", err)
+	}
+	dockerVersion, err := dockerClient.Version()
+	if err != nil {
+		t.Fatalf("Could not get docker version: %v", err)
+	}
+
+	version := dockerVersion.Get("Version")
+
+	match, err := Version(version).Matches(selector)
+	if err != nil {
+		t.Fatalf("Could not check docker version to match required: %v", err)
+	}
+
+	if !match {
+		t.Skipf("Skipping test; requires %v, but version is %v", selector, version)
+	}
+}
