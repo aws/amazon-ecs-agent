@@ -13,6 +13,8 @@
 
 package handlers
 
+import "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+
 type MetadataResponse struct {
 	Cluster              string
 	ContainerInstanceArn *string
@@ -36,4 +38,8 @@ type ContainerResponse struct {
 	DockerId   string
 	DockerName string
 	Name       string
+}
+
+type DockerStateResolver interface {
+	State() *dockerstate.DockerTaskEngineState
 }

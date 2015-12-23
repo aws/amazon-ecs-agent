@@ -16,7 +16,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -24,18 +23,19 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks/http"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
 )
 
-const TestContainerInstanceArn = "test_container_instance_arn"
-const TestClusterArn = "test_cluster_arn"
+const testContainerInstanceArn = "test_container_instance_arn"
+const testClusterArn = "test_cluster_arn"
 
 func TestMetadataHandler(t *testing.T) {
-	metadataHandler := MetadataV1RequestHandlerMaker(utils.Strptr(TestContainerInstanceArn), &config.Config{Cluster: TestClusterArn})
+	metadataHandler := metadataV1RequestHandlerMaker(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AGENT_INTROSPECTION_PORT), nil)
@@ -44,163 +44,89 @@ func TestMetadataHandler(t *testing.T) {
 	var resp MetadataResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
 
-	if resp.Cluster != TestClusterArn {
+	if resp.Cluster != testClusterArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
-	if *resp.ContainerInstanceArn != TestContainerInstanceArn {
+	if *resp.ContainerInstanceArn != testContainerInstanceArn {
 		t.Error("Metadata returned the wrong cluster arn")
 	}
 }
 
-func getResponseBodyFromLocalHost(url string, t *testing.T) []byte {
-	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return body
-}
+func TestListMultipleTasks(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks")
 
-func TestServeHttp(t *testing.T) {
-	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
-	containers := []*api.Container{
-		&api.Container{
-			Name: "c1",
-		},
-	}
-	testTask := api.Task{
-		Arn:           "task1",
-		DesiredStatus: api.TaskRunning,
-		KnownStatus:   api.TaskRunning,
-		Family:        "test",
-		Version:       "1",
-		Containers:    containers,
-	}
-	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(&testTask)
-	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, &testTask)
-	go ServeHttp(utils.Strptr(TestContainerInstanceArn), taskEngine, &config.Config{Cluster: TestClusterArn})
-
-	body := getResponseBodyFromLocalHost("/v1/metadata", t)
-	var metadata MetadataResponse
-	json.Unmarshal(body, &metadata)
-
-	if metadata.Cluster != TestClusterArn {
-		t.Error("Metadata returned the wrong cluster arn")
-	}
-	if *metadata.ContainerInstanceArn != TestContainerInstanceArn {
-		t.Error("Metadata returned the wrong cluster arn")
-	}
 	var tasksResponse TasksResponse
-	body = getResponseBodyFromLocalHost("/v1/tasks", t)
-	json.Unmarshal(body, &tasksResponse)
-	tasks := tasksResponse.Tasks
+	err := json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if len(tasks) != 1 {
-		t.Error("Incorrect number of tasks in response: ", len(tasks))
-	}
-	if tasks[0].Arn != "task1" {
-		t.Error("Incorrect task arn in response: ", tasks[0].Arn)
-	}
-	containersResponse := tasks[0].Containers
-	if len(containersResponse) != 1 {
-		t.Error("Incorrect number of containers in response: ", len(containersResponse))
-	}
-	if containersResponse[0].Name != "c1" {
-		t.Error("Incorrect container name in response: ", containersResponse[0].Name)
-	}
+	taskDiffHelper(t, testTasks, tasksResponse)
+}
+
+func TestGetTaskByDockerID(t *testing.T) {
+	// stateSetupHelper uses the convention of dockerid-$arn-$containerName; the
+	// second task has a container named foo
+	recorder := performMockRequest(t, "/v1/tasks?dockerid=dockerid-task2-foo")
+
 	var taskResponse TaskResponse
-	body = getResponseBodyFromLocalHost("/v1/tasks?dockerid=docker1", t)
-	json.Unmarshal(body, &taskResponse)
-	if taskResponse.Arn != "task1" {
-		t.Error("Incorrect task arn in response")
-	}
-	if taskResponse.Containers[0].Name != "c1" {
-		t.Error("Incorrect task arn in response")
-	}
-
-	resp, err := http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?dockerid=docker2")
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 400 {
-		t.Error("API did not return bad request status for invalid docker id")
-	}
 
-	body = getResponseBodyFromLocalHost("/v1/tasks?taskarn=task1", t)
-	json.Unmarshal(body, &taskResponse)
-	if taskResponse.Arn != "task1" {
-		t.Error("Incorrect task arn in response")
-	}
+	taskDiffHelper(t, []*api.Task{testTasks[1]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+}
 
-	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=task2")
-	if resp.StatusCode != 400 {
-		t.Error("API did not return bad request status for invalid task id")
-	}
+func TestGetTaskByDockerID400(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?dockerid=does-not-exist")
 
-	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=")
-	if resp.StatusCode != 400 {
-		t.Error("API did not return bad request status for invalid task id")
-	}
-
-	resp, err = http.Get("http://localhost:" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT) + "/v1/tasks?taskarn=task1&dockerid=docker1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 400 {
-		t.Error("API did not return bad request status when both dockerid and taskarn are specified.")
+	if recorder.Code != 400 {
+		t.Error("API did not return 400 for bad dockerid")
 	}
 }
 
-func backendMappingTestHelper(containers []*api.Container, testTask *api.Task, desiredStatus string, knownStatus string, t *testing.T) {
-	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
-	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*engine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(testTask)
-	dockerTaskEngine.State().AddContainer(&api.DockerContainer{DockerId: "docker1", DockerName: "someName", Container: containers[0]}, testTask)
-	taskHandler := TasksV1RequestHandlerMaker(taskEngine)
-	server := httptest.NewServer(http.HandlerFunc(taskHandler))
-	defer server.Close()
-	resp, err := http.Get(server.URL + "/v1/tasks")
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
+func TestGetTaskByTaskArn(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=task1")
+
+	var taskResponse TaskResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var taskResponse TasksResponse
-	json.Unmarshal(body, &taskResponse)
-	tasks := taskResponse.Tasks
-	if tasks[0].DesiredStatus != desiredStatus {
-		t.Error("Incorrect known status in response: ", tasks[0].DesiredStatus)
-	}
-	if tasks[0].KnownStatus != knownStatus {
-		t.Error("Incorrect known status in response: ", tasks[0].KnownStatus)
+
+	taskDiffHelper(t, []*api.Task{testTasks[0]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+}
+
+func TestGetTaskByTaskArn400(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=doesnotexist")
+
+	if recorder.Code != 400 {
+		t.Errorf("Expected 400 for bad taskarn")
 	}
 }
 
-func TestBackendMapping(t *testing.T) {
+func TestGetTaskByTaskArnAndDockerID400(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=task2&dockerid=foo")
+
+	if recorder.Code != 400 {
+		t.Errorf("Expected 400 for both arn and dockerid")
+	}
+}
+
+func TestBackendMismatchMapping(t *testing.T) {
+	// Test that a KnownStatus past a DesiredStatus suppresses the DesiredStatus output
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
+
 	containers := []*api.Container{
 		&api.Container{
 			Name: "c1",
 		},
 	}
-	testTask := api.Task{
-		Arn:           "task1",
-		DesiredStatus: api.TaskRunning,
-		KnownStatus:   api.TaskRunning,
-		Family:        "test",
-		Version:       "1",
-		Containers:    containers,
-	}
-	backendMappingTestHelper(containers, &testTask, "RUNNING", "RUNNING", t)
-
-	testTask = api.Task{
+	testTask := &api.Task{
 		Arn:           "task1",
 		DesiredStatus: api.TaskRunning,
 		KnownStatus:   api.TaskStopped,
@@ -208,8 +134,28 @@ func TestBackendMapping(t *testing.T) {
 		Version:       "1",
 		Containers:    containers,
 	}
-	// Since the KnownStatus (STOPPED) > DesiredStatus (RUNNING), DesiredStatus should be empty
-	backendMappingTestHelper(containers, &testTask, "", "STOPPED", t)
+
+	state := dockerstate.NewDockerTaskEngineState()
+	stateSetupHelper(state, []*api.Task{testTask})
+
+	mockStateResolver.EXPECT().State().Return(state)
+	requestHandler := tasksV1RequestHandlerMaker(mockStateResolver)
+
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/v1/tasks", nil)
+	requestHandler(recorder, req)
+
+	var tasksResponse TasksResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tasksResponse.Tasks[0].DesiredStatus != "" {
+		t.Error("Expected '', was ", tasksResponse.Tasks[0].DesiredStatus)
+	}
+	if tasksResponse.Tasks[0].KnownStatus != "STOPPED" {
+		t.Error("Expected STOPPED, was ", tasksResponse.Tasks[0].KnownStatus)
+	}
 }
 
 func TestLicenseHandler(t *testing.T) {
@@ -225,7 +171,7 @@ func TestLicenseHandler(t *testing.T) {
 	mockLicenseProvider.EXPECT().GetText().Return(text, nil)
 	mockResponseWriter.EXPECT().Write([]byte(text))
 
-	LicenseHandler(mockResponseWriter, nil)
+	licenseHandler(mockResponseWriter, nil)
 }
 
 func TestLicenseHandlerError(t *testing.T) {
@@ -240,5 +186,113 @@ func TestLicenseHandlerError(t *testing.T) {
 	mockLicenseProvider.EXPECT().GetText().Return("", errors.New("test error"))
 	mockResponseWriter.EXPECT().WriteHeader(http.StatusInternalServerError)
 
-	LicenseHandler(mockResponseWriter, nil)
+	licenseHandler(mockResponseWriter, nil)
+}
+
+func taskDiffHelper(t *testing.T, expected []*api.Task, actual TasksResponse) {
+	if len(expected) != len(actual.Tasks) {
+		t.Errorf("Expected %v tasks, had %v tasks", len(expected), len(actual.Tasks))
+	}
+
+	for _, task := range expected {
+		// Find related actual task
+		var respTask *TaskResponse
+		for _, actualTask := range actual.Tasks {
+			if actualTask.Arn == task.Arn {
+				respTask = actualTask
+			}
+		}
+
+		if respTask == nil {
+			t.Errorf("Could not find matching task for arn: %v", task.Arn)
+			continue
+		}
+
+		if respTask.DesiredStatus != task.DesiredStatus.String() {
+			t.Errorf("DesiredStatus mismatch: %v != %v", respTask.DesiredStatus, task.DesiredStatus)
+		}
+		if respTask.KnownStatus != task.KnownStatus.String() {
+			t.Errorf("KnownStatus mismatch: %v != %v", respTask.KnownStatus, task.KnownStatus)
+		}
+
+		if respTask.Family != task.Family || respTask.Version != task.Version {
+			t.Errorf("Family mismatch: %v:%v != %v:%v", respTask.Family, respTask.Version, task.Family, task.Version)
+		}
+
+		if len(respTask.Containers) != len(task.Containers) {
+			t.Errorf("Expected %v containers in %v, was %v", len(task.Containers), task.Arn, len(respTask.Containers))
+			continue
+		}
+		for _, respCont := range respTask.Containers {
+			_, ok := task.ContainerByName(respCont.Name)
+			if !ok {
+				t.Errorf("Could not find container %v", respCont.Name)
+			}
+			if respCont.DockerId == "" {
+				t.Error("blank dockerid")
+			}
+		}
+	}
+}
+
+var testTasks = []*api.Task{
+	{
+		Arn:           "task1",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskRunning,
+		Family:        "test",
+		Version:       "1",
+		Containers: []*api.Container{
+			{
+				Name: "one",
+			},
+			{
+				Name: "two",
+			},
+		},
+	},
+	{
+		Arn:           "task2",
+		DesiredStatus: api.TaskRunning,
+		KnownStatus:   api.TaskRunning,
+		Family:        "test",
+		Version:       "2",
+		Containers: []*api.Container{
+			{
+				Name: "foo",
+			},
+		},
+	},
+}
+
+func stateSetupHelper(state *dockerstate.DockerTaskEngineState, tasks []*api.Task) {
+	for _, task := range tasks {
+		state.AddTask(task)
+		for _, container := range task.Containers {
+			state.AddContainer(&api.DockerContainer{
+				Container:  container,
+				DockerId:   "dockerid-" + task.Arn + "-" + container.Name,
+				DockerName: "dockername-" + task.Arn + "-" + container.Name,
+			}, task)
+		}
+	}
+}
+
+func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
+
+	state := dockerstate.NewDockerTaskEngineState()
+	stateSetupHelper(state, testTasks)
+
+	mockStateResolver.EXPECT().State().Return(state)
+	requestHandler := setupServer(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
+
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", path, nil)
+	requestHandler.Handler.ServeHTTP(recorder, req)
+
+	return recorder
 }
