@@ -41,6 +41,7 @@ var log = logger.ForModule("tcs client")
 type clientServer struct {
 	statsEngine            stats.Engine
 	publishTicker          *time.Ticker
+	endPublish             chan struct{}
 	publishMetricsInterval time.Duration
 	wsclient.ClientServerImpl
 }
@@ -79,6 +80,7 @@ func (cs *clientServer) Serve() error {
 
 	// Start the timer function to publish metrics to the backend.
 	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
+	cs.endPublish = make(chan struct{})
 	go cs.publishMetrics()
 
 	return cs.ConsumeMessages()
@@ -122,6 +124,7 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 func (cs *clientServer) Close() error {
 	if cs.publishTicker != nil {
 		cs.publishTicker.Stop()
+		cs.endPublish <- struct{}{}
 	}
 	if cs.Conn != nil {
 		return cs.Conn.Close()
@@ -140,8 +143,14 @@ func (cs *clientServer) publishMetrics() {
 	// sure that there is no data loss when a scheduled metrics publishing fails
 	// due to a connection reset.
 	cs.publishMetricsOnce()
-	for range cs.publishTicker.C {
-		cs.publishMetricsOnce()
+	// don't simply range over the ticker since its channel doesn't ever get closed
+	for {
+		select {
+		case <-cs.publishTicker.C:
+			cs.publishMetricsOnce()
+		case <-cs.endPublish:
+			return
+		}
 	}
 }
 
