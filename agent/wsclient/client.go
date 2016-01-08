@@ -48,7 +48,7 @@ const (
 	ServiceName = "ecs"
 
 	// wsConnectTimeout specifies the default connection timeout to the backend.
-	wsConnectTimeout = 3 * time.Second
+	wsConnectTimeout = 30 * time.Second
 
 	// readBufSize is the size of the read buffer for the ws connection.
 	readBufSize = 4096
@@ -296,7 +296,7 @@ func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Requ
 	if !strings.Contains(targetHost, ":") {
 		targetHost += ":443"
 	}
-	targetHostname, _ , err := net.SplitHostPort(targetHost)
+	targetHostname, _, err := net.SplitHostPort(targetHost)
 	if err != nil {
 		return nil, err
 	}
@@ -320,8 +320,8 @@ func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Requ
 	// TLS over an HTTP proxy via CONNECT taken from: https://golang.org/src/net/http/transport.go
 	connectReq := &http.Request{
 		Method: "CONNECT",
-		URL: &url.URL{Opaque: targetHost},
-		Host: targetHost,
+		URL:    &url.URL{Opaque: targetHost},
+		Host:   targetHost,
 		Header: make(http.Header),
 	}
 
@@ -329,7 +329,7 @@ func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Requ
 		username := proxyUser.Username()
 		password, _ := proxyUser.Password()
 		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-		connectReq.Header.Set("Proxy-Authorization", "Basic " + auth)
+		connectReq.Header.Set("Proxy-Authorization", "Basic "+auth)
 	}
 
 	connectReq.Write(plainConn)
