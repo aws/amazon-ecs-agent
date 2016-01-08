@@ -51,7 +51,7 @@ const (
 	startContainerTimeout   = 1*time.Minute + 30*time.Second
 	stopContainerTimeout    = 1 * time.Minute
 	removeContainerTimeout  = 5 * time.Minute
-	inspectContainerTimeout = 10 * time.Second
+	inspectContainerTimeout = 30 * time.Second
 	listContainersTimeout   = 10 * time.Minute
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
