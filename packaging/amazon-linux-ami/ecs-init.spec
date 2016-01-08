@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.7.0
+Version:        1.7.1
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -147,6 +147,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Fri Jan 8 2016 Samuel Karp <skarp@amazon.com> - 1.7.1-1
+- Cache Agent version 1.7.1
 * Tue Dec 8 2015 Samuel Karp <skarp@amazon.com> - 1.7.0-1
 - Cache Agent version 1.7.0
 - Add support for Docker 1.9.1
