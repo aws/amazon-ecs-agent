@@ -15,6 +15,7 @@ package config
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
@@ -98,6 +99,10 @@ type Config struct {
 	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
 	// security options
 	AppArmorCapable bool
+
+	// CleanupWaitDuration specifies the time to wait after a task is stopped
+	// until cleanup of task resources is started.
+	CleanupWaitDuration time.Duration
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

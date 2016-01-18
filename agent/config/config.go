@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -148,6 +149,7 @@ func DefaultConfig() Config {
 		DockerGraphPath:         "/var/lib/docker",
 		ReservedMemory:          0,
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
+		CleanupWaitDuration:      3 * time.Hour,
 	}
 }
 
@@ -179,6 +181,23 @@ func FileConfig() Config {
 		config.Cluster = config.ClusterArn
 	}
 	return config
+}
+
+func parseEnvVariableInt(envVar string, defaultValue uint16) (uint16) {
+	envVal := os.Getenv(envVar)
+	var var16 uint16
+	if envVal == "" {
+			var16 = defaultValue
+	} else {
+    var64, err := strconv.ParseUint(envVal, 10, 16)
+		if err != nil {
+			log.Warn("Invalid format for \"" + envVar + "\" environment variable; expected unsigned integer.", "err", err)
+			var16 = defaultValue
+		} else {
+			var16 = uint16(var64)
+		}
+	}
+  return var16
 }
 
 // EnvironmentConfig reads the given configs from the environment and attempts
@@ -233,20 +252,13 @@ func EnvironmentConfig() Config {
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
 	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
-	reservedMemoryEnv := os.Getenv("ECS_RESERVED_MEMORY")
-	var reservedMemory64 uint64
-	var reservedMemory uint16
-	if reservedMemoryEnv == "" {
-		reservedMemory = 0
-	} else {
-		reservedMemory64, err = strconv.ParseUint(reservedMemoryEnv, 10, 16)
-		if err != nil {
-			log.Warn("Invalid format for \"ECS_RESERVED_MEMORY\" environment variable; expected unsigned integer.", "err", err)
-			reservedMemory = 0
-		} else {
-			reservedMemory = uint16(reservedMemory64)
-		}
-	}
+	reservedMemory := parseEnvVariableInt("ECS_RESERVED_MEMORY", DefaultConfig().ReservedMemory)
+
+	cleanupWaitDuration := DefaultConfig().CleanupWaitDuration
+	cleanupWaitDurationEnv, cwsErr := time.ParseDuration(os.Getenv("ECS_ENGINE_CLEANUP_WAIT_SECONDS"))
+  if cwsErr != nil {
+    cleanupWaitDuration = cleanupWaitDurationEnv
+  }
 
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
@@ -283,6 +295,7 @@ func EnvironmentConfig() Config {
 		PrivilegedDisabled:      privilegedDisabled,
 		SELinuxCapable:          seLinuxCapable,
 		AppArmorCapable:         appArmorCapable,
+		CleanupWaitDuration:      cleanupWaitDuration,
 	}
 }
 
@@ -348,5 +361,5 @@ func (config *Config) validate() error {
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory)
+	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, CleanupWaitDuration: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.CleanupWaitDuration)
 }
