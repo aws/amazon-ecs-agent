@@ -115,7 +115,7 @@ configure them as something other than the defaults.
 | `ECS_DISABLE_PRIVILEGED` | `true` | Whether launching privileged containers is disabled on the Container Instance. | `false` |
 | `ECS_SELINUX_CAPABLE` | `true` | Whether SELinux is available on the Container Instance. | `false` |
 | `ECS_APPARMOR_CAPABLE` | `true` | Whether AppArmor is available on the Container Instance. | `false` |
-| `ECS_ENGINE_CLEANUP_WAIT_MINUTES` | 3 hours | Time to wait from when a task is stopped until the docker container is removed |
+| `ECS_ENGINE_CLEANUP_WAIT_DURATION` | 3 hours | Time to wait from when a task is stopped until the docker container is removed |
 
 ### Persistence
 
