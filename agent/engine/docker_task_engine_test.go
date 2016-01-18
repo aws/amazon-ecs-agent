@@ -407,6 +407,7 @@ func TestCapabilities(t *testing.T) {
 		PrivilegedDisabled: false,
 		SELinuxCapable:     true,
 		AppArmorCapable:    true,
+		CleanupWaitDuration: config.DefaultConfig().CleanupWaitDuration,
 	}
 	ctrl, client, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()
