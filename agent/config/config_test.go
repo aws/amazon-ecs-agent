@@ -18,6 +18,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
@@ -84,6 +85,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
 	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
+	os.Setenv("ECS_ENGINE_CLEANUP_WAIT_DURATION", "20s")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -109,6 +111,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if !conf.AppArmorCapable {
 		t.Error("Wrong value for AppArmorCapable")
+	}
+	if conf.CleanupWaitDuration != (20 * time.Second) {
+		t.Error("Wrong value for CleanupWaitDuration")
 	}
 }
 
