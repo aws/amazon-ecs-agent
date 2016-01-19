@@ -200,6 +200,22 @@ func parseEnvVariableInt(envVar string, defaultValue uint16) (uint16) {
   return var16
 }
 
+func parseEnvVariableDuration(envVar string, defaultValue time.Duration) (time.Duration) {
+	envVal := os.Getenv(envVar)
+	if envVal == "" {
+		log.Debug("Environment variable empty: " + envVar + " using default.")
+		return defaultValue
+	} else {
+		envDuration, durErr := time.ParseDuration(envVal)
+		if durErr != nil {
+			log.Warn("Could not parse duration value: " + envVal + " for Env Var " + envVar + " using default. ", durErr)
+			return defaultValue
+		} else {
+			return envDuration
+		}
+	}
+}
+
 // EnvironmentConfig reads the given configs from the environment and attempts
 // to convert them to the given type
 func EnvironmentConfig() Config {
@@ -254,11 +270,7 @@ func EnvironmentConfig() Config {
 
 	reservedMemory := parseEnvVariableInt("ECS_RESERVED_MEMORY", DefaultConfig().ReservedMemory)
 
-	cleanupWaitDuration := DefaultConfig().CleanupWaitDuration
-	cleanupWaitDurationEnv, cwsErr := time.ParseDuration(os.Getenv("ECS_ENGINE_CLEANUP_WAIT_DURATION"))
-  if cwsErr != nil {
-    cleanupWaitDuration = cleanupWaitDurationEnv
-  }
+	cleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_CLEANUP_WAIT_DURATION", DefaultConfig().CleanupWaitDuration)
 
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
@@ -295,7 +307,7 @@ func EnvironmentConfig() Config {
 		PrivilegedDisabled:      privilegedDisabled,
 		SELinuxCapable:          seLinuxCapable,
 		AppArmorCapable:         appArmorCapable,
-		CleanupWaitDuration:      cleanupWaitDuration,
+		CleanupWaitDuration:     cleanupWaitDuration,
 	}
 }
 
