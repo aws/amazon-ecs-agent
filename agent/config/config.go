@@ -268,7 +268,7 @@ func EnvironmentConfig() Config {
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
 	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
-	reservedMemory := parseEnvVariableInt("ECS_RESERVED_MEMORY", DefaultConfig().ReservedMemory)
+	reservedMemory := parseEnvVariableInt("ECS_RESERVED_MEMORY", 0)
 
 	cleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_CLEANUP_WAIT_DURATION", DefaultConfig().CleanupWaitDuration)
 
