@@ -17,7 +17,7 @@
 
 %define short_name amazon-ecs
 Name:           amazon-ecs-init
-Version:        1.5.0
+Version:        1.7.1
 Release:        0
 Summary:        Amazon EC2 Container Service Initialization
 License:        Apache-2.0
@@ -25,7 +25,6 @@ Group:          System Environment/Base
 Url:            https://github.com/aws/amazon-ecs-init
 Source0:        %{name}-%{version}.tar.gz
 Source1:        %{short_name}.service
-Patch1:         cgroup_location.patch
 BuildRequires:  go
 BuildRequires:  systemd
 Requires:       docker >= 1.6.0
@@ -41,7 +40,6 @@ Amazon EC2.
 
 %prep
 %setup -q -n %{name}-%{version}
-%patch1
 
 %build
 ./scripts/gobuild.sh suse
