@@ -189,7 +189,7 @@ func parseEnvVariableInt(envVar string, defaultValue uint16) (uint16) {
 	if envVal == "" {
 			var16 = defaultValue
 	} else {
-    var64, err := strconv.ParseUint(envVal, 10, 16)
+		var64, err := strconv.ParseUint(envVal, 10, 16)
 		if err != nil {
 			log.Warn("Invalid format for \"" + envVar + "\" environment variable; expected unsigned integer.", "err", err)
 			var16 = defaultValue
@@ -197,7 +197,7 @@ func parseEnvVariableInt(envVar string, defaultValue uint16) (uint16) {
 			var16 = uint16(var64)
 		}
 	}
-  return var16
+	return var16
 }
 
 func parseEnvVariableDuration(envVar string, defaultValue time.Duration) (time.Duration) {
