@@ -668,6 +668,8 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				fallthrough
 			case "untag":
 				fallthrough
+			case "load":
+				fallthrough
 			case "import":
 				fallthrough
 			case "delete":
