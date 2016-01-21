@@ -502,7 +502,7 @@ func (dg *dockerGoClient) GetContainerName(id string) (string, error) {
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Inspect", err.Error()}}
+		return DockerContainerMetadata{DockerId: id, Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
 	return metadataFromContainer(dockerContainer)
 }

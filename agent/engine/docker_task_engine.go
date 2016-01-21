@@ -472,10 +472,9 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	engine.saver.ForceSave()
 
 	metadata := client.CreateContainer(config, hostConfig, containerName)
-	if metadata.Error != nil {
-		return metadata
+	if metadata.DockerId != "" {
+		engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerId, DockerName: containerName, Container: container}, task)
 	}
-	engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerId, DockerName: containerName, Container: container}, task)
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerId)
 	return metadata
 }

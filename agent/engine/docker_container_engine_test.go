@@ -322,6 +322,30 @@ func TestCreateContainerTimeout(t *testing.T) {
 	wait.Done()
 }
 
+func TestCreateContainerInspectTimeout(t *testing.T) {
+	mockDocker, client, testTime, done := dockerclientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
+	gomock.InOrder(
+		mockDocker.EXPECT().CreateContainer(config).Return(&docker.Container{ID: "id"}, nil),
+		mockDocker.EXPECT().InspectContainer("id").Do(func(x interface{}) {
+			testTime.Warp(inspectContainerTimeout)
+			wait.Wait()
+		}),
+	)
+	metadata := client.CreateContainer(config.Config, nil, config.Name)
+	if metadata.DockerId != "id" {
+		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerId)
+	}
+	if metadata.Error == nil {
+		t.Error("Expected error for inspect timeout")
+	}
+	wait.Done()
+}
+
 func TestCreateContainer(t *testing.T) {
 	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
