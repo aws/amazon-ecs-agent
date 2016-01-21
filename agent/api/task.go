@@ -190,6 +190,13 @@ func (task *Task) DockerConfig(container *Container) (*docker.Config, *DockerCli
 }
 
 func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
+	// Detect the name for S3 images
+	dockerImage := container.Image
+	if strings.HasPrefix(dockerImage, "s3://") {
+		slice := strings.Split(dockerImage, "/")
+		dockerImage = slice[len(slice)-1]
+	}
+
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
 		return nil, &DockerClientConfigError{err.Error()}
@@ -212,7 +219,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 	}
 
 	config := &docker.Config{
-		Image:        container.Image,
+		Image:        dockerImage,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
 		ExposedPorts: task.dockerExposedPorts(container),
