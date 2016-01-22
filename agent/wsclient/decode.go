@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/aws/aws-sdk-go/internal/protocol/json/jsonutil"
+	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 )
 
 // DecodeData decodes a raw message into its type. E.g. An ACS message of the

@@ -14,30 +14,35 @@
 package api
 
 import (
+	"math"
+	"math/rand"
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/corehandlers"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
-	// submitStateChangeMaxDelayRetries is the initial set of retries where delay
-	// between retries grows exponentially at 2^n * 30ms.  This should be roughly
+	// submitStateChangeInitialRetries is the initial set of retries where delay
+	// between retries grows exponentially at 2^n * 45+-15ms.  This should be roughly
 	// 5 minutes of delay at the last growing retry.
-	// 5 min = 2^n * 30 ms
-	// 300000 ms = 2^n * 30 ms
-	// 10000 ms = 2^n
-	// n ~= 13.3
-	submitStateChangeMaxDelayRetries = 14
+	// 5 min = 2^n * (30 + 15) ms
+	// n ~= 12.7
+	// We round up to 13 (which really gives us ~6 minutes) for no
+	// particular reason.
+	// Because of jitter, this caps at ~8 minutes
+	submitStateChangeInitialRetries = 13
 
 	// submitStateChangeExtraRetries is the set of retries (at the max delay per
-	// retry of roughly 5 minutes) which should reach roughly 24 hours of elapsed
+	// retry of exactly 5 minutes) which should reach roughly 24 hours of elapsed
 	// time.
-	// delay = 2^(14) * 30ms = 491520 ms ~= 8 minutes
-	// baseTryTime = \sum_{i=0}^14{2^i * 30 ms} ~= 16 minutes
-	// 24 hours ~= 16 minutes + (n * 8 minutes)
-	// n ~= 178
-	submitStateChangeExtraRetries = 178
+	// baseTryTime = \sum_{i=0}^13{2^i * 45 ms} ~= 12 minutes
+	// 24 hours ~= 12 minutes + (n * 5 minutes)
+	// n ~= 285
+	submitStateChangeExtraRetries = 285
 )
 
 // newSubmitStateChangeClient returns a client intended to be used for
@@ -45,38 +50,36 @@ const (
 // retriable errors for an extended period of time (roughly 24 hours).
 func newSubmitStateChangeClient(awsConfig *aws.Config) *ecs.ECS {
 	sscConfig := awsConfig.Copy()
-	sscConfig.MaxRetries = aws.Int(submitStateChangeMaxDelayRetries)
-	client := ecs.New(sscConfig)
-	client.Handlers.AfterRetry.Clear()
-	client.Handlers.AfterRetry.PushBackNamed(
-		extendedRetryMaxDelayHandlerFactory(submitStateChangeExtraRetries))
-	client.DefaultMaxRetries = submitStateChangeMaxDelayRetries
+	sscConfig.Retryer = &oneDayRetrier{}
+	client := ecs.New(session.New(sscConfig))
 	return client
 }
 
-var awsAfterRetryHandler = func(r *request.Request) {
-	corehandlers.AfterRetryHandler.Fn(r)
+// oneDayRetrier is a retrier for the AWS SDK that retries up to one day.
+// Each retry will have an exponential backoff from 30ms to 5 minutes. Once the
+// backoff has reached 5 minutes, it will not increase further.
+// Conforms to the request.Retryer interface https://github.com/aws/aws-sdk-go/blob/v1.0.0/aws/request/retryer.go#L13
+type oneDayRetrier struct {
+	client.DefaultRetryer
 }
 
-// ExtendedRetryMaxDelayHandlerFactory returns a Handler which can be used as
-// an AfterRetryHandler in the AWS Go SDK.  This AfterRetryHandler can be used
-// to have a large number of retries where the initial delay between backoff
-// grows exponentially (2^n * 30ms; defined in service.retryRules) and extra
-// retries are performed at the maximum delay of the initial exponential
-// growth.
-func extendedRetryMaxDelayHandlerFactory(maxExtendedRetries uint) request.NamedHandler {
-	return request.NamedHandler{
-		Name: "ExtendedRetryHandler",
-		Fn: func(r *request.Request) {
-			realRetryCount := r.RetryCount
-			maxDelayRetries := r.MaxRetries()
-			if r.RetryCount >= (maxDelayRetries + maxExtendedRetries) {
-				return
-			} else if r.RetryCount >= maxDelayRetries {
-				r.RetryCount = maxDelayRetries - 1
-			}
-			awsAfterRetryHandler(r)
-			r.RetryCount = (realRetryCount + 1)
-		},
+// MaxRetries returns the number of retries needed to retry for roughly a day
+// for this Retrier
+func (retrier *oneDayRetrier) MaxRetries() int {
+	return submitStateChangeExtraRetries + submitStateChangeInitialRetries
+}
+
+// RetryRules returns the correct time to delay between retries for this
+// instance of a retry. For the first 14 requests, it follows an exponential
+// backoff between 30ms and 1 minute.
+// See the const comments for math on how this gets us to around 24 hours
+// total.
+func (retrier *oneDayRetrier) RetryRules(r *request.Request) time.Duration {
+	// This logic is the same as the default retrier, but duplicated here such
+	// that upstream changes do not invalidate the math done above.
+	if r.RetryCount <= submitStateChangeInitialRetries {
+		delay := int(math.Pow(2, float64(r.RetryCount))) * (rand.Intn(30) + 30)
+		return time.Duration(delay) * time.Millisecond
 	}
+	return 5 * time.Minute
 }

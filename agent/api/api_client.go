@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/docker/docker/pkg/system"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -109,7 +110,7 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}
-	standardClient := ecs.New(&ecsConfig)
+	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
 	return &ApiECSClient{
 		credentialProvider:      credentialProvider,

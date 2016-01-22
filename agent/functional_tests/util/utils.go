@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -56,7 +57,7 @@ func init() {
 		ecsconfig.Endpoint = &envEndpoint
 	}
 
-	ECS = ecs.New(&ecsconfig)
+	ECS = ecs.New(session.New(&ecsconfig))
 	Cluster = "ecs-functional-tests"
 	if envCluster := os.Getenv("ECS_CLUSTER"); envCluster != "" {
 		Cluster = envCluster

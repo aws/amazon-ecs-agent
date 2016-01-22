@@ -15,59 +15,41 @@ package api
 
 import (
 	"errors"
+	"net/http"
 	"testing"
+	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/service"
-	"github.com/aws/aws-sdk-go/aws/service/serviceinfo"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 )
 
-func TestExtendedRetryMaxDelayHandler(t *testing.T) {
-	maxDelayRetries := uint(2)
-	maxExtraRetries := uint(10)
-	retryCounts := []uint{}
-	// inject fake awsAfterRetryHandler to just collect retry counts
-	awsAfterRetryHandler = func(r *request.Request) {
-		retryCounts = append(retryCounts, r.RetryCount)
-		r.Error = nil
-	}
+func TestOneDayRetrier(t *testing.T) {
+	stateChangeClient := newSubmitStateChangeClient(defaults.Config())
 
-	extendedRetryMaxDelayHandler := extendedRetryMaxDelayHandlerFactory(maxExtraRetries)
+	request, _ := stateChangeClient.SubmitContainerStateChangeRequest(&ecs.SubmitContainerStateChangeInput{})
 
-	request := &request.Request{
-		Retryer: service.DefaultRetryer{&service.Service{
-			DefaultMaxRetries: maxDelayRetries,
-			ServiceInfo: serviceinfo.ServiceInfo{
-				Config: &aws.Config{
-					MaxRetries: aws.Int(-1),
-				},
-			},
-		}},
-	}
-	var count uint
-	for count = 0; request.Error == nil; count++ {
+	retrier := stateChangeClient.Retryer
+
+	var totalDelay time.Duration
+	for retries := 0; retries < retrier.MaxRetries(); retries++ {
 		request.Error = errors.New("")
-		extendedRetryMaxDelayHandler.Fn(request)
-	}
-
-	if count != (maxDelayRetries + maxExtraRetries + 1) {
-		t.Errorf("Should have been called %d times but was %d", maxDelayRetries+maxExtraRetries+1, count)
-	}
-
-	for i := uint(0); i < maxDelayRetries; i++ {
-		if retryCounts[i] != i {
-			t.Errorf("Expected retry count for attempt %d to be %d, but was %d", i, i, retryCounts[i])
+		request.Retryable = aws.Bool(true)
+		request.HTTPResponse = &http.Response{StatusCode: 500}
+		if request.WillRetry() && retrier.ShouldRetry(request) {
+			totalDelay += retrier.RetryRules(request)
+			request.RetryCount++
 		}
 	}
 
-	for i := maxDelayRetries; i < count-1; i++ {
-		if retryCounts[i] != maxDelayRetries-1 {
-			t.Errorf("Expected retry count for attempt %d to be %d, but was %d", i, maxDelayRetries-1, retryCounts[i])
-		}
+	request.Error = errors.New("")
+	request.Retryable = aws.Bool(true)
+	request.HTTPResponse = &http.Response{StatusCode: 500}
+	if request.WillRetry() {
+		t.Errorf("Expected request to not be retried after %v retries", retrier.MaxRetries())
 	}
 
-	if request.RetryCount != maxDelayRetries+maxExtraRetries {
-		t.Errorf("Expected retry count for attempt %d to be %d, but was %d", count-1, maxDelayRetries+maxExtraRetries, request.RetryCount)
+	if totalDelay > 25*time.Hour || totalDelay < 23*time.Hour {
+		t.Errorf("Expected accumulated retry delay to be roughly 24 hours; was %v", totalDelay)
 	}
 }

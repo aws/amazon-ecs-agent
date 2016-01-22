@@ -172,7 +172,10 @@ func _main() int {
 
 	capabilities := taskEngine.Capabilities()
 
-	credentialProvider := defaults.DefaultChainCredentials
+	// We instantiate our own credentialProvider for use in acs/tcs. This tries
+	// to mimic roughly the way it's instantiated by the SDK for a default
+	// session.
+	credentialProvider := defaults.CredChain(defaults.Config(), defaults.Handlers())
 	// Preflight request to make sure they're good
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)

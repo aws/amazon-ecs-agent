@@ -56,7 +56,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
-
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)

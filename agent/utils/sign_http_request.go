@@ -19,21 +19,21 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/service/serviceinfo"
-	"github.com/aws/aws-sdk-go/internal/signer/v4"
+	"github.com/aws/aws-sdk-go/private/signer/v4"
 )
 
 // SignHTTPRequest signs an http.Request struct with authv4 using the given region, service, and credentials.
 func SignHTTPRequest(req *http.Request, region, service string, creds *credentials.Credentials, body io.ReadSeeker) {
 	v4.Sign(&request.Request{
-		Service: serviceinfo.ServiceInfo{
+		ClientInfo: metadata.ClientInfo{
 			SigningRegion: region,
 			SigningName:   service,
-			Config: &aws.Config{
-				Credentials: creds,
-			},
+		},
+		Config: aws.Config{
+			Credentials: creds,
 		},
 		HTTPRequest: req,
 		Body:        body,
