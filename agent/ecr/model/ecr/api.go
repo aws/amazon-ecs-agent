@@ -47,17 +47,13 @@ func (c *ECR) GetAuthorizationToken(input *GetAuthorizationTokenInput) (*GetAuth
 }
 
 type AuthorizationData struct {
+	_ struct{} `type:"structure"`
+
 	AuthorizationToken *string `locationName:"authorizationToken" type:"string"`
 
 	ExpiresAt *time.Time `locationName:"expiresAt" type:"timestamp" timestampFormat:"unix"`
 
 	ProxyEndpoint *string `locationName:"proxyEndpoint" type:"string"`
-
-	metadataAuthorizationData `json:"-" xml:"-"`
-}
-
-type metadataAuthorizationData struct {
-	SDKShapeTraits bool `type:"structure"`
 }
 
 // String returns the string representation
@@ -71,13 +67,9 @@ func (s AuthorizationData) GoString() string {
 }
 
 type GetAuthorizationTokenInput struct {
+	_ struct{} `type:"structure"`
+
 	RegistryIds []*string `locationName:"registryIds" type:"list"`
-
-	metadataGetAuthorizationTokenInput `json:"-" xml:"-"`
-}
-
-type metadataGetAuthorizationTokenInput struct {
-	SDKShapeTraits bool `type:"structure"`
 }
 
 // String returns the string representation
@@ -91,13 +83,9 @@ func (s GetAuthorizationTokenInput) GoString() string {
 }
 
 type GetAuthorizationTokenOutput struct {
+	_ struct{} `type:"structure"`
+
 	AuthorizationData []*AuthorizationData `locationName:"authorizationData" type:"list"`
-
-	metadataGetAuthorizationTokenOutput `json:"-" xml:"-"`
-}
-
-type metadataGetAuthorizationTokenOutput struct {
-	SDKShapeTraits bool `type:"structure"`
 }
 
 // String returns the string representation

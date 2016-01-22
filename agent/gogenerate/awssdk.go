@@ -23,8 +23,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/aws/aws-sdk-go/internal/model/api"
-	"github.com/aws/aws-sdk-go/internal/util"
+	"github.com/aws/aws-sdk-go/private/model/api"
+	"github.com/aws/aws-sdk-go/private/util"
 	"golang.org/x/tools/imports"
 )
 

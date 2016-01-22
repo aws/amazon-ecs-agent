@@ -22,6 +22,7 @@ import (
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 // ECRSDK is an interface that specifies the subset of the AWS Go SDK's ECR
@@ -85,5 +86,5 @@ func (factory *ecrFactory) newClient(region, endpointOverride string) ECRSDK {
 	if endpointOverride != "" {
 		ecrConfig.Endpoint = &endpointOverride
 	}
-	return ecrapi.New(&ecrConfig)
+	return ecrapi.New(session.New(&ecrConfig))
 }
