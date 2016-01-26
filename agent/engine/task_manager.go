@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	taskStoppedDuration           = 3 * time.Hour
 	steadyStateTaskVerifyInterval = 10 * time.Minute
 )
 
@@ -161,7 +160,7 @@ func (task *managedTask) overseeTask() {
 		llog.Debug("Marking done for this sequence", "seqnum", task.StopSequenceNumber)
 		task.engine.taskStopGroup.Done(task.StopSequenceNumber)
 	}
-	task.cleanupTask()
+	task.cleanupTask(task.engine.cfg.CleanupWaitDuration)
 }
 
 func (mtask *managedTask) emitCurrentStatus() {
@@ -415,7 +414,7 @@ func (task *managedTask) progressContainers() {
 	task.UpdateStatus()
 }
 
-func (task *managedTask) cleanupTask() {
+func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	cleanupTime := ttime.After(task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now()))
 	cleanupTimeBool := make(chan bool)
 	go func() {
