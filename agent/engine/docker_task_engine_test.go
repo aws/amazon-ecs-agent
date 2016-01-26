@@ -16,6 +16,7 @@ package engine
 import (
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,6 +47,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 
 	eventStream := make(chan DockerContainerChangeEvent)
+	eventsReported := sync.WaitGroup{}
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
@@ -63,11 +65,19 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			t.Fatal(err)
 		}
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
-			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
+			eventsReported.Add(1)
+			go func() {
+				eventStream <- dockerEvent(api.ContainerCreated)
+				eventsReported.Done()
+			}()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
 		client.EXPECT().StartContainer("containerId").Do(func(id string) {
-			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
+			eventsReported.Add(1)
+			go func() {
+				eventStream <- dockerEvent(api.ContainerRunning)
+				eventsReported.Done()
+			}()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
@@ -92,6 +102,10 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
+	eventsReported.Wait()
+	// Wait for all events to be consumed prior to moving it towards stopped; we
+	// don't want to race the below with these or we'll end up with the "going
+	// backwards in state" stop and we haven't 'expect'd for that
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
