@@ -81,6 +81,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
 	os.Setenv("ECS_RESERVED_MEMORY", "20")
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "30")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
@@ -99,6 +100,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if conf.ReservedMemory != 20 {
 		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
+	}
+	if conf.DockerStopTimeoutSeconds != 30 {
+		t.Error("Wrong value for DockerStopTimeoutSeconds", conf.DockerStopTimeoutSeconds)
 	}
 	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
@@ -179,6 +183,9 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.ReservedMemory != 0 {
 		t.Errorf("Default reserved memory set incorrectly: %v", cfg.ReservedMemory)
+	}
+	if cfg.DockerStopTimeoutSeconds != 30 {
+		t.Error("Default docker stop container timeout set incorrectly")
 	}
 	if cfg.PrivilegedDisabled {
 		t.Errorf("Default PrivilegedDisabled set incorrectly: %v", cfg.PrivilegedDisabled)
