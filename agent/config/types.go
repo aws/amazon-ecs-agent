@@ -81,6 +81,10 @@ type Config struct {
 	// other than containers managed by ECS
 	ReservedMemory uint16
 
+	// ContainerTimeout specifies the amount time before a SIGKILL is issued to
+	// containers managed by ECS
+	DockerStopTimeoutSeconds uint64
+
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver
