@@ -40,7 +40,6 @@ import (
 )
 
 const (
-	dockerStopTimeoutSeconds = 30
 	dockerDefaultTag         = "latest"
 )
 
@@ -48,7 +47,7 @@ const (
 const (
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 3 * time.Minute
-	startContainerTimeout   = 1*time.Minute + 30*time.Second
+	startContainerTimeout   = 1 * time.Minute + 30*time.Second
 	stopContainerTimeout    = 1 * time.Minute
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
@@ -105,6 +104,7 @@ type dockerGoClient struct {
 	version          dockerclient.DockerVersion
 	auth             dockerauth.DockerAuthProvider
 	ecrClientFactory ecr.ECRFactory
+	config           *config.Config
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
@@ -112,6 +112,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		clientFactory: dg.clientFactory,
 		version:       version,
 		auth:          dg.auth,
+		config:	       dg.config,
 	}
 }
 
@@ -146,10 +147,13 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 		return nil, err
 	}
 
+	cfg := config.EnvironmentConfig()
+
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
 		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
+		config: 		  &cfg,
 	}, nil
 }
 
@@ -430,7 +434,7 @@ func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, 
 }
 
 func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	timeout := ttime.After(stopContainerTimeout)
+	timeout := ttime.After(stopContainerTimeout + (time.Duration(dg.config.DockerStopTimeoutSeconds)*time.Second))
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	// Buffered channel so in the case of timeout it takes one write, never gets
@@ -452,7 +456,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StopContainer(dockerId, dockerStopTimeoutSeconds)
+	err = client.StopContainer(dockerId, uint(dg.config.DockerStopTimeoutSeconds))
 	select {
 	case <-ctx.Done():
 		// parent function has already timed out and returned; we're writing to a
@@ -502,7 +506,7 @@ func (dg *dockerGoClient) GetContainerName(id string) (string, error) {
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
-		return DockerContainerMetadata{DockerId: id, Error: CannotXContainerError{"Inspect", err.Error()}}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
 	return metadataFromContainer(dockerContainer)
 }
