@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/aws/amazon-ecs-agent.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-agent)
 
-The Amazon ECS Container Agent is software developed for the [Amazon EC2 Container Service](http://aws.amazon.com/ecs/).
+The Amazon ECS Container Agent is software developed for Amazon EC2 Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
 
 It runs on Container Instances and starts containers on behalf of Amazon ECS.
 
