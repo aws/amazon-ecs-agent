@@ -48,7 +48,7 @@ const (
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 3 * time.Minute
 	startContainerTimeout   = 1 * time.Minute + 30*time.Second
-	stopContainerTimeout    = 30 * time.Second
+	stopContainerAPITimeout = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
 	listContainersTimeout   = 10 * time.Minute
@@ -434,8 +434,7 @@ func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, 
 }
 
 func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	dockerStopTimeout := time.Duration(dg.config.DockerStopTimeoutSeconds)*time.Second
-	timeout := ttime.After(stopContainerTimeout + dockerStopTimeout)
+	timeout := ttime.After(stopContainerAPITimeout + dg.config.DockerStopTimeoutSeconds)
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
@@ -446,7 +445,7 @@ func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 		return resp
 	case <-timeout:
 		cancelFunc()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerTimeout + dockerStopTimeout, "stopped"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerAPITimeout + dg.config.DockerStopTimeoutSeconds, "stopped"}}
 	}
 }
 
@@ -506,7 +505,7 @@ func (dg *dockerGoClient) GetContainerName(id string) (string, error) {
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id)
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Inspect", err.Error()}}
+		return DockerContainerMetadata{DockerId: id, Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
 	return metadataFromContainer(dockerContainer)
 }

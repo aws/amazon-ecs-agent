@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -147,7 +148,7 @@ func DefaultConfig() Config {
 		DisableMetrics:          	false,
 		DockerGraphPath:        	"/var/lib/docker",
 		ReservedMemory:          	0,
-		DockerStopTimeoutSeconds:	30,
+		DockerStopTimeoutSeconds:	time.Duration(30)*time.Second,
 		AvailableLoggingDrivers: 	[]dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
 	}
 }
@@ -251,9 +252,7 @@ func EnvironmentConfig() Config {
 
 	dockerStopTimeoutSecondsEnv := os.Getenv("ECS_CONTAINER_STOP_TIMEOUT")
 	var dockerStopTimeoutSeconds uint64
-	if dockerStopTimeoutSecondsEnv == "" {
-		dockerStopTimeoutSeconds = 30
-	} else {
+	if dockerStopTimeoutSecondsEnv != "" {
 		dockerStopTimeoutSeconds, err = strconv.ParseUint(dockerStopTimeoutSecondsEnv, 10, 64)
 		if err != nil {
 			log.Warn("Invalid format for \"ECS_CONTAINER_STOP_TIMEOUT\" environment variable; expected unsigned integer.", "err", err)
@@ -294,7 +293,7 @@ func EnvironmentConfig() Config {
 		DisableMetrics:          	disableMetrics,
 		DockerGraphPath:         	dockerGraphPath,
 		ReservedMemory:          	reservedMemory,
-		DockerStopTimeoutSeconds: 	dockerStopTimeoutSeconds,
+		DockerStopTimeoutSeconds: 	(time.Duration(dockerStopTimeoutSeconds)*time.Second),
 		AvailableLoggingDrivers: 	availableLoggingDrivers,
 		PrivilegedDisabled:      	privilegedDisabled,
 		SELinuxCapable:          	seLinuxCapable,
