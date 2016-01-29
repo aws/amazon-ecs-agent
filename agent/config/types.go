@@ -14,6 +14,7 @@
 package config
 
 import (
+	"time"
 	"encoding/json"
 	"time"
 
@@ -83,7 +84,7 @@ type Config struct {
 
 	// ContainerTimeout specifies the amount time before a SIGKILL is issued to
 	// containers managed by ECS
-	DockerStopTimeoutSeconds uint64
+	DockerStopTimeoutSeconds time.Duration
 
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file"].

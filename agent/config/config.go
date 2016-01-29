@@ -248,9 +248,7 @@ func environmentConfig() Config {
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 	dockerStopTimeoutSecondsEnv := os.Getenv("ECS_CONTAINER_STOP_TIMEOUT")
 	var dockerStopTimeoutSeconds uint64
-	if dockerStopTimeoutSecondsEnv == "" {
-		dockerStopTimeoutSeconds = 30
-	} else {
+	if dockerStopTimeoutSecondsEnv != "" {
 		dockerStopTimeoutSeconds, err = strconv.ParseUint(dockerStopTimeoutSecondsEnv, 10, 64)
 		if err != nil {
 			log.Warn("Invalid format for \"ECS_CONTAINER_STOP_TIMEOUT\" environment variable; expected unsigned integer.", "err", err)
