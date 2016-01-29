@@ -16,6 +16,7 @@ package config
 import (
 	"errors"
 	"os"
+	"time"
 	"reflect"
 	"testing"
 	"time"
@@ -101,7 +102,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	if conf.ReservedMemory != 20 {
 		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
 	}
-	if conf.DockerStopTimeoutSeconds != 30 {
+	expectedDuration, _ := time.ParseDuration("30s")
+	if conf.DockerStopTimeoutSeconds != expectedDuration {
 		t.Error("Wrong value for DockerStopTimeoutSeconds", conf.DockerStopTimeoutSeconds)
 	}
 	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
@@ -184,8 +186,9 @@ func TestConfigDefault(t *testing.T) {
 	if cfg.ReservedMemory != 0 {
 		t.Errorf("Default reserved memory set incorrectly: %v", cfg.ReservedMemory)
 	}
-	if cfg.DockerStopTimeoutSeconds != 30 {
-		t.Error("Default docker stop container timeout set incorrectly")
+	expectedTimeout, _ := time.ParseDuration("30s")
+	if cfg.DockerStopTimeoutSeconds != expectedTimeout {
+		t.Error("Default docker stop container timeout set incorrectly", cfg.DockerStopTimeoutSeconds)
 	}
 	if cfg.PrivilegedDisabled {
 		t.Errorf("Default PrivilegedDisabled set incorrectly: %v", cfg.PrivilegedDisabled)
