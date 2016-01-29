@@ -14,6 +14,7 @@
 package config
 
 import (
+	"time"
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -82,6 +83,10 @@ type Config struct {
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
 	ReservedMemory uint16
+
+	// ContainerTimeout specifies the amount time before a SIGKILL is issued to
+	// containers managed by ECS
+	DockerStopTimeoutSeconds time.Duration
 
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file"].

@@ -409,10 +409,11 @@ func TestStopContainerTimeout(t *testing.T) {
 	mockDocker, client, testTime, done := dockerclientSetup(t)
 	defer done()
 
+	dockerStopTimeout := client.config.DockerStopTimeoutSeconds
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeoutSeconds)).Do(func(x, y interface{}) {
-		testTime.Warp(stopContainerTimeout)
+	mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeout)).Do(func(x, y interface{}) {
+		testTime.Warp(stopContainerAPITimeout + time.Duration(dockerStopTimeout)*time.Second)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -431,7 +432,7 @@ func TestStopContainer(t *testing.T) {
 	defer done()
 
 	gomock.InOrder(
-		mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeoutSeconds)).Return(nil),
+		mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeoutSeconds)).Return(nil),
 		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
 	metadata := client.StopContainer("id")

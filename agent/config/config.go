@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -140,14 +141,15 @@ func (cfg *Config) trimWhitespace() {
 
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint:          "unix:///var/run/docker.sock",
-		ReservedPorts:           []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
-		ReservedPortsUDP:        []uint16{},
-		DataDir:                 "/data/",
-		DisableMetrics:          false,
-		DockerGraphPath:         "/var/lib/docker",
-		ReservedMemory:          0,
-		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
+		DockerEndpoint:          	"unix:///var/run/docker.sock",
+		ReservedPorts:           	[]uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
+		ReservedPortsUDP:        	[]uint16{},
+		DataDir:                 	"/data/",
+		DisableMetrics:          	false,
+		DockerGraphPath:        	"/var/lib/docker",
+		ReservedMemory:          	0,
+		DockerStopTimeoutSeconds:	time.Duration(30)*time.Second,
+		AvailableLoggingDrivers: 	[]dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
 	}
 }
 
@@ -248,6 +250,18 @@ func EnvironmentConfig() Config {
 		}
 	}
 
+	dockerStopTimeoutSecondsEnv := os.Getenv("ECS_CONTAINER_STOP_TIMEOUT")
+	var dockerStopTimeoutSeconds uint64
+	if dockerStopTimeoutSecondsEnv != "" {
+		dockerStopTimeoutSeconds, err = strconv.ParseUint(dockerStopTimeoutSecondsEnv, 10, 64)
+		if err != nil {
+			log.Warn("Invalid format for \"ECS_CONTAINER_STOP_TIMEOUT\" environment variable; expected unsigned integer.", "err", err)
+			dockerStopTimeoutSeconds = 30
+		} else {
+			dockerStopTimeoutSeconds = uint64(dockerStopTimeoutSeconds)
+		}
+	}
+
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
@@ -264,25 +278,26 @@ func EnvironmentConfig() Config {
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
 
 	return Config{
-		Cluster:                 clusterRef,
-		APIEndpoint:             endpoint,
-		AWSRegion:               awsRegion,
-		DockerEndpoint:          dockerEndpoint,
-		ReservedPorts:           reservedPorts,
-		ReservedPortsUDP:        reservedPortsUDP,
-		DataDir:                 dataDir,
-		Checkpoint:              checkpoint,
-		EngineAuthType:          engineAuthType,
-		EngineAuthData:          NewSensitiveRawMessage([]byte(engineAuthData)),
-		UpdatesEnabled:          updatesEnabled,
-		UpdateDownloadDir:       updateDownloadDir,
-		DisableMetrics:          disableMetrics,
-		DockerGraphPath:         dockerGraphPath,
-		ReservedMemory:          reservedMemory,
-		AvailableLoggingDrivers: availableLoggingDrivers,
-		PrivilegedDisabled:      privilegedDisabled,
-		SELinuxCapable:          seLinuxCapable,
-		AppArmorCapable:         appArmorCapable,
+		Cluster:                 	clusterRef,
+		APIEndpoint:             	endpoint,
+		AWSRegion:               	awsRegion,
+		DockerEndpoint:          	dockerEndpoint,
+		ReservedPorts:           	reservedPorts,
+		ReservedPortsUDP:        	reservedPortsUDP,
+		DataDir:                 	dataDir,
+		Checkpoint:              	checkpoint,
+		EngineAuthType:          	engineAuthType,
+		EngineAuthData:          	NewSensitiveRawMessage([]byte(engineAuthData)),
+		UpdatesEnabled:          	updatesEnabled,
+		UpdateDownloadDir:       	updateDownloadDir,
+		DisableMetrics:          	disableMetrics,
+		DockerGraphPath:         	dockerGraphPath,
+		ReservedMemory:          	reservedMemory,
+		DockerStopTimeoutSeconds: 	(time.Duration(dockerStopTimeoutSeconds)*time.Second),
+		AvailableLoggingDrivers: 	availableLoggingDrivers,
+		PrivilegedDisabled:      	privilegedDisabled,
+		SELinuxCapable:          	seLinuxCapable,
+		AppArmorCapable:         	appArmorCapable,
 	}
 }
 
@@ -348,5 +363,5 @@ func (config *Config) validate() error {
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory)
+	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, DockerStopTimeoutSeconds: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.DockerStopTimeoutSeconds)
 }
