@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	http://aws.amazon.com/apache2.0/
+//      http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -38,22 +38,22 @@ import (
 )
 
 const (
-	dockerDefaultTag         = "latest"
+	dockerDefaultTag = "latest"
 )
 
 // Timelimits for docker operations enforced above docker
 const (
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 3 * time.Minute
-	startContainerTimeout   = 1 * time.Minute + 30*time.Second
+	startContainerTimeout   = 1*time.Minute + 30*time.Second
 	stopContainerAPITimeout = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
 	listContainersTimeout   = 10 * time.Minute
 
-	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
-	// we expect to see output on the pull progress stream. This is to work
-	// around a docker bug which sometimes results in pulls not progressing.
+// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
+// we expect to see output on the pull progress stream. This is to work
+// around a docker bug which sometimes results in pulls not progressing.
 	dockerPullBeginTimeout = 5 * time.Minute
 )
 
@@ -110,7 +110,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		clientFactory: dg.clientFactory,
 		version:       version,
 		auth:          dg.auth,
-		config:	       dg.config,
+		config:        dg.config,
 	}
 }
 
@@ -146,7 +146,7 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 		clientFactory:    clientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
 		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
-		config: 		  &cfg,
+		config:           &cfg,
 	}, nil
 }
 
@@ -337,7 +337,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	select {
 	case <-ctx.Done():
-		// Parent function already timed out; no need to get container metadata
+	// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -371,7 +371,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	err = client.StartContainer(id, nil)
 	select {
 	case <-ctx.Done():
-		// Parent function already timed out; no need to get container metadata
+	// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -451,8 +451,8 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	err = client.StopContainer(dockerId, uint(dg.config.DockerStopTimeoutSeconds))
 	select {
 	case <-ctx.Done():
-		// parent function has already timed out and returned; we're writing to a
-		// buffered channel that will never be read
+	// parent function has already timed out and returned; we're writing to a
+	// buffered channel that will never be read
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -582,8 +582,8 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			case "resize":
 			case "destroy":
 			case "unpause":
-				// These result in us falling through to inspect the container, some
-				// out of caution, some because it's a form of state change
+			// These result in us falling through to inspect the container, some
+			// out of caution, some because it's a form of state change
 
 			case "oom":
 				seelog.Infof("process within container %v died due to OOM", event.ID)
