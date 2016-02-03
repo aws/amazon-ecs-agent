@@ -29,6 +29,7 @@ import (
 )
 
 var dte_test_time = ttime.NewTestTime()
+var defaultConfig = config.DefaultConfig()
 
 func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, TaskEngine) {
 	ctrl := gomock.NewController(t)
@@ -39,7 +40,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	ttime.SetTime(dte_test_time)
 
@@ -136,7 +137,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 }
 
 func TestStartTimeoutThenStart(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	ttime.SetTime(dte_test_time)
 
@@ -391,10 +392,10 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
-		PrivilegedDisabled: false,
-		SELinuxCapable:     true,
-		AppArmorCapable:    true,
-		CleanupWaitDuration: config.DefaultConfig().CleanupWaitDuration,
+		PrivilegedDisabled:      false,
+		SELinuxCapable:          true,
+		AppArmorCapable:         true,
+		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 	ctrl, client, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()

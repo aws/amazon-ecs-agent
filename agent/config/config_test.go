@@ -85,7 +85,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
 	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
-	os.Setenv("ECS_ENGINE_CLEANUP_WAIT_DURATION", "20s")
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")
 
 	conf := EnvironmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -112,8 +112,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	if !conf.AppArmorCapable {
 		t.Error("Wrong value for AppArmorCapable")
 	}
-	if conf.CleanupWaitDuration != (20 * time.Second) {
-		t.Error("Wrong value for CleanupWaitDuration")
+	if conf.TaskCleanupWaitDuration != (90 * time.Second) {
+		t.Error("Wrong value for TaskCleanupWaitDuration")
 	}
 }
 
@@ -180,6 +180,9 @@ func TestConfigDefault(t *testing.T) {
 	if !reflect.DeepEqual(cfg.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.JsonFileDriver}) {
 		t.Error("Default logging drivers set incorrectly")
 	}
+	if cfg.TaskCleanupWaitDuration != 3*time.Hour {
+		t.Error("Defualt task cleanup wait duration set incorrectly")
+	}
 }
 
 func TestBadLoggingDriverSerialization(t *testing.T) {
@@ -199,5 +202,93 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	err := conf.validate()
 	if err == nil {
 		t.Error("Should be error with invalid-logging-driver")
+	}
+}
+
+func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
+	os.Setenv("FOO", "foo")
+	var16 := parseEnvVariableUint16("FOO")
+	if var16 != 0 {
+		t.Error("Expected 0 from parseEnvVariableUint16 for invalid Uint16 format")
+	}
+}
+
+func TestValidFormatParseEnvVariableUint16(t *testing.T) {
+	os.Setenv("FOO", "1")
+	var16 := parseEnvVariableUint16("FOO")
+	if var16 != 1 {
+		t.Errorf("Unexpected value parsed in parseEnvVariableUint16. Expected %d, got %d", 1, var16)
+	}
+}
+
+func TestInvalidFormatParseEnvVariableDuration(t *testing.T) {
+	os.Setenv("FOO", "foo")
+	duration := parseEnvVariableDuration("FOO")
+	if duration != 0 {
+		t.Error("Expected 0 from parseEnvVariableDuration for invalid format")
+	}
+}
+
+func TestValidFormatParseEnvVariableDuration(t *testing.T) {
+	os.Setenv("FOO", "1s")
+	duration := parseEnvVariableDuration("FOO")
+	if duration != 1*time.Second {
+		t.Errorf("Unexpected value parsed in parseEnvVariableDuration. Expected %v, got %v", 1*time.Second, duration)
+	}
+}
+
+func TestInvalidTaskCleanupTimeout(t *testing.T) {
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "1s")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// cleaning up the task.
+	if cfg.TaskCleanupWaitDuration != 3*time.Hour {
+		t.Error("Defualt task cleanup wait duration set incorrectly")
+	}
+}
+
+func TestTaskCleanupTimeout(t *testing.T) {
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "10m")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// cleaning up the task.
+	if cfg.TaskCleanupWaitDuration != 10*time.Minute {
+		t.Errorf("Task cleanup wait duration set incorrectly. Expected %v, got %v", 10*time.Minute, cfg.TaskCleanupWaitDuration)
+	}
+}
+
+func TestInvalidReservedMemory(t *testing.T) {
+	os.Setenv("ECS_RESERVED_MEMORY", "-1")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// reserved memory, which is 0.
+	if cfg.ReservedMemory != 0 {
+		t.Error("Wrong value for ReservedMemory", cfg.ReservedMemory)
+	}
+}
+
+func TestReservedMemory(t *testing.T) {
+	os.Setenv("ECS_RESERVED_MEMORY", "1")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// reserved memory, which is 0.
+	if cfg.ReservedMemory != 1 {
+		t.Errorf("Wrong value for ReservedMemory. Expected %d, got %d", 1, cfg.ReservedMemory)
 	}
 }
