@@ -43,6 +43,14 @@ const (
 	AGENT_INTROSPECTION_PORT = 51678
 
 	DEFAULT_CLUSTER_NAME = "default"
+
+	// DefaultTaskCleanupWaitDuration specifies the default value for task cleanup duration. It is used to
+	// clean up task's containers.
+	DefaultTaskCleanupWaitDuration = 3 * time.Hour
+
+	// minimumTaskCleanupWaitDuration specifies the minimum duration to wait before cleaning up
+	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
+	minimumTaskCleanupWaitDuration = 1 * time.Minute
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -149,11 +157,11 @@ func DefaultConfig() Config {
 		DockerGraphPath:         "/var/lib/docker",
 		ReservedMemory:          0,
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
-		CleanupWaitDuration:      3 * time.Hour,
+		TaskCleanupWaitDuration: DefaultTaskCleanupWaitDuration,
 	}
 }
 
-func FileConfig() Config {
+func fileConfig() Config {
 	config_file := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), "/etc/ecs_container_agent/config.json")
 
 	file, err := os.Open(config_file)
@@ -183,42 +191,9 @@ func FileConfig() Config {
 	return config
 }
 
-func parseEnvVariableInt(envVar string, defaultValue uint16) (uint16) {
-	envVal := os.Getenv(envVar)
-	var var16 uint16
-	if envVal == "" {
-			var16 = defaultValue
-	} else {
-		var64, err := strconv.ParseUint(envVal, 10, 16)
-		if err != nil {
-			log.Warn("Invalid format for \"" + envVar + "\" environment variable; expected unsigned integer.", "err", err)
-			var16 = defaultValue
-		} else {
-			var16 = uint16(var64)
-		}
-	}
-	return var16
-}
-
-func parseEnvVariableDuration(envVar string, defaultValue time.Duration) (time.Duration) {
-	envVal := os.Getenv(envVar)
-	if envVal == "" {
-		log.Debug("Environment variable empty: " + envVar + " using default.")
-		return defaultValue
-	} else {
-		envDuration, durErr := time.ParseDuration(envVal)
-		if durErr != nil {
-			log.Warn("Could not parse duration value: " + envVal + " for Env Var " + envVar + " using default. ", durErr)
-			return defaultValue
-		} else {
-			return envDuration
-		}
-	}
-}
-
-// EnvironmentConfig reads the given configs from the environment and attempts
+// environmentConfig reads the given configs from the environment and attempts
 // to convert them to the given type
-func EnvironmentConfig() Config {
+func environmentConfig() Config {
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
 
 	clusterRef := os.Getenv("ECS_CLUSTER")
@@ -268,10 +243,9 @@ func EnvironmentConfig() Config {
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
 	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
-	reservedMemory := parseEnvVariableInt("ECS_RESERVED_MEMORY", 0)
+	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
-	cleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_CLEANUP_WAIT_DURATION", DefaultConfig().CleanupWaitDuration)
-
+	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
@@ -307,11 +281,40 @@ func EnvironmentConfig() Config {
 		PrivilegedDisabled:      privilegedDisabled,
 		SELinuxCapable:          seLinuxCapable,
 		AppArmorCapable:         appArmorCapable,
-		CleanupWaitDuration:     cleanupWaitDuration,
+		TaskCleanupWaitDuration: taskCleanupWaitDuration,
 	}
 }
 
-func EC2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
+func parseEnvVariableUint16(envVar string) uint16 {
+	envVal := os.Getenv(envVar)
+	var var16 uint16
+	if envVal != "" {
+		var64, err := strconv.ParseUint(envVal, 10, 16)
+		if err != nil {
+			log.Warn("Invalid format for \""+envVar+"\" environment variable; expected unsigned integer.", "err", err)
+		} else {
+			var16 = uint16(var64)
+		}
+	}
+	return var16
+}
+
+func parseEnvVariableDuration(envVar string) time.Duration {
+	var duration time.Duration
+	envVal := os.Getenv(envVar)
+	if envVal == "" {
+		log.Debug("Environment variable empty: " + envVar)
+	} else {
+		var err error
+		duration, err = time.ParseDuration(envVal)
+		if err != nil {
+			log.Warn("Could not parse duration value: "+envVal+" for Environment Variable "+envVar+" : ", err)
+		}
+	}
+	return duration
+}
+
+func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 	iid, err := ec2client.InstanceIdentityDocument()
 	if err != nil {
 		log.Crit("Unable to communicate with EC2 Metadata service to infer region: " + err.Error())
@@ -326,7 +329,7 @@ func EC2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 // error is returned, however, if the config is incomplete in some way that is
 // considered fatal.
 func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
-	ctmp := EnvironmentConfig() //Environment overrides all else
+	ctmp := environmentConfig() //Environment overrides all else
 	config = &ctmp
 	defer func() {
 		config.trimWhitespace()
@@ -339,11 +342,18 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 		return config, nil
 	}
 
-	config.Merge(FileConfig())
+	config.Merge(fileConfig())
 
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
-		config.Merge(EC2MetadataConfig(ec2client))
+		config.Merge(ec2MetadataConfig(ec2client))
+	}
+
+	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
+	// print a warning and override it
+	if config.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
+		log.Warn("Invalid value for task cleanup duration, will be overridden to "+DefaultTaskCleanupWaitDuration.String(), "parsed value", config.TaskCleanupWaitDuration, "minimum threshold", minimumTaskCleanupWaitDuration)
+		config.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
 	return config, err
@@ -373,5 +383,5 @@ func (config *Config) validate() error {
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, CleanupWaitDuration: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.CleanupWaitDuration)
+	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, TaskCleanupWaitDuration: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.TaskCleanupWaitDuration)
 }

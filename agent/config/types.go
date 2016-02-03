@@ -100,9 +100,9 @@ type Config struct {
 	// security options
 	AppArmorCapable bool
 
-	// CleanupWaitDuration specifies the time to wait after a task is stopped
+	// TaskCleanupWaitDuration specifies the time to wait after a task is stopped
 	// until cleanup of task resources is started.
-	CleanupWaitDuration time.Duration
+	TaskCleanupWaitDuration time.Duration
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

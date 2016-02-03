@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
@@ -160,7 +161,7 @@ func (task *managedTask) overseeTask() {
 		llog.Debug("Marking done for this sequence", "seqnum", task.StopSequenceNumber)
 		task.engine.taskStopGroup.Done(task.StopSequenceNumber)
 	}
-	task.cleanupTask(task.engine.cfg.CleanupWaitDuration)
+	task.cleanupTask(task.engine.cfg.TaskCleanupWaitDuration)
 }
 
 func (mtask *managedTask) emitCurrentStatus() {
@@ -415,7 +416,14 @@ func (task *managedTask) progressContainers() {
 }
 
 func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
-	cleanupTime := ttime.After(task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now()))
+	cleanupTimeDuration := task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now())
+	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
+	// value in this case in favor of the default config value.
+	if cleanupTimeDuration < 0 {
+		log.Debug("Task Cleanup Duration is too short. Resetting to " + config.DefaultTaskCleanupWaitDuration.String())
+		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
+	}
+	cleanupTime := ttime.After(cleanupTimeDuration)
 	cleanupTimeBool := make(chan bool)
 	go func() {
 		<-cleanupTime

@@ -202,6 +202,7 @@ func (agent *TestAgent) StartAgent() error {
 			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
 			"AWS_DEFAULT_REGION=" + *ECS.Config.Region,
 			"AWS_SECRET_ACCESS_KEY=" + os.Getenv("AWS_SECRET_ACCESS_KEY"),
+			"ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=" + os.Getenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
 		},
 		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
 	}
