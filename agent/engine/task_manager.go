@@ -420,7 +420,7 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
 	// value in this case in favor of the default config value.
 	if cleanupTimeDuration < 0 {
-		log.Debug("Task Cleanup duration is too short. Resetting to " + config.DefaultTaskCleanupWaitDuration.String())
+		log.Debug("Task Cleanup Duration is too short. Resetting to " + config.DefaultTaskCleanupWaitDuration.String())
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
 	cleanupTime := ttime.After(cleanupTimeDuration)
