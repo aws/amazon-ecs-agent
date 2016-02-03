@@ -161,7 +161,7 @@ func DefaultConfig() Config {
 	}
 }
 
-func FileConfig() Config {
+func fileConfig() Config {
 	config_file := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), "/etc/ecs_container_agent/config.json")
 
 	file, err := os.Open(config_file)
@@ -191,9 +191,9 @@ func FileConfig() Config {
 	return config
 }
 
-// EnvironmentConfig reads the given configs from the environment and attempts
+// environmentConfig reads the given configs from the environment and attempts
 // to convert them to the given type
-func EnvironmentConfig() Config {
+func environmentConfig() Config {
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
 
 	clusterRef := os.Getenv("ECS_CLUSTER")
@@ -246,13 +246,6 @@ func EnvironmentConfig() Config {
 	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
-	// print a warning and override it
-	if taskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
-		log.Warn("Invalid value for task cleanup duration, will be set to "+DefaultTaskCleanupWaitDuration.String(), "parsed value", taskCleanupWaitDuration, "minimum threshold", minimumTaskCleanupWaitDuration)
-		taskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
-	}
-
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
@@ -321,7 +314,7 @@ func parseEnvVariableDuration(envVar string) time.Duration {
 	return duration
 }
 
-func EC2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
+func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 	iid, err := ec2client.InstanceIdentityDocument()
 	if err != nil {
 		log.Crit("Unable to communicate with EC2 Metadata service to infer region: " + err.Error())
@@ -336,7 +329,7 @@ func EC2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 // error is returned, however, if the config is incomplete in some way that is
 // considered fatal.
 func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
-	ctmp := EnvironmentConfig() //Environment overrides all else
+	ctmp := environmentConfig() //Environment overrides all else
 	config = &ctmp
 	defer func() {
 		config.trimWhitespace()
@@ -349,11 +342,18 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 		return config, nil
 	}
 
-	config.Merge(FileConfig())
+	config.Merge(fileConfig())
 
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
-		config.Merge(EC2MetadataConfig(ec2client))
+		config.Merge(ec2MetadataConfig(ec2client))
+	}
+
+	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
+	// print a warning and override it
+	if config.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
+		log.Warn("Invalid value for task cleanup duration, will be overridden to "+DefaultTaskCleanupWaitDuration.String(), "parsed value", config.TaskCleanupWaitDuration, "minimum threshold", minimumTaskCleanupWaitDuration)
+		config.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
 	return config, err

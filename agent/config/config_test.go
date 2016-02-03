@@ -87,7 +87,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")
 
-	conf := EnvironmentConfig()
+	conf := environmentConfig()
 	if conf.Cluster != "myCluster" {
 		t.Error("Wrong value for cluster ", conf.Cluster)
 	}
@@ -188,7 +188,7 @@ func TestConfigDefault(t *testing.T) {
 func TestBadLoggingDriverSerialization(t *testing.T) {
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\"malformed]")
 
-	conf := EnvironmentConfig()
+	conf := environmentConfig()
 	if len(conf.AvailableLoggingDrivers) != 0 {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
 	}
