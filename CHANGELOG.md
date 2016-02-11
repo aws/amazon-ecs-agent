@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0
+* Feature - Task cleanup wait time is now configurable.
+* Enhancement - Improved testing for HTTP handler tests.
+* Enhancement - Updated AWS SDK to v.1.0.11.
+* Bug - Fixed a race condition in a docker-task-engine test.
+* Bug - Fixed an issue where dockerID was not persisted in the case of an
+  error.
+
 ## 1.7.1
 * Enhancement - Increase `docker inspect` timeout to improve reliability under
   some workloads.
