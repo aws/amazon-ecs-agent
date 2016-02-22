@@ -140,6 +140,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	dte_test_time.Warp(4 * time.Hour)
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
 
+	// Wait for the task to actually be dead; if we just fallthrough immediately,
+	// the remove might not have happened (expectation failure)
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
 		if len(tasks) == 0 {
@@ -147,6 +149,107 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+}
+
+func TestRemoveEvents(t *testing.T) {
+	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+	ttime.SetTime(dte_test_time)
+
+	sleepTask := testdata.LoadTask("sleep5")
+
+	eventStream := make(chan DockerContainerChangeEvent)
+	eventsReported := sync.WaitGroup{}
+
+	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
+		meta := DockerContainerMetadata{
+			DockerId: "containerId",
+		}
+		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+	}
+
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	for _, container := range sleepTask.Containers {
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+			eventsReported.Add(1)
+			go func() {
+				eventStream <- dockerEvent(api.ContainerCreated)
+				eventsReported.Done()
+			}()
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
+
+		client.EXPECT().StartContainer("containerId").Do(func(id string) {
+			eventsReported.Add(1)
+			go func() {
+				eventStream <- dockerEvent(api.ContainerRunning)
+				eventsReported.Done()
+			}()
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
+	}
+
+	err := taskEngine.Init()
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	taskEngine.AddTask(sleepTask)
+
+	if (<-contEvents).Status != api.ContainerRunning {
+		t.Fatal("Expected container to run first")
+	}
+	if (<-taskEvents).Status != api.TaskRunning {
+		t.Fatal("And then task")
+	}
+	select {
+	case <-taskEvents:
+		t.Fatal("Should be out of events")
+	case <-contEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
+	eventsReported.Wait()
+	// Wait for all events to be consumed prior to moving it towards stopped; we
+	// don't want to race the below with these or we'll end up with the "going
+	// backwards in state" stop and we haven't 'expect'd for that
+
+	exitCode := 0
+	// And then docker reports that sleep died, as sleep is wont to do
+	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+
+	if cont := <-contEvents; cont.Status != api.ContainerStopped {
+		t.Fatal("Expected container to stop first")
+		if *cont.ExitCode != 0 {
+			t.Fatal("Exit code should be present")
+		}
+	}
+	if (<-taskEvents).Status != api.TaskStopped {
+		t.Fatal("And then task")
+	}
+
+	sleepTaskStop := testdata.LoadTask("sleep5")
+	sleepTaskStop.DesiredStatus = api.TaskStopped
+	taskEngine.AddTask(sleepTaskStop)
+
+	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+	client.EXPECT().RemoveContainer("containerId").Do(func(x interface{}) {
+		// Emit a couple events for the task before the remove finishes; make sure this gets handled appropriately
+		eventStream <- dockerEvent(api.ContainerStopped)
+		eventStream <- dockerEvent(api.ContainerStopped)
+	}).Return(nil)
+
+	dte_test_time.Warp(4 * time.Hour)
+
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	// Getting here without deadlocking is a pass
 }
 
 func TestStartTimeoutThenStart(t *testing.T) {

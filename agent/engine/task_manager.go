@@ -434,9 +434,16 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	}
 	log.Debug("Cleaning up task's containers and data", "task", task.Task)
 
-	// First make an attempt to cleanup resources
-	task.engine.sweepTask(task.Task)
-	task.engine.state.RemoveTask(task.Task)
+	// For the duration of this, simply discard any task events; this ensures the
+	// speedy processing of other events for other tasks
+	handleCleanupDone := make(chan struct{})
+	go func() {
+		task.engine.sweepTask(task.Task)
+		task.engine.state.RemoveTask(task.Task)
+		handleCleanupDone <- struct{}{}
+	}()
+	task.discardEventsUntil(handleCleanupDone)
+	log.Debug("Finished removing task data; removing from state and quitting")
 	// Now remove ourselves from the global state and cleanup channels
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
@@ -450,6 +457,17 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	close(task.dockerMessages)
 	close(task.acsMessages)
+}
+
+func (task *managedTask) discardEventsUntil(done chan struct{}) {
+	for {
+		select {
+		case <-task.dockerMessages:
+		case <-task.acsMessages:
+		case <-done:
+			return
+		}
+	}
 }
 
 func (task *managedTask) discardPendingMessages() {
