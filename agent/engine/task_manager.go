@@ -443,7 +443,7 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		handleCleanupDone <- struct{}{}
 	}()
 	task.discardEventsUntil(handleCleanupDone)
-	log.Debug("Finished removing task data; removing from state and quitting")
+	log.Debug("Finished removing task data; removing from state no longer managing", "task", task.Task)
 	// Now remove ourselves from the global state and cleanup channels
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
