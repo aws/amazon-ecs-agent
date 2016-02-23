@@ -379,6 +379,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 			engine.processTasks.RUnlock()
 			if !ok {
 				log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
+				continue
 			}
 			log.Debug("Writing docker event to the associated task", "task", task, "event", event)
 			managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
