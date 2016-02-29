@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.1
+* Bug - Fixed a potential deadlock in docker_task_engine.
+
 ## 1.8.0
 * Feature - Task cleanup wait time is now configurable.
 * Enhancement - Improved testing for HTTP handler tests.
