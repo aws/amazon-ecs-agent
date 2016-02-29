@@ -155,7 +155,16 @@ func TestConfigBoolean(t *testing.T) {
 }
 
 func TestConfigDefault(t *testing.T) {
-	cfg := DefaultConfig()
+	os.Unsetenv("ECS_DISABLE_METRICS")
+	os.Unsetenv("ECS_RESERVED_PORTS")
+	os.Unsetenv("ECS_RESERVED_MEMORY")
+	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
+	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
+	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if cfg.DockerEndpoint != "unix:///var/run/docker.sock" {
 		t.Error("Default docker endpoint set incorrectly")
 	}
@@ -163,7 +172,7 @@ func TestConfigDefault(t *testing.T) {
 		t.Error("Default datadir set incorrectly")
 	}
 	if cfg.DisableMetrics {
-		t.Error("Default disablemetrics set incorrectly")
+		t.Errorf("Default disablemetrics set incorrectly: %v", cfg.DisableMetrics)
 	}
 	if len(cfg.ReservedPorts) != 4 {
 		t.Error("Default resered ports set incorrectly")
@@ -172,16 +181,16 @@ func TestConfigDefault(t *testing.T) {
 		t.Error("Default docker graph path set incorrectly")
 	}
 	if cfg.ReservedMemory != 0 {
-		t.Error("Default reserved memory set incorrectly")
+		t.Errorf("Default reserved memory set incorrectly: %v", cfg.ReservedMemory)
 	}
 	if cfg.PrivilegedDisabled {
-		t.Error("Default PrivilegedDisabled set incorrectly")
+		t.Errorf("Default PrivilegedDisabled set incorrectly: %v", cfg.PrivilegedDisabled)
 	}
 	if !reflect.DeepEqual(cfg.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.JsonFileDriver}) {
-		t.Error("Default logging drivers set incorrectly")
+		t.Errorf("Default logging drivers set incorrectly: %v", cfg.AvailableLoggingDrivers)
 	}
 	if cfg.TaskCleanupWaitDuration != 3*time.Hour {
-		t.Error("Defualt task cleanup wait duration set incorrectly")
+		t.Errorf("Defualt task cleanup wait duration set incorrectly: %v", cfg.TaskCleanupWaitDuration)
 	}
 }
 
