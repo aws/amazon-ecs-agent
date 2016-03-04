@@ -623,10 +623,10 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				// No interest in image events
 				continue
 			default:
-				if len(event.Status) > 12 && event.Status[0:12] == "exec_create:" {
+				if len(event.Status) >= 12 && event.Status[0:12] == "exec_create:" {
 					continue
 				}
-				if len(event.Status) > 11 && event.Status[0:11] == "exec_start:" {
+				if len(event.Status) >= 11 && event.Status[0:11] == "exec_start:" {
 					continue
 				}
 
