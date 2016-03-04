@@ -623,6 +623,13 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				// No interest in image events
 				continue
 			default:
+				if len(event.Status) > 12 && event.Status[0:12] == "exec_create:" {
+					continue
+				}
+				if len(event.Status) > 11 && event.Status[0:11] == "exec_start:" {
+					continue
+				}
+
 				// Because docker emits new events even when you use an old event api
 				// version, it's not that big a deal
 				seelog.Debugf("Unknown status event from docker: %s", event.Status)
