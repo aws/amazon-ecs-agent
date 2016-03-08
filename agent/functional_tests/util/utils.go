@@ -384,16 +384,12 @@ func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string
 }
 
 func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string) (string, error) {
-	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskArn)
-	if err != nil {
-		return "", err
-	}
-	bodyData, err := ioutil.ReadAll(agentTaskResp.Body)
+	bodyData, err := agent.callTaskIntrospectionApi(*task.TaskArn)
 	if err != nil {
 		return "", err
 	}
 	var taskResp handlers.TaskResponse
-	err = json.Unmarshal(bodyData, &taskResp)
+	err = json.Unmarshal(*bodyData, &taskResp)
 	if err != nil {
 		return "", err
 	}
@@ -406,6 +402,84 @@ func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string
 		}
 	}
 	return "", errors.New("No containers matched given name")
+}
+
+func (agent *TestAgent) WaitStoppedViaIntrospection(task *TestTask) (bool, error) {
+	var err error
+	var isStopped bool
+
+	for i := 0; i < 5; i++ {
+		isStopped, err = agent.waitStoppedViaIntrospection(task)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return isStopped, err
+}
+
+func (agent *TestAgent) waitStoppedViaIntrospection(task *TestTask) (bool, error) {
+	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return false, err
+	}
+
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(*rawResponse, &taskResp)
+
+	if taskResp.KnownStatus == "STOPPED" {
+		return true, nil
+	} else {
+		return false, errors.New("Task should be STOPPED but is " + taskResp.KnownStatus)
+	}
+}
+
+func (agent *TestAgent) WaitRunningViaIntrospection(task *TestTask) (bool, error) {
+	var err error
+	var isRunning bool
+
+	for i := 0; i < 5; i++ {
+		isRunning, err = agent.waitRunningViaIntrospection(task)
+		if err == nil && isRunning {
+			break
+		}
+		time.Sleep(10000 * time.Millisecond)
+	}
+	return isRunning, err
+}
+
+func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error) {
+	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return false, err
+	}
+
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(*rawResponse, &taskResp)
+
+	if taskResp.KnownStatus == "RUNNING" {
+		return true, nil
+	} else {
+		return false, errors.New("Task should be RUNNING but is " + taskResp.KnownStatus)
+	}
+}
+
+func (agent *TestAgent) callTaskIntrospectionApi(taskArn string) (*[]byte, error) {
+	fullIntrospectionApiURL := agent.IntrospectionURL + "/v1/tasks"
+	if taskArn != "" {
+		fullIntrospectionApiURL += "?taskarn=" + taskArn
+	}
+
+	agentTasksResp, err := http.Get(fullIntrospectionApiURL)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyData, err := ioutil.ReadAll(agentTasksResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &bodyData, nil
 }
 
 func (agent *TestAgent) RequireVersion(version string) {

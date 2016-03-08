@@ -94,6 +94,65 @@ func TestOOMContainer(t *testing.T) {
 	}
 }
 
+// This test addresses a deadlock issue which was noted in GH:313 and fixed
+// in GH:320. It runs a service with 10 containers, waits for cleanup, starts
+// another two instances of that service and ensures that those tasks complete.
+func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
+	// Set the ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION to its lowest permissible value
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "60s")
+	defer os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	// This bug was fixed in v1.8.1
+	agent.RequireVersion(">=1.8.1")
+
+	// Run two Tasks after cleanup, as the deadlock does not consistently occur after
+	// after just one task cleanup cycle.
+	for i := 0; i < 3; i++ {
+
+		// Start a task with ten containers
+		testTask, err := agent.StartTask(t, "ten-containers")
+		if err != nil {
+			t.Fatalf("Cycle %d: There was an error starting the Task: %v", i, err)
+		}
+
+		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
+		if err != nil || !isTaskRunning {
+			t.Fatalf("Cycle %d: Task should be RUNNING but is not: %v", i, err)
+		}
+
+		// Get the dockerID so we can later check that the container has been cleaned up.
+		dockerId, err := agent.ResolveTaskDockerID(testTask, "1")
+		if err != nil {
+			t.Fatalf("Cycle %d: Error resolving docker id for container in task: %v", i, err)
+		}
+
+		// 2 minutes should be enough for the Task to have completed. If the task has not
+		// completed and is in PENDING, the agent is most likely deadlocked.
+		err = testTask.WaitStopped(2 * time.Minute)
+		if err != nil {
+			t.Fatalf("Cycle %d: Task did not transition into to STOPPED in time: %v", i, err)
+		}
+
+		isTaskStopped, err := agent.WaitStoppedViaIntrospection(testTask)
+		if err != nil || !isTaskStopped {
+			t.Fatalf("Cycle %d: Task should be STOPPED but is not: %v", i, err)
+		}
+
+		// Wait for the tasks to be cleaned up
+		time.Sleep(75 * time.Second)
+
+		// Ensure that tasks are cleaned up. WWe should not be able to describe the
+		// container now since it has been cleaned up.
+		_, err = agent.DockerClient.InspectContainer(dockerId)
+		if err == nil {
+			t.Fatalf("Cycle %d: Expected error inspecting container in task.", i)
+		}
+	}
+}
+
 // TestSavedState verifies that stopping the agent, stopping a container under
 // its control, and starting the agent results in that container being moved to
 // 'stopped'

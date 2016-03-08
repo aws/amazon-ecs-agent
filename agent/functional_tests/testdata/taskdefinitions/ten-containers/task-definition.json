@@ -1,0 +1,64 @@
+{
+  "family": "ten-containers",
+  "containerDefinitions": [{
+    "name": "1",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "2",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "3",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "4",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "5",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "6",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "7",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "8",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "9",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }, {
+    "name": "10",
+    "image": "busybox",
+    "memory": 10,
+    "cpu": 0,
+    "command": ["sleep", "5"]
+  }]
+}
