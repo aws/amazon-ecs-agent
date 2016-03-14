@@ -54,6 +54,10 @@ func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {
 	return nil, nil
 }
 
+func (engine *MockTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
+	return nil, false
+}
+
 func (engine *MockTaskEngine) UnmarshalJSON([]byte) error {
 	return nil
 }
