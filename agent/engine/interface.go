@@ -38,7 +38,11 @@ type TaskEngine interface {
 	// lifecycle. If it returns an error, the task was not added.
 	AddTask(*api.Task) error
 
+	// ListTasks lists all the tasks being managed by the TaskEngine.
 	ListTasks() ([]*api.Task, error)
+
+	// GetTaskByArn gets a managed task, given a task arn.
+	GetTaskByArn(string) (*api.Task, bool)
 
 	Version() (string, error)
 	// Capabilities returns an array of capabilities this task engine has, which

@@ -74,6 +74,17 @@ func (_mr *_MockTaskEngineRecorder) Disable() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Disable")
 }
 
+func (_m *MockTaskEngine) GetTaskByArn(_param0 string) (*api.Task, bool) {
+	ret := _m.ctrl.Call(_m, "GetTaskByArn", _param0)
+	ret0, _ := ret[0].(*api.Task)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockTaskEngineRecorder) GetTaskByArn(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskByArn", arg0)
+}
+
 func (_m *MockTaskEngine) Init() error {
 	ret := _m.ctrl.Call(_m, "Init")
 	ret0, _ := ret[0].(error)
