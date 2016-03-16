@@ -535,7 +535,7 @@ func TestContainerEvents(t *testing.T) {
 		t.Error("Incorrect volume mapping")
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		stoppedContainer := &docker.Container{
 			ID: "cid3" + strconv.Itoa(i),
 			State: docker.State{
@@ -548,10 +548,9 @@ func TestContainerEvents(t *testing.T) {
 	go func() {
 		events <- &docker.APIEvents{ID: "cid30", Status: "stop"}
 		events <- &docker.APIEvents{ID: "cid31", Status: "die"}
-		events <- &docker.APIEvents{ID: "cid32", Status: "kill"}
 	}()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
 		if anEvent.DockerId != "cid3"+strconv.Itoa(i) {
 			t.Error("Wrong container id: " + anEvent.DockerId)
@@ -565,6 +564,7 @@ func TestContainerEvents(t *testing.T) {
 	}
 
 	// Verify the following events do not translate into our event stream
+
 	//
 	// Docker 1.8.3 sends the full command appended to exec_create and exec_start
 	// events. Test that we ignore there as well..
@@ -584,6 +584,8 @@ func TestContainerEvents(t *testing.T) {
 		"untag",
 		"import",
 		"delete",
+		"oom",
+		"kill",
 	}
 	for _, eventStatus := range ignore {
 		events <- &docker.APIEvents{ID: "123", Status: eventStatus}

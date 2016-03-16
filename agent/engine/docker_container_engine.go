@@ -574,9 +574,9 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			case "stop":
 				fallthrough
 			case "die":
-				fallthrough
-			case "kill":
 				status = api.ContainerStopped
+			case "kill":
+				fallthrough
 			case "rename":
 				// TODO, ensure this wasn't one of our containers. This isn't critical
 				// because we typically have the docker id stored too and a wrong name
