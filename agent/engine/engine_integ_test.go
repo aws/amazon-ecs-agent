@@ -942,7 +942,14 @@ func TestSweepContainer(t *testing.T) {
 // https://github.com/aws/amazon-ecs-agent/issues/261
 // Namely, this test verifies that Docker does emit a 'die' event after an OOM
 // event if the init dies.
+// Note: Your kernel must support swap limits in order for this test to run.
+// See https://github.com/docker/docker/pull/4251 about enabling swap limit
+// support, or set MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT to non-empty to skip
+// this test.
 func TestInitOOMEvent(t *testing.T) {
+	if os.Getenv("MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT") != "" {
+		t.Skip("Skipped because MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT")
+	}
 	taskEngine, done, _ := setup(t)
 	defer done()
 
