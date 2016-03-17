@@ -15,6 +15,7 @@ package engine
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -999,5 +1001,82 @@ func TestInitOOMEvent(t *testing.T) {
 	}
 	if !strings.HasPrefix(contEvent.Reason, OutOfMemoryError{}.ErrorName()) {
 		t.Errorf("Expected reason to have OOM error, was: %v", contEvent.Reason)
+	}
+}
+
+// This integ test exercises the Docker "kill" facility, which exists to send
+// signals to PID 1 inside a container.  Starting with Docker 1.7, a `kill`
+// event was emitted by the Docker daemon on any `kill` invocation.
+// Signals used in this test:
+// SIGTERM - sent by Docker "stop" prior to SIGKILL (9)
+// SIGUSR1 - used for the test as an arbitrary signal
+func TestSignalEvent(t *testing.T) {
+	taskEngine, done, _ := setup(t)
+	defer done()
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	defer discardEvents(taskEvents)()
+
+	testTask := createTestTask("signaltest")
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Command = []string{
+		"sh",
+		"-c",
+		fmt.Sprintf(`trap "exit 42" %d; trap "echo signal!" %d; while true; do sleep 1; done`, int(syscall.SIGTERM), int(syscall.SIGUSR1)),
+	}
+
+	go taskEngine.AddTask(testTask)
+	var contEvent api.ContainerStateChange
+	for contEvent = range contEvents {
+		if contEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		if contEvent.Status == api.ContainerRunning {
+			break
+		} else if contEvent.Status > api.ContainerRunning {
+			t.Fatal("Task went straight to " + contEvent.Status.String() + " without running")
+		}
+	}
+
+	// Signal the container now
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerId
+	client, _ := docker.NewClient(endpoint)
+	err := client.KillContainer(docker.KillContainerOptions{ID: cid, Signal: docker.Signal(int(syscall.SIGUSR1))})
+	if err != nil {
+		t.Error("Could not signal container", err)
+	}
+
+	// Verify the container has not stopped
+	time.Sleep(2 * time.Second)
+check_events:
+	for {
+		select {
+		case contEvent = <-contEvents:
+			if contEvent.TaskArn != testTask.Arn {
+				continue
+			}
+			t.Fatalf("Expected no events; got " + contEvent.Status.String())
+		default:
+			break check_events
+		}
+	}
+
+	// Stop the container now
+	taskUpdate := *testTask
+	taskUpdate.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(&taskUpdate)
+	for contEvent = range contEvents {
+		if contEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		if !(contEvent.Status >= api.ContainerStopped) {
+			t.Error("Expected only terminal events; got " + contEvent.Status.String())
+		}
+		break
+	}
+
+	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
+		t.Error("Wrong exit code; file probably wasn't present")
 	}
 }
