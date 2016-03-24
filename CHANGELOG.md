@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.2
+* Bug - Fixed an issue where `exec_create` and `exec_start` events were not
+  correctly ignored with some Docker versions.
+* Bug - Fixed memory utilization computation. 
+* Bug - Resolved a bug where sending a signal to a container caused the
+  agent to treat the container as dead.
+
 ## 1.8.1
 * Bug - Fixed a potential deadlock in docker_task_engine.
 
