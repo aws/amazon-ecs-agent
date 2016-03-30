@@ -212,7 +212,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 		messageType, message, cerr := cs.Conn.ReadMessage()
 		err = cerr
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
 				if message != nil {
 					log.Error("Error getting message from ws backend", "err", err, "message", message)
 				} else {

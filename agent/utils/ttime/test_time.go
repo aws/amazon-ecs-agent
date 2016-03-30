@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/cihub/seelog"
 	"golang.org/x/net/context"
 )
 
@@ -36,6 +37,7 @@ func NewTestTime() *TestTime {
 // Warp moves the mock time forwards by the given duration.
 func (t *TestTime) Warp(d time.Duration) {
 	t.warped += d
+	log.Criticalf("WARPED TIME: %v", d)
 	t.timeChange.Broadcast()
 }
 
