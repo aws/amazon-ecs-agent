@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -33,6 +32,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/pborman/uuid"
+)
+
+const (
+	waitTaskStateChangeDuration     = 2 * time.Minute
+	waitMetricsInCloudwatchDuration = 4 * time.Minute
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -544,31 +549,26 @@ func TestTaskCleanup(t *testing.T) {
 	}
 }
 
-// TestTelemetry tests whether the agent has sent the metrics back to TACS
+// TestTelemetry tests whether agent can send metrics to TACS
 func TestTelemetry(t *testing.T) {
-	// Try to register into an unique cluster, in which no other task is running
-	defaultCluster := Cluster
-
-	for i := 0; i < 5; i++ {
-		newClusterName := uniqueClusterName(t, 30)
-		err := ClusterExisted(newClusterName)
-		if err == nil {
-			Cluster = newClusterName
-			break
-		}
-	}
-	if strings.EqualFold(Cluster, defaultCluster) {
-		t.Fatalf("Failed to find an unique cluster name")
-	}
-	ECS.CreateCluster(&ecs.CreateClusterInput{
-		ClusterName: aws.String(Cluster),
+	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
+	newClusterName := "ecstest-telemetry-" + uuid.New()
+	_, err := ECS.CreateCluster(&ecs.CreateClusterInput{
+		ClusterName: aws.String(newClusterName),
 	})
-	time.Sleep(1 * time.Minute)
-	agent := RunAgent(t, nil)
-	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	if err != nil {
+		t.Fatalf("Failed to create cluster %s : %v", newClusterName, err)
+	}
+	defer DeleteCluster(t, newClusterName)
 
-	startPeriod := 2 * time.Minute
-	metricWaitPeriod := 4 * time.Minute
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_CLUSTER": newClusterName,
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+
 	params := &cloudwatch.GetMetricStatisticsInput{
 		MetricName: aws.String("CPUUtilization"),
 		Namespace:  aws.String("AWS/ECS"),
@@ -580,17 +580,23 @@ func TestTelemetry(t *testing.T) {
 		Dimensions: []*cloudwatch.Dimension{
 			{
 				Name:  aws.String("ClusterName"),
-				Value: aws.String(Cluster),
+				Value: aws.String(newClusterName),
 			},
 		},
 	}
-
-	params.StartTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
-	params.EndTime = aws.Time((*params.StartTime).Add(metricWaitPeriod).UTC())
+	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.EndTime = aws.Time((*params.StartTime).Add(waitMetricsInCloudwatchDuration).UTC())
 	// wait for the agent start and ensure no task is running
-	time.Sleep(metricWaitPeriod)
-	if err := VerifyMetrics(cwclient, params, false); err != nil {
-		t.Errorf("Before task running: %v", err)
+	time.Sleep(waitMetricsInCloudwatchDuration)
+
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	if err = VerifyMetrics(cwclient, params, true); err != nil {
+		t.Errorf("Before task running, verify metrics for CPU utilization failed: %v", err)
+	}
+
+	params.MetricName = aws.String("MemoryUtilization")
+	if err = VerifyMetrics(cwclient, params, true); err != nil {
+		t.Errorf("Before task running, verify metrics for memory utilization failed: %v", err)
 	}
 
 	testTask, err := agent.StartTask(t, "telemetry")
@@ -598,59 +604,44 @@ func TestTelemetry(t *testing.T) {
 		t.Fatalf("Expected to start telemetry task: %v", err)
 	}
 	// Wait for the task to run and the agent to send back metrics
-	err = testTask.WaitRunning(startPeriod)
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
 	if err != nil {
 		t.Fatalf("Error start telemetry task: %v", err)
 	}
 
-	time.Sleep(metricWaitPeriod)
-	params.EndTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-metricWaitPeriod).UTC())
-	if err = VerifyMetrics(cwclient, params, true); err != nil {
-		t.Errorf("The task is running: %v", err)
+	time.Sleep(waitMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.MetricName = aws.String("CPUUtilization")
+	if err = VerifyMetrics(cwclient, params, false); err != nil {
+		t.Errorf("Task is running, verify metrics for CPU utilization failed: %v", err)
 	}
-	clusterArn := testTask.ClusterArn
+
+	params.MetricName = aws.String("MemoryUtilization")
+	if err = VerifyMetrics(cwclient, params, false); err != nil {
+		t.Errorf("Task is running, verify metrics for memory utilization failed: %v", err)
+	}
 
 	err = testTask.Stop()
 	if err != nil {
 		t.Fatalf("Failed to stop the telemetry task: %v", err)
 	}
 
-	err = testTask.WaitStopped(startPeriod)
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	if err != nil {
 		t.Fatalf("Waiting for task stop error: %v", err)
 	}
 
-	time.Sleep(metricWaitPeriod)
-	params.EndTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-metricWaitPeriod).UTC())
-	if err = VerifyMetrics(cwclient, params, false); err != nil {
-		t.Errorf("After task stopped: %v", err)
+	time.Sleep(waitMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.MetricName = aws.String("CPUUtilization")
+	if err = VerifyMetrics(cwclient, params, true); err != nil {
+		t.Errorf("Task stopped: verify metrics for CPU utilization failed:  %v", err)
 	}
 
-	agent.Cleanup()
-	_, err = ECS.DeleteCluster(&ecs.DeleteClusterInput{
-		Cluster: aws.String(*clusterArn),
-	})
-	if err != nil {
-		t.Errorf("Failed to delete the cluster %s : %v", clusterArn, err)
+	params.MetricName = aws.String("MemoryUtilization")
+	if err = VerifyMetrics(cwclient, params, true); err != nil {
+		t.Errorf("Task stopped, verify metrics for memory utilization failed: %v", err)
 	}
-	Cluster = defaultCluster
-}
-
-func uniqueClusterName(t *testing.T, length int) string {
-	if length > 50 {
-		t.Fatal("cluster name exceeds the length limit")
-	}
-
-	rand.Seed(time.Now().UnixNano())
-	name := "telemtrytest-"
-	letters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	str := make([]byte, length)
-	for i := range str {
-		str[i] = letters[rand.Int63()%int64(len(letters))]
-	}
-	name = fmt.Sprintf("%s%s", name, string(str))
-	return name
 }

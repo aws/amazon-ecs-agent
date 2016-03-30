@@ -78,7 +78,7 @@ test-in-docker:
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: test-registry
-	. ./scripts/shared_env && go test -tags functional -timeout=20m -v ./agent/functional_tests/...
+	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)

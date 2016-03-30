@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -42,14 +43,15 @@ var ECS *ecs.ECS
 var Cluster string
 
 const (
-	logdir               = "/logs"
-	datadir              = "/data"
-	defaultExecDriverDir = "/var/lib/docker/execdriver"
-	defaultCgroup        = "/cgroup"
-	cacheDirectory       = "/var/cache/ecs"
-	configDirectory      = "/etc/ecs"
-	readOnly             = ":ro"
-	dockerEndpoint       = "/var/run/docker.sock"
+	defaultExecDriverPath = "/var/run/docker/execdriver"
+	logdir                = "/logs"
+	datadir               = "/data"
+	ExecDriverDir         = "/var/lib/docker/execdriver"
+	defaultCgroupPath     = "/cgroup"
+	cacheDirectory        = "/var/cache/ecs"
+	configDirectory       = "/etc/ecs"
+	readOnly              = ":ro"
+	dockerEndpoint        = "/var/run/docker.sock"
 )
 
 func init() {
@@ -183,6 +185,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 		agent.Options = &AgentOptions{}
 	}
 	t.Logf("Created directory %s to store test data in", agentTempdir)
+
 	err = agent.StartAgent()
 	if err != nil {
 		t.Fatal(err)
@@ -226,8 +229,19 @@ func (agent *TestAgent) StartAgent() error {
 	}
 
 	if agent.Options != nil {
+		// Override the default docker envrionment variable
 		for key, value := range agent.Options.ExtraEnvironment {
-			dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
+			envVarExists := false
+			for i, str := range dockerConfig.Env {
+				if strings.HasPrefix(str, key+"=") {
+					dockerConfig.Env[i] = key + "=" + value
+					envVarExists = true
+					break
+				}
+			}
+			if !envVarExists {
+				dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
+			}
 		}
 	}
 
@@ -293,24 +307,18 @@ func (agent *TestAgent) StartAgent() error {
 	return nil
 }
 
-// getBindMounts check for envrionment variable:
-// CGROUP_PATH: the cgroup path
-// EXECDRIVER_PATH: the path of metrics
+// getBindMounts actually constructs volume binds for container's host config
+// It also additionally checks for envrionment variables:
+// * CGROUP_PATH: the cgroup path
+// * EXECDRIVER_PATH: the path of metrics
 func (agent *TestAgent) getBindMounts() []string {
-	binds := make([]string, 0, 7)
-
-	cgroupBind := defaultCgroup + ":" + defaultCgroup + readOnly
-	cgroups := os.Getenv("CGROUP_PATH")
-	if cgroups != "" {
-		cgroupBind = cgroups + ":" + cgroups + readOnly
-	}
+	var binds []string
+	cgroupPath := utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
+	cgroupBind := cgroupPath + ":" + cgroupPath + readOnly
 	binds = append(binds, cgroupBind)
 
-	execdriverBind := "/var/run/docker/execdriver" + ":" + defaultExecDriverDir + readOnly
-	execdriver := os.Getenv("EXECDRIVER_PATH")
-	if execdriver != "" {
-		execdriverBind = execdriver + ":" + defaultExecDriverDir + readOnly
-	}
+	execdriverPath := utils.DefaultIfBlank(os.Getenv("EXECDRIVER_PATH"), defaultExecDriverPath)
+	execdriverBind := execdriverPath + ":" + ExecDriverDir + readOnly
 	binds = append(binds, execdriverBind)
 
 	hostLogDir := filepath.Join(agent.TestDir, "logs")
@@ -409,6 +417,24 @@ func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overri
 	return &TestTask{resp.Tasks[0]}, nil
 }
 
+// RoundTimeUp rounds the time to the next second/minute/hours depending on the duration
+func RoundTimeUp(realTime time.Time, duration time.Duration) time.Time {
+	tmpTime := realTime.Round(duration)
+	if tmpTime.Before(realTime) {
+		return tmpTime.Add(duration)
+	}
+	return tmpTime
+}
+
+func DeleteCluster(t *testing.T, clusterName string) {
+	_, err := ECS.DeleteCluster(&ecs.DeleteClusterInput{
+		Cluster: aws.String(clusterName),
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete the cluster: %s: %v", clusterName, err)
+	}
+}
+
 // VerifyMetrics whether the response is as expected
 // the expected value can be 0 or positive
 func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool) error {
@@ -426,43 +452,21 @@ func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetric
 	}
 
 	datapoint := resp.Datapoints[metricsCount-1]
+	// Samplecount is always expected to be "1" for cluster metrics
 	if *datapoint.SampleCount != 1.0 {
 		return fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
 	}
 
-	averageVerified := false
-	var info string
-
 	if idleCluster {
-		averageVerified = *datapoint.Average > 0.0
-		info = "CPU utilization zero"
+		if *datapoint.Average != 0.0 {
+			return fmt.Errorf("non-zero utilization for idle cluster")
+		}
 	} else {
-		averageVerified = *datapoint.Average == 0.0
-		info = "CPU utilization non-zero"
+		if *datapoint.Average == 0.0 {
+			return fmt.Errorf("utilization is zero for non-idle cluster")
+		}
 	}
-
-	if averageVerified {
-		return nil
-	} else {
-		return fmt.Errorf(info)
-	}
-}
-
-func ClusterExisted(clustername string) error {
-	params := &ecs.DescribeClustersInput{
-		Clusters: []*string{
-			aws.String(clustername),
-		},
-	}
-	resp, err := ECS.DescribeClusters(params)
-	if err != nil {
-		return fmt.Errorf("Failed to describe the cluster: %v", err)
-	}
-
-	if len(resp.Clusters) == 0 && len(resp.Failures) > 0 && strings.EqualFold(*resp.Failures[0].Reason, "MISSING") {
-		return nil
-	}
-	return fmt.Errorf("Cluster %s has already existed", clustername)
+	return nil
 }
 
 // ResolveTaskDockerID determines the Docker ID for a container within a given
