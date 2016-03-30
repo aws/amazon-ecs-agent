@@ -558,3 +558,30 @@ func TestCapabilitiesECR(t *testing.T) {
 		t.Errorf("Could not find ECR capability when expected; got capabilities %v", capabilities)
 	}
 }
+
+func TestGetTaskByArn(t *testing.T) {
+	// Need a mock client as AddTask not only adds a task to the engine, but
+	// also causes the engine to progress the task.
+	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+	eventStream := make(chan DockerContainerChangeEvent)
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	err := taskEngine.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTaskArn := sleepTask.Arn
+	taskEngine.AddTask(sleepTask)
+
+	_, found := taskEngine.GetTaskByArn(sleepTaskArn)
+	if !found {
+		t.Fatalf("Task %s not found", sleepTaskArn)
+	}
+
+	_, found = taskEngine.GetTaskByArn(sleepTaskArn + "arn")
+	if found {
+		t.Fatal("Task with invalid arn found in the task engine")
+	}
+}

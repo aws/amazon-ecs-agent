@@ -574,9 +574,9 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			case "stop":
 				fallthrough
 			case "die":
-				fallthrough
-			case "kill":
 				status = api.ContainerStopped
+			case "kill":
+				fallthrough
 			case "rename":
 				// TODO, ensure this wasn't one of our containers. This isn't critical
 				// because we typically have the docker id stored too and a wrong name
@@ -623,6 +623,10 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				// No interest in image events
 				continue
 			default:
+				if strings.HasPrefix(event.Status, "exec_create:") || strings.HasPrefix(event.Status, "exec_start:") {
+					continue
+				}
+
 				// Because docker emits new events even when you use an old event api
 				// version, it's not that big a deal
 				seelog.Debugf("Unknown status event from docker: %s", event.Status)

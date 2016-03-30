@@ -422,6 +422,10 @@ func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 	return engine.state.AllTasks(), nil
 }
 
+func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
+	return engine.state.TaskByArn(arn)
+}
+
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Pulling container", "task", task, "container", container)
 	return engine.client.PullImage(container.Image, container.RegistryAuthentication)

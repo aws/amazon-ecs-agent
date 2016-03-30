@@ -29,3 +29,8 @@ agent and access the ECS APIs.
 The best way to run them is via the `make run-functional-tests` target.
 
 Thay may also be manually run with `go test -tags functional -v ./...`,
+
+### Envrionment Variable
+In order to run Telemetry functional test in non Amazon Linux AMI environment, the following environment variables should be set:
+    * CGROUP_PATH: cgroup path on the host, default value "/cgroup"
+    * EXECDRIVER_PATH: execdriver path on the host, default value "/var/run/docker/execdriver"

@@ -32,13 +32,27 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 var ECS *ecs.ECS
 var Cluster string
+
+const (
+	defaultExecDriverPath = "/var/run/docker/execdriver"
+	logdir                = "/logs"
+	datadir               = "/data"
+	ExecDriverDir         = "/var/lib/docker/execdriver"
+	defaultCgroupPath     = "/cgroup"
+	cacheDirectory        = "/var/cache/ecs"
+	configDirectory       = "/etc/ecs"
+	readOnly              = ":ro"
+	dockerEndpoint        = "/var/run/docker.sock"
+)
 
 func init() {
 	var ecsconfig aws.Config
@@ -171,6 +185,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 		agent.Options = &AgentOptions{}
 	}
 	t.Logf("Created directory %s to store test data in", agentTempdir)
+
 	err = agent.StartAgent()
 	if err != nil {
 		t.Fatal(err)
@@ -184,10 +199,6 @@ func (agent *TestAgent) StopAgent() error {
 
 func (agent *TestAgent) StartAgent() error {
 	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
-	logdir := filepath.Join(agent.TestDir, "logs")
-	datadir := filepath.Join(agent.TestDir, "data")
-	agent.Logdir = logdir
-
 	dockerConfig := &docker.Config{
 		Image: agent.Image,
 		ExposedPorts: map[docker.Port]struct{}{
@@ -207,12 +218,10 @@ func (agent *TestAgent) StartAgent() error {
 		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
 	}
 
+	binds := agent.getBindMounts()
+
 	hostConfig := &docker.HostConfig{
-		Binds: []string{
-			"/var/run/docker.sock:/var/run/docker.sock",
-			logdir + ":/logs",
-			datadir + ":/data",
-		},
+		Binds: binds,
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
 		},
@@ -220,8 +229,19 @@ func (agent *TestAgent) StartAgent() error {
 	}
 
 	if agent.Options != nil {
+		// Override the default docker envrionment variable
 		for key, value := range agent.Options.ExtraEnvironment {
-			dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
+			envVarExists := false
+			for i, str := range dockerConfig.Env {
+				if strings.HasPrefix(str, key+"=") {
+					dockerConfig.Env[i] = key + "=" + value
+					envVarExists = true
+					break
+				}
+			}
+			if !envVarExists {
+				dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
+			}
 		}
 	}
 
@@ -285,6 +305,35 @@ func (agent *TestAgent) StartAgent() error {
 	}
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
 	return nil
+}
+
+// getBindMounts actually constructs volume binds for container's host config
+// It also additionally checks for envrionment variables:
+// * CGROUP_PATH: the cgroup path
+// * EXECDRIVER_PATH: the path of metrics
+func (agent *TestAgent) getBindMounts() []string {
+	var binds []string
+	cgroupPath := utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
+	cgroupBind := cgroupPath + ":" + cgroupPath + readOnly
+	binds = append(binds, cgroupBind)
+
+	execdriverPath := utils.DefaultIfBlank(os.Getenv("EXECDRIVER_PATH"), defaultExecDriverPath)
+	execdriverBind := execdriverPath + ":" + ExecDriverDir + readOnly
+	binds = append(binds, execdriverBind)
+
+	hostLogDir := filepath.Join(agent.TestDir, "logs")
+	hostDataDir := filepath.Join(agent.TestDir, "data")
+	hostConfigDir := filepath.Join(agent.TestDir, "config")
+	hostCacheDir := filepath.Join(agent.TestDir, "cache")
+	agent.Logdir = hostLogDir
+
+	binds = append(binds, hostLogDir+":"+logdir)
+	binds = append(binds, hostDataDir+":"+datadir)
+	binds = append(binds, dockerEndpoint+":"+dockerEndpoint)
+	binds = append(binds, hostConfigDir+":"+configDirectory)
+	binds = append(binds, hostCacheDir+":"+cacheDirectory)
+
+	return binds
 }
 
 func (agent *TestAgent) Cleanup() {
@@ -368,6 +417,58 @@ func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overri
 	return &TestTask{resp.Tasks[0]}, nil
 }
 
+// RoundTimeUp rounds the time to the next second/minute/hours depending on the duration
+func RoundTimeUp(realTime time.Time, duration time.Duration) time.Time {
+	tmpTime := realTime.Round(duration)
+	if tmpTime.Before(realTime) {
+		return tmpTime.Add(duration)
+	}
+	return tmpTime
+}
+
+func DeleteCluster(t *testing.T, clusterName string) {
+	_, err := ECS.DeleteCluster(&ecs.DeleteClusterInput{
+		Cluster: aws.String(clusterName),
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete the cluster: %s: %v", clusterName, err)
+	}
+}
+
+// VerifyMetrics whether the response is as expected
+// the expected value can be 0 or positive
+func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool) error {
+	resp, err := cwclient.GetMetricStatistics(params)
+	if err != nil {
+		return fmt.Errorf("Error getting metrics of cluster: %v", err)
+	}
+
+	if resp == nil || resp.Datapoints == nil {
+		return fmt.Errorf("Cloudwatch get metrics failed, returned null")
+	}
+	metricsCount := len(resp.Datapoints)
+	if metricsCount == 0 {
+		return fmt.Errorf("No datapoints returned")
+	}
+
+	datapoint := resp.Datapoints[metricsCount-1]
+	// Samplecount is always expected to be "1" for cluster metrics
+	if *datapoint.SampleCount != 1.0 {
+		return fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
+	}
+
+	if idleCluster {
+		if *datapoint.Average != 0.0 {
+			return fmt.Errorf("non-zero utilization for idle cluster")
+		}
+	} else {
+		if *datapoint.Average == 0.0 {
+			return fmt.Errorf("utilization is zero for non-idle cluster")
+		}
+	}
+	return nil
+}
+
 // ResolveTaskDockerID determines the Docker ID for a container within a given
 // task that has been run by the Agent.
 func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string) (string, error) {
@@ -384,16 +485,12 @@ func (agent *TestAgent) ResolveTaskDockerID(task *TestTask, containerName string
 }
 
 func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string) (string, error) {
-	agentTaskResp, err := http.Get(agent.IntrospectionURL + "/v1/tasks?taskarn=" + *task.TaskArn)
-	if err != nil {
-		return "", err
-	}
-	bodyData, err := ioutil.ReadAll(agentTaskResp.Body)
+	bodyData, err := agent.callTaskIntrospectionApi(*task.TaskArn)
 	if err != nil {
 		return "", err
 	}
 	var taskResp handlers.TaskResponse
-	err = json.Unmarshal(bodyData, &taskResp)
+	err = json.Unmarshal(*bodyData, &taskResp)
 	if err != nil {
 		return "", err
 	}
@@ -406,6 +503,84 @@ func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string
 		}
 	}
 	return "", errors.New("No containers matched given name")
+}
+
+func (agent *TestAgent) WaitStoppedViaIntrospection(task *TestTask) (bool, error) {
+	var err error
+	var isStopped bool
+
+	for i := 0; i < 5; i++ {
+		isStopped, err = agent.waitStoppedViaIntrospection(task)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return isStopped, err
+}
+
+func (agent *TestAgent) waitStoppedViaIntrospection(task *TestTask) (bool, error) {
+	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return false, err
+	}
+
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(*rawResponse, &taskResp)
+
+	if taskResp.KnownStatus == "STOPPED" {
+		return true, nil
+	} else {
+		return false, errors.New("Task should be STOPPED but is " + taskResp.KnownStatus)
+	}
+}
+
+func (agent *TestAgent) WaitRunningViaIntrospection(task *TestTask) (bool, error) {
+	var err error
+	var isRunning bool
+
+	for i := 0; i < 5; i++ {
+		isRunning, err = agent.waitRunningViaIntrospection(task)
+		if err == nil && isRunning {
+			break
+		}
+		time.Sleep(10000 * time.Millisecond)
+	}
+	return isRunning, err
+}
+
+func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error) {
+	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return false, err
+	}
+
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(*rawResponse, &taskResp)
+
+	if taskResp.KnownStatus == "RUNNING" {
+		return true, nil
+	} else {
+		return false, errors.New("Task should be RUNNING but is " + taskResp.KnownStatus)
+	}
+}
+
+func (agent *TestAgent) callTaskIntrospectionApi(taskArn string) (*[]byte, error) {
+	fullIntrospectionApiURL := agent.IntrospectionURL + "/v1/tasks"
+	if taskArn != "" {
+		fullIntrospectionApiURL += "?taskarn=" + taskArn
+	}
+
+	agentTasksResp, err := http.Get(fullIntrospectionApiURL)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyData, err := ioutil.ReadAll(agentTasksResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &bodyData, nil
 }
 
 func (agent *TestAgent) RequireVersion(version string) {
