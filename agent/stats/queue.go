@@ -53,15 +53,15 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
-		CPUUsagePerc:      (float32)(nan32()),
-		MemoryUsageInMegs: (uint32)(rawStat.memoryUsage) / BytesInMiB,
+		CPUUsagePerc:      float32(nan32()),
+		MemoryUsageInMegs: uint32(rawStat.memoryUsage / BytesInMiB),
 		Timestamp:         rawStat.timestamp,
 		cpuUsage:          rawStat.cpuUsage,
 	}
 	if queueLength != 0 {
 		// % utilization can be calculated only when queue is non-empty.
 		lastStat := queue.buffer[queueLength-1]
-		stat.CPUUsagePerc = 100 * (float32)(rawStat.cpuUsage-lastStat.cpuUsage) / (float32)(rawStat.timestamp.Sub(lastStat.Timestamp).Nanoseconds())
+		stat.CPUUsagePerc = 100 * float32(rawStat.cpuUsage-lastStat.cpuUsage) / float32(rawStat.timestamp.Sub(lastStat.Timestamp).Nanoseconds())
 		if queue.maxSize == queueLength {
 			// Remove first element if queue is full.
 			queue.buffer = queue.buffer[1:queueLength]
