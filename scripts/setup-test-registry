@@ -71,10 +71,12 @@ done
 BUSYBOX_IMAGE="busybox@sha256:5551dbdfc48d66734d0f01cafee0952cb6e8eeecd1e2492240bf2fd9640c2279"
 NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
 PYTHON2_IMAGE="python@sha256:3a1e82d95d0e75677cdac237b0174425d8ae94dd11d1ef14db73075f1e34c06c"
+UBUNTU_IMAGE="ubuntu@sha256:1bea66e185d3464fec1abda32ffaf2a11de69833cfcf81bd2b9a5be147776814"
 
 mirror_image ${BUSYBOX_IMAGE} "127.0.0.1:51670/busybox:latest"
 mirror_image ${NGINX_IMAGE} "127.0.0.1:51670/nginx:latest"
 mirror_image ${PYTHON2_IMAGE} "127.0.0.1:51670/python:2"
+mirror_image ${UBUNTU_IMAGE} "127.0.0.1:51670/ubuntu:latest"
 
 # Now setup a v2 registry with auth... aka nginx with basic auth in front of it
 REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
