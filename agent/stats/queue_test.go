@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	memoryUsageInBytes = 7377772544
+	predictableHighMemoryUtilizationInBytes = 7377772544
 
-	// memoryUsageIMiB is the expected Memory usage in MiB for the "memoryUsageInBytes"
-	// value (7377772544 / (1024 * 1024))
-	memoryUsageInMiB = 7035
+	// predictableHighMemoryUtilizationInMiB is the expected Memory usage in MiB for
+	// the "predictableHighMemoryUtilizationInBytes" value (7377772544 / (1024 * 1024))
+	predictableHighMemoryUtilizationInMiB = 7035
 )
 
 func getTimestamps() []time.Time {
@@ -82,21 +82,53 @@ func getCPUTimes() []uint64 {
 	}
 }
 
-func getMemBytes(size int) []uint64 {
+func getRandomMemoryUtilizationInBytes() []uint64 {
+	return []uint64{
+		1839104,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+		716800,
+	}
+}
+
+func getPredictableHighMemoryUtilizationInBytes(size int) []uint64 {
 	var memBytes []uint64
 	for i := 0; i < size; i++ {
-		memBytes = append(memBytes, memoryUsageInBytes)
+		memBytes = append(memBytes, predictableHighMemoryUtilizationInBytes)
 	}
 	return memBytes
 }
 
-func createQueue(size int) *Queue {
+func createQueue(size int, predictableHighMemoryUtilization bool) *Queue {
 	timestamps := getTimestamps()
 	cpuTimes := getCPUTimes()
-	memBytes := getMemBytes(len(cpuTimes))
+	var memoryUtilizationInBytes []uint64
+	if predictableHighMemoryUtilization {
+		memoryUtilizationInBytes = getPredictableHighMemoryUtilizationInBytes(len(cpuTimes))
+	} else {
+		memoryUtilizationInBytes = getRandomMemoryUtilizationInBytes()
+	}
 	queue := NewQueue(size)
 	for i, time := range timestamps {
-		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memBytes[i], timestamp: time})
+		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
 	}
 	return queue
 }
@@ -104,7 +136,8 @@ func createQueue(size int) *Queue {
 func TestQueueAddRemove(t *testing.T) {
 	timestamps := getTimestamps()
 	queueLength := 5
-	queue := createQueue(queueLength)
+	// Set predictableHighMemoryUtilization to false, expect random values when aggregated.
+	queue := createQueue(queueLength, false)
 	buf := queue.buffer
 	if len(buf) != queueLength {
 		t.Error("Buffer size is incorrect. Expected: 4, Got: ", len(buf))
@@ -136,25 +169,19 @@ func TestQueueAddRemove(t *testing.T) {
 
 	memStatsSet, err := queue.GetMemoryStatsSet()
 	if err != nil {
-		t.Error("Error gettting cpu stats set:", err)
+		t.Error("Error gettting memory stats set:", err)
 	}
-
-	// Test if both min and max for memory utilization are set to 7035MiB
-	// Also test if sum  == queue length * 7035
-	expectedMemoryUsageInMiB := float64(memoryUsageInMiB)
-	if *memStatsSet.Min != expectedMemoryUsageInMiB {
-		t.Errorf("Min value incorrectly set: %.0f, expected: %.0f", *memStatsSet.Min, expectedMemoryUsageInMiB)
+	if *memStatsSet.Min == float64(-math.MaxFloat32) {
+		t.Error("Min value incorrectly set: ", *memStatsSet.Min)
 	}
-	if *memStatsSet.Max != expectedMemoryUsageInMiB {
-		t.Errorf("Max value incorrectly set: %.0f, expected: %.0f", *memStatsSet.Max, expectedMemoryUsageInMiB)
+	if *memStatsSet.Max == 0 {
+		t.Error("Max value incorrectly set: ", *memStatsSet.Max)
 	}
 	if *memStatsSet.SampleCount != int64(queueLength) {
-		t.Errorf("Incorrect samplecount, expected: %d got: %d", queueLength, *memStatsSet.SampleCount)
+		t.Error("Expected samplecount: ", queueLength, " got: ", *memStatsSet.SampleCount)
 	}
-
-	expectedMemoryUsageInMiBSum := expectedMemoryUsageInMiB * float64(queueLength)
-	if *memStatsSet.Sum != expectedMemoryUsageInMiBSum {
-		t.Errorf("Sum value incorrectly set: %.0f, expected %.0f", *memStatsSet.Sum, expectedMemoryUsageInMiBSum)
+	if *memStatsSet.Sum == 0 {
+		t.Error("Sum value incorrectly set: ", *memStatsSet.Sum)
 	}
 
 	rawUsageStats, err := queue.GetRawUsageStats(2 * queueLength)
@@ -181,4 +208,46 @@ func TestQueueAddRemove(t *testing.T) {
 		t.Error("Empty queue query did not throw an error")
 	}
 
+}
+
+func TestQueueAddPredictableHighMemoryUtilization(t *testing.T) {
+	timestamps := getTimestamps()
+	queueLength := 5
+	// Set predictableHighMemoryUtilization to true
+	// This lets us compare the computed values against pre-computed expected values
+	queue := createQueue(queueLength, true)
+	buf := queue.buffer
+	if len(buf) != queueLength {
+		t.Error("Buffer size is incorrect. Expected: 4, Got: ", len(buf))
+	}
+
+	timestampsIndex := len(timestamps) - len(buf)
+	for i, stat := range buf {
+		if stat.Timestamp != timestamps[timestampsIndex+i] {
+			t.Error("Unexpected value for Stats element in buffer")
+		}
+	}
+
+	memStatsSet, err := queue.GetMemoryStatsSet()
+	if err != nil {
+		t.Error("Error gettting memory stats set:", err)
+	}
+
+	// Test if both min and max for memory utilization are set to 7035MiB
+	// Also test if sum  == queue length * 7035
+	expectedMemoryUsageInMiB := float64(predictableHighMemoryUtilizationInMiB)
+	if *memStatsSet.Min != expectedMemoryUsageInMiB {
+		t.Errorf("Min value incorrectly set: %.0f, expected: %.0f", *memStatsSet.Min, expectedMemoryUsageInMiB)
+	}
+	if *memStatsSet.Max != expectedMemoryUsageInMiB {
+		t.Errorf("Max value incorrectly set: %.0f, expected: %.0f", *memStatsSet.Max, expectedMemoryUsageInMiB)
+	}
+	if *memStatsSet.SampleCount != int64(queueLength) {
+		t.Errorf("Incorrect samplecount, expected: %d got: %d", queueLength, *memStatsSet.SampleCount)
+	}
+
+	expectedMemoryUsageInMiBSum := expectedMemoryUsageInMiB * float64(queueLength)
+	if *memStatsSet.Sum != expectedMemoryUsageInMiBSum {
+		t.Errorf("Sum value incorrectly set: %.0f, expected %.0f", *memStatsSet.Sum, expectedMemoryUsageInMiBSum)
+	}
 }
