@@ -16,6 +16,7 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"strconv"
@@ -37,6 +38,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
@@ -83,17 +85,8 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 	payloadBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
 	ackBuffer := make(chan string, payloadMessageBufferSize)
 
-	go func() {
-		// Handle any payloads async. For correctness, they must be handled in order, hence the buffered channel which is added to synchronously.
-		for {
-			select {
-			case payload := <-payloadBuffer:
-				handlePayloadMessage(ackBuffer, cfg.Cluster, args.ContainerInstanceArn, payload, args.TaskEngine, ecsclient, args.StateManager)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	// Handle any payloads async.
+	go payloadBufferHandler(payloadBuffer, ackBuffer, args.TaskEngine, ecsclient, args.StateManager, ctx)
 
 	for {
 		acsError := func() error {
@@ -174,6 +167,19 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 	}
 }
 
+// payloadBufferHandler processes payload messages from the payload buffer.
+// For correctness, they must be handled in order, hence the buffered channel which is added to synchronously.
+func payloadBufferHandler(payloadBuffer <-chan *ecsacs.PayloadMessage, responseChan chan<- string, taskEngine engine.TaskEngine, ecsClient api.ECSClient, saver statemanager.Saver, ctx context.Context) {
+	for {
+		select {
+		case payload := <-payloadBuffer:
+			handlePayloadMessage(responseChan, payload, taskEngine, ecsClient, saver)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // anyMessageHandler handles any server message. Any server message means the
 // connection is active and thus the heartbeat disconnect should not occur
 func anyMessageHandler(timer ttime.Timer) func(interface{}) {
@@ -194,35 +200,40 @@ func payloadMessageHandler(messageBuffer chan<- *ecsacs.PayloadMessage) func(pay
 }
 
 // handlePayloadMessage attempts to add each task to the taskengine and, if it can, acks the request.
-func handlePayloadMessage(responseChan chan<- string, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
-	if payload.MessageId == nil {
+// It returns an error if the message can not be ack'd for any reason. The error code is being used
+// only for testing today. In the future, it could be used for doing more interesting things.
+func handlePayloadMessage(responseChan chan<- string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) error {
+	if aws.StringValue(payload.MessageId) == "" {
 		log.Crit("Recieved a payload with no message id", "payload", payload)
-		return
+		return fmt.Errorf("Received a payload with no message id")
 	}
-	allTasksHandled := addPayloadTasks(client, cluster, containerInstanceArn, payload, taskEngine)
+	allTasksHandled := addPayloadTasks(client, payload, taskEngine)
 	// save the state of tasks we know about after passing them to the task engine
 	err := saver.Save()
 	if err != nil {
 		log.Error("Error saving state for payload message!", "err", err, "messageId", *payload.MessageId)
 		// Don't ack; maybe we can save it in the future.
-		return
+		return fmt.Errorf("Error saving state for payload message, with messageId: %s", *payload.MessageId)
 	}
-	if allTasksHandled {
-		go func() {
-			// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
-			responseChan <- *payload.MessageId
-		}()
-		// Record the sequence number as well
-		if payload.SeqNum != nil {
-			SequenceNumber.Set(*payload.SeqNum)
-		}
+	if !allTasksHandled {
+		return fmt.Errorf("All tasks not handled")
 	}
+
+	go func() {
+		// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
+		responseChan <- *payload.MessageId
+	}()
+	// Record the sequence number as well
+	if payload.SeqNum != nil {
+		SequenceNumber.Set(*payload.SeqNum)
+	}
+	return nil
 }
 
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine
-func addPayloadTasks(client api.ECSClient, cluster, containerInstanceArn string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
+func addPayloadTasks(client api.ECSClient, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
 	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
 	allTasksOk := true
 
@@ -235,7 +246,7 @@ func addPayloadTasks(client api.ECSClient, cluster, containerInstanceArn string,
 		}
 		apiTask, err := api.TaskFromACS(task, payload)
 		if err != nil {
-			handleUnrecognizedTask(client, cluster, containerInstanceArn, task, err, payload)
+			handleUnrecognizedTask(client, task, err, payload)
 			allTasksOk = false
 			continue
 		}
@@ -287,7 +298,7 @@ func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
 
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
 // a suitable reason to the backend
-func handleUnrecognizedTask(client api.ECSClient, cluster, containerInstanceArn string, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
+func handleUnrecognizedTask(client api.ECSClient, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
 	if task.Arn == nil {
 		log.Crit("Recieved task with no arn", "task", task, "messageId", *payload.MessageId)
 		return
