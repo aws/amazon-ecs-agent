@@ -54,6 +54,7 @@ get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
+	go get golang.org/x/tools/cmd/goimports
 
 clean:
 	-rm ecs-init.spec
