@@ -141,7 +141,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_AGENT_CONFIG_FILE_PATH":    config.AgentJSONConfigFile(),
 		"ECS_UPDATE_DOWNLOAD_DIR":       config.CacheDirectory(),
 		"ECS_UPDATES_ENABLED":           "true",
-		"ECS_AVAILABLE_LOGGING_DRIVERS": "[\"json-file\",\"syslog\"]",
+		"ECS_AVAILABLE_LOGGING_DRIVERS": `["json-file","syslog","awslogs"]`,
 	}
 
 	// merge in user-supplied environment variables
