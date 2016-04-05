@@ -16,7 +16,6 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"strconv"
@@ -30,16 +29,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/cihub/seelog"
 )
 
 var log = logger.ForModule("acs handler")
@@ -75,83 +72,13 @@ type StartSessionArguments struct {
 	AcceptInvalidCert    bool
 }
 
-// StartSession creates a session with ACS and handles requests using the passed
-// in arguments.
+// StartSession creates a session with ACS and handles requests from ACS.
+// It also tries to repeatedly connect to ACS when disconnected.
 func StartSession(ctx context.Context, args StartSessionArguments) error {
-	ecsclient := args.ECSClient
-	cfg := args.Config
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 
-	payloadBuffer := make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize)
-	ackBuffer := make(chan string, payloadMessageBufferSize)
-
-	// Handle any payloads async.
-	go payloadBufferHandler(payloadBuffer, ackBuffer, args.TaskEngine, ecsclient, args.StateManager, ctx)
-
 	for {
-		acsError := func() error {
-			acsEndpoint, err := ecsclient.DiscoverPollEndpoint(args.ContainerInstanceArn)
-			if err != nil {
-				log.Error("Unable to discover poll endpoint", "err", err)
-				return err
-			}
-			log.Debug("Connecting to ACS endpoint " + acsEndpoint)
-
-			url := AcsWsUrl(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
-
-			clearStrChannel(ackBuffer)
-			client := acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
-			defer client.Close()
-			// Clear the ackbuffer whenever we get a new client because acks of
-			// messageids don't have any value across sessions
-			defer clearStrChannel(ackBuffer)
-
-			timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
-				log.Warn("ACS Connection hasn't had any activity for too long; closing connection")
-				closeErr := client.Close()
-				if closeErr != nil {
-					log.Warn("Error disconnecting: " + closeErr.Error())
-				}
-			})
-			defer timer.Stop()
-			// Any message from the server resets the disconnect timeout
-			client.SetAnyRequestHandler(anyMessageHandler(timer))
-			client.AddRequestHandler(payloadMessageHandler(payloadBuffer))
-			// Ignore heartbeat messages; anyMessageHandler gets 'em
-			client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
-
-			updater.AddAgentUpdateHandlers(client, cfg, args.StateManager, args.TaskEngine)
-
-			err = client.Connect()
-			if err != nil {
-				log.Error("Error connecting to ACS: " + err.Error())
-				return err
-			}
-			ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
-				// If we do not have an error connecting and remain connected for at
-				// least 5 or so minutes, reset the backoff. This prevents disconnect
-				// errors that only happen infrequently from damaging the
-				// reconnectability as significantly.
-				backoff.Reset()
-			})
-
-			serveErr := make(chan error, 1)
-			go func() {
-				serveErr <- client.Serve()
-			}()
-
-			for {
-				select {
-				case mid := <-ackBuffer:
-					ackMessageId(client, cfg.Cluster, args.ContainerInstanceArn, mid)
-				case <-ctx.Done():
-					return ctx.Err()
-				case err := <-serveErr:
-					return err
-				}
-			}
-		}()
-
+		acsError := startSession(ctx, args, backoff)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -161,21 +88,83 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 		if acsError == nil || acsError == io.EOF {
 			backoff.Reset()
 		} else {
-			log.Info("Error from acs; backing off", "err", acsError)
+			seelog.Infof("Error from acs; backing off, err: %v", acsError)
 			ttime.Sleep(backoff.Duration())
 		}
 	}
 }
 
-// payloadBufferHandler processes payload messages from the payload buffer.
-// For correctness, they must be handled in order, hence the buffered channel which is added to synchronously.
-func payloadBufferHandler(payloadBuffer <-chan *ecsacs.PayloadMessage, responseChan chan<- string, taskEngine engine.TaskEngine, ecsClient api.ECSClient, saver statemanager.Saver, ctx context.Context) {
+// startSession creates a session with ACS and handles requests using the passed
+// in arguments.
+func startSession(ctx context.Context, args StartSessionArguments, backoff *utils.SimpleBackoff) error {
+	ecsClient := args.ECSClient
+	cfg := args.Config
+	acsEndpoint, err := ecsClient.DiscoverPollEndpoint(args.ContainerInstanceArn)
+	if err != nil {
+		seelog.Errorf("Unable to discover poll endpoint, err: %v", err)
+		return err
+	}
+
+	url := AcsWsUrl(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
+	client := acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
+	defer client.Close()
+
+	// Start inactivity timer for closing the connection
+	timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
+		closeErr := client.Close()
+		if closeErr != nil {
+			seelog.Warnf("Error disconnecting: %v", closeErr)
+		}
+	})
+	defer timer.Stop()
+
+	// Any message from the server resets the disconnect timeout
+	client.SetAnyRequestHandler(anyMessageHandler(timer))
+
+	// Add request handler for handling payload messages from ACS
+	payloadHandler := newPayloadRequestHandler(args.TaskEngine, ecsClient, cfg.Cluster, args.ContainerInstanceArn, client, args.StateManager, ctx)
+	// Clear the acks channel on return because acks of messageids don't have any value across sessions
+	defer payloadHandler.clearAcks()
+	payloadHandler.start()
+	client.AddRequestHandler(payloadHandler.handlerFunc())
+
+	// Ignore heartbeat messages; anyMessageHandler gets 'em
+	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
+
+	updater.AddAgentUpdateHandlers(client, cfg, args.StateManager, args.TaskEngine)
+
+	err = client.Connect()
+	if err != nil {
+		seelog.Errorf("Error connecting to ACS: %v", err)
+		return err
+	}
+	ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+		// If we do not have an error connecting and remain connected for at
+		// least 5 or so minutes, reset the backoff. This prevents disconnect
+		// errors that only happen infrequently from damaging the
+		// reconnectability as significantly.
+		backoff.Reset()
+	})
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- client.Serve()
+	}()
+
 	for {
 		select {
-		case payload := <-payloadBuffer:
-			handlePayloadMessage(responseChan, payload, taskEngine, ecsClient, saver)
 		case <-ctx.Done():
-			return
+			// Stop receiving and sending messages from and to ACS when
+			// the context received from the main function is canceled
+			payloadHandler.stop()
+			return ctx.Err()
+		case err := <-serveErr:
+			// Stop receiving and sending messages from and to ACS when
+			// client.Serve returns an error. This can happen when the
+			// the connection is closed by ACS or the agent
+			payloadHandler.stop()
+			return err
 		}
 	}
 }
@@ -184,152 +173,8 @@ func payloadBufferHandler(payloadBuffer <-chan *ecsacs.PayloadMessage, responseC
 // connection is active and thus the heartbeat disconnect should not occur
 func anyMessageHandler(timer ttime.Timer) func(interface{}) {
 	return func(interface{}) {
-		log.Debug("ACS activity occured")
+		seelog.Debug("ACS activity occured")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
-	}
-}
-
-// payloadMessageHandler returns a handler for payload messages which
-// takes given payloads, converts them into the internal representation of
-// tasks, and passes them on to the task engine. If there is an issue handling a
-// task, it is moved to stopped. If a task is handled, state is saved.
-func payloadMessageHandler(messageBuffer chan<- *ecsacs.PayloadMessage) func(payload *ecsacs.PayloadMessage) {
-	return func(payload *ecsacs.PayloadMessage) {
-		messageBuffer <- payload
-	}
-}
-
-// handlePayloadMessage attempts to add each task to the taskengine and, if it can, acks the request.
-// It returns an error if the message can not be ack'd for any reason. The error code is being used
-// only for testing today. In the future, it could be used for doing more interesting things.
-func handlePayloadMessage(responseChan chan<- string, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) error {
-	if aws.StringValue(payload.MessageId) == "" {
-		log.Crit("Recieved a payload with no message id", "payload", payload)
-		return fmt.Errorf("Received a payload with no message id")
-	}
-	allTasksHandled := addPayloadTasks(client, payload, taskEngine)
-	// save the state of tasks we know about after passing them to the task engine
-	err := saver.Save()
-	if err != nil {
-		log.Error("Error saving state for payload message!", "err", err, "messageId", *payload.MessageId)
-		// Don't ack; maybe we can save it in the future.
-		return fmt.Errorf("Error saving state for payload message, with messageId: %s", *payload.MessageId)
-	}
-	if !allTasksHandled {
-		return fmt.Errorf("All tasks not handled")
-	}
-
-	go func() {
-		// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
-		responseChan <- *payload.MessageId
-	}()
-	// Record the sequence number as well
-	if payload.SeqNum != nil {
-		SequenceNumber.Set(*payload.SeqNum)
-	}
-	return nil
-}
-
-// addPayloadTasks does validation on each task and, for all valid ones, adds
-// it to the task engine. It returns a bool indicating if it could add every
-// task to the taskEngine
-func addPayloadTasks(client api.ECSClient, payload *ecsacs.PayloadMessage, taskEngine engine.TaskEngine) bool {
-	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
-	allTasksOk := true
-
-	validTasks := make([]*api.Task, 0, len(payload.Tasks))
-	for _, task := range payload.Tasks {
-		if task == nil {
-			log.Crit("Recieved nil task", "messageId", *payload.MessageId)
-			allTasksOk = false
-			continue
-		}
-		apiTask, err := api.TaskFromACS(task, payload)
-		if err != nil {
-			handleUnrecognizedTask(client, task, err, payload)
-			allTasksOk = false
-			continue
-		}
-		validTasks = append(validTasks, apiTask)
-	}
-	// Add 'stop' transitions first to allow seqnum ordering to work out
-	// Because a 'start' sequence number should only be proceeded if all 'stop's
-	// of the same sequence number have completed, the 'start' events need to be
-	// added after the 'stop' events are there to block them.
-	stoppedAddedOk := addStoppedTasks(validTasks, taskEngine)
-	nonstoppedAddedOk := addNonstoppedTasks(validTasks, taskEngine)
-	if !stoppedAddedOk || !nonstoppedAddedOk {
-		allTasksOk = false
-	}
-	return allTasksOk
-}
-
-func addStoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
-	allTasksOk := true
-	for _, task := range tasks {
-		if task.DesiredStatus != api.TaskStopped {
-			continue
-		}
-		err := taskEngine.AddTask(task)
-		if err != nil {
-			log.Warn("Could not add task; taskengine probably disabled")
-			// Don't ack
-			allTasksOk = false
-		}
-	}
-	return allTasksOk
-}
-
-func addNonstoppedTasks(tasks []*api.Task, taskEngine engine.TaskEngine) bool {
-	allTasksOk := true
-	for _, task := range tasks {
-		if task.DesiredStatus == api.TaskStopped {
-			continue
-		}
-		err := taskEngine.AddTask(task)
-		if err != nil {
-			log.Warn("Could not add task; taskengine probably disabled")
-			// Don't ack
-			allTasksOk = false
-		}
-	}
-	return allTasksOk
-}
-
-// handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
-// a suitable reason to the backend
-func handleUnrecognizedTask(client api.ECSClient, task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
-	if task.Arn == nil {
-		log.Crit("Recieved task with no arn", "task", task, "messageId", *payload.MessageId)
-		return
-	}
-
-	// Only need to stop the task; it brings down the containers too.
-	eventhandler.AddTaskEvent(api.TaskStateChange{
-		TaskArn: *task.Arn,
-		Status:  api.TaskStopped,
-		Reason:  UnrecognizedTaskError{err}.Error(),
-	}, client)
-}
-
-func clearStrChannel(c <-chan string) {
-	for {
-		select {
-		case <-c:
-		default:
-			return
-		}
-	}
-}
-
-func ackMessageId(cs wsclient.ClientServer, cluster, containerInstanceArn, messageID string) {
-	err := cs.MakeRequest(&ecsacs.AckRequest{
-		Cluster:           &cluster,
-		ContainerInstance: &containerInstanceArn,
-		MessageId:         &messageID,
-	})
-	if err != nil {
-		log.Warn("Error 'ack'ing request", "MessageID", messageID)
 	}
 }
 
