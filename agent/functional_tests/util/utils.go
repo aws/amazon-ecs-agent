@@ -34,11 +34,23 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 var ECS *ecs.ECS
 var Cluster string
+
+const (
+	logdir               = "/logs"
+	datadir              = "/data"
+	defaultExecDriverDir = "/var/lib/docker/execdriver"
+	defaultCgroup        = "/cgroup"
+	cacheDirectory       = "/var/cache/ecs"
+	configDirectory      = "/etc/ecs"
+	readOnly             = ":ro"
+	dockerEndpoint       = "/var/run/docker.sock"
+)
 
 func init() {
 	var ecsconfig aws.Config
@@ -184,10 +196,6 @@ func (agent *TestAgent) StopAgent() error {
 
 func (agent *TestAgent) StartAgent() error {
 	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
-	logdir := filepath.Join(agent.TestDir, "logs")
-	datadir := filepath.Join(agent.TestDir, "data")
-	agent.Logdir = logdir
-
 	dockerConfig := &docker.Config{
 		Image: agent.Image,
 		ExposedPorts: map[docker.Port]struct{}{
@@ -207,12 +215,10 @@ func (agent *TestAgent) StartAgent() error {
 		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
 	}
 
+	binds := agent.getBindMounts()
+
 	hostConfig := &docker.HostConfig{
-		Binds: []string{
-			"/var/run/docker.sock:/var/run/docker.sock",
-			logdir + ":/logs",
-			datadir + ":/data",
-		},
+		Binds: binds,
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
 		},
@@ -285,6 +291,41 @@ func (agent *TestAgent) StartAgent() error {
 	}
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
 	return nil
+}
+
+// getBindMounts check for envrionment variable:
+// CGROUP_PATH: the cgroup path
+// EXECDRIVER_PATH: the path of metrics
+func (agent *TestAgent) getBindMounts() []string {
+	binds := make([]string, 0, 7)
+
+	cgroupBind := defaultCgroup + ":" + defaultCgroup + readOnly
+	cgroups := os.Getenv("CGROUP_PATH")
+	if cgroups != "" {
+		cgroupBind = cgroups + ":" + cgroups + readOnly
+	}
+	binds = append(binds, cgroupBind)
+
+	execdriverBind := "/var/run/docker/execdriver" + ":" + defaultExecDriverDir + readOnly
+	execdriver := os.Getenv("EXECDRIVER_PATH")
+	if execdriver != "" {
+		execdriverBind = execdriver + ":" + defaultExecDriverDir + readOnly
+	}
+	binds = append(binds, execdriverBind)
+
+	hostLogDir := filepath.Join(agent.TestDir, "logs")
+	hostDataDir := filepath.Join(agent.TestDir, "data")
+	hostConfigDir := filepath.Join(agent.TestDir, "config")
+	hostCacheDir := filepath.Join(agent.TestDir, "cache")
+	agent.Logdir = hostLogDir
+
+	binds = append(binds, hostLogDir+":"+logdir)
+	binds = append(binds, hostDataDir+":"+datadir)
+	binds = append(binds, dockerEndpoint+":"+dockerEndpoint)
+	binds = append(binds, hostConfigDir+":"+configDirectory)
+	binds = append(binds, hostCacheDir+":"+cacheDirectory)
+
+	return binds
 }
 
 func (agent *TestAgent) Cleanup() {
@@ -366,6 +407,62 @@ func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overri
 
 	agent.t.Logf("Started task: %s\n", *resp.Tasks[0].TaskArn)
 	return &TestTask{resp.Tasks[0]}, nil
+}
+
+// VerifyMetrics whether the response is as expected
+// the expected value can be 0 or positive
+func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool) error {
+	resp, err := cwclient.GetMetricStatistics(params)
+	if err != nil {
+		return fmt.Errorf("Error getting metrics of cluster: %v", err)
+	}
+
+	if resp == nil || resp.Datapoints == nil {
+		return fmt.Errorf("Cloudwatch get metrics failed, returned null")
+	}
+	metricsCount := len(resp.Datapoints)
+	if metricsCount == 0 {
+		return fmt.Errorf("No datapoints returned")
+	}
+
+	datapoint := resp.Datapoints[metricsCount-1]
+	if *datapoint.SampleCount != 1.0 {
+		return fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
+	}
+
+	averageVerified := false
+	var info string
+
+	if idleCluster {
+		averageVerified = *datapoint.Average > 0.0
+		info = "CPU utilization zero"
+	} else {
+		averageVerified = *datapoint.Average == 0.0
+		info = "CPU utilization non-zero"
+	}
+
+	if averageVerified {
+		return nil
+	} else {
+		return fmt.Errorf(info)
+	}
+}
+
+func ClusterExisted(clustername string) error {
+	params := &ecs.DescribeClustersInput{
+		Clusters: []*string{
+			aws.String(clustername),
+		},
+	}
+	resp, err := ECS.DescribeClusters(params)
+	if err != nil {
+		return fmt.Errorf("Failed to describe the cluster: %v", err)
+	}
+
+	if len(resp.Clusters) == 0 && len(resp.Failures) > 0 && strings.EqualFold(*resp.Failures[0].Reason, "MISSING") {
+		return nil
+	}
+	return fmt.Errorf("Cluster %s has already existed", clustername)
 }
 
 // ResolveTaskDockerID determines the Docker ID for a container within a given

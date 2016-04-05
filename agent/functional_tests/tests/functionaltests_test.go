@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -28,6 +29,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -538,4 +542,115 @@ func TestTaskCleanup(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected error inspecting container in task")
 	}
+}
+
+// TestTelemetry tests whether the agent has sent the metrics back to TACS
+func TestTelemetry(t *testing.T) {
+	// Try to register into an unique cluster, in which no other task is running
+	defaultCluster := Cluster
+
+	for i := 0; i < 5; i++ {
+		newClusterName := uniqueClusterName(t, 30)
+		err := ClusterExisted(newClusterName)
+		if err == nil {
+			Cluster = newClusterName
+			break
+		}
+	}
+	if strings.EqualFold(Cluster, defaultCluster) {
+		t.Fatalf("Failed to find an unique cluster name")
+	}
+	ECS.CreateCluster(&ecs.CreateClusterInput{
+		ClusterName: aws.String(Cluster),
+	})
+	time.Sleep(1 * time.Minute)
+	agent := RunAgent(t, nil)
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+
+	startPeriod := 2 * time.Minute
+	metricWaitPeriod := 4 * time.Minute
+	params := &cloudwatch.GetMetricStatisticsInput{
+		MetricName: aws.String("CPUUtilization"),
+		Namespace:  aws.String("AWS/ECS"),
+		Period:     aws.Int64(60),
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("SampleCount"),
+		},
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("ClusterName"),
+				Value: aws.String(Cluster),
+			},
+		},
+	}
+
+	params.StartTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
+	params.EndTime = aws.Time((*params.StartTime).Add(metricWaitPeriod).UTC())
+	// wait for the agent start and ensure no task is running
+	time.Sleep(metricWaitPeriod)
+	if err := VerifyMetrics(cwclient, params, false); err != nil {
+		t.Errorf("Before task running: %v", err)
+	}
+
+	testTask, err := agent.StartTask(t, "telemetry")
+	if err != nil {
+		t.Fatalf("Expected to start telemetry task: %v", err)
+	}
+	// Wait for the task to run and the agent to send back metrics
+	err = testTask.WaitRunning(startPeriod)
+	if err != nil {
+		t.Fatalf("Error start telemetry task: %v", err)
+	}
+
+	time.Sleep(metricWaitPeriod)
+	params.EndTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-metricWaitPeriod).UTC())
+	if err = VerifyMetrics(cwclient, params, true); err != nil {
+		t.Errorf("The task is running: %v", err)
+	}
+	clusterArn := testTask.ClusterArn
+
+	err = testTask.Stop()
+	if err != nil {
+		t.Fatalf("Failed to stop the telemetry task: %v", err)
+	}
+
+	err = testTask.WaitStopped(startPeriod)
+	if err != nil {
+		t.Fatalf("Waiting for task stop error: %v", err)
+	}
+
+	time.Sleep(metricWaitPeriod)
+	params.EndTime = aws.Time(time.Now().Add(time.Second * 30).Round(time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-metricWaitPeriod).UTC())
+	if err = VerifyMetrics(cwclient, params, false); err != nil {
+		t.Errorf("After task stopped: %v", err)
+	}
+
+	agent.Cleanup()
+	_, err = ECS.DeleteCluster(&ecs.DeleteClusterInput{
+		Cluster: aws.String(*clusterArn),
+	})
+	if err != nil {
+		t.Errorf("Failed to delete the cluster %s : %v", clusterArn, err)
+	}
+	Cluster = defaultCluster
+}
+
+func uniqueClusterName(t *testing.T, length int) string {
+	if length > 50 {
+		t.Fatal("cluster name exceeds the length limit")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	name := "telemtrytest-"
+	letters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	str := make([]byte, length)
+	for i := range str {
+		str[i] = letters[rand.Int63()%int64(len(letters))]
+	}
+	name = fmt.Sprintf("%s%s", name, string(str))
+	return name
 }
