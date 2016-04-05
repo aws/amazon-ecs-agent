@@ -17,7 +17,7 @@ handling production work-loads.
 ## Setup
 
 Before running these tests, you should build the ECS Agent and tag its image as
-`amazon/amazon-ecs-agent:make`.
+`amazon/amazon-ecs-agent:make`. You can run the `make docker` command to do this.
 
 You should also run the registry the tests pull from. This can most easily be done via `make test-registry`.
 
@@ -28,4 +28,6 @@ agent and access the ECS APIs.
 
 The best way to run them is via the `make run-functional-tests` target.
 
-Thay may also be manually run with `go test -tags functional -v ./...`,
+Thay may also be manually run with `go test -tags functional -v ./...`.
+
+To run a specific test, use the `-run` flag. For example, the *TestRunManyTasks* test can be executed  with `go test -tags functional -v ./... -run RunManyTasks`.
