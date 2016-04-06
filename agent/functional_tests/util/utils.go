@@ -91,10 +91,14 @@ func init() {
 // definition currently represented by the file was registered as such already.
 func GetTaskDefinition(name string) (string, error) {
 	_, filename, _, _ := runtime.Caller(0)
-	tdData, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), "..", "testdata", "taskdefinitions", name, "task-definition.json"))
+	tdDataFromFile, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), "..", "testdata", "taskdefinitions", name, "task-definition.json"))
 	if err != nil {
 		return "", err
 	}
+
+	// Change the region to the current region in the task definition
+	tdStr := strings.Replace(string(tdDataFromFile), "$$$TEST_REGION$$$", *ECS.Config.Region, 1)
+	tdData := []byte(tdStr)
 
 	registerRequest := &ecs.RegisterTaskDefinitionInput{}
 	err = json.Unmarshal(tdData, registerRequest)

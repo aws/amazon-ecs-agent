@@ -132,6 +132,11 @@
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
 		},
 		{
+			"ImportPath": "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
+			"Comment": "v1.0.11",
+			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
+		},
+		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/ec2",
 			"Comment": "v1.0.11",
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"

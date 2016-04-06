@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pborman/uuid"
 )
@@ -38,6 +39,7 @@ import (
 const (
 	waitTaskStateChangeDuration     = 2 * time.Minute
 	waitMetricsInCloudwatchDuration = 4 * time.Minute
+	awslogsLogGroupName             = "ecs-functional-tests"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -495,6 +497,78 @@ func TestSquidProxy(t *testing.T) {
 
 	if len(dedupedMatches) < 3 {
 		t.Errorf("Expected 3 matches, actually had %d matches: %+v", len(dedupedMatches), dedupedMatches)
+	}
+}
+
+// TestAwslogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
+func TestAwslogsDriver(t *testing.T) {
+	RequireDockerVersion(t, ">=1.9.0") // awslogs drivers available from docker 1.9.0
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	// Test whether the log group existed or not
+	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
+	})
+	if err != nil {
+		t.Fatalf("CloudWatchLogs describe log groups error: %v", err)
+	}
+	logGroupExists := false
+	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
+		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
+			logGroupExists = true
+			break
+		}
+	}
+
+	if !logGroupExists {
+		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(awslogsLogGroupName),
+		})
+		if err != nil {
+			t.Fatalf("Failed to create log group %s : %v", awslogsLogGroupName, err)
+		}
+	}
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.9.0") //Required for awslogs driver
+
+	testTask, err := agent.StartTask(t, "awslogs")
+	if err != nil {
+		t.Fatalf("Expected to start task using awslogs driver failed: %v", err)
+	}
+
+	// Wait for the container to start
+	testTask.WaitRunning(waitTaskStateChangeDuration)
+	containerId, err := agent.ResolveTaskDockerID(testTask, "awslogs")
+	if err != nil {
+		t.Fatalf("Failed to get the container ID")
+	}
+	// Delete the log stream after the test
+	defer func() {
+		cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+			LogGroupName:  aws.String(awslogsLogGroupName),
+			LogStreamName: aws.String(containerId),
+		})
+	}()
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(containerId),
+	}
+	resp, err := cwlClient.GetLogEvents(params)
+	if err != nil {
+		t.Fatalf("CloudWatchLogs get log failed: %v", err)
+	}
+
+	if len(resp.Events) != 1 {
+		t.Errorf("Get unexpected number of log events: %d", len(resp.Events))
+	} else if *resp.Events[0].Message != "hello world" {
+		t.Errorf("Got log events message unexpected: %s", *resp.Events[0].Message)
 	}
 }
 
