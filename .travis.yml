@@ -2,6 +2,9 @@ language: go
 sudo: false
 go:
     - 1.4
+    - 1.5
+    - 1.6
+    - tip
 env:
     - GOMAXPROCS=1
 before_install: ./scripts/hack/symlink-gopath-travisci
@@ -9,3 +12,7 @@ install: make get-deps
 script:
     # Full tests require building/running docker containers; short only for now
     - make short-test
+
+matrix:
+    allow_failures:
+        - go: tip
