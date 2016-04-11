@@ -376,7 +376,7 @@ func TestDockerAuth(t *testing.T) {
 
 func TestSquidProxy(t *testing.T) {
 	// Run a squid proxy manually, verify that the agent can connect through it
-	client, err := docker.NewClientFromEnv()
+	client, err := docker.NewVersionedClientFromEnv("1.17")
 	if err != nil {
 		t.Fatal(err)
 	}
