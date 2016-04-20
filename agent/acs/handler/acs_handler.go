@@ -29,20 +29,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
 )
 
-var log = logger.ForModule("acs handler")
-
-// The maximum time to wait between heartbeats without disconnecting
 const (
+	// heartbeatTimeout is the maximum time to wait between heartbeats
+	// without disconnecting
 	heartbeatTimeout = 5 * time.Minute
 	heartbeatJitter  = 3 * time.Minute
 
@@ -50,10 +49,10 @@ const (
 	connectionBackoffMax        = 2 * time.Minute
 	connectionBackoffJitter     = 0.2
 	connectionBackoffMultiplier = 1.5
+	// payloadMessageBufferSize is the maximum number of payload messages
+	// to queue up without having handled previous ones.
+	payloadMessageBufferSize = 10
 )
-
-// Maximum number of payload messages to queue up without having handled previous ones.
-const payloadMessageBufferSize = 10
 
 // SequenceNumber is a number shared between all ACS clients which indicates
 // the last sequence number successfully handled.
@@ -72,13 +71,38 @@ type StartSessionArguments struct {
 	AcceptInvalidCert    bool
 }
 
+// sessionResources defines the resource creator interface for starting
+// a session with ACS. This interface is intended to define methods
+// that create resources used to establish the connection to ACS
+// It is confined to just the createACSClient() method for now. It can be
+// extended to include the acsWsURL() and newDisconnectionTimer() methods
+// when needed
+// The goal is to make it easier to test and inject dependencies
+type sessionResources interface {
+	// createACSClient creates a new websocket client
+	createACSClient(url string) wsclient.ClientServer
+}
+
+// acsSessionResources implements the resource creator interface to
+// create resources needed to connect to ACS
+type acsSessionResources struct {
+	startSessionArguments StartSessionArguments
+}
+
 // StartSession creates a session with ACS and handles requests from ACS.
-// It also tries to repeatedly connect to ACS when disconnected.
+// It creates resources required to invoke the package scoped 'startSession()'
+// method and invokes the same to repeatedly connect to ACS when disconnected
 func StartSession(ctx context.Context, args StartSessionArguments) error {
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
+	session := &acsSessionResources{startSessionArguments: args}
+	return startSession(ctx, args, backoff, session)
+}
 
+// startSession creates a session with ACS and handles requests from ACS
+// It also tries to repeatedly connect to ACS when disconnected
+func startSession(ctx context.Context, args StartSessionArguments, backoff *utils.SimpleBackoff, acsResources sessionResources) error {
 	for {
-		acsError := startSession(ctx, args, backoff)
+		acsError := startSessionOnce(ctx, args, backoff, acsResources)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -94,22 +118,56 @@ func StartSession(ctx context.Context, args StartSessionArguments) error {
 	}
 }
 
-// startSession creates a session with ACS and handles requests using the passed
-// in arguments.
-func startSession(ctx context.Context, args StartSessionArguments, backoff *utils.SimpleBackoff) error {
-	ecsClient := args.ECSClient
-	cfg := args.Config
-	acsEndpoint, err := ecsClient.DiscoverPollEndpoint(args.ContainerInstanceArn)
+// startSessionOnce creates a session with ACS and handles requests using the passed
+// in arguments
+func startSessionOnce(ctx context.Context, args StartSessionArguments, backoff *utils.SimpleBackoff, acsResources sessionResources) error {
+	acsEndpoint, err := args.ECSClient.DiscoverPollEndpoint(args.ContainerInstanceArn)
 	if err != nil {
 		seelog.Errorf("Unable to discover poll endpoint, err: %v", err)
 		return err
 	}
 
-	url := AcsWsUrl(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
-	client := acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
+	cfg := args.Config
+	url := acsWsURL(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
+	client := acsResources.createACSClient(url)
 	defer client.Close()
 
 	// Start inactivity timer for closing the connection
+	timer := newDisconnectionTimer(client)
+	defer timer.Stop()
+
+	return startACSSession(ctx, client, timer, args, backoff)
+}
+
+// acsWsURL returns the websocket url for ACS given the endpoint
+func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine) string {
+	acsUrl := endpoint
+	if endpoint[len(endpoint)-1] != '/' {
+		acsUrl += "/"
+	}
+	acsUrl += "ws"
+	query := url.Values{}
+	query.Set("clusterArn", cluster)
+	query.Set("containerInstanceArn", containerInstanceArn)
+	query.Set("agentHash", version.GitHashString())
+	query.Set("agentVersion", version.Version)
+	query.Set("seqNum", strconv.FormatInt(SequenceNumber.Get(), 10))
+	if dockerVersion, err := taskEngine.Version(); err == nil {
+		query.Set("dockerVersion", dockerVersion)
+	}
+	return acsUrl + "?" + query.Encode()
+}
+
+// create ACSClient creates the ACS Client using the specified URL
+func (acsResources *acsSessionResources) createACSClient(url string) wsclient.ClientServer {
+	args := acsResources.startSessionArguments
+	cfg := args.Config
+	return acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
+}
+
+// newDisconnectionTimer creates a new time object, with a callback to
+// disconnect from ACS on inactivity
+func newDisconnectionTimer(client wsclient.ClientServer) ttime.Timer {
 	timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
 		closeErr := client.Close()
@@ -117,13 +175,20 @@ func startSession(ctx context.Context, args StartSessionArguments, backoff *util
 			seelog.Warnf("Error disconnecting: %v", closeErr)
 		}
 	})
-	defer timer.Stop()
 
+	return timer
+}
+
+// startACSSession starts a session with ACS. It adds request handlers for various
+// kinds of messages expected from ACS. It returns on server disconnection or when
+// the context is cancelled
+func startACSSession(ctx context.Context, client wsclient.ClientServer, timer ttime.Timer, args StartSessionArguments, backoff *utils.SimpleBackoff) error {
 	// Any message from the server resets the disconnect timeout
 	client.SetAnyRequestHandler(anyMessageHandler(timer))
+	cfg := args.Config
 
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(args.TaskEngine, ecsClient, cfg.Cluster, args.ContainerInstanceArn, client, args.StateManager, ctx)
+	payloadHandler := newPayloadRequestHandler(args.TaskEngine, args.ECSClient, cfg.Cluster, args.ContainerInstanceArn, client, args.StateManager, ctx)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
@@ -134,11 +199,12 @@ func startSession(ctx context.Context, args StartSessionArguments, backoff *util
 
 	updater.AddAgentUpdateHandlers(client, cfg, args.StateManager, args.TaskEngine)
 
-	err = client.Connect()
+	err := client.Connect()
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
+
 	ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 		// If we do not have an error connecting and remain connected for at
 		// least 5 or so minutes, reset the backoff. This prevents disconnect
@@ -176,23 +242,4 @@ func anyMessageHandler(timer ttime.Timer) func(interface{}) {
 		seelog.Debug("ACS activity occured")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
-}
-
-// AcsWsUrl returns the websocket url for ACS given the endpoint.
-func AcsWsUrl(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine) string {
-	acsUrl := endpoint
-	if endpoint[len(endpoint)-1] != '/' {
-		acsUrl += "/"
-	}
-	acsUrl += "ws"
-	query := url.Values{}
-	query.Set("clusterArn", cluster)
-	query.Set("containerInstanceArn", containerInstanceArn)
-	query.Set("agentHash", version.GitHashString())
-	query.Set("agentVersion", version.Version)
-	query.Set("seqNum", strconv.FormatInt(SequenceNumber.Get(), 10))
-	if dockerVersion, err := taskEngine.Version(); err == nil {
-		query.Set("dockerVersion", dockerVersion)
-	}
-	return acsUrl + "?" + query.Encode()
 }
