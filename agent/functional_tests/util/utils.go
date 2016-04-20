@@ -562,7 +562,7 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 	var taskResp handlers.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
-	if taskResp.KnownStatus == "RUNNING" {
+	if taskResp.KnownStatus == "RUNNING" || taskResp.KnownStatus == "STOPPED" {
 		return true, nil
 	} else {
 		return false, errors.New("Task should be RUNNING but is " + taskResp.KnownStatus)

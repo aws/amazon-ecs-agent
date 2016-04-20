@@ -153,7 +153,7 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 		}
 
 		// Wait for the tasks to be cleaned up
-		time.Sleep(75 * time.Second)
+		time.Sleep(90 * time.Second)
 
 		// Ensure that tasks are cleaned up. WWe should not be able to describe the
 		// container now since it has been cleaned up.
