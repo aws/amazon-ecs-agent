@@ -285,7 +285,7 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 		return
 	}
 
-	if task.KnownStatus.Terminal() {
+	if task.GetKnownStatus().Terminal() {
 		log.Debug("Task is terminal, ignoring", "id", dockerID)
 		return
 	}

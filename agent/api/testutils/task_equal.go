@@ -42,7 +42,7 @@ func TasksEqual(lhs, rhs *api.Task) bool {
 	if lhs.DesiredStatus != rhs.DesiredStatus {
 		return false
 	}
-	if lhs.KnownStatus != rhs.KnownStatus {
+	if lhs.GetKnownStatus() != rhs.GetKnownStatus() {
 		return false
 	}
 	return true

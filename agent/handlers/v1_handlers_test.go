@@ -211,8 +211,9 @@ func taskDiffHelper(t *testing.T, expected []*api.Task, actual TasksResponse) {
 		if respTask.DesiredStatus != task.DesiredStatus.String() {
 			t.Errorf("DesiredStatus mismatch: %v != %v", respTask.DesiredStatus, task.DesiredStatus)
 		}
-		if respTask.KnownStatus != task.KnownStatus.String() {
-			t.Errorf("KnownStatus mismatch: %v != %v", respTask.KnownStatus, task.KnownStatus)
+		taskKnownStatus := task.GetKnownStatus().String()
+		if respTask.KnownStatus != taskKnownStatus {
+			t.Errorf("KnownStatus mismatch: %v != %v", respTask.KnownStatus, taskKnownStatus)
 		}
 
 		if respTask.Family != task.Family || respTask.Version != task.Version {

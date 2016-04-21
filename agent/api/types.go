@@ -93,9 +93,12 @@ type Task struct {
 	Containers []*Container
 	Volumes    []TaskVolume `json:"volumes"`
 
-	DesiredStatus   TaskStatus
-	KnownStatus     TaskStatus
-	KnownStatusTime time.Time `json:"KnownTime"`
+	DesiredStatus TaskStatus
+
+	KnownStatus         TaskStatus
+	knownStatusLock     sync.RWMutex
+	KnownStatusTime     time.Time `json:"KnownTime"`
+	knownStatusTimeLock sync.RWMutex
 
 	SentStatus TaskStatus
 
@@ -199,7 +202,7 @@ func (t *TaskStateChange) String() string {
 }
 
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.KnownStatus.String(), t.DesiredStatus.String())
+	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.GetKnownStatus().String(), t.DesiredStatus.String())
 	res += " Containers: ["
 	for _, c := range t.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.KnownStatus.String(), c.DesiredStatus.String())

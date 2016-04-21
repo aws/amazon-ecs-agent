@@ -18,6 +18,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
@@ -158,9 +159,9 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	}
 
 	llog.Debug("Earliest status is " + earliestStatus.String())
-	if task.KnownStatus < earliestStatus.TaskStatus() {
-		task.SetKnownStatus(earliestStatus.TaskStatus())
-		return task.KnownStatus
+	if task.GetKnownStatus() < earliestStatus.TaskStatus() {
+		task.UpdateKnownStatusAndTime(earliestStatus.TaskStatus())
+		return task.GetKnownStatus()
 	}
 	return TaskStatusNone
 }
@@ -449,19 +450,51 @@ func (task *Task) updateTaskDesiredStatus() {
 // UpdateStatus updates a task's known and desired statuses to be compatible
 // with all of its containers
 // It will return a bool indicating if there was a change
-func (t *Task) UpdateStatus() bool {
-	change := t.updateTaskKnownStatus()
+func (task *Task) UpdateStatus() bool {
+	change := task.updateTaskKnownStatus()
 	// DesiredStatus can change based on a new known status
-	t.UpdateDesiredStatus()
+	task.UpdateDesiredStatus()
 	return change != TaskStatusNone
 }
 
-func (t *Task) UpdateDesiredStatus() {
-	t.updateTaskDesiredStatus()
-	t.updateContainerDesiredStatus()
+func (task *Task) UpdateDesiredStatus() {
+	task.updateTaskDesiredStatus()
+	task.updateContainerDesiredStatus()
 }
 
-func (t *Task) SetKnownStatus(status TaskStatus) {
-	t.KnownStatus = status
-	t.KnownStatusTime = ttime.Now()
+// UpdateKnownStatusAndTime updates the KnownStatus and KnownStatusTime
+// of the task
+func (task *Task) UpdateKnownStatusAndTime(status TaskStatus) {
+	task.setKnownStatus(status)
+	task.updateKnownStatusTime()
+}
+
+// GetKnownStatus gets the KnownStatus of the task
+func (task *Task) GetKnownStatus() TaskStatus {
+	task.knownStatusLock.RLock()
+	defer task.knownStatusLock.RUnlock()
+
+	return task.KnownStatus
+}
+
+// GetKnownStatusTime gets the KnownStatusTime of the task
+func (task *Task) GetKnownStatusTime() time.Time {
+	task.knownStatusTimeLock.RLock()
+	defer task.knownStatusTimeLock.RUnlock()
+
+	return task.KnownStatusTime
+}
+
+func (task *Task) setKnownStatus(status TaskStatus) {
+	task.knownStatusLock.Lock()
+	defer task.knownStatusLock.Unlock()
+
+	task.KnownStatus = status
+}
+
+func (task *Task) updateKnownStatusTime() {
+	task.knownStatusTimeLock.Lock()
+	defer task.knownStatusTimeLock.Unlock()
+
+	task.KnownStatusTime = ttime.Now()
 }

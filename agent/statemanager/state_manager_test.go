@@ -166,7 +166,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 		t.Fatal("container Dead should go to stopped")
 	}
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
-	if deadTask.KnownStatusTime != expected {
+	if deadTask.GetKnownStatusTime() != expected {
 		t.Fatal("Time was not correct")
 	}
 }

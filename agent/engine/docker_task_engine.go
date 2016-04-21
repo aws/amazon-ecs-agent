@@ -286,16 +286,17 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
-	if !task.KnownStatus.BackendRecognized() {
+	taskKnownStatus := task.GetKnownStatus()
+	if !taskKnownStatus.BackendRecognized() {
 		return
 	}
-	if task.SentStatus >= task.KnownStatus {
-		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", task.KnownStatus.String())
+	if task.SentStatus >= taskKnownStatus {
+		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", taskKnownStatus.String())
 		return
 	}
 	event := api.TaskStateChange{
 		TaskArn:    task.Arn,
-		Status:     task.KnownStatus,
+		Status:     taskKnownStatus,
 		Reason:     reason,
 		SentStatus: &task.SentStatus,
 	}

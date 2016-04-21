@@ -121,7 +121,7 @@ func (task *managedTask) overseeTask() {
 	for {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {
-			llog.Debug("Task at steady state", "state", task.KnownStatus.String())
+			llog.Debug("Task at steady state", "state", task.GetKnownStatus().String())
 			maxWait := make(chan bool, 1)
 			timer := ttime.After(steadyStateTaskVerifyInterval)
 			go func() {
@@ -136,7 +136,7 @@ func (task *managedTask) overseeTask() {
 			}
 		}
 
-		if !task.KnownStatus.Terminal() {
+		if !task.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be able to move some containers along
 			llog.Debug("Task not steady state or terminal; progressing it")
 			task.progressContainers()
@@ -150,7 +150,7 @@ func (task *managedTask) overseeTask() {
 		if err != nil {
 			llog.Warn("Error checkpointing task's states to disk", "err", err)
 		}
-		if task.KnownStatus.Terminal() {
+		if task.GetKnownStatus().Terminal() {
 			break
 		}
 	}
@@ -273,7 +273,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 }
 
 func (mtask *managedTask) steadyState() bool {
-	return mtask.KnownStatus == api.TaskRunning && mtask.KnownStatus >= mtask.DesiredStatus
+	taskKnownStatus := mtask.GetKnownStatus()
+	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.DesiredStatus
 }
 
 // waitEvent waits for any event to occur. If the event is the passed in
@@ -375,7 +376,7 @@ func (task *managedTask) progressContainers() {
 			// Ack, really bad. We want it to stop but the containers don't think
 			// that's possible... let's just break out and hope for the best!
 			log.Crit("The state is so bad that we're just giving up on it")
-			task.SetKnownStatus(api.TaskStopped)
+			task.UpdateKnownStatusAndTime(api.TaskStopped)
 			task.engine.emitTaskEvent(task.Task, "TaskStateError: Agent could not progress task's state to stopped")
 		} else {
 			log.Crit("Moving task to stopped due to bad state", "task", task.Task)
@@ -394,7 +395,7 @@ func (task *managedTask) progressContainers() {
 			delete(transitionsMap, changedContainer)
 			log.Debug("Still waiting for", "map", transitionsMap)
 		}
-		if task.DesiredStatus.Terminal() || task.KnownStatus.Terminal() {
+		if task.DesiredStatus.Terminal() || task.GetKnownStatus().Terminal() {
 			allWaitingOnPulled := true
 			for _, desired := range transitionsMap {
 				if desired != api.ContainerPulled {
@@ -416,7 +417,7 @@ func (task *managedTask) progressContainers() {
 }
 
 func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
-	cleanupTimeDuration := task.KnownStatusTime.Add(taskStoppedDuration).Sub(ttime.Now())
+	cleanupTimeDuration := task.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
 	// value in this case in favor of the default config value.
 	if cleanupTimeDuration < 0 {
