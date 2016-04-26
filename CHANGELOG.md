@@ -1,9 +1,13 @@
 # Changelog
 
+## 1.9.0
+* Feature - Add Amazon CloudWatch Logs logging driver.
+* Bug - Fix ACS handler when acking blank message ids.
+
 ## 1.8.2
 * Bug - Fixed an issue where `exec_create` and `exec_start` events were not
   correctly ignored with some Docker versions.
-* Bug - Fixed memory utilization computation. 
+* Bug - Fixed memory utilization computation.
 * Bug - Resolved a bug where sending a signal to a container caused the
   agent to treat the container as dead.
 
