@@ -58,6 +58,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	var createdContainerName string
 	for _, container := range sleepTask.Containers {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
@@ -65,7 +66,10 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y interface{}, containerName string) {
+			// sleep5 task contains only one container. Just assign
+			// the containerName to createdContainerName
+			createdContainerName = containerName
 			eventsReported.Add(1)
 			go func() {
 				eventStream <- dockerEvent(api.ContainerCreated)
@@ -135,7 +139,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-	client.EXPECT().RemoveContainer("containerId").Return(nil)
+	client.EXPECT().RemoveContainer(gomock.Any()).Do(func(removedContainerName string) {
+		if createdContainerName != removedContainerName {
+			t.Errorf("Container name mismatch, created: %s, removed: %s", createdContainerName, removedContainerName)
+		}
+	}).Return(nil)
 
 	dte_test_time.Warp(4 * time.Hour)
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
@@ -169,9 +177,13 @@ func TestRemoveEvents(t *testing.T) {
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	var createdContainerName string
 	for _, container := range sleepTask.Containers {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y interface{}, containerName string) {
+			// sleep5 task contains only one container. Just assign
+			// the containerName to createdContainerName
+			createdContainerName = containerName
 			eventsReported.Add(1)
 			go func() {
 				eventStream <- dockerEvent(api.ContainerCreated)
@@ -234,7 +246,10 @@ func TestRemoveEvents(t *testing.T) {
 
 	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-	client.EXPECT().RemoveContainer("containerId").Do(func(x interface{}) {
+	client.EXPECT().RemoveContainer(gomock.Any()).Do(func(removedContainerName string) {
+		if createdContainerName != removedContainerName {
+			t.Errorf("Container name mismatch, created: %s, removed: %s", createdContainerName, removedContainerName)
+		}
 		// Emit a couple events for the task before the remove finishes; make sure this gets handled appropriately
 		eventStream <- dockerEvent(api.ContainerStopped)
 		eventStream <- dockerEvent(api.ContainerStopped)
