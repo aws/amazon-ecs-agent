@@ -106,6 +106,10 @@ func (collector *LibcontainerStatsCollector) getContainerStats(container *CronCo
 		return nil, err
 	}
 
-	cs := toContainerStats(*containerStats)
+	cs, err := toContainerStats(*containerStats)
+	if err != nil {
+		return nil, err
+	}
+
 	return cs, nil
 }

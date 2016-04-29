@@ -14,10 +14,12 @@
 package stats
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"time"
 
+	"github.com/cihub/seelog"
 	"github.com/docker/libcontainer"
 )
 
@@ -31,18 +33,20 @@ func nan32() float32 {
 }
 
 // toContainerStats returns a new object of the ContainerStats object from libcontainer stats.
-func toContainerStats(containerStats libcontainer.ContainerStats) *ContainerStats {
+func toContainerStats(containerStats libcontainer.ContainerStats) (*ContainerStats, error) {
 	// The length of PercpuUsage represents the number of cores in an instance.
 	numCores := uint64(len(containerStats.CgroupStats.CpuStats.CpuUsage.PercpuUsage))
-	cpuUsage := uint64(0)
-	if numCores > 0 {
-		cpuUsage = containerStats.CgroupStats.CpuStats.CpuUsage.TotalUsage / numCores
+	if numCores == 0 {
+		seelog.Debug("Invalid container statitistics reported, got number of cores = 0")
+		return nil, fmt.Errorf("Invalid container statistics reported")
 	}
+
+	cpuUsage := containerStats.CgroupStats.CpuStats.CpuUsage.TotalUsage / numCores
 	return &ContainerStats{
 		cpuUsage:    cpuUsage,
 		memoryUsage: containerStats.CgroupStats.MemoryStats.Usage,
 		timestamp:   time.Now(),
-	}
+	}, nil
 }
 
 // createContainerStats returns a new object of the ContainerStats object.
@@ -65,7 +69,7 @@ func parseNanoTime(value string) time.Time {
 func isNetworkStatsError(err error) bool {
 	matched, mErr := regexp.MatchString(networkStatsErrorPattern, err.Error())
 	if mErr != nil {
-		log.Debug("Error matching string", "err", mErr)
+		seelog.Debugf("Error matching string: %v", mErr)
 		return false
 	}
 
