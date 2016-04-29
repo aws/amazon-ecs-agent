@@ -35,7 +35,7 @@ func TestIsNetworkStatsError(t *testing.T) {
 	}
 }
 
-func TestToContainerStats_CpuUsage(t *testing.T) {
+func TestToContainerStatsCpuUsage(t *testing.T) {
 	libcontainerStats := libcontainer.ContainerStats{
 		CgroupStats: &cgroups.Stats{
 			CpuStats: cgroups.CpuStats{
@@ -46,7 +46,10 @@ func TestToContainerStats_CpuUsage(t *testing.T) {
 			},
 		},
 	}
-	containerStats := toContainerStats(libcontainerStats)
+	containerStats, err := toContainerStats(libcontainerStats)
+	if err != nil {
+		t.Errorf("Error converting container stats: %v", err)
+	}
 	if containerStats == nil {
 		t.Fatal("containerStats should not be nil")
 	}
@@ -55,7 +58,7 @@ func TestToContainerStats_CpuUsage(t *testing.T) {
 	}
 }
 
-func TestToContainerStats_NoDivideByZeroCoresPanic(t *testing.T) {
+func TestToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 	libcontainerStats := libcontainer.ContainerStats{
 		CgroupStats: &cgroups.Stats{
 			CpuStats: cgroups.CpuStats{
@@ -65,11 +68,8 @@ func TestToContainerStats_NoDivideByZeroCoresPanic(t *testing.T) {
 			},
 		},
 	}
-	containerStats := toContainerStats(libcontainerStats)
-	if containerStats == nil {
-		t.Fatal("containerStats should not be nil")
-	}
-	if containerStats.cpuUsage != 0 {
-		t.Error("Unexpected value for cpuUsage", containerStats.cpuUsage)
+	_, err := toContainerStats(libcontainerStats)
+	if err == nil {
+		t.Error("Expected error converting container stats with empty PercpuUsage")
 	}
 }
