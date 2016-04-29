@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -45,6 +46,8 @@ const (
 var endpoint = utils.DefaultIfBlank(os.Getenv(engine.DOCKER_ENDPOINT_ENV_VARIABLE), engine.DOCKER_DEFAULT_ENDPOINT)
 
 var client, _ = docker.NewClient(endpoint)
+var clientFactory = dockerclient.NewFactory(endpoint)
+var dockerClient, _ = engine.NewDockerGoClient(clientFactory, "", config.NewSensitiveRawMessage([]byte("")), false)
 
 var cfg = config.DefaultConfig()
 
@@ -106,11 +109,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test as this is really a functional test")
-	engine := NewDockerStatsEngine(&cfg)
-	err := engine.initDockerClient()
-	if err != nil {
-		t.Error("Error initializing stats engine: ", err)
-	}
+	engine := NewDockerStatsEngine(&cfg, dockerClient)
 
 	// Create a container to get the container id.
 	container, err := createGremlin(client)
@@ -192,11 +191,8 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test as this is really a functional test")
-	engine := NewDockerStatsEngine(&cfg)
-	err := engine.initDockerClient()
-	if err != nil {
-		t.Error("Error initializing stats engine: ", err)
-	}
+	engine := NewDockerStatsEngine(&cfg, dockerClient)
+
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatal("Error creating container", err)
@@ -273,7 +269,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
 	// read state.json file for containers.
 	t.Skip("Skipping integ test as this is really a functional test")
-	taskEngine := engine.NewTaskEngine(&config.Config{}, false)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil)
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatal("Error creating container", err)
@@ -313,11 +309,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 			Container:  containers[0],
 		},
 		&testTask)
-	statsEngine := NewDockerStatsEngine(&cfg)
-	statsEngine.client, err = engine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")), false)
-	if err != nil {
-		t.Fatal("Error initializing docker client: ", err)
-	}
+	statsEngine := NewDockerStatsEngine(&cfg, dockerClient)
 	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)

@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -43,8 +43,7 @@ const (
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
-	cfg                *config.Config
-	acceptInsecureCert bool
+	cfg *config.Config
 
 	initialized  bool
 	mustInitLock sync.Mutex
@@ -79,12 +78,11 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, acceptInsecureCert bool) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
-		cfg:                cfg,
-		acceptInsecureCert: acceptInsecureCert,
-		client:             nil,
-		saver:              statemanager.NewNoopStateManager(),
+		cfg:    cfg,
+		client: client,
+		saver:  statemanager.NewNoopStateManager(),
 
 		state:         dockerstate.NewDockerTaskEngineState(),
 		managedTasks:  make(map[string]*managedTask),
@@ -111,18 +109,13 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
 func (engine *DockerTaskEngine) Init() error {
-	err := engine.initDockerClient()
-	if err != nil {
-		return err
-	}
-
 	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	ctx, cancel := context.WithCancel(context.TODO())
 	engine.stopEngine = cancel
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
-	err = engine.openEventstream(ctx)
+	err := engine.openEventstream(ctx)
 	if err != nil {
 		return err
 	}
@@ -130,25 +123,6 @@ func (engine *DockerTaskEngine) Init() error {
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(ctx)
 	engine.initialized = true
-	return nil
-}
-
-func (engine *DockerTaskEngine) initDockerClient() error {
-	if engine.client != nil {
-		return nil
-	}
-
-	engine.clientLock.Lock()
-	defer engine.clientLock.Unlock()
-	if engine.client != nil {
-		return nil
-	}
-	client, err := NewDockerGoClient(nil, engine.cfg.EngineAuthType, engine.cfg.EngineAuthData, engine.acceptInsecureCert)
-	if err != nil {
-		return err
-	}
-	engine.client = client
-
 	return nil
 }
 
@@ -629,10 +603,6 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 //    com.amazonaws.ecs.capability.selinux
 //    com.amazonaws.ecs.capability.apparmor
 func (engine *DockerTaskEngine) Capabilities() []string {
-	err := engine.initDockerClient()
-	if err != nil {
-		return nil
-	}
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
 		capabilities = append(capabilities, capabilityPrefix+"privileged-container")
@@ -666,10 +636,5 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
-	// Must be able to be called before Init()
-	err := engine.initDockerClient()
-	if err != nil {
-		return "", err
-	}
 	return engine.client.Version()
 }

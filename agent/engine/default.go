@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,6 +23,6 @@ import (
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine(cfg *config.Config, acceptInsecureCert bool) TaskEngine {
-	return NewDockerTaskEngine(cfg, acceptInsecureCert)
+func NewTaskEngine(cfg *config.Config, client DockerClient) TaskEngine {
+	return NewDockerTaskEngine(cfg, client)
 }

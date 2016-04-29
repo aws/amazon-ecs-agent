@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -152,7 +152,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
 
-	engine := NewDockerStatsEngine(&cfg)
+	engine := NewDockerStatsEngine(&cfg, nil)
 	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -271,7 +271,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 
-	engine := NewDockerStatsEngine(&cfg)
+	engine := NewDockerStatsEngine(&cfg, nil)
 	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -313,7 +313,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
-	statsEngine := NewDockerStatsEngine(&cfg)
+	statsEngine := NewDockerStatsEngine(&cfg, nil)
 	taskEngine := &MockTaskEngine{}
 	err := statsEngine.MustInit(taskEngine, "", "")
 	if err == nil {
@@ -322,7 +322,7 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineUninitialized(t *testing.T) {
-	engine := NewDockerStatsEngine(&cfg)
+	engine := NewDockerStatsEngine(&cfg, nil)
 	engine.resolver = &DockerContainerMetadataResolver{}
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -338,7 +338,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatus: api.TaskStopped}, nil)
-	engine := NewDockerStatsEngine(&cfg)
+	engine := NewDockerStatsEngine(&cfg, nil)
 	engine.resolver = resolver
 
 	engine.addContainer("c1")
@@ -351,7 +351,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 func TestStatsEngineClientErrorListingContainers(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	engine := NewDockerStatsEngine(&cfg)
+	engine := NewDockerStatsEngine(&cfg, nil)
 	mockDockerClient := ecsengine.NewMockDockerClient(mockCtrl)
 	// Mock client will return error while listing images.
 	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: fmt.Errorf("could not list containers")})

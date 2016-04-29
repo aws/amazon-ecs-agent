@@ -81,10 +81,10 @@ func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
-func NewDockerStatsEngine(cfg *config.Config) *DockerStatsEngine {
+func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient) *DockerStatsEngine {
 	if dockerStatsEngine == nil {
 		dockerStatsEngine = &DockerStatsEngine{
-			client:             nil,
+			client:             client,
 			dockerGraphPath:    cfg.DockerGraphPath,
 			resolver:           nil,
 			tasksToContainers:  make(map[string]map[string]*CronContainer),
@@ -98,14 +98,10 @@ func NewDockerStatsEngine(cfg *config.Config) *DockerStatsEngine {
 // MustInit initializes fields of the DockerStatsEngine object.
 func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
 	log.Info("Initializing stats engine")
-	err := engine.initDockerClient()
-	if err != nil {
-		return err
-	}
-
 	engine.cluster = cluster
 	engine.containerInstanceArn = containerInstanceArn
 
+	var err error
 	engine.resolver, err = newDockerContainerMetadataResolver(taskEngine)
 	if err != nil {
 		return err
@@ -215,19 +211,6 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 
 func (engine *DockerStatsEngine) isIdle() bool {
 	return len(engine.tasksToContainers) == 0
-}
-
-// initDockerClient initializes engine's docker client.
-func (engine *DockerStatsEngine) initDockerClient() error {
-	if engine.client == nil {
-		client, err := ecsengine.NewDockerGoClient(nil, "", config.NewSensitiveRawMessage([]byte("")), false)
-		if err != nil {
-			return err
-		}
-		engine.client = client
-	}
-
-	return nil
 }
 
 // openEventStream initializes the channel to receive events from docker client's

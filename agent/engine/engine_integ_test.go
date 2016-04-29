@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
@@ -54,7 +55,12 @@ func setup(t *testing.T) (TaskEngine, func(), *ttime.TestTime) {
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
-	taskEngine := NewDockerTaskEngine(cfg, false)
+	clientFactory := dockerclient.NewFactory("unix:///var/run/docker.sock")
+	dockerClient, err := NewDockerGoClient(clientFactory, cfg.EngineAuthType, cfg.EngineAuthData, false)
+	if err != nil {
+		t.Fatalf("Error creating Docker client: %v", err)
+	}
+	taskEngine := NewDockerTaskEngine(cfg, dockerClient)
 	taskEngine.Init()
 	test_time := ttime.NewTestTime()
 	ttime.SetTime(test_time)

@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,7 +17,6 @@ import (
 	"archive/tar"
 	"bufio"
 	"io"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/pkg/parsers"
@@ -127,14 +125,9 @@ type DockerImageResponse struct {
 
 // NewDockerGoClient creates a new DockerGoClient
 func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage, acceptInsecureCert bool) (DockerClient, error) {
-	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
-	if clientFactory == nil {
-		clientFactory = dockerclient.NewFactory(endpoint)
-	}
-
 	client, err := clientFactory.GetDefaultClient()
 	if err != nil {
-		log.Error("Unable to connect to docker daemon . Ensure docker is running", "endpoint", endpoint, "err", err)
+		log.Error("Unable to connect to docker daemon. Ensure docker is running.", "err", err)
 		return nil, err
 	}
 
@@ -142,7 +135,7 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 	// to ensure it's up.
 	err = client.Ping()
 	if err != nil {
-		log.Error("Unable to ping docker daemon. Ensure docker is running", "endpoint", endpoint, "err", err)
+		log.Error("Unable to ping docker daemon. Ensure docker is running.", "err", err)
 		return nil, err
 	}
 

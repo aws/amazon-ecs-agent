@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
@@ -88,11 +89,16 @@ func _main() int {
 		log.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
 	log.Info("Loading configuration")
-	cfg, err := config.NewConfig(ec2MetadataClient)
-	// Load cfg before doing 'versionFlag' so that it has the DOCKER_HOST
-	// variable loaded if needed
+	cfg, cfgErr := config.NewConfig(ec2MetadataClient)
+	// Load cfg and create Docker client before doing 'versionFlag' so that it has the DOCKER_HOST variable loaded if needed
+	clientFactory := dockerclient.NewFactory(cfg.DockerEndpoint)
+	dockerClient, err := engine.NewDockerGoClient(clientFactory, cfg.EngineAuthType, cfg.EngineAuthData, *acceptInsecureCert)
+	if err != nil {
+		log.Criticalf("Error creating Docker client: %v", err)
+		return exitcodes.ExitError
+	}
 	if *versionFlag {
-		versionableEngine := engine.NewTaskEngine(cfg, *acceptInsecureCert)
+		versionableEngine := engine.NewTaskEngine(cfg, dockerClient)
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
@@ -100,7 +106,7 @@ func _main() int {
 	sighandlers.StartDebugHandler()
 	ctx := context.Background()
 
-	if err != nil {
+	if cfgErr != nil {
 		log.Criticalf("Error loading config: %v", err)
 		// All required config values can be inferred from EC2 Metadata, so this error could be transient.
 		return exitcodes.ExitError
@@ -113,7 +119,7 @@ func _main() int {
 	if cfg.Checkpoint {
 		log.Info("Checkpointing is enabled. Attempting to load state")
 		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
-		previousTaskEngine := engine.NewTaskEngine(cfg, *acceptInsecureCert)
+		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
@@ -153,7 +159,7 @@ func _main() int {
 			log.Warnf("Data mismatch; saved InstanceID '%v' does not match current InstanceID '%v'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
 
 			// Reset taskEngine; all the other values are still default
-			taskEngine = engine.NewTaskEngine(cfg, *acceptInsecureCert)
+			taskEngine = engine.NewTaskEngine(cfg, dockerClient)
 		} else {
 			// Use the values we loaded if there's no issue
 			containerInstanceArn = previousContainerInstanceArn
@@ -161,7 +167,7 @@ func _main() int {
 		}
 	} else {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		taskEngine = engine.NewTaskEngine(cfg, *acceptInsecureCert)
+		taskEngine = engine.NewTaskEngine(cfg, dockerClient)
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
@@ -224,6 +230,7 @@ func _main() int {
 		ContainerInstanceArn: containerInstanceArn,
 		CredentialProvider:   credentialProvider,
 		Cfg:                  cfg,
+		DockerClient:         dockerClient,
 		AcceptInvalidCert:    *acceptInsecureCert,
 		EcsClient:            client,
 		TaskEngine:           taskEngine,

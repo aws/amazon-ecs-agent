@@ -26,6 +26,7 @@ type TelemetrySessionParams struct {
 	ContainerInstanceArn string
 	CredentialProvider   *credentials.Credentials
 	Cfg                  *config.Config
+	DockerClient         engine.DockerClient
 	AcceptInvalidCert    bool
 	EcsClient            api.ECSClient
 	TaskEngine           engine.TaskEngine
