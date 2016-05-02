@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
 	"GoVersion": "go1.4.3",
-	"GodepVersion": "v60",
+	"GodepVersion": "v61",
 	"Packages": [
 		"./..."
 	],
@@ -107,6 +107,11 @@
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
 		},
 		{
+			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/restxml",
+			"Comment": "v1.0.11",
+			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
+		},
+		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
 			"Comment": "v1.0.11",
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
@@ -138,6 +143,11 @@
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/ec2",
+			"Comment": "v1.0.11",
+			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/service/s3",
 			"Comment": "v1.0.11",
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
 		},

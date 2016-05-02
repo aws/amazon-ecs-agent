@@ -17,15 +17,21 @@ package engine
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	awsS3 "github.com/aws/aws-sdk-go/service/s3"
 	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
@@ -36,6 +42,10 @@ const (
 	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
+)
+
+var (
+	S3_REGEX = regexp.MustCompile("^s3://([^/]+)/(.*)$")
 )
 
 // The DockerTaskEngine interacts with docker to implement a task
@@ -65,6 +75,8 @@ type DockerTaskEngine struct {
 
 	client     DockerClient
 	clientLock sync.Mutex
+
+	s3Client s3.StreamingClient
 
 	stopEngine context.CancelFunc
 
@@ -116,6 +128,8 @@ func (engine *DockerTaskEngine) Init() error {
 		return err
 	}
 
+	engine.initS3Client()
+
 	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	ctx, cancel := context.WithCancel(context.TODO())
 	engine.stopEngine = cancel
@@ -150,6 +164,13 @@ func (engine *DockerTaskEngine) initDockerClient() error {
 	engine.client = client
 
 	return nil
+}
+
+func (engine *DockerTaskEngine) initS3Client() {
+	if engine.s3Client == nil {
+		rawClient := awsS3.New(session.New(), &aws.Config{Region: &engine.cfg.AWSRegion})
+		engine.s3Client = s3.NewStreamingClient(rawClient)
+	}
 }
 
 // SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
@@ -428,8 +449,27 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Pulling container", "task", task, "container", container)
-	return engine.client.PullImage(container.Image, container.RegistryAuthentication)
+	var metadata DockerContainerMetadata
+	matches := S3_REGEX.FindStringSubmatch(container.Image)
+
+	if len(matches) != 3 {
+		log.Info("Pulling container", "task", task, "container", container)
+		metadata = engine.client.PullImage(container.Image, container.RegistryAuthentication)
+	} else {
+		log.Info("Loading container from S3", "task", task, "container", container)
+		bucket, key := matches[1], matches[2]
+		slice := strings.Split(key, "/")
+		name := slice[len(slice)-1]
+		reader, err := engine.s3Client.StreamObject(bucket, key)
+		if err != nil {
+			metadata = DockerContainerMetadata{Error: err}
+		} else {
+			log.Debug("Loading container from S3 with name", "name", name)
+			metadata = engine.client.LoadImage(name, reader)
+		}
+	}
+
+	return metadata
 }
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {

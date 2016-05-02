@@ -17,6 +17,8 @@
 package engine
 
 import (
+	io "io"
+
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -248,6 +250,16 @@ func (_m *MockDockerClient) ListContainers(_param0 bool) ListContainersResponse 
 
 func (_mr *_MockDockerClientRecorder) ListContainers(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
+}
+
+func (_m *MockDockerClient) LoadImage(_param0 string, _param1 io.ReadCloser) DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0, _param1)
+	ret0, _ := ret[0].(DockerContainerMetadata)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) LoadImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0, arg1)
 }
 
 func (_m *MockDockerClient) PullImage(_param0 string, _param1 *api.RegistryAuthenticationData) DockerContainerMetadata {
