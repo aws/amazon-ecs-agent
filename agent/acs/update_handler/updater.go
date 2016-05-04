@@ -102,7 +102,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 		}
 
 		nack := func(reason string) {
-			seelog.Warnf("Nacking StageUpdate; reason: %s", reason)
+			seelog.Errorf("Nacking StageUpdate; reason: %s", reason)
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
@@ -223,7 +223,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 
 		if !u.config.UpdatesEnabled {
 			reason := "Updates are disabled"
-			seelog.Warnf("Nacking PerformUpdate; reason: %s", reason)
+			seelog.Errorf("Nacking PerformUpdate; reason: %s", reason)
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
@@ -234,7 +234,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		}
 
 		if u.stage != updateDownloaded {
-			log.Error("Nacking update; not downloaded")
+			log.Error("Nacking PerformUpdate; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
