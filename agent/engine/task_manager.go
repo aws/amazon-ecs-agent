@@ -227,6 +227,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		seelog.Infof("Redundant container state change for task %s: %s to %s, but already %s", mtask.Task, container, event.Status, container.KnownStatus)
 		return
 	}
+	currentKnownStatus := container.KnownStatus
 	container.KnownStatus = event.Status
 
 	if event.Error != nil {
@@ -234,14 +235,27 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			container.ApplyingError = api.NewNamedError(event.Error)
 		}
 		if event.Status == api.ContainerStopped {
-			// If we were trying to transition to stopped and had an error, we
-			// clearly can't just continue trying to transition it to stopped
-			// again and again... In this case, assume it's stopped (or close
-			// enough) and get on with it
-			// This actually happens a lot for the case of stopping something that was not running.
-			llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways")
-			container.KnownStatus = api.ContainerStopped
-			container.DesiredStatus = api.ContainerStopped
+			// If we were trying to transition to stopped and had a timeout error
+			// from docker, reset the known status to the current status and return
+			// This ensures that we don't emit a containerstopped event; a
+			// terminal container event from docker event stream will instead be
+			// responsible for the transition. Alternatively, the steadyState check
+			// could also trigger the progress and have another go at stopping the
+			// container
+			if event.Error.ErrorName() == dockerTimeoutErrorName {
+				seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v", dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
+				container.KnownStatus = currentKnownStatus
+				return
+			} else {
+				// If we were trying to transition to stopped and had an error, we
+				// clearly can't just continue trying to transition it to stopped
+				// again and again... In this case, assume it's stopped (or close
+				// enough) and get on with it
+				// This actually happens a lot for the case of stopping something that was not running.
+				llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways")
+				container.KnownStatus = api.ContainerStopped
+				container.DesiredStatus = api.ContainerStopped
+			}
 		} else if event.Status == api.ContainerPulled {
 			// Another special case; a failure to pull might not be fatal if e.g. the image already exists.
 			llog.Info("Error while pulling container; will try to run anyways", "err", event.Error)
