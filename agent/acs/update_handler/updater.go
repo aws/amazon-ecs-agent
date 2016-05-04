@@ -36,6 +36,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/cihub/seelog"
 )
 
 var log = logger.ForModule("updater")
@@ -79,19 +81,14 @@ var singleUpdater *updater
 // AddAgentUpdateHandlers adds the needed update handlers to perform agent
 // updates
 func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
-	if cfg.UpdatesEnabled {
-		singleUpdater = &updater{
-			acs:        cs,
-			config:     cfg,
-			fs:         os.Default,
-			httpclient: httpclient.New(updateDownloadTimeout, false),
-		}
-		cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
-		cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
-		log.Debug("Added update handlers")
-	} else {
-		log.Debug("Updates disabled; no handlers added")
+	singleUpdater = &updater{
+		acs:        cs,
+		config:     cfg,
+		fs:         os.Default,
+		httpclient: httpclient.New(updateDownloadTimeout, false),
 	}
+	cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
+	cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
 }
 
 func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
@@ -103,15 +100,21 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			log.Error("Nil request to stage update or missing MessageID")
 			return
 		}
+
 		nack := func(reason string) {
-			log.Debug("Nacking update", "reason", reason)
+			seelog.Warnf("Nacking StageUpdate; reason: %s", reason)
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,
-				Reason:            &reason,
+				Reason:            aws.String(reason),
 			})
 			u.reset()
+		}
+
+		if !u.config.UpdatesEnabled {
+			nack("Updates are disabled")
+			return
 		}
 
 		if err := validateUpdateInfo(req.UpdateInfo); err != nil {
@@ -217,14 +220,27 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		defer u.Unlock()
 
 		log.Debug("Got perform update request")
+
+		if !u.config.UpdatesEnabled {
+			reason := "Updates are disabled"
+			seelog.Warnf("Nacking PerformUpdate; reason: %s", reason)
+			u.acs.MakeRequest(&ecsacs.NackRequest{
+				Cluster:           req.ClusterArn,
+				ContainerInstance: req.ContainerInstanceArn,
+				MessageId:         req.MessageId,
+				Reason:            aws.String(reason),
+			})
+			return
+		}
+
 		if u.stage != updateDownloaded {
-			log.Debug("Nacking update; not downloaded")
+			log.Debug("Nacking PerformUpdate; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,
-				Reason:            &reason,
+				Reason:            aws.String(reason),
 			})
 			return
 		}
