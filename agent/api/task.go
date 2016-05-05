@@ -310,11 +310,36 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		return nil, &HostConfigError{err.Error()}
 	}
 
+	// HACK: we get the CPU Quota and CPU Period from the environment, since
+	// there is no good way to propagate them in. If they are set in the
+	// container, initialize them, otherwise set them to the default value.
+	cpuPeriod := 100000 // 100ms, default value
+	cpuPeriodLabel := "_DOCKER_CPU_PERIOD"
+
+	cpuQuota := -1 // -1, default value to not set a quota
+	cpuQuotaLabel := "_DOCKER_CPU_QUOTA"
+
+	if container.Environment[cpuPeriodLabel] != "" && container.Environment[cpuQuotaLabel] != "" {
+		cpuQuota, err = strconv.Atoi(container.Environment[cpuQuotaLabel])
+		if err != nil {
+			return nil, &HostConfigError{err.Error()}
+		}
+		cpuPeriod, err = strconv.Atoi(container.Environment[cpuPeriodLabel])
+		if err != nil {
+			return nil, &HostConfigError{err.Error()}
+		}
+
+	}
+	delete(container.Environment, cpuPeriodLabel)
+	delete(container.Environment, cpuQuotaLabel)
+
 	hostConfig := &docker.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
+		CPUQuota:     int64(cpuQuota),
+		CPUPeriod:    int64(cpuPeriod),
 	}
 
 	if container.DockerConfig.HostConfig != nil {
