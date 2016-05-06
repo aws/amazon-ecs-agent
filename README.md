@@ -19,8 +19,6 @@ On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide 
 The Amazon ECS Container Agent may also be run in a Docker container on an EC2 Instance with a recent Docker version installed.
 A Docker image is available in our [Docker Hub Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
 
-*Note: The below command should work on most AMIs, but the cgroup and execdriver path may differ in some cases*
-
 ```bash
 $ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
 $ touch /etc/ecs/ecs.config
@@ -30,8 +28,6 @@ $ docker run --name ecs-agent \
     -v /var/log/ecs:/log \
     -v /var/lib/ecs/data:/data \
     -v /var/lib/docker:/var/lib/docker \
-    -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-    -v /var/run/docker/execdriver/native:/var/lib/docker/execdriver/native:ro \
     -p 127.0.0.1:51678:51678 \
     --env-file /etc/ecs/ecs.config \
     -e ECS_LOGFILE=/log/ecs-agent.log \
@@ -108,7 +104,6 @@ configure them as something other than the defaults.
 | `ECS_UPDATES_ENABLED` | &lt;true &#124; false&gt; | Whether to exit for an updater to apply updates when requested | false |
 | `ECS_UPDATE_DOWNLOAD_DIR` | /cache               | Where to place update tarballs within the container |  |
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false |
-| `ECS_DOCKER_GRAPHPATH`   | /var/lib/docker | Used to create the path to the state file of containers launched. The state file is used to read utilization metrics of containers. | /var/lib/docker |
 | `AWS_SESSION_TOKEN` |                         | The [Session Token](http://docs.aws.amazon.com/STS/latest/UsingSTS/Welcome.html) used for temporary credentials. | Taken from EC2 Instance Metadata |
 | `ECS_RESERVED_MEMORY` | 32 | Memory, in MB, to reserve for use by things other than containers managed by ECS. | 0 |
 | `ECS_AVAILABLE_LOGGING_DRIVERS` | `["json-file","syslog"]` | Which logging drivers are available on the Container Instance. | `["json-file"]` |
