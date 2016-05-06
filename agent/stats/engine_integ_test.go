@@ -51,11 +51,6 @@ var dockerClient, _ = engine.NewDockerGoClient(clientFactory, "", config.NewSens
 
 var cfg = config.DefaultConfig()
 
-func init() {
-	// Set DockerGraphPath as per changes in 1.6
-	cfg.DockerGraphPath = "/var/run/docker"
-}
-
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
 func createGremlin(client *docker.Client) (*docker.Container, error) {
@@ -106,9 +101,9 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 }
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
-	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
-	// read state.json file for containers.
-	t.Skip("Skipping integ test as this is really a functional test")
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	engine := NewDockerStatsEngine(&cfg, dockerClient)
 
 	// Create a container to get the container id.
@@ -144,6 +139,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
 	}
+	defer engine.unsubscribeContainerEvents()
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
@@ -158,7 +154,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	}
 
 	if len(taskMetrics) != 1 {
-		t.Error("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
+		t.Fatal("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
 	}
 
 	taskMetric := taskMetrics[0]
@@ -183,14 +179,14 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// Should not contain any metrics after cleanup.
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatal("Error validating idle metrics: ", err)
 	}
 }
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
-	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
-	// read state.json file for containers.
-	t.Skip("Skipping integ test as this is really a functional test")
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	engine := NewDockerStatsEngine(&cfg, dockerClient)
 
 	container, err := createGremlin(client)
@@ -208,13 +204,16 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	resolver.addToMap(container.ID)
 
 	// Wait for containers from previous tests to transition states.
-	time.Sleep(checkPointSleep)
+	time.Sleep(checkPointSleep * 2)
 	engine.resolver = resolver
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 
 	err = engine.Init()
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
 	}
+	defer engine.unsubscribeContainerEvents()
 
 	err = client.StartContainer(container.ID, nil)
 	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
@@ -236,7 +235,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	}
 
 	if len(taskMetrics) != 1 {
-		t.Error("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
+		t.Fatal("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
 	}
 	taskMetric := taskMetrics[0]
 	if *taskMetric.TaskDefinitionFamily != taskDefinitionFamily {
@@ -261,14 +260,14 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	// Should not contain any metrics after cleanup.
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatal("Error validating idle metrics: ", err)
 	}
 }
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
-	// This should be a functional test. Upgrading to docker 1.6 breaks our ability to
-	// read state.json file for containers.
-	t.Skip("Skipping integ test as this is really a functional test")
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil)
 	container, err := createGremlin(client)
 	if err != nil {
@@ -314,6 +313,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	if err != nil {
 		t.Error("Error initializing stats engine: ", err)
 	}
+	defer statsEngine.unsubscribeContainerEvents()
 
 	err = client.StartContainer(container.ID, nil)
 	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
@@ -358,6 +358,6 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	// Should not contain any metrics after cleanup.
 	err = validateIdleContainerMetrics(statsEngine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatal("Error validating idle metrics: ", err)
 	}
 }

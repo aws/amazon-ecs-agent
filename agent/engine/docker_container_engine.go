@@ -68,16 +68,16 @@ type DockerClient interface {
 	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
+
 	CreateContainer(*docker.Config, *docker.HostConfig, string) DockerContainerMetadata
 	StartContainer(string) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
-
 	RemoveContainer(string) error
 
 	InspectContainer(string) (*docker.Container, error)
-
 	ListContainers(bool) ListContainersResponse
+	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
 	Version() (string, error)
 }
@@ -677,4 +677,40 @@ func (dg *dockerGoClient) Version() (string, error) {
 		return "", err
 	}
 	return "DockerVersion: " + info.Get("Version"), nil
+}
+
+// Stats returns a channel of *docker.Stats entries for the container.
+func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.Stats, error) {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make(chan *docker.Stats)
+	cancel := make(chan bool)
+	options := docker.StatsOptions{
+		ID:     id,
+		Stats:  stats,
+		Stream: true,
+		Done:   cancel,
+	}
+
+	statsComplete := make(chan struct{})
+	go func() {
+		statsErr := client.Stats(options)
+		if err != nil {
+			seelog.Warnf("Error retrieving stats for container %s: %v", id, statsErr)
+		}
+		close(statsComplete)
+	}()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancel <- true
+		case <-statsComplete:
+		}
+	}()
+
+	return stats, nil
 }

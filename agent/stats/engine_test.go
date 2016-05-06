@@ -133,8 +133,8 @@ func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
 
 func createFakeContainerStats() []*ContainerStats {
 	return []*ContainerStats{
-		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
-		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
+		&ContainerStats{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		&ContainerStats{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 }
 
@@ -180,9 +180,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c2 not found in engine")
 	}
 
-	for _, cronContainer := range containers {
+	for _, statsContainer := range containers {
 		for _, fakeContainerStats := range createFakeContainerStats() {
-			cronContainer.statsQueue.Add(fakeContainerStats)
+			statsContainer.statsQueue.Add(fakeContainerStats)
 		}
 	}
 
@@ -277,13 +277,13 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.addContainer("c1")
 	containerStats := []*ContainerStats{
-		createContainerStats(22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")),
-		createContainerStats(116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")),
+		&ContainerStats{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		&ContainerStats{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 	containers, _ := engine.tasksToContainers["t1"]
-	for _, cronContainer := range containers {
+	for _, statsContainer := range containers {
 		for i := 0; i < 2; i++ {
-			cronContainer.statsQueue.Add(containerStats[i])
+			statsContainer.statsQueue.Add(containerStats[i])
 		}
 	}
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()

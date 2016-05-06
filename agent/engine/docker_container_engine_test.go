@@ -717,3 +717,123 @@ func TestUnavailableVersionError(t *testing.T) {
 		t.Fatal("Error was not a named error")
 	}
 }
+
+func TestStatsNormalExit(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+	time1 := time.Now()
+	time2 := time1.Add(1 * time.Second)
+	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
+		opts := x.(docker.StatsOptions)
+		defer close(opts.Stats)
+		if opts.ID != "foo" {
+			t.Fatalf("Expected ID foo, got %s", opts.ID)
+		}
+		if opts.Stream != true {
+			t.Fatal("Expected stream to be true")
+		}
+		opts.Stats <- &docker.Stats{
+			Read: time1,
+		}
+		opts.Stats <- &docker.Stats{
+			Read: time2,
+		}
+	})
+	ctx := context.TODO()
+	stats, err := client.Stats("foo", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := <-stats
+	checkStatRead(t, stat, time1)
+	stat = <-stats
+	checkStatRead(t, stat, time2)
+	stat = <-stats
+	if stat != nil {
+		t.Fatal("Expected stat to be nil")
+	}
+}
+
+func checkStatRead(t *testing.T, stat *docker.Stats, read time.Time) {
+	if stat.Read != read {
+		t.Fatalf("Expected %v, but was %v", read, stat.Read)
+	}
+}
+
+func TestStatsClosed(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+	time1 := time.Now()
+	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
+		opts := x.(docker.StatsOptions)
+		defer close(opts.Stats)
+		if opts.ID != "foo" {
+			t.Fatalf("Expected ID foo, got %s", opts.ID)
+		}
+		if opts.Stream != true {
+			t.Fatal("Expected stream to be true")
+		}
+		for i := 0; true; i++ {
+			select {
+			case <-opts.Done:
+				t.Logf("Received cancel after %d iterations", i)
+				return
+			default:
+				opts.Stats <- &docker.Stats{
+					Read: time1.Add(time.Duration(i) * time.Second),
+				}
+			}
+		}
+	})
+	ctx, cancel := context.WithCancel(context.TODO())
+	stats, err := client.Stats("foo", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := <-stats
+	checkStatRead(t, stat, time1)
+	stat = <-stats
+	checkStatRead(t, stat, time1.Add(time.Second))
+	cancel()
+	// drain
+	for {
+		stat = <-stats
+		if stat == nil {
+			break
+		}
+	}
+}
+
+func TestStatsErrorReading(t *testing.T) {
+	mockDocker, client, _, done := dockerclientSetup(t)
+	defer done()
+	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) error {
+		opts := x.(docker.StatsOptions)
+		close(opts.Stats)
+		return errors.New("test error")
+	})
+	ctx := context.TODO()
+	stats, err := client.Stats("foo", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := <-stats
+	if stat != nil {
+		t.Fatal("Expected stat to be nil")
+	}
+}
+
+func TestStatsClientError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory.EXPECT().GetDefaultClient().Return(nil, errors.New("No client"))
+	client := &dockerGoClient{
+		clientFactory: factory,
+	}
+	ctx := context.TODO()
+	_, err := client.Stats("foo", ctx)
+	if err == nil {
+		t.Fatal("Expected error with nil docker client")
+	}
+}
