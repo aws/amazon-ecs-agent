@@ -154,7 +154,6 @@ func DefaultConfig() Config {
 		ReservedPortsUDP:        []uint16{},
 		DataDir:                 "/data/",
 		DisableMetrics:          false,
-		DockerGraphPath:         "/var/lib/docker",
 		ReservedMemory:          0,
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
 		TaskCleanupWaitDuration: DefaultTaskCleanupWaitDuration,
@@ -241,7 +240,6 @@ func environmentConfig() Config {
 	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
 
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
-	dockerGraphPath := os.Getenv("ECS_DOCKER_GRAPHPATH")
 
 	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
@@ -275,7 +273,6 @@ func environmentConfig() Config {
 		UpdatesEnabled:          updatesEnabled,
 		UpdateDownloadDir:       updateDownloadDir,
 		DisableMetrics:          disableMetrics,
-		DockerGraphPath:         dockerGraphPath,
 		ReservedMemory:          reservedMemory,
 		AvailableLoggingDrivers: availableLoggingDrivers,
 		PrivilegedDisabled:      privilegedDisabled,

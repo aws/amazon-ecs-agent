@@ -53,7 +53,6 @@ type DockerStatsEngine struct {
 	containerInstanceArn string
 	containersLock       sync.RWMutex
 	ctx                  context.Context
-	dockerGraphPath      string
 	events               <-chan ecsengine.DockerContainerChangeEvent
 	resolver             resolver.ContainerMetadataResolver
 	// tasksToContainers maps task arns to a map of container ids to StatsContainer objects.
@@ -85,7 +84,6 @@ func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient) *Do
 	if dockerStatsEngine == nil {
 		dockerStatsEngine = &DockerStatsEngine{
 			client:             client,
-			dockerGraphPath:    cfg.DockerGraphPath,
 			resolver:           nil,
 			tasksToContainers:  make(map[string]map[string]*StatsContainer),
 			tasksToDefinitions: make(map[string]*taskDefinition),
