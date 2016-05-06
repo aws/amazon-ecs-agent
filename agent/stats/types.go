@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@ package stats
 import (
 	"time"
 
+	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"golang.org/x/net/context"
 )
 
@@ -39,14 +40,13 @@ type ContainerMetadata struct {
 	DockerID string `json:"-"`
 }
 
-// CronContainer abstracts methods to gather and aggregate utilization data for a container.
-type CronContainer struct {
+// StatsContainer abstracts methods to gather and aggregate utilization data for a container.
+type StatsContainer struct {
 	containerMetadata *ContainerMetadata
 	ctx               context.Context
 	cancel            context.CancelFunc
-	statePath         string
+	client            ecsengine.DockerClient
 	statsQueue        *Queue
-	statsCollector    ContainerStatsCollector
 }
 
 // taskDefinition encapsulates family and version strings for a task definition
