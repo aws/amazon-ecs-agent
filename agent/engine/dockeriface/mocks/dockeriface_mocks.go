@@ -156,6 +156,16 @@ func (_mr *_MockClientRecorder) StartContainer(arg0, arg1 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
 }
 
+func (_m *MockClient) Stats(_param0 go_dockerclient.StatsOptions) error {
+	ret := _m.ctrl.Call(_m, "Stats", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientRecorder) Stats(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stats", arg0)
+}
+
 func (_m *MockClient) StopContainer(_param0 string, _param1 uint) error {
 	ret := _m.ctrl.Call(_m, "StopContainer", _param0, _param1)
 	ret0, _ := ret[0].(error)
