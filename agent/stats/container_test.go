@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,80 +14,83 @@
 package stats
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 	"time"
+
+	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/golang/mock/gomock"
+	"golang.org/x/net/context"
 )
 
 // checkPointSleep is the sleep duration in milliseconds between
 // starting/stopping containers in the test code.
-const checkPointSleep = 2 * SleepBetweenUsageDataCollection
+const checkPointSleep = 5 * SleepBetweenUsageDataCollection
 
-type MockStatsCollector struct {
-	index int
-	stats []ContainerStats
+type StatTestData struct {
+	timestamp time.Time
+	cpuTime   uint64
+	memBytes  uint64
 }
 
-func newMockStatsCollector() *MockStatsCollector {
-	collector := &MockStatsCollector{index: 0}
-	timestamps := []time.Time{
-		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
-		parseNanoTime("2015-02-12T21:22:05.232291187Z"),
-		parseNanoTime("2015-02-12T21:22:05.333776335Z"),
-		parseNanoTime("2015-02-12T21:22:05.434753595Z"),
-		parseNanoTime("2015-02-12T21:22:05.535746779Z"),
-		parseNanoTime("2015-02-12T21:22:05.638709495Z"),
-		parseNanoTime("2015-02-12T21:22:05.739985398Z"),
-		parseNanoTime("2015-02-12T21:22:05.840941705Z"),
-	}
-	cpuTimes := []uint64{
-		22400432,
-		116499979,
-		248503503,
-		372167097,
-		502862518,
-		638485801,
-		780707806,
-		911624529,
-	}
-	memBytes := []uint64{
-		1839104,
-		3649536,
-		3649536,
-		3649536,
-		3649536,
-		3649536,
-		3649536,
-		3649536,
-	}
-	collector.stats = make([]ContainerStats, len(timestamps))
-	for i := range timestamps {
-		collector.stats[i] = *createContainerStats(cpuTimes[i], memBytes[i], timestamps[i])
-	}
-	return collector
+var statsData = []*StatTestData{
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.131117533Z"), 22400432, 1839104},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.232291187Z"), 116499979, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.333776335Z"), 248503503, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.434753595Z"), 372167097, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.535746779Z"), 502862518, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.638709495Z"), 638485801, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.739985398Z"), 780707806, 3649536},
+	&StatTestData{parseNanoTime("2015-02-12T21:22:05.840941705Z"), 911624529, 3649536},
 }
 
-func (collector *MockStatsCollector) getContainerStats(container *CronContainer) (*ContainerStats, error) {
-	cs := collector.stats[collector.index]
-	collector.index++
-	return &cs, nil
-}
+func TestContainerStatsCollection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
 
-func TestContainerStatsAggregation(t *testing.T) {
-	var container *CronContainer
 	dockerID := "container1"
-	container = &CronContainer{
+	ctx, cancel := context.WithCancel(context.TODO())
+	statChan := make(chan *docker.Stats)
+	mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil)
+	go func() {
+		for _, stat := range statsData {
+			// doing this with json makes me sad, but is the easiest way to
+			// deal with the docker.Stats.MemoryStats inner struct
+			jsonStat := fmt.Sprintf(`
+				{
+					"memory_stats": {"usage":%d},
+					"cpu_stats":{
+						"cpu_usage":{
+							"percpu_usage":[%d],
+							"total_usage":%d
+						}
+					}
+				}`, stat.memBytes, stat.cpuTime, stat.cpuTime)
+			dockerStat := &docker.Stats{}
+			json.Unmarshal([]byte(jsonStat), dockerStat)
+			dockerStat.Read = stat.timestamp
+			statChan <- dockerStat
+		}
+	}()
+
+	container := &StatsContainer{
 		containerMetadata: &ContainerMetadata{
 			DockerID: dockerID,
 		},
+		ctx:    ctx,
+		cancel: cancel,
+		client: mockDockerClient,
 	}
-	container.statsCollector = newMockStatsCollector()
-	container.StartStatsCron()
+	container.StartStatsCollection()
 	time.Sleep(checkPointSleep)
-	container.StopStatsCron()
+	container.StopStatsCollection()
 	cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 	if err != nil {
-		t.Error("Error gettting cpu stats set:", err)
+		t.Fatal("Error gettting cpu stats set:", err)
 	}
 	if *cpuStatsSet.Min == math.MaxFloat64 || math.IsNaN(*cpuStatsSet.Min) {
 		t.Error("Min value incorrectly set: ", *cpuStatsSet.Min)
@@ -118,4 +121,35 @@ func TestContainerStatsAggregation(t *testing.T) {
 	if *memStatsSet.Sum == 0 {
 		t.Error("Sum value incorrectly set: ", *memStatsSet.Sum)
 	}
+}
+
+func TestContainerStatsCollectionReconnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
+
+	dockerID := "container1"
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	statChan := make(chan *docker.Stats)
+	statErr := fmt.Errorf("test error")
+	closedChan := make(chan *docker.Stats)
+	close(closedChan)
+	gomock.InOrder(
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(nil, statErr),
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil),
+	)
+
+	container := &StatsContainer{
+		containerMetadata: &ContainerMetadata{
+			DockerID: dockerID,
+		},
+		ctx:    ctx,
+		cancel: cancel,
+		client: mockDockerClient,
+	}
+	container.StartStatsCollection()
+	time.Sleep(checkPointSleep)
+	container.StopStatsCollection()
 }

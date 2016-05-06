@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -53,11 +53,10 @@ type DockerStatsEngine struct {
 	containerInstanceArn string
 	containersLock       sync.RWMutex
 	ctx                  context.Context
-	dockerGraphPath      string
 	events               <-chan ecsengine.DockerContainerChangeEvent
 	resolver             resolver.ContainerMetadataResolver
-	// tasksToContainers maps task arns to a map of container ids to CronContainer objects.
-	tasksToContainers map[string]map[string]*CronContainer
+	// tasksToContainers maps task arns to a map of container ids to StatsContainer objects.
+	tasksToContainers map[string]map[string]*StatsContainer
 	// tasksToDefinitions maps task arns to task definiton name and family metadata objects.
 	tasksToDefinitions         map[string]*taskDefinition
 	unsubscribeContainerEvents context.CancelFunc
@@ -85,9 +84,8 @@ func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient) *Do
 	if dockerStatsEngine == nil {
 		dockerStatsEngine = &DockerStatsEngine{
 			client:             client,
-			dockerGraphPath:    cfg.DockerGraphPath,
 			resolver:           nil,
-			tasksToContainers:  make(map[string]map[string]*CronContainer),
+			tasksToContainers:  make(map[string]map[string]*StatsContainer),
 			tasksToDefinitions: make(map[string]*taskDefinition),
 		}
 	}
@@ -134,7 +132,6 @@ func (engine *DockerStatsEngine) listContainersAndStartEventHandler() {
 		engine.unsubscribeContainerEvents()
 		return
 	}
-
 	go engine.handleDockerEvents()
 }
 
@@ -290,14 +287,14 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 		}
 	} else {
 		// Create a map for the task arn if it doesn't exist yet.
-		engine.tasksToContainers[task.Arn] = make(map[string]*CronContainer)
+		engine.tasksToContainers[task.Arn] = make(map[string]*StatsContainer)
 	}
 
 	log.Debug("Adding container to stats watch list", "id", dockerID, "task", task.Arn)
-	container := newCronContainer(dockerID, engine.dockerGraphPath)
+	container := newStatsContainer(dockerID, engine.client)
 	engine.tasksToContainers[task.Arn][dockerID] = container
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
-	container.StartStatsCron()
+	container.StartStatsCollection()
 }
 
 // removeContainer deletes the container from the map of containers being watched.
@@ -327,7 +324,7 @@ func (engine *DockerStatsEngine) removeContainer(dockerID string) {
 		return
 	}
 
-	container.StopStatsCron()
+	container.StopStatsCollection()
 	delete(engine.tasksToContainers[task.Arn], dockerID)
 	log.Debug("Deleted container from tasks", "id", dockerID)
 

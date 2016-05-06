@@ -177,9 +177,6 @@ func TestConfigDefault(t *testing.T) {
 	if len(cfg.ReservedPorts) != 4 {
 		t.Error("Default resered ports set incorrectly")
 	}
-	if cfg.DockerGraphPath != "/var/lib/docker" {
-		t.Error("Default docker graph path set incorrectly")
-	}
 	if cfg.ReservedMemory != 0 {
 		t.Errorf("Default reserved memory set incorrectly: %v", cfg.ReservedMemory)
 	}
