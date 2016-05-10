@@ -234,7 +234,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		}
 
 		if u.stage != updateDownloaded {
-			log.Debug("Nacking PerformUpdate; not downloaded")
+			log.Error("Nacking update; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
