@@ -90,14 +90,6 @@ func DesiredImageLocatorFile() string {
 	return CacheDirectory() + "/desired-image"
 }
 
-func CgroupDirectory() string {
-	return cgroupDirectory
-}
-
-func ExecDriverDirectory() string {
-	return execDriverDirectory
-}
-
 func DockerUnixSocket() string {
 	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
 		return strings.TrimPrefix(dockerHost, UnixSocketPrefix)

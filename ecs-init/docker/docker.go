@@ -27,7 +27,6 @@ const (
 	agentIntrospectionPort = "51678"
 	logDir                 = "/log"
 	dataDir                = "/data"
-	execDriverDir          = "/var/lib/docker/execdriver"
 	readOnly               = ":ro"
 	defaultDockerEndpoint  = "/var/run/docker.sock"
 )
@@ -192,8 +191,6 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
-		config.CgroupDirectory() + ":" + config.CgroupDirectory() + readOnly,
-		config.ExecDriverDirectory() + ":" + execDriverDir + readOnly,
 	}
 	portBindings := map[godocker.Port][]godocker.PortBinding{
 		agentIntrospectionPort + "/tcp": []godocker.PortBinding{
