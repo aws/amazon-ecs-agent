@@ -92,7 +92,7 @@ func _main() int {
 	cfg, cfgErr := config.NewConfig(ec2MetadataClient)
 	// Load cfg and create Docker client before doing 'versionFlag' so that it has the DOCKER_HOST variable loaded if needed
 	clientFactory := dockerclient.NewFactory(cfg.DockerEndpoint)
-	dockerClient, err := engine.NewDockerGoClient(clientFactory, cfg.EngineAuthType, cfg.EngineAuthData, *acceptInsecureCert)
+	dockerClient, err := engine.NewDockerGoClient(clientFactory, *acceptInsecureCert, cfg)
 	if err != nil {
 		log.Criticalf("Error creating Docker client: %v", err)
 		return exitcodes.ExitError

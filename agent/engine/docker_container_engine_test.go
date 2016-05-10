@@ -45,7 +45,10 @@ func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoCli
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+
+	conf := config.DefaultConfig()
+	conf.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
+	client, _ := NewDockerGoClient(factory, false, &conf)
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	goClient.ecrClientFactory = ecrClientFactory
@@ -208,7 +211,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+	client, _ := NewDockerGoClient(factory, false, cfg)
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
@@ -269,7 +272,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+	client, _ := NewDockerGoClient(factory, false, cfg)
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
@@ -409,11 +412,10 @@ func TestStopContainerTimeout(t *testing.T) {
 	mockDocker, client, testTime, done := dockerclientSetup(t)
 	defer done()
 
-	dockerStopTimeout := client.config.DockerStopTimeoutSeconds
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StopContainer("id", uint(dockerStopTimeout)).Do(func(x, y interface{}) {
-		testTime.Warp(stopContainerAPITimeout + time.Duration(dockerStopTimeout)*time.Second)
+	mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeout/time.Second)).Do(func(x, y interface{}) {
+		testTime.Warp(client.config.DockerStopTimeout + stopContainerTimeout)
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
@@ -432,7 +434,7 @@ func TestStopContainer(t *testing.T) {
 	defer done()
 
 	gomock.InOrder(
-		mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeoutSeconds)).Return(nil),
+		mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeout/time.Second)).Return(nil),
 		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
 	metadata := client.StopContainer("id")
@@ -662,7 +664,7 @@ func TestPingFailError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(errors.New("err"))
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	_, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+	_, err := NewDockerGoClient(factory, false, cfg)
 	if err == nil {
 		t.Fatal("Expected ping error to result in constructor fail")
 	}
@@ -675,7 +677,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+	client, err := NewDockerGoClient(factory, false, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -696,7 +698,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory, "", config.NewSensitiveRawMessage([]byte{}), false)
+	client, err := NewDockerGoClient(factory, false, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
