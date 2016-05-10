@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//      http://aws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -46,14 +46,14 @@ const (
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 3 * time.Minute
 	startContainerTimeout   = 1*time.Minute + 30*time.Second
-	stopContainerAPITimeout = 30 * time.Second
+	stopContainerTimeout    = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
 	listContainersTimeout   = 10 * time.Minute
 
-// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
-// we expect to see output on the pull progress stream. This is to work
-// around a docker bug which sometimes results in pulls not progressing.
+	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
+	// we expect to see output on the pull progress stream. This is to work
+	// around a docker bug which sometimes results in pulls not progressing.
 	dockerPullBeginTimeout = 5 * time.Minute
 )
 
@@ -125,7 +125,7 @@ type DockerImageResponse struct {
 }
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, authData *config.SensitiveRawMessage, acceptInsecureCert bool) (DockerClient, error) {
+func NewDockerGoClient(clientFactory dockerclient.Factory, acceptInsecureCert bool, cfg *config.Config) (DockerClient, error) {
 	client, err := clientFactory.GetDefaultClient()
 	if err != nil {
 		log.Error("Unable to connect to docker daemon. Ensure docker is running.", "err", err)
@@ -140,13 +140,11 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, authType string, auth
 		return nil, err
 	}
 
-	cfg := config.EnvironmentConfig()
-
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
-		auth:             dockerauth.NewDockerAuthProvider(authType, authData.Contents()),
+		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
 		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
-		config:           &cfg,
+		config:           cfg,
 	}, nil
 }
 
@@ -337,7 +335,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	select {
 	case <-ctx.Done():
-	// Parent function already timed out; no need to get container metadata
+		// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -371,7 +369,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	err = client.StartContainer(id, nil)
 	select {
 	case <-ctx.Done():
-	// Parent function already timed out; no need to get container metadata
+		// Parent function already timed out; no need to get container metadata
 		return DockerContainerMetadata{}
 	default:
 	}
@@ -427,7 +425,7 @@ func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, 
 }
 
 func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	timeout := ttime.After(stopContainerAPITimeout + dg.config.DockerStopTimeoutSeconds)
+	timeout := ttime.After(stopContainerTimeout + dg.config.DockerStopTimeout)
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
@@ -438,7 +436,7 @@ func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 		return resp
 	case <-timeout:
 		cancelFunc()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerAPITimeout + dg.config.DockerStopTimeoutSeconds, "stopped"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerTimeout + dg.config.DockerStopTimeout, "stopped"}}
 	}
 }
 
@@ -448,11 +446,11 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StopContainer(dockerId, uint(dg.config.DockerStopTimeoutSeconds))
+	err = client.StopContainer(dockerId, uint(dg.config.DockerStopTimeout/time.Second))
 	select {
 	case <-ctx.Done():
-	// parent function has already timed out and returned; we're writing to a
-	// buffered channel that will never be read
+		// parent function has already timed out and returned; we're writing to a
+		// buffered channel that will never be read
 		return DockerContainerMetadata{}
 	default:
 	}

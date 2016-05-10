@@ -56,7 +56,7 @@ func setup(t *testing.T) (TaskEngine, func(), *ttime.TestTime) {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
 	clientFactory := dockerclient.NewFactory("unix:///var/run/docker.sock")
-	dockerClient, err := NewDockerGoClient(clientFactory, cfg.EngineAuthType, cfg.EngineAuthData, false)
+	dockerClient, err := NewDockerGoClient(clientFactory, false, cfg)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}

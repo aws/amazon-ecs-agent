@@ -16,7 +16,6 @@ package config
 import (
 	"errors"
 	"os"
-	"time"
 	"reflect"
 	"testing"
 	"time"
@@ -82,7 +81,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
 	os.Setenv("ECS_RESERVED_MEMORY", "20")
-	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "30")
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "60s")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
@@ -102,10 +101,11 @@ func TestEnvironmentConfig(t *testing.T) {
 	if conf.ReservedMemory != 20 {
 		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
 	}
-	expectedDuration, _ := time.ParseDuration("30s")
-	if conf.DockerStopTimeoutSeconds != expectedDuration {
-		t.Error("Wrong value for DockerStopTimeoutSeconds", conf.DockerStopTimeoutSeconds)
+	expectedDuration, _ := time.ParseDuration("60s")
+	if conf.DockerStopTimeout != expectedDuration {
+		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
 	}
+
 	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
 	}
@@ -167,6 +167,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
 	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
@@ -187,8 +188,8 @@ func TestConfigDefault(t *testing.T) {
 		t.Errorf("Default reserved memory set incorrectly: %v", cfg.ReservedMemory)
 	}
 	expectedTimeout, _ := time.ParseDuration("30s")
-	if cfg.DockerStopTimeoutSeconds != expectedTimeout {
-		t.Error("Default docker stop container timeout set incorrectly", cfg.DockerStopTimeoutSeconds)
+	if cfg.DockerStopTimeout != expectedTimeout {
+		t.Error("Default docker stop container timeout set incorrectly", cfg.DockerStopTimeout)
 	}
 	if cfg.PrivilegedDisabled {
 		t.Errorf("Default PrivilegedDisabled set incorrectly: %v", cfg.PrivilegedDisabled)
@@ -218,6 +219,32 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	err := conf.validate()
 	if err == nil {
 		t.Error("Should be error with invalid-logging-driver")
+	}
+}
+
+func TestInvalidFormatDockerStopTimeout(t *testing.T) {
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")
+	conf := environmentConfig()
+	if conf.DockerStopTimeout != 0 {
+		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
+	}
+}
+
+func TestInvalideValueDockerStopTimeout(t *testing.T) {
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")
+	conf := environmentConfig()
+	if conf.DockerStopTimeout != 0 {
+		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
+	}
+}
+
+func TestInvalideDockerStopTimeout(t *testing.T) {
+	conf := DefaultConfig()
+	conf.DockerStopTimeout = -1 * time.Second
+
+	err := conf.validate()
+	if err == nil {
+		t.Error("Should be error with negative DockerStopTimeout")
 	}
 }
 

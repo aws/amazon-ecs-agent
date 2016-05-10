@@ -47,9 +47,14 @@ var endpoint = utils.DefaultIfBlank(os.Getenv(engine.DOCKER_ENDPOINT_ENV_VARIABL
 
 var client, _ = docker.NewClient(endpoint)
 var clientFactory = dockerclient.NewFactory(endpoint)
-var dockerClient, _ = engine.NewDockerGoClient(clientFactory, "", config.NewSensitiveRawMessage([]byte("")), false)
-
 var cfg = config.DefaultConfig()
+
+var dockerClient engine.DockerClient
+
+func init() {
+	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
+	dockerClient, _ = engine.NewDockerGoClient(clientFactory, false, &cfg)
+}
 
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.

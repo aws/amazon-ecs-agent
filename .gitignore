@@ -9,7 +9,3 @@ _bin/
 /misc/gremlin/gremlin
 .agignore
 *.sublime-*
-
-# Jetbrains files
-.idea/
-amazon-ecs-agent.iml
