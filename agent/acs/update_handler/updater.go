@@ -104,7 +104,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			return
 		}
 		nack := func(reason string) {
-			log.Debug("Nacking update", "reason", reason)
+			log.Error("Nacking update", "reason", reason)
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
@@ -218,7 +218,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 
 		log.Debug("Got perform update request")
 		if u.stage != updateDownloaded {
-			log.Debug("Nacking update; not downloaded")
+			log.Error("Nacking update; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
