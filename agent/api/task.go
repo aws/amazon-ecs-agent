@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -288,11 +289,11 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
-	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
+	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap, cfg)
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &HostConfigError{err.Error()}
@@ -315,6 +316,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		Binds:        binds,
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
+		NetworkMode:  cfg.DockerNetworkMode,
 	}
 
 	if container.DockerConfig.HostConfig != nil {

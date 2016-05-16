@@ -240,6 +240,7 @@ func environmentConfig() Config {
 	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
 
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
+	dockerNetworkMode := os.Getenv("ECS_DOCKER_NETWORKMODE")
 
 	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
@@ -273,6 +274,7 @@ func environmentConfig() Config {
 		UpdatesEnabled:          updatesEnabled,
 		UpdateDownloadDir:       updateDownloadDir,
 		DisableMetrics:          disableMetrics,
+		DockerNetworkMode:       dockerNetworkMode,
 		ReservedMemory:          reservedMemory,
 		AvailableLoggingDrivers: availableLoggingDrivers,
 		PrivilegedDisabled:      privilegedDisabled,

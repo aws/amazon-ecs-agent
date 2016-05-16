@@ -104,6 +104,7 @@ configure them as something other than the defaults.
 | `ECS_UPDATES_ENABLED` | &lt;true &#124; false&gt; | Whether to exit for an updater to apply updates when requested | false |
 | `ECS_UPDATE_DOWNLOAD_DIR` | /cache               | Where to place update tarballs within the container |  |
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false |
+| `ECS_DOCKER_NEWTORKMODE`  | &lt;bridge &#124; host&gt;  | Override the default `NetworkMode` setting for Docker tasks | blank |
 | `AWS_SESSION_TOKEN` |                         | The [Session Token](http://docs.aws.amazon.com/STS/latest/UsingSTS/Welcome.html) used for temporary credentials. | Taken from EC2 Instance Metadata |
 | `ECS_RESERVED_MEMORY` | 32 | Memory, in MB, to reserve for use by things other than containers managed by ECS. | 0 |
 | `ECS_AVAILABLE_LOGGING_DRIVERS` | `["json-file","syslog"]` | Which logging drivers are available on the Container Instance. | `["json-file"]` |
