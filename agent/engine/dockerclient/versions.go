@@ -29,6 +29,7 @@ const (
 	Version_1_19 DockerVersion = "1.19"
 	Version_1_20 DockerVersion = "1.20"
 	Version_1_21 DockerVersion = "1.21"
+	Version_1_22 DockerVersion = "1.22"
 
 	defaultVersion = Version_1_17
 )
@@ -42,6 +43,7 @@ func init() {
 		Version_1_19,
 		Version_1_20,
 		Version_1_21,
+		Version_1_22,
 	}
 }
 
