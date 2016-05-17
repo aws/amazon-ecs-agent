@@ -111,6 +111,7 @@ configure them as something other than the defaults.
 | `ECS_SELINUX_CAPABLE` | `true` | Whether SELinux is available on the Container Instance. | `false` |
 | `ECS_APPARMOR_CAPABLE` | `true` | Whether AppArmor is available on the Container Instance. | `false` |
 | `ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION` | 10m | Time to wait to delete containers for a stopped task. If set to less than 1 minute, the value will be ignored.  | 3h |
+| `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container exit normally before being forcibly killed. | 30s |
 
 ### Persistence
 
