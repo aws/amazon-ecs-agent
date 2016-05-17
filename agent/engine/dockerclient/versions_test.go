@@ -164,6 +164,7 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	mockClient119 := mock_dockeriface.NewMockClient(ctrl)
 	mockClient120 := mock_dockeriface.NewMockClient(ctrl)
 	mockClient121 := mock_dockeriface.NewMockClient(ctrl)
+	mockClient122 := mock_dockeriface.NewMockClient(ctrl)
 
 	expectedEndpoint := "expectedEndpoint"
 
@@ -183,6 +184,8 @@ func TestFindAvailableVersiosn(t *testing.T) {
 			return mockClient120, nil
 		case Version_1_21:
 			return mockClient121, nil
+		case Version_1_22:
+			return mockClient122, nil
 		default:
 			t.Fatal("Unrecognized version")
 		}
@@ -194,8 +197,9 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	mockClient119.EXPECT().Ping()
 	mockClient120.EXPECT().Ping()
 	mockClient121.EXPECT().Ping()
+	mockClient122.EXPECT().Ping()
 
-	expectedVersions := []DockerVersion{Version_1_17, Version_1_19, Version_1_20, Version_1_21}
+	expectedVersions := []DockerVersion{Version_1_17, Version_1_19, Version_1_20, Version_1_21, Version_1_22}
 
 	factory := NewFactory(expectedEndpoint)
 	versions := factory.FindAvailableVersions()
