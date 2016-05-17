@@ -197,7 +197,7 @@ func TestFindAvailableVersiosn(t *testing.T) {
 	mockClient119.EXPECT().Ping()
 	mockClient120.EXPECT().Ping()
 	mockClient121.EXPECT().Ping()
-	mockClient122EXPECT().Ping()
+	mockClient122.EXPECT().Ping()
 
 	expectedVersions := []DockerVersion{Version_1_17, Version_1_19, Version_1_20, Version_1_21, Version_1_22}
 
