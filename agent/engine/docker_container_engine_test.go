@@ -211,7 +211,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory, false, cfg)
+	client, _ := NewDockerGoClient(factory, false, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
@@ -272,7 +272,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, _ := NewDockerGoClient(factory, false, cfg)
+	client, _ := NewDockerGoClient(factory, false, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
@@ -664,7 +664,7 @@ func TestPingFailError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(errors.New("err"))
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	_, err := NewDockerGoClient(factory, false, cfg)
+	_, err := NewDockerGoClient(factory, false, defaultTestConfig())
 	if err == nil {
 		t.Fatal("Expected ping error to result in constructor fail")
 	}
@@ -677,7 +677,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory, false, cfg)
+	client, err := NewDockerGoClient(factory, false, defaultTestConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -698,7 +698,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	mockDocker.EXPECT().Ping().Return(nil)
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
-	client, err := NewDockerGoClient(factory, false, cfg)
+	client, err := NewDockerGoClient(factory, false, defaultTestConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
