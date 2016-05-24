@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.9.0
+Version:        1.10.0
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker >= 1.6.0, docker <= 1.9.1
+Requires:       docker >= 1.6.0, docker <= 1.11.1
 Requires:       upstart
 Requires(post): docker >= 1.6.0
 
@@ -147,6 +147,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Mon May 23 2016 Peng Yin <penyin@amazon.com> - 1.10.0-1
+- Cache Agent version 1.10.0
+- Add support for Docker 1.11.1
 * Tue Apr 26 2016 Peng Yin <penyin@amazon.com> - 1.9.0-1
 - Cache Agent version 1.9.0
 - Make awslogs driver available by default

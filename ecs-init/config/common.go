@@ -77,7 +77,7 @@ func AgentTarball() string {
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
 func AgentRemoteTarball() string {
-	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.9.0.tar"
+	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.10.0.tar"
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
@@ -90,9 +90,12 @@ func DesiredImageLocatorFile() string {
 	return CacheDirectory() + "/desired-image"
 }
 
-func DockerUnixSocket() string {
+// DockerUnixSocket returns the docker socket endpoint and whether it's read from DOCKER_HOST
+func DockerUnixSocket() (string, bool) {
 	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
-		return strings.TrimPrefix(dockerHost, UnixSocketPrefix)
+		return strings.TrimPrefix(dockerHost, UnixSocketPrefix), true
 	}
-	return "/var/run/docker.sock"
+	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
+	// eg: Docker daemon restart
+	return "/var/run", false
 }
