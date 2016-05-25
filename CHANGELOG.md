@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0
+* Feature - Make the `docker stop` timeout configurable.
+* Enhancement - Use `docker stats` as the data source for CloudWatch metrics.
+* Bug - Fixed an issue where update requests would not be properly acknowledged
+  when updates were disabled.
+
 ## 1.9.0
 * Feature - Add Amazon CloudWatch Logs logging driver.
 * Bug - Fixed ACS handler when acking blank message ids.
