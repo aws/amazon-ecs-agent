@@ -19,8 +19,14 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	_config "github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/fsouza/go-dockerclient"
 )
+
+func cfg() *_config.Config {
+	c := _config.DefaultConfig()
+	return &c
+}
 
 func strptr(s string) *string { return &s }
 
@@ -143,7 +149,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), cfg())
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,7 +195,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), cfg())
 	if err != nil {
 		t.Fatal("Error creating config: ", err)
 	}
@@ -232,7 +238,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), cfg())
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -279,7 +285,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), cfg())
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -308,7 +314,8 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 				},
 			},
 		}
-		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
+
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), cfg())
 		if err == nil {
 			t.Fatal("Expected error, was none for: " + badHostConfig)
 		}

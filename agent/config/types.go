@@ -77,6 +77,9 @@ type Config struct {
 	// sent to the ECS telemetry endpoint
 	DisableMetrics bool
 
+	// DockerNetworkMode specifies the type of network docker containers will use.
+	DockerNetworkMode string
+
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
 	ReservedMemory uint16
