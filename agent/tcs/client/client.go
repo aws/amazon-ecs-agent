@@ -164,7 +164,10 @@ func (cs *clientServer) publishMetricsOnce() {
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		cs.MakeRequest(request)
+		err = cs.MakeRequest(request)
+		if err != nil {
+			log.Warn("Error publishing metrics", "err", err)
+		}
 	}
 }
 
