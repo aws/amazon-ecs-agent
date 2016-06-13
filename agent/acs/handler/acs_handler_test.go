@@ -31,7 +31,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -93,8 +92,9 @@ func TestAcsWsUrl(t *testing.T) {
 // TestHandlerReconnectsOnConnectErrors tests if handler reconnects retries
 // to establish the session with ACS when ClientServer.Connect() returns errors
 func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
-	testTime := ttime.NewTestTime()
-	ttime.SetTime(testTime)
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -130,6 +130,8 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		ECSClient:            ecsClient,
 		StateManager:         statemanager,
 		AcceptInvalidCert:    true,
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
@@ -145,8 +147,9 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 // TestHandlerReconnectsOnServeErrors tests if the handler retries to
 // to establish the session with ACS when ClientServer.Connect() returns errors
 func TestHandlerReconnectsOnServeErrors(t *testing.T) {
-	testTime := ttime.NewTestTime()
-	ttime.SetTime(testTime)
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -183,6 +186,8 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		ECSClient:            ecsClient,
 		StateManager:         statemanager,
 		AcceptInvalidCert:    true,
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
@@ -198,6 +203,9 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 // TestHandlerReconnectsOnDiscoverPollEndpointError tests if handler retries
 // to establish the session with ACS on DiscoverPollEndpoint errors
 func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -234,6 +242,8 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		ECSClient:            ecsClient,
 		StateManager:         statemanager,
 		AcceptInvalidCert:    true,
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
@@ -264,8 +274,9 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 // TestConnectionIsClosedOnIdle tests if the connection to ACS is closed
 // when the channel is idle
 func TestConnectionIsClosedOnIdle(t *testing.T) {
-	testTime := ttime.NewTestTime()
-	ttime.SetTime(testTime)
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -281,7 +292,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	mockWsClient.EXPECT().Serve().Do(func() {
 		// Pretend as if the maximum heartbeatTimeout duration has
 		// been breached while Serving requests
-		testTime.Warp(heartbeatTimeout + heartbeatJitter)
+		time.Sleep(30 * time.Millisecond)
 	}).Return(io.EOF)
 
 	connectionClosed := make(chan bool)
@@ -299,9 +310,11 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		ECSClient:            ecsClient,
 		StateManager:         statemanager,
 		AcceptInvalidCert:    true,
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		timer := newDisconnectionTimer(mockWsClient)
+		timer := newDisconnectionTimer(mockWsClient, args.time(), args.heartbeatTimeout(), args.heartbeatJitter())
 		defer timer.Stop()
 		startACSSession(ctx, mockWsClient, timer, args, backoff)
 	}()
@@ -312,13 +325,14 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 }
 
 func TestHandlerDoesntLeakGouroutines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integ test in short mode")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	statemanager := statemanager.NewNoopStateManager()
-	testTime := ttime.NewTestTime()
-	ttime.SetTime(testTime)
 
 	closeWS := make(chan bool)
 	server, serverIn, requests, errs, err := startMockAcsServer(t, closeWS)
@@ -344,7 +358,17 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		StartSession(ctx, StartSessionArguments{"myArn", credentials.AnonymousCredentials, &config.Config{Cluster: "someCluster"}, taskEngine, ecsClient, statemanager, true})
+		StartSession(ctx, StartSessionArguments{
+			ContainerInstanceArn: "myArn",
+			CredentialProvider:   credentials.AnonymousCredentials,
+			Config:               &config.Config{Cluster: "someCluster"},
+			TaskEngine:           taskEngine,
+			ECSClient:            ecsClient,
+			StateManager:         statemanager,
+			AcceptInvalidCert:    true,
+			_heartbeatTimeout:    20 * time.Millisecond,
+			_heartbeatJitter:     10 * time.Millisecond,
+		})
 		ended <- true
 	}()
 	// Warm it up
@@ -359,7 +383,6 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	}
 
 	cancel()
-	testTime.Cancel()
 	<-ended
 
 	afterGoroutines := runtime.NumGoroutine()

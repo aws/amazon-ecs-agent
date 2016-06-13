@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"golang.org/x/net/context"
@@ -69,6 +70,39 @@ type StartSessionArguments struct {
 	ECSClient            api.ECSClient
 	StateManager         statemanager.StateManager
 	AcceptInvalidCert    bool
+	_time                ttime.Time
+	_heartbeatTimeout    time.Duration
+	_heartbeatJitter     time.Duration
+	_timeOnce            sync.Once
+}
+
+func (a *StartSessionArguments) time() ttime.Time {
+	a.initTime()
+	return a._time
+}
+
+func (a *StartSessionArguments) heartbeatTimeout() time.Duration {
+	a.initTime()
+	return a._heartbeatTimeout
+}
+
+func (a *StartSessionArguments) heartbeatJitter() time.Duration {
+	a.initTime()
+	return a._heartbeatJitter
+}
+
+func (a *StartSessionArguments) initTime() {
+	a._timeOnce.Do(func() {
+		if a._time == nil {
+			a._time = &ttime.DefaultTime{}
+		}
+		if a._heartbeatTimeout == 0 {
+			a._heartbeatTimeout = heartbeatTimeout
+		}
+		if a._heartbeatJitter == 0 {
+			a._heartbeatJitter = heartbeatJitter
+		}
+	})
 }
 
 // sessionResources defines the resource creator interface for starting
@@ -133,7 +167,7 @@ func startSessionOnce(ctx context.Context, args StartSessionArguments, backoff *
 	defer client.Close()
 
 	// Start inactivity timer for closing the connection
-	timer := newDisconnectionTimer(client)
+	timer := newDisconnectionTimer(client, args.time(), args.heartbeatTimeout(), args.heartbeatJitter())
 	defer timer.Stop()
 
 	return startACSSession(ctx, client, timer, args, backoff)
@@ -167,8 +201,8 @@ func (acsResources *acsSessionResources) createACSClient(url string) wsclient.Cl
 
 // newDisconnectionTimer creates a new time object, with a callback to
 // disconnect from ACS on inactivity
-func newDisconnectionTimer(client wsclient.ClientServer) ttime.Timer {
-	timer := ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+func newDisconnectionTimer(client wsclient.ClientServer, _time ttime.Time, timeout time.Duration, jitter time.Duration) ttime.Timer {
+	timer := _time.AfterFunc(utils.AddJitter(timeout, jitter), func() {
 		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
 		closeErr := client.Close()
 		if closeErr != nil {
@@ -205,13 +239,14 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 		return err
 	}
 
-	ttime.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+	backoffResetTimer := args.time().AfterFunc(utils.AddJitter(args.heartbeatTimeout(), args.heartbeatJitter()), func() {
 		// If we do not have an error connecting and remain connected for at
 		// least 5 or so minutes, reset the backoff. This prevents disconnect
 		// errors that only happen infrequently from damaging the
 		// reconnectability as significantly.
 		backoff.Reset()
 	})
+	defer backoffResetTimer.Stop()
 
 	serveErr := make(chan error, 1)
 	go func() {

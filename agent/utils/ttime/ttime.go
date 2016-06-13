@@ -68,8 +68,3 @@ func Since(t time.Time) time.Duration {
 func After(t time.Duration) <-chan time.Time {
 	return _time.After(t)
 }
-
-// AfterFunc calls the implementations AfterFunc method
-func AfterFunc(d time.Duration, f func()) Timer {
-	return _time.AfterFunc(d, f)
-}
