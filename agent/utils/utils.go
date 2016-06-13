@@ -101,6 +101,8 @@ func Strptr(s string) *string {
 	return &s
 }
 
+var _time ttime.Time = &ttime.DefaultTime{}
+
 // RetryWithBackoff takes a Backoff and a function to call that returns an error
 // If the error is nil then the function will no longer be called
 // If the error is Retriable then that will be used to determine if it should be
@@ -114,7 +116,7 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 			return err
 		}
 
-		ttime.Sleep(backoff.Duration())
+		_time.Sleep(backoff.Duration())
 	}
 	return err
 }

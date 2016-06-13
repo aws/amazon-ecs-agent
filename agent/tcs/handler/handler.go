@@ -24,7 +24,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
@@ -78,7 +77,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 			backoff.Reset()
 		} else {
 			log.Info("Error from tcs; backing off", "err", tcsError)
-			ttime.Sleep(backoff.Duration())
+			params.time().Sleep(backoff.Duration())
 		}
 	}
 }

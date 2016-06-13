@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/golang/mock/gomock"
 )
 
 func TestDefaultIfBlank(t *testing.T) {
@@ -103,12 +105,13 @@ func TestSlicesDeepEqual(t *testing.T) {
 }
 
 func TestRetryWithBackoff(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	test_time.LudicrousSpeed(true)
-	ttime.SetTime(test_time)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mocktime := mock_ttime.NewMockTime(ctrl)
+	_time = mocktime
+	defer func() { _time = &ttime.DefaultTime{} }()
 
-	start := ttime.Now()
-
+	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(3)
 	counter := 3
 	RetryWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
 		if counter == 0 {
@@ -120,29 +123,22 @@ func TestRetryWithBackoff(t *testing.T) {
 	if counter != 0 {
 		t.Error("Counter didn't go to 0; didn't get retried enough")
 	}
-	testTime := ttime.Since(start)
 
-	if testTime.Seconds() < .29 || testTime.Seconds() > .31 {
-		t.Error("Retry didn't backoff for as long as expected")
-	}
-
-	start = ttime.Now()
+	// no sleeps
 	RetryWithBackoff(NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
 		return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
 	})
-
-	if ttime.Since(start).Seconds() > .1 {
-		t.Error("Retry for the trivial function took too long")
-	}
 }
 
 func TestRetryNWithBackoff(t *testing.T) {
-	test_time := ttime.NewTestTime()
-	test_time.LudicrousSpeed(true)
-	ttime.SetTime(test_time)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mocktime := mock_ttime.NewMockTime(ctrl)
+	_time = mocktime
+	defer func() { _time = &ttime.DefaultTime{} }()
 
-	start := ttime.Now()
-
+	// 2 tries, 1 sleep
+	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(1)
 	counter := 3
 	err := RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 2, func() error {
 		counter--
@@ -154,13 +150,9 @@ func TestRetryNWithBackoff(t *testing.T) {
 	if err == nil {
 		t.Error("Should have returned appropriate error")
 	}
-	testTime := ttime.Since(start)
-	// Expect that it tried twice, sleeping once between them
-	if testTime.Seconds() < 0.09 || testTime.Seconds() > 0.11 {
-		t.Errorf("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
-	}
 
-	start = ttime.Now()
+	// 3 tries, 2 sleeps
+	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
 	counter = 3
 	err = RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
 		counter--
@@ -169,16 +161,12 @@ func TestRetryNWithBackoff(t *testing.T) {
 		}
 		return errors.New("err")
 	})
-	testTime = ttime.Since(start)
+
 	if counter != 0 {
 		t.Errorf("Counter expected to be 0, was %v", counter)
 	}
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
-	}
-	// 3 tries; 2 backoffs
-	if testTime.Seconds() < 0.190 || testTime.Seconds() > 0.210 {
-		t.Errorf("Retry didn't backoff for as long as expected: %v", testTime.Seconds())
 	}
 }
 

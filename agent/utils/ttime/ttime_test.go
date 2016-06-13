@@ -16,6 +16,9 @@ func TestWarp(t *testing.T) {
 	}
 }
 
+// BUG(samuelkarp) Temporarily commented-out for now.  These tests will be
+// fully removed after TestTime is fully removed.
+/*
 func TestLudicrousSpeed(t *testing.T) {
 	testTime := NewTestTime()
 	SetTime(testTime)
@@ -53,6 +56,7 @@ func TestSleepWarp(t *testing.T) {
 		t.Error("Time should have been warped")
 	}
 }
+*/
 
 func TestAfter(t *testing.T) {
 	testTime := NewTestTime()

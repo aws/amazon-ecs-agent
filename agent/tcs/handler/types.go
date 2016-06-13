@@ -15,10 +15,12 @@ package tcshandler
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
@@ -30,6 +32,8 @@ type TelemetrySessionParams struct {
 	AcceptInvalidCert    bool
 	EcsClient            api.ECSClient
 	TaskEngine           engine.TaskEngine
+	_time                ttime.Time
+	_timeOnce            sync.Once
 }
 
 func (params *TelemetrySessionParams) isTelemetryDisabled() (bool, error) {
@@ -37,4 +41,13 @@ func (params *TelemetrySessionParams) isTelemetryDisabled() (bool, error) {
 		return params.Cfg.DisableMetrics, nil
 	}
 	return false, fmt.Errorf("Config is not initialized in session params")
+}
+
+func (params *TelemetrySessionParams) time() ttime.Time {
+	params._timeOnce.Do(func() {
+		if params._time == nil {
+			params._time = &ttime.DefaultTime{}
+		}
+	})
+	return params._time
 }

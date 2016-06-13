@@ -147,7 +147,7 @@ func startSession(ctx context.Context, args StartSessionArguments, backoff *util
 			backoff.Reset()
 		} else {
 			seelog.Infof("Error from acs; backing off, err: %v", acsError)
-			ttime.Sleep(backoff.Duration())
+			args.time().Sleep(backoff.Duration())
 		}
 	}
 }

@@ -54,11 +54,6 @@ func Now() time.Time {
 	return _time.Now()
 }
 
-// Sleep calls the implementation's Sleep method
-func Sleep(d time.Duration) {
-	_time.Sleep(d)
-}
-
 // Since returns the time different from Now and the given time t
 func Since(t time.Time) time.Duration {
 	return _time.Now().Sub(t)
