@@ -24,7 +24,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/golang/mock/gomock"
 )
 
@@ -126,9 +125,6 @@ func TestRetriesOnError(t *testing.T) {
 
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
-	testTime := ttime.NewTestTime()
-	testTime.LudicrousSpeed(true)
-	ttime.SetTime(testTime)
 
 	gomock.InOrder(
 		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")),
@@ -151,9 +147,6 @@ func TestErrorPropogatesUp(t *testing.T) {
 
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
-	testTime := ttime.NewTestTime()
-	testTime.LudicrousSpeed(true)
-	ttime.SetTime(testTime)
 
 	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")).AnyTimes()
 

@@ -24,12 +24,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 )
 
-var dte_test_time = ttime.NewTestTime()
 var defaultConfig = config.DefaultConfig()
 
 func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine) {
@@ -44,7 +42,6 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, mockTime, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
@@ -369,7 +366,6 @@ func TestStartTimeoutThenStart(t *testing.T) {
 func TestSteadyStatePoll(t *testing.T) {
 	ctrl, client, testTime, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
@@ -538,9 +534,8 @@ func TestCreateContainerForceSave(t *testing.T) {
 // only when terminal events are recieved from docker event stream when
 // StopContainer times out
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 

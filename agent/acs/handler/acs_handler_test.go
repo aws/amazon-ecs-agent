@@ -92,9 +92,6 @@ func TestAcsWsUrl(t *testing.T) {
 // TestHandlerReconnectsOnConnectErrors tests if handler reconnects retries
 // to establish the session with ACS when ClientServer.Connect() returns errors
 func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -147,9 +144,6 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 // TestHandlerReconnectsOnServeErrors tests if the handler retries to
 // to establish the session with ACS when ClientServer.Connect() returns errors
 func TestHandlerReconnectsOnServeErrors(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -203,9 +197,6 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 // TestHandlerReconnectsOnDiscoverPollEndpointError tests if handler retries
 // to establish the session with ACS on DiscoverPollEndpoint errors
 func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -274,9 +265,6 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 // TestConnectionIsClosedOnIdle tests if the connection to ACS is closed
 // when the channel is idle
 func TestConnectionIsClosedOnIdle(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -325,9 +313,6 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 }
 
 func TestHandlerDoesntLeakGouroutines(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
