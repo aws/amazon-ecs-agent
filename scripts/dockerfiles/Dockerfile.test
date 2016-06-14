@@ -23,7 +23,7 @@ MAINTAINER Amazon Web Services, Inc.
 # The following code is taken, in part, from the docker-library/golang
 # repository under a BSD 3-clause license. The license file is reproduced in the
 # NOTICES file at the root of this repository in accordance.
-# https://github.com/docker-library/golang/blob/1eab0db63794152b4516dbcb70270eb9dced4cbd/1.5/Dockerfile
+# https://github.com/docker-library/golang/blob/0ce80411b9f41e9c3a21fc0a1bffba6ae761825a/1.6/Dockerfile
 
 # SCMs for "go get", gcc for cgo
 RUN apt-get update && apt-get install -y \
@@ -32,9 +32,9 @@ RUN apt-get update && apt-get install -y \
 		--no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/*
 
-ENV GOLANG_VERSION 1.5.3
+ENV GOLANG_VERSION 1.6.2
 ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
-ENV GOLANG_DOWNLOAD_SHA256 43afe0c5017e502630b1aea4d44b8a7f059bf60d7f29dfd58db454d4e4e0ae53
+ENV GOLANG_DOWNLOAD_SHA256 e40c36ae71756198478624ed1bb4ce17597b3c19d243f3f0899bb5740d56212a
 
 RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
   && echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - \
