@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"golang.org/x/net/context"
 )
@@ -139,9 +140,10 @@ func createFakeContainerStats() []*ContainerStats {
 }
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
+	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	t2 := &api.Task{Arn: "t2", Family: "f2"}
 	t3 := &api.Task{Arn: "t3"}
@@ -151,9 +153,13 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
+	mockStatsChannel := make(chan *docker.Stats)
+	defer close(mockStatsChannel)
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil)
 	engine.resolver = resolver
+	engine.client = mockDockerClient
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
