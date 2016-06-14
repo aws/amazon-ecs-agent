@@ -218,17 +218,6 @@ func (_mr *_MockDockerClientRecorder) DescribeContainer(arg0 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DescribeContainer", arg0)
 }
 
-func (_m *MockDockerClient) GetContainerName(_param0 string) (string, error) {
-	ret := _m.ctrl.Call(_m, "GetContainerName", _param0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockDockerClientRecorder) GetContainerName(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetContainerName", arg0)
-}
-
 func (_m *MockDockerClient) InspectContainer(_param0 string) (*go_dockerclient.Container, error) {
 	ret := _m.ctrl.Call(_m, "InspectContainer", _param0)
 	ret0, _ := ret[0].(*go_dockerclient.Container)
