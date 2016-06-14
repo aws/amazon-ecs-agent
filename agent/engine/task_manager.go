@@ -78,6 +78,9 @@ type managedTask struct {
 	// case it's a user trying to debug it or in case we're fighting with another
 	// thing managing the container.
 	unexpectedStart sync.Once
+
+	_time     ttime.Time
+	_timeOnce sync.Once
 }
 
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
@@ -123,7 +126,7 @@ func (task *managedTask) overseeTask() {
 		for task.steadyState() {
 			llog.Debug("Task at steady state", "state", task.GetKnownStatus().String())
 			maxWait := make(chan bool, 1)
-			timer := ttime.After(steadyStateTaskVerifyInterval)
+			timer := task.time().After(steadyStateTaskVerifyInterval)
 			go func() {
 				<-timer
 				maxWait <- true
@@ -430,6 +433,15 @@ func (task *managedTask) progressContainers() {
 	task.UpdateStatus()
 }
 
+func (task *managedTask) time() ttime.Time {
+	task._timeOnce.Do(func() {
+		if task._time == nil {
+			task._time = &ttime.DefaultTime{}
+		}
+	})
+	return task._time
+}
+
 func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	cleanupTimeDuration := task.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
@@ -438,7 +450,7 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		log.Debug("Task Cleanup Duration is too short. Resetting to " + config.DefaultTaskCleanupWaitDuration.String())
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
-	cleanupTime := ttime.After(cleanupTimeDuration)
+	cleanupTime := task.time().After(cleanupTimeDuration)
 	cleanupTimeBool := make(chan bool)
 	go func() {
 		<-cleanupTime

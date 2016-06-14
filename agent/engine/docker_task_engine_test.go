@@ -25,21 +25,24 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 )
 
 var dte_test_time = ttime.NewTestTime()
 var defaultConfig = config.DefaultConfig()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, TaskEngine) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
+	mockTime := mock_ttime.NewMockTime(ctrl)
 	taskEngine := NewTaskEngine(cfg, client)
-	return ctrl, client, taskEngine
+	taskEngine.(*DockerTaskEngine)._time = mockTime
+	return ctrl, client, mockTime, taskEngine
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	ttime.SetTime(dte_test_time)
 
@@ -84,6 +87,12 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
+	steadyStateVerify := make(chan time.Time, 1)
+	cleanup := make(chan time.Time, 1)
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+
 	err := taskEngine.Init()
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	if err != nil {
@@ -113,6 +122,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
 	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -135,7 +145,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTaskStop)
 	taskEngine.AddTask(sleepTaskStop)
 
-	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
+	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	client.EXPECT().RemoveContainer(gomock.Any()).Do(func(removedContainerName string) {
 		if createdContainerName != removedContainerName {
@@ -143,7 +153,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}
 	}).Return(nil)
 
-	dte_test_time.Warp(4 * time.Hour)
+	// trigger cleanup
+	cleanup <- time.Now()
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
 
 	// Wait for the task to actually be dead; if we just fallthrough immediately,
@@ -158,9 +169,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 }
 
 func TestRemoveEvents(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
@@ -198,6 +208,12 @@ func TestRemoveEvents(t *testing.T) {
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
+	steadyStateVerify := make(chan time.Time, 1)
+	cleanup := make(chan time.Time, 1)
+	testTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
+	testTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+
 	err := taskEngine.Init()
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	if err != nil {
@@ -227,6 +243,7 @@ func TestRemoveEvents(t *testing.T) {
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
 	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -253,7 +270,8 @@ func TestRemoveEvents(t *testing.T) {
 		eventStream <- dockerEvent(api.ContainerStopped)
 	}).Return(nil)
 
-	dte_test_time.Warp(4 * time.Hour)
+	// trigger cleanup
+	cleanup <- time.Now()
 
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
@@ -266,13 +284,13 @@ func TestRemoveEvents(t *testing.T) {
 }
 
 func TestStartTimeoutThenStart(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
 
 	sleepTask := testdata.LoadTask("sleep5")
 
 	eventStream := make(chan DockerContainerChangeEvent)
+	testTime.EXPECT().After(gomock.Any())
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
@@ -349,7 +367,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 }
 
 func TestSteadyStatePoll(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, testTime, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
 	ttime.SetTime(dte_test_time)
 
@@ -382,6 +400,8 @@ func TestSteadyStatePoll(t *testing.T) {
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
+	steadyStateVerify := make(chan time.Time, 10)
+	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
 	err := taskEngine.Init()
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	if err != nil {
@@ -409,12 +429,10 @@ func TestSteadyStatePoll(t *testing.T) {
 		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerRunning, DockerContainerMetadata{DockerId: "containerId"}).Times(2),
 		client.EXPECT().DescribeContainer("containerId").Return(api.ContainerStopped, DockerContainerMetadata{DockerId: "containerId"}),
 	)
-	// Due to how the mock time works, we actually have to warp 10 minutes per
-	// steady-state event. That's 10 per timeout + 10 per describe * 1 container.
-	// The reason for this is the '.After' call happens regardless of whether the
-	// value gets read, and the test sleep will add that time to elapsed, even
-	// though in real-time-units that much time would not have elapsed.
-	dte_test_time.Warp(60 * time.Minute)
+	for i := 0; i < 10; i++ {
+		steadyStateVerify <- time.Now()
+	}
+	close(steadyStateVerify)
 
 	contEvent := <-contEvents
 	if contEvent.Status != api.ContainerStopped {
@@ -430,12 +448,16 @@ func TestSteadyStatePoll(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
+	// cleanup expectations
+	testTime.EXPECT().Now().AnyTimes()
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
 func TestStopWithPendingStops(t *testing.T) {
-	ctrl, client, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, testTime, taskEngine := mocks(t, &config.Config{})
 	defer ctrl.Finish()
-	ttime.SetTime(dte_test_time)
+	testTime.EXPECT().Now().AnyTimes()
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 
 	sleepTask1 := testdata.LoadTask("sleep5")
 	sleepTask1.StartSequenceNumber = 5
@@ -482,7 +504,7 @@ func TestStopWithPendingStops(t *testing.T) {
 }
 
 func TestCreateContainerForceSave(t *testing.T) {
-	ctrl, client, privateTaskEngine := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine := mocks(t, &config.Config{})
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -608,7 +630,7 @@ func TestCapabilities(t *testing.T) {
 		AppArmorCapable:         true,
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
-	ctrl, client, taskEngine := mocks(t, conf)
+	ctrl, client, _, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -635,7 +657,7 @@ func TestCapabilities(t *testing.T) {
 
 func TestCapabilitiesECR(t *testing.T) {
 	conf := &config.Config{}
-	ctrl, client, taskEngine := mocks(t, conf)
+	ctrl, client, _, taskEngine := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -657,7 +679,7 @@ func TestCapabilitiesECR(t *testing.T) {
 func TestGetTaskByArn(t *testing.T) {
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
-	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)

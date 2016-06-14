@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 )
 
@@ -72,6 +73,9 @@ type DockerTaskEngine struct {
 	// all tasks, it must not aquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
+
+	_time     ttime.Time
+	_timeOnce sync.Once
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -288,8 +292,18 @@ func (engine *DockerTaskEngine) startTask(task *api.Task) {
 	// a goroutine to oversee this task
 
 	thisTask := engine.newManagedTask(task)
+	thisTask._time = engine.time()
 
 	go thisTask.overseeTask()
+}
+
+func (engine *DockerTaskEngine) time() ttime.Time {
+	engine._timeOnce.Do(func() {
+		if engine._time == nil {
+			engine._time = &ttime.DefaultTime{}
+		}
+	})
+	return engine._time
 }
 
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.

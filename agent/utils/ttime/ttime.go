@@ -58,8 +58,3 @@ func Now() time.Time {
 func Since(t time.Time) time.Duration {
 	return _time.Now().Sub(t)
 }
-
-// After calls the implementations After method
-func After(t time.Duration) <-chan time.Time {
-	return _time.After(t)
-}

@@ -102,6 +102,9 @@ type dockerGoClient struct {
 	auth             dockerauth.DockerAuthProvider
 	ecrClientFactory ecr.ECRFactory
 	config           *config.Config
+
+	_time     ttime.Time
+	_timeOnce sync.Once
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
@@ -154,8 +157,17 @@ func (dg *dockerGoClient) dockerClient() (dockeriface.Client, error) {
 	return dg.clientFactory.GetClient(dg.version)
 }
 
+func (dg *dockerGoClient) time() ttime.Time {
+	dg._timeOnce.Do(func() {
+		if dg._time == nil {
+			dg._time = &ttime.DefaultTime{}
+		}
+	})
+	return dg._time
+}
+
 func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
-	timeout := ttime.After(pullImageTimeout)
+	timeout := dg.time().After(pullImageTimeout)
 
 	// Workaround for devicemapper bug. See:
 	// https://github.com/docker/docker/issues/9718
@@ -208,7 +220,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		Repository:   repository,
 		OutputStream: pullWriter,
 	}
-	timeout := ttime.After(dockerPullBeginTimeout)
+	timeout := dg.time().After(dockerPullBeginTimeout)
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
 	// It is here to guard against a bug wherin docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
@@ -310,7 +322,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 }
 
 func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
-	timeout := ttime.After(createContainerTimeout)
+	timeout := dg.time().After(createContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
@@ -345,7 +357,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 }
 
 func (dg *dockerGoClient) StartContainer(id string) DockerContainerMetadata {
-	timeout := ttime.After(startContainerTimeout)
+	timeout := dg.time().After(startContainerTimeout)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
@@ -396,7 +408,7 @@ func (dg *dockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatu
 }
 
 func (dg *dockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
-	timeout := ttime.After(inspectContainerTimeout)
+	timeout := dg.time().After(inspectContainerTimeout)
 
 	type inspectResponse struct {
 		container *docker.Container
@@ -424,7 +436,7 @@ func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, 
 }
 
 func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	timeout := ttime.After(stopContainerTimeout + dg.config.DockerStopTimeout)
+	timeout := dg.time().After(stopContainerTimeout + dg.config.DockerStopTimeout)
 	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
@@ -464,7 +476,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 }
 
 func (dg *dockerGoClient) RemoveContainer(dockerId string) error {
-	timeout := ttime.After(removeContainerTimeout)
+	timeout := dg.time().After(removeContainerTimeout)
 
 	response := make(chan error, 1)
 	go func() { response <- dg.removeContainer(dockerId) }()
@@ -631,7 +643,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 
 // ListContainers returns a slice of container IDs.
 func (dg *dockerGoClient) ListContainers(all bool) ListContainersResponse {
-	timeout := ttime.After(listContainersTimeout)
+	timeout := dg.time().After(listContainersTimeout)
 
 	response := make(chan ListContainersResponse, 1)
 	go func() { response <- dg.listContainers(all) }()

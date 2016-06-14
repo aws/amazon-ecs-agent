@@ -51,11 +51,11 @@ func defaultTestConfig() *config.Config {
 	return cfg
 }
 
-func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), *ttime.TestTime) {
+func setupWithDefaultConfig(t *testing.T) (TaskEngine, func()) {
 	return setup(defaultTestConfig(), t)
 }
 
-func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), *ttime.TestTime) {
+func setup(cfg *config.Config, t *testing.T) (TaskEngine, func()) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -73,12 +73,9 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), *ttime.TestTim
 	}
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient)
 	taskEngine.Init()
-	test_time := ttime.NewTestTime()
-	ttime.SetTime(test_time)
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-		test_time.Cancel()
-	}, test_time
+	}
 }
 
 func discardEvents(from interface{}) func() {
@@ -153,7 +150,7 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
@@ -187,7 +184,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
 	imageDigest := "tianon/true@sha256:30ed58eecb0a44d8df936ce2efce107c9ac20410c915866da4c6a33a3795d057"
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(imageDigest)
@@ -222,7 +219,7 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 // 24751 and verifies that when you do forward the port you can access it and if
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -331,7 +328,7 @@ func TestPortForward(t *testing.T) {
 // TestMultiplePortForwards tests that two links containers in the same task can
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
@@ -400,7 +397,7 @@ func TestMultiplePortForwards(t *testing.T) {
 // TestDynamicPortForward runs a container serving data on a port chosen by the
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -474,7 +471,7 @@ PortsBound:
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -562,7 +559,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // prints "hello linker" and then links a container that proxies that data to
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	testTask := createTestTask("TestLinking")
@@ -636,7 +633,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	cfg.EngineAuthType = "dockercfg"
 
 	removeImage(testAuthRegistryImage)
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done := setup(cfg, t)
 	defer done()
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
@@ -690,7 +687,7 @@ func TestDockerAuth(t *testing.T) {
 		cfg.EngineAuthType = ""
 	}()
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done := setup(cfg, t)
 	defer done()
 	removeImage(testAuthRegistryImage)
 
@@ -733,7 +730,7 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestVolumesFrom(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -788,7 +785,7 @@ func TestVolumesFrom(t *testing.T) {
 }
 
 func TestVolumesFromRO(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -834,7 +831,7 @@ func TestVolumesFromRO(t *testing.T) {
 }
 
 func TestHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -871,7 +868,7 @@ func TestHostVolumeMount(t *testing.T) {
 }
 
 func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -906,7 +903,9 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 }
 
 func TestSweepContainer(t *testing.T) {
-	taskEngine, done, test_time := setupWithDefaultConfig(t)
+	cfg := defaultTestConfig()
+	cfg.TaskCleanupWaitDuration = 1 * time.Minute
+	taskEngine, done := setup(cfg, t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -940,7 +939,7 @@ func TestSweepContainer(t *testing.T) {
 	if !ok {
 		t.Error("Expected task to be present still, but wasn't")
 	}
-	test_time.Warp(4 * time.Hour)
+	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
 		if !ok {
@@ -965,7 +964,7 @@ func TestInitOOMEvent(t *testing.T) {
 	if os.Getenv("MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT") != "" {
 		t.Skip("Skipped because MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT")
 	}
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -1024,7 +1023,7 @@ func TestInitOOMEvent(t *testing.T) {
 // SIGTERM - sent by Docker "stop" prior to SIGKILL (9)
 // SIGUSR1 - used for the test as an arbitrary signal
 func TestSignalEvent(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -1099,10 +1098,10 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := defaultTestConfig()
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done := setup(cfg, t)
 	defer done()
 
-	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
 	if dockerTaskEngine.cfg.DockerStopTimeout != testDockerStopTimeout {
 		t.Errorf("Expect the docker stop timeout read from environment variable when ECS_CONTAINER_STOP_TIMEOUT is set, %v", dockerTaskEngine.cfg.DockerStopTimeout)
