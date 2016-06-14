@@ -83,6 +83,9 @@ type managedTask struct {
 	_timeOnce sync.Once
 }
 
+// newManagedTask is a method on DockerTaskEngine to create a new managedTask.
+// This method must only be called when the engine.processTasks write lock is
+// already held.
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 	t := &managedTask{
 		Task:           task,
