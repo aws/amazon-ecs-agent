@@ -14,7 +14,6 @@
 package engine
 
 import (
-	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -299,8 +298,8 @@ func TestStartTimeoutThenStart(t *testing.T) {
 
 		// Expect it to try to stop the container before going on;
 		// in the future the agent might optimize to not stop unless the known
-		// status is running, at which poitn this can be safeuly removed
-		client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: errors.New("Cannot start")})
+		// status is running, at which point this can be safely removed
+		client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}})
 	}
 
 	err := taskEngine.Init()
@@ -332,7 +331,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	}
 
 	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: errors.New("Cannot start")})
+	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}})
 	// Now surprise surprise, it actually did start!
 	eventStream <- dockerEvent(api.ContainerRunning)
 
@@ -513,6 +512,88 @@ func TestCreateContainerForceSave(t *testing.T) {
 	}
 }
 
+// TestTaskTransitionWhenStopContainerTimesout tests that task transitions to stopped
+// only when terminal events are recieved from docker event stream when
+// StopContainer times out
+func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
+	ctrl, client, taskEngine := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+	ttime.SetTime(dte_test_time)
+
+	sleepTask := testdata.LoadTask("sleep5")
+
+	eventStream := make(chan DockerContainerChangeEvent)
+
+	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
+		meta := DockerContainerMetadata{
+			DockerId: "containerId",
+		}
+		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+	}
+
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	containerStopTimeoutError := DockerContainerMetadata{Error: &DockerTimeoutError{transition: "stop", duration: stopContainerTimeout}}
+	for _, container := range sleepTask.Containers {
+
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
+
+		dockerConfig, err := sleepTask.DockerConfig(container)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
+		}).Return(DockerContainerMetadata{DockerId: "containerId"})
+
+		// StartContainer returns timeout error. This should cause the engine
+		// to transition the task to STOPPED and to stop all containers of
+		// the task
+		client.EXPECT().StartContainer("containerId").Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
+
+		gomock.InOrder(
+			// StopContainer times out as well
+			client.EXPECT().StopContainer(gomock.Any()).Do(func(id string) {
+				// Simulate docker actually stopping the container even though
+				// StopContainer in container engine times out
+				go func() {
+					eventStream <- dockerEvent(api.ContainerStopped)
+				}()
+			}).Return(containerStopTimeoutError),
+			// Since task is not in steady state, progressContainers causes
+			// another invocation of StopContainer. Return a timeout error
+			// for that as well
+			client.EXPECT().StopContainer(gomock.Any()).Return(containerStopTimeoutError),
+		)
+	}
+
+	err := taskEngine.Init()
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	if err != nil {
+		t.Fatalf("Error getting event streams from engine: %v", err)
+	}
+
+	taskEngine.AddTask(sleepTask)
+
+	// Expect it to go to stopped
+	contEvent := <-contEvents
+	if contEvent.Status != api.ContainerStopped {
+		t.Errorf("Expected container to timeout on start and stop, got: %v", contEvent)
+	}
+	*contEvent.SentStatus = api.ContainerStopped
+
+	taskEvent := <-taskEvents
+	if taskEvent.Status != api.TaskStopped {
+		t.Errorf("Expected task to be stopped, got: %v", taskEvent)
+	}
+	*taskEvent.SentStatus = api.TaskStopped
+	select {
+	case <-taskEvents:
+		t.Error("Should be out of events")
+	case <-contEvents:
+		t.Error("Should be out of events")
+	default:
+	}
+}
 func TestCapabilities(t *testing.T) {
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{

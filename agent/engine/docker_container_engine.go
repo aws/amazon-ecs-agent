@@ -74,7 +74,6 @@ type DockerClient interface {
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 	RemoveContainer(string) error
 
-	GetContainerName(string) (string, error)
 	InspectContainer(string) (*docker.Container, error)
 	ListContainers(bool) ListContainersResponse
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
@@ -192,7 +191,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 
 	authConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return DockerContainerMetadata{Error: err}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
 	}
 
 	pullDebugOut, pullWriter := io.Pipe()
@@ -483,14 +482,6 @@ func (dg *dockerGoClient) removeContainer(dockerId string) error {
 		return err
 	}
 	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
-}
-
-func (dg *dockerGoClient) GetContainerName(id string) (string, error) {
-	container, err := dg.InspectContainer(id)
-	if err != nil {
-		return "", err
-	}
-	return container.Name, nil
 }
 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {

@@ -20,6 +20,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
 
+const dockerTimeoutErrorName = "DockerTimeoutError"
+
+// engineError wraps the error interface with an identifier method that
+// is used to classify the error type
+type engineError interface {
+	error
+	ErrorName() string
+}
+
 // impossibleTransitionError is an error that occurs when an event causes a
 // container to try and transition to a state that it cannot be moved to
 type impossibleTransitionError struct {
@@ -39,7 +48,7 @@ type DockerTimeoutError struct {
 func (err *DockerTimeoutError) Error() string {
 	return "Could not transition to " + err.transition + "; timed out after waiting " + err.duration.String()
 }
-func (err *DockerTimeoutError) ErrorName() string { return "DockerTimeoutError" }
+func (err *DockerTimeoutError) ErrorName() string { return dockerTimeoutErrorName }
 
 type ContainerVanishedError struct{}
 
