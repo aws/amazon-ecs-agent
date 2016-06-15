@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -16,11 +16,7 @@
 # setting any other common environment variables
 # It is expected to be 'sourced' while the CWD is the root of the repository
 
-# Manually setup godep path; avoid build-time dependency on the godep binary
-# The existing GOPATH needs to have the agent itself in it, but shouldn't need
-# anything else
-export GOPATH="$(pwd)/agent/Godeps/_workspace/:${GOPATH}"
-# Include generate scripts and any binaries we might have installed with godep
-# (none at the time of writing this comment).
+export GO15VENDOREXPERIMENT=1
+# Include generate scripts.
 # The existing PATH should have a recent 'go' binary on it, as well as basic posix tools
-export PATH="$(pwd)/scripts/generate:$(pwd)/agent/Godeps/_workspace/bin:${PATH}"
+export PATH="$(pwd)/scripts/generate:${PATH}"

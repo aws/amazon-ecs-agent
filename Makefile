@@ -1,4 +1,4 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -59,14 +59,14 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 short-test:
-	. ./scripts/shared_env && go test -short -timeout=25s ./agent/...
+	. ./scripts/shared_env && go test -short -timeout=25s $(shell go list ./agent/... | grep -v /vendor/)
 
 # Run our 'test' registry needed for integ and functional tests
 test-registry: netkitten volumes-test squid
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
-	. ./scripts/shared_env && go test -timeout=120s -v -cover ./...
+	. ./scripts/shared_env && go test -timeout=120s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
