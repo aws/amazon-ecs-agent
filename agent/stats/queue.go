@@ -43,6 +43,9 @@ func NewQueue(maxSize int) *Queue {
 
 // Reset resets the stats queue.
 func (queue *Queue) Reset() {
+	queue.bufferLock.Lock()
+	defer queue.bufferLock.Unlock()
+
 	queue.buffer = queue.buffer[:0]
 }
 
