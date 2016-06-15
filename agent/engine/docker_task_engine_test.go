@@ -535,7 +535,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 // only when terminal events are recieved from docker event stream when
 // StopContainer times out
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
-	ctrl, client, _, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -550,6 +550,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStopTimeoutError := DockerContainerMetadata{Error: &DockerTimeoutError{transition: "stop", duration: stopContainerTimeout}}
 	for _, container := range sleepTask.Containers {
 
