@@ -681,10 +681,12 @@ func TestGetTaskByArn(t *testing.T) {
 	defer ctrl.Finish()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).AnyTimes() // TODO change to MaxTimes(1)
 	err := taskEngine.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer taskEngine.Disable()
 
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTaskArn := sleepTask.Arn
