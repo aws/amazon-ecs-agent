@@ -472,11 +472,14 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		task.engine.state.RemoveTask(task.Task)
 		handleCleanupDone <- struct{}{}
 	}()
+	// discard events while the task is being removed from engine state
 	task.discardEventsUntil(handleCleanupDone)
 	log.Debug("Finished removing task data; removing from state no longer managing", "task", task.Task)
 	// Now remove ourselves from the global state and cleanup channels
+	go task.discardEventsUntil(handleCleanupDone) // keep discarding events until the taks is fully gone
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
+	handleCleanupDone <- struct{}{}
 	task.engine.processTasks.Unlock()
 	task.engine.saver.Save()
 

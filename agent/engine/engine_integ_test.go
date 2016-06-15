@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
+	"golang.org/x/net/context"
 )
 
 var testRegistryHost = "127.0.0.1:51670"
@@ -1099,7 +1100,6 @@ func TestDockerStopTimeout(t *testing.T) {
 	cfg := defaultTestConfig()
 
 	taskEngine, done := setup(cfg, t)
-	defer done()
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -1113,7 +1113,20 @@ func TestDockerStopTimeout(t *testing.T) {
 	testTask.Containers[0].Name = "test-docker-timeout"
 
 	taskEvents, contEvents := dockerTaskEngine.TaskEvents()
-	defer discardEvents(taskEvents)()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-taskEvents:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	defer func() {
+		done()
+		cancel()
+	}()
 
 	go dockerTaskEngine.AddTask(testTask)
 

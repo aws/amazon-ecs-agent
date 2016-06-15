@@ -355,26 +355,35 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case event := <-engine.events:
-			log.Debug("Handling a docker event", "event", event)
-
-			task, task_found := engine.state.TaskById(event.DockerId)
-			cont, container_found := engine.state.ContainerById(event.DockerId)
-			if !task_found || !container_found {
-				log.Debug("Event for container not managed", "dockerId", event.DockerId)
+			ok := engine.handleDockerEvent(event)
+			if !ok {
 				break
 			}
-			engine.processTasks.RLock()
-			managedTask, ok := engine.managedTasks[task.Arn]
-			engine.processTasks.RUnlock()
-			if !ok {
-				log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
-				continue
-			}
-			log.Debug("Writing docker event to the associated task", "task", task, "event", event)
-			managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
-			log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
 		}
 	}
+}
+
+func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) bool {
+	log.Debug("Handling a docker event", "event", event)
+
+	task, task_found := engine.state.TaskById(event.DockerId)
+	cont, container_found := engine.state.ContainerById(event.DockerId)
+	if !task_found || !container_found {
+		log.Debug("Event for container not managed", "dockerId", event.DockerId)
+		return false
+	}
+	engine.processTasks.RLock()
+	managedTask, ok := engine.managedTasks[task.Arn]
+	// hold the lock until the message is sent so we don't send on a closed channel
+	defer engine.processTasks.RUnlock()
+	if !ok {
+		log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
+		return true
+	}
+	log.Debug("Writing docker event to the associated task", "task", task, "event", event)
+	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
+	log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
+	return true
 }
 
 // TaskEvents returns channels to read task and container state changes. These
@@ -582,7 +591,6 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 
 	engine.processTasks.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
-	engine.processTasks.RUnlock()
 	if ok {
 		managedTask.dockerMessages <- dockerContainerChange{
 			container: container,
@@ -592,6 +600,7 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 			},
 		}
 	}
+	engine.processTasks.RUnlock()
 }
 
 // State is a function primarily meant for testing usage; it is explicitly not
