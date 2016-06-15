@@ -118,7 +118,10 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		t.Error(<-serverErr)
+		serr := <-serverErr
+		if serr != io.EOF {
+			t.Error(serr)
+		}
 	}()
 	sleepBeforeClose := 10 * time.Millisecond
 	go func() {
