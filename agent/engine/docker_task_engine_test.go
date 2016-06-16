@@ -398,6 +398,7 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	steadyStateVerify := make(chan time.Time, 10)
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	err := taskEngine.Init()
 	taskEvents, contEvents := taskEngine.TaskEvents()
 	if err != nil {
