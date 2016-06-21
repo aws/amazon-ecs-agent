@@ -37,7 +37,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/defaults"
@@ -126,7 +125,7 @@ func _main() int {
 		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
-		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
+		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID)
 		if err != nil {
 			log.Criticalf("Error creating state manager: %v", err)
 			return exitcodes.ExitTerminal
@@ -174,7 +173,7 @@ func _main() int {
 		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 	}
 
-	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
+	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
 	if err != nil {
 		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -265,7 +264,7 @@ func _main() int {
 	return exitcodes.ExitError
 }
 
-func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string, sequenceNumber *utilatomic.IncreasingInt64) (statemanager.StateManager, error) {
+func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cluster, containerInstanceArn, savedInstanceID *string) (statemanager.StateManager, error) {
 	if !cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
 	}
@@ -274,7 +273,9 @@ func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cl
 		statemanager.AddSaveable("ContainerInstanceArn", containerInstanceArn),
 		statemanager.AddSaveable("Cluster", cluster),
 		statemanager.AddSaveable("EC2InstanceID", savedInstanceID),
-		statemanager.AddSaveable("ACSSeqNum", sequenceNumber),
+		//The ACSSeqNum field is retained for compatibility with statemanager.EcsDataVersion 4 and
+		//can be removed in the future with a version bump.
+		statemanager.AddSaveable("ACSSeqNum", 1),
 	)
 	if err != nil {
 		return nil, err

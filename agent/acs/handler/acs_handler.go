@@ -33,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	utilatomic "github.com/aws/amazon-ecs-agent/agent/utils/atomic"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
@@ -59,10 +58,6 @@ const (
 	// credentials for all tasks on establishing the connection
 	sendCredentialsURLParameterName = "sendCredentials"
 )
-
-// SequenceNumber is a number shared between all ACS clients which indicates
-// the last sequence number successfully handled.
-var SequenceNumber = utilatomic.NewIncreasingInt64(1)
 
 // StartSessionArguments is a struct representing all the things this handler
 // needs... This is really a hack to get by-name instead of positional
@@ -217,7 +212,7 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 	query.Set("containerInstanceArn", containerInstanceArn)
 	query.Set("agentHash", version.GitHashString())
 	query.Set("agentVersion", version.Version)
-	query.Set("seqNum", strconv.FormatInt(SequenceNumber.Get(), 10))
+	query.Set("seqNum", "1")
 	if dockerVersion, err := taskEngine.Version(); err == nil {
 		query.Set("dockerVersion", dockerVersion)
 	}

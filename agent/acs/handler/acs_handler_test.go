@@ -154,14 +154,15 @@ func TestAcsWsUrl(t *testing.T) {
 	if parsed.Query().Get("agentHash") != version.GitHashString() {
 		t.Fatal("Wrong cluster")
 	}
-
 	if parsed.Query().Get("dockerVersion") != "Docker version result" {
 		t.Fatal("Wrong docker version")
 	}
 	if parsed.Query().Get(sendCredentialsURLParameterName) != "true" {
 		t.Fatalf("Wrong value set for: %s", sendCredentialsURLParameterName)
 	}
-
+	if parsed.Query().Get("seqNum") != "1" {
+		t.Fatal("Wrong seqNum")
+	}
 }
 
 // TestHandlerReconnectsOnConnectErrors tests if handler reconnects retries

@@ -153,12 +153,8 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 		}
 		payloadHandler.ackRequest <- *payload.MessageId
 	}()
-	// Record the sequence number as well
-	if payload.SeqNum != nil {
-		SequenceNumber.Set(*payload.SeqNum)
-	}
-	return nil
 
+	return nil
 }
 
 // addPayloadTasks does validation on each task and, for all valid ones, adds
