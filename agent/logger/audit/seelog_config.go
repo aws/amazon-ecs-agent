@@ -11,18 +11,25 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handlers
+package audit
 
-import "net/http"
+import "github.com/aws/amazon-ecs-agent/agent/config"
 
-type LoggingHandler struct{ h http.Handler }
-
-// NewLoggingHandler creates a new LoggingHandler object.
-func NewLoggingHandler(handler http.Handler) LoggingHandler {
-	return LoggingHandler{h: handler}
-}
-
-func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr, "uri", r.RequestURI)
-	lh.h.ServeHTTP(w, r)
+func AuditLoggerConfig(cfg *config.Config) string {
+	config := `
+	<seelog type="asyncloop" minlevel="info">
+		<outputs formatid="main">
+			<console />`
+	if cfg.CredentialsAuditLogFile != "" {
+		config += `<rollingfile filename="` + cfg.CredentialsAuditLogFile + `" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />`
+	}
+	config += `
+		</outputs>
+		<formats>
+			<format id="main" format="%Msg%n" />
+		</formats>
+	</seelog>
+`
+	return config
 }

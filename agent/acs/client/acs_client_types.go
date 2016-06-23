@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,16 +30,22 @@ func init() {
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
 	recognizedTypes := []interface{}{
-		ecsacs.HeartbeatMessage{}, ecsacs.PayloadMessage{},
-
-		ecsacs.CloseMessage{}, ecsacs.AckRequest{},
+		ecsacs.HeartbeatMessage{},
+		ecsacs.PayloadMessage{},
+		ecsacs.CloseMessage{},
+		ecsacs.AckRequest{},
 		ecsacs.NackRequest{},
-		ecsacs.PerformUpdateMessage{}, ecsacs.StageUpdateMessage{},
-
+		ecsacs.PerformUpdateMessage{},
+		ecsacs.StageUpdateMessage{},
+		ecsacs.IAMRoleCredentialsMessage{},
+		ecsacs.IAMRoleCredentialsAckRequest{},
 		ecsacs.ServerException{},
-		ecsacs.BadRequestException{}, ecsacs.InvalidClusterException{},
-		ecsacs.InvalidInstanceException{}, ecsacs.AccessDeniedException{},
-		ecsacs.InactiveInstanceException{}, ecsacs.ErrorMessage{},
+		ecsacs.BadRequestException{},
+		ecsacs.InvalidClusterException{},
+		ecsacs.InvalidInstanceException{},
+		ecsacs.AccessDeniedException{},
+		ecsacs.InactiveInstanceException{},
+		ecsacs.ErrorMessage{},
 	}
 
 	acsTypeMappings = make(map[string]reflect.Type)

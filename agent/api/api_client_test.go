@@ -1,3 +1,16 @@
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package api_test
 
 import (
@@ -288,7 +301,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*api.ApiECSClient).SetSDK(mc)
 
-	defaultCluster := config.DEFAULT_CLUSTER_NAME
+	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
@@ -297,7 +310,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-			if *req.Cluster != config.DEFAULT_CLUSTER_NAME {
+			if *req.Cluster != config.DefaultClusterName {
 				t.Errorf("Wrong cluster: %v", *req.Cluster)
 			}
 			if *req.InstanceIdentityDocument != "instanceIdentityDocument" {

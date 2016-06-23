@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -53,6 +54,10 @@ const (
 	// payloadMessageBufferSize is the maximum number of payload messages
 	// to queue up without having handled previous ones.
 	payloadMessageBufferSize = 10
+	// sendCredentialsURLParameterName is the name of the URL parameter
+	// in the ACS URL that is used to indicate if ACS should send
+	// credentials for all tasks on establishing the connection
+	sendCredentialsURLParameterName = "sendCredentials"
 )
 
 // SequenceNumber is a number shared between all ACS clients which indicates
@@ -70,10 +75,23 @@ type StartSessionArguments struct {
 	ECSClient            api.ECSClient
 	StateManager         statemanager.StateManager
 	AcceptInvalidCert    bool
+	CredentialsManager   rolecredentials.Manager
 	_time                ttime.Time
 	_heartbeatTimeout    time.Duration
 	_heartbeatJitter     time.Duration
 	_timeOnce            sync.Once
+}
+
+// sessionState defines state recorder interface for the
+// session established with ACS. It can be used to record and
+// retrieve data shared across multiple connections to ACS
+type sessionState interface {
+	// connectedToACS callback indicates that the client has
+	// connected to ACS
+	connectedToACS()
+	// getSendCredentialsURLParameter retrieves the value for
+	// the 'sendCredentials' URL parameter
+	getSendCredentialsURLParameter() string
 }
 
 func (a *StartSessionArguments) time() ttime.Time {
@@ -115,12 +133,19 @@ func (a *StartSessionArguments) initTime() {
 type sessionResources interface {
 	// createACSClient creates a new websocket client
 	createACSClient(url string) wsclient.ClientServer
+	sessionState
 }
 
-// acsSessionResources implements the resource creator interface to
-// create resources needed to connect to ACS
+// acsSessionResources implements resource creator and session state interfaces
+// to create resources needed to connect to ACS and to record session state
+// for the same
 type acsSessionResources struct {
 	startSessionArguments StartSessionArguments
+	// sendCredentials is used to set the 'sendCredentials' URL parameter
+	// used to connect to ACS
+	// It is set to 'true' for the very first successful connection on
+	// agent start. It is set to false for all successive connections
+	sendCredentials bool
 }
 
 // StartSession creates a session with ACS and handles requests from ACS.
@@ -128,8 +153,15 @@ type acsSessionResources struct {
 // method and invokes the same to repeatedly connect to ACS when disconnected
 func StartSession(ctx context.Context, args StartSessionArguments) error {
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
-	session := &acsSessionResources{startSessionArguments: args}
+	session := newSessionResources(args)
 	return startSession(ctx, args, backoff, session)
+}
+
+func newSessionResources(args StartSessionArguments) sessionResources {
+	return &acsSessionResources{
+		startSessionArguments: args,
+		sendCredentials:       true,
+	}
 }
 
 // startSession creates a session with ACS and handles requests from ACS
@@ -162,7 +194,7 @@ func startSessionOnce(ctx context.Context, args StartSessionArguments, backoff *
 	}
 
 	cfg := args.Config
-	url := acsWsURL(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine)
+	url := acsWsURL(acsEndpoint, cfg.Cluster, args.ContainerInstanceArn, args.TaskEngine, acsResources)
 	client := acsResources.createACSClient(url)
 	defer client.Close()
 
@@ -170,11 +202,11 @@ func startSessionOnce(ctx context.Context, args StartSessionArguments, backoff *
 	timer := newDisconnectionTimer(client, args.time(), args.heartbeatTimeout(), args.heartbeatJitter())
 	defer timer.Stop()
 
-	return startACSSession(ctx, client, timer, args, backoff)
+	return startACSSession(ctx, client, timer, args, backoff, acsResources)
 }
 
 // acsWsURL returns the websocket url for ACS given the endpoint
-func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine) string {
+func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, acsSessionState sessionState) string {
 	acsUrl := endpoint
 	if endpoint[len(endpoint)-1] != '/' {
 		acsUrl += "/"
@@ -189,14 +221,27 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 	if dockerVersion, err := taskEngine.Version(); err == nil {
 		query.Set("dockerVersion", dockerVersion)
 	}
+	query.Set(sendCredentialsURLParameterName, acsSessionState.getSendCredentialsURLParameter())
 	return acsUrl + "?" + query.Encode()
 }
 
-// create ACSClient creates the ACS Client using the specified URL
+// createACSClient creates the ACS Client using the specified URL
 func (acsResources *acsSessionResources) createACSClient(url string) wsclient.ClientServer {
 	args := acsResources.startSessionArguments
 	cfg := args.Config
 	return acsclient.New(url, cfg.AWSRegion, args.CredentialProvider, args.AcceptInvalidCert)
+}
+
+// connectedToACS records a successful connection to ACS
+// It sets sendCredentials to false on such an event
+func (acsResources *acsSessionResources) connectedToACS() {
+	acsResources.sendCredentials = false
+}
+
+// getSendCredentialsURLParameter gets the value to be set for the
+// 'sendCredentials' URL parameter
+func (acsResources *acsSessionResources) getSendCredentialsURLParameter() string {
+	return strconv.FormatBool(acsResources.sendCredentials)
 }
 
 // newDisconnectionTimer creates a new time object, with a callback to
@@ -216,13 +261,18 @@ func newDisconnectionTimer(client wsclient.ClientServer, _time ttime.Time, timeo
 // startACSSession starts a session with ACS. It adds request handlers for various
 // kinds of messages expected from ACS. It returns on server disconnection or when
 // the context is cancelled
-func startACSSession(ctx context.Context, client wsclient.ClientServer, timer ttime.Timer, args StartSessionArguments, backoff *utils.SimpleBackoff) error {
+func startACSSession(ctx context.Context, client wsclient.ClientServer, timer ttime.Timer, args StartSessionArguments, backoff *utils.SimpleBackoff, acsSessionState sessionState) error {
 	// Any message from the server resets the disconnect timeout
 	client.SetAnyRequestHandler(anyMessageHandler(timer))
 	cfg := args.Config
 
+	refreshCredsHandler := newRefreshCredentialsHandler(ctx, cfg.Cluster, args.ContainerInstanceArn, client, args.CredentialsManager, args.TaskEngine)
+	defer refreshCredsHandler.clearAcks()
+	refreshCredsHandler.start()
+	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
+
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(args.TaskEngine, args.ECSClient, cfg.Cluster, args.ContainerInstanceArn, client, args.StateManager, ctx)
+	payloadHandler := newPayloadRequestHandler(ctx, args.TaskEngine, args.ECSClient, cfg.Cluster, args.ContainerInstanceArn, client, args.StateManager, refreshCredsHandler, args.CredentialsManager)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
@@ -238,6 +288,7 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
+	acsSessionState.connectedToACS()
 
 	backoffResetTimer := args.time().AfterFunc(utils.AddJitter(args.heartbeatTimeout(), args.heartbeatJitter()), func() {
 		// If we do not have an error connecting and remain connected for at
@@ -259,12 +310,14 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
 			payloadHandler.stop()
+			refreshCredsHandler.stop()
 			return ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
 			// the connection is closed by ACS or the agent
 			payloadHandler.stop()
+			refreshCredsHandler.stop()
 			return err
 		}
 	}

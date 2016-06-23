@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -127,7 +127,7 @@ func (task *managedTask) overseeTask() {
 	for {
 		// If it's steadyState, just spin until we need to do work
 		for task.steadyState() {
-			llog.Debug("Task at steady state", "state", task.GetKnownStatus().String())
+			llog.Debug("Task at steady state", "state", task.KnownStatus.String())
 			maxWait := make(chan bool, 1)
 			timer := task.time().After(steadyStateTaskVerifyInterval)
 			go func() {
@@ -142,7 +142,7 @@ func (task *managedTask) overseeTask() {
 			}
 		}
 
-		if !task.GetKnownStatus().Terminal() {
+		if !task.KnownStatus.Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be able to move some containers along
 			llog.Debug("Task not steady state or terminal; progressing it")
 			task.progressContainers()
@@ -156,13 +156,17 @@ func (task *managedTask) overseeTask() {
 		if err != nil {
 			llog.Warn("Error checkpointing task's states to disk", "err", err)
 		}
-		if task.GetKnownStatus().Terminal() {
+		if task.KnownStatus.Terminal() {
 			break
 		}
 	}
 	// We only break out of the above if this task is known to be stopped. Do
 	// onetime cleanup here, including removing the task after a timeout
 	llog.Debug("Task has reached stopped. We're just waiting and removing containers now")
+	taskCredentialsId := task.GetCredentialsId()
+	if taskCredentialsId != "" {
+		task.engine.credentialsManager.RemoveCredentials(taskCredentialsId)
+	}
 	if task.StopSequenceNumber != 0 {
 		llog.Debug("Marking done for this sequence", "seqnum", task.StopSequenceNumber)
 		task.engine.taskStopGroup.Done(task.StopSequenceNumber)

@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -104,6 +104,16 @@ type Config struct {
 	// TaskCleanupWaitDuration specifies the time to wait after a task is stopped
 	// until cleanup of task resources is started.
 	TaskCleanupWaitDuration time.Duration
+
+	// TaskIAMRoleEnabled specifies if the Agent is capable of launching
+	// tasks with IAM Roles.
+	TaskIAMRoleEnabled bool
+
+	// CredentialsAuditLogFile specifies the path/filename of the audit log.
+	CredentialsAuditLogFile string
+
+	// CredentialsAuditLogEnabled specifies whether audit logging is disabled.
+	CredentialsAuditLogDisabled bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

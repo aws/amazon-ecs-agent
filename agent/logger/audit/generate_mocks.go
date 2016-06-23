@@ -11,18 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handlers
+package audit
 
-import "net/http"
-
-type LoggingHandler struct{ h http.Handler }
-
-// NewLoggingHandler creates a new LoggingHandler object.
-func NewLoggingHandler(handler http.Handler) LoggingHandler {
-	return LoggingHandler{h: handler}
-}
-
-func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr, "uri", r.RequestURI)
-	lh.h.ServeHTTP(w, r)
-}
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/logger/audit AuditLogger,InfoLogger mocks/audit_log_mocks.go

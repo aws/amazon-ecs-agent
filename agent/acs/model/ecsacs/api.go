@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -243,6 +243,72 @@ func (s HostVolumeProperties) GoString() string {
 	return s.String()
 }
 
+type IAMRoleCredentials struct {
+	_ struct{} `type:"structure"`
+
+	AccessKeyId *string `locationName:"accessKeyId" type:"string"`
+
+	CredentialsId *string `locationName:"credentialsId" type:"string"`
+
+	Expiration *string `locationName:"expiration" type:"string"`
+
+	RoleArn *string `locationName:"roleArn" type:"string"`
+
+	SecretAccessKey *string `locationName:"secretAccessKey" type:"string"`
+
+	SessionToken *string `locationName:"sessionToken" type:"string"`
+}
+
+// String returns the string representation
+func (s IAMRoleCredentials) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IAMRoleCredentials) GoString() string {
+	return s.String()
+}
+
+type IAMRoleCredentialsAckRequest struct {
+	_ struct{} `type:"structure"`
+
+	CredentialsId *string `locationName:"credentialsId" type:"string"`
+
+	Expiration *string `locationName:"expiration" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s IAMRoleCredentialsAckRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IAMRoleCredentialsAckRequest) GoString() string {
+	return s.String()
+}
+
+type IAMRoleCredentialsMessage struct {
+	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+}
+
+// String returns the string representation
+func (s IAMRoleCredentialsMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IAMRoleCredentialsMessage) GoString() string {
+	return s.String()
+}
+
 type InactiveInstanceException struct {
 	_ struct{} `type:"structure"`
 
@@ -388,6 +454,8 @@ type PollRequest struct {
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
+	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
+
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
 
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
@@ -491,6 +559,8 @@ type Task struct {
 	Family *string `locationName:"family" type:"string"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
+
+	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 
 	TaskDefinitionAccountId *string `locationName:"taskDefinitionAccountId" type:"string"`
 

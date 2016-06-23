@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,22 +21,32 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
 )
 
-const emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
+const (
+	emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
+
+	// awsSDKCredentialsRelativeURIPathEnvironmentVariableName defines the name of the environment
+	// variable containers' config, which will be used by the AWS SDK to fetch
+	// credentials.
+	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+)
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
-func (task *Task) PostUnmarshalTask() {
+func (task *Task) PostUnmarshalTask(credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 
 	task.initializeEmptyVolumes()
+	task.initializeCredentialsEndpoint(credentialsManager)
 }
 
 func (task *Task) initializeEmptyVolumes() {
@@ -85,7 +95,42 @@ func (task *Task) initializeEmptyVolumes() {
 
 }
 
-func (task *Task) _containersByName() map[string]*Container {
+// initializeCredentialsEndpoint sets the credentials endpoint for all containers in a task if needed.
+func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.Manager) {
+	id := task.GetCredentialsId()
+	if id == "" {
+		// No credentials set for the task. Do not inject the endpoint environment variable.
+		return
+	}
+	roleCredentials, ok := credentialsManager.GetCredentials(id)
+	if !ok {
+		// Task has credentials id set, but credentials manager is unaware of
+		// the id. This should never happen as the payload handler sets
+		// credentialsId for the task after adding credentials to the
+		// credentials manager
+		seelog.Errorf("Unable to get credentials for task: %s", task.Arn)
+		return
+	}
+
+	credentialsEndpointRelativeURI := roleCredentials.GenerateCredentialsEndpointRelativeURI()
+	for _, container := range task.Containers {
+		// container.Environment map would not be initialized if there are
+		// no environment variables to be set or overridden in the container
+		// config. Check if that's the case and initilialize if needed
+		if container.Environment == nil {
+			container.Environment = make(map[string]string)
+		}
+		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
+	}
+
+}
+
+func (task *Task) ContainerByName(name string) (*Container, bool) {
+	container, ok := task.getContainersByName()[name]
+	return container, ok
+}
+
+func (task *Task) getContainersByName() map[string]*Container {
 	task.containersByNameLock.Lock()
 	defer task.containersByNameLock.Unlock()
 
@@ -97,11 +142,6 @@ func (task *Task) _containersByName() map[string]*Container {
 		task.containersByName[container.Name] = container
 	}
 	return task.containersByName
-}
-
-func (task *Task) ContainerByName(name string) (*Container, bool) {
-	container, ok := task._containersByName()[name]
-	return container, ok
 }
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
@@ -413,6 +453,8 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
+// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the recieved
+// ecsacs.Task to json and unmrashaling it as api.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
@@ -423,6 +465,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
+
 	if task.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
@@ -462,6 +505,11 @@ func (task *Task) UpdateDesiredStatus() {
 	task.updateContainerDesiredStatus()
 }
 
+func (task *Task) SetKnownStatus(status TaskStatus) {
+	task.setKnownStatus(status)
+	task.updateKnownStatusTime()
+}
+
 // UpdateKnownStatusAndTime updates the KnownStatus and KnownStatusTime
 // of the task
 func (task *Task) UpdateKnownStatusAndTime(status TaskStatus) {
@@ -497,4 +545,18 @@ func (task *Task) updateKnownStatusTime() {
 	defer task.knownStatusTimeLock.Unlock()
 
 	task.KnownStatusTime = ttime.Now()
+}
+
+func (task *Task) SetCredentialsId(id string) {
+	task.credentialsIdLock.Lock()
+	defer task.credentialsIdLock.Unlock()
+
+	task.credentialsId = id
+}
+
+func (task *Task) GetCredentialsId() string {
+	task.credentialsIdLock.RLock()
+	defer task.credentialsIdLock.RUnlock()
+
+	return task.credentialsId
 }

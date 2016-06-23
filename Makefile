@@ -66,7 +66,7 @@ test-registry: netkitten volumes-test squid
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
-	. ./scripts/shared_env && go test -timeout=120s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -timeout=180s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .

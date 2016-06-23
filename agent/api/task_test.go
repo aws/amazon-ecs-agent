@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,9 +17,14 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/golang/mock/gomock"
 )
 
 func strptr(s string) *string { return &s }
@@ -509,7 +514,72 @@ func TestBadDockerConfigRawConfig(t *testing.T) {
 	}
 }
 
+func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIdInTask := "credsid"
+	task := Task{
+		Containers: []*Container{
+			&Container{
+				Name:        "c1",
+				Environment: make(map[string]string),
+			},
+			&Container{
+				Name:        "c2",
+				Environment: make(map[string]string),
+			}},
+		credentialsId: credentialsIdInTask,
+	}
+
+	credentialsManager.EXPECT().GetCredentials(credentialsIdInTask).Return(&credentials.IAMRoleCredentials{CredentialsId: "credsid"}, true)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	// Test if all containers in the task have the environment variable for
+	// credentials endpoint set correctly.
+	for _, container := range task.Containers {
+		env := container.Environment
+		_, exists := env[awsSDKCredentialsRelativeURIPathEnvironmentVariableName]
+		if !exists {
+			t.Errorf("'%s' environment variable not set for container '%s', env: %v", awsSDKCredentialsRelativeURIPathEnvironmentVariableName, container.Name, env)
+		}
+	}
+}
+
+func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	task := Task{
+		Containers: []*Container{
+			&Container{
+				Name:        "c1",
+				Environment: make(map[string]string),
+			},
+			&Container{
+				Name:        "c2",
+				Environment: make(map[string]string),
+			}},
+	}
+
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	for _, container := range task.Containers {
+		env := container.Environment
+		_, exists := env[awsSDKCredentialsRelativeURIPathEnvironmentVariableName]
+		if exists {
+			t.Errorf("'%s' environment variable should not be set for container '%s'", awsSDKCredentialsRelativeURIPathEnvironmentVariableName, container.Name)
+		}
+	}
+}
+
+// TODO: UT for PostUnmarshalTask, initializeEmptyVolumes etc
+
 func TestTaskFromACS(t *testing.T) {
+	test_time := ttime.Now().Truncate(1 * time.Second).Format(time.RFC3339)
+
 	intptr := func(i int64) *int64 {
 		return &i
 	}
@@ -569,6 +639,14 @@ func TestTaskFromACS(t *testing.T) {
 					SourcePath: strptr("/host/path"),
 				},
 			},
+		},
+		RoleCredentials: &ecsacs.IAMRoleCredentials{
+			CredentialsId:   strptr("credsId"),
+			AccessKeyId:     strptr("keyId"),
+			Expiration:      strptr(test_time),
+			RoleArn:         strptr("roleArn"),
+			SecretAccessKey: strptr("OhhSecret"),
+			SessionToken:    strptr("sessionToken"),
 		},
 	}
 	expectedTask := &Task{
@@ -634,16 +712,16 @@ func TestTaskFromACS(t *testing.T) {
 		t.Fatalf("Should be able to handle acs task: %v", err)
 	}
 	if !reflect.DeepEqual(task.Containers, expectedTask.Containers) {
-		t.Fatal("Should be equal")
+		t.Fatal("Containers should be equal")
 	}
 	if !reflect.DeepEqual(task.Volumes, expectedTask.Volumes) {
-		t.Fatal("Should be equal")
+		t.Fatal("Volumes should be equal")
 	}
 	if !reflect.DeepEqual(task.StartSequenceNumber, expectedTask.StartSequenceNumber) {
-		t.Fatal("Should be equal")
+		t.Fatal("StartSequenceNumber should be equal")
 	}
 	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
-		t.Fatal("Should be equal")
+		t.Fatal("StopSequenceNumber should be equal")
 	}
 }
 

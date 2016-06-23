@@ -21,29 +21,40 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 )
 
+const credentialsId = "credsid"
+
 var defaultConfig = config.DefaultConfig()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
-	taskEngine := NewTaskEngine(cfg, client)
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	taskEngine := NewTaskEngine(cfg, client, credentialsManager)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
-	return ctrl, client, mockTime, taskEngine
+	return ctrl, client, mockTime, taskEngine, credentialsManager
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
-	ctrl, client, mockTime, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
+	roleCredentials := &credentials.IAMRoleCredentials{CredentialsId: "credsid"}
+	credentialsManager.EXPECT().GetCredentials(credentialsId).Return(roleCredentials, true).AnyTimes()
+	credentialsManager.EXPECT().RemoveCredentials(credentialsId)
+
 	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.SetCredentialsId(credentialsId)
 
 	eventStream := make(chan DockerContainerChangeEvent)
 	eventsReported := sync.WaitGroup{}
@@ -61,10 +72,16 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
+		// Container config should get updated with this during PostUnmarshalTask
+		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+roleCredentials.GenerateCredentialsEndpointRelativeURI())
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y interface{}, containerName string) {
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(config *docker.Config, y interface{}, containerName string) {
+
+			if !reflect.DeepEqual(dockerConfig, config) {
+				t.Errorf("Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
+			}
 			// sleep5 task contains only one container. Just assign
 			// the containerName to createdContainerName
 			createdContainerName = containerName
@@ -136,6 +153,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
+	sleepTaskStop.SetCredentialsId(credentialsId)
 	sleepTaskStop.DesiredStatus = api.TaskStopped
 	taskEngine.AddTask(sleepTaskStop)
 	// As above, duplicate events should not be a problem
@@ -166,7 +184,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 }
 
 func TestRemoveEvents(t *testing.T) {
-	ctrl, client, testTime, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -281,7 +299,7 @@ func TestRemoveEvents(t *testing.T) {
 }
 
 func TestStartTimeoutThenStart(t *testing.T) {
-	ctrl, client, testTime, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -364,7 +382,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 }
 
 func TestSteadyStatePoll(t *testing.T) {
-	ctrl, client, testTime, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, testTime, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -452,7 +470,7 @@ func TestSteadyStatePoll(t *testing.T) {
 }
 
 func TestStopWithPendingStops(t *testing.T) {
-	ctrl, client, testTime, taskEngine := mocks(t, &config.Config{})
+	ctrl, client, testTime, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -502,7 +520,7 @@ func TestStopWithPendingStops(t *testing.T) {
 }
 
 func TestCreateContainerForceSave(t *testing.T) {
-	ctrl, client, _, privateTaskEngine := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _ := mocks(t, &config.Config{})
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -536,7 +554,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 // only when terminal events are recieved from docker event stream when
 // StopContainer times out
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
-	ctrl, client, mockTime, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -629,7 +647,7 @@ func TestCapabilities(t *testing.T) {
 		AppArmorCapable:         true,
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
-	ctrl, client, _, taskEngine := mocks(t, conf)
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -656,7 +674,7 @@ func TestCapabilities(t *testing.T) {
 
 func TestCapabilitiesECR(t *testing.T) {
 	conf := &config.Config{}
-	ctrl, client, _, taskEngine := mocks(t, conf)
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -675,10 +693,54 @@ func TestCapabilitiesECR(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
+	conf := &config.Config{
+		TaskIAMRoleEnabled: true,
+	}
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_19,
+	})
+
+	capabilities := taskEngine.Capabilities()
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[capability] = true
+	}
+
+	if _, ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]; !ok {
+		t.Errorf("Could not find iam capability when expected; got capabilities %v", capabilities)
+	}
+}
+
+func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
+	conf := &config.Config{
+		TaskIAMRoleEnabled: true,
+	}
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_18,
+	})
+
+	capabilities := taskEngine.Capabilities()
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[capability] = true
+	}
+
+	if _, ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]; ok {
+		t.Errorf("task-iam-role capability set for unsupported docker version")
+	}
+}
+
 func TestGetTaskByArn(t *testing.T) {
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
-	ctrl, client, _, taskEngine := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)

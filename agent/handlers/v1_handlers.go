@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -42,6 +42,14 @@ const taskArnQueryField = "taskarn"
 
 type rootResponse struct {
 	AvailableCommands []string
+}
+
+// ValueFromRequest returns the value of a field in the http request. The boolean value is
+// set to true if the field exists in the query.
+func ValueFromRequest(r *http.Request, field string) (string, bool) {
+	values := r.URL.Query()
+	_, exists := values[field]
+	return values.Get(field), exists
 }
 
 func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
@@ -95,14 +103,6 @@ func newTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
 	return &TasksResponse{Tasks: taskResponses}
 }
 
-// Returns the value of a field in the http request. The boolean value is
-// set to true if the field exists in the query.
-func valueFromRequest(r *http.Request, field string) (string, bool) {
-	values := r.URL.Query()
-	_, exists := values[field]
-	return values.Get(field), exists
-}
-
 // Creates JSON response and sets the http status code for the task queried.
 func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state *dockerstate.DockerTaskEngineState) ([]byte, int) {
 	var responseJSON []byte
@@ -125,8 +125,8 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 	return func(w http.ResponseWriter, r *http.Request) {
 		var responseJSON []byte
 		dockerTaskEngineState := taskEngine.State()
-		dockerId, dockerIdExists := valueFromRequest(r, dockerIdQueryField)
-		taskArn, taskArnExists := valueFromRequest(r, taskArnQueryField)
+		dockerId, dockerIdExists := ValueFromRequest(r, dockerIdQueryField)
+		taskArn, taskArnExists := ValueFromRequest(r, taskArnQueryField)
 		var status int
 		if dockerIdExists && taskArnExists {
 			log.Info("Request contains both ", dockerIdQueryField, " and ", taskArnQueryField, ". Expect at most one of these.")
@@ -193,7 +193,7 @@ func setupServer(containerInstanceArn *string, taskEngine DockerStateResolver, c
 	loggingServeMux.Handle("/", LoggingHandler{serverMux})
 
 	server := http.Server{
-		Addr:         ":" + strconv.Itoa(config.AGENT_INTROSPECTION_PORT),
+		Addr:         ":" + strconv.Itoa(config.AgentIntrospectionPort),
 		Handler:      loggingServeMux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,

@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,14 +18,35 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 )
+
+const sampleCredentialsMessage = `
+{
+  "type": "IAMRoleCredentialsMessage",
+  "message": {
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "t1",
+    "roleCredentials": {
+      "credentialsId": "credsId",
+      "accessKeyId": "accessKeyId",
+      "expiration": "2016-03-25T06:17:19.318+0000",
+      "roleArn": "roleArn",
+      "secretAccessKey": "secretAccessKey",
+      "sessionToken": "token"
+    }
+  }
+}
+`
 
 type messageLogger struct {
 	writes [][]byte
@@ -132,6 +153,51 @@ func TestPayloadHandlerCalled(t *testing.T) {
 
 	if len(handledPayload.Tasks) != 1 || *handledPayload.Tasks[0].Arn != "arn" {
 		t.Error("Unmarshalled data did not contain expected values")
+	}
+
+	isClosed = true
+	cs.Close()
+}
+
+func TestRefreshCredentialsHandlerCalled(t *testing.T) {
+	cs, ml := testCS()
+
+	var handledMessage *ecsacs.IAMRoleCredentialsMessage
+	reqHandler := func(message *ecsacs.IAMRoleCredentialsMessage) {
+		handledMessage = message
+	}
+	cs.AddRequestHandler(reqHandler)
+
+	ml.reads = [][]byte{[]byte(sampleCredentialsMessage)}
+
+	var isClosed bool
+	go func() {
+		err := cs.Serve()
+		if !isClosed && err != nil {
+			t.Fatal("Premature end of serving", err)
+		}
+	}()
+
+	time.Sleep(1 * time.Millisecond)
+	if handledMessage == nil {
+		t.Fatal("Handler was not called")
+	}
+
+	expectedMessage := &ecsacs.IAMRoleCredentialsMessage{
+		MessageId: aws.String("123"),
+		TaskArn:   aws.String("t1"),
+		RoleCredentials: &ecsacs.IAMRoleCredentials{
+			CredentialsId:   aws.String("credsId"),
+			AccessKeyId:     aws.String("accessKeyId"),
+			Expiration:      aws.String("2016-03-25T06:17:19.318+0000"),
+			RoleArn:         aws.String("roleArn"),
+			SecretAccessKey: aws.String("secretAccessKey"),
+			SessionToken:    aws.String("token"),
+		},
+	}
+
+	if !reflect.DeepEqual(handledMessage, expectedMessage) {
+		t.Error("Unmarshalled credential message did not contain expected values")
 	}
 
 	isClosed = true

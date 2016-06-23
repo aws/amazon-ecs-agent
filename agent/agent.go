@@ -23,11 +23,13 @@ import (
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
@@ -95,8 +97,12 @@ func _main() int {
 		log.Criticalf("Error creating Docker client: %v", err)
 		return exitcodes.ExitError
 	}
+
+	// Create credentials manager. This will be used by the task engine and
+	// the credentials handler
+	credentialsManager := credentials.NewManager()
 	if *versionFlag {
-		versionableEngine := engine.NewTaskEngine(cfg, dockerClient)
+		versionableEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
@@ -117,7 +123,7 @@ func _main() int {
 	if cfg.Checkpoint {
 		log.Info("Checkpointing is enabled. Attempting to load state")
 		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
-		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient)
+		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID, acshandler.SequenceNumber)
@@ -137,7 +143,7 @@ func _main() int {
 			configuredCluster := cfg.Cluster
 			if configuredCluster == "" {
 				log.Debug("Setting cluster to default; none configured")
-				configuredCluster = config.DEFAULT_CLUSTER_NAME
+				configuredCluster = config.DefaultClusterName
 			}
 			if previousCluster != configuredCluster {
 				log.Criticalf("Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?", previousCluster, configuredCluster)
@@ -157,7 +163,7 @@ func _main() int {
 			log.Warnf("Data mismatch; saved InstanceID '%v' does not match current InstanceID '%v'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
 
 			// Reset taskEngine; all the other values are still default
-			taskEngine = engine.NewTaskEngine(cfg, dockerClient)
+			taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 		} else {
 			// Use the values we loaded if there's no issue
 			containerInstanceArn = previousContainerInstanceArn
@@ -165,7 +171,7 @@ func _main() int {
 		}
 	} else {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		taskEngine = engine.NewTaskEngine(cfg, dockerClient)
+		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID, acshandler.SequenceNumber)
@@ -221,6 +227,9 @@ func _main() int {
 	// Agent introspection api
 	go handlers.ServeHttp(&containerInstanceArn, taskEngine, cfg)
 
+	// Start serving the endpoint to fetch IAM Role credentials
+	go credentialshandler.ServeHttp(credentialsManager, containerInstanceArn, cfg)
+
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
@@ -246,6 +255,7 @@ func _main() int {
 		ECSClient:            client,
 		StateManager:         stateManager,
 		TaskEngine:           taskEngine,
+		CredentialsManager:   credentialsManager,
 	})
 	if err != nil {
 		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)

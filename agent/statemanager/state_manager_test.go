@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -49,7 +49,7 @@ func TestStateManager(t *testing.T) {
 
 	// Now let's make some state to save
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	if err != nil {
@@ -67,7 +67,7 @@ func TestStateManager(t *testing.T) {
 	}
 
 	// Now make sure we can load that state sanely
-	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil)
+	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))
@@ -113,7 +113,7 @@ func TestStateManagerNonexistantDirectory(t *testing.T) {
 func TestLoadsV1DataCorrectly(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -166,7 +166,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 		t.Fatal("container Dead should go to stopped")
 	}
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
-	if deadTask.GetKnownStatusTime() != expected {
+	if deadTask.KnownStatusTime != expected {
 		t.Fatal("Time was not correct")
 	}
 }

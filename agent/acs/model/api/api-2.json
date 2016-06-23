@@ -80,6 +80,15 @@
         }
       ]
     },
+    "RefreshTaskIAMRoleCredentials":{
+      "name":"RefreshTaskIAMRoleCredentials",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"IAMRoleCredentialsMessage"},
+      "output":{"shape":"IAMRoleCredentialsAckRequest"}
+    },
     "StageUpdate":{
       "name":"StageUpdate",
       "http":{
@@ -195,6 +204,33 @@
         "sourcePath":{"shape":"String"}
       }
     },
+    "IAMRoleCredentials":{
+      "type":"structure",
+      "members":{
+        "credentialsId":{"shape":"String"},
+        "roleArn":{"shape":"String"},
+        "accessKeyId":{"shape":"String"},
+        "secretAccessKey":{"shape":"SensitiveString"},
+        "sessionToken":{"shape":"String"},
+        "expiration":{"shape":"String"}
+      }
+    },
+    "IAMRoleCredentialsAckRequest":{
+      "type":"structure",
+      "members":{
+        "messageId":{"shape":"String"},
+        "expiration":{"shape":"String"},
+        "credentialsId":{"shape":"String"}
+      }
+    },
+    "IAMRoleCredentialsMessage":{
+      "type":"structure",
+      "members":{
+        "taskArn":{"shape":"String"},
+        "roleCredentials":{"shape":"IAMRoleCredentials"},
+        "messageId":{"shape":"String"}
+      }
+    },
     "InactiveInstanceException":{
       "type":"structure",
       "members":{
@@ -265,7 +301,8 @@
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
         "seqNum":{"shape":"Integer"},
-        "versionInfo":{"shape":"VersionInfo"}
+        "versionInfo":{"shape":"VersionInfo"},
+        "sendCredentials":{"shape":"Boolean"}
       }
     },
     "PortMapping":{
@@ -286,6 +323,10 @@
         "type":{"shape":"AuthenticationType"},
         "ecrAuthData":{"shape":"ECRAuthData"}
       }
+    },
+    "SensitiveString":{
+      "type":"string",
+      "sensitive":true
     },
     "ServerException":{
       "type":"structure",
@@ -318,7 +359,8 @@
         "overrides":{"shape":"String"},
         "version":{"shape":"String"},
         "taskDefinitionAccountId":{"shape":"String"},
-        "volumes":{"shape":"VolumeList"}
+        "volumes":{"shape":"VolumeList"},
+        "roleCredentials":{"shape":"IAMRoleCredentials"}
       }
     },
     "TaskList":{

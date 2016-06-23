@@ -17,12 +17,13 @@ package engine
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine(cfg *config.Config, client DockerClient) TaskEngine {
-	return NewDockerTaskEngine(cfg, client)
+func NewTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager) TaskEngine {
+	return NewDockerTaskEngine(cfg, client, credentialsManager)
 }

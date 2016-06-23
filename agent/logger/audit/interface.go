@@ -11,18 +11,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handlers
+package audit
 
 import "net/http"
 
-type LoggingHandler struct{ h http.Handler }
-
-// NewLoggingHandler creates a new LoggingHandler object.
-func NewLoggingHandler(handler http.Handler) LoggingHandler {
-	return LoggingHandler{h: handler}
+type AuditLogger interface {
+	Log(r *http.Request, httpResponseCode int, eventType string)
+	GetContainerInstanceArn() string
+	GetCluster() string
 }
 
-func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr, "uri", r.RequestURI)
-	lh.h.ServeHTTP(w, r)
+type InfoLogger interface {
+	Info(i ...interface{})
 }

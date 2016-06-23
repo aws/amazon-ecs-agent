@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -87,6 +87,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_APPARMOR_CAPABLE", "true")
 	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")
+	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
 
 	conf := environmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -120,6 +121,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if conf.TaskCleanupWaitDuration != (90 * time.Second) {
 		t.Error("Wrong value for TaskCleanupWaitDuration")
+	}
+	if !conf.TaskIAMRoleEnabled {
+		t.Error("Wrong value for TaskIAMRoleEnabled")
 	}
 }
 
@@ -167,7 +171,10 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
 	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE")
 	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
+	os.Unsetenv("ECS_AUDIT_LOGFILE")
+	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +188,7 @@ func TestConfigDefault(t *testing.T) {
 	if cfg.DisableMetrics {
 		t.Errorf("Default disablemetrics set incorrectly: %v", cfg.DisableMetrics)
 	}
-	if len(cfg.ReservedPorts) != 4 {
+	if len(cfg.ReservedPorts) != 5 {
 		t.Error("Default resered ports set incorrectly")
 	}
 	if cfg.ReservedMemory != 0 {
@@ -199,6 +206,15 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.TaskCleanupWaitDuration != 3*time.Hour {
 		t.Errorf("Defualt task cleanup wait duration set incorrectly: %v", cfg.TaskCleanupWaitDuration)
+	}
+	if cfg.TaskIAMRoleEnabled {
+		t.Error("TaskIAMRoleEnabled set incorrectly")
+	}
+	if cfg.CredentialsAuditLogDisabled {
+		t.Error("CredentialsAuditLogDisabled set incorrectly")
+	}
+	if cfg.CredentialsAuditLogFile != defaultCredentialsAuditLogFile {
+		t.Error("CredentialsAuditLogFile default is set incorrectly")
 	}
 }
 
@@ -333,5 +349,42 @@ func TestReservedMemory(t *testing.T) {
 	// reserved memory, which is 0.
 	if cfg.ReservedMemory != 1 {
 		t.Errorf("Wrong value for ReservedMemory. Expected %d, got %d", 1, cfg.ReservedMemory)
+	}
+}
+
+func TestTaskIAMRoleEnabled(t *testing.T) {
+	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !cfg.TaskIAMRoleEnabled {
+		t.Errorf("Wrong value for TaskIAMRoleEnabled: %v", cfg.TaskIAMRoleEnabled)
+	}
+}
+
+func TestCredentialsAuditLogFile(t *testing.T) {
+	dummyLocation := "/foo/bar.log"
+	os.Setenv("ECS_AUDIT_LOGFILE", dummyLocation)
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.CredentialsAuditLogFile != dummyLocation {
+		t.Errorf("Wrong value for CredentialsAuditLogFile: %v", cfg.CredentialsAuditLogFile)
+	}
+}
+
+func TestCredentialsAuditLogDisabled(t *testing.T) {
+	os.Setenv("ECS_AUDIT_LOGFILE_DISABLED", "true")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !cfg.CredentialsAuditLogDisabled {
+		t.Errorf("Wrong value for CredentialsAuditLogDisabled: %v", cfg.CredentialsAuditLogDisabled)
 	}
 }

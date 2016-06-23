@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -52,11 +53,11 @@ func defaultTestConfig() *config.Config {
 	return cfg
 }
 
-func setupWithDefaultConfig(t *testing.T) (TaskEngine, func()) {
+func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfig(), t)
 }
 
-func setup(cfg *config.Config, t *testing.T) (TaskEngine, func()) {
+func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -72,11 +73,12 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func()) {
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}
-	taskEngine := NewDockerTaskEngine(cfg, dockerClient)
+	credentialsManager := credentials.NewManager()
+	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager)
 	taskEngine.Init()
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-	}
+	}, credentialsManager
 }
 
 func discardEvents(from interface{}) func() {
@@ -151,7 +153,7 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
@@ -185,7 +187,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
 	imageDigest := "tianon/true@sha256:30ed58eecb0a44d8df936ce2efce107c9ac20410c915866da4c6a33a3795d057"
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(imageDigest)
@@ -220,7 +222,7 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 // 24751 and verifies that when you do forward the port you can access it and if
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -329,7 +331,7 @@ func TestPortForward(t *testing.T) {
 // TestMultiplePortForwards tests that two links containers in the same task can
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
@@ -398,7 +400,7 @@ func TestMultiplePortForwards(t *testing.T) {
 // TestDynamicPortForward runs a container serving data on a port chosen by the
 // docker deamon and verifies that the port is reported in the state-change
 func TestDynamicPortForward(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -472,7 +474,7 @@ PortsBound:
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -560,7 +562,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // prints "hello linker" and then links a container that proxies that data to
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	testTask := createTestTask("TestLinking")
@@ -634,7 +636,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	cfg.EngineAuthType = "dockercfg"
 
 	removeImage(testAuthRegistryImage)
-	taskEngine, done := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
@@ -688,7 +690,7 @@ func TestDockerAuth(t *testing.T) {
 		cfg.EngineAuthType = ""
 	}()
 
-	taskEngine, done := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 	removeImage(testAuthRegistryImage)
 
@@ -731,7 +733,7 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestVolumesFrom(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -786,7 +788,7 @@ func TestVolumesFrom(t *testing.T) {
 }
 
 func TestVolumesFromRO(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -832,7 +834,7 @@ func TestVolumesFromRO(t *testing.T) {
 }
 
 func TestHostVolumeMount(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -869,7 +871,7 @@ func TestHostVolumeMount(t *testing.T) {
 }
 
 func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -906,7 +908,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 func TestSweepContainer(t *testing.T) {
 	cfg := defaultTestConfig()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
-	taskEngine, done := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -965,7 +967,7 @@ func TestInitOOMEvent(t *testing.T) {
 	if os.Getenv("MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT") != "" {
 		t.Skip("Skipped because MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT")
 	}
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -1024,7 +1026,7 @@ func TestInitOOMEvent(t *testing.T) {
 // SIGTERM - sent by Docker "stop" prior to SIGKILL (9)
 // SIGUSR1 - used for the test as an arbitrary signal
 func TestSignalEvent(t *testing.T) {
-	taskEngine, done := setupWithDefaultConfig(t)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -1099,7 +1101,7 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := defaultTestConfig()
 
-	taskEngine, done := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -1160,5 +1162,39 @@ func TestDockerStopTimeout(t *testing.T) {
 	}
 	if ttime.Since(startTime) > testDockerStopTimeout+1*time.Second {
 		t.Error("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
+	}
+}
+
+// TestStartStopWithCredentials starts and stops a task for which credentials id
+// has been set
+func TestStartStopWithCredentials(t *testing.T) {
+	taskEngine, done, credentialsManager := setupWithDefaultConfig(t)
+	defer done()
+
+	testTask := createTestTask("testStartWithCredentials")
+	credentialsManager.SetCredentials(credentials.IAMRoleCredentials{CredentialsId: credentialsId})
+	testTask.SetCredentialsId(credentialsId)
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	defer discardEvents(contEvents)()
+
+	go taskEngine.AddTask(testTask)
+
+	for taskEvent := range taskEvents {
+		if taskEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		// Wait until task is stopped
+		if taskEvent.Status == api.TaskStopped {
+			break
+		}
+	}
+
+	// When task is stopped, credentials should have been removed for the
+	// credentials id set in the task
+	_, ok := credentialsManager.GetCredentials(credentialsId)
+	if ok {
+		t.Error("Credentials not removed from credentials manager for stopped task")
 	}
 }

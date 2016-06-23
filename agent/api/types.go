@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -107,6 +107,12 @@ type Task struct {
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
+
+	// credentialsId is used to set the CredentialsId field for the
+	// IAMRoleCredentials object associated with the task. This id can be
+	// used to look up the credentials for task in the credentials manager
+	credentialsId     string
+	credentialsIdLock sync.RWMutex
 }
 
 // TaskVolume is a definition of all the volumes available for containers to

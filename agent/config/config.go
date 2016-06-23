@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,14 +33,19 @@ import (
 
 const (
 	// http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=docker
-	DOCKER_RESERVED_PORT     = 2375
-	DOCKER_RESERVED_SSL_PORT = 2376
+	DockerReservedPort    = 2375
+	DockerReservedSSLPort = 2376
 
-	SSH_PORT = 22
+	SSHPort = 22
 
-	AGENT_INTROSPECTION_PORT = 51678
+	// AgentIntrospectionPort is used to serve the metadata about the agent and to query the tasks being managed by the agent.
+	AgentIntrospectionPort = 51678
 
-	DEFAULT_CLUSTER_NAME = "default"
+	// AgentCredentialsPort is used to serve the credentials for tasks.
+	AgentCredentialsPort = 51679
+
+	// DefaultClusterName is the name of the default cluster.
+	DefaultClusterName = "default"
 
 	// DefaultTaskCleanupWaitDuration specifies the default value for task cleanup duration. It is used to
 	// clean up task's containers.
@@ -55,6 +60,9 @@ const (
 
 	// minimumDockerStopTimeout specifies the minimum value for docker StopContainer API
 	minimumDockerStopTimeout = 1 * time.Second
+
+	// defaultAuditLogFile specifies the default audit log filename
+	defaultCredentialsAuditLogFile = "/log/audit.log"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -153,15 +161,17 @@ func (cfg *Config) trimWhitespace() {
 
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint:          "unix:///var/run/docker.sock",
-		ReservedPorts:           []uint16{SSH_PORT, DOCKER_RESERVED_PORT, DOCKER_RESERVED_SSL_PORT, AGENT_INTROSPECTION_PORT},
-		ReservedPortsUDP:        []uint16{},
-		DataDir:                 "/data/",
-		DisableMetrics:          false,
-		ReservedMemory:          0,
-		AvailableLoggingDrivers: []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
-		TaskCleanupWaitDuration: DefaultTaskCleanupWaitDuration,
-		DockerStopTimeout:       DefaultDockerStopTimeout,
+		DockerEndpoint:              "unix:///var/run/docker.sock",
+		ReservedPorts:               []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		ReservedPortsUDP:            []uint16{},
+		DataDir:                     "/data/",
+		DisableMetrics:              false,
+		ReservedMemory:              0,
+		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
+		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
+		DockerStopTimeout:           DefaultDockerStopTimeout,
+		CredentialsAuditLogFile:     defaultCredentialsAuditLogFile,
+		CredentialsAuditLogDisabled: false,
 	}
 }
 
@@ -271,28 +281,35 @@ func environmentConfig() Config {
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
+	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
+
+	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
+	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
 
 	return Config{
-		Cluster:                 clusterRef,
-		APIEndpoint:             endpoint,
-		AWSRegion:               awsRegion,
-		DockerEndpoint:          dockerEndpoint,
-		ReservedPorts:           reservedPorts,
-		ReservedPortsUDP:        reservedPortsUDP,
-		DataDir:                 dataDir,
-		Checkpoint:              checkpoint,
-		EngineAuthType:          engineAuthType,
-		EngineAuthData:          NewSensitiveRawMessage([]byte(engineAuthData)),
-		UpdatesEnabled:          updatesEnabled,
-		UpdateDownloadDir:       updateDownloadDir,
-		DisableMetrics:          disableMetrics,
-		ReservedMemory:          reservedMemory,
-		AvailableLoggingDrivers: availableLoggingDrivers,
-		PrivilegedDisabled:      privilegedDisabled,
-		SELinuxCapable:          seLinuxCapable,
-		AppArmorCapable:         appArmorCapable,
-		TaskCleanupWaitDuration: taskCleanupWaitDuration,
-		DockerStopTimeout:       dockerStopTimeout,
+		Cluster:                     clusterRef,
+		APIEndpoint:                 endpoint,
+		AWSRegion:                   awsRegion,
+		DockerEndpoint:              dockerEndpoint,
+		ReservedPorts:               reservedPorts,
+		ReservedPortsUDP:            reservedPortsUDP,
+		DataDir:                     dataDir,
+		Checkpoint:                  checkpoint,
+		EngineAuthType:              engineAuthType,
+		EngineAuthData:              NewSensitiveRawMessage([]byte(engineAuthData)),
+		UpdatesEnabled:              updatesEnabled,
+		UpdateDownloadDir:           updateDownloadDir,
+		DisableMetrics:              disableMetrics,
+		ReservedMemory:              reservedMemory,
+		AvailableLoggingDrivers:     availableLoggingDrivers,
+		PrivilegedDisabled:          privilegedDisabled,
+		SELinuxCapable:              seLinuxCapable,
+		AppArmorCapable:             appArmorCapable,
+		TaskCleanupWaitDuration:     taskCleanupWaitDuration,
+		TaskIAMRoleEnabled:          taskIAMRoleEnabled,
+		DockerStopTimeout:           dockerStopTimeout,
+		CredentialsAuditLogFile:     credentialsAuditLogFile,
+		CredentialsAuditLogDisabled: credentialsAuditLogDisabled,
 	}
 }
 

@@ -273,7 +273,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatal("Error creating container", err)

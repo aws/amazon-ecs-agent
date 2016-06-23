@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -37,6 +38,7 @@ const (
 	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
+	capabilityTaskIAMRole        = "task-iam-role"
 )
 
 // The DockerTaskEngine interacts with docker to implement a task
@@ -74,15 +76,16 @@ type DockerTaskEngine struct {
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
 
-	_time     ttime.Time
-	_timeOnce sync.Once
+	credentialsManager credentials.Manager
+	_time              ttime.Time
+	_timeOnce          sync.Once
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -94,6 +97,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient) *DockerTaskEng
 
 		containerEvents: make(chan api.ContainerStateChange),
 		taskEvents:      make(chan api.TaskStateChange),
+
+		credentialsManager: credentialsManager,
 	}
 
 	return dockerTaskEngine
@@ -394,7 +399,7 @@ func (engine *DockerTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan
 }
 
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
-	task.PostUnmarshalTask()
+	task.PostUnmarshalTask(engine.credentialsManager)
 
 	engine.processTasks.Lock()
 	defer engine.processTasks.Unlock()
@@ -625,6 +630,7 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 //    com.amazonaws.ecs.capability.logging-driver.gelf
 //    com.amazonaws.ecs.capability.selinux
 //    com.amazonaws.ecs.capability.apparmor
+//    com.amazonaws.ecs.capability.iam
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -652,6 +658,17 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 
 	if _, ok := versions[dockerclient.Version_1_19]; ok {
 		capabilities = append(capabilities, capabilityPrefix+"ecr-auth")
+	}
+
+	if engine.cfg.TaskIAMRoleEnabled {
+		// The "task-iam-role" capability is supported for docker v1.7.x onwards
+		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
+		// to lookup the table of docker versions to API versions
+		if _, ok := versions[dockerclient.Version_1_19]; ok {
+			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRole)
+		} else {
+			seelog.Warn("Task IAM Role not enabled due to unsuppported Docker version")
+		}
 	}
 
 	return capabilities
