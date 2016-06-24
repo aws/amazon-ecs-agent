@@ -142,6 +142,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_UPDATE_DOWNLOAD_DIR":       config.CacheDirectory(),
 		"ECS_UPDATES_ENABLED":           "true",
 		"ECS_AVAILABLE_LOGGING_DRIVERS": `["json-file","syslog","awslogs"]`,
+		"ECS_ENABLE_TASK_IAM_ROLE":      "true",
 	}
 
 	// merge in user-supplied environment variables

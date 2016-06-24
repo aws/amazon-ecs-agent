@@ -225,6 +225,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(), envVariables, t)
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
 	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
+	expectKey("ECS_ENABLE_TASK_IAM_ROLE=true", envVariables, t)
 
 	if len(cfg.ExposedPorts) != 2 {
 		t.Errorf("Expected exactly 2 elements to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
@@ -272,7 +273,7 @@ func expectLocalhostTCPPortBindings(input map[godocker.Port][]godocker.PortBindi
 			}
 		}
 	} else {
-		t.Error("Expected 51678/tcp to be defined")
+		t.Errorf("Expected %s/tcp to be defined", port)
 	}
 }
 
