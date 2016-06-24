@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -79,6 +79,10 @@ func actions(engine *engine.Engine) map[string]action {
 		"reload-cache": action{
 			function:    engine.ReloadCache,
 			description: "Reload the cached image of the ECS Agent into Docker",
+		},
+		"post-stop": action{
+			function:    engine.PostStop,
+			description: "Cleanup procedure for the ECS Agent",
 		},
 	}
 }

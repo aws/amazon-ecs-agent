@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,9 +16,13 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
 	"github.com/aws/amazon-ecs-init/ecs-init/docker"
-	"io"
+	"github.com/aws/amazon-ecs-init/ecs-init/exec"
+	"github.com/aws/amazon-ecs-init/ecs-init/exec/iptables"
+	"github.com/aws/amazon-ecs-init/ecs-init/exec/sysctl"
 
 	log "github.com/cihub/seelog"
 )
@@ -31,8 +35,10 @@ const (
 
 // Engine contains methods invoked when ecs-init is run
 type Engine struct {
-	downloader downloader
-	docker     dockerClient
+	downloader            downloader
+	docker                dockerClient
+	loopbackRouting       loopbackRouting
+	credentialsProxyRoute credentialsProxyRoute
 }
 
 // New creates an instance of Engine
@@ -42,14 +48,38 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	cmdExec := exec.NewExec()
+	loopbackRouting, err := sysctl.NewIpv4RouteLocalNet(cmdExec)
+	if err != nil {
+		return nil, err
+	}
+	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec)
+	if err != nil {
+		return nil, err
+	}
 	return &Engine{
-		downloader: downloader,
-		docker:     docker,
+		downloader:            downloader,
+		docker:                docker,
+		loopbackRouting:       loopbackRouting,
+		credentialsProxyRoute: credentialsProxyRoute,
 	}, nil
 }
 
-// PreStart prepares the ECS Agent for starting
+// PreStart prepares the ECS Agent for starting. It also configures the instance
+// to handle credentials requests from containers by rerouting these requests to
+// to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
+	// Enable use of loopback addresses for local routing purposes
+	err := e.loopbackRouting.Enable()
+	if err != nil {
+		return engineError("could not enable loopback routing", err)
+	}
+	// Add the rerouting netfilter rule for credentials endpoint
+	err = e.credentialsProxyRoute.Create()
+	if err != nil {
+		return engineError("could not create route to the credentials proxy", err)
+	}
+
 	cached := e.downloader.IsAgentCached()
 	if !cached {
 		return e.downloadAndLoadCache()
@@ -147,6 +177,18 @@ func (e *Engine) PreStop() error {
 		return engineError("could not stop Amazon EC2 Container Service Agent", err)
 	}
 	return nil
+}
+
+// PostStop cleans up the credentials endpoint setup by disabling loopback
+// routing and removing the rerouting rule from the netfilter table
+func (e *Engine) PostStop() error {
+	log.Info("Cleaning up the credentials endpoint setup for Amazon EC2 Container Service Agent")
+	err := e.loopbackRouting.RestoreDefault()
+
+	// Ignore error from Remove() as the netfilter might never have been
+	// addred in the first place
+	e.credentialsProxyRoute.Remove()
+	return err
 }
 
 type _engineError struct {

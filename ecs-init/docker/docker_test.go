@@ -244,8 +244,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	for _, binding := range hostCfg.Binds {
 		binds[binding] = struct{}{}
 	}
-	defaultDockerSocket, _ := config.DockerUnixSocket()
-	expectKey(defaultDockerSocket+":"+defaultDockerSocket, binds, t)
+	expectKey(config.DockerUnixSocket()+":"+config.DockerUnixSocket(), binds, t)
 	expectKey(config.LogDirectory()+":/log", binds, t)
 	expectKey(config.AgentDataDirectory()+":/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)

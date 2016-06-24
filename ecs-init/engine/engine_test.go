@@ -16,6 +16,7 @@ package engine
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -32,11 +33,21 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockDownloader.EXPECT().IsAgentCached().Return(true)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Create().Return(nil)
+
 	engine := &Engine{
-		docker:     mockDocker,
-		downloader: mockDownloader,
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
 	}
-	engine.PreStart()
+	err := engine.PreStart()
+	if err != nil {
+		t.Errorf("engine pre-start error: %v", err)
+	}
 }
 
 func TestPreStartImageNotLoadedCached(t *testing.T) {
@@ -47,7 +58,11 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Create().Return(nil)
 
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockDownloader.EXPECT().IsAgentCached().Return(true)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
@@ -55,10 +70,15 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		docker:     mockDocker,
-		downloader: mockDownloader,
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
 	}
-	engine.PreStart()
+	err := engine.PreStart()
+	if err != nil {
+		t.Errorf("engine pre-start error: %v", err)
+	}
 }
 
 func TestPreStartImageNotCached(t *testing.T) {
@@ -76,11 +96,21 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
 	mockDownloader.EXPECT().RecordCachedAgent()
 
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Create().Return(nil)
+
 	engine := &Engine{
-		docker:     mockDocker,
-		downloader: mockDownloader,
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
 	}
-	engine.PreStart()
+	err := engine.PreStart()
+	if err != nil {
+		t.Errorf("engine pre-start error: %v", err)
+	}
 }
 
 func TestStartSupervisedCannotStart(t *testing.T) {
@@ -242,7 +272,10 @@ func TestPreStop(t *testing.T) {
 	engine := &Engine{
 		docker: mockDocker,
 	}
-	engine.PreStop()
+	err := engine.PreStop()
+	if err != nil {
+		t.Errorf("engine pre-stop error: %v", err)
+	}
 }
 
 func TestReloadCacheNotCached(t *testing.T) {
@@ -264,7 +297,10 @@ func TestReloadCacheNotCached(t *testing.T) {
 		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
-	engine.ReloadCache()
+	err := engine.ReloadCache()
+	if err != nil {
+		t.Errorf("engine reload-cache error: %v", err)
+	}
 }
 
 func TestReloadCacheCached(t *testing.T) {
@@ -285,5 +321,112 @@ func TestReloadCacheCached(t *testing.T) {
 		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
-	engine.ReloadCache()
+	err := engine.ReloadCache()
+	if err != nil {
+		t.Errorf("engine reload-cache error: %v", err)
+	}
+}
+
+func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().Enable().Return(fmt.Errorf("sysctl not found"))
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+
+	engine := &Engine{
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PreStart()
+	if err == nil {
+		t.Error("Expected pre-start error when loopback routing not enabled")
+	}
+}
+
+func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
+
+	engine := &Engine{
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PreStart()
+	if err == nil {
+		t.Error("Expected pre-start error when the credentials proxy route cannot be created")
+	}
+}
+
+func TestPostStop(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().RestoreDefault().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Remove().Return(nil)
+
+	engine := &Engine{
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PostStop()
+	if err != nil {
+		t.Errorf("engine post-stop error: %v", err)
+	}
+}
+
+func TestPostStopLoopbackRoutingError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().RestoreDefault().Return(fmt.Errorf("cannot restore"))
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Remove().Return(nil)
+
+	engine := &Engine{
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PostStop()
+	if err == nil {
+		t.Error("Expected error during engine post-stop")
+	}
+}
+
+func TestPostStopCredentialsProxyRouteRemoveError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().RestoreDefault().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Remove().Return(fmt.Errorf("cannot remove"))
+
+	engine := &Engine{
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PostStop()
+	if err != nil {
+		t.Errorf("engine post-stop error: %v", err)
+	}
 }

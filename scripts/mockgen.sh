@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -14,19 +14,22 @@
 # limitations under the License.
 #
 # This script wraps the mockgen tool and inserts licensing information.
+# Usage: mockgen.sh target-package-name source-file-name [relative-output-directory-path]
 
 package="$1"
 inputfile="$2"
 outputfile="$(echo ${inputfile} | sed -e 's/\.go$/_mock_test.go/')"
+relativeoutputdir="$3"
 
 echo "Generating mocks from ${inputfile} to ${outputfile} in package ${package}"
 
 export PATH="${GOPATH//://bin:}/bin:$PATH"
 
 tmp_gen="$(mktemp)"
+year="$(date +"%Y")"
 mockgen -source "$(pwd)/${inputfile}" -package "${package}" | goimports > "${tmp_gen}"
-cat  > "$(pwd)/${outputfile}" << EOF
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+cat  > "$(pwd)/${relativeoutputdir}/${outputfile}" << EOF
+// Copyright 2015-${year} Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the

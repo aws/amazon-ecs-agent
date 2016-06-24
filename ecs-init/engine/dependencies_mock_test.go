@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -166,4 +166,86 @@ func (_m *MockdockerClient) StopAgent() error {
 
 func (_mr *_MockdockerClientRecorder) StopAgent() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StopAgent")
+}
+
+// Mock of loopbackRouting interface
+type MockloopbackRouting struct {
+	ctrl     *gomock.Controller
+	recorder *_MockloopbackRoutingRecorder
+}
+
+// Recorder for MockloopbackRouting (not exported)
+type _MockloopbackRoutingRecorder struct {
+	mock *MockloopbackRouting
+}
+
+func NewMockloopbackRouting(ctrl *gomock.Controller) *MockloopbackRouting {
+	mock := &MockloopbackRouting{ctrl: ctrl}
+	mock.recorder = &_MockloopbackRoutingRecorder{mock}
+	return mock
+}
+
+func (_m *MockloopbackRouting) EXPECT() *_MockloopbackRoutingRecorder {
+	return _m.recorder
+}
+
+func (_m *MockloopbackRouting) Enable() error {
+	ret := _m.ctrl.Call(_m, "Enable")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockloopbackRoutingRecorder) Enable() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Enable")
+}
+
+func (_m *MockloopbackRouting) RestoreDefault() error {
+	ret := _m.ctrl.Call(_m, "RestoreDefault")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockloopbackRoutingRecorder) RestoreDefault() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestoreDefault")
+}
+
+// Mock of credentialsProxyRoute interface
+type MockcredentialsProxyRoute struct {
+	ctrl     *gomock.Controller
+	recorder *_MockcredentialsProxyRouteRecorder
+}
+
+// Recorder for MockcredentialsProxyRoute (not exported)
+type _MockcredentialsProxyRouteRecorder struct {
+	mock *MockcredentialsProxyRoute
+}
+
+func NewMockcredentialsProxyRoute(ctrl *gomock.Controller) *MockcredentialsProxyRoute {
+	mock := &MockcredentialsProxyRoute{ctrl: ctrl}
+	mock.recorder = &_MockcredentialsProxyRouteRecorder{mock}
+	return mock
+}
+
+func (_m *MockcredentialsProxyRoute) EXPECT() *_MockcredentialsProxyRouteRecorder {
+	return _m.recorder
+}
+
+func (_m *MockcredentialsProxyRoute) Create() error {
+	ret := _m.ctrl.Call(_m, "Create")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockcredentialsProxyRouteRecorder) Create() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
+}
+
+func (_m *MockcredentialsProxyRoute) Remove() error {
+	ret := _m.ctrl.Call(_m, "Remove")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockcredentialsProxyRouteRecorder) Remove() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Remove")
 }

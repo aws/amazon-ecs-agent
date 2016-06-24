@@ -28,9 +28,7 @@ const (
 	logDir                 = "/log"
 	dataDir                = "/data"
 	readOnly               = ":ro"
-	// set default to /var/run instead of /var/run/docker.sock in case
-	// /var/run/docker.sock is deleted and recreated outside the container
-	defaultDockerEndpoint = "/var/run"
+	defaultDockerEndpoint  = "/var/run/docker.sock"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -187,14 +185,8 @@ func (c *Client) loadEnvVariables() map[string]string {
 }
 
 func (c *Client) getHostConfig() *godocker.HostConfig {
-	dockerEndpointAgent := defaultDockerEndpoint
-	dockerUnixSocketSourcePath, fromEnv := config.DockerUnixSocket()
-	if fromEnv {
-		dockerEndpointAgent = "/var/run/docker.sock"
-	}
-
 	binds := []string{
-		dockerUnixSocketSourcePath + ":" + dockerEndpointAgent,
+		config.DockerUnixSocket() + ":" + defaultDockerEndpoint,
 		config.LogDirectory() + ":" + logDir,
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),

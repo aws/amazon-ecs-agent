@@ -39,11 +39,7 @@ type _dockerclient struct {
 }
 
 func newDockerClient() (*_dockerclient, error) {
-	dockerUnixSocketSourcePath, fromEnv := config.DockerUnixSocket()
-	if !fromEnv {
-		dockerUnixSocketSourcePath = "/var/run/docker.sock"
-	}
-	client, err := godocker.NewVersionedClient(config.UnixSocketPrefix+dockerUnixSocketSourcePath, "1.15")
+	client, err := godocker.NewVersionedClient(config.UnixSocketPrefix+config.DockerUnixSocket(), "1.15")
 	if err != nil {
 		return nil, err
 	}
