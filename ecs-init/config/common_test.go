@@ -23,8 +23,13 @@ func TestDockerUnixSocketWithoutDockerHost(t *testing.T) {
 	// Make sure that the env variable is not set
 	os.Unsetenv("DOCKER_HOST")
 
-	if DockerUnixSocket() != "/var/run/docker.sock" {
-		t.Error("DockerUnixSocket() should be \"/var/run/docker.sock\"")
+	dockerUnixSocketSourcePath, fromEnv := DockerUnixSocket()
+
+	if dockerUnixSocketSourcePath != "/var/run" {
+		t.Error("DockerUnixSocket() should be \"/var/run\"")
+	}
+	if fromEnv {
+		t.Error("DockerUnixSocket() should return the default instead of reading from DOCKER_HOST when DOCKER_HOST isn't set")
 	}
 }
 
@@ -32,7 +37,11 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 
 	os.Setenv("DOCKER_HOST", "unix:///foo/bar")
 
-	if DockerUnixSocket() != "/foo/bar" {
+	dockerUnixSocketSourcePath, fromEnv := DockerUnixSocket()
+	if dockerUnixSocketSourcePath != "/foo/bar" {
 		t.Error("DockerUnixSocket() should be \"/foo/bar\"")
+	}
+	if !fromEnv {
+		t.Error("DockerUnixSocket() should read from envrionment variable DOCKER_HOST, when DOCKER_HOST is set")
 	}
 }
