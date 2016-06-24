@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -226,10 +226,11 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
 	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
 
-	if len(cfg.ExposedPorts) != 1 {
-		t.Errorf("Expected exactly 1 element to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
+	if len(cfg.ExposedPorts) != 2 {
+		t.Errorf("Expected exactly 2 elements to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
 	}
 	expectPort("51678/tcp", cfg.ExposedPorts, t)
+	expectPort("51679/tcp", cfg.ExposedPorts, t)
 
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
@@ -250,10 +251,15 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
 
-	if len(hostCfg.PortBindings) != 1 {
-		t.Errorf("Expected exactly 1 element to be in PortBindings, but was %d", len(hostCfg.PortBindings))
+	if len(hostCfg.PortBindings) != 2 {
+		t.Errorf("Expected exactly 2 elements to be in PortBindings, but was %d", len(hostCfg.PortBindings))
 	}
-	if portBindings, ok := hostCfg.PortBindings["51678/tcp"]; ok {
+	expectLocalhostTCPPortBindings(hostCfg.PortBindings, agentIntrospectionPort, t)
+	expectLocalhostTCPPortBindings(hostCfg.PortBindings, agentCredentialsEndpointPort, t)
+}
+
+func expectLocalhostTCPPortBindings(input map[godocker.Port][]godocker.PortBinding, port godocker.Port, t *testing.T) {
+	if portBindings, ok := input[port+"/tcp"]; ok {
 		if len(portBindings) != 1 {
 			t.Errorf("Expected exactly 1 element to be in portBindings, but was %d", len(portBindings))
 		} else {
@@ -261,8 +267,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 			if portBinding.HostIP != "127.0.0.1" {
 				t.Errorf("Expected HostIP to be 127.0.0.1, but was %s", portBinding.HostIP)
 			}
-			if portBinding.HostPort != "51678" {
-				t.Errorf("Expected HostPort to be 51678, but was %s", portBinding.HostPort)
+			if portBinding.HostPort != string(port) {
+				t.Errorf("Expected HostPort to be %s, but was %s", port, portBinding.HostPort)
 			}
 		}
 	} else {

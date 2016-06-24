@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,11 +24,12 @@ import (
 )
 
 const (
-	agentIntrospectionPort = "51678"
-	logDir                 = "/log"
-	dataDir                = "/data"
-	readOnly               = ":ro"
-	defaultDockerEndpoint  = "/var/run/docker.sock"
+	agentIntrospectionPort       = "51678"
+	agentCredentialsEndpointPort = "51679"
+	logDir                       = "/log"
+	dataDir                      = "/data"
+	readOnly                     = ":ro"
+	defaultDockerEndpoint        = "/var/run/docker.sock"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -154,7 +155,8 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 
 	exposedPorts := map[godocker.Port]struct{}{
-		agentIntrospectionPort + "/tcp": struct{}{},
+		agentIntrospectionPort + "/tcp":       struct{}{},
+		agentCredentialsEndpointPort + "/tcp": struct{}{},
 	}
 
 	return &godocker.Config{
@@ -197,6 +199,12 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 			godocker.PortBinding{
 				HostIP:   "127.0.0.1",
 				HostPort: agentIntrospectionPort,
+			},
+		},
+		agentCredentialsEndpointPort + "/tcp": []godocker.PortBinding{
+			godocker.PortBinding{
+				HostIP:   "127.0.0.1",
+				HostPort: agentCredentialsEndpointPort,
 			},
 		},
 	}
