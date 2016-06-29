@@ -227,12 +227,6 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE=true", envVariables, t)
 
-	if len(cfg.ExposedPorts) != 2 {
-		t.Errorf("Expected exactly 2 elements to be in ExposedPorts, but was %d", len(cfg.ExposedPorts))
-	}
-	expectPort("51678/tcp", cfg.ExposedPorts, t)
-	expectPort("51679/tcp", cfg.ExposedPorts, t)
-
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
 	}
@@ -253,36 +247,11 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
 
-	if len(hostCfg.PortBindings) != 2 {
-		t.Errorf("Expected exactly 2 elements to be in PortBindings, but was %d", len(hostCfg.PortBindings))
-	}
-	expectLocalhostTCPPortBindings(hostCfg.PortBindings, agentIntrospectionPort, t)
-	expectLocalhostTCPPortBindings(hostCfg.PortBindings, agentCredentialsEndpointPort, t)
-}
-
-func expectLocalhostTCPPortBindings(input map[godocker.Port][]godocker.PortBinding, port godocker.Port, t *testing.T) {
-	if portBindings, ok := input[port+"/tcp"]; ok {
-		if len(portBindings) != 1 {
-			t.Errorf("Expected exactly 1 element to be in portBindings, but was %d", len(portBindings))
-		} else {
-			portBinding := portBindings[0]
-			if portBinding.HostIP != "127.0.0.1" {
-				t.Errorf("Expected HostIP to be 127.0.0.1, but was %s", portBinding.HostIP)
-			}
-			if portBinding.HostPort != string(port) {
-				t.Errorf("Expected HostPort to be %s, but was %s", port, portBinding.HostPort)
-			}
-		}
-	} else {
-		t.Errorf("Expected %s/tcp to be defined", port)
+	if hostCfg.NetworkMode != networkMode {
+		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)
 	}
 }
 
-func expectPort(key godocker.Port, input map[godocker.Port]struct{}, t *testing.T) {
-	if _, ok := input[key]; !ok {
-		t.Errorf("Expected %s to be defined", key)
-	}
-}
 func expectKey(key string, input map[string]struct{}, t *testing.T) {
 	if _, ok := input[key]; !ok {
 		t.Errorf("Expected %s to be defined", key)

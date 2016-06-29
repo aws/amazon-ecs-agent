@@ -24,14 +24,14 @@ import (
 )
 
 const (
-	agentIntrospectionPort       = "51678"
-	agentCredentialsEndpointPort = "51679"
-	logDir                       = "/log"
-	dataDir                      = "/data"
-	readOnly                     = ":ro"
+	logDir   = "/log"
+	dataDir  = "/data"
+	readOnly = ":ro"
 	// set default to /var/run instead of /var/run/docker.sock in case
 	// /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint = "/var/run"
+	// networkMode specifies the networkmode to create the agent container
+	networkMode = "host"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -157,15 +157,9 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		env = append(env, envKey+"="+envValue)
 	}
 
-	exposedPorts := map[godocker.Port]struct{}{
-		agentIntrospectionPort + "/tcp":       struct{}{},
-		agentCredentialsEndpointPort + "/tcp": struct{}{},
-	}
-
 	return &godocker.Config{
-		Env:          env,
-		ExposedPorts: exposedPorts,
-		Image:        config.AgentImageName,
+		Env:   env,
+		Image: config.AgentImageName,
 	}
 }
 
@@ -203,23 +197,9 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
 	}
-	portBindings := map[godocker.Port][]godocker.PortBinding{
-		agentIntrospectionPort + "/tcp": []godocker.PortBinding{
-			godocker.PortBinding{
-				HostIP:   "127.0.0.1",
-				HostPort: agentIntrospectionPort,
-			},
-		},
-		agentCredentialsEndpointPort + "/tcp": []godocker.PortBinding{
-			godocker.PortBinding{
-				HostIP:   "127.0.0.1",
-				HostPort: agentCredentialsEndpointPort,
-			},
-		},
-	}
 	return &godocker.HostConfig{
-		Binds:        binds,
-		PortBindings: portBindings,
+		Binds:       binds,
+		NetworkMode: networkMode,
 	}
 }
 
