@@ -15,6 +15,8 @@ language governing permissions and limitations under the License.
 Includes the following packages:
 ***
 Docker, Copyright 2014 Docker, Inc.
+docker/engine-api, Copyright 2015-2016 Docker, Inc.
+docker/go-units, Copyright © 2015 Docker, Inc.
 gomock, Copyright 2010-2014 Google Inc.
 AWS SDK for Go, Copyright 2014-2015 Stripe, Inc. and Amazon.com, Inc. or its affiliates
 libcontainer, Copyright 2014 Docker, Inc.
@@ -148,6 +150,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ***
 Golang archive/tar, Copyright (c) 2012 The Go Authors
 Golang net, Copyright (c) 2009 The Go Authors
+Golang x/sys, Copyright (c) 2009 The Go Authors
 Gorilla Context, Copyright (c) 2012 Rodrigo Moraes
 Gorilla Mux, Copyright (c) 2012 Rodrigo Moraes
 seelog, Copyright (c) 2012, Cloud Instruments Co., Ltd.
@@ -180,6 +183,34 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+***
+Golang archive/tar, Copyright (c) 2012 The Go Authors 
+Golang net, Copyright (c) 2009 The Go Authors 
+Golang x/sys, Copyright (c) 2009 The Go Authors. 
+
+each of which are licensed under the following terms and conditions:
+
+Additional IP Rights Grant (Patents)
+"This implementation" means the copyrightable works distributed by
+Google as part of the Go project.
+Google hereby grants to You a perpetual, worldwide, non-exclusive,
+no-charge, royalty-free, irrevocable (except as stated in this section)
+patent license to make, have made, use, offer to sell, sell, import,
+transfer and otherwise run, modify and propagate the contents of this
+implementation of Go, where such license applies only to those patent
+claims, both currently owned or controlled by Google and acquired in
+the future, licensable by Google that are necessarily infringed by this
+implementation of Go.  This grant does not include claims that would be
+infringed only as a consequence of further modification of this
+implementation.  If you or your agent or exclusive licensee institute or
+order or agree to the institution of patent litigation against any
+entity (including a cross-claim or counterclaim in a lawsuit) alleging
+that this implementation of Go or any code incorporated within this
+implementation of Go constitutes direct or contributory patent
+infringement, or inducement of patent infringement, then any patent
+rights granted to you under this License for this implementation of Go
+shall terminate as of the date such litigation is filed.
 
 ***
 Logrus, Copyright (c) 2014 Simon Eskildsen

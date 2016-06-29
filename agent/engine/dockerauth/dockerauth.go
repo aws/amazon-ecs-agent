@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/pkg/parsers"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -47,7 +46,7 @@ type dockercfgData map[string]dockercfgConfigEntry
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *dockerAuthProvider) GetAuthconfig(image string) (docker.AuthConfiguration, error) {
 	// Ignore 'tag', not used in auth determination
-	repository, _ := parsers.ParseRepositoryTag(image)
+	repository, _ := docker.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap
 
 	// Ignore repo/image name for some auth checks (see use of 'image' below for where it's not ignored.

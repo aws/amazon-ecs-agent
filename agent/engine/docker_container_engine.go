@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/pkg/parsers"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -213,7 +212,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
 
-	repository, tag := parsers.ParseRepositoryTag(image)
+	repository, tag := docker.ParseRepositoryTag(image)
 	if tag == "" {
 		repository = repository + ":" + dockerDefaultTag
 	} else {
