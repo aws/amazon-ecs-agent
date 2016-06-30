@@ -194,9 +194,9 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	// Special case; this image is not one that should be pulled, but rather
 	// should be created locally if necessary
 	if image == emptyvolume.Image+":"+emptyvolume.Tag {
-		err := dg.createScratchImageIfNotExists()
-		if err != nil {
-			return DockerContainerMetadata{Error: &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + err.Error()}}
+		scratchErr := dg.createScratchImageIfNotExists()
+		if scratchErr != nil {
+			return DockerContainerMetadata{Error: &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + scratchErr.Error()}}
 		}
 		return DockerContainerMetadata{}
 	}
@@ -230,10 +230,10 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	go func() {
 		reader := bufio.NewReader(pullDebugOut)
 		var line string
-		var err error
-		for err == nil {
-			line, err = reader.ReadString('\n')
-			if err != nil {
+		var pullErr error
+		for pullErr == nil {
+			line, pullErr = reader.ReadString('\n')
+			if pullErr != nil {
 				break
 			}
 			pullBeganOnce.Do(func() {
@@ -245,8 +245,8 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 				log.Error("Image 'pull' status marked as already being pulled", "image", image, "status", line)
 			}
 		}
-		if err != nil && err != io.EOF {
-			log.Warn("Error reading pull image status", "image", image, "err", err)
+		if pullErr != nil && pullErr != io.EOF {
+			log.Warn("Error reading pull image status", "image", image, "err", pullErr)
 		}
 	}()
 	pullFinished := make(chan error, 1)
@@ -258,9 +258,9 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	select {
 	case <-pullBegan:
 		break
-	case err := <-pullFinished:
-		if err != nil {
-			return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
+	case pullErr := <-pullFinished:
+		if pullErr != nil {
+			return DockerContainerMetadata{Error: CannotXContainerError{"Pull", pullErr.Error()}}
 		}
 		return DockerContainerMetadata{}
 	case <-timeout:

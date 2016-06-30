@@ -131,8 +131,8 @@ func createTestTask(arn string) *api.Task {
 var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
 
 func removeImage(img string) {
-	endpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
-	client, _ := docker.NewClient(endpoint)
+	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
+	client, _ := docker.NewClient(removeEndpoint)
 
 	client.RemoveImage(img)
 }
@@ -1158,10 +1158,10 @@ func TestDockerStopTimeout(t *testing.T) {
 		}
 	}
 	if ttime.Since(startTime) < testDockerStopTimeout {
-		t.Error("Container stopped before the timeout: %v", ttime.Since(startTime))
+		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
 	}
 	if ttime.Since(startTime) > testDockerStopTimeout+1*time.Second {
-		t.Error("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
+		t.Errorf("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
 	}
 }
 
