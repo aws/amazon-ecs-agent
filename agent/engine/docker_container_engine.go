@@ -55,6 +55,10 @@ const (
 	// we expect to see output on the pull progress stream. This is to work
 	// around a docker bug which sometimes results in pulls not progressing.
 	dockerPullBeginTimeout = 5 * time.Minute
+
+	// pullStatusSuppressDelay controls the time where pull status progress bar
+	// output will be suppressed in debug mode
+	pullStatusSuppressDelay = 2 * time.Second
 )
 
 // Interface to make testing it easier
@@ -231,6 +235,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		reader := bufio.NewReader(pullDebugOut)
 		var line string
 		var pullErr error
+		var statusDisplayed time.Time
 		for pullErr == nil {
 			line, pullErr = reader.ReadString('\n')
 			if pullErr != nil {
@@ -239,9 +244,16 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 			pullBeganOnce.Do(func() {
 				pullBegan <- true
 			})
-			log.Debug("Pulling image", "image", image, "status", line)
+
+			now := time.Now()
+			if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
+				// skip most of the progress bar lines, but retain enough for debugging
+				log.Debug("Pulling image", "image", image, "status", line)
+				statusDisplayed = now
+			}
+
 			if strings.Contains(line, "already being pulled by another client. Waiting.") {
-				// This can mean the deamon is 'hung' in pulling status for this image, but we can't be sure.
+				// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
 				log.Error("Image 'pull' status marked as already being pulled", "image", image, "status", line)
 			}
 		}
