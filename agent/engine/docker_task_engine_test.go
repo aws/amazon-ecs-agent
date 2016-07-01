@@ -364,7 +364,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	}
 
 	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}})
+	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}}).AnyTimes()
 	// Now surprise surprise, it actually did start!
 	eventStream <- dockerEvent(api.ContainerRunning)
 
