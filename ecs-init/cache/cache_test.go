@@ -220,7 +220,7 @@ func TestDownloadAgentTempFile(t *testing.T) {
 	mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5()).Return(md5response, nil)
 	mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil)
 	mockGetter.EXPECT().Get(config.AgentRemoteTarball()).Return(tarballResponse, nil)
-	mockFS.EXPECT().TempFile("", "ecs-agent.tar").Return(nil, errors.New("test error"))
+	mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(nil, errors.New("test error"))
 
 	d := &Downloader{
 		getter: mockGetter,
@@ -252,7 +252,7 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 		t.Fail()
 	}
 	defer tempfile.Close()
-	mockFS.EXPECT().TempFile("", "ecs-agent.tar").Return(tempfile, nil)
+	mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil)
 	mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any())
 	mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), errors.New("test error"))
 	mockFS.EXPECT().Remove(tempfile.Name())
@@ -287,7 +287,7 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 		t.Fail()
 	}
 	defer tempfile.Close()
-	mockFS.EXPECT().TempFile("", "ecs-agent.tar").Return(tempfile, nil)
+	mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil)
 	mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any())
 	mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), nil)
 	mockFS.EXPECT().Remove(tempfile.Name())
@@ -323,7 +323,7 @@ func TestDownloadAgentSuccess(t *testing.T) {
 		t.Fail()
 	}
 	defer tempfile.Close()
-	mockFS.EXPECT().TempFile("", "ecs-agent.tar").Return(tempfile, nil)
+	mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil)
 	mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()).Do(func(reader io.Reader, writer io.Writer) {
 		_, err = io.Copy(writer, reader)
 		if err != nil {

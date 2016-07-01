@@ -81,7 +81,7 @@ func (d *Downloader) DownloadAgent() error {
 	defer publishedTarballReader.Close()
 
 	md5hash := md5.New()
-	tempFile, err := d.fs.TempFile("", "ecs-agent.tar")
+	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar")
 	if err != nil {
 		return err
 	}
