@@ -320,66 +320,6 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 	}
 }
 
-func TestDockerConfigLabels(t *testing.T) {
-	testTask := &Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		Family:  "myFamily",
-		Version: "1",
-		Containers: []*Container{
-			&Container{
-				Name: "c1",
-			},
-		},
-	}
-
-	config, err := testTask.DockerConfig(testTask.Containers[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := map[string]string{
-		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		"com.amazonaws.ecs.container-name":          "c1",
-		"com.amazonaws.ecs.task-definition-family":  "myFamily",
-		"com.amazonaws.ecs.task-definition-version": "1",
-	}
-	if !reflect.DeepEqual(config.Labels, expected) {
-		t.Fatal("Expected default ecs labels to be set, was: ", config.Labels)
-	}
-}
-
-func TestDockerConfigMergesLabels(t *testing.T) {
-	testTask := &Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		Family:  "myFamily",
-		Version: "1",
-		Containers: []*Container{
-			&Container{
-				Name: "c1",
-				DockerConfig: DockerConfig{
-					Config: strptr(`{"Labels":{"key":"value"}}`),
-				},
-			},
-		},
-	}
-
-	config, err := testTask.DockerConfig(testTask.Containers[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := map[string]string{
-		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		"com.amazonaws.ecs.container-name":          "c1",
-		"com.amazonaws.ecs.task-definition-family":  "myFamily",
-		"com.amazonaws.ecs.task-definition-version": "1",
-		"key": "value",
-	}
-	if !reflect.DeepEqual(config.Labels, expected) {
-		t.Fatal("Expected default ecs labels to be set, was: ", config.Labels)
-	}
-}
-
 func TestDockerConfigRawConfig(t *testing.T) {
 	rawConfigInput := docker.Config{
 		Hostname:        "hostname",

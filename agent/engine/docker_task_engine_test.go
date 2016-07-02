@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 )
@@ -77,6 +78,12 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(config *docker.Config, y interface{}, containerName string) {
 
 			if !reflect.DeepEqual(dockerConfig, config) {
@@ -323,6 +330,14 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
@@ -405,6 +420,13 @@ func TestSteadyStatePoll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
@@ -550,6 +572,39 @@ func TestCreateContainerForceSave(t *testing.T) {
 	}
 }
 
+func TestCreateContainerMergesLabels(t *testing.T) {
+	ctrl, client, _, taskEngine, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	testTask := &api.Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*api.Container{
+			&api.Container{
+				Name: "c1",
+				DockerConfig: api.DockerConfig{
+					Config: aws.String(`{"Labels":{"key":"value"}}`),
+				},
+			},
+		},
+	}
+	expectedConfig, err := testTask.DockerConfig(testTask.Containers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedConfig.Labels = map[string]string{
+		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		"com.amazonaws.ecs.container-name":          "c1",
+		"com.amazonaws.ecs.task-definition-family":  "myFamily",
+		"com.amazonaws.ecs.task-definition-version": "1",
+		"com.amazonaws.ecs.cluster":                 "",
+		"key": "value",
+	}
+	client.EXPECT().CreateContainer(expectedConfig, gomock.Any(), gomock.Any())
+	taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+}
+
 // TestTaskTransitionWhenStopContainerTimesout tests that task transitions to stopped
 // only when terminal events are recieved from docker event stream when
 // StopContainer times out
@@ -579,6 +634,13 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})

@@ -273,14 +273,6 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		config.Labels = make(map[string]string)
 	}
 
-	// Augment labels with some metadata from the agent. Explicitly do this last
-	// such that it will always override duplicates in the provided raw config
-	// data.
-	config.Labels["com.amazonaws.ecs.task-arn"] = task.Arn
-	config.Labels["com.amazonaws.ecs.container-name"] = container.Name
-	config.Labels["com.amazonaws.ecs.task-definition-family"] = task.Family
-	config.Labels["com.amazonaws.ecs.task-definition-version"] = task.Version
-
 	return config, nil
 }
 

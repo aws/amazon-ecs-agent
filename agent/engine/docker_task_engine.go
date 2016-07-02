@@ -39,6 +39,7 @@ const (
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
+	labelPrefix                  = "com.amazonaws.ecs."
 )
 
 // The DockerTaskEngine interacts with docker to implement a task
@@ -459,6 +460,15 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if err != nil {
 		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}
+
+	// Augment labels with some metadata from the agent. Explicitly do this last
+	// such that it will always override duplicates in the provided raw config
+	// data.
+	config.Labels[labelPrefix+"task-arn"] = task.Arn
+	config.Labels[labelPrefix+"container-name"] = container.Name
+	config.Labels[labelPrefix+"task-definition-family"] = task.Family
+	config.Labels[labelPrefix+"task-definition-version"] = task.Version
+	config.Labels[labelPrefix+"cluster"] = engine.cfg.Cluster
 
 	name := ""
 	for i := 0; i < len(container.Name); i++ {
