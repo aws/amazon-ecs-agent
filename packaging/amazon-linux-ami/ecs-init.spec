@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.10.0
+Version:        1.11.0
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker >= 1.6.0, docker <= 1.11.1
+Requires:       docker >= 1.6.0, docker <= 1.11.2
 Requires:       upstart
 Requires:       iptables
 Requires:       procps
@@ -149,6 +149,12 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Jul 5 2016 Samuel Karp <skarp@amazon.com> - 1.11.0-1
+- Cache Agent version 1.11.0
+- Add support for Docker 1.11.2
+- Modify iptables and netfilter to support credentials proxy
+- Eliminate requirement that /tmp and /var/cache be on the same filesystem
+- Start agent with host network mode
 * Mon May 23 2016 Peng Yin <penyin@amazon.com> - 1.10.0-1
 - Cache Agent version 1.10.0
 - Add support for Docker 1.11.1
