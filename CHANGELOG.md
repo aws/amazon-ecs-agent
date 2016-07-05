@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.11.0
+* Feature - Support IAM roles for tasks
+* Feature - Add support for the Splunk logging driver
+* Enhancement - Reduced pull status verbosity in debug mode
+* Enhancement - Add a Docker label for ECS cluster
+* Bug - Fixed a bug that could cause a container to be marked as STOPPED while
+  still running on the instance
+* Bug - Fixed a potential race condition in metrics collection
+* Bug - Resolved a bug where some state could be retained across different
+  container instances when launching from a snapshotted AMI.
+
 ## 1.10.0
 * Feature - Make the `docker stop` timeout configurable.
 * Enhancement - Use `docker stats` as the data source for CloudWatch metrics.
