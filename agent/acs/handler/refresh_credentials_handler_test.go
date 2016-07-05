@@ -45,13 +45,16 @@ var expectedAck = &ecsacs.IAMRoleCredentialsAckRequest{
 	CredentialsId: aws.String(credentialsId),
 }
 
-var expectedCredentials = &credentials.IAMRoleCredentials{
-	RoleArn:         roleArn,
-	AccessKeyId:     accessKey,
-	SecretAccessKey: secretKey,
-	SessionToken:    sessionToken,
-	Expiration:      expiration,
-	CredentialsId:   credentialsId,
+var expectedCredentials = &credentials.TaskIAMRoleCredentials{
+	ARN: taskArn,
+	IAMRoleCredentials: credentials.IAMRoleCredentials{
+		RoleArn:         roleArn,
+		AccessKeyId:     accessKey,
+		SecretAccessKey: secretKey,
+		SessionToken:    sessionToken,
+		Expiration:      expiration,
+		CredentialsId:   credentialsId,
+	},
 }
 
 var message = &ecsacs.IAMRoleCredentialsMessage{
@@ -258,7 +261,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 		t.Errorf("Message between expected and requested ack. Expected: %v, Requested: %v", expectedAck, ackRequested)
 	}
 
-	creds, exist := credentialsManager.GetCredentials(credentialsId)
+	creds, exist := credentialsManager.GetTaskCredentials(credentialsId)
 	if !exist {
 		t.Errorf("Expected credentials to exist for the task")
 	}
@@ -299,7 +302,7 @@ func TestRefreshCredentialsHandler(t *testing.T) {
 		t.Errorf("Message between expected and requested ack. Expected: %v, Requested: %v", expectedAck, ackRequested)
 	}
 
-	creds, exist := credentialsManager.GetCredentials(credentialsId)
+	creds, exist := credentialsManager.GetTaskCredentials(credentialsId)
 	if !exist {
 		t.Errorf("Expected credentials to exist for the task")
 	}

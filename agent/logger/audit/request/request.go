@@ -11,13 +11,11 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package credentials
+package request
 
-// Manager is responsible for saving and retrieving credentials. A single
-// instance of the credentials manager is created in the agent, and shared
-// between the task engine, acs and credentials handlers
-type Manager interface {
-	SetTaskCredentials(TaskIAMRoleCredentials) error
-	GetTaskCredentials(string) (*TaskIAMRoleCredentials, bool)
-	RemoveCredentials(string)
+import "net/http"
+
+type LogRequest struct {
+	Request *http.Request
+	ARN     string
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
 )
@@ -103,24 +104,25 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 func credentialsV1RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		jsonResponse, errorMessage, err := processCredentialsV1Request(credentialsManager, r)
+		jsonResponse, arn, errorMessage, err := processCredentialsV1Request(credentialsManager, r)
 		if err != nil {
 			jsonMsg, _ := json.Marshal(errorMessage)
-			writeCredentialsV1RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), auditLogger, jsonMsg)
+			writeCredentialsV1RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), arn, auditLogger, jsonMsg)
 			return
 		}
 
-		writeCredentialsV1RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(), auditLogger, jsonResponse)
+		writeCredentialsV1RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(), arn, auditLogger, jsonResponse)
 	}
 }
 
-func writeCredentialsV1RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, auditLogger audit.AuditLogger, message []byte) {
-	auditLogger.Log(r, httpStatusCode, eventType)
+func writeCredentialsV1RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
+	auditLogger.Log(request.LogRequest{Request: r, ARN: arn}, httpStatusCode, eventType)
 
 	writeJsonToResponse(w, httpStatusCode, message)
 }
 
-func processCredentialsV1Request(credentialsManager credentials.Manager, r *http.Request) ([]byte, *errorMessage, error) {
+// processCredentialsV1Request returns the response json containing credentials for the credentials id in the request
+func processCredentialsV1Request(credentialsManager credentials.Manager, r *http.Request) ([]byte, string, *errorMessage, error) {
 	credentialsId, ok := handlers.ValueFromRequest(r, credentials.CredentialsIdQueryParameterName)
 
 	if !ok {
@@ -131,10 +133,10 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
-		return nil, msg, errors.New(errText)
+		return nil, "", msg, errors.New(errText)
 	}
 
-	credentials, ok := credentialsManager.GetCredentials(credentialsId)
+	credentials, ok := credentialsManager.GetTaskCredentials(credentialsId)
 	if !ok {
 		errText := "CredentialsV1Request: ID not found"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
@@ -143,7 +145,7 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
-		return nil, msg, errors.New(errText)
+		return nil, "", msg, errors.New(errText)
 	}
 
 	if credentials == nil {
@@ -155,10 +157,10 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 			Message:       errText,
 			httpErrorCode: http.StatusServiceUnavailable,
 		}
-		return nil, msg, errors.New(errText)
+		return nil, "", msg, errors.New(errText)
 	}
 
-	credentialsJSON, err := json.Marshal(credentials)
+	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
 		errText := "CredentialsV1Request: Error marshaling credentials"
 		log.Errorf("%s. Request IP Address: %s", errText, r.RemoteAddr)
@@ -167,11 +169,11 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 			Message:       "Internal server error",
 			httpErrorCode: http.StatusInternalServerError,
 		}
-		return nil, msg, errors.New(errText)
+		return nil, "", msg, errors.New(errText)
 	}
 
 	//Success
-	return credentialsJSON, nil, nil
+	return credentialsJSON, credentials.ARN, nil, nil
 }
 
 func writeJsonToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte) {

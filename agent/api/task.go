@@ -102,7 +102,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		// No credentials set for the task. Do not inject the endpoint environment variable.
 		return
 	}
-	roleCredentials, ok := credentialsManager.GetCredentials(id)
+	taskCredentials, ok := credentialsManager.GetTaskCredentials(id)
 	if !ok {
 		// Task has credentials id set, but credentials manager is unaware of
 		// the id. This should never happen as the payload handler sets
@@ -112,7 +112,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		return
 	}
 
-	credentialsEndpointRelativeURI := roleCredentials.GenerateCredentialsEndpointRelativeURI()
+	credentialsEndpointRelativeURI := taskCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 	for _, container := range task.Containers {
 		// container.Environment map would not be initialized if there are
 		// no environment variables to be set or overridden in the container

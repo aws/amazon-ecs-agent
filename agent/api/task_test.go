@@ -473,7 +473,10 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 		credentialsId: credentialsIdInTask,
 	}
 
-	credentialsManager.EXPECT().GetCredentials(credentialsIdInTask).Return(&credentials.IAMRoleCredentials{CredentialsId: "credsid"}, true)
+	taskCredentials := &credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsIdInTask).Return(taskCredentials, true)
 	task.initializeCredentialsEndpoint(credentialsManager)
 
 	// Test if all containers in the task have the environment variable for

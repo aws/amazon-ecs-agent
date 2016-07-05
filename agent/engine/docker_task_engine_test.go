@@ -50,8 +50,10 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, mockTime, taskEngine, credentialsManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
-	roleCredentials := &credentials.IAMRoleCredentials{CredentialsId: "credsid"}
-	credentialsManager.EXPECT().GetCredentials(credentialsId).Return(roleCredentials, true).AnyTimes()
+	roleCredentials := &credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsId).Return(roleCredentials, true).AnyTimes()
 	credentialsManager.EXPECT().RemoveCredentials(credentialsId)
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -74,7 +76,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 		dockerConfig, err := sleepTask.DockerConfig(container)
 		// Container config should get updated with this during PostUnmarshalTask
-		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+roleCredentials.GenerateCredentialsEndpointRelativeURI())
+		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
 		if err != nil {
 			t.Fatal(err)
 		}

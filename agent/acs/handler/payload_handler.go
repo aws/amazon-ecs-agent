@@ -185,14 +185,17 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// The payload from ACS for the task has credentials for the
 			// task. Add those to the credentials manager and set the
 			// credentials id for the task as well
-			taskCredentials := credentials.IAMRoleCredentialsFromACS(task.RoleCredentials)
-			err = payloadHandler.credentialsManager.SetCredentials(taskCredentials)
+			taskCredentials := credentials.TaskIAMRoleCredentials{
+				ARN:                aws.StringValue(task.Arn),
+				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.RoleCredentials),
+			}
+			err = payloadHandler.credentialsManager.SetTaskCredentials(taskCredentials)
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetCredentialsId(taskCredentials.CredentialsId)
+			apiTask.SetCredentialsId(taskCredentials.IAMRoleCredentials.CredentialsId)
 		}
 		validTasks = append(validTasks, apiTask)
 	}
@@ -236,15 +239,15 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			continue
 		}
 
-		creds, ok := payloadHandler.credentialsManager.GetCredentials(taskCredentialsId)
+		creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(taskCredentialsId)
 		if !ok {
 			seelog.Errorf("Credentials could not be retrieved for task: %s", task.Arn)
 			allTasksOK = false
 		} else {
 			credentialsAcks = append(credentialsAcks, &ecsacs.IAMRoleCredentialsAckRequest{
 				MessageId:     payload.MessageId,
-				Expiration:    aws.String(creds.Expiration),
-				CredentialsId: aws.String(creds.CredentialsId),
+				Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
+				CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsId),
 			})
 		}
 

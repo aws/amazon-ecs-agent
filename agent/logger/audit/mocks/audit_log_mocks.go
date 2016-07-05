@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,8 +17,7 @@
 package mock_audit
 
 import (
-	http "net/http"
-
+	request "github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -63,7 +62,7 @@ func (_mr *_MockAuditLoggerRecorder) GetContainerInstanceArn() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetContainerInstanceArn")
 }
 
-func (_m *MockAuditLogger) Log(_param0 *http.Request, _param1 int, _param2 string) {
+func (_m *MockAuditLogger) Log(_param0 request.LogRequest, _param1 int, _param2 string) {
 	_m.ctrl.Call(_m, "Log", _param0, _param1, _param2)
 }
 

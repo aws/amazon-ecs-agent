@@ -13,10 +13,10 @@
 
 package audit
 
-import "net/http"
+import "github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 
 type AuditLogger interface {
-	Log(r *http.Request, httpResponseCode int, eventType string)
+	Log(r request.LogRequest, httpResponseCode int, eventType string)
 	GetContainerInstanceArn() string
 	GetCluster() string
 }
