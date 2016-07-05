@@ -127,7 +127,11 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		seelog.Errorf("Task not found in the engine for the arn in credentials message, arn: %s, messageId: %s", taskArn, messageId)
 		return fmt.Errorf("Task not found in the engine for the arn in credentials message, arn: %s", taskArn)
 	}
-	err = refreshHandler.credentialsManager.SetCredentials(credentials.IAMRoleCredentialsFromACS(message.RoleCredentials))
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		ARN:                taskArn,
+		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials),
+	}
+	err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
 	if err != nil {
 		seelog.Errorf("Error updating credentials, err: %v messageId: %s", err, messageId)
 		return fmt.Errorf("Error updating credentials %v", err)

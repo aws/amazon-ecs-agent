@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -42,15 +42,15 @@ func (_m *MockManager) EXPECT() *_MockManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockManager) GetCredentials(_param0 string) (*credentials.IAMRoleCredentials, bool) {
-	ret := _m.ctrl.Call(_m, "GetCredentials", _param0)
-	ret0, _ := ret[0].(*credentials.IAMRoleCredentials)
+func (_m *MockManager) GetTaskCredentials(_param0 string) (*credentials.TaskIAMRoleCredentials, bool) {
+	ret := _m.ctrl.Call(_m, "GetTaskCredentials", _param0)
+	ret0, _ := ret[0].(*credentials.TaskIAMRoleCredentials)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
-func (_mr *_MockManagerRecorder) GetCredentials(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCredentials", arg0)
+func (_mr *_MockManagerRecorder) GetTaskCredentials(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskCredentials", arg0)
 }
 
 func (_m *MockManager) RemoveCredentials(_param0 string) {
@@ -61,12 +61,12 @@ func (_mr *_MockManagerRecorder) RemoveCredentials(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveCredentials", arg0)
 }
 
-func (_m *MockManager) SetCredentials(_param0 credentials.IAMRoleCredentials) error {
-	ret := _m.ctrl.Call(_m, "SetCredentials", _param0)
+func (_m *MockManager) SetTaskCredentials(_param0 credentials.TaskIAMRoleCredentials) error {
+	ret := _m.ctrl.Call(_m, "SetTaskCredentials", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockManagerRecorder) SetCredentials(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCredentials", arg0)
+func (_mr *_MockManagerRecorder) SetTaskCredentials(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTaskCredentials", arg0)
 }

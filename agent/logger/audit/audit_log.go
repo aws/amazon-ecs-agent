@@ -15,9 +15,9 @@ package audit
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 )
 
 type auditLog struct {
@@ -38,7 +38,7 @@ func NewAuditLog(containerInstanceArn string, cfg *config.Config, logger InfoLog
 
 // Log will construct an audit log entry log and log that entry to the audit log
 // using the underlying logger (which implements the audit.InfoLogger interface).
-func (a *auditLog) Log(r *http.Request, httpResponseCode int, eventType string) {
+func (a *auditLog) Log(r request.LogRequest, httpResponseCode int, eventType string) {
 	if !a.cfg.CredentialsAuditLogDisabled {
 		auditLogEntry := constructAuditLogEntry(r, httpResponseCode, eventType, a.GetCluster(),
 			a.GetContainerInstanceArn())
@@ -47,7 +47,7 @@ func (a *auditLog) Log(r *http.Request, httpResponseCode int, eventType string) 
 	}
 }
 
-func constructAuditLogEntry(r *http.Request, httpResponseCode int, eventType string,
+func constructAuditLogEntry(r request.LogRequest, httpResponseCode int, eventType string,
 	cluster string, containerInstanceArn string) string {
 	commonAuditLogFields := constructCommonAuditLogEntryFields(r, httpResponseCode)
 	auditLogTypeFields := constructAuditLogEntryByType(eventType, cluster, containerInstanceArn)

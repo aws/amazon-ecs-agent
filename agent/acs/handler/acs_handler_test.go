@@ -509,7 +509,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		ended <- true
 	}()
 
-	updatedCredentials := rolecredentials.IAMRoleCredentials{}
+	updatedCredentials := rolecredentials.TaskIAMRoleCredentials{}
 	taskFromEngine := &api.Task{}
 	credentialsIdInRefreshMessage := "credsId"
 	// Ensure that credentials manager interface methods are invoked in the
@@ -519,16 +519,19 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 		// The last invocation of SetCredentials is to update
 		// credentials when a refresh message is recieved by the handler
-		credentialsManager.EXPECT().SetCredentials(gomock.Any()).Do(func(creds rolecredentials.IAMRoleCredentials) {
+		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds rolecredentials.TaskIAMRoleCredentials) {
 			updatedCredentials = creds
 			// Validate parsed credentials after the update
-			expectedCreds := rolecredentials.IAMRoleCredentials{
-				RoleArn:         "r1",
-				AccessKeyId:     "newakid",
-				SecretAccessKey: "newskid",
-				SessionToken:    "newstkn",
-				Expiration:      "later",
-				CredentialsId:   credentialsIdInRefreshMessage,
+			expectedCreds := rolecredentials.TaskIAMRoleCredentials{
+				ARN: "t1",
+				IAMRoleCredentials: rolecredentials.IAMRoleCredentials{
+					RoleArn:         "r1",
+					AccessKeyId:     "newakid",
+					SecretAccessKey: "newskid",
+					SessionToken:    "newstkn",
+					Expiration:      "later",
+					CredentialsId:   credentialsIdInRefreshMessage,
+				},
 			}
 			if !reflect.DeepEqual(updatedCredentials, expectedCreds) {
 				t.Errorf("Mismatch between expected and credentials expected: %v, added: %v", expectedCreds, updatedCredentials)

@@ -1172,7 +1172,10 @@ func TestStartStopWithCredentials(t *testing.T) {
 	defer done()
 
 	testTask := createTestTask("testStartWithCredentials")
-	credentialsManager.SetCredentials(credentials.IAMRoleCredentials{CredentialsId: credentialsId})
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: credentialsId},
+	}
+	credentialsManager.SetTaskCredentials(taskCredentials)
 	testTask.SetCredentialsId(credentialsId)
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
@@ -1193,7 +1196,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task
-	_, ok := credentialsManager.GetCredentials(credentialsId)
+	_, ok := credentialsManager.GetTaskCredentials(credentialsId)
 	if ok {
 		t.Error("Credentials not removed from credentials manager for stopped task")
 	}

@@ -48,6 +48,12 @@ type IAMRoleCredentials struct {
 	Expiration string `json:"Expiration"`
 }
 
+// TaskIAMRoleCredentials wraps the task arn and the credentials object for the same
+type TaskIAMRoleCredentials struct {
+	ARN                string
+	IAMRoleCredentials IAMRoleCredentials
+}
+
 // GenerateCredentialsEndpointRelativeURI generates the relative URI for the
 // credentials endpoint, for a given task id.
 func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeURI() string {
@@ -60,8 +66,9 @@ func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeUR
 // save credentials sent from ACS and to retrieve credentials from
 // the credentials endpoint
 type credentialsManager struct {
-	idToCredentials map[string]*IAMRoleCredentials
-	credentialsLock sync.RWMutex
+	// idToTaskCredentials maps credentials id to its corresponding TaskIAMRoleCredentials object
+	idToTaskCredentials map[string]*TaskIAMRoleCredentials
+	taskCredentialsLock sync.RWMutex
 }
 
 // IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
@@ -80,44 +87,51 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials) IAMRo
 // NewManager creates a new credentials manager object
 func NewManager() Manager {
 	return &credentialsManager{
-		idToCredentials: make(map[string]*IAMRoleCredentials),
+		idToTaskCredentials: make(map[string]*TaskIAMRoleCredentials),
 	}
 }
 
-// SetCredentials adds or updates credentials in the credentials manager
-func (manager *credentialsManager) SetCredentials(credentials IAMRoleCredentials) error {
-	manager.credentialsLock.Lock()
-	defer manager.credentialsLock.Unlock()
+// SetTaskCredentials adds or updates credentials in the credentials manager
+func (manager *credentialsManager) SetTaskCredentials(taskCredentials TaskIAMRoleCredentials) error {
+	manager.taskCredentialsLock.Lock()
+	defer manager.taskCredentialsLock.Unlock()
 
+	credentials := taskCredentials.IAMRoleCredentials
+	// Validate that credentials id is not empty
 	if credentials.CredentialsId == "" {
 		return fmt.Errorf("CredentialsId is empty")
 	}
 
+	// Validate that task arn is not empty
+	if taskCredentials.ARN == "" {
+		return fmt.Errorf("task ARN is empty")
+	}
+
 	// Check if credentials exists for the given credentials id
-	credentialsInMap, ok := manager.idToCredentials[credentials.CredentialsId]
+	taskCredentialsInMap, ok := manager.idToTaskCredentials[credentials.CredentialsId]
 	if !ok {
 		// No existing credentials, create a new one
-		credentialsInMap = &IAMRoleCredentials{}
+		taskCredentialsInMap = &TaskIAMRoleCredentials{}
 	}
-	*credentialsInMap = credentials
-	manager.idToCredentials[credentials.CredentialsId] = credentialsInMap
+	*taskCredentialsInMap = taskCredentials
+	manager.idToTaskCredentials[credentials.CredentialsId] = taskCredentialsInMap
 
 	return nil
 }
 
-// GetCredentials retrieves credentials for a given credentials id
-func (manager *credentialsManager) GetCredentials(id string) (*IAMRoleCredentials, bool) {
-	manager.credentialsLock.RLock()
-	defer manager.credentialsLock.RUnlock()
+// GetTaskCredentials retrieves credentials for a given credentials id
+func (manager *credentialsManager) GetTaskCredentials(id string) (*TaskIAMRoleCredentials, bool) {
+	manager.taskCredentialsLock.RLock()
+	defer manager.taskCredentialsLock.RUnlock()
 
-	credentials, ok := manager.idToCredentials[id]
-	return credentials, ok
+	taskCredentials, ok := manager.idToTaskCredentials[id]
+	return taskCredentials, ok
 }
 
 // RemoveCredentials removes credentials from the credentials manager
 func (manager *credentialsManager) RemoveCredentials(id string) {
-	manager.credentialsLock.Lock()
-	defer manager.credentialsLock.Unlock()
+	manager.taskCredentialsLock.Lock()
+	defer manager.taskCredentialsLock.Unlock()
 
-	delete(manager.idToCredentials, id)
+	delete(manager.idToTaskCredentials, id)
 }

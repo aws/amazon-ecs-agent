@@ -47,65 +47,92 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 	}
 }
 
-// TestGetCredentialsUnknownId tests if GetCredentials returns a false value
+// TestGetTaskCredentialsUnknownId tests if GetTaskCredentials returns a false value
 // when credentials for a given id are not be found in the engine
-func TestGetCredentialsUnknownId(t *testing.T) {
+func TestGetTaskCredentialsUnknownId(t *testing.T) {
 	manager := NewManager()
-	_, ok := manager.GetCredentials("id")
+	_, ok := manager.GetTaskCredentials("id")
 	if ok {
-		t.Error("GetCredentials should return false for non existing id")
+		t.Error("GetTaskCredentials should return false for non existing id")
 	}
 }
 
-// TestSetCredentialsInvalidCredentials tests if credentials manager returns an
+// TestSetTaskCredentialsEmptyTaskCredentials tests if credentials manager returns an
 // error when invalid credentials are used to set credentials
-func TestSetCredentialsInvalidCredentials(t *testing.T) {
+func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 	manager := NewManager()
-	err := manager.SetCredentials(IAMRoleCredentials{})
+	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{})
+	if err == nil {
+		t.Error("Expected error adding empty task credentials")
+	}
+}
+
+// TestSetTaskCredentialsNoCredentialsId tests if credentials manager returns an
+// error when credentials object with no credentials id is used to set credentials
+func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
+	manager := NewManager()
+	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
 	if err == nil {
 		t.Error("Expected error adding credentials payload without credential id")
 	}
 }
 
-// TestSetAndGetCredentialsHappyPath tests the happy path workflow for setting
-// and getting credentials
-func TestSetAndGetCredentialsHappyPath(t *testing.T) {
+// TestSetTaskCredentialsNoTaskArn tests if credentials manager returns an
+// error when credentials object with no task arn used to set credentials
+func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
 	manager := NewManager()
-	credentials := IAMRoleCredentials{
-		RoleArn:         "r1",
-		AccessKeyId:     "akid1",
-		SecretAccessKey: "skid1",
-		SessionToken:    "stkn",
-		Expiration:      "ts",
-		CredentialsId:   "cid1",
+	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsId: "id"}})
+	if err == nil {
+		t.Error("Expected error adding credentials payload without credential id")
 	}
-	err := manager.SetCredentials(credentials)
+}
+
+// TestSetAndGetTaskCredentialsHappyPath tests the happy path workflow for setting
+// and getting credentials
+func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
+	manager := NewManager()
+	credentials := TaskIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyId:     "akid1",
+			SecretAccessKey: "skid1",
+			SessionToken:    "stkn",
+			Expiration:      "ts",
+			CredentialsId:   "cid1",
+		},
+	}
+
+	err := manager.SetTaskCredentials(credentials)
 	if err != nil {
 		t.Errorf("Error adding credentials: %v", err)
 	}
-	credentialsFromManager, ok := manager.GetCredentials("cid1")
+	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
 	if !ok {
-		t.Error("GetCredentials returned false for existing credentials")
+		t.Error("GetTaskCredentials returned false for existing credentials")
 	}
 	if !reflect.DeepEqual(credentials, *credentialsFromManager) {
 		t.Error("Mismatch between added and retrieved credentials")
 	}
 
-	updatedCredentials := IAMRoleCredentials{
-		RoleArn:         "r1",
-		AccessKeyId:     "akid2",
-		SecretAccessKey: "skid2",
-		SessionToken:    "stkn2",
-		Expiration:      "ts2",
-		CredentialsId:   "cid1",
+	updatedCredentials := TaskIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyId:     "akid2",
+			SecretAccessKey: "skid2",
+			SessionToken:    "stkn2",
+			Expiration:      "ts2",
+			CredentialsId:   "cid1",
+		},
 	}
-	err = manager.SetCredentials(updatedCredentials)
+	err = manager.SetTaskCredentials(updatedCredentials)
 	if err != nil {
 		t.Errorf("Error updating credentials: %v", err)
 	}
-	credentialsFromManager, ok = manager.GetCredentials("cid1")
+	credentialsFromManager, ok = manager.GetTaskCredentials("cid1")
 	if !ok {
-		t.Error("GetCredentials returned false for existing credentials")
+		t.Error("GetTaskCredentials returned false for existing credentials")
 	}
 	if !reflect.DeepEqual(updatedCredentials, *credentialsFromManager) {
 		t.Error("Mismatch between added and retrieved credentials")
@@ -139,33 +166,36 @@ func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 	}
 }
 
-// TestRemoveExistingCredentials tests that GetCredentials returns false when
+// TestRemoveExistingCredentials tests that GetTaskCredentials returns false when
 // credentials are removed from the credentials manager
 func TestRemoveExistingCredentials(t *testing.T) {
 	manager := NewManager()
-	credentials := IAMRoleCredentials{
-		RoleArn:         "r1",
-		AccessKeyId:     "akid1",
-		SecretAccessKey: "skid1",
-		SessionToken:    "stkn",
-		Expiration:      "ts",
-		CredentialsId:   "cid1",
+	credentials := TaskIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyId:     "akid1",
+			SecretAccessKey: "skid1",
+			SessionToken:    "stkn",
+			Expiration:      "ts",
+			CredentialsId:   "cid1",
+		},
 	}
-	err := manager.SetCredentials(credentials)
+	err := manager.SetTaskCredentials(credentials)
 	if err != nil {
 		t.Errorf("Error adding credentials: %v", err)
 	}
-	credentialsFromManager, ok := manager.GetCredentials("cid1")
+	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
 	if !ok {
-		t.Error("GetCredentials returned false for existing credentials")
+		t.Error("GetTaskCredentials returned false for existing credentials")
 	}
 	if !reflect.DeepEqual(credentials, *credentialsFromManager) {
 		t.Error("Mismatch between added and retrieved credentials")
 	}
 
 	manager.RemoveCredentials("cid1")
-	_, ok = manager.GetCredentials("cid1")
+	_, ok = manager.GetTaskCredentials("cid1")
 	if ok {
-		t.Error("Expected GetCredentials to return false for removed credentials")
+		t.Error("Expected GetTaskCredentials to return false for removed credentials")
 	}
 }
