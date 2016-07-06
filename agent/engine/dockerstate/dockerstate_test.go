@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 )
 
 func TestCreateDockerTaskEngineState(t *testing.T) {
@@ -36,6 +37,10 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 
 	if len(state.AllTasks()) != 0 {
 		t.Error("Empty state should have no tasks")
+	}
+
+	if len(state.AllImageStates()) != 0 {
+		t.Error("Empty state should have no image states")
 	}
 }
 
@@ -149,5 +154,94 @@ func TestRemoveTask(t *testing.T) {
 	tasks = state.AllTasks()
 	if len(tasks) != 0 {
 		t.Error("Expected task to be removed")
+	}
+}
+
+func TestAddImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+
+	testImage := &image.Image{ImageID: "sha256:imagedigest"}
+	testImageState := &image.ImageState{Image: testImage}
+	state.AddImageState(testImageState)
+
+	if len(state.AllImageStates()) != 1 {
+		t.Error("Error adding image state")
+	}
+
+	for _, imageState := range state.AllImageStates() {
+		if imageState.Image.ImageID != testImage.ImageID {
+			t.Error("Error in retrieving image state added")
+		}
+	}
+}
+
+func TestAddEmptyImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+	state.AddImageState(nil)
+
+	if len(state.AllImageStates()) != 0 {
+		t.Error("Error adding empty image state")
+	}
+}
+
+func TestAddEmptyIdImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+
+	testImage := &image.Image{ImageID: ""}
+	testImageState := &image.ImageState{Image: testImage}
+	state.AddImageState(testImageState)
+
+	if len(state.AllImageStates()) != 0 {
+		t.Error("Error adding image state with empty Image Id")
+	}
+}
+
+func TestRemoveImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+
+	testImage := &image.Image{ImageID: "sha256:imagedigest"}
+	testImageState := &image.ImageState{Image: testImage}
+	state.AddImageState(testImageState)
+
+	if len(state.AllImageStates()) != 1 {
+		t.Error("Error adding image state")
+	}
+	state.RemoveImageState(testImageState)
+	if len(state.AllImageStates()) != 0 {
+		t.Error("Error removing image state")
+	}
+}
+
+func TestRemoveEmptyImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+
+	testImage := &image.Image{ImageID: "sha256:imagedigest"}
+	testImageState := &image.ImageState{Image: testImage}
+	state.AddImageState(testImageState)
+
+	if len(state.AllImageStates()) != 1 {
+		t.Error("Error adding image state")
+	}
+	state.RemoveImageState(nil)
+	if len(state.AllImageStates()) == 0 {
+		t.Error("Error removing empty image state")
+	}
+}
+
+func TestRemoveNonExistingImageState(t *testing.T) {
+	state := NewDockerTaskEngineState()
+
+	testImage := &image.Image{ImageID: "sha256:imagedigest"}
+	testImageState := &image.ImageState{Image: testImage}
+	state.AddImageState(testImageState)
+
+	if len(state.AllImageStates()) != 1 {
+		t.Error("Error adding image state")
+	}
+	testImage1 := &image.Image{ImageID: "sha256:imagedigest1"}
+	testImageState1 := &image.ImageState{Image: testImage1}
+	state.RemoveImageState(testImageState1)
+	if len(state.AllImageStates()) == 0 {
+		t.Error("Error removing incorrect image state")
 	}
 }

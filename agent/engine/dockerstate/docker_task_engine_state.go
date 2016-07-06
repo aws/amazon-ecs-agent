@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
@@ -42,6 +43,7 @@ type DockerTaskEngineState struct {
 	idToTask      map[string]string                          // DockerId -> taskarn
 	taskToId      map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
 	idToContainer map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
+	imageStates   map[string]*image.ImageState
 }
 
 func NewDockerTaskEngineState() *DockerTaskEngineState {
@@ -50,6 +52,7 @@ func NewDockerTaskEngineState() *DockerTaskEngineState {
 		idToTask:      make(map[string]string),
 		taskToId:      make(map[string]map[string]*api.DockerContainer),
 		idToContainer: make(map[string]*api.DockerContainer),
+		imageStates:   make(map[string]*image.ImageState),
 	}
 }
 
@@ -87,8 +90,21 @@ func (state *DockerTaskEngineState) AddTask(task *api.Task) {
 	defer state.lock.Unlock()
 
 	state.tasks[task.Arn] = task
+}
 
-	return
+func (state *DockerTaskEngineState) AddImageState(imageState *image.ImageState) {
+	if imageState == nil {
+		log.Debug("Cannot add empty image state")
+		return
+	}
+	if imageState.Image.ImageID == "" {
+		log.Debug("Cannot add image state with empty image id")
+		return
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.imageStates[imageState.Image.ImageID] = imageState
 }
 
 // RemoveTask removes a task from this state. It removes all containers and
@@ -112,6 +128,22 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 		delete(state.idToTask, dockerContainer.DockerId)
 		delete(state.idToContainer, dockerContainer.DockerId)
 	}
+}
+
+func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageState) {
+	if imageState == nil {
+		log.Debug("Cannot remove empty image state")
+		return
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	imageState, ok := state.imageStates[imageState.Image.ImageID]
+	if !ok {
+		log.Debug("Image State is not found. Cannot be removed")
+		return
+	}
+	delete(state.imageStates, imageState.Image.ImageID)
 }
 
 // AddContainer adds a container to the state.
@@ -169,4 +201,14 @@ func (state *DockerTaskEngineState) AllTasks() []*api.Task {
 		ndx += 1
 	}
 	return ret
+}
+
+func (state *DockerTaskEngineState) AllImageStates() []*image.ImageState {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+	var allImageStates []*image.ImageState
+	for _, imageState := range state.imageStates {
+		allImageStates = append(allImageStates, imageState)
+	}
+	return allImageStates
 }

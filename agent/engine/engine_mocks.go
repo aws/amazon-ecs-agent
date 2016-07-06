@@ -17,8 +17,11 @@
 package engine
 
 import (
+	"time"
+
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
@@ -229,6 +232,17 @@ func (_mr *_MockDockerClientRecorder) InspectContainer(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectContainer", arg0)
 }
 
+func (_m *MockDockerClient) InspectImage(_param0 string) (*go_dockerclient.Image, error) {
+	ret := _m.ctrl.Call(_m, "InspectImage", _param0)
+	ret0, _ := ret[0].(*go_dockerclient.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDockerClientRecorder) InspectImage(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectImage", arg0)
+}
+
 func (_m *MockDockerClient) ListContainers(_param0 bool) ListContainersResponse {
 	ret := _m.ctrl.Call(_m, "ListContainers", _param0)
 	ret0, _ := ret[0].(ListContainersResponse)
@@ -319,4 +333,89 @@ func (_m *MockDockerClient) WithVersion(_param0 dockerclient.DockerVersion) Dock
 
 func (_mr *_MockDockerClientRecorder) WithVersion(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "WithVersion", arg0)
+}
+
+func (_m *MockDockerClient) RemoveImage(_param0 string, _param1 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "RemoveImage", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) RemoveImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveImage", arg0, arg1)
+}
+
+// Mock of ImageManager interface
+type MockImageManager struct {
+	ctrl     *gomock.Controller
+	recorder *_MockImageManagerRecorder
+}
+
+// Recorder for MockDockerClient (not exported)
+type _MockImageManagerRecorder struct {
+	mock *MockImageManager
+}
+
+func NewMockImageManager(ctrl *gomock.Controller) *MockImageManager {
+	mock := &MockImageManager{ctrl: ctrl}
+	mock.recorder = &_MockImageManagerRecorder{mock}
+	return mock
+}
+
+func (_m *MockImageManager) EXPECT() *_MockImageManagerRecorder {
+	return _m.recorder
+}
+
+func (_m *MockImageManager) AddContainerReferenceToImageState(_param0 *api.Container) error {
+	ret := _m.ctrl.Call(_m, "AddContainerReferenceToImageState", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockImageManagerRecorder) AddContainerReferenceToImageState(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddContainerReferenceToImageState", arg0)
+}
+
+func (_m *MockImageManager) RemoveContainerReferenceFromImageState(_param0 *api.Container) error {
+	ret := _m.ctrl.Call(_m, "RemoveContainerReferenceFromImageState", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockImageManagerRecorder) RemoveContainerReferenceFromImageState(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveContainerReferenceFromImageState", arg0)
+}
+
+func (_m *MockImageManager) StartImageCleanupProcess(_param0 context.Context) {
+	_m.ctrl.Call(_m, "StartImageCleanupProcess", _param0)
+}
+
+func (_mr *_MockImageManagerRecorder) StartImageCleanupProcess(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartImageCleanupProcess", arg0)
+}
+
+func (_m *MockImageManager) AddAllImageStates(_param0 []*image.ImageState) {
+	_m.ctrl.Call(_m, "AddAllImageStates", _param0)
+}
+
+func (_mr *_MockImageManagerRecorder) AddAllImageStates(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddAllImageStates", arg0)
+}
+
+func (_m *MockImageManager) GetImageStateFromImageName(_param0 string) *image.ImageState {
+	ret := _m.ctrl.Call(_m, "GetImageStateFromImageName", _param0)
+	ret0, _ := ret[0].(*image.ImageState)
+	return ret0
+}
+
+func (_mr *_MockImageManagerRecorder) GetImageStateFromImageName(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetImageStateFromImageName", arg0)
+}
+
+func (_m *MockImageManager) SetSaver(_param0 statemanager.Saver) {
+	_m.ctrl.Call(_m, "SetSaver", _param0)
+}
+
+func (_mr *_MockImageManagerRecorder) SetSaver(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }

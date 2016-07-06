@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 )
 
 // These bits of information should be enough to reconstruct the entire
@@ -26,6 +27,7 @@ type savedState struct {
 	Tasks         []*api.Task
 	IdToContainer map[string]*api.DockerContainer // DockerId -> api.DockerContainer
 	IdToTask      map[string]string               // DockerId -> taskarn
+	ImageStates   []*image.ImageState
 }
 
 func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
@@ -36,6 +38,7 @@ func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
 		Tasks:         state.AllTasks(),
 		IdToContainer: state.idToContainer,
 		IdToTask:      state.idToTask,
+		ImageStates:   state.AllImageStates(),
 	}
 	return json.Marshal(toSave)
 }
@@ -54,6 +57,10 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 
 	for _, task := range saved.Tasks {
 		clean.AddTask(task)
+	}
+	// add image states
+	for _, imageState := range saved.ImageStates {
+		clean.AddImageState(imageState)
 	}
 	for id, container := range saved.IdToContainer {
 		taskArn, ok := saved.IdToTask[id]
@@ -74,6 +81,7 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 		container.Container = taskContainer
 		//pointer matching now; everyone happy
 		clean.AddContainer(container, task)
+
 	}
 
 	*state = *clean
