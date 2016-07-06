@@ -18,6 +18,7 @@ package engine
 import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
@@ -25,6 +26,6 @@ import (
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream) TaskEngine {
-	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream)
+func NewTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state *dockerstate.DockerTaskEngineState) TaskEngine {
+	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, state)
 }

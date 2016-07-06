@@ -84,19 +84,20 @@ type DockerTaskEngine struct {
 	credentialsManager credentials.Manager
 	_time              ttime.Time
 	_timeOnce          sync.Once
+	imageManager       ImageManager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state *dockerstate.DockerTaskEngineState) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
 		saver:  statemanager.NewNoopStateManager(),
 
-		state:         dockerstate.NewDockerTaskEngineState(),
+		state:         state,
 		managedTasks:  make(map[string]*managedTask),
 		taskStopGroup: utilsync.NewSequentialWaitGroup(),
 
@@ -106,10 +107,16 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		credentialsManager: credentialsManager,
 
 		containerChangeEventStream: containerChangeEventStream,
+		imageManager:               imageManager,
 	}
 
 	return dockerTaskEngine
 }
+
+// ImagePullDeleteLock ensures that pulls and deletes do not run at the same time.
+// Pulls are serialized as a temporary workaround for a devicemapper issue. (see https://github.com/docker/docker/issues/9718)
+// Deletes must not run at the same time as pulls to prevent deletion of images that are being used to launch new tasks.
+var ImagePullDeleteLock sync.Mutex
 
 // UnmarshalJSON restores a previously marshaled task-engine state from json
 func (engine *DockerTaskEngine) UnmarshalJSON(data []byte) error {
@@ -195,6 +202,10 @@ func (engine *DockerTaskEngine) Disable() {
 func (engine *DockerTaskEngine) synchronizeState() {
 	engine.processTasks.Lock()
 	defer engine.processTasks.Unlock()
+	imageStates := engine.state.AllImageStates()
+	if len(imageStates) != 0 {
+		engine.imageManager.AddAllImageStates(imageStates)
+	}
 
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
@@ -214,6 +225,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 					cont.DockerId = describedCont.ID
 					// update mappings that need dockerid
 					engine.state.AddContainer(cont, task)
+					engine.imageManager.AddContainerReferenceToImageState(cont.Container)
 				}
 			}
 			if cont.DockerId != "" {
@@ -223,7 +235,10 @@ func (engine *DockerTaskEngine) synchronizeState() {
 					if !cont.Container.KnownTerminal() {
 						cont.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
 						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerId, "name", cont.DockerName)
+						engine.imageManager.RemoveContainerReferenceFromImageState(cont.Container)
 					}
+				} else {
+					engine.imageManager.AddContainerReferenceToImageState(cont.Container)
 				}
 				if currentState > cont.Container.KnownStatus {
 					cont.Container.KnownStatus = currentState
@@ -272,7 +287,12 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		if err != nil {
 			log.Debug("Unable to remove old container", "err", err, "task", task, "cont", cont)
 		}
+		err = engine.imageManager.RemoveContainerReferenceFromImageState(cont)
+		if err != nil {
+			seelog.Errorf("Error removing container reference from image state: %v", err)
+		}
 	}
+	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
@@ -439,7 +459,20 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Pulling container", "task", task, "container", container)
-	return engine.client.PullImage(container.Image, container.RegistryAuthentication)
+	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
+	ImagePullDeleteLock.Lock()
+	seelog.Debugf("Obtained ImagePullDeleteLock to pull image - %s", container.Image)
+	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
+	defer ImagePullDeleteLock.Unlock()
+	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
+	err := engine.imageManager.AddContainerReferenceToImageState(container)
+	if err != nil {
+		seelog.Errorf("Error adding container reference to image state: %v", err)
+	}
+	imageState := engine.imageManager.GetImageStateFromImageName(container.Image)
+	engine.state.AddImageState(imageState)
+	engine.saver.Save()
+	return metadata
 }
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {

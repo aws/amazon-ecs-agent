@@ -49,6 +49,7 @@ const (
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
 	listContainersTimeout   = 10 * time.Minute
+	removeImageTimeout      = 3 * time.Minute
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work
@@ -86,6 +87,8 @@ type DockerClient interface {
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
 	Version() (string, error)
+	InspectImage(string) (*docker.Image, error)
+	RemoveImage(string, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -122,9 +125,6 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		config:        dg.config,
 	}
 }
-
-// pullLock is a temporary workaround for a devicemapper issue. See: https://github.com/docker/docker/issues/9718
-var pullLock sync.Mutex
 
 // scratchCreateLock guards against multiple 'scratch' image creations at once
 var scratchCreateLock sync.Mutex
@@ -175,11 +175,6 @@ func (dg *dockerGoClient) time() ttime.Time {
 
 func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
 	timeout := dg.time().After(pullImageTimeout)
-
-	// Workaround for devicemapper bug. See:
-	// https://github.com/docker/docker/issues/9718
-	pullLock.Lock()
-	defer pullLock.Unlock()
 
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.pullImage(image, authData) }()
@@ -322,6 +317,14 @@ func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 		InputStream: reader,
 	})
 	return err
+}
+
+func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.InspectImage(image)
 }
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
@@ -742,4 +745,26 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	}()
 
 	return stats, nil
+}
+
+func (dg *dockerGoClient) RemoveImage(imageName string, imageRemovalTimeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), imageRemovalTimeout)
+	defer cancel()
+
+	response := make(chan error, 1)
+	go func() { response <- dg.removeImage(imageName) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		return &DockerTimeoutError{imageRemovalTimeout, "removing image"}
+	}
+}
+
+func (dg *dockerGoClient) removeImage(imageName string) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+	return client.RemoveImage(imageName)
 }
