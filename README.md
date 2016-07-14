@@ -106,12 +106,13 @@ configure them as something other than the defaults.
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false |
 | `AWS_SESSION_TOKEN` |                         | The [Session Token](http://docs.aws.amazon.com/STS/latest/UsingSTS/Welcome.html) used for temporary credentials. | Taken from EC2 Instance Metadata |
 | `ECS_RESERVED_MEMORY` | 32 | Memory, in MB, to reserve for use by things other than containers managed by ECS. | 0 |
-| `ECS_AVAILABLE_LOGGING_DRIVERS` | `["json-file","splunk","syslog"]` | Which logging drivers are available on the Container Instance. | `["json-file"]` |
+| `ECS_AVAILABLE_LOGGING_DRIVERS` | `["awslogs","fluentd","gelf","json-file","journald","splunk","syslog"]` | Which logging drivers are available on the Container Instance. | `["json-file"]` |
 | `ECS_DISABLE_PRIVILEGED` | `true` | Whether launching privileged containers is disabled on the Container Instance. | `false` |
 | `ECS_SELINUX_CAPABLE` | `true` | Whether SELinux is available on the Container Instance. | `false` |
 | `ECS_APPARMOR_CAPABLE` | `true` | Whether AppArmor is available on the Container Instance. | `false` |
 | `ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION` | 10m | Time to wait to delete containers for a stopped task. If set to less than 1 minute, the value will be ignored.  | 3h |
 | `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container exit normally before being forcibly killed. | 30s |
+| `ECS_ENABLE_TASK_IAM_ROLE` | `true` | Whether to enable IAM Roles for Tasks on the Container Instance | `false` |
 
 ### Persistence
 
