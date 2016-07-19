@@ -76,8 +76,11 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests: test-registry
+run-functional-tests: testnnp test-registry
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
+
+testnnp:
+	cd misc/testnnp; $(MAKE) $(MFLAGS)
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)
@@ -111,3 +114,4 @@ clean:
 	cd misc/netkitten; $(MAKE) $(MFLAGS) clean
 	cd misc/volumes-test; $(MAKE) $(MFLAGS) clean
 	cd misc/gremlin; $(MAKE) $(MFLAGS) clean
+	cd misc/testnnp; $(MAKE) $(MFLAGS) clean
