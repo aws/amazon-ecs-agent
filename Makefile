@@ -62,7 +62,7 @@ short-test:
 	. ./scripts/shared_env && go test -short -timeout=25s $(shell go list ./agent/... | grep -v /vendor/)
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid
+test-registry: netkitten volumes-test squid awscli
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
@@ -84,12 +84,15 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid
+.PHONY: squid awscli
 squid:
 	cd misc/squid; $(MAKE) $(MFLAGS)
 
 gremlin:
 	cd misc/gremlin; $(MAKE) $(MFLAGS)
+
+awscli:
+	cd misc/awscli; $(MAKE) $(MFLAGS)
 
 get-deps:
 	go get github.com/tools/godep

@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -51,12 +52,18 @@ func TestRunManyTasks(t *testing.T) {
 	numToRun := 15
 	tasks := []*TestTask{}
 	attemptsTaken := 0
+
+	td, err := GetTaskDefinition("simple-exit")
+	if err != nil {
+		t.Fatalf("Get task definition error: %v", err)
+	}
 	for numRun := 0; len(tasks) < numToRun; attemptsTaken++ {
 		startNum := 10
 		if numToRun-len(tasks) < 10 {
 			startNum = numToRun - len(tasks)
 		}
-		startedTasks, err := agent.StartMultipleTasks(t, "simple-exit", startNum)
+
+		startedTasks, err := agent.StartMultipleTasks(t, td, startNum)
 		if err != nil {
 			continue
 		}
@@ -537,7 +544,10 @@ func TestAwslogsDriver(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.9.0") //Required for awslogs driver
 
-	testTask, err := agent.StartTask(t, "awslogs")
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "awslogs", tdOverrides)
 	if err != nil {
 		t.Fatalf("Expected to start task using awslogs driver failed: %v", err)
 	}
@@ -717,5 +727,94 @@ func TestTelemetry(t *testing.T) {
 	params.MetricName = aws.String("MemoryUtilization")
 	if err = VerifyMetrics(cwclient, params, true); err != nil {
 		t.Errorf("Task stopped, verify metrics for memory utilization failed: %v", err)
+	}
+}
+
+func TestTaskIamRoles(t *testing.T) {
+	// The test runs only when the environment TEST_IAM_ROLE was set
+	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
+		t.Skip("Skipping test TaskIamRole, as TEST_IAM_ROLE isn't set true")
+	}
+
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		roles, err := GetInstanceIAMRole()
+		if err != nil {
+			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
+		}
+		roleArn = *roles[0].Arn
+	}
+
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+		},
+		PortBindings: map[docker.Port]map[string]string{
+			"51679/tcp": map[string]string{
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverride := make(map[string]string)
+	tdOverride["$$$TASK_ROLE$$$"] = roleArn
+	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "iam-roles", tdOverride)
+	if err != nil {
+		t.Fatalf("Error start iam-roles task: %v", err)
+	}
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	if err != nil {
+		t.Fatalf("Error waiting for task to run: %v", err)
+	}
+	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole")
+	if err != nil {
+		t.Fatalf("Error resolving docker id for container in task: %v", err)
+	}
+
+	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("Could not inspect container for task: %v", err)
+	}
+	iamRoleEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI=") {
+				iamRoleEnabled = true
+				break
+			}
+		}
+	}
+	if !iamRoleEnabled {
+		task.Stop()
+		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container envrionment variable")
+	}
+
+	// Task will only run one command "aws ec2 describe-regions"
+	err = task.WaitStopped(30 * time.Second)
+	if err != nil {
+		t.Fatalf("Waiting task to stop error : %v", err)
+	}
+
+	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("Could not inspect container for task: %v", err)
+	}
+
+	if containerMetaData.State.ExitCode != 0 {
+		t.Fatalf("Container exit code non-zero: %v", containerMetaData.State.ExitCode)
+	}
+
+	// Search the audit log to verify the credential request
+	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
+	if err != nil {
+		t.Fatalf("Verify credential request failed, err: %v", err)
 	}
 }

@@ -1428,6 +1428,8 @@ type CreateServiceInput struct {
 	// want to run your service on.
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	DeploymentConfiguration *DeploymentConfiguration `locationName:"deploymentConfiguration" type:"structure"`
+
 	// The number of instantiations of the specified task definition that you would
 	// like to place and keep running on your cluster.
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer" required:"true"`
@@ -1595,6 +1597,24 @@ func (s Deployment) String() string {
 
 // GoString returns the string representation
 func (s Deployment) GoString() string {
+	return s.String()
+}
+
+type DeploymentConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	MaximumPercent *int64 `locationName:"maximumPercent" type:"integer"`
+
+	MinimumHealthyPercent *int64 `locationName:"minimumHealthyPercent" type:"integer"`
+}
+
+// String returns the string representation
+func (s DeploymentConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeploymentConfiguration) GoString() string {
 	return s.String()
 }
 
@@ -2212,6 +2232,8 @@ type ListTaskDefinitionFamiliesInput struct {
 	// returned the nextToken value. This value is null when there are no more results
 	// to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
+
+	Status *string `locationName:"status" type:"string" enum:"TaskDefinitionFamilyStatus"`
 }
 
 // String returns the string representation
@@ -2421,6 +2443,8 @@ type LoadBalancer struct {
 
 	// The name of the load balancer.
 	LoadBalancerName *string `locationName:"loadBalancerName" type:"string"`
+
+	TargetGroupArn *string `locationName:"targetGroupArn" type:"string"`
 }
 
 // String returns the string representation
@@ -2644,6 +2668,8 @@ type RegisterTaskDefinitionInput struct {
 	// numbers, hyphens, and underscores are allowed.
 	Family *string `locationName:"family" type:"string" required:"true"`
 
+	TaskRoleArn *string `locationName:"taskRoleArn" type:"string"`
+
 	// A list of volume definitions in JSON format that containers in your task
 	// may use.
 	Volumes []*Volume `locationName:"volumes" type:"list"`
@@ -2791,6 +2817,10 @@ type Service struct {
 
 	// The Amazon Resource Name (ARN) of the of the cluster that hosts the service.
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+
+	DeploymentConfiguration *DeploymentConfiguration `locationName:"deploymentConfiguration" type:"structure"`
 
 	// The current state of deployments for the service.
 	Deployments []*Deployment `locationName:"deployments" type:"list"`
@@ -2953,6 +2983,8 @@ type StopTaskInput struct {
 	// is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	Reason *string `locationName:"reason" type:"string"`
+
 	// The task ID or full Amazon Resource Name (ARN) entry of the task you would
 	// like to stop.
 	Task *string `locationName:"task" type:"string" required:"true"`
@@ -3097,6 +3129,8 @@ type Task struct {
 	// The containers associated with the task.
 	Containers []*Container `locationName:"containers" type:"list"`
 
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The desired status of the task.
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
@@ -3106,10 +3140,16 @@ type Task struct {
 	// One or more container overrides.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
+	StartedAt *time.Time `locationName:"startedAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The tag specified when a task is started. If the task is started by an Amazon
 	// ECS service, then the startedBy parameter contains the deployment ID of the
 	// service that starts it.
 	StartedBy *string `locationName:"startedBy" type:"string"`
+
+	StoppedAt *time.Time `locationName:"stoppedAt" type:"timestamp" timestampFormat:"unix"`
+
+	StoppedReason *string `locationName:"stoppedReason" type:"string"`
 
 	// The Amazon Resource Name (ARN) of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -3160,6 +3200,8 @@ type TaskDefinition struct {
 	// The full Amazon Resource Name (ARN) of the of the task definition.
 	TaskDefinitionArn *string `locationName:"taskDefinitionArn" type:"string"`
 
+	TaskRoleArn *string `locationName:"taskRoleArn" type:"string"`
+
 	// The list of volumes in a task. For more information on volume definition
 	// parameters and defaults, see Amazon ECS Task Definitions (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html)
 	// in the Amazon EC2 Container Service Developer Guide.
@@ -3182,6 +3224,8 @@ type TaskOverride struct {
 
 	// One or more container overrides sent to a task.
 	ContainerOverrides []*ContainerOverride `locationName:"containerOverrides" type:"list"`
+
+	TaskRoleArn *string `locationName:"taskRoleArn" type:"string"`
 }
 
 // String returns the string representation
@@ -3267,6 +3311,8 @@ type UpdateServiceInput struct {
 	// service is running on. If you do not specify a cluster, the default cluster
 	// is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
+
+	DeploymentConfiguration *DeploymentConfiguration `locationName:"deploymentConfiguration" type:"structure"`
 
 	// The number of instantiations of the task that you would like to place and
 	// keep running in your service.
@@ -3419,6 +3465,8 @@ const (
 	LogDriverGelf = "gelf"
 	// @enum LogDriver
 	LogDriverFluentd = "fluentd"
+	// @enum LogDriver
+	LogDriverAwslogs = "awslogs"
 )
 
 const (
@@ -3426,6 +3474,15 @@ const (
 	SortOrderAsc = "ASC"
 	// @enum SortOrder
 	SortOrderDesc = "DESC"
+)
+
+const (
+	// @enum TaskDefinitionFamilyStatus
+	TaskDefinitionFamilyStatusActive = "ACTIVE"
+	// @enum TaskDefinitionFamilyStatus
+	TaskDefinitionFamilyStatusInactive = "INACTIVE"
+	// @enum TaskDefinitionFamilyStatus
+	TaskDefinitionFamilyStatusAll = "ALL"
 )
 
 const (

@@ -147,6 +147,11 @@
 			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
 		},
 		{
+			"ImportPath": "github.com/aws/aws-sdk-go/service/iam",
+			"Comment": "v1.0.11",
+			"Rev": "f22f230de2ce5d5bd15c415fb72d30a77931ac56"
+		},
+		{
 			"ImportPath": "github.com/cihub/seelog",
 			"Comment": "go1.1-57-g0fa7e41",
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"

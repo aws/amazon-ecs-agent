@@ -64,7 +64,7 @@ mirror_local_image() {
   docker push $2
 }
 
-for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/squid"; do
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/squid" "amazon/awscli"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 
