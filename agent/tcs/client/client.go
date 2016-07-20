@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
 )
 
@@ -164,6 +165,7 @@ func (cs *clientServer) publishMetricsOnce() {
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
+		seelog.Debugf("Trying to publish message: %v", request)
 		err = cs.MakeRequest(request)
 		if err != nil {
 			log.Warn("Error publishing metrics", "err", err)
