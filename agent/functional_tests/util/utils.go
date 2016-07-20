@@ -34,8 +34,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/iam"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -44,7 +46,7 @@ var Cluster string
 
 const (
 	defaultExecDriverPath = "/var/run/docker/execdriver"
-	logdir                = "/logs"
+	logdir                = "/log"
 	datadir               = "/data"
 	ExecDriverDir         = "/var/lib/docker/execdriver"
 	defaultCgroupPath     = "/cgroup"
@@ -90,14 +92,20 @@ func init() {
 // before a new one is registered and it is assumed that if it exists, the task
 // definition currently represented by the file was registered as such already.
 func GetTaskDefinition(name string) (string, error) {
+	return GetTaskDefinitionWithOverrides(name, make(map[string]string))
+}
+
+func GetTaskDefinitionWithOverrides(name string, overrides map[string]string) (string, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	tdDataFromFile, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), "..", "testdata", "taskdefinitions", name, "task-definition.json"))
 	if err != nil {
 		return "", err
 	}
 
-	// Change the region to the current region in the task definition
-	tdStr := strings.Replace(string(tdDataFromFile), "$$$TEST_REGION$$$", *ECS.Config.Region, 1)
+	tdStr := string(tdDataFromFile)
+	for key, value := range overrides {
+		tdStr = strings.Replace(tdStr, key, value, 1)
+	}
 	tdData := []byte(tdStr)
 
 	registerRequest := &ecs.RegisterTaskDefinitionInput{}
@@ -143,6 +151,7 @@ type TestAgent struct {
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
+	PortBindings     map[docker.Port]map[string]string
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
@@ -179,7 +188,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	if err != nil {
 		t.Fatal("Could not create temp dir for test")
 	}
-	logdir := filepath.Join(agentTempdir, "logs")
+	logdir := filepath.Join(agentTempdir, "log")
 	datadir := filepath.Join(agentTempdir, "data")
 	os.Mkdir(logdir, 0755)
 	os.Mkdir(datadir, 0755)
@@ -212,7 +221,7 @@ func (agent *TestAgent) StartAgent() error {
 			"ECS_CLUSTER=" + Cluster,
 			"ECS_DATADIR=/data",
 			"ECS_LOGLEVEL=debug",
-			"ECS_LOGFILE=/logs/integ_agent.log",
+			"ECS_LOGFILE=/log/integ_agent.log",
 			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
 			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
 			"AWS_DEFAULT_REGION=" + *ECS.Config.Region,
@@ -246,6 +255,11 @@ func (agent *TestAgent) StartAgent() error {
 			if !envVarExists {
 				dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
 			}
+		}
+
+		for key, value := range agent.Options.PortBindings {
+			hostConfig.PortBindings[key] = []docker.PortBinding{docker.PortBinding{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
+			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
 	}
 
@@ -325,7 +339,7 @@ func (agent *TestAgent) getBindMounts() []string {
 	execdriverBind := execdriverPath + ":" + ExecDriverDir + readOnly
 	binds = append(binds, execdriverBind)
 
-	hostLogDir := filepath.Join(agent.TestDir, "logs")
+	hostLogDir := filepath.Join(agent.TestDir, "log")
 	hostDataDir := filepath.Join(agent.TestDir, "data")
 	hostConfigDir := filepath.Join(agent.TestDir, "config")
 	hostCacheDir := filepath.Join(agent.TestDir, "cache")
@@ -355,13 +369,8 @@ func (agent *TestAgent) Cleanup() {
 	})
 }
 
-func (agent *TestAgent) StartMultipleTasks(t *testing.T, task string, num int) ([]*TestTask, error) {
-	td, err := GetTaskDefinition(task)
-	if err != nil {
-		return nil, err
-	}
-	t.Logf("Task definition: %s", td)
-
+func (agent *TestAgent) StartMultipleTasks(t *testing.T, taskDefinition string, num int) ([]*TestTask, error) {
+	t.Logf("Task definition: %s", taskDefinition)
 	cis := make([]*string, num)
 	for i := 0; i < num; i++ {
 		cis[i] = &agent.ContainerInstanceArn
@@ -370,7 +379,7 @@ func (agent *TestAgent) StartMultipleTasks(t *testing.T, task string, num int) (
 	resp, err := ECS.StartTask(&ecs.StartTaskInput{
 		Cluster:            &agent.Cluster,
 		ContainerInstances: cis,
-		TaskDefinition:     &td,
+		TaskDefinition:     &taskDefinition,
 	})
 	if err != nil {
 		return nil, err
@@ -388,10 +397,29 @@ func (agent *TestAgent) StartMultipleTasks(t *testing.T, task string, num int) (
 }
 
 func (agent *TestAgent) StartTask(t *testing.T, task string) (*TestTask, error) {
-	tasks, err := agent.StartMultipleTasks(t, task, 1)
+	td, err := GetTaskDefinition(task)
 	if err != nil {
 		return nil, err
 	}
+
+	tasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		return nil, err
+	}
+	return tasks[0], nil
+}
+
+func (agent *TestAgent) StartTaskWithTaskDefinitionOverrides(t *testing.T, task string, overrides map[string]string) (*TestTask, error) {
+	td, err := GetTaskDefinitionWithOverrides(task, overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	tasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		return nil, err
+	}
+
 	return tasks[0], nil
 }
 
@@ -562,7 +590,7 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 	var taskResp handlers.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
-	if taskResp.KnownStatus == "RUNNING" || taskResp.KnownStatus == "STOPPED" {
+	if taskResp.KnownStatus == "RUNNING" {
 		return true, nil
 	} else {
 		return false, errors.New("Task should be RUNNING but is " + taskResp.KnownStatus)
@@ -717,4 +745,65 @@ func RequireDockerVersion(t *testing.T, selector string) {
 	if !match {
 		t.Skipf("Skipping test; requires %v, but version is %v", selector, version)
 	}
+}
+
+// GetInstanceProfileName gets the instance profile name
+func GetInstanceMetadata(path string) (string, error) {
+	ec2MetadataClient := ec2metadata.New(session.New())
+	return ec2MetadataClient.GetMetadata(path)
+}
+
+// GetInstanceIAMRole gets the iam roles attached to the instance profile
+func GetInstanceIAMRole() ([]*iam.Role, error) {
+	instanceProfileName, err := GetInstanceMetadata("iam/security-credentials")
+	if err != nil {
+		return nil, fmt.Errorf("Error getting instance profile name, err: %v", err)
+	}
+	if utils.ZeroOrNil(instanceProfileName) {
+		return nil, fmt.Errorf("Instance Profile name nil")
+	}
+
+	iamClient := iam.New(session.New())
+	instanceProfile, err := iamClient.GetInstanceProfile(&iam.GetInstanceProfileInput{
+		InstanceProfileName: aws.String(instanceProfileName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if instanceProfile.InstanceProfile == nil || utils.ZeroOrNil(instanceProfile.InstanceProfile.Roles) {
+		return nil, fmt.Errorf("No roles found")
+	}
+	return instanceProfile.InstanceProfile.Roles, nil
+}
+
+// SearchStrInDir searches the files in direcotry for specific content
+func SearchStrInDir(dir, filePrefix, content string) error {
+	logfiles, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("Error reading the directory, err %v", err)
+	}
+
+	var desiredFile string
+	for _, file := range logfiles {
+		if strings.HasPrefix(file.Name(), filePrefix) {
+			desiredFile = file.Name()
+			break
+		}
+	}
+
+	if utils.ZeroOrNil(desiredFile) {
+		return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
+	}
+
+	data, err := ioutil.ReadFile(filepath.Join(dir, desiredFile))
+	if err != nil {
+		return fmt.Errorf("Failed to read file, err: %v", err)
+	}
+
+	if !strings.Contains(string(data), content) {
+		return fmt.Errorf("Could not find the content: %v in the file: %v", content, desiredFile)
+	}
+
+	return nil
 }
