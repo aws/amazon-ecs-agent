@@ -245,12 +245,10 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
-	seelog.Debugf("Building JSON for: %v", input)
 	messageData, err := jsonutil.BuildJSON(input)
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}
-	seelog.Debugf("Setting raw message: %v", string(messageData))
 	msg.Message = json.RawMessage(messageData)
 
 	send, err := json.Marshal(msg)

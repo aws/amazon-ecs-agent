@@ -17,6 +17,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -249,5 +251,60 @@ func TestQueueAddPredictableHighMemoryUtilization(t *testing.T) {
 	expectedMemoryUsageInMiBSum := expectedMemoryUsageInMiB * float64(queueLength)
 	if *memStatsSet.Sum != expectedMemoryUsageInMiBSum {
 		t.Errorf("Sum value incorrectly set: %.0f, expected %.0f", *memStatsSet.Sum, expectedMemoryUsageInMiBSum)
+	}
+}
+
+func TestCpuStatsSetNotSetToInfinity(t *testing.T) {
+	// timestamps will be used to simulate +Inf CPU Usage
+	// timestamps[0] = timestamps[1]
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.333776335Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+		248503503,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+		3649536,
+	}
+
+	// Create and add container stats
+	queueLength := 3
+	queue := NewQueue(queueLength)
+	for i, time := range timestamps {
+		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+	}
+	cpuStatsSet, err := queue.GetCPUStatsSet()
+	if err != nil {
+		t.Errorf("Error getting cpu stats set: %v", err)
+	}
+
+	// Compute expected usage by using the 1st and 2nd data point in the input queue
+	// queue.Add should have ignored the 0th item as it has the same timestamp as the
+	// 1st item
+	expectedCpuUsage := 100 * float32(cpuTimes[2]-cpuTimes[1]) / float32(timestamps[2].Nanosecond()-timestamps[1].Nanosecond())
+	max := float32(aws.Float64Value(cpuStatsSet.Max))
+	if max != expectedCpuUsage {
+		t.Errorf("Computed cpuStatsSet.Max (%f) != expected value (%f)", max, expectedCpuUsage)
+	}
+	sum := float32(aws.Float64Value(cpuStatsSet.Sum))
+	if sum != expectedCpuUsage {
+		t.Errorf("Computed cpuStatsSet.Sum (%f) != expected value (%f)", sum, expectedCpuUsage)
+	}
+	min := float32(aws.Float64Value(cpuStatsSet.Min))
+	if min != expectedCpuUsage {
+		t.Errorf("Computed cpuStatsSet.Min (%f) != expected value (%f)", min, expectedCpuUsage)
+	}
+
+	// Expected sample count is 1 and not 2 as one data point would be discarded on
+	// account of invalid timestamp
+	sampleCount := aws.Int64Value(cpuStatsSet.SampleCount)
+	if sampleCount != 1 {
+		t.Errorf("Computed cpuStatsSet.SampleCount (%d) != expected value (%d)", sampleCount, 1)
 	}
 }

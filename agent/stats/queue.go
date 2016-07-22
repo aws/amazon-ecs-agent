@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -64,7 +65,16 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 	if queueLength != 0 {
 		// % utilization can be calculated only when queue is non-empty.
 		lastStat := queue.buffer[queueLength-1]
-		stat.CPUUsagePerc = 100 * float32(rawStat.cpuUsage-lastStat.cpuUsage) / float32(rawStat.timestamp.Sub(lastStat.Timestamp).Nanoseconds())
+		timeSinceLastStat := float32(rawStat.timestamp.Sub(lastStat.Timestamp).Nanoseconds())
+		if timeSinceLastStat > 0 {
+			cpuUsageSinceLastStat := float32(rawStat.cpuUsage - lastStat.cpuUsage)
+			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
+		} else {
+			// Ignore the stat if the current timestamp is same as the last one. This
+			// results in the value being set as +infinity
+			// float32(1) / float32(0) = +Inf
+			seelog.Debugf("time since last stat is zero. Ignoring cpu stat")
+		}
 		if queue.maxSize == queueLength {
 			// Remove first element if queue is full.
 			queue.buffer = queue.buffer[1:queueLength]
