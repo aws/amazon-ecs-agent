@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -35,8 +34,6 @@ import (
 // tasksInMessage is the maximum number of tasks that can be sent in a message to the backend
 // This is a very conservative estimate assuming max allowed string lengths for all fields.
 const tasksInMessage = 10
-
-var log = logger.ForModule("tcs client")
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
@@ -70,7 +67,7 @@ func New(url string, region string, credentialProvider *credentials.Credentials,
 // AddRequestHandler). All request handlers should be added prior to making this
 // call as unhandled requests will be discarded.
 func (cs *clientServer) Serve() error {
-	log.Debug("Starting websocket poll loop")
+	seelog.Debug("TCS client starting websocket poll loop")
 	if cs.Conn == nil {
 		return fmt.Errorf("nil connection")
 	}
@@ -95,7 +92,7 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 		return err
 	}
 
-	log.Debug("sending payload", "payload", string(payload))
+	seelog.Debug("TCS client sending payload: %s", string(payload))
 	data := cs.signRequest(payload)
 
 	// Over the wire we send something like
@@ -136,7 +133,7 @@ func (cs *clientServer) Close() error {
 // publishMetrics invokes the PublishMetricsRequest on the clientserver object.
 func (cs *clientServer) publishMetrics() {
 	if cs.publishTicker == nil {
-		log.Debug("publish ticker uninitialized")
+		seelog.Debug("Skipping publishing metrics. Publish ticker is uninitialized")
 		return
 	}
 
@@ -160,15 +157,14 @@ func (cs *clientServer) publishMetricsOnce() {
 	// Get the list of objects to send to backend.
 	requests, err := cs.metricsToPublishMetricRequests()
 	if err != nil {
-		log.Warn("Error getting instance metrics", "err", err)
+		seelog.Warnf("Error getting instance metrics: %v", err)
 	}
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		seelog.Debugf("Trying to publish message: %v", request)
 		err = cs.MakeRequest(request)
 		if err != nil {
-			log.Warn("Error publishing metrics", "err", err)
+			seelog.Warnf("Error publishing metrics: %v. Request: %v", err, request)
 		}
 	}
 }
