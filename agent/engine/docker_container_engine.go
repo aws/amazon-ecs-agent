@@ -722,7 +722,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	statsComplete := make(chan struct{})
 	go func() {
 		statsErr := client.Stats(options)
-		if err != nil {
+		if statsErr != nil {
 			seelog.Warnf("Error retrieving stats for container %s: %v", id, statsErr)
 		}
 		close(statsComplete)

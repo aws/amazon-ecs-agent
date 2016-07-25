@@ -73,7 +73,7 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 			// Ignore the stat if the current timestamp is same as the last one. This
 			// results in the value being set as +infinity
 			// float32(1) / float32(0) = +Inf
-			seelog.Debugf("time since last stat is zero. Ignoring cpu stat")
+			seelog.Debug("Time since last stat is zero. Ignoring cpu stat")
 		}
 		if queue.maxSize == queueLength {
 			// Remove first element if queue is full.

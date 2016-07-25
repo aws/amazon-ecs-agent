@@ -92,7 +92,7 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 		return err
 	}
 
-	seelog.Debug("TCS client sending payload: %s", string(payload))
+	seelog.Debugf("TCS client sending payload: %s", string(payload))
 	data := cs.signRequest(payload)
 
 	// Over the wire we send something like
