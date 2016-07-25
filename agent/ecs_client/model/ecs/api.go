@@ -1218,6 +1218,8 @@ type ContainerDefinition struct {
 	// and the --memory option to docker run.
 	Memory *int64 `locationName:"memory" type:"integer"`
 
+	MemoryReservation *int64 `locationName:"memoryReservation" type:"integer"`
+
 	// The mount points for data volumes in your container. This parameter maps
 	// to Volumes in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
@@ -2443,8 +2445,6 @@ type LoadBalancer struct {
 
 	// The name of the load balancer.
 	LoadBalancerName *string `locationName:"loadBalancerName" type:"string"`
-
-	TargetGroupArn *string `locationName:"targetGroupArn" type:"string"`
 }
 
 // String returns the string representation
@@ -2667,6 +2667,8 @@ type RegisterTaskDefinitionInput struct {
 	// as a name for your task definition. Up to 255 letters (uppercase and lowercase),
 	// numbers, hyphens, and underscores are allowed.
 	Family *string `locationName:"family" type:"string" required:"true"`
+
+	NetworkMode *string `locationName:"networkMode" type:"string"`
 
 	TaskRoleArn *string `locationName:"taskRoleArn" type:"string"`
 
@@ -3182,6 +3184,8 @@ type TaskDefinition struct {
 	// The family of your task definition. You can think of the family as the name
 	// of your task definition.
 	Family *string `locationName:"family" type:"string"`
+
+	NetworkMode *string `locationName:"networkMode" type:"string"`
 
 	// The container instance attributes required by your task.
 	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`

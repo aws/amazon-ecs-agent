@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -817,4 +818,109 @@ func TestTaskIamRoles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify credential request failed, err: %v", err)
 	}
+}
+
+// TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
+func TestMemoryOvercommit(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	memoryReservation := int64(50)
+	tdOverride := make(map[string]string)
+
+	tdOverride["$$$$MEMORY_RESERVATION$$$$"] = strconv.FormatInt(memoryReservation, 10)
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "memory-overcommit", tdOverride)
+	if err != nil {
+		t.Fatalf("Error starting task: %v", err)
+	}
+	defer task.Stop()
+
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	if err != nil {
+		t.Fatalf("Error waiting for running task: %v", err)
+	}
+
+	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
+	if err != nil {
+		t.Fatalf("Error resolving docker id for container in task: %v", err)
+	}
+
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("Could not inspect container for task: %v", err)
+	}
+
+	if containerMetaData.HostConfig.MemoryReservation != memoryReservation*1024*1024 {
+		t.Fatalf("MemoryReservation in container metadata is not as expected: %v, expected: %v", containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024)
+	}
+}
+
+// TestNetworkModeBridge tests the container network can be configured
+// as host mode in task definition
+func TestNetworkModeHost(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	err := networkModeTest(t, agent, "host")
+	if err != nil {
+		t.Fatalf("Networking mode host testing failed, err: %v", err)
+	}
+}
+
+// TestNetworkModeBridge tests the container network can be configured
+// as none mode in task definition
+func TestNetworkModeNone(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	err := networkModeTest(t, agent, "none")
+	if err != nil {
+		t.Fatalf("Networking mode none testing failed, err: %v", err)
+	}
+}
+
+// TestNetworkModeBridge tests the container network can be configured
+// as bridge mode in task definition
+func TestNetworkModeBridge(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	err := networkModeTest(t, agent, "bridge")
+	if err != nil {
+		t.Fatalf("Networking mode bridge testing failed, err: %v", err)
+	}
+}
+
+// TestNetworkMode tests the contaienr network mode is configured in task definition correctly
+func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
+	tdOverride := make(map[string]string)
+
+	// Test the host network mode
+	tdOverride["$$$$NETWORK_MODE$$$$"] = mode
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "network-mode", tdOverride)
+	if err != nil {
+		return fmt.Errorf("error starting task with network %v, err: %v", mode, err)
+	}
+	defer task.Stop()
+
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	if err != nil {
+		return fmt.Errorf("error waiting for task running, err: %v", err)
+	}
+	containerId, err := agent.ResolveTaskDockerID(task, "network-"+mode)
+	if err != nil {
+		return fmt.Errorf("error resolving docker id for container \"network-none\": %v", err)
+	}
+
+	networks, err := agent.GetContainerNetworkMode(containerId)
+	if err != nil {
+		return err
+	}
+	if len(networks) != 1 {
+		return fmt.Errorf("found multiple networks in container config")
+	}
+	if networks[0] != mode {
+		return fmt.Errorf("did not found the expected network mode")
+	}
+	return nil
 }

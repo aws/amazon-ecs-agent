@@ -104,7 +104,7 @@ func GetTaskDefinitionWithOverrides(name string, overrides map[string]string) (s
 
 	tdStr := string(tdDataFromFile)
 	for key, value := range overrides {
-		tdStr = strings.Replace(tdStr, key, value, 1)
+		tdStr = strings.Replace(tdStr, key, value, -1)
 	}
 	tdData := []byte(tdStr)
 
@@ -806,4 +806,23 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 	}
 
 	return nil
+}
+
+// GetContainerNetworkMode gets the container network mode, given container id
+func (agent *TestAgent) GetContainerNetworkMode(containerId string) ([]string, error) {
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		return nil, fmt.Errorf("Could not inspect container for task: %v", err)
+	}
+
+	if containerMetaData.NetworkSettings == nil {
+		return nil, fmt.Errorf("Couldn't find the container network setting info")
+	}
+
+	var networks []string
+	for key := range containerMetaData.NetworkSettings.Networks {
+		networks = append(networks, key)
+	}
+
+	return networks, nil
 }
