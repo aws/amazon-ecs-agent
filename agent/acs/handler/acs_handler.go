@@ -19,12 +19,14 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/net/context"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
+	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -63,18 +65,19 @@ const (
 // needs... This is really a hack to get by-name instead of positional
 // arguments since there are too many for positional to be wieldy
 type StartSessionArguments struct {
-	ContainerInstanceArn string
-	CredentialProvider   *credentials.Credentials
-	Config               *config.Config
-	TaskEngine           engine.TaskEngine
-	ECSClient            api.ECSClient
-	StateManager         statemanager.StateManager
-	AcceptInvalidCert    bool
-	CredentialsManager   rolecredentials.Manager
-	_time                ttime.Time
-	_heartbeatTimeout    time.Duration
-	_heartbeatJitter     time.Duration
-	_timeOnce            sync.Once
+	ContainerInstanceArn    string
+	CredentialProvider      *credentials.Credentials
+	Config                  *config.Config
+	DeregisterInstanceStream *event.ACSDeregisterInstanceStream
+	TaskEngine              engine.TaskEngine
+	ECSClient               api.ECSClient
+	StateManager            statemanager.StateManager
+	AcceptInvalidCert       bool
+	CredentialsManager      rolecredentials.Manager
+	_time                   ttime.Time
+	_heartbeatTimeout       time.Duration
+	_heartbeatJitter        time.Duration
+	_timeOnce               sync.Once
 }
 
 // sessionState defines state recorder interface for the
@@ -172,6 +175,9 @@ func startSession(ctx context.Context, args StartSessionArguments, backoff *util
 
 		if acsError == nil || acsError == io.EOF {
 			backoff.Reset()
+		} else if strings.HasPrefix(acsError.Error(), "InactiveInstanceException:") {
+			seelog.Debug("Container instance is deregistered, notifying listeners")
+			args.DeregisterInstanceStream.EventChannel() <- struct{}{}
 		} else {
 			seelog.Infof("Error from acs; backing off, err: %v", acsError)
 			args.time().Sleep(backoff.Duration())

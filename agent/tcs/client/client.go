@@ -15,7 +15,6 @@ package tcsclient
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -124,10 +123,8 @@ func (cs *clientServer) Close() error {
 		cs.publishTicker.Stop()
 		cs.endPublish <- struct{}{}
 	}
-	if cs.Conn != nil {
-		return cs.Conn.Close()
-	}
-	return errors.New("No connection to close")
+
+	return cs.Disconnect()
 }
 
 // publishMetrics invokes the PublishMetricsRequest on the clientserver object.

@@ -26,11 +26,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -211,4 +213,30 @@ func testCS() (wsclient.ClientServer, *messageLogger) {
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
 	cs.Conn = ml
 	return cs, ml
+}
+
+// TestDeregisterInstanceStream tests the ws connection will be closed by tcs client when
+// received the deregisterInstanceStream
+func TestDeregisterInstanceStream(t *testing.T) {
+	cs, ml := testCS()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
+	deregisterInstanceStream.StartListening(ctx)
+	defer cancel()
+
+	deregisterInstanceStream.Subscribe(cs.Disconnect)
+	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
+	if err != nil {
+		t.Errorf("Error making client request: %v", err)
+	}
+	if ml.closed {
+		t.Error("Connection closed before send the deregister event")
+	}
+	deregisterInstanceStream.EventChannel() <- struct{}{}
+	// wait for the handler to run
+	time.Sleep(1 * time.Second)
+	if !ml.closed {
+		t.Error("Client should be closed after receiving deregister event")
+	}
 }

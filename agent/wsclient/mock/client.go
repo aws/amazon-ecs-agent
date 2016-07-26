@@ -70,6 +70,16 @@ func (_mr *_MockClientServerRecorder) Connect() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Connect")
 }
 
+func (_m *MockClientServer) Disconnect() error {
+	ret := _m.ctrl.Call(_m, "Disconnect")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientServerRecorder) Disconnect() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Disconnect")
+}
+
 func (_m *MockClientServer) MakeRequest(_param0 interface{}) error {
 	ret := _m.ctrl.Call(_m, "MakeRequest", _param0)
 	ret0, _ := ret[0].(error)

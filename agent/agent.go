@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -232,14 +233,18 @@ func _main() int {
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
+	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
+	deregisterInstanceStream.StartListening(ctx)
+
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		ContainerInstanceArn: containerInstanceArn,
 		CredentialProvider:   credentialProvider,
 		Cfg:                  cfg,
-		DockerClient:         dockerClient,
-		AcceptInvalidCert:    *acceptInsecureCert,
-		EcsClient:            client,
-		TaskEngine:           taskEngine,
+		DeregisterInstanceStream: deregisterInstanceStream,
+		DockerClient:            dockerClient,
+		AcceptInvalidCert:       *acceptInsecureCert,
+		EcsClient:               client,
+		TaskEngine:              taskEngine,
 	}
 
 	// Start metrics session in a go routine
@@ -247,14 +252,15 @@ func _main() int {
 
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(ctx, acshandler.StartSessionArguments{
-		AcceptInvalidCert:    *acceptInsecureCert,
-		Config:               cfg,
-		ContainerInstanceArn: containerInstanceArn,
-		CredentialProvider:   credentialProvider,
-		ECSClient:            client,
-		StateManager:         stateManager,
-		TaskEngine:           taskEngine,
-		CredentialsManager:   credentialsManager,
+		AcceptInvalidCert:       *acceptInsecureCert,
+		Config:                  cfg,
+		DeregisterInstanceStream: deregisterInstanceStream,
+		ContainerInstanceArn:    containerInstanceArn,
+		CredentialProvider:      credentialProvider,
+		ECSClient:               client,
+		StateManager:            stateManager,
+		TaskEngine:              taskEngine,
+		CredentialsManager:      credentialsManager,
 	})
 	if err != nil {
 		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)

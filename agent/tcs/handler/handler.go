@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
@@ -90,13 +91,15 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 	}
 	log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
-	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval)
+	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval, params.DeregisterInstanceStream)
 }
 
-func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) error {
+func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration, deregisterInstanceStream *event.ACSDeregisterInstanceStream) error {
 	client := tcsclient.New(url, region, credentialProvider, acceptInvalidCert, statsEngine, publishMetricsInterval)
-
 	defer client.Close()
+
+	deregisterInstanceStream.Subscribe(client.Disconnect)
+	defer deregisterInstanceStream.Unsubscribe(client.Disconnect)
 
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a publish metrics message

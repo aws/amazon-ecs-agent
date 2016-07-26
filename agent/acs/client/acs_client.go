@@ -61,8 +61,5 @@ func (cs *clientServer) Serve() error {
 
 // Close closes the underlying connection
 func (cs *clientServer) Close() error {
-	if cs.Conn != nil {
-		return cs.Conn.Close()
-	}
-	return errors.New("No connection to close")
+	return cs.Disconnect()
 }

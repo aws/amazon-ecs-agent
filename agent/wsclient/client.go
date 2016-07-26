@@ -23,7 +23,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -90,6 +90,7 @@ type ClientServer interface {
 	SetAnyRequestHandler(RequestHandler)
 	MakeRequest(input interface{}) error
 	Connect() error
+	Disconnect() error
 	Serve() error
 	io.Closer
 }
@@ -148,7 +149,7 @@ func (cs *ClientServerImpl) Connect() error {
 			var readErr error
 			resp, readErr = ioutil.ReadAll(httpResponse.Body)
 			if readErr != nil {
-				return errors.New("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
+				return fmt.Errorf("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
 			}
 			// If there's a response, we can try to unmarshal it into one of the
 			// modeled error types
@@ -158,10 +159,19 @@ func (cs *ClientServerImpl) Connect() error {
 			}
 		}
 		seelog.Warnf("Error creating a websocket client: %v", err)
-		return errors.New(string(resp) + ", " + err.Error())
+		return fmt.Errorf(string(resp) + ", " + err.Error())
 	}
 	cs.Conn = websocketConn
 	return nil
+}
+
+// Disconnect disconnects the connection
+func (cs *ClientServerImpl) Disconnect() error {
+	if cs.Conn != nil {
+		return cs.Conn.Close()
+	}
+
+	return fmt.Errorf("No Connection to close")
 }
 
 // AddRequestHandler adds a request handler to this client.
@@ -345,7 +355,7 @@ func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Requ
 	}
 	if resp.StatusCode != 200 {
 		plainConn.Close()
-		return nil, errors.New(resp.Status)
+		return nil, fmt.Errorf(resp.Status)
 	}
 
 	tlsConn := tls.Client(plainConn, &tlsConfig)

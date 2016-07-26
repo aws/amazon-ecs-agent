@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -29,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -84,8 +86,9 @@ func TestStartSession(t *testing.T) {
 		close(serverChan)
 	}()
 
+	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
 	// Start a session with the test server.
-	go startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval)
+	go startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval, deregisterInstanceStream)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
@@ -130,8 +133,13 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 		close(serverChan)
 	}()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
+	deregisterInstanceStream.StartListening(ctx)
+	defer cancel()
+
 	// Start a session with the test server.
-	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval)
+	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval, deregisterInstanceStream)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
