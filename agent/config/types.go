@@ -114,6 +114,10 @@ type Config struct {
 
 	// CredentialsAuditLogEnabled specifies whether audit logging is disabled.
 	CredentialsAuditLogDisabled bool
+
+	// TaskIAMRoleEnabledForNetworkHost specifies if the Agent is capable of launching
+	// tasks with IAM Roles when networkMode is set to 'host'
+	TaskIAMRoleEnabledForNetworkHost bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged
