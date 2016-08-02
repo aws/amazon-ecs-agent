@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,16 +26,16 @@ import (
 )
 
 type TelemetrySessionParams struct {
-	ContainerInstanceArn    string
-	CredentialProvider      *credentials.Credentials
-	Cfg                     *config.Config
+	ContainerInstanceArn     string
+	CredentialProvider       *credentials.Credentials
+	Cfg                      *config.Config
 	DeregisterInstanceStream *event.ACSDeregisterInstanceStream
-	DockerClient            engine.DockerClient
-	AcceptInvalidCert       bool
-	EcsClient               api.ECSClient
-	TaskEngine              engine.TaskEngine
-	_time                   ttime.Time
-	_timeOnce               sync.Once
+	DockerClient             engine.DockerClient
+	AcceptInvalidCert        bool
+	EcsClient                api.ECSClient
+	TaskEngine               engine.TaskEngine
+	_time                    ttime.Time
+	_timeOnce                sync.Once
 }
 
 func (params *TelemetrySessionParams) isTelemetryDisabled() (bool, error) {
