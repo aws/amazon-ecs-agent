@@ -60,7 +60,7 @@ mirror_image() {
 }
 
 mirror_local_image() {
-  docker tag -f $1 $2
+  docker tag $1 $2
   docker push $2
 }
 
