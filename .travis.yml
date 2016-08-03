@@ -2,7 +2,11 @@ language: go
 sudo: false
 go:
     - 1.4
+    - 1.5
+    - 1.6
 before_install: ./scripts/hack/symlink-gopath-travisci
-install: make get-deps
+install:
+    - go get golang.org/x/tools/cover
+    - go get golang.org/x/tools/cmd/cover
 script:
     - make gotest
