@@ -1,13 +1,18 @@
 # Changelog
 
+## 1.11.1
+* Bug - Fixed a bug where telemetry data would fail to serialize properly.
+* Bug - Addressed an issue where telemetry would be reported after the
+  container instance was deregistered.
+
 ## 1.11.0
-* Feature - Support IAM roles for tasks
-* Feature - Add support for the Splunk logging driver
-* Enhancement - Reduced pull status verbosity in debug mode
-* Enhancement - Add a Docker label for ECS cluster
+* Feature - Support IAM roles for tasks.
+* Feature - Add support for the Splunk logging driver.
+* Enhancement - Reduced pull status verbosity in debug mode.
+* Enhancement - Add a Docker label for ECS cluster.
 * Bug - Fixed a bug that could cause a container to be marked as STOPPED while
-  still running on the instance
-* Bug - Fixed a potential race condition in metrics collection
+  still running on the instance.
+* Bug - Fixed a potential race condition in metrics collection.
 * Bug - Resolved a bug where some state could be retained across different
   container instances when launching from a snapshotted AMI.
 
