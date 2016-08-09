@@ -203,7 +203,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	llog := log.New("task", mtask.Task)
 	// Handle container change updates a container's known status.
 	// In addition, if the change mentions interesting information (like
-	// exit codes or ports) this propegates them.
+	// exit codes or ports) this propagates them.
 	container := containerChange.container
 	found := false
 	for _, c := range mtask.Containers {
