@@ -88,6 +88,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_DISABLE_PRIVILEGED", "true")
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
+	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")
 
 	conf := environmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -124,6 +125,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if !conf.TaskIAMRoleEnabled {
 		t.Error("Wrong value for TaskIAMRoleEnabled")
+	}
+	if !conf.TaskIAMRoleEnabledForNetworkHost {
+		t.Error("Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	}
 }
 
@@ -172,6 +176,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE")
+	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST")
 	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	os.Unsetenv("ECS_AUDIT_LOGFILE")
 	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
@@ -209,6 +214,9 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.TaskIAMRoleEnabled {
 		t.Error("TaskIAMRoleEnabled set incorrectly")
+	}
+	if cfg.TaskIAMRoleEnabledForNetworkHost {
+		t.Error("TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	}
 	if cfg.CredentialsAuditLogDisabled {
 		t.Error("CredentialsAuditLogDisabled set incorrectly")
@@ -361,6 +369,18 @@ func TestTaskIAMRoleEnabled(t *testing.T) {
 
 	if !cfg.TaskIAMRoleEnabled {
 		t.Errorf("Wrong value for TaskIAMRoleEnabled: %v", cfg.TaskIAMRoleEnabled)
+	}
+}
+
+func TestTaskIAMRoleForHostNetworkEnabled(t *testing.T) {
+	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !cfg.TaskIAMRoleEnabledForNetworkHost {
+		t.Errorf("Wrong value for TaskIAMRoleEnabledForNetworkHost: %v", cfg.TaskIAMRoleEnabledForNetworkHost)
 	}
 }
 

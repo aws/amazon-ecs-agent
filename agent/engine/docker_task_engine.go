@@ -39,6 +39,7 @@ const (
 	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
+	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
 
@@ -640,7 +641,9 @@ func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
 //    com.amazonaws.ecs.capability.logging-driver.gelf
 //    com.amazonaws.ecs.capability.selinux
 //    com.amazonaws.ecs.capability.apparmor
-//    com.amazonaws.ecs.capability.iam
+//    com.amazonaws.ecs.capability.ecr-auth
+//    com.amazonaws.ecs.capability.task-iam-role
+//    com.amazonaws.ecs.capability.task-iam-role-network-host
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -678,6 +681,15 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRole)
 		} else {
 			seelog.Warn("Task IAM Role not enabled due to unsuppported Docker version")
+		}
+	}
+
+	if engine.cfg.TaskIAMRoleEnabledForNetworkHost {
+		// The "task-iam-role-network-host" capability is supported for docker v1.7.x onwards
+		if _, ok := versions[dockerclient.Version_1_19]; ok {
+			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRoleNetHost)
+		} else {
+			seelog.Warn("Task IAM Role for Host Network not enabled due to unsuppported Docker version")
 		}
 	}
 

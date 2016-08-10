@@ -112,6 +112,7 @@ configure them as something other than the defaults.
 | `ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION` | 10m | Time to wait to delete containers for a stopped task. If set to less than 1 minute, the value is ignored.  | 3h |
 | `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container to exit normally before being forcibly killed. | 30s |
 | `ECS_ENABLE_TASK_IAM_ROLE` | `true` | Whether to enable IAM Roles for Tasks on the Container Instance | `false` |
+| `ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST` | `true` | Whether to enable IAM Roles for Tasks when launched with `host` network mode on the Container Instance | `false` |
 
 ### Persistence
 

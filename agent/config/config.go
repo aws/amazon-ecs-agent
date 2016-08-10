@@ -282,34 +282,36 @@ func environmentConfig() Config {
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
+	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
 
 	return Config{
-		Cluster:                     clusterRef,
-		APIEndpoint:                 endpoint,
-		AWSRegion:                   awsRegion,
-		DockerEndpoint:              dockerEndpoint,
-		ReservedPorts:               reservedPorts,
-		ReservedPortsUDP:            reservedPortsUDP,
-		DataDir:                     dataDir,
-		Checkpoint:                  checkpoint,
-		EngineAuthType:              engineAuthType,
-		EngineAuthData:              NewSensitiveRawMessage([]byte(engineAuthData)),
-		UpdatesEnabled:              updatesEnabled,
-		UpdateDownloadDir:           updateDownloadDir,
-		DisableMetrics:              disableMetrics,
-		ReservedMemory:              reservedMemory,
-		AvailableLoggingDrivers:     availableLoggingDrivers,
-		PrivilegedDisabled:          privilegedDisabled,
-		SELinuxCapable:              seLinuxCapable,
-		AppArmorCapable:             appArmorCapable,
-		TaskCleanupWaitDuration:     taskCleanupWaitDuration,
-		TaskIAMRoleEnabled:          taskIAMRoleEnabled,
-		DockerStopTimeout:           dockerStopTimeout,
-		CredentialsAuditLogFile:     credentialsAuditLogFile,
-		CredentialsAuditLogDisabled: credentialsAuditLogDisabled,
+		Cluster:                          clusterRef,
+		APIEndpoint:                      endpoint,
+		AWSRegion:                        awsRegion,
+		DockerEndpoint:                   dockerEndpoint,
+		ReservedPorts:                    reservedPorts,
+		ReservedPortsUDP:                 reservedPortsUDP,
+		DataDir:                          dataDir,
+		Checkpoint:                       checkpoint,
+		EngineAuthType:                   engineAuthType,
+		EngineAuthData:                   NewSensitiveRawMessage([]byte(engineAuthData)),
+		UpdatesEnabled:                   updatesEnabled,
+		UpdateDownloadDir:                updateDownloadDir,
+		DisableMetrics:                   disableMetrics,
+		ReservedMemory:                   reservedMemory,
+		AvailableLoggingDrivers:          availableLoggingDrivers,
+		PrivilegedDisabled:               privilegedDisabled,
+		SELinuxCapable:                   seLinuxCapable,
+		AppArmorCapable:                  appArmorCapable,
+		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
+		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
+		DockerStopTimeout:                dockerStopTimeout,
+		CredentialsAuditLogFile:          credentialsAuditLogFile,
+		CredentialsAuditLogDisabled:      credentialsAuditLogDisabled,
+		TaskIAMRoleEnabledForNetworkHost: taskIAMRoleEnabledForNetworkHost,
 	}
 }
 

@@ -802,6 +802,50 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.T) {
+	conf := &config.Config{
+		TaskIAMRoleEnabledForNetworkHost: true,
+	}
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_19,
+	})
+
+	capabilities := taskEngine.Capabilities()
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[capability] = true
+	}
+
+	if _, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]; !ok {
+		t.Errorf("Could not find iam capability when expected; got capabilities %v", capabilities)
+	}
+}
+
+func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testing.T) {
+	conf := &config.Config{
+		TaskIAMRoleEnabledForNetworkHost: true,
+	}
+	ctrl, client, _, taskEngine, _ := mocks(t, conf)
+	defer ctrl.Finish()
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_18,
+	})
+
+	capabilities := taskEngine.Capabilities()
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[capability] = true
+	}
+
+	if _, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]; ok {
+		t.Errorf("task-iam-role capability set for unsupported docker version")
+	}
+}
+
 func TestGetTaskByArn(t *testing.T) {
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
