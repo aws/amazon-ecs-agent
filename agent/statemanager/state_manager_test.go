@@ -49,7 +49,7 @@ func TestStateManager(t *testing.T) {
 
 	// Now let's make some state to save
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil)
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	if err != nil {
@@ -67,7 +67,7 @@ func TestStateManager(t *testing.T) {
 	}
 
 	// Now make sure we can load that state sanely
-	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
+	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil)
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))
@@ -113,7 +113,7 @@ func TestStateManagerNonexistantDirectory(t *testing.T) {
 func TestLoadsV1DataCorrectly(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 

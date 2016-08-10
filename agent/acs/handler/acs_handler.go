@@ -26,13 +26,13 @@ import (
 	"golang.org/x/net/context"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
-	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -65,19 +65,19 @@ const (
 // needs... This is really a hack to get by-name instead of positional
 // arguments since there are too many for positional to be wieldy
 type StartSessionArguments struct {
-	ContainerInstanceArn    string
-	CredentialProvider      *credentials.Credentials
-	Config                  *config.Config
-	DeregisterInstanceStream *event.ACSDeregisterInstanceStream
-	TaskEngine              engine.TaskEngine
-	ECSClient               api.ECSClient
-	StateManager            statemanager.StateManager
-	AcceptInvalidCert       bool
-	CredentialsManager      rolecredentials.Manager
-	_time                   ttime.Time
-	_heartbeatTimeout       time.Duration
-	_heartbeatJitter        time.Duration
-	_timeOnce               sync.Once
+	ContainerInstanceArn          string
+	CredentialProvider            *credentials.Credentials
+	Config                        *config.Config
+	DeregisterInstanceEventStream *eventstream.EventStream
+	TaskEngine                    engine.TaskEngine
+	ECSClient                     api.ECSClient
+	StateManager                  statemanager.StateManager
+	AcceptInvalidCert             bool
+	CredentialsManager            rolecredentials.Manager
+	_time                         ttime.Time
+	_heartbeatTimeout             time.Duration
+	_heartbeatJitter              time.Duration
+	_timeOnce                     sync.Once
 }
 
 // sessionState defines state recorder interface for the
@@ -177,7 +177,10 @@ func startSession(ctx context.Context, args StartSessionArguments, backoff *util
 			backoff.Reset()
 		} else if strings.HasPrefix(acsError.Error(), "InactiveInstanceException:") {
 			seelog.Debug("Container instance is deregistered, notifying listeners")
-			args.DeregisterInstanceStream.EventChannel() <- struct{}{}
+			err := args.DeregisterInstanceEventStream.WriteToEventStream(struct{}{})
+			if err != nil {
+				seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
+			}
 		} else {
 			seelog.Infof("Error from acs; backing off, err: %v", acsError)
 			args.time().Sleep(backoff.Duration())

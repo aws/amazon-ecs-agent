@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
@@ -43,6 +43,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	log "github.com/cihub/seelog"
 	"golang.org/x/net/context"
+)
+
+const (
+	ContainerChangeEventStream             = "ContainerChange"
+	DeregisterContainerInstanceEventStream = "DeregisterContainerInstance"
 )
 
 func init() {
@@ -84,7 +89,7 @@ func _main() int {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 	}
 
-	log.Infof("Starting Agent: %v", version.String())
+	log.Infof("Starting Agent: %s", version.String())
 	if *acceptInsecureCert {
 		log.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
@@ -98,17 +103,21 @@ func _main() int {
 		return exitcodes.ExitError
 	}
 
+	ctx := context.Background()
+	// Create the DockerContainerChange event stream for tcs
+	containerChangeEventStream := eventstream.NewEventStream(ContainerChangeEventStream, ctx)
+	containerChangeEventStream.StartListening()
+
 	// Create credentials manager. This will be used by the task engine and
 	// the credentials handler
 	credentialsManager := credentials.NewManager()
 	if *versionFlag {
-		versionableEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
+		versionableEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream)
 		version.PrintVersion(versionableEngine)
 		return exitcodes.ExitSuccess
 	}
 
 	sighandlers.StartDebugHandler()
-	ctx := context.Background()
 
 	if cfgErr != nil {
 		log.Criticalf("Error loading config: %v", err)
@@ -123,7 +132,7 @@ func _main() int {
 	if cfg.Checkpoint {
 		log.Info("Checkpointing is enabled. Attempting to load state")
 		var previousCluster, previousEc2InstanceID, previousContainerInstanceArn string
-		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
+		previousTaskEngine := engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream)
 		// previousState is used to verify that our current runtime configuration is
 		// compatible with our past configuration as reflected by our state-file
 		previousState, err := initializeStateManager(cfg, previousTaskEngine, &previousCluster, &previousContainerInstanceArn, &previousEc2InstanceID)
@@ -160,10 +169,10 @@ func _main() int {
 		}
 
 		if previousEc2InstanceID != "" && previousEc2InstanceID != currentEc2InstanceID {
-			log.Warnf("Data mismatch; saved InstanceID '%v' does not match current InstanceID '%v'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
+			log.Warnf("Data mismatch; saved InstanceID '%s' does not match current InstanceID '%s'. Overwriting old datafile", previousEc2InstanceID, currentEc2InstanceID)
 
 			// Reset taskEngine; all the other values are still default
-			taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
+			taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream)
 		} else {
 			// Use the values we loaded if there's no issue
 			containerInstanceArn = previousContainerInstanceArn
@@ -171,7 +180,7 @@ func _main() int {
 		}
 	} else {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager)
+		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream)
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
@@ -188,7 +197,7 @@ func _main() int {
 	credentialProvider := defaults.CredChain(defaults.Config(), defaults.Handlers())
 	// Preflight request to make sure they're good
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
-		log.Warnf("Error getting valid credentials (AKID %v): %v", preflightCreds.AccessKeyID, err)
+		log.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
 	client := api.NewECSClient(credentialProvider, cfg, httpclient.New(api.RoundtripTimeout, *acceptInsecureCert), ec2MetadataClient)
 
@@ -202,11 +211,11 @@ func _main() int {
 			}
 			return exitcodes.ExitError
 		}
-		log.Infof("Registration completed successfully. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
+		log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, cfg.Cluster)
 		// Save our shiny new containerInstanceArn
 		stateManager.Save()
 	} else {
-		log.Infof("Restored from checkpoint file. I am running as '%v' in cluster '%v'", containerInstanceArn, cfg.Cluster)
+		log.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", containerInstanceArn, cfg.Cluster)
 		_, err = client.RegisterContainerInstance(containerInstanceArn, capabilities)
 		if err != nil {
 			log.Errorf("Error re-registering: %v", err)
@@ -233,18 +242,19 @@ func _main() int {
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
 
-	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
-	deregisterInstanceStream.StartListening(ctx)
+	deregisterInstanceEventStream := eventstream.NewEventStream(DeregisterContainerInstanceEventStream, ctx)
+	deregisterInstanceEventStream.StartListening()
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		ContainerInstanceArn: containerInstanceArn,
 		CredentialProvider:   credentialProvider,
 		Cfg:                  cfg,
-		DeregisterInstanceStream: deregisterInstanceStream,
-		DockerClient:            dockerClient,
-		AcceptInvalidCert:       *acceptInsecureCert,
-		EcsClient:               client,
-		TaskEngine:              taskEngine,
+		DeregisterInstanceEventStream: deregisterInstanceEventStream,
+		ContainerChangeEventStream:    containerChangeEventStream,
+		DockerClient:                  dockerClient,
+		AcceptInvalidCert:             *acceptInsecureCert,
+		EcsClient:                     client,
+		TaskEngine:                    taskEngine,
 	}
 
 	// Start metrics session in a go routine
@@ -252,15 +262,15 @@ func _main() int {
 
 	log.Info("Beginning Polling for updates")
 	err = acshandler.StartSession(ctx, acshandler.StartSessionArguments{
-		AcceptInvalidCert:       *acceptInsecureCert,
-		Config:                  cfg,
-		DeregisterInstanceStream: deregisterInstanceStream,
-		ContainerInstanceArn:    containerInstanceArn,
-		CredentialProvider:      credentialProvider,
-		ECSClient:               client,
-		StateManager:            stateManager,
-		TaskEngine:              taskEngine,
-		CredentialsManager:      credentialsManager,
+		AcceptInvalidCert: *acceptInsecureCert,
+		Config:            cfg,
+		DeregisterInstanceEventStream: deregisterInstanceEventStream,
+		ContainerInstanceArn:          containerInstanceArn,
+		CredentialProvider:            credentialProvider,
+		ECSClient:                     client,
+		StateManager:                  stateManager,
+		TaskEngine:                    taskEngine,
+		CredentialsManager:            credentialsManager,
 	})
 	if err != nil {
 		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)

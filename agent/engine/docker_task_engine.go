@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
@@ -69,6 +70,8 @@ type DockerTaskEngine struct {
 	client     DockerClient
 	clientLock sync.Mutex
 
+	containerChangeEventStream *eventstream.EventStream
+
 	stopEngine context.CancelFunc
 
 	// processTasks is a mutex that the task engine must aquire before changing
@@ -86,7 +89,7 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -100,6 +103,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		taskEvents:      make(chan api.TaskStateChange),
 
 		credentialsManager: credentialsManager,
+
+		containerChangeEventStream: containerChangeEventStream,
 	}
 
 	return dockerTaskEngine
@@ -387,6 +392,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 		return true
 	}
 	log.Debug("Writing docker event to the associated task", "task", task, "event", event)
+
 	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
 	log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
 	return true

@@ -10,7 +10,7 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-package event
+package eventstream
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ type eventListener struct {
 	called bool
 }
 
-func (listener *eventListener) recordCall() error {
+func (listener *eventListener) recordCall(...interface{}) error {
 	listener.called = true
 	return nil
 }
@@ -33,13 +33,17 @@ func (listener *eventListener) recordCall() error {
 func TestSubscribe(t *testing.T) {
 	listener := eventListener{called: false}
 
-	events := NewACSDeregisterInstanceStream()
-	events.Subscribe(listener.recordCall)
 	ctx, cancel := context.WithCancel(context.Background())
+	eventStream := NewEventStream("TestSubscribe", ctx)
+	eventStream.Subscribe("listener", listener.recordCall)
 
-	go events.StartListening(ctx)
+	eventStream.StartListening()
 
-	events.EventChannel() <- struct{}{}
+	err := eventStream.WriteToEventStream(struct{}{})
+	if err != nil {
+		t.Errorf("Write to event stream failed, err: %v", err)
+	}
+
 	time.Sleep(1 * time.Second)
 
 	cancel()
@@ -54,15 +58,19 @@ func TestUnsubscribe(t *testing.T) {
 	listener1 := eventListener{called: false}
 	listener2 := eventListener{called: false}
 
-	events := NewACSDeregisterInstanceStream()
-
-	events.Subscribe(listener1.recordCall)
-	events.Subscribe(listener2.recordCall)
 	ctx, cancel := context.WithCancel(context.Background())
+	eventStream := NewEventStream("TestUnsubscribe", ctx)
 
-	go events.StartListening(ctx)
+	eventStream.Subscribe("listener1", listener1.recordCall)
+	eventStream.Subscribe("listener2", listener2.recordCall)
 
-	events.EventChannel() <- struct{}{}
+	eventStream.StartListening()
+
+	err := eventStream.WriteToEventStream(struct{}{})
+	if err != nil {
+		t.Errorf("Write to event stream failed, err: %v", err)
+	}
+
 	time.Sleep(1 * time.Second)
 	if !listener1.called {
 		t.Error("Listener 1 was not invoked")
@@ -72,11 +80,23 @@ func TestUnsubscribe(t *testing.T) {
 	}
 
 	listener1.called = false
-	events.Unsubscribe(listener1.recordCall)
-	events.EventChannel() <- struct{}{}
+	listener2.called = false
+	eventStream.Unsubscribe("listener1")
+
+	err = eventStream.WriteToEventStream(struct{}{})
+	if err != nil {
+		t.Errorf("Write to event stream failed, err: %v", err)
+	}
+
+	// wait for the event stream to broadcast
+	time.Sleep(1 * time.Second)
 
 	if listener1.called {
 		t.Error("Unsubscribed handler shouldn't be called")
+	}
+
+	if !listener2.called {
+		t.Error("Listener 2 was not invoked without unsubscribing")
 	}
 	cancel()
 }
@@ -84,16 +104,23 @@ func TestUnsubscribe(t *testing.T) {
 // TestCancelEventStream tests the event stream can
 // be closed by context
 func TestCancelEventStream(t *testing.T) {
-	events := NewACSDeregisterInstanceStream()
+	ctx, cancel := context.WithCancel(context.Background())
+	eventStream := NewEventStream("TestCancelEventStream", ctx)
+
 	listener := eventListener{called: false}
 
-	events.Subscribe(listener.recordCall)
-	ctx, cancel := context.WithCancel(context.Background())
+	eventStream.Subscribe("listener", listener.recordCall)
 
-	go events.StartListening(ctx)
+	eventStream.StartListening()
 	cancel()
 
-	events.EventChannel() <- struct{}{}
+	// wait for the event stream to handle cancel
+	time.Sleep(1 * time.Second)
+
+	err := eventStream.WriteToEventStream(struct{}{})
+	if err == nil {
+		t.Error("Write to closed event stream should return an error")
+	}
 	if listener.called {
 		t.Error("Cancelled events context, handler should not be called")
 	}
