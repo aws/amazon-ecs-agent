@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.12.0
+* Enhacement - Support Task IAM Role for containers launched with 'host' network mode
+
 ## 1.11.1
 * Bug - Fixed a bug where telemetry data would fail to serialize properly.
 * Bug - Addressed an issue where telemetry would be reported after the
