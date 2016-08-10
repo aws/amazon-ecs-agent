@@ -15,6 +15,7 @@ package iptables
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -40,14 +41,27 @@ func TestCreate(t *testing.T) {
 	mockCmd := NewMockCmd(ctrl)
 	// Mock a successful execution of the iptables command to create the
 	// route
-	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil)
 	mockExec := NewMockExec(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
-		mockExec.EXPECT().Command(iptablesExecutable, "-t", "nat", "-A", "PREROUTING",
-			"-p", "tcp", "-d", credentialsProxyIpAddress, "--dport",
-			credentialsProxyPort, "-j", "DNAT", "--to-destination",
-			localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-A", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-A", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
@@ -61,20 +75,64 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-func TestCreateErrorOnCommandError(t *testing.T) {
+func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
-	// Mock a failed execution of the iptables command to create the route
-	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?"))
 	mockExec := NewMockExec(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
-		mockExec.EXPECT().Command(iptablesExecutable, "-t", "nat", "-A", "PREROUTING",
-			"-p", "tcp", "-d", credentialsProxyIpAddress, "--dport",
-			credentialsProxyPort, "-j", "DNAT", "--to-destination",
-			localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-A", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	if err != nil {
+		t.Fatalf("Error creating netfilter route object: %v", err)
+	}
+
+	err = route.Create()
+	if err == nil {
+		t.Error("Expected error creating route")
+	}
+}
+
+func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-A", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-A", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
@@ -93,16 +151,31 @@ func TestRemove(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
-	// Mock a successful execution of the iptables command to create the
-	// route
-	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil)
 	mockExec := NewMockExec(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
-		mockExec.EXPECT().Command(iptablesExecutable, "-t", "nat", "-D", "PREROUTING",
-			"-p", "tcp", "-d", credentialsProxyIpAddress, "--dport",
-			credentialsProxyPort, "-j", "DNAT", "--to-destination",
-			localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a successful execution of the iptables command to create the
+		// route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a successful execution of the iptables command to create the
+		// route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
@@ -116,20 +189,34 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-func TestRemoveErrorOnCommandError(t *testing.T) {
+func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
-	// Mock a failed execution of the iptables command to create the route
-	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry"))
 	mockExec := NewMockExec(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
-		mockExec.EXPECT().Command(iptablesExecutable, "-t", "nat", "-D", "PREROUTING",
-			"-p", "tcp", "-d", credentialsProxyIpAddress, "--dport",
-			credentialsProxyPort, "-j", "DNAT", "--to-destination",
-			localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
@@ -140,5 +227,130 @@ func TestRemoveErrorOnCommandError(t *testing.T) {
 	err = route.Remove()
 	if err == nil {
 		t.Error("Expected error removing route")
+	}
+}
+
+func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	if err != nil {
+		t.Fatalf("Error creating netfilter route object: %v", err)
+	}
+
+	err = route.Remove()
+	if err == nil {
+		t.Error("Expected error removing route")
+	}
+}
+
+func TestRemoveErrorOnPreroutingChainOutputChainCommandsErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "PREROUTING",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "DNAT",
+			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			"-t", "nat",
+			"-D", "OUTPUT",
+			"-p", "tcp",
+			"-d", credentialsProxyIpAddress,
+			"--dport", credentialsProxyPort,
+			"-j", "REDIRECT",
+			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+		// Mock a failed execution of the iptables command to create the route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	if err != nil {
+		t.Fatalf("Error creating netfilter route object: %v", err)
+	}
+
+	err = route.Remove()
+	if err == nil {
+		t.Error("Expected error removing route")
+	}
+}
+
+func TestGetNatTableArgs(t *testing.T) {
+	if !reflect.DeepEqual(getNatTableArgs(), []string{"-t", "nat"}) {
+		t.Error("Incorrect arguments returned for nat table")
+	}
+}
+
+func TestGetPreroutingChainArgs(t *testing.T) {
+	preroutingChainAgrs := []string{
+		"PREROUTING",
+		"-p", "tcp",
+		"-d", "169.254.170.2",
+		"--dport", "80",
+		"-j", "DNAT",
+		"--to-destination", "127.0.0.1:51679",
+	}
+	if !reflect.DeepEqual(getPreroutingChainArgs(), preroutingChainAgrs) {
+		t.Error("Incorrect arguments for modifying prerouting chain")
+	}
+}
+
+func TestGetOutputChainArgs(t *testing.T) {
+	outputChainAgrs := []string{
+		"OUTPUT",
+		"-p", "tcp",
+		"-d", "169.254.170.2",
+		"--dport", "80",
+		"-j", "REDIRECT",
+		"--to-ports", "51679",
+	}
+	if !reflect.DeepEqual(getOutputChainArgs(), outputChainAgrs) {
+		t.Error("Incorrect arguments for modifying output chain")
+	}
+}
+
+func TestGetActionName(t *testing.T) {
+	if getActionName(iptablesAppend) != "append" {
+		t.Errorf("Incorrect action name returned for %v", iptablesAppend)
+	}
+	if getActionName(iptablesDelete) != "delete" {
+		t.Errorf("Incorrect action name returned for %v", iptablesDelete)
 	}
 }

@@ -14,6 +14,8 @@
 package iptables
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-init/ecs-init/exec"
 	log "github.com/cihub/seelog"
 )
@@ -39,6 +41,10 @@ type NetfilterRoute struct {
 	cmdExec exec.Exec
 }
 
+// getNetfilterChainArgsFunc defines a function pointer type that returns
+// a slice of arguments for modifying a netfilter chain
+type getNetfilterChainArgsFunc func() []string
+
 // NewNetfilterRoute creates a new NetfilterRoute object
 func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
 	// Return an error if 'iptables' command cannot be found in the path
@@ -55,28 +61,53 @@ func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
 
 // Create creates the credentials proxy endpoint route in the netfilter table
 func (route *NetfilterRoute) Create() error {
-	args := getArgs(iptablesAppend)
-	cmd := route.cmdExec.Command(iptablesExecutable, args...)
-	out, err := cmd.CombinedOutput()
+	err := route.modifyNetfilterEntry(iptablesAppend, getPreroutingChainArgs)
 	if err != nil {
-		log.Errorf("Error creating the route for credentials proxy endpoint: %v; raw output: %s", err, out)
+		return err
 	}
-	return err
+	return route.modifyNetfilterEntry(iptablesAppend, getOutputChainArgs)
 }
 
 // Remove removes the route for the credentials endpoint from the netfilter
 // table
 func (route *NetfilterRoute) Remove() error {
-	args := getArgs(iptablesDelete)
+	preroutingErr := route.modifyNetfilterEntry(iptablesDelete, getPreroutingChainArgs)
+	if preroutingErr != nil {
+		// Add more context for error in modifying the prerouting chain
+		preroutingErr = fmt.Errorf("Error removing prerouting chain entry: %v", preroutingErr)
+	}
+	outputErr := route.modifyNetfilterEntry(iptablesDelete, getOutputChainArgs)
+	if outputErr != nil {
+		if preroutingErr != nil {
+			// return a combined error message for prerouting and output chains
+			return fmt.Errorf("%v; Error removing output chain entry: %v", preroutingErr, outputErr)
+		}
+		// Add more context for error in modifying the output chain
+		return fmt.Errorf("Error removing output chain entry: %v", outputErr)
+	}
+	return preroutingErr
+}
+
+// modifyNetfilterEntry modifies an entry in the netfilter table based on
+// the action and the function pointer to get arguments for modifying the
+// chain
+func (route *NetfilterRoute) modifyNetfilterEntry(action iptablesAction, getNetfilterChainArgs getNetfilterChainArgsFunc) error {
+	args := append(getNatTableArgs(), string(action))
+	args = append(args, getNetfilterChainArgs()...)
 	cmd := route.cmdExec.Command(iptablesExecutable, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("Error removing the route for credentials proxy endpoint: %v; raw output: %s", err, out)
+		log.Errorf("Error performing action '%s' for credentials proxy endpoint route: %v; raw output: %s", getActionName(action), err, out)
 	}
+
 	return err
 }
 
-func getPreroutingArgs() []string {
+func getNatTableArgs() []string {
+	return []string{"-t", "nat"}
+}
+
+func getPreroutingChainArgs() []string {
 	return []string{
 		"PREROUTING",
 		"-p", "tcp",
@@ -87,11 +118,21 @@ func getPreroutingArgs() []string {
 	}
 }
 
-func getNatTableArgs() []string {
-	return []string{"-t", "nat"}
+func getOutputChainArgs() []string {
+	return []string{
+		"OUTPUT",
+		"-p", "tcp",
+		"-d", credentialsProxyIpAddress,
+		"--dport", credentialsProxyPort,
+		"-j", "REDIRECT",
+		"--to-ports", localhostCredentialsProxyPort,
+	}
 }
 
-func getArgs(action iptablesAction) []string {
-	args := append(getNatTableArgs(), string(action))
-	return append(args, getPreroutingArgs()...)
+func getActionName(action iptablesAction) string {
+	if action == iptablesAppend {
+		return "append"
+	}
+
+	return "delete"
 }

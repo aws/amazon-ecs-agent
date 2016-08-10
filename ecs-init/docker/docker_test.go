@@ -226,6 +226,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
 	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE=true", envVariables, t)
+	expectKey("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true", envVariables, t)
 
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
