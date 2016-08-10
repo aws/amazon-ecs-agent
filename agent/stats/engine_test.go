@@ -16,7 +16,6 @@ package stats
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -25,7 +24,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
-	"golang.org/x/net/context"
 )
 
 var defaultCluster = "default"
@@ -157,17 +155,18 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
-	engine := NewDockerStatsEngine(&cfg, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"))
 	engine.resolver = resolver
 	engine.client = mockDockerClient
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
+	defer engine.removeAll()
 
 	engine.addContainer("c1")
 	engine.addContainer("c1")
 
 	if len(engine.tasksToContainers) != 1 {
-		t.Error("Adding containers failed. Expected num tasks = 1, got: ", len(engine.tasksToContainers))
+		t.Errorf("Adding containers failed. Expected num tasks = 1, got: %d", len(engine.tasksToContainers))
 	}
 
 	containers, _ := engine.tasksToContainers["t1"]
@@ -195,31 +194,31 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	// Ensure task shows up in metrics.
 	containerMetrics, err := engine.getContainerMetricsForTask("t1")
 	if err != nil {
-		t.Error("Error getting container metrics: ", err)
+		t.Errorf("Error getting container metrics: %v", err)
 	}
 	err = validateContainerMetrics(containerMetrics, 2)
 	if err != nil {
-		t.Error("Error validating container metrics: ", err)
+		t.Errorf("Error validating container metrics: %v", err)
 	}
 
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()
 	if err != nil {
-		t.Error("Error gettting instance metrics: ", err)
+		t.Errorf("Error gettting instance metrics: %v", err)
 	}
 
 	err = validateMetricsMetadata(metadata)
 	if err != nil {
-		t.Error("Error validating metadata: ", err)
+		t.Errorf("Error validating metadata: %v", err)
 	}
 	if len(taskMetrics) != 1 {
-		t.Error("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
+		t.Errorf("Incorrect number of tasks. Expected: 1, got: %d", len(taskMetrics))
 	}
 	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 2)
 	if err != nil {
-		t.Error("Error validating container metrics: ", err)
+		t.Errorf("Error validating container metrics: %v", err)
 	}
 	if *taskMetrics[0].TaskArn != "t1" {
-		t.Error("Incorrect task arn. Expected: t1, got: ", *taskMetrics[0].TaskArn)
+		t.Errorf("Incorrect task arn. Expected: t1, got: %s", *taskMetrics[0].TaskArn)
 	}
 
 	// Ensure that only valid task shows up in metrics.
@@ -258,7 +257,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	engine.addContainer("c4")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatalf("Error validating metadata: %v", err)
 	}
 
 	// Should get an error while adding this container due to unmapped
@@ -266,7 +265,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	engine.addContainer("c6")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatalf("Error validating metadata: %v", err)
 	}
 }
 
@@ -277,7 +276,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 
-	engine := NewDockerStatsEngine(&cfg, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
 	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -294,32 +293,32 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	}
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()
 	if err != nil {
-		t.Error("Error gettting instance metrics: ", err)
+		t.Errorf("Error gettting instance metrics: %v", err)
 	}
 	if len(taskMetrics) != 1 {
-		t.Fatal("Incorrect number of tasks. Expected: 1, got: ", len(taskMetrics))
+		t.Fatalf("Incorrect number of tasks. Expected: 1, got: %d", len(taskMetrics))
 	}
 	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 1)
 	if err != nil {
-		t.Error("Error validating container metrics: ", err)
+		t.Errorf("Error validating container metrics: %v", err)
 	}
 	if *taskMetrics[0].TaskArn != "t1" {
-		t.Error("Incorrect task arn. Expected: t1, got: ", *taskMetrics[0].TaskArn)
+		t.Errorf("Incorrect task arn. Expected: t1, got: %s", *taskMetrics[0].TaskArn)
 	}
 	err = validateMetricsMetadata(metadata)
 	if err != nil {
-		t.Error("Error validating metadata: ", err)
+		t.Errorf("Error validating metadata: %v", err)
 	}
 
 	engine.removeContainer("c1")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatalf("Error validating metadata: %v", err)
 	}
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
-	statsEngine := NewDockerStatsEngine(&cfg, nil)
+	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"))
 	taskEngine := &MockTaskEngine{}
 	err := statsEngine.MustInit(taskEngine, "", "")
 	if err == nil {
@@ -328,14 +327,16 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineUninitialized(t *testing.T) {
-	engine := NewDockerStatsEngine(&cfg, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineUninitialized"))
+	defer engine.removeAll()
+
 	engine.resolver = &DockerContainerMetadataResolver{}
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.addContainer("c1")
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
+		t.Fatalf("Error validating metadata: %v", err)
 	}
 }
 
@@ -344,33 +345,14 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatus: api.TaskStopped}, nil)
-	engine := NewDockerStatsEngine(&cfg, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
+	defer engine.removeAll()
+
 	engine.resolver = resolver
 
 	engine.addContainer("c1")
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
-		t.Fatal("Error validating metadata: ", err)
-	}
-}
-
-func TestStatsEngineClientErrorListingContainers(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	engine := NewDockerStatsEngine(&cfg, nil)
-	mockDockerClient := ecsengine.NewMockDockerClient(mockCtrl)
-	// Mock client will return error while listing images.
-	mockDockerClient.EXPECT().ListContainers(false).Return(ecsengine.ListContainersResponse{DockerIds: nil, Error: fmt.Errorf("could not list containers")})
-	engine.client = mockDockerClient
-	mockChannel := make(chan ecsengine.DockerContainerChangeEvent)
-	mockDockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(mockChannel, nil)
-	engine.client = mockDockerClient
-	engine.Init()
-
-	time.Sleep(waitForCleanupSleep)
-	// Make sure that the stats engine deregisters the event listener when it fails to
-	// list images.
-	if engine.ctx.Err() != context.Canceled {
-		t.Error("Engine context hasn't been canceled")
+		t.Fatalf("Error validating metadata: %v", err)
 	}
 }

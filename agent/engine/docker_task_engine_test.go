@@ -25,11 +25,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+
+	"golang.org/x/net/context"
 )
 
 const credentialsId = "credsid"
@@ -41,7 +44,11 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 	client := NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
-	taskEngine := NewTaskEngine(cfg, client, credentialsManager)
+
+	containerChangeEventStream := eventstream.NewEventStream("TESTTASKENGINE", context.Background())
+	containerChangeEventStream.StartListening()
+
+	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 	return ctrl, client, mockTime, taskEngine, credentialsManager
 }

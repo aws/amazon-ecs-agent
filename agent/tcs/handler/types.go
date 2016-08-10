@@ -17,25 +17,26 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/event"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 type TelemetrySessionParams struct {
-	ContainerInstanceArn     string
-	CredentialProvider       *credentials.Credentials
-	Cfg                      *config.Config
-	DeregisterInstanceStream *event.ACSDeregisterInstanceStream
-	DockerClient             engine.DockerClient
-	AcceptInvalidCert        bool
-	EcsClient                api.ECSClient
-	TaskEngine               engine.TaskEngine
-	_time                    ttime.Time
-	_timeOnce                sync.Once
+	ContainerInstanceArn          string
+	CredentialProvider            *credentials.Credentials
+	Cfg                           *config.Config
+	DeregisterInstanceEventStream *eventstream.EventStream
+	ContainerChangeEventStream    *eventstream.EventStream
+	DockerClient                  engine.DockerClient
+	AcceptInvalidCert             bool
+	EcsClient                     api.ECSClient
+	TaskEngine                    engine.TaskEngine
+	_time                         ttime.Time
+	_timeOnce                     sync.Once
 }
 
 func (params *TelemetrySessionParams) isTelemetryDisabled() (bool, error) {

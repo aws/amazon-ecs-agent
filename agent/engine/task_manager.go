@@ -278,6 +278,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
+	seelog.Debugf("Sending container change event to tcs, container: %s, status: %s", event.DockerId, event.Status)
+	err := mtask.engine.containerChangeEventStream.WriteToEventStream(event)
+	if err != nil {
+		seelog.Warnf("Failed to write container change event to event stream, err %v", err)
+	}
+
 	if event.ExitCode != nil && event.ExitCode != container.KnownExitCode {
 		container.KnownExitCode = event.ExitCode
 	}

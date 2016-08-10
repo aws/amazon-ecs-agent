@@ -90,7 +90,7 @@ type ClientServer interface {
 	SetAnyRequestHandler(RequestHandler)
 	MakeRequest(input interface{}) error
 	Connect() error
-	Disconnect() error
+	Disconnect(...interface{}) error
 	Serve() error
 	io.Closer
 }
@@ -166,7 +166,7 @@ func (cs *ClientServerImpl) Connect() error {
 }
 
 // Disconnect disconnects the connection
-func (cs *ClientServerImpl) Disconnect() error {
+func (cs *ClientServerImpl) Disconnect(...interface{}) error {
 	if cs.Conn != nil {
 		return cs.Conn.Close()
 	}

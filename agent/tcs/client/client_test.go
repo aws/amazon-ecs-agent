@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/event"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -221,19 +221,26 @@ func TestDeregisterInstanceStream(t *testing.T) {
 	cs, ml := testCS()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	deregisterInstanceStream := event.NewACSDeregisterInstanceStream()
-	deregisterInstanceStream.StartListening(ctx)
+	deregisterInstanceEventStream := eventstream.NewEventStream("TestDeregisterInstanceStream", ctx)
+	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 
-	deregisterInstanceStream.Subscribe(cs.Disconnect)
-	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
+	err := deregisterInstanceEventStream.Subscribe("TestDeregisterContainerInstanceHandler", cs.Disconnect)
+	if err != nil {
+		t.Errorf("Error subscribing to event stream, err %v", err)
+	}
+
+	err = cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
 	if err != nil {
 		t.Errorf("Error making client request: %v", err)
 	}
 	if ml.closed {
 		t.Error("Connection closed before send the deregister event")
 	}
-	deregisterInstanceStream.EventChannel() <- struct{}{}
+	err = deregisterInstanceEventStream.WriteToEventStream(struct{}{})
+	if err != nil {
+		t.Errorf("Failed to write to event stream, err %v", err)
+	}
 	// wait for the handler to run
 	time.Sleep(1 * time.Second)
 	if !ml.closed {

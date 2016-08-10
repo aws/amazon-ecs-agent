@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/event"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	log "github.com/cihub/seelog"
 )
 
 const (
@@ -34,11 +34,10 @@ const (
 	defaultPublishMetricsInterval = 20 * time.Second
 
 	// The maximum time to wait between heartbeats without disconnecting
-	heartbeatTimeout = 5 * time.Minute
-	heartbeatJitter  = 3 * time.Minute
+	heartbeatTimeout                   = 5 * time.Minute
+	heartbeatJitter                    = 3 * time.Minute
+	deregisterContainerInstanceHandler = "TCSDeregisterContainerInstanceHandler"
 )
-
-var log = logger.ForModule("tcs handler")
 
 // StartMetricsSession starts a metric session. It initializes the stats engine
 // and invokes StartSession.
@@ -50,7 +49,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 	}
 
 	if !disabled {
-		statsEngine := stats.NewDockerStatsEngine(params.Cfg, params.DockerClient)
+		statsEngine := stats.NewDockerStatsEngine(params.Cfg, params.DockerClient, params.ContainerChangeEventStream)
 		err := statsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster, params.ContainerInstanceArn)
 		if err != nil {
 			log.Warn("Error initializing metrics engine", "err", err)
@@ -91,15 +90,18 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 	}
 	log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
-	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval, params.DeregisterInstanceStream)
+	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
 
-func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration, deregisterInstanceStream *event.ACSDeregisterInstanceStream) error {
+func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration, deregisterInstanceEventStream *eventstream.EventStream) error {
 	client := tcsclient.New(url, region, credentialProvider, acceptInvalidCert, statsEngine, publishMetricsInterval)
 	defer client.Close()
 
-	deregisterInstanceStream.Subscribe(client.Disconnect)
-	defer deregisterInstanceStream.Unsubscribe(client.Disconnect)
+	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
+	if err != nil {
+		return err
+	}
+	defer deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a publish metrics message
@@ -113,7 +115,7 @@ func startSession(url string, region string, credentialProvider *credentials.Cre
 	defer timer.Stop()
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
-	err := client.Connect()
+	err = client.Connect()
 	if err != nil {
 		log.Error("Error connecting to TCS: " + err.Error())
 		return err
