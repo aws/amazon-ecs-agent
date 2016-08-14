@@ -1,3 +1,4 @@
+// +build integration !unit
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,6 +16,7 @@ package engine
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -50,6 +52,7 @@ var testVolumeImage = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 var testAuthUser = "user"
 var testAuthPass = "swordfish"
 var testDockerStopTimeout = 2 * time.Second
+var credentialsId = "credsid"
 
 func defaultTestConfig() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -61,6 +64,17 @@ func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manag
 }
 
 func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+	return doSetup(cfg, t, DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete,
+		DefaultImageCleanupTimeInterval)
+}
+
+func setupWithImageManagerConfig(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Duration,
+	numImagesToDelete int, imageCleanupTimeInterval time.Duration) (TaskEngine, func(), credentials.Manager) {
+	return doSetup(cfg, t, minimumAgeBeforeDeletion, numImagesToDelete, imageCleanupTimeInterval)
+}
+
+func doSetup(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Duration,
+	numImagesToDelete int, imageCleanupTimeInterval time.Duration) (TaskEngine, func(), credentials.Manager) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -78,8 +92,10 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	}
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewDockerTaskEngineState()
-	imageManager := NewImageManager(dockerClient, state)
-	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager, eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
+	imageManager := NewImageManager(dockerClient, state,
+		minimumAgeBeforeDeletion, numImagesToDelete, imageCleanupTimeInterval)
+	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
 	taskEngine.Init()
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -130,6 +146,41 @@ func createTestTask(arn string) *api.Task {
 		Version:       "1",
 		DesiredStatus: api.TaskRunning,
 		Containers:    []*api.Container{createTestContainer()},
+	}
+}
+
+func createImageCleanupTestTask(taskName string) *api.Task {
+	return &api.Task{
+		Arn:           taskName,
+		Family:        taskName,
+		Version:       "1",
+		DesiredStatus: api.TaskRunning,
+		Containers: []*api.Container{
+			&api.Container{
+				Name:          "test1",
+				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image1:latest",
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test2",
+				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image2:latest",
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test3",
+				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest",
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+		},
 	}
 }
 
@@ -241,19 +292,13 @@ func TestPortForward(t *testing.T) {
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskRunning {
-			break
-		} else if taskEvent.Status > api.TaskRunning {
-			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
-		}
+	err := verifyTaskIsRunning(taskEvents, testTask)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	time.Sleep(50 * time.Millisecond) // wait for Docker
-	_, err := net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
+	_, err = net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
 	if err == nil {
 		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
 	}
@@ -266,14 +311,8 @@ func TestPortForward(t *testing.T) {
 	if err != nil {
 		t.Error("Could not kill container", err)
 	}
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status >= api.TaskStopped {
-			break
-		}
-	}
+
+	verifyTaskIsStopped(taskEvents, testTask)
 
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
@@ -283,15 +322,9 @@ func TestPortForward(t *testing.T) {
 
 	taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskRunning {
-			break
-		} else if taskEvent.Status > api.TaskRunning {
-			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
-		}
+	err = verifyTaskIsRunning(taskEvents, testTask)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	time.Sleep(50 * time.Millisecond) // wait for Docker
@@ -323,14 +356,7 @@ func TestPortForward(t *testing.T) {
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 // TestMultiplePortForwards tests that two links containers in the same task can
@@ -356,15 +382,9 @@ func TestMultiplePortForwards(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskRunning {
-			break
-		} else if taskEvent.Status > api.TaskRunning {
-			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
-		}
+	err := verifyTaskIsRunning(taskEvents, testTask)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	time.Sleep(50 * time.Millisecond) // wait for Docker
@@ -392,14 +412,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 // TestDynamicPortForward runs a container serving data on a port chosen by the
@@ -468,14 +481,7 @@ PortsBound:
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -552,14 +558,8 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	taskUpdate := *testTask
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 // TestLinking ensures that container linking does allow networking to go
@@ -584,15 +584,9 @@ func TestLinking(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskRunning {
-			break
-		} else if taskEvent.Status > api.TaskRunning {
-			t.Fatal("Task went straight to " + taskEvent.Status.String() + " without running")
-		}
+	err := verifyTaskIsRunning(taskEvents, testTask)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
@@ -624,14 +618,7 @@ func TestLinking(t *testing.T) {
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 func TestDockerCfgAuth(t *testing.T) {
@@ -756,14 +743,11 @@ func TestVolumesFrom(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskRunning {
-			break
-		}
+	err := verifyTaskIsRunning(taskEvents, testTask)
+	if err != nil {
+		t.Fatal(err)
 	}
+
 	time.Sleep(50 * time.Millisecond) // wait for Docker
 	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
 	if err != nil {
@@ -782,14 +766,7 @@ func TestVolumesFrom(t *testing.T) {
 	taskUpdate.DesiredStatus = api.TaskStopped
 	go taskEngine.AddTask(&taskUpdate)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 }
 
 func TestVolumesFromRO(t *testing.T) {
@@ -818,14 +795,7 @@ func TestVolumesFromRO(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 
 	if testTask.Containers[1].KnownExitCode == nil || *testTask.Containers[1].KnownExitCode != 42 {
 		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].KnownExitCode)
@@ -857,14 +827,7 @@ func TestHostVolumeMount(t *testing.T) {
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 
 	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
 		t.Error("Wrong exit code; file contents wrong or other error", *testTask.Containers[0].KnownExitCode)
@@ -896,14 +859,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	testTask.Containers[1].Essential = false
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 
 	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
@@ -1047,6 +1003,7 @@ func TestSignalEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 	var contEvent api.ContainerStateChange
+
 	for contEvent = range contEvents {
 		if contEvent.TaskArn != testTask.Arn {
 			continue
@@ -1189,15 +1146,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		// Wait until task is stopped
-		if taskEvent.Status == api.TaskStopped {
-			break
-		}
-	}
+	verifyTaskIsStopped(taskEvents, testTask)
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task
@@ -1244,6 +1193,36 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 		}
 		if taskEvent.Status == api.TaskStopped {
 			break
+		}
+	}
+}
+
+func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTask *api.Task) error {
+	for {
+		select {
+		case taskEvent := <-taskEvents:
+			if taskEvent.TaskArn != testTask.Arn {
+				continue
+			}
+			if taskEvent.Status == api.TaskRunning {
+				return nil
+			} else if taskEvent.Status > api.TaskRunning {
+				return errors.New("Task went straight to " + taskEvent.Status.String() + " without running")
+			}
+		}
+	}
+}
+
+func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTask *api.Task) {
+	for {
+		select {
+		case taskEvent := <-taskEvents:
+			if taskEvent.TaskArn != testTask.Arn {
+				continue
+			}
+			if taskEvent.Status >= api.TaskStopped {
+				return
+			}
 		}
 	}
 }

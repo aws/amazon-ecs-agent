@@ -11,7 +11,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images
 
 all: docker
 
@@ -65,11 +65,11 @@ benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid awscli
+test-registry: netkitten volumes-test squid awscli image-cleanup-test-images
 	@./scripts/setup-test-registry
 
 test: test-registry gremlin
-	. ./scripts/shared_env && go test -timeout=180s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -tags unit -timeout=180s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
@@ -81,6 +81,9 @@ run-functional-tests: testnnp test-registry
 
 testnnp:
 	cd misc/testnnp; $(MAKE) $(MFLAGS)
+
+run-integ-tests: test-registry
+	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)
@@ -100,6 +103,9 @@ gremlin:
 awscli:
 	cd misc/awscli; $(MAKE) $(MFLAGS)
 
+image-cleanup-test-images:
+	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS)
+
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
@@ -114,4 +120,8 @@ clean:
 	cd misc/netkitten; $(MAKE) $(MFLAGS) clean
 	cd misc/volumes-test; $(MAKE) $(MFLAGS) clean
 	cd misc/gremlin; $(MAKE) $(MFLAGS) clean
+<<<<<<< c04a8fad3f020c9ad092fd921af7357f67e9008e
 	cd misc/testnnp; $(MAKE) $(MFLAGS) clean
+=======
+	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS) clean
+>>>>>>> Create Test Images used for ImageCleanup integ tests

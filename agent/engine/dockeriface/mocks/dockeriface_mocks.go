@@ -146,6 +146,16 @@ func (_mr *_MockClientRecorder) RemoveEventListener(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveEventListener", arg0)
 }
 
+func (_m *MockClient) RemoveImage(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "RemoveImage", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientRecorder) RemoveImage(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveImage", arg0)
+}
+
 func (_m *MockClient) StartContainer(_param0 string, _param1 *go_dockerclient.HostConfig) error {
 	ret := _m.ctrl.Call(_m, "StartContainer", _param0, _param1)
 	ret0, _ := ret[0].(error)
@@ -185,14 +195,4 @@ func (_m *MockClient) Version() (*go_dockerclient.Env, error) {
 
 func (_mr *_MockClientRecorder) Version() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Version")
-}
-
-func (_m *MockClient) RemoveImage(_param0 string) error {
-	ret := _m.ctrl.Call(_m, "RemoveImage", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockClientRecorder) RemoveImage(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveImage", arg0)
 }

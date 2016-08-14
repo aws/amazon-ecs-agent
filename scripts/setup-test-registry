@@ -64,9 +64,14 @@ mirror_local_image() {
   docker push $2
 }
 
-for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/squid" "amazon/awscli"; do
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/squid" "amazon/awscli" "amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" "amazon/image-cleanup-test-image3"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
+
+# Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
+docker rmi amazon/image-cleanup-test-image1:make
+docker rmi amazon/image-cleanup-test-image2:make
+docker rmi amazon/image-cleanup-test-image3:make
 
 BUSYBOX_IMAGE="busybox@sha256:5551dbdfc48d66734d0f01cafee0952cb6e8eeecd1e2492240bf2fd9640c2279"
 NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"

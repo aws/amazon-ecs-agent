@@ -1,3 +1,4 @@
+// +build !integration
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -515,7 +516,7 @@ func TestSteadyStatePoll(t *testing.T) {
 }
 
 func TestStopWithPendingStops(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -528,7 +529,7 @@ func TestStopWithPendingStops(t *testing.T) {
 	eventStream := make(chan DockerContainerChangeEvent)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+
 	err := taskEngine.Init()
 	if err != nil {
 		t.Fatal(err)

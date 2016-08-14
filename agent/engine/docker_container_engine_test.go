@@ -1,3 +1,4 @@
+// +build !integration
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -30,6 +31,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -38,6 +40,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 )
+
+func defaultTestConfig() *config.Config {
+	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	return cfg
+}
 
 func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoClient, *mock_ttime.MockTime, func()) {
 	ctrl := gomock.NewController(t)

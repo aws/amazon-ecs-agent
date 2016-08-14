@@ -28,10 +28,10 @@ import (
 )
 
 const (
-	numImagesToDelete             = 5
-	minimumAgeBeforeDeletion      = 1 * time.Hour
-	imageCleanupTimeInterval      = 3 * time.Hour
-	imageNotFoundForDeletionError = "no such image"
+	DefaultNumImagesToDelete        = 5
+	DefaultMinimumAgeBeforeDeletion = 1 * time.Hour
+	DefaultImageCleanupTimeInterval = 3 * time.Hour
+	imageNotFoundForDeletionError   = "no such image"
 )
 
 // ImageManager is responsible for saving the Image states,
@@ -55,15 +55,23 @@ type dockerImageManager struct {
 	state                            *dockerstate.DockerTaskEngineState
 	saver                            statemanager.Saver
 	imageStatesConsideredForDeletion map[string]*image.ImageState
+	minimumAgeBeforeDeletion         time.Duration
+	numImagesToDelete                int
+	imageCleanupTimeInterval         time.Duration
 }
 
 // ImageStatesForDeletion is used for implementing the sort interface
 type ImageStatesForDeletion []*image.ImageState
 
-func NewImageManager(client DockerClient, state *dockerstate.DockerTaskEngineState) ImageManager {
+func NewImageManager(client DockerClient, state *dockerstate.DockerTaskEngineState,
+	minimumAgeBeforeDeletion time.Duration, numImagesToDelete int,
+	imageCleanupTimeInterval time.Duration) ImageManager {
 	return &dockerImageManager{
 		client: client,
 		state:  state,
+		minimumAgeBeforeDeletion: minimumAgeBeforeDeletion,
+		numImagesToDelete:        numImagesToDelete,
+		imageCleanupTimeInterval: imageCleanupTimeInterval,
 	}
 }
 
@@ -207,7 +215,7 @@ func (imageManager *dockerImageManager) getCandidateImagesForDeletion() []*image
 
 func (imageManager *dockerImageManager) isImageOldEnough(imageState *image.ImageState) bool {
 	ageOfImage := time.Now().Sub(imageState.PulledAt)
-	return ageOfImage > minimumAgeBeforeDeletion
+	return ageOfImage > imageManager.minimumAgeBeforeDeletion
 }
 
 // Implementing sort interface based on last used times of the images
@@ -245,7 +253,7 @@ func (imageManager *dockerImageManager) removeExistingImageNameOfDifferentID(con
 
 func (imageManager *dockerImageManager) StartImageCleanupProcess(ctx context.Context) {
 	// passing the cleanup interval as argument which would help during testing
-	imageManager.performPeriodicImageCleanup(ctx, imageCleanupTimeInterval)
+	imageManager.performPeriodicImageCleanup(ctx, imageManager.imageCleanupTimeInterval)
 }
 
 func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.Context, imageCleanupInterval time.Duration) {
@@ -266,7 +274,7 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 	for _, imageState := range imageManager.getAllImageStates() {
 		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
 	}
-	for i := 0; i < numImagesToDelete; i++ {
+	for i := 0; i < imageManager.numImagesToDelete; i++ {
 		err := imageManager.removeLeastRecentlyUsedImage()
 		if err != nil {
 			seelog.Infof("End of eligible images for deletion")
@@ -323,7 +331,7 @@ func (imageManager *dockerImageManager) deleteImage(imageID string, imageState *
 	err := imageManager.client.RemoveImage(imageID, removeImageTimeout)
 	if err != nil {
 		if err.Error() == imageNotFoundForDeletionError {
-			seelog.Errorf("Image already removed from the instance")
+			seelog.Errorf("Image already removed from the instance: %v", err)
 		} else {
 			seelog.Errorf("Error removing Image %v - %v", imageID, err)
 			delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)

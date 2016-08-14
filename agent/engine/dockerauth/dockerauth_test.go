@@ -1,3 +1,4 @@
+// +build !integration
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -19,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 type authTestPair struct {

@@ -474,7 +474,7 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	}()
 	for !task.waitEvent(cleanupTimeBool) {
 	}
-	log.Debug("Cleaning up task's containers and data", "task", task.Task)
+	log.Info("Cleaning up task's containers and data", "task", task.Task)
 
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks
@@ -488,7 +488,7 @@ func (task *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	task.discardEventsUntil(handleCleanupDone)
 	log.Debug("Finished removing task data; removing from state no longer managing", "task", task.Task)
 	// Now remove ourselves from the global state and cleanup channels
-	go task.discardEventsUntil(handleCleanupDone) // keep discarding events until the taks is fully gone
+	go task.discardEventsUntil(handleCleanupDone) // keep discarding events until the task is fully gone
 	task.engine.processTasks.Lock()
 	delete(task.engine.managedTasks, task.Arn)
 	handleCleanupDone <- struct{}{}

@@ -15,7 +15,7 @@
 #
 # This script wraps the mockgen tool and inserts licensing information.
 
-mockgen.sh github.com/aws/amazon-ecs-agent/agent/engine TaskEngine,DockerClient mocks/engine_mocks.go
+mockgen.sh github.com/aws/amazon-ecs-agent/agent/engine TaskEngine,DockerClient,ImageManager mocks/engine_mocks.go
 
 sed -e "s/engine\.//g" \
 	-e 's|\sengine "github.com/aws/amazon-ecs-agent/agent/engine"|REMOVETHISLINE|' \
