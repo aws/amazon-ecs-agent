@@ -87,7 +87,7 @@ func (container *StatsContainer) collectDockerStats(ctx context.Context) {
 		return
 	}
 	for rawStat := range dockerStats {
-		stat, err := dockerStatsToConatinerStats(rawStat)
+		stat, err := dockerStatsToContainerStats(rawStat)
 		if err == nil {
 			container.statsQueue.Add(stat)
 		} else {

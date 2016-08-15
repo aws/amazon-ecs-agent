@@ -33,7 +33,7 @@ func nan32() float32 {
 }
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToConatinerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
 	// The length of PercpuUsage represents the number of cores in an instance.
 	numCores := uint64(len(dockerStats.CPUStats.CPUUsage.PercpuUsage))
 	if numCores == 0 {
