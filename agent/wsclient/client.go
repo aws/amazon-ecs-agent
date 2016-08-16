@@ -321,7 +321,7 @@ func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Requ
 	}
 
 	// connect via proxy
-	seelog.Info("Creating poll dialer, proxy: %s", proxyURL.Host)
+	seelog.Infof("Creating poll dialer, proxy: %s", proxyURL.Host)
 	plainConn, err := timeoutDialer.Dial("tcp", proxyURL.Host)
 	if err != nil {
 		return nil, err
