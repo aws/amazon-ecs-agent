@@ -78,11 +78,11 @@ func TestGetTaskByDockerID(t *testing.T) {
 	taskDiffHelper(t, []*api.Task{testTasks[1]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
 }
 
-func TestGetTaskByDockerID400(t *testing.T) {
+func TestGetTaskByDockerID404(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks?dockerid=does-not-exist")
 
-	if recorder.Code != 400 {
-		t.Error("API did not return 400 for bad dockerid")
+	if recorder.Code != 404 {
+		t.Error("API did not return 404 for bad dockerid")
 	}
 }
 
@@ -98,19 +98,19 @@ func TestGetTaskByTaskArn(t *testing.T) {
 	taskDiffHelper(t, []*api.Task{testTasks[0]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
 }
 
-func TestGetTaskByTaskArn400(t *testing.T) {
+func TestGetTaskByTaskArnNotFound(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks?taskarn=doesnotexist")
 
-	if recorder.Code != 400 {
-		t.Errorf("Expected 400 for bad taskarn")
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("Expected %d for bad taskarn, but was %d", http.StatusNotFound, recorder.Code)
 	}
 }
 
-func TestGetTaskByTaskArnAndDockerID400(t *testing.T) {
+func TestGetTaskByTaskArnAndDockerIDBadRequest(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks?taskarn=task2&dockerid=foo")
 
-	if recorder.Code != 400 {
-		t.Errorf("Expected 400 for both arn and dockerid")
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("Expected %d for both arn and dockerid, but was %d", http.StatusBadRequest, recorder.Code)
 	}
 }
 

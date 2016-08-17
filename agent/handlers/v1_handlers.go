@@ -32,13 +32,10 @@ import (
 
 var log = logger.ForModule("Handlers")
 
-const statusBadRequest = 400
-const statusNotImplemented = 501
-const statusOK = 200
-const statusInternalServerError = 500
-
-const dockerIdQueryField = "dockerid"
-const taskArnQueryField = "taskarn"
+const (
+	dockerIdQueryField = "dockerid"
+	taskArnQueryField  = "taskarn"
+)
 
 type rootResponse struct {
 	AvailableCommands []string
@@ -106,14 +103,14 @@ func newTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
 // Creates JSON response and sets the http status code for the task queried.
 func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state *dockerstate.DockerTaskEngineState) ([]byte, int) {
 	var responseJSON []byte
-	status := statusOK
+	status := http.StatusOK
 	if found {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		responseJSON, _ = json.Marshal(newTaskResponse(task, containerMap))
 	} else {
 		log.Warn("Could not find requsted resource: " + resourceId)
 		responseJSON, _ = json.Marshal(&TaskResponse{})
-		status = statusBadRequest
+		status = http.StatusNotFound
 	}
 	return responseJSON, status
 }
@@ -130,7 +127,7 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 		var status int
 		if dockerIdExists && taskArnExists {
 			log.Info("Request contains both ", dockerIdQueryField, " and ", taskArnQueryField, ". Expect at most one of these.")
-			w.WriteHeader(statusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write(responseJSON)
 			return
 		}
