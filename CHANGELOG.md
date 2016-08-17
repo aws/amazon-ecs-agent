@@ -1,7 +1,12 @@
 # Changelog
 
+## 1.12.1
+* Bug - Fixed a bug where agent keeps fetching stats of stopped containers.
+* Bug - Fixed a bug that could lead to exhausting the open file limit.
+* Bug - Fixed a bug where the introspection API could return the wrong response code.
+
 ## 1.12.0
-* Enhacement - Support Task IAM Role for containers launched with 'host' network mode
+* Enhancement - Support Task IAM Role for containers launched with 'host' network mode.
 
 ## 1.11.1
 * Bug - Fixed a bug where telemetry data would fail to serialize properly.
