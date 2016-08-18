@@ -55,7 +55,7 @@ func TestContainerStatsCollection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *docker.Stats)
-	mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(statChan, nil)
+	mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
@@ -136,9 +136,9 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	closedChan := make(chan *docker.Stats)
 	close(closedChan)
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(nil, statErr),
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(closedChan, nil),
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(statChan, nil),
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(nil, statErr),
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil),
 	)
 
 	container := &StatsContainer{
@@ -150,52 +150,6 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 		client: mockDockerClient,
 	}
 	container.StartStatsCollection()
-	time.Sleep(checkPointSleep)
-	container.StopStatsCollection()
-}
-
-func TestContainerStatsCollectionReconnectOnTimeout(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
-
-	dockerID := "container1"
-	ctx, cancel := context.WithCancel(context.TODO())
-
-	firstStatsChan := make(chan *docker.Stats)
-	secondStatsChan := make(chan *docker.Stats)
-	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Do(func(id string, statsCtx context.Context) {
-			// Close the stats channel when the context is done for the first invocation
-			// of Stats() API. This ensures that the successive calls to Stats()
-			// are made from container.collect()
-			go func() {
-				for {
-					select {
-					case <-statsCtx.Done():
-						close(firstStatsChan)
-						return
-					}
-				}
-			}()
-		}).Return(firstStatsChan, nil),
-		// If the reconnect logic is broken, container.collect() would not invoke
-		// Stats() for the second time
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(secondStatsChan, nil),
-		mockDockerClient.EXPECT().Stats(dockerID, gomock.Any()).Return(secondStatsChan, nil).AnyTimes(),
-	)
-
-	container := &StatsContainer{
-		containerMetadata: &ContainerMetadata{
-			DockerID: dockerID,
-		},
-		ctx:    ctx,
-		cancel: cancel,
-		client: mockDockerClient,
-	}
-
-	// Invoke container.collect() and sleep
-	go container.collect(SleepBetweenUsageDataCollection, 0)
 	time.Sleep(checkPointSleep)
 	container.StopStatsCollection()
 }

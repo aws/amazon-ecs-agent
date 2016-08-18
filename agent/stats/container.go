@@ -17,7 +17,6 @@ import (
 	"time"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 	"golang.org/x/net/context"
 )
@@ -29,13 +28,6 @@ const (
 	// ContainerStatsBufferLength is the number of usage metrics stored in memory for a container. It is calculated as
 	// Number of usage metrics gathered in a second (1) * 60 * Time duration in minutes to store the data for (2)
 	ContainerStatsBufferLength = 120
-
-	// dockerStatsReconnectTimeout is the initial timeout for disconnecting and reconnecting to `docker stats`
-	// channel
-	dockerStatsReconnectTimeout = 10 * time.Minute
-
-	// dockerStatsReconnectTimeoutJitter is the jitter to add to the timeout for reconnecting to `docker stats`
-	dockerStatsReconnectTimeoutJitter = 10 * time.Minute
 )
 
 func newStatsContainer(dockerID string, client ecsengine.DockerClient) *StatsContainer {
@@ -54,14 +46,14 @@ func (container *StatsContainer) StartStatsCollection() {
 	// Create the queue to store utilization data from docker stats
 	container.statsQueue = NewQueue(ContainerStatsBufferLength)
 
-	go container.collect(dockerStatsReconnectTimeout, dockerStatsReconnectTimeoutJitter)
+	go container.collect()
 }
 
 func (container *StatsContainer) StopStatsCollection() {
 	container.cancel()
 }
 
-func (container *StatsContainer) collect(statsReconnectTimeout, statsReconnectTimeoutJitter time.Duration) {
+func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
 	for {
 		select {
@@ -69,30 +61,21 @@ func (container *StatsContainer) collect(statsReconnectTimeout, statsReconnectTi
 			seelog.Debugf("Stopping stats collection for container %s", dockerID)
 			return
 		default:
-			// invoke collectDockerStats with a context that has timeout set to
-			// dockerStatsReconnectTimeout + jitter
-			dockerStatsJitter := utils.AddJitter(statsReconnectTimeout, statsReconnectTimeoutJitter)
-			dockerStatsCtx, _ := context.WithTimeout(container.ctx, dockerStatsJitter)
-			container.collectDockerStats(dockerStatsCtx)
+			seelog.Debugf("Collecting stats for container %s", dockerID)
+			dockerStats, err := container.client.Stats(dockerID, container.ctx)
+			if err != nil {
+				seelog.Warnf("Error retrieving stats for container %s: %v", dockerID, err)
+				continue
+			}
+			for rawStat := range dockerStats {
+				stat, err := dockerStatsToContainerStats(rawStat)
+				if err == nil {
+					container.statsQueue.Add(stat)
+				} else {
+					seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+				}
+			}
+			seelog.Debugf("Disconnected from docker stats for container %s", dockerID)
 		}
 	}
-}
-
-func (container *StatsContainer) collectDockerStats(ctx context.Context) {
-	dockerID := container.containerMetadata.DockerID
-	seelog.Debugf("Collecting stats for container %s", dockerID)
-	dockerStats, err := container.client.Stats(dockerID, ctx)
-	if err != nil {
-		seelog.Warnf("Error retrieving stats for container %s: %v", dockerID, err)
-		return
-	}
-	for rawStat := range dockerStats {
-		stat, err := dockerStatsToContainerStats(rawStat)
-		if err == nil {
-			container.statsQueue.Add(stat)
-		} else {
-			seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
-		}
-	}
-	seelog.Debugf("Disconnected from docker stats for container %s", dockerID)
 }
