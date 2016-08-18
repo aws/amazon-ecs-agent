@@ -58,6 +58,10 @@ const (
 	// pullStatusSuppressDelay controls the time where pull status progress bar
 	// output will be suppressed in debug mode
 	pullStatusSuppressDelay = 2 * time.Second
+
+	// statsInactivityTimeout controls the amount of time we hold open a
+	// connection to the Docker daemon waiting for stats data
+	statsInactivityTimeout = 5 * time.Second
 )
 
 // Interface to make testing it easier
@@ -713,16 +717,17 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	stats := make(chan *docker.Stats)
 	cancel := make(chan bool)
 	options := docker.StatsOptions{
-		ID:     id,
-		Stats:  stats,
-		Stream: true,
-		Done:   cancel,
+		ID:                id,
+		Stats:             stats,
+		Stream:            true,
+		Done:              cancel,
+		InactivityTimeout: statsInactivityTimeout,
 	}
 
 	statsComplete := make(chan struct{})
 	go func() {
 		statsErr := client.Stats(options)
-		if err != nil {
+		if statsErr != nil {
 			seelog.Warnf("Error retrieving stats for container %s: %v", id, statsErr)
 		}
 		close(statsComplete)
