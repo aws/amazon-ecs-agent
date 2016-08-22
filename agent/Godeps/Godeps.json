@@ -217,6 +217,11 @@
 			"Rev": "25941ecf6e8351810e8530c60de8dda7d5e1baba"
 		},
 		{
+			"ImportPath": "github.com/docker/engine-api/types/swarm",
+			"Comment": "v0.3.1-210-g25941ec",
+			"Rev": "25941ecf6e8351810e8530c60de8dda7d5e1baba"
+		},
+		{
 			"ImportPath": "github.com/docker/engine-api/types/versions",
 			"Comment": "v0.3.1-210-g25941ec",
 			"Rev": "25941ecf6e8351810e8530c60de8dda7d5e1baba"
@@ -228,7 +233,7 @@
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
-			"Rev": "1a3d0cfd7814bbfe44ada7617654948c99891749"
+			"Rev": "0436d420da98515cfe6370c9c5cdde868415637b"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
@@ -253,6 +258,11 @@
 			"Rev": "53d419364047eb08a64c29471db23c60ea585b85"
 		},
 		{
+			"ImportPath": "github.com/opencontainers/runc/libcontainer/system",
+			"Comment": "v1.0.0-rc1-48-g629e356",
+			"Rev": "629e35666d31f743090452416c8df207d9fdbd34"
+		},
+		{
 			"ImportPath": "github.com/opencontainers/runc/libcontainer/user",
 			"Comment": "v1.0.0-rc1-48-g629e356",
 			"Rev": "629e35666d31f743090452416c8df207d9fdbd34"
@@ -263,6 +273,10 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
+			"Rev": "ef2e00e88c5e0a3569f0bb9df697e9cbc6215fea"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context/ctxhttp",
 			"Rev": "ef2e00e88c5e0a3569f0bb9df697e9cbc6215fea"
 		},
 		{
