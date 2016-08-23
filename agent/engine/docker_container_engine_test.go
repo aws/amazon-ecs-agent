@@ -815,7 +815,7 @@ func TestStatsClosed(t *testing.T) {
 		}
 		for i := 0; true; i++ {
 			select {
-			case <-opts.Done:
+			case <-opts.Context.Done():
 				t.Logf("Received cancel after %d iterations", i)
 				return
 			default:
