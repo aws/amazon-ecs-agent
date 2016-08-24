@@ -555,21 +555,20 @@ func TestAwslogsDriver(t *testing.T) {
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
-	containerId, err := agent.ResolveTaskDockerID(testTask, "awslogs")
-	if err != nil {
-		t.Fatalf("Failed to get the container ID")
-	}
+	strs := strings.Split(*testTask.TaskArn, "/")
+	taskId := strs[len(strs)-1]
+
 	// Delete the log stream after the test
 	defer func() {
 		cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
 			LogGroupName:  aws.String(awslogsLogGroupName),
-			LogStreamName: aws.String(containerId),
+			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
 		})
 	}()
 
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(containerId),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
 	}
 	resp, err := cwlClient.GetLogEvents(params)
 	if err != nil {
