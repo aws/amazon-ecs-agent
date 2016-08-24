@@ -10,7 +10,8 @@
         "logDriver": "awslogs",
         "options": {
             "awslogs-group":"ecs-functional-tests",
-            "awslogs-region":"$$$TEST_REGION$$$"
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests"
         }
     },
     "command": ["sh", "-c", "echo hello world"]
