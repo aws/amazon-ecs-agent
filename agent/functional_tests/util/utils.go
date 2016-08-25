@@ -754,27 +754,25 @@ func GetInstanceMetadata(path string) (string, error) {
 }
 
 // GetInstanceIAMRole gets the iam roles attached to the instance profile
-func GetInstanceIAMRole() ([]*iam.Role, error) {
-	instanceProfileName, err := GetInstanceMetadata("iam/security-credentials")
+func GetInstanceIAMRole() (*iam.Role, error) {
+	// This returns the name of the role
+	instanceRoleName, err := GetInstanceMetadata("iam/security-credentials")
 	if err != nil {
-		return nil, fmt.Errorf("Error getting instance profile name, err: %v", err)
+		return nil, fmt.Errorf("Error getting instance role name, err: %v", err)
 	}
-	if utils.ZeroOrNil(instanceProfileName) {
-		return nil, fmt.Errorf("Instance Profile name nil")
+	if utils.ZeroOrNil(instanceRoleName) {
+		return nil, fmt.Errorf("Instance Role name nil")
 	}
 
 	iamClient := iam.New(session.New())
-	instanceProfile, err := iamClient.GetInstanceProfile(&iam.GetInstanceProfileInput{
-		InstanceProfileName: aws.String(instanceProfileName),
+	instanceRole, err := iamClient.GetRole(&iam.GetRoleInput{
+		RoleName: aws.String(instanceRoleName),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if instanceProfile.InstanceProfile == nil || utils.ZeroOrNil(instanceProfile.InstanceProfile.Roles) {
-		return nil, fmt.Errorf("No roles found")
-	}
-	return instanceProfile.InstanceProfile.Roles, nil
+	return instanceRole.Role, nil
 }
 
 // SearchStrInDir searches the files in direcotry for specific content
