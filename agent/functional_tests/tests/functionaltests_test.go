@@ -740,11 +740,11 @@ func TestTaskIamRoles(t *testing.T) {
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
 		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
-		roles, err := GetInstanceIAMRole()
+		role, err := GetInstanceIAMRole()
 		if err != nil {
 			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
 		}
-		roleArn = *roles[0].Arn
+		roleArn = *role.Arn
 	}
 
 	agentOptions := &AgentOptions{
