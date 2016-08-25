@@ -731,20 +731,33 @@ func TestTelemetry(t *testing.T) {
 	}
 }
 
-func TestTaskIamRoles(t *testing.T) {
+func TestTaskIamRolesNetHostMode(t *testing.T) {
+	// The test runs only when the environment TEST_IAM_ROLE was set
+	if os.Getenv("TEST_TASK_IAM_ROLE_NET_HOST") != "true" {
+		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_TASK_IAM_ROLE_NET_HOST isn't set true")
+	}
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
+			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
+		},
+		PortBindings: map[docker.Port]map[string]string{
+			"51679/tcp": map[string]string{
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	taskIamRolesTest("host", agent, t)
+}
+
+func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
 	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
-		t.Skip("Skipping test TaskIamRole, as TEST_IAM_ROLE isn't set true")
-	}
-
-	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
-	if utils.ZeroOrNil(roleArn) {
-		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
-		role, err := GetInstanceIAMRole()
-		if err != nil {
-			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
-		}
-		roleArn = *role.Arn
+		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_TASK_IAM_ROLE isn't set true")
 	}
 
 	agentOptions := &AgentOptions{
@@ -758,13 +771,28 @@ func TestTaskIamRoles(t *testing.T) {
 			},
 		},
 	}
-
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
+
+	taskIamRolesTest("bridge", agent, t)
+}
+
+func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		if err != nil {
+			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
+		}
+		roleArn = *role.Arn
+	}
 
 	tdOverride := make(map[string]string)
 	tdOverride["$$$TASK_ROLE$$$"] = roleArn
 	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverride["$$$NETWORK_MODE$$$"] = networkMode
 
 	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "iam-roles", tdOverride)
 	if err != nil {
