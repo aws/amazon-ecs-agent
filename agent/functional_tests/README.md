@@ -31,15 +31,19 @@ The best way to run them is via the `make run-functional-tests` target.
 Thay may also be manually run with `go test -tags functional -v ./...`,
 
 ### Envrionment Variable
-In order to run Telemetry functional test in non Amazon Linux AMI environment, 
+In order to run Telemetry functional test in non Amazon Linux AMI environment,
 the following environment variables should be set:
   * CGROUP_PATH: cgroup path on the host, default value "/cgroup"
   * EXECDRIVER_PATH: execdriver path on the host, default value "/var/run/docker/execdriver"
+
 In order to run TaskIamRole functional test, the following steps should be done first:
-  * Run command: `sysctl -w net.ipv4.conf.all.route_localnet=1` and 
+  * Run command: `sysctl -w net.ipv4.conf.all.route_localnet=1` and
     `iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679`.
-  * Set the environment variable to enable the test: `export TEST_TASK_IAM_ROLE=true`.
+  * Set the environment variable to enable the test under default network mode: `export TEST_TASK_IAM_ROLE=true`.
   * Set the envrionment variable of IAM roles the test will use: `export TASK_IAM_ROLE_ARN="iam role arn"`,
   the role should have the `ec2:DescribeRegions` permission and have the trust relationship with "ecs-tasks.amazonaws.com".
   Or if the `TASK_IAM_ROLE_ARN` isn't set, it will use the IAM role attached to the instance profile. In this case,
   except the permissions required before, the IAM role should also have `iam:GetInstanceProfile` permission.
+  * Testing under net=host network mode requires additional command:
+    `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679` and
+    `export TEST_TASK_IAM_ROLE_NET_HOST=true`
