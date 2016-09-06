@@ -123,11 +123,13 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 
 func getCpuAndMemory() (int64, int64) {
 	memInfo, err := system.ReadMemInfo()
-	mem := memInfo.MemTotal / 1024 / 1024 // MiB
-	if err != nil {
+	mem := int64(0)
+	if err == nil {
+		mem = memInfo.MemTotal / 1024 / 1024 // MiB
+	} else {
 		log.Error("Unable to get memory info", "err", err)
-		mem = 0
 	}
+
 	cpu := runtime.NumCPU() * 1024
 
 	return int64(cpu), mem
