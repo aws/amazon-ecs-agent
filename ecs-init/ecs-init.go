@@ -20,8 +20,19 @@ import (
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/aws/amazon-ecs-init/ecs-init/engine"
+	"github.com/aws/amazon-ecs-init/ecs-init/version"
 
 	log "github.com/cihub/seelog"
+)
+
+// all supported commands
+const (
+	VERSION  = "version"
+	PRESTART = "pre-start"
+	START    = "start"
+	PRESTOP  = "pre-stop"
+	POSTSTOP = "post-stop"
+	RECACHE  = "reload-cache"
 )
 
 func main() {
@@ -39,6 +50,14 @@ func main() {
 		die(err)
 	}
 	log.ReplaceLogger(logger)
+
+	if args[0] == VERSION {
+		err := version.PrintVersion()
+		if err != nil {
+			log.Errorf("failed print version info, err: %v", err)
+		}
+		return
+	}
 
 	init, err := engine.New()
 	if err != nil {
@@ -64,23 +83,23 @@ type action struct {
 
 func actions(engine *engine.Engine) map[string]action {
 	return map[string]action{
-		"pre-start": action{
+		PRESTART: action{
 			function:    engine.PreStart,
 			description: "Prepare the ECS Agent for starting",
 		},
-		"start": action{
+		START: action{
 			function:    engine.StartSupervised,
 			description: "Start the ECS Agent and wait for it to stop",
 		},
-		"pre-stop": action{
+		PRESTOP: action{
 			function:    engine.PreStop,
 			description: "Stop the ECS Agent",
 		},
-		"reload-cache": action{
+		RECACHE: action{
 			function:    engine.ReloadCache,
 			description: "Reload the cached image of the ECS Agent into Docker",
 		},
-		"post-stop": action{
+		POSTSTOP: action{
 			function:    engine.PostStop,
 			description: "Cleanup procedure for the ECS Agent",
 		},

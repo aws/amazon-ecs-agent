@@ -40,6 +40,7 @@ build-mock-images:
 	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
 sources:
+	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
 	tar -czf ./sources.tgz ecs-init scripts
