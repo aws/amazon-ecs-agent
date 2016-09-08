@@ -44,7 +44,7 @@ type entry struct {
 }
 
 type lruCache struct {
-	sync.RWMutex
+	sync.Mutex
 	cache     map[string]*entry
 	evictList *list.List
 	size      int
@@ -52,16 +52,14 @@ type lruCache struct {
 }
 
 func (lru *lruCache) Get(key string) (Value, bool) {
-	lru.RLock()
+	lru.Lock()
+	defer lru.Unlock()
+
 	entry, ok := lru.cache[key]
-	lru.RUnlock()
 
 	if !ok {
 		return nil, false
 	}
-
-	lru.Lock()
-	defer lru.Unlock()
 
 	ok = lru.evictStale(entry, key)
 	if !ok {

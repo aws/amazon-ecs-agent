@@ -28,7 +28,7 @@ import (
 
 type ecrAuthProvider struct {
 	authData *api.ECRAuthData
-	client   ecr.ECRSDK
+	client   ecr.ECRClient
 }
 
 const proxyEndpointScheme = "https://"
@@ -52,22 +52,17 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string) (docker.AuthCon
 		return docker.AuthConfiguration{}, fmt.Errorf("ecrAuthProvider cannot be used without AuthData")
 	}
 	log.Debugf("Calling ECR.GetAuthorizationToken for %s", image)
-	input := &ecrapi.GetAuthorizationTokenInput{
-		RegistryIds: []*string{aws.String(authProvider.authData.RegistryId)},
-	}
-	output, err := authProvider.client.GetAuthorizationToken(input)
+	authData, err := authProvider.client.GetAuthorizationToken(authProvider.authData.RegistryId)
 	if err != nil {
 		return docker.AuthConfiguration{}, err
 	}
-	if output == nil {
+	if authData == nil {
 		return docker.AuthConfiguration{}, fmt.Errorf("Missing AuthorizationData in ECR response for %s", image)
 	}
-	for _, authData := range output.AuthorizationData {
-		if authData.ProxyEndpoint != nil &&
-			strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(authData.ProxyEndpoint)) &&
-			authData.AuthorizationToken != nil {
-			return extractToken(authData)
-		}
+	if authData.ProxyEndpoint != nil &&
+		strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(authData.ProxyEndpoint)) &&
+		authData.AuthorizationToken != nil {
+		return extractToken(authData)
 	}
 	return docker.AuthConfiguration{}, fmt.Errorf("No AuthorizationToken found for %s", image)
 }
