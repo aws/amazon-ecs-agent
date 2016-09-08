@@ -534,7 +534,7 @@ func TestContainerEvents(t *testing.T) {
 
 	mockDocker.EXPECT().InspectContainer("containerId").Return(&docker.Container{ID: "containerId"}, nil)
 	go func() {
-		events <- &docker.APIEvents{ID: "containerId", Status: "create"}
+		events <- &docker.APIEvents{Type: "container", ID: "containerId", Status: "create"}
 	}()
 
 	event := <-dockerEvents
@@ -556,7 +556,7 @@ func TestContainerEvents(t *testing.T) {
 	}
 	mockDocker.EXPECT().InspectContainer("cid2").Return(container, nil)
 	go func() {
-		events <- &docker.APIEvents{ID: "cid2", Status: "start"}
+		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
 	}()
 	event = <-dockerEvents
 	if event.DockerId != "cid2" {
@@ -583,8 +583,8 @@ func TestContainerEvents(t *testing.T) {
 		mockDocker.EXPECT().InspectContainer("cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
 	}
 	go func() {
-		events <- &docker.APIEvents{ID: "cid30", Status: "stop"}
-		events <- &docker.APIEvents{ID: "cid31", Status: "die"}
+		events <- &docker.APIEvents{Type: "container", ID: "cid30", Status: "stop"}
+		events <- &docker.APIEvents{Type: "container", ID: "cid31", Status: "die"}
 	}()
 
 	for i := 0; i < 2; i++ {
@@ -625,10 +625,29 @@ func TestContainerEvents(t *testing.T) {
 		"kill",
 	}
 	for _, eventStatus := range ignore {
-		events <- &docker.APIEvents{ID: "123", Status: eventStatus}
+		events <- &docker.APIEvents{Type: "container", ID: "123", Status: eventStatus}
 		select {
 		case <-dockerEvents:
 			t.Error("No event should be available for " + eventStatus)
+		default:
+		}
+	}
+
+	// Verify only the container type event will translate to our event stream
+	// Events type: network, image, volume, daemon, plugins won't be handled
+	ignoreEventType := map[string]string{
+		"network": "connect",
+		"image":   "pull",
+		"volume":  "create",
+		"plugin":  "install",
+		"daemon":  "reload",
+	}
+
+	for eventType, eventStatus := range ignoreEventType {
+		events <- &docker.APIEvents{Type: eventType, ID: "123", Status: eventStatus}
+		select {
+		case <-dockerEvents:
+			t.Error("No event should be available for %v", eventType)
 		default:
 		}
 	}

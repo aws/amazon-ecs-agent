@@ -571,10 +571,12 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 
 	go func() {
 		for event := range events {
-			containerId := event.ID
-			if containerId == "" {
+			// currently only container events type needs to be handled
+			if event.Type != "container" || event.ID == "" {
 				continue
 			}
+
+			containerId := event.ID
 			log.Debug("Got event from docker daemon", "event", event)
 
 			var status api.ContainerStatus
