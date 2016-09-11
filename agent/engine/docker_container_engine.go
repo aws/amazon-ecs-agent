@@ -104,11 +104,11 @@ type DockerClient interface {
 //    appropriately there.
 // Implements DockerClient
 type dockerGoClient struct {
-	clientFactory    dockerclient.Factory
-	version          dockerclient.DockerVersion
-	auth             dockerauth.DockerAuthProvider
-	ecrClientFactory ecr.ECRFactory
-	config           *config.Config
+	clientFactory dockerclient.Factory
+	version       dockerclient.DockerVersion
+	auth          dockerauth.DockerAuthProvider
+	ecrAuth       dockerauth.EcrAuthProvider
+	config        *config.Config
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -149,11 +149,13 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, acceptInsecureCert bo
 		return nil, err
 	}
 
+	ecrClientFactory := ecr.NewECRFactory(acceptInsecureCert)
+
 	return &dockerGoClient{
-		clientFactory:    clientFactory,
-		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
-		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
-		config:           cfg,
+		clientFactory: clientFactory,
+		auth:          dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
+		ecrAuth:       dockerauth.NewECRAuthProvider(ecrClientFactory),
+		config:        cfg,
 	}, nil
 }
 
@@ -328,8 +330,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 	if authData == nil || authData.Type != "ecr" {
 		return dg.auth.GetAuthconfig(image)
 	}
-	provider := dockerauth.NewECRAuthProvider(authData.ECRAuthData, dg.ecrClientFactory)
-	authConfig, err := provider.GetAuthconfig(image)
+	authConfig, err := dg.ecrAuth.GetAuthconfig(image, authData.ECRAuthData)
 	if err != nil {
 		return authConfig, CannotXContainerError{"PullECR", err.Error()}
 	}

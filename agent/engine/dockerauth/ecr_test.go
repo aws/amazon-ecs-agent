@@ -28,13 +28,9 @@ import (
 )
 
 func TestNewAuthProviderECRAuthNoAuth(t *testing.T) {
-	provider := NewECRAuthProvider(nil, nil)
-	ecrProvider, ok := provider.(*ecrAuthProvider)
-	if !ok {
-		t.Error("Should have returned ecrAuthProvider")
-	}
-	if ecrProvider.authData != nil {
-		t.Error("authData should be nil")
+	ecrProvider := NewECRAuthProvider(nil)
+	if ecrProvider.clientFactory != nil {
+		t.Error("clientFactory should be nil")
 	}
 }
 
@@ -43,19 +39,7 @@ func TestNewAuthProviderECRAuth(t *testing.T) {
 	defer ctrl.Finish()
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &api.ECRAuthData{
-		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
-		EndpointOverride: "my.endpoint",
-	}
-
-	factory.EXPECT().GetClient(authData.Region, authData.EndpointOverride)
-
-	provider := NewECRAuthProvider(authData, factory)
-	_, ok := provider.(*ecrAuthProvider)
-	if !ok {
-		t.Error("Should have returned ecrAuthProvider")
-	}
+	NewECRAuthProvider(factory)
 }
 
 func TestGetAuthConfigSuccess(t *testing.T) {
@@ -72,11 +56,13 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: authData,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
 
+	ecrClientFactory.EXPECT().GetClient(authData.Region, authData.EndpointOverride).Return(client)
 	client.EXPECT().GetAuthorizationToken(gomock.Any()).Do(
 		func(input *ecrapi.GetAuthorizationTokenInput) {
 			if input == nil {
@@ -94,7 +80,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 		},
 	}, nil)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
 	if err != nil {
 		t.Fatal("Unexpected error", err)
 	}
@@ -123,9 +109,10 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: authData,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
 
 	client.EXPECT().GetAuthorizationToken(gomock.Any()).Do(
@@ -144,8 +131,9 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 			},
 		},
 	}, nil)
+	ecrClientFactory.EXPECT().GetClient(authData.Region, authData.EndpointOverride).Return(client)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
@@ -169,10 +157,12 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: authData,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
+	ecrClientFactory.EXPECT().GetClient(authData.Region, authData.EndpointOverride).Return(client)
 
 	client.EXPECT().GetAuthorizationToken(gomock.Any()).Do(
 		func(input *ecrapi.GetAuthorizationTokenInput) {
@@ -191,7 +181,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 		},
 	}, nil)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
@@ -213,10 +203,12 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 	}
 	proxyEndpoint := "proxy"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: authData,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
+	ecrClientFactory.EXPECT().GetClient(authData.Region, authData.EndpointOverride).Return(client)
 
 	client.EXPECT().GetAuthorizationToken(gomock.Any()).Do(
 		func(input *ecrapi.GetAuthorizationTokenInput) {
@@ -228,7 +220,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 			}
 		})
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
@@ -250,10 +242,12 @@ func TestGetAuthConfigECRError(t *testing.T) {
 	}
 	proxyEndpoint := "proxy"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: authData,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
+	ecrClientFactory.EXPECT().GetClient(authData.Region, authData.EndpointOverride).Return(client)
 
 	client.EXPECT().GetAuthorizationToken(gomock.Any()).Do(
 		func(input *ecrapi.GetAuthorizationTokenInput) {
@@ -265,7 +259,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 			}
 		}).Return(nil, errors.New("test error"))
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
@@ -278,16 +272,16 @@ func TestGetAuthConfigECRError(t *testing.T) {
 func TestGetAuthConfigNoAuthData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_ecr.NewMockECRSDK(ctrl)
 
 	proxyEndpoint := "proxy"
 
-	provider := ecrAuthProvider{
-		client:   client,
-		authData: nil,
+	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+	provider := EcrAuthProvider{
+		clientFactory:      ecrClientFactory,
+		authorizationDatas: make(map[string]*ecrapi.AuthorizationData),
 	}
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", nil)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
