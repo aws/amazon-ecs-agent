@@ -176,8 +176,8 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 // task's desired status
 func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
-		if c.DesiredStatus < task.DesiredStatus.ContainerStatus() {
-			c.DesiredStatus = task.DesiredStatus.ContainerStatus()
+		if c.GetDesiredStatus() < task.DesiredStatus.ContainerStatus() {
+			c.SetDesiredStatus(task.DesiredStatus.ContainerStatus())
 		}
 	}
 }
@@ -193,8 +193,9 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	// Set to a large 'impossible' status that can't be the min
 	earliestStatus := ContainerZombie
 	for _, cont := range task.Containers {
-		if cont.KnownStatus < earliestStatus {
-			earliestStatus = cont.KnownStatus
+		contKnownStatus := cont.GetKnownStatus()
+		if contKnownStatus < earliestStatus {
+			earliestStatus = contKnownStatus
 		}
 	}
 
@@ -475,7 +476,7 @@ func (task *Task) updateTaskDesiredStatus() {
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
-		if cont.Essential && (cont.KnownStatus.Terminal() || cont.DesiredStatus.Terminal()) {
+		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			llog.Debug("Updating task desired status to stopped", "container", cont.Name)
 			task.DesiredStatus = TaskStopped
 		}

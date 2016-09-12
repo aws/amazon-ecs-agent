@@ -17,6 +17,7 @@ import (
 	"time"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"golang.org/x/net/context"
 )
 
@@ -47,6 +48,7 @@ type StatsContainer struct {
 	cancel            context.CancelFunc
 	client            ecsengine.DockerClient
 	statsQueue        *Queue
+	resolver          resolver.ContainerMetadataResolver
 }
 
 // taskDefinition encapsulates family and version strings for a task definition

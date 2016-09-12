@@ -151,6 +151,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&api.DockerContainer{
+		Container: &api.Container{},
+	}, nil)
 	mockStatsChannel := make(chan *docker.Stats)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
@@ -275,6 +278,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&api.DockerContainer{
+		Container: &api.Container{},
+	}, nil)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
 	engine.resolver = resolver

@@ -20,4 +20,5 @@ import "github.com/aws/amazon-ecs-agent/agent/api"
 // ContainerMetadataResolver defines methods to resolve meta-data.
 type ContainerMetadataResolver interface {
 	ResolveTask(string) (*api.Task, error)
+	ResolveContainer(string) (*api.DockerContainer, error)
 }

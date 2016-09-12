@@ -726,7 +726,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	go func() {
 		statsErr := client.Stats(options)
 		if statsErr != nil {
-			seelog.Warnf("Error retrieving stats for container %s: %v", id, statsErr)
+			seelog.Infof("Error retrieving stats for container %s: %v", id, statsErr)
 		}
 	}()
 
