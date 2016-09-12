@@ -59,6 +59,7 @@ func (authProvider *EcrAuthProvider) GetAuthconfig(image string, authData *api.E
 
 	cachedAuthData := authProvider.authorizationDatas[registryId]
 	if cachedAuthData != nil {
+
 		allowTime := time.Now().Add(authDataTimeout)
 
 		if cachedAuthData.ExpiresAt != nil && cachedAuthData.ExpiresAt.After(allowTime) {
