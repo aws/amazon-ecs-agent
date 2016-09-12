@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
@@ -52,7 +53,7 @@ func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoCli
 	client, _ := NewDockerGoClient(factory, false, &conf)
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
-	goClient.ecrClientFactory = ecrClientFactory
+	goClient.ecrAuth = dockerauth.NewECRAuthProvider(ecrClientFactory)
 	goClient._time = mockTime
 	return mockDocker, goClient, mockTime, ctrl.Finish
 }
@@ -230,7 +231,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
-	goClient.ecrClientFactory = ecrClientFactory
+	goClient.ecrAuth = dockerauth.NewECRAuthProvider(ecrClientFactory)
 	goClient._time = mockTime
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -293,7 +294,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
-	goClient.ecrClientFactory = ecrClientFactory
+	goClient.ecrAuth = dockerauth.NewECRAuthProvider(ecrClientFactory)
 	goClient._time = mockTime
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
