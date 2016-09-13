@@ -149,7 +149,7 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
-* Tue Sep 13 2016 Peng Yin <aithal@amazon.com> - 1.12.2-1
+* Tue Sep 13 2016 Anirudh Aithal <aithal@amazon.com> - 1.12.2-1
 - Cache Agent version 1.12.2
 * Wed Aug 17 2016 Peng Yin <penyin@amazon.com> - 1.12.1-1
 - Cache Agent version 1.12.1
