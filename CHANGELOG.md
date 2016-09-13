@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.12.2
+* Bug - Fixed a bug where agent keeps fetching stats of stopped containers.
+
 ## 1.12.1
 * Bug - Fixed a bug where agent keeps fetching stats of stopped containers.
 * Bug - Fixed a bug that could lead to exhausting the open file limit.
