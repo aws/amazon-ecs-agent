@@ -28,9 +28,37 @@ func (c *Container) Overridden() *Container {
 }
 
 func (c *Container) KnownTerminal() bool {
-	return c.KnownStatus.Terminal()
+	return c.GetKnownStatus().Terminal()
 }
 
 func (c *Container) DesiredTerminal() bool {
-	return c.DesiredStatus.Terminal()
+	return c.GetDesiredStatus().Terminal()
+}
+
+func (c *Container) GetKnownStatus() ContainerStatus {
+	c.knownStatusLock.RLock()
+	defer c.knownStatusLock.RUnlock()
+
+	return c.KnownStatus
+}
+
+func (c *Container) SetKnownStatus(status ContainerStatus) {
+	c.knownStatusLock.Lock()
+	defer c.knownStatusLock.Unlock()
+
+	c.KnownStatus = status
+}
+
+func (c *Container) GetDesiredStatus() ContainerStatus {
+	c.desiredStatusLock.RLock()
+	defer c.desiredStatusLock.RUnlock()
+
+	return c.DesiredStatus
+}
+
+func (c *Container) SetDesiredStatus(status ContainerStatus) {
+	c.desiredStatusLock.Lock()
+	defer c.desiredStatusLock.Unlock()
+
+	c.DesiredStatus = status
 }

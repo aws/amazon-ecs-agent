@@ -221,7 +221,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	// Cases: If this is a forward transition (else) update the container to be known to be at that status.
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
-	if event.Status <= container.KnownStatus && container.KnownStatus == api.ContainerStopped {
+	containerKnownStatus := container.GetKnownStatus()
+	if event.Status <= containerKnownStatus && containerKnownStatus == api.ContainerStopped {
 		if event.Status == api.ContainerRunning {
 			// If the container becomes running after we've stopped it (possibly
 			// because we got an error running it and it ran anyways), the first time
@@ -233,12 +234,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			})
 		}
 	}
-	if event.Status <= container.KnownStatus {
-		seelog.Infof("Redundant container state change for task %s: %s to %s, but already %s", mtask.Task, container, event.Status, container.KnownStatus)
+	if event.Status <= containerKnownStatus {
+		seelog.Infof("Redundant container state change for task %s: %s to %s, but already %s", mtask.Task, container, event.Status, containerKnownStatus)
 		return
 	}
-	currentKnownStatus := container.KnownStatus
-	container.KnownStatus = event.Status
+	currentKnownStatus := containerKnownStatus
+	container.SetKnownStatus(event.Status)
 
 	if event.Error != nil {
 		if container.ApplyingError == nil {
@@ -254,7 +255,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			// container
 			if event.Error.ErrorName() == dockerTimeoutErrorName {
 				seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v", dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
-				container.KnownStatus = currentKnownStatus
+				container.SetKnownStatus(currentKnownStatus)
 				return
 			} else {
 				// If we were trying to transition to stopped and had an error, we
@@ -263,15 +264,15 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 				// enough) and get on with it
 				// This actually happens a lot for the case of stopping something that was not running.
 				llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways")
-				container.KnownStatus = api.ContainerStopped
-				container.DesiredStatus = api.ContainerStopped
+				container.SetKnownStatus(api.ContainerStopped)
+				container.SetDesiredStatus(api.ContainerStopped)
 			}
 		} else if event.Status == api.ContainerPulled {
 			// Another special case; a failure to pull might not be fatal if e.g. the image already exists.
 			llog.Info("Error while pulling container; will try to run anyways", "err", event.Error)
 		} else {
 			llog.Warn("Error with docker; stopping container", "container", container, "err", event.Error)
-			container.DesiredStatus = api.ContainerStopped
+			container.SetDesiredStatus(api.ContainerStopped)
 			// the above 'knownstatus' is not truthful because of the error
 			// No point in emitting it, just continue on to stopped
 			return
@@ -336,29 +337,30 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
 // 'None, false, false' -> "This should not be moved; it has unresolved dependencies or is complete; no knownstatus change"
 func (mtask *managedTask) containerNextState(container *api.Container) (api.ContainerStatus, bool, bool) {
 	clog := log.New("task", mtask.Task, "container", container)
-
-	if container.KnownStatus == container.DesiredStatus {
-		clog.Debug("Container at desired status", "desired", container.DesiredStatus)
+	containerKnownStatus := container.GetKnownStatus()
+	containerDesiredStatus := container.GetDesiredStatus()
+	if containerKnownStatus == containerDesiredStatus {
+		clog.Debug("Container at desired status", "desired", containerDesiredStatus)
 		return api.ContainerStatusNone, false, false
 	}
-	if container.KnownStatus > container.DesiredStatus {
+	if containerKnownStatus > containerDesiredStatus {
 		clog.Debug("Container past desired status")
 		return api.ContainerStatusNone, false, false
 	}
 	if !dependencygraph.DependenciesAreResolved(container, mtask.Containers) {
-		clog.Debug("Can't apply state to container yet; dependencies unresolved", "state", container.DesiredStatus)
+		clog.Debug("Can't apply state to container yet; dependencies unresolved", "state", containerDesiredStatus)
 		return api.ContainerStatusNone, false, false
 	}
 
 	var nextState api.ContainerStatus
 	if container.DesiredTerminal() {
 		nextState = api.ContainerStopped
-		if container.KnownStatus != api.ContainerRunning {
+		if containerKnownStatus != api.ContainerRunning {
 			// If it's not currently running we do not need to do anything to make it become stopped.
 			return nextState, false, true
 		}
 	} else {
-		nextState = container.KnownStatus + 1
+		nextState = containerKnownStatus + 1
 	}
 	return nextState, true, true
 }

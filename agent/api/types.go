@@ -211,7 +211,7 @@ func (t *Task) String() string {
 	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.GetKnownStatus().String(), t.DesiredStatus.String())
 	res += " Containers: ["
 	for _, c := range t.Containers {
-		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.KnownStatus.String(), c.DesiredStatus.String())
+		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	}
 	return res + "]"
 }
@@ -237,8 +237,11 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
-	DesiredStatus ContainerStatus `json:"desiredStatus"`
-	KnownStatus   ContainerStatus
+	DesiredStatus     ContainerStatus `json:"desiredStatus"`
+	desiredStatusLock sync.RWMutex
+
+	KnownStatus     ContainerStatus
+	knownStatusLock sync.RWMutex
 
 	// RunDependencies is a list of containers that must be run before
 	// this one is created
@@ -287,7 +290,7 @@ type ECRAuthData struct {
 }
 
 func (c *Container) String() string {
-	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image, c.KnownStatus.String(), c.DesiredStatus.String())
+	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	if c.KnownExitCode != nil {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}

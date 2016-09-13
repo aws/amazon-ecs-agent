@@ -42,6 +42,17 @@ func (_m *MockContainerMetadataResolver) EXPECT() *_MockContainerMetadataResolve
 	return _m.recorder
 }
 
+func (_m *MockContainerMetadataResolver) ResolveContainer(_param0 string) (*api.DockerContainer, error) {
+	ret := _m.ctrl.Call(_m, "ResolveContainer", _param0)
+	ret0, _ := ret[0].(*api.DockerContainer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockContainerMetadataResolverRecorder) ResolveContainer(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResolveContainer", arg0)
+}
+
 func (_m *MockContainerMetadataResolver) ResolveTask(_param0 string) (*api.Task, error) {
 	ret := _m.ctrl.Call(_m, "ResolveTask", _param0)
 	ret0, _ := ret[0].(*api.Task)

@@ -64,17 +64,30 @@ type DockerStatsEngine struct {
 // TODO make dockerStatsEngine not a singleton object
 var dockerStatsEngine *DockerStatsEngine
 
-// ResolveTask resolves the task arn, given container id.
+// ResolveTask resolves the api task object, given container id.
 func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*api.Task, error) {
 	if resolver.dockerTaskEngine == nil {
 		return nil, fmt.Errorf("Docker task engine uninitialized")
 	}
 	task, found := resolver.dockerTaskEngine.State().TaskById(dockerID)
 	if !found {
-		return nil, fmt.Errorf("Could not map docker id to task")
+		return nil, fmt.Errorf("Could not map docker id to task: %s", dockerID)
 	}
 
 	return task, nil
+}
+
+// ResolveContainer resolves the api container object, given container id.
+func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID string) (*api.DockerContainer, error) {
+	if resolver.dockerTaskEngine == nil {
+		return nil, fmt.Errorf("Docker task engine uninitialized")
+	}
+	container, found := resolver.dockerTaskEngine.State().ContainerById(dockerID)
+	if !found {
+		return nil, fmt.Errorf("Could not map docker id to container: %s", dockerID)
+	}
+
+	return container, nil
 }
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
@@ -297,7 +310,7 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 	}
 
 	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
-	container := newStatsContainer(dockerID, engine.client)
+	container := newStatsContainer(dockerID, engine.client, engine.resolver)
 	engine.tasksToContainers[task.Arn][dockerID] = container
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 	container.StartStatsCollection()
@@ -330,18 +343,7 @@ func (engine *DockerStatsEngine) removeContainer(dockerID string) {
 		return
 	}
 
-	container.StopStatsCollection()
-	delete(engine.tasksToContainers[task.Arn], dockerID)
-	seelog.Debugf("Deleted container from tasks, id: %s", dockerID)
-
-	if len(engine.tasksToContainers[task.Arn]) == 0 {
-		// No containers in task, delete task arn from map.
-		delete(engine.tasksToContainers, task.Arn)
-		// No need to verify if the key exists in tasksToDefinitions.
-		// Delete will do nothing if the specified key doesn't exist.
-		delete(engine.tasksToDefinitions, task.Arn)
-		seelog.Debugf("Deleted task from tasks, arn: %s", task.Arn)
-	}
+	engine.doRemoveContainer(container, task.Arn)
 }
 
 // newDockerContainerMetadataResolver returns a new instance of DockerContainerMetadataResolver.
@@ -371,17 +373,38 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 
 	var containerMetrics []*ecstcs.ContainerMetric
 	for _, container := range containerMap {
-		// Get CPU stats set.
+		dockerID := container.containerMetadata.DockerID
+		// Check if the container is terminal. If it is, make sure that it is
+		// cleaned up properly. We might sometimes miss events from docker task
+		// engine and this helps in reconciling the state. The tcs client's
+		// GetInstanceMetrics probe is used as the trigger for this.
+		terminal, err := container.terminal()
+		if err != nil {
+			// Error determining if the container is terminal. This means that the container
+			// id could not be resolved to a container that is being tracked by the
+			// docker task engine. If the docker task engine has already removed
+			// the container from its state, there's no point in stats engine tracking the
+			// container. So, clean-up anyway.
+			seelog.Warnf("Error determining if the container %s is terminal, cleaning up and skipping", dockerID, err)
+			engine.doRemoveContainer(container, taskArn)
+			continue
+		} else if terminal {
+			// Container is in knonwn terminal state. Stop collection metrics.
+			seelog.Infof("Container %s is terminal, cleaning up and skipping", dockerID)
+			engine.doRemoveContainer(container, taskArn)
+			continue
+		}
+		// Container is not terminal. Get CPU stats set.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting cpu stats, err: %v, container: %v", err, container.containerMetadata)
+			seelog.Warnf("Error getting cpu stats, err: %v, container: %v", err, dockerID)
 			continue
 		}
 
 		// Get memory stats set.
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, container.containerMetadata)
+			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)
 			continue
 		}
 
@@ -393,6 +416,22 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 	}
 
 	return containerMetrics, nil
+}
+
+func (engine *DockerStatsEngine) doRemoveContainer(container *StatsContainer, taskArn string) {
+	container.StopStatsCollection()
+	dockerID := container.containerMetadata.DockerID
+	delete(engine.tasksToContainers[taskArn], dockerID)
+	seelog.Debugf("Deleted container from tasks, id: %s", dockerID)
+
+	if len(engine.tasksToContainers[taskArn]) == 0 {
+		// No containers in task, delete task arn from map.
+		delete(engine.tasksToContainers, taskArn)
+		// No need to verify if the key exists in tasksToDefinitions.
+		// Delete will do nothing if the specified key doesn't exist.
+		delete(engine.tasksToDefinitions, taskArn)
+		seelog.Debugf("Deleted task from tasks, arn: %s", taskArn)
+	}
 }
 
 // resetStats resets stats for all watched containers.

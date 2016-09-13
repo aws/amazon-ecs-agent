@@ -108,7 +108,7 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 // `existingContainers` (map from name to container). The `resolves` function
 // passed should return true if the named container is resolved.
 func verifyStatusResolveable(target *api.Container, existingContainers map[string]*api.Container, dependencies []string, resolves func(*api.Container, *api.Container) bool) bool {
-	targetGoal := target.DesiredStatus
+	targetGoal := target.GetDesiredStatus()
 	if targetGoal != api.ContainerRunning && targetGoal != api.ContainerCreated {
 		// A container can always stop, die, or reach whatever other statre it
 		// wants regardless of what dependencies it has
@@ -128,30 +128,36 @@ func verifyStatusResolveable(target *api.Container, existingContainers map[strin
 }
 
 func linkCanResolve(target *api.Container, link *api.Container) bool {
-	if target.DesiredStatus == api.ContainerCreated {
-		return link.DesiredStatus == api.ContainerCreated || link.DesiredStatus == api.ContainerRunning
-	} else if target.DesiredStatus == api.ContainerRunning {
-		return link.DesiredStatus == api.ContainerRunning
+	targetDesiredStatus := target.GetDesiredStatus()
+	linkDesiredStatus := link.GetDesiredStatus()
+	if targetDesiredStatus == api.ContainerCreated {
+		return linkDesiredStatus == api.ContainerCreated || linkDesiredStatus == api.ContainerRunning
+	} else if targetDesiredStatus == api.ContainerRunning {
+		return linkDesiredStatus == api.ContainerRunning
 	}
 	log.Error("Unexpected desired status", "target", target)
 	return false
 }
 
 func linkIsResolved(target *api.Container, link *api.Container) bool {
-	if target.DesiredStatus == api.ContainerCreated {
-		return link.KnownStatus == api.ContainerCreated || link.KnownStatus == api.ContainerRunning
-	} else if target.DesiredStatus == api.ContainerRunning {
-		return link.KnownStatus == api.ContainerRunning
+	targetDesiredStatus := target.GetDesiredStatus()
+	if targetDesiredStatus == api.ContainerCreated {
+		knownStatus := link.GetKnownStatus()
+		return knownStatus == api.ContainerCreated || knownStatus == api.ContainerRunning
+	} else if targetDesiredStatus == api.ContainerRunning {
+		return link.GetKnownStatus() == api.ContainerRunning
 	}
 	log.Error("Unexpected desired status", "target", target)
 	return false
 }
 
 func volumeCanResolve(target *api.Container, volume *api.Container) bool {
-	if target.DesiredStatus == api.ContainerCreated || target.DesiredStatus == api.ContainerRunning {
-		return volume.DesiredStatus == api.ContainerCreated ||
-			volume.DesiredStatus == api.ContainerRunning ||
-			volume.DesiredStatus == api.ContainerStopped
+	targetDesiredStatus := target.GetDesiredStatus()
+	volumeDesiredStatus := volume.GetDesiredStatus()
+	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.ContainerRunning {
+		return volumeDesiredStatus == api.ContainerCreated ||
+			volumeDesiredStatus == api.ContainerRunning ||
+			volumeDesiredStatus == api.ContainerStopped
 	}
 
 	log.Error("Unexpected desired status", "target", target)
@@ -159,10 +165,12 @@ func volumeCanResolve(target *api.Container, volume *api.Container) bool {
 }
 
 func volumeIsResolved(target *api.Container, volume *api.Container) bool {
-	if target.DesiredStatus == api.ContainerCreated || target.DesiredStatus == api.ContainerRunning {
-		return volume.KnownStatus == api.ContainerCreated ||
-			volume.KnownStatus == api.ContainerRunning ||
-			volume.KnownStatus == api.ContainerStopped
+	targetDesiredStatus := target.GetDesiredStatus()
+	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.ContainerRunning {
+		knownStatus := volume.GetKnownStatus()
+		return knownStatus == api.ContainerCreated ||
+			knownStatus == api.ContainerRunning ||
+			knownStatus == api.ContainerStopped
 	}
 
 	log.Error("Unexpected desired status", "target", target)
@@ -172,8 +180,8 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 // onRunIsResolved defines a relationship where a target cannot be created until
 // 'run' has reached a running state.
 func onRunIsResolved(target *api.Container, run *api.Container) bool {
-	if target.DesiredStatus >= api.ContainerCreated {
-		return run.KnownStatus >= api.ContainerRunning
+	if target.GetDesiredStatus() >= api.ContainerCreated {
+		return run.GetKnownStatus() >= api.ContainerRunning
 	}
 	return false
 }

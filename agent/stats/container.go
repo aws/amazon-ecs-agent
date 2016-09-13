@@ -17,6 +17,7 @@ import (
 	"time"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/cihub/seelog"
 	"golang.org/x/net/context"
 )
@@ -30,22 +31,22 @@ const (
 	ContainerStatsBufferLength = 120
 )
 
-func newStatsContainer(dockerID string, client ecsengine.DockerClient) *StatsContainer {
+func newStatsContainer(dockerID string, client ecsengine.DockerClient, resolver resolver.ContainerMetadataResolver) *StatsContainer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsContainer{
 		containerMetadata: &ContainerMetadata{
 			DockerID: dockerID,
 		},
-		ctx:    ctx,
-		cancel: cancel,
-		client: client,
+		ctx:      ctx,
+		cancel:   cancel,
+		client:   client,
+		resolver: resolver,
 	}
 }
 
 func (container *StatsContainer) StartStatsCollection() {
 	// Create the queue to store utilization data from docker stats
 	container.statsQueue = NewQueue(ContainerStatsBufferLength)
-
 	go container.collect()
 }
 
@@ -61,21 +62,58 @@ func (container *StatsContainer) collect() {
 			seelog.Debugf("Stopping stats collection for container %s", dockerID)
 			return
 		default:
-			seelog.Debugf("Collecting stats for container %s", dockerID)
-			dockerStats, err := container.client.Stats(dockerID, container.ctx)
+			err := container.processStatsStream()
 			if err != nil {
-				seelog.Warnf("Error retrieving stats for container %s: %v", dockerID, err)
-				continue
+				// Currenlty, the only error that we get here is if go-dockerclient is unable
+				// to decode the stats payload properly. Other errors such as
+				// 'NoSuchContainer', 'InactivityTimeoutExceeded' etc are silently consumed.
+				// We rely on state reconciliation with docker task engine at this point of
+				// time to stop collecting metrics.
+				seelog.Debugf("Error querying stats for container %s: %v", dockerID, err)
 			}
-			for rawStat := range dockerStats {
-				stat, err := dockerStatsToContainerStats(rawStat)
-				if err == nil {
-					container.statsQueue.Add(stat)
-				} else {
-					seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
-				}
+			// We were disconnected from the stats stream.
+			// Check if the container is terminal. If it is, stop collecting metrics.
+			// We might sometimes miss events from docker task  engine and this helps
+			// in reconciling the state.
+			terminal, err := container.terminal()
+			if err != nil {
+				// Error determining if the container is terminal. This means that the container
+				// id could not be resolved to a container that is being tracked by the
+				// docker task engine. If the docker task engine has already removed
+				// the container from its state, there's no point in stats engine tracking the
+				// container. So, clean-up anyway.
+				seelog.Warnf("Error determining if the container %s is terminal, stopping stats collection: %v", dockerID, err)
+				container.StopStatsCollection()
+			} else if terminal {
+				seelog.Infof("Container %s is terminal, stopping stats collection", dockerID)
+				container.StopStatsCollection()
 			}
-			seelog.Debugf("Disconnected from docker stats for container %s", dockerID)
 		}
 	}
+}
+
+func (container *StatsContainer) processStatsStream() error {
+	dockerID := container.containerMetadata.DockerID
+	seelog.Debugf("Collecting stats for container %s", dockerID)
+	dockerStats, err := container.client.Stats(dockerID, container.ctx)
+	if err != nil {
+		return err
+	}
+	for rawStat := range dockerStats {
+		stat, err := dockerStatsToContainerStats(rawStat)
+		if err == nil {
+			container.statsQueue.Add(stat)
+		} else {
+			seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+		}
+	}
+	return nil
+}
+
+func (container *StatsContainer) terminal() (bool, error) {
+	dockerContainer, err := container.resolver.ResolveContainer(container.containerMetadata.DockerID)
+	if err != nil {
+		return false, err
+	}
+	return dockerContainer.Container.KnownTerminal(), nil
 }

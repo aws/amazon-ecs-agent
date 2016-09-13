@@ -225,8 +225,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerId, "name", cont.DockerName)
 					}
 				}
-				if currentState > cont.Container.KnownStatus {
-					cont.Container.KnownStatus = currentState
+				if currentState > cont.Container.GetKnownStatus() {
+					cont.Container.SetKnownStatus(currentState)
 				}
 			}
 		}
@@ -321,14 +321,15 @@ func (engine *DockerTaskEngine) time() ttime.Time {
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
 // It will omit events the backend would not process and will perform best-effort deduplication of events.
 func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
-	if !cont.KnownStatus.BackendRecognized() {
+	contKnownStatus := cont.GetKnownStatus()
+	if !contKnownStatus.BackendRecognized() {
 		return
 	}
 	if cont.IsInternal {
 		return
 	}
-	if cont.SentStatus >= cont.KnownStatus {
-		log.Debug("Already sent container event; no need to re-send", "task", task.Arn, "container", cont.Name, "event", cont.KnownStatus.String())
+	if cont.SentStatus >= contKnownStatus {
+		log.Debug("Already sent container event; no need to re-send", "task", task.Arn, "container", cont.Name, "event", contKnownStatus.String())
 		return
 	}
 
@@ -338,7 +339,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 	event := api.ContainerStateChange{
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
-		Status:        cont.KnownStatus,
+		Status:        contKnownStatus,
 		ExitCode:      cont.KnownExitCode,
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,
