@@ -15,10 +15,13 @@ package ecr
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
+	log "github.com/cihub/seelog"
 )
 
 // ECRClient wrapper interface for mocking
@@ -46,9 +49,15 @@ func NewECRClient(sdkClient ECRSDK, tokenCache async.Cache) ECRClient {
 }
 
 func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error) {
-	cachedAuthData, ok := client.tokenCache.Get(registryId)
-	if ok {
-		return cachedAuthData.(*ecrapi.AuthorizationData), nil
+	cachedToken, found := client.tokenCache.Get(registryId)
+	if found {
+		cachedAuthData := cachedToken.(*ecrapi.AuthorizationData)
+
+		if client.isTokenValid(cachedAuthData) {
+			return cachedAuthData, nil
+		} else {
+			log.Debugf("Token found, but expires at %s", aws.TimeValue(cachedAuthData.ExpiresAt))
+		}
 	}
 
 	output, err := client.sdkClient.GetAuthorizationToken(&ecrapi.GetAuthorizationTokenInput{
@@ -66,4 +75,22 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 	client.tokenCache.Set(registryId, authData)
 
 	return authData, nil
+}
+
+// Ensure token is still within it's expiration window. We early expire to allow for timing in calls and add jitter to avoid
+// refreshing all of the tokens at once.
+func (client *ecrClient) isTokenValid(authData *ecrapi.AuthorizationData) bool {
+	return authData != nil &&
+		authData.ExpiresAt != nil &&
+		aws.TimeValue(authData.ExpiresAt).Add(-1*client.expirationWindowWithJitter()).After(time.Now())
+}
+
+const (
+	maxTokenExpirationWindowInSeconds = 300 // 5 minutes
+	secondsInMinute                   = 60
+)
+
+// returns a random expiration duration between 1 and 5 minutes
+func (client *ecrClient) expirationWindowWithJitter() time.Duration {
+	return time.Duration(rand.Intn(maxTokenExpirationWindowInSeconds-secondsInMinute)) + time.Minute
 }

@@ -17,6 +17,7 @@ package ecr_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
@@ -65,6 +66,7 @@ func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenCacheHit()
 	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(testProxyEndpoint),
 		AuthorizationToken: aws.String(testToken),
+		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
 
 	suite.mockCache.EXPECT().Get(testRegistryId).Return(testAuthData, true)
@@ -78,6 +80,7 @@ func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenCacheMiss(
 	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(testProxyEndpoint),
 		AuthorizationToken: aws.String(testToken),
+		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
 
 	suite.mockClient.EXPECT().GetAuthorizationToken(
@@ -88,6 +91,34 @@ func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenCacheMiss(
 	}, nil)
 
 	suite.mockCache.EXPECT().Get(testRegistryId).Return(nil, false)
+	suite.mockCache.EXPECT().Set(testRegistryId, testAuthData)
+
+	authorizationData, err := suite.ecrClient.GetAuthorizationToken(testRegistryId)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), testAuthData, authorizationData)
+}
+
+func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenCacheHitExpiredToken() {
+	expiredAuthData := &ecrapi.AuthorizationData{
+		ProxyEndpoint:      aws.String(testProxyEndpoint),
+		AuthorizationToken: aws.String(testToken),
+		ExpiresAt:          aws.Time(time.Now().Add(-5 * time.Minute)),
+	}
+
+	testAuthData := &ecrapi.AuthorizationData{
+		ProxyEndpoint:      aws.String(testProxyEndpoint),
+		AuthorizationToken: aws.String(testToken),
+		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
+	}
+
+	suite.mockClient.EXPECT().GetAuthorizationToken(
+		&ecrapi.GetAuthorizationTokenInput{
+			RegistryIds: []*string{aws.String(testRegistryId)},
+		}).Return(&ecrapi.GetAuthorizationTokenOutput{
+		AuthorizationData: []*ecrapi.AuthorizationData{testAuthData},
+	}, nil)
+
+	suite.mockCache.EXPECT().Get(testRegistryId).Return(expiredAuthData, true)
 	suite.mockCache.EXPECT().Set(testRegistryId, testAuthData)
 
 	authorizationData, err := suite.ecrClient.GetAuthorizationToken(testRegistryId)
