@@ -15,13 +15,12 @@ package engine
 
 import (
 	"fmt"
-	"os"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -30,10 +29,7 @@ import (
 )
 
 const (
-	DefaultNumImagesToDelete        = 5
-	DefaultMinimumAgeBeforeDeletion = 1 * time.Hour
-	DefaultImageCleanupTimeInterval = 3 * time.Hour
-	imageNotFoundForDeletionError   = "no such image"
+	imageNotFoundForDeletionError = "no such image"
 )
 
 // ImageManager is responsible for saving the Image states,
@@ -65,32 +61,13 @@ type dockerImageManager struct {
 // ImageStatesForDeletion is used for implementing the sort interface
 type ImageStatesForDeletion []*image.ImageState
 
-func NewImageManager(client DockerClient, state *dockerstate.DockerTaskEngineState) ImageManager {
-
-	minimumAgeBeforeDeletionFromEnv := os.Getenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE")
-	minimumAgeBeforeDeletion, err := time.ParseDuration(minimumAgeBeforeDeletionFromEnv)
-	if err != nil {
-		minimumAgeBeforeDeletion = DefaultMinimumAgeBeforeDeletion
-	}
-
-	imageCleanupTimeIntervalFromEnv := os.Getenv("ECS_IMAGE_CLEANUP_INTERVAL")
-	imageCleanupTimeInterval, err := time.ParseDuration(imageCleanupTimeIntervalFromEnv)
-	if err != nil {
-		imageCleanupTimeInterval = DefaultImageCleanupTimeInterval
-	}
-
-	numImagesToDeleteFromEnv := os.Getenv("ECS_IMAGE_IMAGE_DELETE_NUM_PER_CYCLE")
-	numImagesToDelete, err := strconv.Atoi(numImagesToDeleteFromEnv)
-	if err != nil {
-		numImagesToDelete = DefaultNumImagesToDelete
-	}
-
+func NewImageManager(cfg *config.Config, client DockerClient, state *dockerstate.DockerTaskEngineState) ImageManager {
 	return &dockerImageManager{
 		client: client,
 		state:  state,
-		minimumAgeBeforeDeletion: minimumAgeBeforeDeletion,
-		numImagesToDelete:        numImagesToDelete,
-		imageCleanupTimeInterval: imageCleanupTimeInterval,
+		minimumAgeBeforeDeletion: cfg.ImageMinimumAgeBeforeDeletion,
+		numImagesToDelete:        cfg.NumOfImageToDeletePerCycle,
+		imageCleanupTimeInterval: cfg.ImageCleanupInterval,
 	}
 }
 
@@ -271,10 +248,6 @@ func (imageManager *dockerImageManager) removeExistingImageNameOfDifferentID(con
 }
 
 func (imageManager *dockerImageManager) StartImageCleanupProcess(ctx context.Context) {
-	if os.Getenv("ECS_IMAGE_CLEANUP_ENABLE") != "true" {
-		seelog.Info("Image cleanup not enabled")
-		return
-	}
 	// passing the cleanup interval as argument which would help during testing
 	imageManager.performPeriodicImageCleanup(ctx, imageManager.imageCleanupTimeInterval)
 }

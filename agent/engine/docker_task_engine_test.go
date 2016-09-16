@@ -516,7 +516,7 @@ func TestSteadyStatePoll(t *testing.T) {
 }
 
 func TestStopWithPendingStops(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -529,7 +529,6 @@ func TestStopWithPendingStops(t *testing.T) {
 	eventStream := make(chan DockerContainerChangeEvent)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-
 	err := taskEngine.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -550,6 +549,9 @@ func TestStopWithPendingStops(t *testing.T) {
 	client.EXPECT().PullImage(gomock.Any(), nil).Do(func(x, y interface{}) {
 		<-pulling
 	})
+	imageManager.EXPECT().AddContainerReferenceToImageState(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
+
 	taskEngine.AddTask(sleepTask2)
 	stopSleep2 := *sleepTask2
 	stopSleep2.DesiredStatus = api.TaskStopped

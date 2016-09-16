@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	//	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -53,29 +52,11 @@ var testAuthUser = "user"
 var testAuthPass = "swordfish"
 var testDockerStopTimeout = 2 * time.Second
 
-//var credentialsId = "credsid"
-
-//func defaultTestConfig() *config.Config {
-//	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-//	return cfg
-//}
-
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfig(), t)
 }
 
 func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	return doSetup(cfg, t, DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete,
-		DefaultImageCleanupTimeInterval)
-}
-
-func setupWithImageManagerConfig(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Duration,
-	numImagesToDelete int, imageCleanupTimeInterval time.Duration) (TaskEngine, func(), credentials.Manager) {
-	return doSetup(cfg, t, minimumAgeBeforeDeletion, numImagesToDelete, imageCleanupTimeInterval)
-}
-
-func doSetup(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Duration,
-	numImagesToDelete int, imageCleanupTimeInterval time.Duration) (TaskEngine, func(), credentials.Manager) {
 	if testing.Short() {
 		t.Skip("Skipping integ test in short mode")
 	}
@@ -93,7 +74,7 @@ func doSetup(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Dur
 	}
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewDockerTaskEngineState()
-	imageManager := NewImageManager(dockerClient, state)
+	imageManager := NewImageManager(cfg, dockerClient, state)
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
 	taskEngine.Init()

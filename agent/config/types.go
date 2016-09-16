@@ -118,6 +118,22 @@ type Config struct {
 	// TaskIAMRoleEnabledForNetworkHost specifies if the Agent is capable of launching
 	// tasks with IAM Roles when networkMode is set to 'host'
 	TaskIAMRoleEnabledForNetworkHost bool
+
+	// ImageCleanupDisabled specifies whether the Agent will periodically perform
+	// automated image cleanup
+	ImageCleanupDisabled bool
+
+	// ImageMinimumAgeBeforeDeletion specifies the minimum time since it was pulled
+	// before it can be deleted
+	ImageMinimumAgeBeforeDeletion time.Duration
+
+	// ImageCleanupInterval specifies the time to wait before performing the image
+	// cleanup since last time it was executed
+	ImageCleanupInterval time.Duration
+
+	// NumOfImageToDeletePerCycle specifies the num of image to delete every time
+	// when Agent performs cleanup
+	NumOfImageToDeletePerCycle int
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

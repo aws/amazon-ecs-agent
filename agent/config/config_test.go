@@ -89,6 +89,10 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")
+	os.Setenv("ECS_DISABLE_IMAGE_CLEANUP", "true")
+	os.Setenv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")
+	os.Setenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE", "30m")
+	os.Setenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE", "2")
 
 	conf := environmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -128,6 +132,18 @@ func TestEnvironmentConfig(t *testing.T) {
 	}
 	if !conf.TaskIAMRoleEnabledForNetworkHost {
 		t.Error("Wrong value for TaskIAMRoleEnabledForNetworkHost")
+	}
+	if !conf.ImageCleanupDisabled {
+		t.Error("Wrong value for ImageCleanupDisabled")
+	}
+	if conf.ImageMinimumAgeBeforeDeletion != (30 * time.Minute) {
+		t.Error("Wrong value for ImageMinimumAgeBeforeDeletion", conf.ImageMinimumAgeBeforeDeletion, os.Getenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE"))
+	}
+	if conf.ImageCleanupInterval != (2 * time.Hour) {
+		t.Error("Wrong value for ImageCleanupInterval", conf.ImageCleanupInterval)
+	}
+	if conf.NumOfImageToDeletePerCycle != 2 {
+		t.Error("Wrong value for NumOfImageToDeletePerCycle")
 	}
 }
 
@@ -180,6 +196,11 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	os.Unsetenv("ECS_AUDIT_LOGFILE")
 	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
+	os.Unsetenv("ECS_DISABLE_IMAGE_CLEANUP")
+	os.Unsetenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE")
+	os.Unsetenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE")
+	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
@@ -223,6 +244,18 @@ func TestConfigDefault(t *testing.T) {
 	}
 	if cfg.CredentialsAuditLogFile != defaultCredentialsAuditLogFile {
 		t.Error("CredentialsAuditLogFile default is set incorrectly")
+	}
+	if cfg.ImageCleanupDisabled {
+		t.Error("ImageCleanupDisabled default is set incorrectly")
+	}
+	if cfg.ImageMinimumAgeBeforeDeletion != DefaultAgeOfImageBeforeDeletion {
+		t.Error("ImageMinimumAgeBeforeDeletion default is set incorrectly")
+	}
+	if cfg.ImageCleanupInterval != DefaultImageCleanupTimeInterval {
+		t.Error("ImageCleanupInterval default is set incorrectly")
+	}
+	if cfg.NumOfImageToDeletePerCycle != DefaultNumOfImageToDeletePerCycle {
+		t.Error("NumOfImageToDeletePerCycle default is set incorrectly")
 	}
 }
 
@@ -406,5 +439,29 @@ func TestCredentialsAuditLogDisabled(t *testing.T) {
 
 	if !cfg.CredentialsAuditLogDisabled {
 		t.Errorf("Wrong value for CredentialsAuditLogDisabled: %v", cfg.CredentialsAuditLogDisabled)
+	}
+}
+
+func TestImageCleanupMinimumInterval(t *testing.T) {
+	os.Setenv("ECS_IMAGE_CLEANUP_INTERVAL", "1m")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.ImageCleanupInterval != DefaultImageCleanupTimeInterval {
+		t.Errorf("Wrong value for ImageCleanupInterval: %v", cfg.ImageCleanupInterval)
+	}
+}
+
+func TestImageCleanupMinimumNumberOfImageToDeletePerCycle(t *testing.T) {
+	os.Setenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE", "-1")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.NumOfImageToDeletePerCycle != DefaultNumOfImageToDeletePerCycle {
+		t.Errorf("Wrong value for NumOfImageToDeletePerCycle: %v", cfg.NumOfImageToDeletePerCycle)
 	}
 }

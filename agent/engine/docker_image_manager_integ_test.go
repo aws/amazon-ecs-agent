@@ -52,11 +52,10 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	cfg.TaskCleanupWaitDuration = 5 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
-	minimumAgeBeforeDeletion := 1 * time.Second
-	numImagesToDelete := 2
+	cfg.ImageMinimumAgeBeforeDeletion = 1 * time.Second
+	cfg.NumOfImageToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, _ := setupWithImageManagerConfig(cfg, t, minimumAgeBeforeDeletion, numImagesToDelete,
-		DefaultImageCleanupTimeInterval)
+	taskEngine, done, _ := setup(cfg, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -165,13 +164,11 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
-	minimumAgeBeforeDeletion := 15 * time.Minute
+	cfg.ImageMinimumAgeBeforeDeletion = 15 * time.Minute
 	// Set to delete three images, but in this test we expect only two images to be removed
-	numImagesToDelete := 3
-
+	cfg.NumOfImageToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, _ := setupWithImageManagerConfig(cfg, t, minimumAgeBeforeDeletion, numImagesToDelete,
-		DefaultImageCleanupTimeInterval)
+	taskEngine, done, _ := setup(cfg, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
