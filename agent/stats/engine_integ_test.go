@@ -477,7 +477,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	}
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewDockerTaskEngineState())
 
 	container, err := createGremlin(client)
 	if err != nil {

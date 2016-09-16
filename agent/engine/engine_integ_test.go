@@ -32,7 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	//	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -52,12 +52,13 @@ var testVolumeImage = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 var testAuthUser = "user"
 var testAuthPass = "swordfish"
 var testDockerStopTimeout = 2 * time.Second
-var credentialsId = "credsid"
 
-func defaultTestConfig() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	return cfg
-}
+//var credentialsId = "credsid"
+
+//func defaultTestConfig() *config.Config {
+//	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+//	return cfg
+//}
 
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfig(), t)
@@ -92,8 +93,7 @@ func doSetup(cfg *config.Config, t *testing.T, minimumAgeBeforeDeletion time.Dur
 	}
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewDockerTaskEngineState()
-	imageManager := NewImageManager(dockerClient, state,
-		minimumAgeBeforeDeletion, numImagesToDelete, imageCleanupTimeInterval)
+	imageManager := NewImageManager(dockerClient, state)
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
 	taskEngine.Init()

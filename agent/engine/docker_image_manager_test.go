@@ -34,8 +34,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	container := &api.Container{
 		Name:  "testContainer",
@@ -158,8 +157,7 @@ func TestAddInvalidContainerReferenceToImageState(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	container := &api.Container{
 		Image: "",
@@ -281,8 +279,7 @@ func TestRemoveContainerReferenceFromInvalidImageState(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	container := &api.Container{
 		Image: "myContainerImage",
@@ -302,8 +299,7 @@ func TestRemoveInvalidContainerReferenceFromImageState(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	container := &api.Container{
 		Image: "",
@@ -319,8 +315,7 @@ func TestRemoveContainerReferenceFromImageStateInspectError(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	container := &api.Container{
 		Image: "myContainerImage",
@@ -511,8 +506,7 @@ func TestGetLeastRecentlyUsedImages(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 
-	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState(),
-		DefaultMinimumAgeBeforeDeletion, DefaultNumImagesToDelete, DefaultImageCleanupTimeInterval)
+	imageManager := NewImageManager(client, dockerstate.NewDockerTaskEngineState())
 
 	imageStateA := &image.ImageState{
 		LastUsedAt: time.Now().AddDate(0, -5, 0),
