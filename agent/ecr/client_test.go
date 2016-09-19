@@ -16,6 +16,7 @@ package ecr_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -152,4 +153,31 @@ func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenError() {
 	authorizationData, err := suite.ecrClient.GetAuthorizationToken(testRegistryId)
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), authorizationData)
+}
+
+func (suite *GetAuthorizationTokenTestSuite) TestIsTokenValid() {
+
+	var testAuthTimes = []struct {
+		expireIn time.Duration
+		expected bool
+	}{
+		{-1 * time.Minute, false},
+		{time.Duration(0), false},
+		{1 * time.Minute, false},
+		{30 * time.Minute, false},
+		{61 * time.Minute, true},
+	}
+
+	for _, testCase := range testAuthTimes {
+		testAuthData := &ecrapi.AuthorizationData{
+			ProxyEndpoint:      aws.String(testProxyEndpoint),
+			AuthorizationToken: aws.String(testToken),
+			ExpiresAt:          aws.Time(time.Now().Add(testCase.expireIn)),
+		}
+
+		actual := suite.ecrClient.IsTokenValid(testAuthData)
+
+		assert.Equal(suite.T(), testCase.expected, actual,
+			fmt.Sprintf("Expected IsTokenValid to be %t, got %t: for expiraing at %s", testCase.expected, actual, testCase.expireIn))
+	}
 }

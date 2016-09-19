@@ -15,18 +15,24 @@ package ecr
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
+)
+
+const (
+	minimumExpirationDuration = 30 * time.Minute
+	maximumExpirationDuration = 1 * time.Hour
 )
 
 // ECRClient wrapper interface for mocking
 type ECRClient interface {
 	GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error)
+	IsTokenValid(*ecrapi.AuthorizationData) bool
 }
 
 // ECRSDK is an interface that specifies the subset of the AWS Go SDK's ECR
@@ -53,12 +59,14 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 	if found {
 		cachedAuthData := cachedToken.(*ecrapi.AuthorizationData)
 
-		if client.isTokenValid(cachedAuthData) {
+		if client.IsTokenValid(cachedAuthData) {
 			return cachedAuthData, nil
 		} else {
 			log.Debugf("Token found, but expires at %s", aws.TimeValue(cachedAuthData.ExpiresAt))
 		}
 	}
+
+	log.Debugf("Calling GetAuthorizationToken for %q", registryId)
 
 	output, err := client.sdkClient.GetAuthorizationToken(&ecrapi.GetAuthorizationTokenInput{
 		RegistryIds: []*string{aws.String(registryId)},
@@ -79,18 +87,12 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 
 // Ensure token is still within it's expiration window. We early expire to allow for timing in calls and add jitter to avoid
 // refreshing all of the tokens at once.
-func (client *ecrClient) isTokenValid(authData *ecrapi.AuthorizationData) bool {
+func (client *ecrClient) IsTokenValid(authData *ecrapi.AuthorizationData) bool {
 	return authData != nil &&
 		authData.ExpiresAt != nil &&
 		aws.TimeValue(authData.ExpiresAt).Add(-1*client.expirationWindowWithJitter()).After(time.Now())
 }
 
-const (
-	maxTokenExpirationWindowInSeconds = 300 // 5 minutes
-	secondsInMinute                   = 60
-)
-
-// returns a random expiration duration between 1 and 5 minutes
 func (client *ecrClient) expirationWindowWithJitter() time.Duration {
-	return time.Duration(rand.Intn(maxTokenExpirationWindowInSeconds-secondsInMinute)) + time.Minute
+	return utils.AddJitter(minimumExpirationDuration, maximumExpirationDuration)
 }

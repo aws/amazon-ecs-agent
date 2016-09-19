@@ -116,3 +116,13 @@ func (_m *MockECRClient) GetAuthorizationToken(_param0 string) (*ecr.Authorizati
 func (_mr *_MockECRClientRecorder) GetAuthorizationToken(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAuthorizationToken", arg0)
 }
+
+func (_m *MockECRClient) IsTokenValid(_param0 *ecr.AuthorizationData) bool {
+	ret := _m.ctrl.Call(_m, "IsTokenValid", _param0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockECRClientRecorder) IsTokenValid(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsTokenValid", arg0)
+}
