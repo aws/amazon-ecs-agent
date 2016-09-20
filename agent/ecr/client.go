@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	minimumExpirationDuration = 30 * time.Minute
-	maximumExpirationDuration = 1 * time.Hour
+	MinimumJitterDuration = 30 * time.Minute
+	MaximumJitterDuration = 1 * time.Hour
 )
 
 // ECRClient wrapper interface for mocking
@@ -88,11 +88,14 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 // Ensure token is still within it's expiration window. We early expire to allow for timing in calls and add jitter to avoid
 // refreshing all of the tokens at once.
 func (client *ecrClient) IsTokenValid(authData *ecrapi.AuthorizationData) bool {
-	return authData != nil &&
-		authData.ExpiresAt != nil &&
-		aws.TimeValue(authData.ExpiresAt).Add(-1*client.expirationWindowWithJitter()).After(time.Now())
+	if authData == nil || authData.ExpiresAt == nil {
+		return false
+	}
+
+	refreshTime := aws.TimeValue(authData.ExpiresAt).Add(-1 * client.expirationJitter())
+	return time.Now().Before(refreshTime)
 }
 
-func (client *ecrClient) expirationWindowWithJitter() time.Duration {
-	return utils.AddJitter(minimumExpirationDuration, maximumExpirationDuration)
+func (client *ecrClient) expirationJitter() time.Duration {
+	return utils.AddJitter(MinimumJitterDuration, MaximumJitterDuration)
 }

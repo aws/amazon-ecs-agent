@@ -164,8 +164,8 @@ func (suite *GetAuthorizationTokenTestSuite) TestIsTokenValid() {
 		{-1 * time.Minute, false},
 		{time.Duration(0), false},
 		{1 * time.Minute, false},
-		{30 * time.Minute, false},
-		{61 * time.Minute, true},
+		{ecr.MinimumJitterDuration, false},
+		{ecr.MaximumJitterDuration + (1 * time.Second), true},
 	}
 
 	for _, testCase := range testAuthTimes {
