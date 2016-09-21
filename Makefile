@@ -11,7 +11,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin gogenerate
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate
 
 all: docker
 
@@ -60,6 +60,9 @@ misc/certs/ca-certificates.crt:
 
 short-test:
 	. ./scripts/shared_env && go test -short -timeout=25s $(shell go list ./agent/... | grep -v /vendor/)
+
+benchmark-test:
+	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
 
 # Run our 'test' registry needed for integ and functional tests
 test-registry: netkitten volumes-test squid awscli

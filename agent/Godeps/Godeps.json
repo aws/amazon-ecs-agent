@@ -157,6 +157,11 @@
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
 		},
 		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Comment": "v1.0.0-3-g6d21280",
+			"Rev": "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/opts",
 			"Comment": "v1.4.1-13294-g55d9c49",
 			"Rev": "55d9c49f920b4752337cee959cbc24b5d1b7ee5a"
@@ -270,6 +275,26 @@
 		{
 			"ImportPath": "github.com/pborman/uuid",
 			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
+		},
+		{
+			"ImportPath": "github.com/pmezard/go-difflib/difflib",
+			"Comment": "v1.0.0",
+			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Comment": "v1.1.3-19-gd77da35",
+			"Rev": "d77da356e56a7428ad25149ca77381849a6a5232"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/require",
+			"Comment": "v1.1.3-19-gd77da35",
+			"Rev": "d77da356e56a7428ad25149ca77381849a6a5232"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/suite",
+			"Comment": "v1.1.3-19-gd77da35",
+			"Rev": "d77da356e56a7428ad25149ca77381849a6a5232"
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",

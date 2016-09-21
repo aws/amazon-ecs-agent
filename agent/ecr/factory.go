@@ -19,28 +19,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/async"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
-// ECRSDK is an interface that specifies the subset of the AWS Go SDK's ECR
-// client that the Agent uses.  This interface is meant to allow injecting a
-// mock for testing.
-type ECRSDK interface {
-	GetAuthorizationToken(*ecrapi.GetAuthorizationTokenInput) (*ecrapi.GetAuthorizationTokenOutput, error)
-}
-
 type ECRFactory interface {
-	GetClient(region, endpointOverride string) ECRSDK
+	GetClient(region, endpointOverride string) ECRClient
 }
 
 type ecrFactory struct {
 	httpClient *http.Client
 
 	clientsLock sync.Mutex
-	clients     map[cacheKey]ECRSDK
+	clients     map[cacheKey]ECRClient
 }
 
 type cacheKey struct {
@@ -50,18 +44,20 @@ type cacheKey struct {
 
 const (
 	roundtripTimeout = 5 * time.Second
+	tokenCacheSize   = 100
+	tokenCacheTTL    = 12 * time.Hour
 )
 
 // NewECRFactory returns an ECRFactory capable of producing ECRSDK clients
 func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 	return &ecrFactory{
 		httpClient: httpclient.New(roundtripTimeout, acceptInsecureCert),
-		clients:    make(map[cacheKey]ECRSDK),
+		clients:    make(map[cacheKey]ECRClient),
 	}
 }
 
 // GetClient returns the correct region- and endpoint-aware client
-func (factory *ecrFactory) GetClient(region, endpointOverride string) ECRSDK {
+func (factory *ecrFactory) GetClient(region, endpointOverride string) ECRClient {
 	key := cacheKey{region: region, endpointOverride: endpointOverride}
 	client, ok := factory.clients[key]
 	if ok {
@@ -79,12 +75,14 @@ func (factory *ecrFactory) GetClient(region, endpointOverride string) ECRSDK {
 	return client
 }
 
-func (factory *ecrFactory) newClient(region, endpointOverride string) ECRSDK {
+func (factory *ecrFactory) newClient(region, endpointOverride string) ECRClient {
 	var ecrConfig aws.Config
 	ecrConfig.Region = &region
 	ecrConfig.HTTPClient = factory.httpClient
 	if endpointOverride != "" {
 		ecrConfig.Endpoint = &endpointOverride
 	}
-	return ecrapi.New(session.New(&ecrConfig))
+	sdkClient := ecrapi.New(session.New(&ecrConfig))
+	tokenCache := async.NewLRUCache(tokenCacheSize, tokenCacheTTL)
+	return NewECRClient(sdkClient, tokenCache)
 }

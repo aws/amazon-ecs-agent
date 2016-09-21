@@ -228,7 +228,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	client, _ := NewDockerGoClient(factory, false, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
-	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
+	ecrClient := mock_ecr.NewMockECRClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	goClient.ecrClientFactory = ecrClientFactory
 	goClient._time = mockTime
@@ -255,19 +255,12 @@ func TestPullImageECRSuccess(t *testing.T) {
 		Password:      password,
 		ServerAddress: "https://" + imageEndpoint,
 	}
-	getAuthorizationTokenInput := &ecrapi.GetAuthorizationTokenInput{
-		RegistryIds: []*string{aws.String(registryId)},
-	}
 
 	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
-	ecrClient.EXPECT().GetAuthorizationToken(getAuthorizationTokenInput).Return(
-		&ecrapi.GetAuthorizationTokenOutput{
-			AuthorizationData: []*ecrapi.AuthorizationData{
-				&ecrapi.AuthorizationData{
-					ProxyEndpoint:      aws.String("https://" + imageEndpoint),
-					AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
-				},
-			},
+	ecrClient.EXPECT().GetAuthorizationToken(registryId).Return(
+		&ecrapi.AuthorizationData{
+			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
+			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		}, nil)
 
 	mockDocker.EXPECT().PullImage(
@@ -291,7 +284,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	client, _ := NewDockerGoClient(factory, false, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
-	ecrClient := mock_ecr.NewMockECRSDK(ctrl)
+	ecrClient := mock_ecr.NewMockECRClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	goClient.ecrClientFactory = ecrClientFactory
 	goClient._time = mockTime
@@ -313,7 +306,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	image := imageEndpoint + "/myimage:tag"
 
 	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
-	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(&ecrapi.GetAuthorizationTokenOutput{}, errors.New("test error"))
+	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(nil, errors.New("test error"))
 
 	metadata := client.PullImage(image, authData)
 	if metadata.Error == nil {

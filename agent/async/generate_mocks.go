@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ecr
+package async
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/ecr ECRSDK,ECRFactory,ECRClient mocks/ecr_mocks.go
+//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/async Cache mocks/async_mocks.go

@@ -17,11 +17,25 @@ import (
 	"testing"
 )
 
+func TestClientTokenCacheSet(t *testing.T) {
+	region := "us-west-2"
+	endpoint := ""
+	factory := &ecrFactory{
+		clients: make(map[cacheKey]ECRClient),
+	}
+
+	client := factory.GetClient(region, endpoint)
+
+	if client.(*ecrClient).tokenCache == nil {
+		t.Error("Client missing token cache")
+	}
+}
+
 func TestClientCachingSameClient(t *testing.T) {
 	region := "us-west-2"
 	endpoint := ""
 	factory := &ecrFactory{
-		clients: make(map[cacheKey]ECRSDK),
+		clients: make(map[cacheKey]ECRClient),
 	}
 
 	sdk1 := factory.GetClient(region, endpoint)
@@ -43,7 +57,7 @@ func TestClientCachingDifferentClients(t *testing.T) {
 	region3 := region1
 	endpoint3 := "different.endpoint"
 	factory := &ecrFactory{
-		clients: make(map[cacheKey]ECRSDK),
+		clients: make(map[cacheKey]ECRClient),
 	}
 
 	sdk1 := factory.GetClient(region1, endpoint1)
