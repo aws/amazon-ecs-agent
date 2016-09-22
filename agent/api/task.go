@@ -176,8 +176,9 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 // task's desired status
 func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
-		if c.GetDesiredStatus() < task.DesiredStatus.ContainerStatus() {
-			c.SetDesiredStatus(task.DesiredStatus.ContainerStatus())
+		taskDesiredStatus := task.GetDesiredStatus()
+		if c.GetDesiredStatus() < taskDesiredStatus.ContainerStatus() {
+			c.SetDesiredStatus(taskDesiredStatus.ContainerStatus())
 		}
 	}
 }
@@ -459,9 +460,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		return nil, err
 	}
 
-	if task.DesiredStatus == TaskRunning && envelope.SeqNum != nil {
+	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.DesiredStatus == TaskStopped && envelope.SeqNum != nil {
+	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
 		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
@@ -478,7 +479,7 @@ func (task *Task) updateTaskDesiredStatus() {
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			llog.Debug("Updating task desired status to stopped", "container", cont.Name)
-			task.DesiredStatus = TaskStopped
+			task.SetDesiredStatus(TaskStopped)
 		}
 	}
 }
@@ -552,4 +553,18 @@ func (task *Task) GetCredentialsId() string {
 	defer task.credentialsIdLock.RUnlock()
 
 	return task.credentialsId
+}
+
+func (task *Task) GetDesiredStatus() TaskStatus {
+	task.desiredStatusLock.RLock()
+	defer task.desiredStatusLock.RUnlock()
+
+	return task.DesiredStatus
+}
+
+func (task *Task) SetDesiredStatus(status TaskStatus) {
+	task.desiredStatusLock.Lock()
+	defer task.desiredStatusLock.Unlock()
+
+	task.DesiredStatus = status
 }

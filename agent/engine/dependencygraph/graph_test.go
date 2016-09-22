@@ -188,7 +188,7 @@ func TestRunningependsOnDependencies(t *testing.T) {
 	if DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should not be resolved")
 	}
-	task.Containers[1].DesiredStatus = api.ContainerRunning
+	task.Containers[1].SetDesiredStatus(api.ContainerRunning)
 	if DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should not be resolved")
 	}
@@ -197,7 +197,7 @@ func TestRunningependsOnDependencies(t *testing.T) {
 	if !DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should be resolved")
 	}
-	task.Containers[1].DesiredStatus = api.ContainerCreated
+	task.Containers[1].SetDesiredStatus(api.ContainerCreated)
 	if !DependenciesAreResolved(c1, task.Containers) {
 		t.Error("Dependencies should be resolved")
 	}

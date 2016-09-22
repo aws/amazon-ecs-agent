@@ -335,7 +335,7 @@ func TestPortForward(t *testing.T) {
 
 	// Stop the existing container now
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(taskEvents, testTask)
 }
@@ -391,7 +391,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	t.Log("Read second container")
 
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(taskEvents, testTask)
 }
@@ -460,7 +460,7 @@ PortsBound:
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(taskEvents, testTask)
 }
@@ -537,7 +537,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(taskEvents, testTask)
@@ -596,7 +596,7 @@ func TestLinking(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(taskEvents, testTask)
@@ -642,7 +642,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn == testTask.Arn {
@@ -693,7 +693,7 @@ func TestDockerAuth(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn == testTask.Arn {
@@ -744,7 +744,7 @@ func TestVolumesFrom(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(taskEvents, testTask)
@@ -1022,7 +1022,7 @@ check_events:
 
 	// Stop the container now
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	for contEvent = range contEvents {
 		if contEvent.TaskArn != testTask.Arn {

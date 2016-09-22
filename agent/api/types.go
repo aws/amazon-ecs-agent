@@ -93,7 +93,8 @@ type Task struct {
 	Containers []*Container
 	Volumes    []TaskVolume `json:"volumes"`
 
-	DesiredStatus TaskStatus
+	DesiredStatus     TaskStatus
+	desiredStatusLock sync.RWMutex
 
 	KnownStatus         TaskStatus
 	knownStatusLock     sync.RWMutex

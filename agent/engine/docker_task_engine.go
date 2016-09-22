@@ -461,10 +461,20 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Pulling container", "task", task, "container", container)
 	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
+
 	ImagePullDeleteLock.Lock()
 	seelog.Debugf("Obtained ImagePullDeleteLock to pull image - %s", container.Image)
 	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
 	defer ImagePullDeleteLock.Unlock()
+
+	// If a task is blocked here for some time, and before it starts pulling image,
+	// the task's desired status is set to stopped, then don't pull the image
+	if task.GetDesiredStatus() == api.TaskStopped {
+		seelog.Infof("Task desired status is stopped, skip pull container: %v, task %v", container, task)
+		container.SetDesiredStatus(api.ContainerStopped)
+		return DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
+	}
+
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
 	err := engine.imageManager.AddContainerReferenceToImageState(container)
 	if err != nil {
@@ -605,11 +615,12 @@ func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
 	// also read in the order addtask was called
 	// This does block the engine's ability to ingest any new events (including
 	// stops for past tasks, ack!), but this is necessary for correctness
-	log.Debug("Putting update on the acs channel", "task", task.Arn, "status", update.DesiredStatus, "seqnum", update.StopSequenceNumber)
-	transition := acsTransition{desiredStatus: update.DesiredStatus}
+	updateDesiredStatus := update.GetDesiredStatus()
+	log.Debug("Putting update on the acs channel", "task", task.Arn, "status", updateDesiredStatus, "seqnum", update.StopSequenceNumber)
+	transition := acsTransition{desiredStatus: updateDesiredStatus}
 	transition.seqnum = update.StopSequenceNumber
 	managedTask.acsMessages <- transition
-	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", update.DesiredStatus)
+	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", updateDesiredStatus)
 }
 
 func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {

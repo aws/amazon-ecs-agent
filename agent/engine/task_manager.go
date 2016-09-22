@@ -107,7 +107,7 @@ func (task *managedTask) overseeTask() {
 	// If this was a 'state restore', send all unsent statuses
 	task.emitCurrentStatus()
 
-	if task.StartSequenceNumber != 0 && !task.DesiredStatus.Terminal() {
+	if task.StartSequenceNumber != 0 && !task.GetDesiredStatus().Terminal() {
 		llog.Debug("Waiting for any previous stops to complete", "seqnum", task.StartSequenceNumber)
 		othersStopped := make(chan bool, 1)
 		go func() {
@@ -115,14 +115,14 @@ func (task *managedTask) overseeTask() {
 			othersStopped <- true
 		}()
 		for !task.waitEvent(othersStopped) {
-			if task.DesiredStatus.Terminal() {
+			if task.GetDesiredStatus().Terminal() {
 				// If we end up here, that means we recieved a start then stop for this
 				// task before a task that was expected to stop before it could
 				// actually stop
 				break
 			}
 		}
-		llog.Debug("Wait over; ready to move towards status: " + task.DesiredStatus.String())
+		llog.Debug("Wait over; ready to move towards status: " + task.GetDesiredStatus().String())
 	}
 	for {
 		// If it's steadyState, just spin until we need to do work
@@ -186,8 +186,8 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
 	llog.Debug("New acs transition", "status", desiredStatus.String(), "seqnum", seqnum, "taskSeqnum", mtask.StopSequenceNumber)
-	if desiredStatus <= mtask.DesiredStatus {
-		llog.Debug("Redundant task transition; ignoring", "old", mtask.DesiredStatus.String(), "new", desiredStatus.String())
+	if desiredStatus <= mtask.GetDesiredStatus() {
+		llog.Debug("Redundant task transition; ignoring", "old", mtask.GetDesiredStatus().String(), "new", desiredStatus.String())
 		return
 	}
 	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.StopSequenceNumber == 0 {
@@ -195,7 +195,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 		mtask.StopSequenceNumber = seqnum
 		mtask.engine.taskStopGroup.Add(seqnum, 1)
 	}
-	mtask.DesiredStatus = desiredStatus
+	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
 }
 
@@ -305,7 +305,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 func (mtask *managedTask) steadyState() bool {
 	taskKnownStatus := mtask.GetKnownStatus()
-	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.DesiredStatus
+	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.GetDesiredStatus()
 }
 
 // waitEvent waits for any event to occur. If the event is the passed in
@@ -404,7 +404,7 @@ func (task *managedTask) progressContainers() {
 
 	if !anyCanTransition {
 		log.Crit("Task in a bad state; it's not steadystate but no containers want to transition", "task", task.Task)
-		if task.DesiredStatus.Terminal() {
+		if task.GetDesiredStatus().Terminal() {
 			// Ack, really bad. We want it to stop but the containers don't think
 			// that's possible... let's just break out and hope for the best!
 			log.Crit("The state is so bad that we're just giving up on it")
@@ -427,7 +427,7 @@ func (task *managedTask) progressContainers() {
 			delete(transitionsMap, changedContainer)
 			log.Debug("Still waiting for", "map", transitionsMap)
 		}
-		if task.DesiredStatus.Terminal() || task.GetKnownStatus().Terminal() {
+		if task.GetDesiredStatus().Terminal() || task.GetKnownStatus().Terminal() {
 			allWaitingOnPulled := true
 			for _, desired := range transitionsMap {
 				if desired != api.ContainerPulled {

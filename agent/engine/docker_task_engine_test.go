@@ -177,7 +177,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
 	sleepTaskStop.SetCredentialsId(credentialsId)
-	sleepTaskStop.DesiredStatus = api.TaskStopped
+	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
 	// As above, duplicate events should not be a problem
 	taskEngine.AddTask(sleepTaskStop)
@@ -298,7 +298,7 @@ func TestRemoveEvents(t *testing.T) {
 	}
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
-	sleepTaskStop.DesiredStatus = api.TaskStopped
+	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
 
 	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
@@ -545,26 +545,30 @@ func TestStopWithPendingStops(t *testing.T) {
 		}
 	}()
 
-	pulling := make(chan bool)
+	pullDone := make(chan bool)
+	pullInvoked := make(chan bool)
 	client.EXPECT().PullImage(gomock.Any(), nil).Do(func(x, y interface{}) {
-		<-pulling
+		pullInvoked <- true
+		<-pullDone
 	})
+
 	imageManager.EXPECT().AddContainerReferenceToImageState(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
-
 	taskEngine.AddTask(sleepTask2)
+	<-pullInvoked
 	stopSleep2 := *sleepTask2
-	stopSleep2.DesiredStatus = api.TaskStopped
+	stopSleep2.SetDesiredStatus(api.TaskStopped)
 	stopSleep2.StopSequenceNumber = 4
 	taskEngine.AddTask(&stopSleep2)
 
 	taskEngine.AddTask(sleepTask1)
 	stopSleep1 := *sleepTask1
-	stopSleep1.DesiredStatus = api.TaskStopped
+	stopSleep1.SetDesiredStatus(api.TaskStopped)
 	stopSleep1.StopSequenceNumber = 5
 	taskEngine.AddTask(&stopSleep1)
-	pulling <- true
-	// If we get here without deadlocking, we passed the test
+	pullDone <- true
+	// this means the PullImage is only called once due to the task is stopped before it
+	// gets the pull image lock
 }
 
 func TestCreateContainerForceSave(t *testing.T) {

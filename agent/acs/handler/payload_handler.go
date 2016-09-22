@@ -217,7 +217,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 	allTasksOK := true
 	var credentialsAcks []*ecsacs.IAMRoleCredentialsAckRequest
 	for _, task := range tasks {
-		if skipAddTask(task.DesiredStatus) {
+		if skipAddTask(task.GetDesiredStatus()) {
 			continue
 		}
 		err := payloadHandler.taskEngine.AddTask(task)

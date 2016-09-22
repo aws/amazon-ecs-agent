@@ -106,3 +106,15 @@ func (c CannotGetDockerClientError) Error() string {
 func (CannotGetDockerClientError) ErrorName() string {
 	return "CannotGetDockerclientError"
 }
+
+type TaskStoppedBeforePullBeginError struct {
+	taskArn string
+}
+
+func (err TaskStoppedBeforePullBeginError) Error() string {
+	return "Task stopped before image pull could begin for task: " + err.taskArn
+}
+
+func (TaskStoppedBeforePullBeginError) ErrorName() string {
+	return "TaskStoppedBeforePullBeginError"
+}
