@@ -322,20 +322,19 @@ func TestPullImageECRAuthFail(t *testing.T) {
 }
 
 func TestCreateContainerTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
-	testTime.EXPECT().After(createContainerTimeout).Return(warp)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
-	mockDocker.EXPECT().CreateContainer(config).Do(func(x interface{}) {
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(x interface{}) {
 		warp <- time.Now()
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	metadata := client.CreateContainer(config.Config, nil, config.Name)
+	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Millisecond)
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
@@ -356,13 +355,20 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 	wait.Add(1)
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	gomock.InOrder(
-		mockDocker.EXPECT().CreateContainer(config).Return(&docker.Container{ID: "id"}, nil),
+		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
+			if !reflect.DeepEqual(opts.Config, config.Config) {
+				t.Errorf("Mismatch in create container config, %v != %v", opts.Config, config.Config)
+			}
+			if opts.Name != config.Name {
+				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
+			}
+		}).Return(&docker.Container{ID: "id"}, nil),
 		mockDocker.EXPECT().InspectContainer("id").Do(func(x interface{}) {
 			warp <- time.Now()
 			wait.Wait()
 		}),
 	)
-	metadata := client.CreateContainer(config.Config, nil, config.Name)
+	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Second)
 	if metadata.DockerId != "id" {
 		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerId)
 	}
@@ -379,10 +385,17 @@ func TestCreateContainer(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	gomock.InOrder(
-		mockDocker.EXPECT().CreateContainer(config).Return(&docker.Container{ID: "id"}, nil),
+		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
+			if !reflect.DeepEqual(opts.Config, config.Config) {
+				t.Errorf("Mismatch in create container config, %v != %v", opts.Config, config.Config)
+			}
+			if opts.Name != config.Name {
+				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
+			}
+		}).Return(&docker.Container{ID: "id"}, nil),
 		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.CreateContainer(config.Config, nil, config.Name)
+	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Second)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}

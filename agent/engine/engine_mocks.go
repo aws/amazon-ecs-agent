@@ -200,14 +200,14 @@ func (_mr *_MockDockerClientRecorder) ContainerEvents(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerEvents", arg0)
 }
 
-func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string) DockerContainerMetadata {
-	ret := _m.ctrl.Call(_m, "CreateContainer", _param0, _param1, _param2)
+func (_m *MockDockerClient) CreateContainer(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string, _param3 time.Duration) DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "CreateContainer", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(DockerContainerMetadata)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1, arg2)
+func (_mr *_MockDockerClientRecorder) CreateContainer(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateContainer", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockDockerClient) DescribeContainer(_param0 string) (api.ContainerStatus, DockerContainerMetadata) {
