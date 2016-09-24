@@ -100,7 +100,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(config *docker.Config, y interface{}, containerName string) {
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 
 			if !reflect.DeepEqual(dockerConfig, config) {
 				t.Errorf("Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
@@ -230,7 +230,7 @@ func TestRemoveEvents(t *testing.T) {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 		imageManager.EXPECT().AddContainerReferenceToImageState(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y interface{}, containerName string) {
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y interface{}, containerName string, z time.Duration) {
 			// sleep5 task contains only one container. Just assign
 			// the containerName to createdContainerName
 			createdContainerName = containerName
@@ -361,7 +361,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z, timeout interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
@@ -451,7 +451,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z, timeout interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
@@ -594,7 +594,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 			}
 			return nil
 		}),
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any()),
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
 	)
 
 	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
@@ -632,7 +632,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		"com.amazonaws.ecs.cluster":                 "",
 		"key": "value",
 	}
-	client.EXPECT().CreateContainer(expectedConfig, gomock.Any(), gomock.Any())
+	client.EXPECT().CreateContainer(expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
 	taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 }
 
@@ -673,7 +673,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
-		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
+		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z, timeout interface{}) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 

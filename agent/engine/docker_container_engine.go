@@ -76,7 +76,7 @@ type DockerClient interface {
 
 	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 
-	CreateContainer(*docker.Config, *docker.HostConfig, string) DockerContainerMetadata
+	CreateContainer(*docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
 	StartContainer(string) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
@@ -339,18 +339,27 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 	return authConfig, nil
 }
 
-func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string) DockerContainerMetadata {
-	timeout := dg.time().After(createContainerTimeout)
-
-	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string, timeout time.Duration) DockerContainerMetadata {
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by 'createContainerTimeout'. 'timeout' makes it
+	// easier to write tests
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.createContainer(ctx, config, hostConfig, name) }()
+
+	// Wait until we get a response or for the 'done' context channel
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		cancelFunc()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{createContainerTimeout, "created"}}
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return DockerContainerMetadata{Error: &DockerTimeoutError{createContainerTimeout, "created"}}
+		}
+		return DockerContainerMetadata{Error: &CannotXContainerError{"Create", err.Error()}}
 	}
 }
 
@@ -360,14 +369,13 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	containerOptions := docker.CreateContainerOptions{Config: config, HostConfig: hostConfig, Name: name}
-	dockerContainer, err := client.CreateContainer(containerOptions)
-	select {
-	case <-ctx.Done():
-		// Parent function already timed out; no need to get container metadata
-		return DockerContainerMetadata{}
-	default:
+	containerOptions := docker.CreateContainerOptions{
+		Config:     config,
+		HostConfig: hostConfig,
+		Name:       name,
+		Context:    ctx,
 	}
+	dockerContainer, err := client.CreateContainer(containerOptions)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Create", err.Error()}}
 	}
