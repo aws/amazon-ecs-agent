@@ -185,7 +185,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-	client.EXPECT().RemoveContainer(gomock.Any()).Do(func(removedContainerName string) {
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(func(removedContainerName string, timeout time.Duration) {
 		if createdContainerName != removedContainerName {
 			t.Errorf("Container name mismatch, created: %s, removed: %s", createdContainerName, removedContainerName)
 		}
@@ -303,7 +303,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-	client.EXPECT().RemoveContainer(gomock.Any()).Do(func(removedContainerName string) {
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(func(removedContainerName string, timeout time.Duration) {
 		if createdContainerName != removedContainerName {
 			t.Errorf("Container name mismatch, created: %s, removed: %s", createdContainerName, removedContainerName)
 		}

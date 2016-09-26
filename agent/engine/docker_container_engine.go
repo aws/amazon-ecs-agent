@@ -80,7 +80,7 @@ type DockerClient interface {
 	StartContainer(string) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
-	RemoveContainer(string) error
+	RemoveContainer(string, time.Duration) error
 
 	InspectContainer(string) (*docker.Container, error)
 	ListContainers(bool) ListContainersResponse
@@ -501,25 +501,41 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	return metadata
 }
 
-func (dg *dockerGoClient) RemoveContainer(dockerId string) error {
-	timeout := dg.time().After(removeContainerTimeout)
+func (dg *dockerGoClient) RemoveContainer(dockerId string, timeout time.Duration) error {
+	// Remove a context that times out after the 'timeout' duration
+	// This is defined by 'removeContainerTimeout'. 'timeout' makes it
+	// easier to write tests
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 
 	response := make(chan error, 1)
-	go func() { response <- dg.removeContainer(dockerId) }()
+	go func() { response <- dg.removeContainer(dockerId, ctx) }()
+	// Wait until we get a response or for the 'done' context channel
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		return &DockerTimeoutError{removeContainerTimeout, "removing"}
+	case <-ctx.Done():
+		err := ctx.Err()
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		if err == context.DeadlineExceeded {
+			return &DockerTimeoutError{removeContainerTimeout, "removing"}
+		}
+		return &CannotXContainerError{"Remove", err.Error()}
 	}
 }
 
-func (dg *dockerGoClient) removeContainer(dockerId string) error {
+func (dg *dockerGoClient) removeContainer(dockerId string, ctx context.Context) error {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return err
 	}
-	return client.RemoveContainer(docker.RemoveContainerOptions{ID: dockerId, RemoveVolumes: true, Force: false})
+	return client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            dockerId,
+		RemoveVolumes: true,
+		Force:         false,
+		Context:       ctx,
+	})
 }
 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
