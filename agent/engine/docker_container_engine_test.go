@@ -688,7 +688,7 @@ func TestListContainers(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containers := []docker.APIContainers{docker.APIContainers{ID: "id"}}
 	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
-	response := client.ListContainers(true)
+	response := client.ListContainers(true, ListContainersTimeout)
 	if response.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -704,11 +704,10 @@ func TestListContainers(t *testing.T) {
 }
 
 func TestListContainersTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
-	testTime.EXPECT().After(listContainersTimeout).Return(warp)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().ListContainers(gomock.Any()).Do(func(x interface{}) {
@@ -716,7 +715,7 @@ func TestListContainersTimeout(t *testing.T) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	response := client.ListContainers(true)
+	response := client.ListContainers(true, 1*time.Millisecond)
 	if response.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}

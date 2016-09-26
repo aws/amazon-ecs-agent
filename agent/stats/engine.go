@@ -18,6 +18,7 @@ package stats
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
@@ -31,7 +32,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-const containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
+const (
+	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
+	listContainersTimeout  = 10 * time.Minute
+)
 
 // DockerContainerMetadataResolver implements ContainerMetadataResolver for
 // DockerTaskEngine.
@@ -170,7 +174,7 @@ func (engine *DockerStatsEngine) listContainersAndStartEventHandler() {
 
 // addExistingContainers lists existing containers and adds them to the engine.
 func (engine *DockerStatsEngine) addExistingContainers() error {
-	listContainersResponse := engine.client.ListContainers(false)
+	listContainersResponse := engine.client.ListContainers(false, ecsengine.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
 		return listContainersResponse.Error
 	}
