@@ -42,13 +42,14 @@ const (
 
 // Timelimits for docker operations enforced above docker
 const (
+	// ListContainersTimeout is the timeout for the ListContainers API.
+	ListContainersTimeout   = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 3 * time.Minute
 	startContainerTimeout   = 1*time.Minute + 30*time.Second
 	stopContainerTimeout    = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
-	listContainersTimeout   = 10 * time.Minute
 	removeImageTimeout      = 3 * time.Minute
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
@@ -83,7 +84,7 @@ type DockerClient interface {
 	RemoveContainer(string, time.Duration) error
 
 	InspectContainer(string) (*docker.Container, error)
-	ListContainers(bool) ListContainersResponse
+	ListContainers(bool, time.Duration) ListContainersResponse
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
 	Version() (string, error)
@@ -686,26 +687,38 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 }
 
 // ListContainers returns a slice of container IDs.
-func (dg *dockerGoClient) ListContainers(all bool) ListContainersResponse {
-	timeout := dg.time().After(listContainersTimeout)
+func (dg *dockerGoClient) ListContainers(all bool, timeout time.Duration) ListContainersResponse {
+	// timeout := dg.time().After(listContainersTimeout)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 
 	response := make(chan ListContainersResponse, 1)
-	go func() { response <- dg.listContainers(all) }()
+	go func() { response <- dg.listContainers(all, ctx) }()
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		return ListContainersResponse{Error: &DockerTimeoutError{listContainersTimeout, "listing"}}
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return ListContainersResponse{Error: &DockerTimeoutError{timeout, "listing"}}
+		}
+		return ListContainersResponse{Error: &CannotXContainerError{"List", err.Error()}}
 	}
 }
 
-func (dg *dockerGoClient) listContainers(all bool) ListContainersResponse {
+func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListContainersResponse {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return ListContainersResponse{Error: err}
 	}
 
-	containers, err := client.ListContainers(docker.ListContainersOptions{All: all})
+	containers, err := client.ListContainers(docker.ListContainersOptions{
+		All:     all,
+		Context: ctx,
+	})
 	if err != nil {
 		return ListContainersResponse{Error: err}
 	}
