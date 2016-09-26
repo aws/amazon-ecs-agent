@@ -595,7 +595,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
 
-	return engine.client.RemoveContainer(dockerContainer.DockerName)
+	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
 }
 
 // updateTask determines if a new transition needs to be applied to the
