@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"golang.org/x/net/context"
 )
@@ -1200,5 +1201,46 @@ func TestStartStopWithCredentials(t *testing.T) {
 	_, ok := credentialsManager.GetTaskCredentials(credentialsId)
 	if ok {
 		t.Error("Credentials not removed from credentials manager for stopped task")
+	}
+}
+
+func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	testArn := "testSecurityOptionNoNewPrivileges"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].DockerConfig = api.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
+
+	go taskEngine.AddTask(testTask)
+
+	for contEvent := range contEvents {
+		if contEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		if contEvent.Status == api.ContainerRunning {
+			break
+		}
+		if contEvent.Status > api.ContainerRunning {
+			t.Fatal("Expect container to run not stop")
+		}
+	}
+
+	defer discardEvents(contEvents)()
+	defer discardEvents(taskEvents)()
+
+	// Kill the existing container now
+	taskUpdate := *testTask
+	taskUpdate.DesiredStatus = api.TaskStopped
+	go taskEngine.AddTask(&taskUpdate)
+	for taskEvent := range taskEvents {
+		if taskEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		if taskEvent.Status == api.TaskStopped {
+			break
+		}
 	}
 }
