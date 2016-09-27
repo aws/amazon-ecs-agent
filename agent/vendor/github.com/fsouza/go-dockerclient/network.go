@@ -5,7 +5,6 @@
 package docker
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,11 +68,11 @@ type NetworkFilterOpts map[string]map[string]bool
 //
 // See goo.gl/zd2mx4 for more details.
 func (c *Client) FilteredListNetworks(opts NetworkFilterOpts) ([]Network, error) {
-	params := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(params).Encode(&opts); err != nil {
+	params, err := json.Marshal(opts)
+	if err != nil {
 		return nil, err
 	}
-	path := "/networks?filters=" + params.String()
+	path := "/networks?filters=" + string(params)
 	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
 		return nil, err
@@ -112,11 +111,11 @@ func (c *Client) NetworkInfo(id string) (*Network, error) {
 // See https://goo.gl/6GugX3 for more details.
 type CreateNetworkOptions struct {
 	Name           string                 `json:"Name" yaml:"Name"`
-	CheckDuplicate bool                   `json:"CheckDuplicate" yaml:"CheckDuplicate"`
 	Driver         string                 `json:"Driver" yaml:"Driver"`
 	IPAM           IPAMOptions            `json:"IPAM" yaml:"IPAM"`
 	Options        map[string]interface{} `json:"Options" yaml:"Options"`
 	Labels         map[string]string      `json:"Labels" yaml:"Labels"`
+	CheckDuplicate bool                   `json:"CheckDuplicate" yaml:"CheckDuplicate"`
 	Internal       bool                   `json:"Internal" yaml:"Internal"`
 	EnableIPv6     bool                   `json:"EnableIPv6" yaml:"EnableIPv6"`
 	Context        context.Context        `json:"-"`

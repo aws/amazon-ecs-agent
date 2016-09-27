@@ -1,4 +1,4 @@
-// Copyright 2015 go-dockerclient authors. All rights reserved.
+// Copyright 2013 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -279,17 +279,10 @@ type Config struct {
 	KernelMemory      int64               `json:"KernelMemory,omitempty" yaml:"KernelMemory,omitempty"`
 	CPUShares         int64               `json:"CpuShares,omitempty" yaml:"CpuShares,omitempty"`
 	CPUSet            string              `json:"Cpuset,omitempty" yaml:"Cpuset,omitempty"`
-	AttachStdin       bool                `json:"AttachStdin,omitempty" yaml:"AttachStdin,omitempty"`
-	AttachStdout      bool                `json:"AttachStdout,omitempty" yaml:"AttachStdout,omitempty"`
-	AttachStderr      bool                `json:"AttachStderr,omitempty" yaml:"AttachStderr,omitempty"`
 	PortSpecs         []string            `json:"PortSpecs,omitempty" yaml:"PortSpecs,omitempty"`
 	ExposedPorts      map[Port]struct{}   `json:"ExposedPorts,omitempty" yaml:"ExposedPorts,omitempty"`
 	PublishService    string              `json:"PublishService,omitempty" yaml:"PublishService,omitempty"`
-	ArgsEscaped       bool                `json:"ArgsEscaped,omitempty" yaml:"ArgsEscaped,omitempty"`
 	StopSignal        string              `json:"StopSignal,omitempty" yaml:"StopSignal,omitempty"`
-	Tty               bool                `json:"Tty,omitempty" yaml:"Tty,omitempty"`
-	OpenStdin         bool                `json:"OpenStdin,omitempty" yaml:"OpenStdin,omitempty"`
-	StdinOnce         bool                `json:"StdinOnce,omitempty" yaml:"StdinOnce,omitempty"`
 	Env               []string            `json:"Env,omitempty" yaml:"Env,omitempty"`
 	Cmd               []string            `json:"Cmd" yaml:"Cmd"`
 	Healthcheck       *HealthConfig       `json:"Healthcheck,omitempty" yaml:"Healthcheck,omitempty"`
@@ -297,15 +290,25 @@ type Config struct {
 	Image             string              `json:"Image,omitempty" yaml:"Image,omitempty"`
 	Volumes           map[string]struct{} `json:"Volumes,omitempty" yaml:"Volumes,omitempty"`
 	VolumeDriver      string              `json:"VolumeDriver,omitempty" yaml:"VolumeDriver,omitempty"`
-	VolumesFrom       string              `json:"VolumesFrom,omitempty" yaml:"VolumesFrom,omitempty"`
 	WorkingDir        string              `json:"WorkingDir,omitempty" yaml:"WorkingDir,omitempty"`
 	MacAddress        string              `json:"MacAddress,omitempty" yaml:"MacAddress,omitempty"`
 	Entrypoint        []string            `json:"Entrypoint" yaml:"Entrypoint"`
-	NetworkDisabled   bool                `json:"NetworkDisabled,omitempty" yaml:"NetworkDisabled,omitempty"`
 	SecurityOpts      []string            `json:"SecurityOpts,omitempty" yaml:"SecurityOpts,omitempty"`
 	OnBuild           []string            `json:"OnBuild,omitempty" yaml:"OnBuild,omitempty"`
 	Mounts            []Mount             `json:"Mounts,omitempty" yaml:"Mounts,omitempty"`
 	Labels            map[string]string   `json:"Labels,omitempty" yaml:"Labels,omitempty"`
+	AttachStdin       bool                `json:"AttachStdin,omitempty" yaml:"AttachStdin,omitempty"`
+	AttachStdout      bool                `json:"AttachStdout,omitempty" yaml:"AttachStdout,omitempty"`
+	AttachStderr      bool                `json:"AttachStderr,omitempty" yaml:"AttachStderr,omitempty"`
+	ArgsEscaped       bool                `json:"ArgsEscaped,omitempty" yaml:"ArgsEscaped,omitempty"`
+	Tty               bool                `json:"Tty,omitempty" yaml:"Tty,omitempty"`
+	OpenStdin         bool                `json:"OpenStdin,omitempty" yaml:"OpenStdin,omitempty"`
+	StdinOnce         bool                `json:"StdinOnce,omitempty" yaml:"StdinOnce,omitempty"`
+	NetworkDisabled   bool                `json:"NetworkDisabled,omitempty" yaml:"NetworkDisabled,omitempty"`
+
+	// This is no longer used and has been kept here for backward
+	// compatibility, please use HostConfig.VolumesFrom.
+	VolumesFrom string `json:"VolumesFrom,omitempty" yaml:"VolumesFrom,omitempty"`
 }
 
 // Mount represents a mount point in the container.
@@ -477,8 +480,20 @@ func (c *Client) RenameContainer(opts RenameContainerOptions) error {
 //
 // See https://goo.gl/RdIq0b for more details.
 func (c *Client) InspectContainer(id string) (*Container, error) {
+	return c.inspectContainer(id, doOptions{})
+}
+
+// InspectContainerWithContext returns information about a container by its ID.
+// The context object can be used to cancel the inspect request.
+//
+// See https://goo.gl/RdIq0b for more details.
+func (c *Client) InspectContainerWithContext(id string, ctx context.Context) (*Container, error) {
+	return c.inspectContainer(id, doOptions{context: ctx})
+}
+
+func (c *Client) inspectContainer(id string, opts doOptions) (*Container, error) {
 	path := "/containers/" + id + "/json"
-	resp, err := c.do("GET", path, doOptions{})
+	resp, err := c.do("GET", path, opts)
 	if err != nil {
 		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
 			return nil, &NoSuchContainer{ID: id}
@@ -654,10 +669,8 @@ type HostConfig struct {
 	GroupAdd             []string               `json:"GroupAdd,omitempty" yaml:"GroupAdd,omitempty"`
 	ContainerIDFile      string                 `json:"ContainerIDFile,omitempty" yaml:"ContainerIDFile,omitempty"`
 	LxcConf              []KeyValuePair         `json:"LxcConf,omitempty" yaml:"LxcConf,omitempty"`
-	Privileged           bool                   `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 	PortBindings         map[Port][]PortBinding `json:"PortBindings,omitempty" yaml:"PortBindings,omitempty"`
 	Links                []string               `json:"Links,omitempty" yaml:"Links,omitempty"`
-	PublishAllPorts      bool                   `json:"PublishAllPorts,omitempty" yaml:"PublishAllPorts,omitempty"`
 	DNS                  []string               `json:"Dns,omitempty" yaml:"Dns,omitempty"` // For Docker API v1.10 and above only
 	DNSOptions           []string               `json:"DnsOptions,omitempty" yaml:"DnsOptions,omitempty"`
 	DNSSearch            []string               `json:"DnsSearch,omitempty" yaml:"DnsSearch,omitempty"`
@@ -671,7 +684,6 @@ type HostConfig struct {
 	RestartPolicy        RestartPolicy          `json:"RestartPolicy,omitempty" yaml:"RestartPolicy,omitempty"`
 	Devices              []Device               `json:"Devices,omitempty" yaml:"Devices,omitempty"`
 	LogConfig            LogConfig              `json:"LogConfig,omitempty" yaml:"LogConfig,omitempty"`
-	ReadonlyRootfs       bool                   `json:"ReadonlyRootfs,omitempty" yaml:"ReadonlyRootfs,omitempty"`
 	SecurityOpt          []string               `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
 	Cgroup               string                 `json:"Cgroup,omitempty" yaml:"Cgroup,omitempty"`
 	CgroupParent         string                 `json:"CgroupParent,omitempty" yaml:"CgroupParent,omitempty"`
@@ -680,7 +692,6 @@ type HostConfig struct {
 	KernelMemory         int64                  `json:"KernelMemory,omitempty" yaml:"KernelMemory,omitempty"`
 	MemorySwap           int64                  `json:"MemorySwap,omitempty" yaml:"MemorySwap,omitempty"`
 	MemorySwappiness     int64                  `json:"MemorySwappiness,omitempty" yaml:"MemorySwappiness,omitempty"`
-	OOMKillDisable       bool                   `json:"OomKillDisable,omitempty" yaml:"OomKillDisable,omitempty"`
 	CPUShares            int64                  `json:"CpuShares,omitempty" yaml:"CpuShares,omitempty"`
 	CPUSet               string                 `json:"Cpuset,omitempty" yaml:"Cpuset,omitempty"`
 	CPUSetCPUs           string                 `json:"CpusetCpus,omitempty" yaml:"CpusetCpus,omitempty"`
@@ -699,6 +710,10 @@ type HostConfig struct {
 	PidsLimit            int64                  `json:"PidsLimit,omitempty" yaml:"PidsLimit,omitempty"`
 	ShmSize              int64                  `json:"ShmSize,omitempty" yaml:"ShmSize,omitempty"`
 	Tmpfs                map[string]string      `json:"Tmpfs,omitempty" yaml:"Tmpfs,omitempty"`
+	Privileged           bool                   `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
+	PublishAllPorts      bool                   `json:"PublishAllPorts,omitempty" yaml:"PublishAllPorts,omitempty"`
+	ReadonlyRootfs       bool                   `json:"ReadonlyRootfs,omitempty" yaml:"ReadonlyRootfs,omitempty"`
+	OOMKillDisable       bool                   `json:"OomKillDisable,omitempty" yaml:"OomKillDisable,omitempty"`
 	AutoRemove           bool                   `json:"AutoRemove,omitempty" yaml:"AutoRemove,omitempty"`
 	StorageOpt           map[string]string      `json:"StorageOpt,omitempty" yaml:"StorageOpt,omitempty"`
 	Sysctls              map[string]string      `json:"Sysctls,omitempty" yaml:"Sysctls,omitempty"`
@@ -719,13 +734,31 @@ type NetworkingConfig struct {
 //
 // See https://goo.gl/MrBAJv for more details.
 func (c *Client) StartContainer(id string, hostConfig *HostConfig) error {
-	var opts doOptions
+	return c.startContainer(id, hostConfig, doOptions{})
+}
+
+// StartContainerWithContext starts a container, returning an error in case of
+// failure. The context can be used to cancel the outstanding start container
+// request.
+//
+// Passing the HostConfig to this method has been deprecated in Docker API 1.22
+// (Docker Engine 1.10.x) and totally removed in Docker API 1.24 (Docker Engine
+// 1.12.x). The client will ignore the parameter when communicating with Docker
+// API 1.24 or greater.
+//
+// See https://goo.gl/MrBAJv for more details.
+func (c *Client) StartContainerWithContext(id string, hostConfig *HostConfig, ctx context.Context) error {
+	return c.startContainer(id, hostConfig, doOptions{context: ctx})
+}
+
+func (c *Client) startContainer(id string, hostConfig *HostConfig, opts doOptions) error {
 	path := "/containers/" + id + "/start"
 	if c.serverAPIVersion == nil {
 		c.checkAPIVersion()
 	}
 	if c.serverAPIVersion != nil && c.serverAPIVersion.LessThan(apiVersion124) {
-		opts = doOptions{data: hostConfig, forceJSON: true}
+		opts.data = hostConfig
+		opts.forceJSON = true
 	}
 	resp, err := c.do("POST", path, opts)
 	if err != nil {
@@ -746,8 +779,21 @@ func (c *Client) StartContainer(id string, hostConfig *HostConfig) error {
 //
 // See https://goo.gl/USqsFt for more details.
 func (c *Client) StopContainer(id string, timeout uint) error {
+	return c.stopContainer(id, timeout, doOptions{})
+}
+
+// StopContainerWithContext stops a container, killing it after the given
+// timeout (in seconds). The context can be used to cancel the stop
+// container request.
+//
+// See https://goo.gl/USqsFt for more details.
+func (c *Client) StopContainerWithContext(id string, timeout uint, ctx context.Context) error {
+	return c.stopContainer(id, timeout, doOptions{context: ctx})
+}
+
+func (c *Client) stopContainer(id string, timeout uint, opts doOptions) error {
 	path := fmt.Sprintf("/containers/%s/stop?t=%d", id, timeout)
-	resp, err := c.do("POST", path, doOptions{})
+	resp, err := c.do("POST", path, opts)
 	if err != nil {
 		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
 			return &NoSuchContainer{ID: id}
@@ -837,10 +883,8 @@ func (c *Client) TopContainer(id string, psArgs string) (TopResult, error) {
 		return result, err
 	}
 	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return result, err
-	}
-	return result, nil
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	return result, err
 }
 
 // Stats represents container statistics, returned by /containers/<id>/stats.
@@ -1255,6 +1299,16 @@ type AttachToContainerOptions struct {
 	OutputStream io.Writer `qs:"-"`
 	ErrorStream  io.Writer `qs:"-"`
 
+	// If set, after a successful connect, a sentinel will be sent and then the
+	// client will block on receive before continuing.
+	//
+	// It must be an unbuffered channel. Using a buffered channel can lead
+	// to unexpected behavior.
+	Success chan struct{}
+
+	// Use raw terminal? Usually true when the container contains a TTY.
+	RawTerminal bool `qs:"-"`
+
 	// Get container logs, sending it to OutputStream.
 	Logs bool
 
@@ -1269,16 +1323,6 @@ type AttachToContainerOptions struct {
 
 	// Attach to stderr, and use ErrorStream.
 	Stderr bool
-
-	// If set, after a successful connect, a sentinel will be sent and then the
-	// client will block on receive before continuing.
-	//
-	// It must be an unbuffered channel. Using a buffered channel can lead
-	// to unexpected behavior.
-	Success chan struct{}
-
-	// Use raw terminal? Usually true when the container contains a TTY.
-	RawTerminal bool `qs:"-"`
 }
 
 // AttachToContainer attaches to a container, using the given options.
@@ -1315,20 +1359,21 @@ func (c *Client) AttachToContainerNonBlocking(opts AttachToContainerOptions) (Cl
 //
 // See https://goo.gl/yl8PGm for more details.
 type LogsOptions struct {
+	Context           context.Context
 	Container         string        `qs:"-"`
 	OutputStream      io.Writer     `qs:"-"`
 	ErrorStream       io.Writer     `qs:"-"`
 	InactivityTimeout time.Duration `qs:"-"`
-	Follow            bool
-	Stdout            bool
-	Stderr            bool
-	Since             int64
-	Timestamps        bool
 	Tail              string
+
+	Since      int64
+	Follow     bool
+	Stdout     bool
+	Stderr     bool
+	Timestamps bool
 
 	// Use raw terminal? Usually true when the container contains a TTY.
 	RawTerminal bool `qs:"-"`
-	Context     context.Context
 }
 
 // Logs gets stdout and stderr logs from the specified container.
