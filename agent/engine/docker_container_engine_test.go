@@ -440,19 +440,16 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStopContainerTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
-	testTime.EXPECT().After(client.config.DockerStopTimeout + stopContainerTimeout).Return(warp)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeout/time.Second)).Do(func(x, y interface{}) {
-		warp <- time.Now()
+	mockDocker.EXPECT().StopContainerWithContext("id", uint(client.config.DockerStopTimeout/time.Second), gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	metadata := client.StopContainer("id")
+	metadata := client.StopContainer("id", 1*time.Millisecond)
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
@@ -468,10 +465,10 @@ func TestStopContainer(t *testing.T) {
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
-		mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeout/time.Second)).Return(nil),
+		mockDocker.EXPECT().StopContainerWithContext("id", uint(client.config.DockerStopTimeout/time.Second), gomock.Any()).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
-	metadata := client.StopContainer("id")
+	metadata := client.StopContainer("id", stopContainerTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}

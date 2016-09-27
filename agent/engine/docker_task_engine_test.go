@@ -370,7 +370,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		// Expect it to try to stop the container before going on;
 		// in the future the agent might optimize to not stop unless the known
 		// status is running, at which point this can be safely removed
-		client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}})
+		client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}})
 	}
 
 	err := taskEngine.Init()
@@ -402,7 +402,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	}
 
 	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer("containerId").Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}}).AnyTimes()
+	client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{Error: CannotXContainerError{transition: "start", msg: "Cannot start"}}).AnyTimes()
 	// Now surprise surprise, it actually did start!
 	eventStream <- dockerEvent(api.ContainerRunning)
 
@@ -684,7 +684,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 		gomock.InOrder(
 			// StopContainer times out as well
-			client.EXPECT().StopContainer("containerId").Do(func(id string) {
+			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(func(id string, timeout time.Duration) {
 				// Simulate docker actually stopping the container even though
 				// StopContainer in container engine times out
 				go func() {
@@ -695,7 +695,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 			// another invocation of StopContainer. Return a timeout error
 			// for that as well
 			// TODO change AnyTimes() to MinTimes(1) after updating gomock
-			client.EXPECT().StopContainer("containerId").Return(containerStopTimeoutError).AnyTimes(),
+			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError).AnyTimes(),
 		)
 	}
 
