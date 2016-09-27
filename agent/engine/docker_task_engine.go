@@ -218,7 +218,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			if cont.DockerId == "" {
 				log.Debug("Found container potentially created while we were down", "name", cont.DockerName)
 				// Figure out the dockerid
-				describedCont, err := engine.client.InspectContainer(cont.DockerName)
+				describedCont, err := engine.client.InspectContainer(cont.DockerName, inspectContainerTimeout)
 				if err != nil {
 					log.Warn("Could not find matching container for expected", "name", cont.DockerName)
 				} else {

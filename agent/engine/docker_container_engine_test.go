@@ -345,12 +345,9 @@ func TestCreateContainerTimeout(t *testing.T) {
 }
 
 func TestCreateContainerInspectTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
-	testTime.EXPECT().After(inspectContainerTimeout).Return(warp)
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
@@ -363,10 +360,7 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
 			}
 		}).Return(&docker.Container{ID: "id"}, nil),
-		mockDocker.EXPECT().InspectContainer("id").Do(func(x interface{}) {
-			warp <- time.Now()
-			wait.Wait()
-		}),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, &DockerTimeoutError{}),
 	)
 	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Second)
 	if metadata.DockerId != "id" {
@@ -393,7 +387,7 @@ func TestCreateContainer(t *testing.T) {
 				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
 			}
 		}).Return(&docker.Container{ID: "id"}, nil),
-		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id"}, nil),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
 	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Second)
 	if metadata.Error != nil {
@@ -437,7 +431,7 @@ func TestStartContainer(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockDocker.EXPECT().StartContainer("id", nil).Return(nil),
-		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id"}, nil),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
 	metadata := client.StartContainer("id")
 	if metadata.Error != nil {
@@ -478,7 +472,7 @@ func TestStopContainer(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockDocker.EXPECT().StopContainer("id", uint(client.config.DockerStopTimeout/time.Second)).Return(nil),
-		mockDocker.EXPECT().InspectContainer("id").Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
 	metadata := client.StopContainer("id")
 	if metadata.Error != nil {
@@ -490,21 +484,20 @@ func TestStopContainer(t *testing.T) {
 }
 
 func TestInspectContainerTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
-	testTime.EXPECT().After(inspectContainerTimeout).Return(warp)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().InspectContainer("id").Do(func(x interface{}) {
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Do(func(x, ctx interface{}) {
 		warp <- time.Now()
 		wait.Wait()
 		// Don't return, verify timeout happens
 	})
-	_, err := client.InspectContainer("id")
+	_, err := client.InspectContainer("id", 1*time.Millisecond)
 	if err == nil {
-		t.Error("Expected error for pull timeout")
+		t.Error("Expected error for inspect timeout")
 	}
 	if err.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
@@ -513,15 +506,14 @@ func TestInspectContainerTimeout(t *testing.T) {
 }
 
 func TestInspectContainer(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerclientSetup(t)
 	defer done()
 
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerOutput := docker.Container{ID: "id", State: docker.State{ExitCode: 10}}
 	gomock.InOrder(
-		mockDocker.EXPECT().InspectContainer("id").Return(&containerOutput, nil),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&containerOutput, nil),
 	)
-	container, err := client.InspectContainer("id")
+	container, err := client.InspectContainer("id", inspectContainerTimeout)
 	if err != nil {
 		t.Error("Did not expect error")
 	}
@@ -545,7 +537,11 @@ func TestContainerEvents(t *testing.T) {
 		t.Fatal("Could not get container events")
 	}
 
-	mockDocker.EXPECT().InspectContainer("containerId").Return(&docker.Container{ID: "containerId"}, nil)
+	mockDocker.EXPECT().InspectContainerWithContext("containerId", gomock.Any()).Return(
+		&docker.Container{
+			ID: "containerId",
+		},
+		nil)
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "containerId", Status: "create"}
 	}()
@@ -567,7 +563,7 @@ func TestContainerEvents(t *testing.T) {
 		},
 		Volumes: map[string]string{"/host/path": "/container/path"},
 	}
-	mockDocker.EXPECT().InspectContainer("cid2").Return(container, nil)
+	mockDocker.EXPECT().InspectContainerWithContext("cid2", gomock.Any()).Return(container, nil)
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
 	}()
@@ -593,7 +589,7 @@ func TestContainerEvents(t *testing.T) {
 				ExitCode:   20,
 			},
 		}
-		mockDocker.EXPECT().InspectContainer("cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
+		mockDocker.EXPECT().InspectContainerWithContext("cid3"+strconv.Itoa(i), gomock.Any()).Return(stoppedContainer, nil)
 	}
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "cid30", Status: "stop"}
@@ -754,7 +750,7 @@ func TestUsesVersionedClient(t *testing.T) {
 
 	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDocker, nil)
 	mockDocker.EXPECT().StartContainer(gomock.Any(), gomock.Any()).Return(nil)
-	mockDocker.EXPECT().InspectContainer(gomock.Any()).Return(nil, errors.New("err"))
+	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
 
 	vclient.StartContainer("foo")
 }

@@ -83,7 +83,7 @@ type DockerClient interface {
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 	RemoveContainer(string, time.Duration) error
 
-	InspectContainer(string) (*docker.Container, error)
+	InspectContainer(string, time.Duration) (*docker.Container, error)
 	ListContainers(bool, time.Duration) ListContainersResponse
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
@@ -212,7 +212,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
 
-	repository, tag := docker.ParseRepositoryTag(image)
+	repository, tag := parseRepositoryTag(image)
 	if tag == "" {
 		repository = repository + ":" + dockerDefaultTag
 	} else {
@@ -427,39 +427,44 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 }
 
 func (dg *dockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, DockerContainerMetadata) {
-	dockerContainer, err := dg.InspectContainer(dockerId)
+	dockerContainer, err := dg.InspectContainer(dockerId, inspectContainerTimeout)
 	if err != nil {
 		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotXContainerError{"Describe", err.Error()}}
 	}
 	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
 
-func (dg *dockerGoClient) InspectContainer(dockerId string) (*docker.Container, error) {
-	timeout := dg.time().After(inspectContainerTimeout)
-
+func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duration) (*docker.Container, error) {
 	type inspectResponse struct {
 		container *docker.Container
 		err       error
 	}
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 	response := make(chan inspectResponse, 1)
 	go func() {
-		container, err := dg.inspectContainer(dockerId)
+		container, err := dg.inspectContainer(dockerId, ctx)
 		response <- inspectResponse{container, err}
 	}()
 	select {
 	case resp := <-response:
 		return resp.container, resp.err
-	case <-timeout:
-		return nil, &DockerTimeoutError{inspectContainerTimeout, "inspecting"}
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "inspecting"}
+		}
+
+		return nil, &CannotXContainerError{"Describe", err.Error()}
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(dockerId string) (*docker.Container, error) {
+func (dg *dockerGoClient) inspectContainer(dockerId string, ctx context.Context) (*docker.Container, error) {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.InspectContainer(dockerId)
+	return client.InspectContainerWithContext(dockerId, ctx)
 }
 
 func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
@@ -540,7 +545,7 @@ func (dg *dockerGoClient) removeContainer(dockerId string, ctx context.Context) 
 }
 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
-	dockerContainer, err := dg.InspectContainer(id)
+	dockerContainer, err := dg.InspectContainer(id, inspectContainerTimeout)
 	if err != nil {
 		return DockerContainerMetadata{DockerId: id, Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
@@ -795,4 +800,17 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
+}
+
+// parseRepositoryTag mimics the go-dockerclient's ParseReposirotyData. The only difference
+// is that it doesn't ignore the sha when present.
+func parseRepositoryTag(repoTag string) (repository string, tag string) {
+	n := strings.LastIndex(repoTag, ":")
+	if n < 0 {
+		return repoTag, ""
+	}
+	if tag := repoTag[n+1:]; !strings.Contains(tag, "/") {
+		return repoTag[:n], tag
+	}
+	return repoTag, ""
 }

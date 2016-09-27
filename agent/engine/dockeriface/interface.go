@@ -15,7 +15,10 @@
 // subset used by the agent
 package dockeriface
 
-import docker "github.com/fsouza/go-dockerclient"
+import (
+	"github.com/fsouza/go-dockerclient"
+	"golang.org/x/net/context"
+)
 
 // Client is an interface specifying the subset of
 // github.com/fsouza/go-dockerclient.Client that the agent uses.
@@ -24,6 +27,7 @@ type Client interface {
 	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
 	ImportImage(opts docker.ImportImageOptions) error
 	InspectContainer(id string) (*docker.Container, error)
+	InspectContainerWithContext(id string, ctx context.Context) (*docker.Container, error)
 	InspectImage(name string) (*docker.Image, error)
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
 	Ping() error
