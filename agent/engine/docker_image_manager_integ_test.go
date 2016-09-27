@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -37,6 +39,13 @@ const (
 	testImage3Name = "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest"
 )
 
+const credentialsIdIntegTest = "credsid"
+
+func defaultTestConfigIntegTest() *config.Config {
+	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	return cfg
+}
+
 // Deletion of images in the order of LRU time: Happy path
 //  a. This includes starting up agent, pull images, start containers,
 //    account them in image manager,  stop containers, remove containers, account this in image manager,
@@ -48,7 +57,7 @@ const (
 //  e. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
 //  f. Ensure that that if not eligible, image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupHappyCase(t *testing.T) {
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 5 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
@@ -160,7 +169,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 //  b. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
 //  c. Ensure that the image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupThreshold(t *testing.T) {
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time

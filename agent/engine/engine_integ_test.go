@@ -53,7 +53,7 @@ var testAuthPass = "swordfish"
 var testDockerStopTimeout = 2 * time.Second
 
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	return setup(defaultTestConfig(), t)
+	return setup(defaultTestConfigIntegTest(), t)
 }
 
 func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Manager) {
@@ -604,7 +604,7 @@ func TestLinking(t *testing.T) {
 
 func TestDockerCfgAuth(t *testing.T) {
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
 
@@ -655,7 +655,7 @@ func TestDockerCfgAuth(t *testing.T) {
 }
 
 func TestDockerAuth(t *testing.T) {
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`))
 	cfg.EngineAuthType = "docker"
 	defer func() {
@@ -848,7 +848,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 }
 
 func TestSweepContainer(t *testing.T) {
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
@@ -1042,7 +1042,7 @@ check_events:
 func TestDockerStopTimeout(t *testing.T) {
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", testDockerStopTimeout.String())
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	cfg := defaultTestConfig()
+	cfg := defaultTestConfigIntegTest()
 
 	taskEngine, done, _ := setup(cfg, t)
 
@@ -1116,10 +1116,10 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	testTask := createTestTask("testStartWithCredentials")
 	taskCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: credentialsId},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: credentialsIdIntegTest},
 	}
 	credentialsManager.SetTaskCredentials(taskCredentials)
-	testTask.SetCredentialsId(credentialsId)
+	testTask.SetCredentialsId(credentialsIdIntegTest)
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -1131,7 +1131,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task
-	_, ok := credentialsManager.GetTaskCredentials(credentialsId)
+	_, ok := credentialsManager.GetTaskCredentials(credentialsIdIntegTest)
 	if ok {
 		t.Error("Credentials not removed from credentials manager for stopped task")
 	}

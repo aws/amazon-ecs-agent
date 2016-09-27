@@ -96,5 +96,5 @@ func (imageState *ImageState) RemoveContainerReference(container *api.Container)
 			return nil
 		}
 	}
-	return fmt.Errorf("Container reference is not found in the image state")
+	return fmt.Errorf("Container reference is not found in the image state container: %s", container.String())
 }

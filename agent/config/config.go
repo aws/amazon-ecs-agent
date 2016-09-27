@@ -316,7 +316,7 @@ func environmentConfig() Config {
 	imageCleanupInterval := parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL")
 	numImagesToDeletePerCycle, err := strconv.Atoi(os.Getenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE"))
 	if err != nil {
-		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected integer. err %v", err)
+		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
 
 	return Config{
@@ -443,17 +443,17 @@ func (config *Config) validateAndOverrideBounds() error {
 	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
 	// print a warning and override it
 	if config.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
-		seelog.Warnf("Invalid value for task cleanup duration, will be overridden to %v, parsed value %v, minimum threshold %v", DefaultTaskCleanupWaitDuration.String(), config.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
+		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), config.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
 		config.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
 	if config.ImageCleanupInterval < minimumImageCleanupInterval {
-		seelog.Warnf("Invalid value for image cleanup duration, will be overriden to %s, parsed value %v, minimum value %v", DefaultImageCleanupTimeInterval.String(), config.ImageCleanupInterval, minimumImageCleanupInterval)
+		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), config.ImageCleanupInterval, minimumImageCleanupInterval)
 		config.ImageCleanupInterval = DefaultImageCleanupTimeInterval
 	}
 
 	if config.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
-		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden to %d, parsed value %d, minimum value %d", DefaultImageDeletionAge, config.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
+		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, config.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
 		config.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
 	}
 

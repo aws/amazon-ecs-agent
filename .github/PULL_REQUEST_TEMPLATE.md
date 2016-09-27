@@ -25,7 +25,7 @@ and provide test results.
 -->
 - [ ] Builds (`make release`)
 - [ ] Unit tests (`make short-test`) pass
-- [ ] Integration tests (`make test`) pass
+- [ ] Integration tests (`make test` and `make run-integ-tests`) pass
 - [ ] Functional tests (`make run-functional-tests`) pass
 
 New tests cover the changes: <!-- yes|no -->

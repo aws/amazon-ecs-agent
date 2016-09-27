@@ -120,8 +120,5 @@ clean:
 	cd misc/netkitten; $(MAKE) $(MFLAGS) clean
 	cd misc/volumes-test; $(MAKE) $(MFLAGS) clean
 	cd misc/gremlin; $(MAKE) $(MFLAGS) clean
-<<<<<<< c04a8fad3f020c9ad092fd921af7357f67e9008e
 	cd misc/testnnp; $(MAKE) $(MFLAGS) clean
-=======
 	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS) clean
->>>>>>> Create Test Images used for ImageCleanup integ tests

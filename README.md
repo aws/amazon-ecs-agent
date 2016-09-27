@@ -121,10 +121,10 @@ configure them as something other than the defaults.
 | `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container to exit normally before being forcibly killed. | 30s |
 | `ECS_ENABLE_TASK_IAM_ROLE` | `true` | Whether to enable IAM Roles for Tasks on the Container Instance | `false` |
 | `ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST` | `true` | Whether to enable IAM Roles for Tasks when launched with `host` network mode on the Container Instance | `false` |
-| `ECS_DISABLE_IMAGE_CLEANUP` | `true` | Whether to disable image cleanup for ECS Agent | `false` |
-| `ECS_IMAGE_CLEANUP_INTERVAL` | 30m | Time interval for ECS Agent to perform image cleanup | 30m |
-| `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | Duration since image has been pulled, to determine whether this image can be deleted | 1h |
-| `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | Number of images to delete in one cleanup cycle | 5 |
+| `ECS_DISABLE_IMAGE_CLEANUP` | `true` | Whether to disable automated image cleanup for the ECS Agent. | `false` |
+| `ECS_IMAGE_CLEANUP_INTERVAL` | 30m | The time interval between automated image cleanup cycles. If set to less than 10 minutes, the value is ignored. | 30m |
+| `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1 minute, the value is ignored. | 1h |
+| `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1 minute, the value is ignored. | 5 |
 
 ### Persistence
 
