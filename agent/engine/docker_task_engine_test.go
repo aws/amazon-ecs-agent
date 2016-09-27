@@ -115,7 +115,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId").Do(func(id string) {
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(func(id string, timeout time.Duration) {
 			eventsReported.Add(1)
 			go func() {
 				eventStream <- dockerEvent(api.ContainerRunning)
@@ -241,7 +241,7 @@ func TestRemoveEvents(t *testing.T) {
 			}()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId").Do(func(id string) {
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(func(id string, timeout time.Duration) {
 			eventsReported.Add(1)
 			go func() {
 				eventStream <- dockerEvent(api.ContainerRunning)
@@ -365,7 +365,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId").Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
 
 		// Expect it to try to stop the container before going on;
 		// in the future the agent might optimize to not stop unless the known
@@ -455,7 +455,7 @@ func TestSteadyStatePoll(t *testing.T) {
 			go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
-		client.EXPECT().StartContainer("containerId").Do(func(id string) {
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(func(id string, timeout time.Duration) {
 			go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
 		}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
@@ -680,7 +680,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		// StartContainer returns timeout error. This should cause the engine
 		// to transition the task to STOPPED and to stop all containers of
 		// the task
-		client.EXPECT().StartContainer("containerId").Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{Error: &DockerTimeoutError{}})
 
 		gomock.InOrder(
 			// StopContainer times out as well

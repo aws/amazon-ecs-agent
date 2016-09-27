@@ -35,6 +35,7 @@ type Client interface {
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	RemoveEventListener(listener chan *docker.APIEvents) error
 	StartContainer(id string, hostConfig *docker.HostConfig) error
+	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	StopContainer(id string, timeout uint) error
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
