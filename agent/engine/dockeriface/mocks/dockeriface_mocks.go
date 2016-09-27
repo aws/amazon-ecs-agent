@@ -19,6 +19,7 @@ package mock_dockeriface
 import (
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
+	context "golang.org/x/net/context"
 )
 
 // Mock of Client interface
@@ -82,6 +83,17 @@ func (_m *MockClient) InspectContainer(_param0 string) (*go_dockerclient.Contain
 
 func (_mr *_MockClientRecorder) InspectContainer(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectContainer", arg0)
+}
+
+func (_m *MockClient) InspectContainerWithContext(_param0 string, _param1 context.Context) (*go_dockerclient.Container, error) {
+	ret := _m.ctrl.Call(_m, "InspectContainerWithContext", _param0, _param1)
+	ret0, _ := ret[0].(*go_dockerclient.Container)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockClientRecorder) InspectContainerWithContext(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectContainerWithContext", arg0, arg1)
 }
 
 func (_m *MockClient) InspectImage(_param0 string) (*go_dockerclient.Image, error) {
