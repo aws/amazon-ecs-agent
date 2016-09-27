@@ -50,7 +50,7 @@ func (c *Client) ListVolumes(opts ListVolumesOptions) ([]Volume, error) {
 	}
 	defer resp.Body.Close()
 	m := make(map[string]interface{})
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&m); err != nil {
 		return nil, err
 	}
 	var volumes []Volume
@@ -76,6 +76,7 @@ type CreateVolumeOptions struct {
 	Driver     string
 	DriverOpts map[string]string
 	Context    context.Context `json:"-"`
+	Labels     map[string]string
 }
 
 // CreateVolume creates a volume on the server.
