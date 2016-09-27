@@ -24,4 +24,4 @@ const Version = "1.13.0"
 const GitDirty = true
 
 // GitShortHash is the short hash of this ecs-init build
-const GitShortHash = "c153a82"
+const GitShortHash = "UNKNOWN"
