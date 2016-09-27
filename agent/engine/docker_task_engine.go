@@ -564,7 +564,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	if !ok {
 		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
 	}
-	return client.StartContainer(dockerContainer.DockerId)
+	return client.StartContainer(dockerContainer.DockerId, startContainerTimeout)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {

@@ -78,7 +78,7 @@ type DockerClient interface {
 	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 
 	CreateContainer(*docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
-	StartContainer(string) DockerContainerMetadata
+	StartContainer(string, time.Duration) DockerContainerMetadata
 	StopContainer(string) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 	RemoveContainer(string, time.Duration) error
@@ -383,18 +383,23 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	return dg.containerMetadata(dockerContainer.ID)
 }
 
-func (dg *dockerGoClient) StartContainer(id string) DockerContainerMetadata {
-	timeout := dg.time().After(startContainerTimeout)
+func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) DockerContainerMetadata {
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 
-	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.startContainer(ctx, id) }()
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		cancelFunc()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{startContainerTimeout, "started"}}
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "started"}}
+		}
+		return DockerContainerMetadata{Error: CannotXContainerError{"Start", err.Error()}}
 	}
 }
 
@@ -404,13 +409,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StartContainer(id, nil)
-	select {
-	case <-ctx.Done():
-		// Parent function already timed out; no need to get container metadata
-		return DockerContainerMetadata{}
-	default:
-	}
+	err = client.StartContainerWithContext(id, nil, ctx)
 	metadata := dg.containerMetadata(id)
 	if err != nil {
 		metadata.Error = CannotXContainerError{"Start", err.Error()}

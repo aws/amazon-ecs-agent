@@ -272,14 +272,14 @@ func (_mr *_MockDockerClientRecorder) RemoveImage(arg0, arg1 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveImage", arg0, arg1)
 }
 
-func (_m *MockDockerClient) StartContainer(_param0 string) DockerContainerMetadata {
-	ret := _m.ctrl.Call(_m, "StartContainer", _param0)
+func (_m *MockDockerClient) StartContainer(_param0 string, _param1 time.Duration) DockerContainerMetadata {
+	ret := _m.ctrl.Call(_m, "StartContainer", _param0, _param1)
 	ret0, _ := ret[0].(DockerContainerMetadata)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) StartContainer(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0)
+func (_mr *_MockDockerClientRecorder) StartContainer(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
 }
 
 func (_m *MockDockerClient) Stats(_param0 string, _param1 context.Context) (<-chan *go_dockerclient.Stats, error) {
