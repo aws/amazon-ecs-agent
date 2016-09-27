@@ -37,6 +37,7 @@ type Client interface {
 	StartContainer(id string, hostConfig *docker.HostConfig) error
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	StopContainer(id string, timeout uint) error
+	StopContainerWithContext(id string, timeout uint, ctx context.Context) error
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error

@@ -79,7 +79,7 @@ type DockerClient interface {
 
 	CreateContainer(*docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
 	StartContainer(string, time.Duration) DockerContainerMetadata
-	StopContainer(string) DockerContainerMetadata
+	StopContainer(string, time.Duration) DockerContainerMetadata
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 	RemoveContainer(string, time.Duration) error
 
@@ -466,9 +466,12 @@ func (dg *dockerGoClient) inspectContainer(dockerId string, ctx context.Context)
 	return client.InspectContainerWithContext(dockerId, ctx)
 }
 
-func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata {
-	timeout := dg.time().After(stopContainerTimeout + dg.config.DockerStopTimeout)
-	ctx, cancelFunc := context.WithCancel(context.TODO()) // Could pass one through from engine
+func (dg *dockerGoClient) StopContainer(dockerId string, timeout time.Duration) DockerContainerMetadata {
+	timeout = timeout + dg.config.DockerStopTimeout
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -476,9 +479,14 @@ func (dg *dockerGoClient) StopContainer(dockerId string) DockerContainerMetadata
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		cancelFunc()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{stopContainerTimeout + dg.config.DockerStopTimeout, "stopped"}}
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "stopped"}}
+		}
+		return DockerContainerMetadata{Error: &CannotXContainerError{"Stop", err.Error()}}
 	}
 }
 
@@ -488,14 +496,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StopContainer(dockerId, uint(dg.config.DockerStopTimeout/time.Second))
-	select {
-	case <-ctx.Done():
-		// parent function has already timed out and returned; we're writing to a
-		// buffered channel that will never be read
-		return DockerContainerMetadata{}
-	default:
-	}
+	err = client.StopContainerWithContext(dockerId, uint(dg.config.DockerStopTimeout/time.Second), ctx)
 	metadata := dg.containerMetadata(dockerId)
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerId)

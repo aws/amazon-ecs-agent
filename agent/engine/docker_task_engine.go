@@ -579,7 +579,7 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container not recorded as created"}}
 	}
 
-	return engine.client.StopContainer(dockerContainer.DockerId)
+	return engine.client.StopContainer(dockerContainer.DockerId, stopContainerTimeout)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
