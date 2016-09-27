@@ -149,6 +149,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Sep 27 2016 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.0-1
+- Cache Agent version 1.13.0
 * Tue Sep 13 2016 Anirudh Aithal <aithal@amazon.com> - 1.12.2-1
 - Cache Agent version 1.12.2
 * Wed Aug 17 2016 Peng Yin <penyin@amazon.com> - 1.12.1-1
