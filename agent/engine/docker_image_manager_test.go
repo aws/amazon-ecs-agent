@@ -84,8 +84,8 @@ func TestAddContainerReferenceToImageStateInspectError(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -117,8 +117,8 @@ func TestAddContainerReferenceToImageStateWithNoImageName(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -336,8 +336,8 @@ func TestRemoveContainerReferenceFromImageStateWithNoReference(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -371,8 +371,8 @@ func TestGetCandidateImagesForDeletionImageNoImageState(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -391,8 +391,8 @@ func TestGetCandidateImagesForDeletionImageJustPulled(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -416,8 +416,8 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -456,8 +456,8 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -548,8 +548,8 @@ func TestGetLeastRecentlyUsedImagesLessThanFive(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -582,8 +582,8 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -633,7 +633,7 @@ func TestImageCleanupHappyPath(t *testing.T) {
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
 		minimumAgeBeforeDeletion: 1 * time.Millisecond,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -684,8 +684,8 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 
@@ -734,8 +734,8 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 	imageManager := &dockerImageManager{
 		client: client,
 		state:  dockerstate.NewDockerTaskEngineState(),
-		minimumAgeBeforeDeletion: config.DefaultAgeOfImageBeforeDeletion,
-		numImagesToDelete:        config.DefaultNumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
 	}
 

@@ -91,8 +91,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")
 	os.Setenv("ECS_DISABLE_IMAGE_CLEANUP", "true")
 	os.Setenv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")
-	os.Setenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE", "30m")
-	os.Setenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE", "2")
+	os.Setenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")
+	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")
 
 	conf := environmentConfig()
 	if conf.Cluster != "myCluster" {
@@ -136,14 +136,14 @@ func TestEnvironmentConfig(t *testing.T) {
 	if !conf.ImageCleanupDisabled {
 		t.Error("Wrong value for ImageCleanupDisabled")
 	}
-	if conf.ImageMinimumAgeBeforeDeletion != (30 * time.Minute) {
-		t.Error("Wrong value for ImageMinimumAgeBeforeDeletion", conf.ImageMinimumAgeBeforeDeletion, os.Getenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE"))
+	if conf.MinimumImageDeletionAge != (30 * time.Minute) {
+		t.Error("Wrong value for MinimumImageDeletionAge", conf.MinimumImageDeletionAge, os.Getenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE"))
 	}
 	if conf.ImageCleanupInterval != (2 * time.Hour) {
 		t.Error("Wrong value for ImageCleanupInterval", conf.ImageCleanupInterval)
 	}
-	if conf.NumOfImageToDeletePerCycle != 2 {
-		t.Error("Wrong value for NumOfImageToDeletePerCycle")
+	if conf.NumImagesToDeletePerCycle != 2 {
+		t.Error("Wrong value for NumImagesToDeletePerCycle")
 	}
 }
 
@@ -197,8 +197,8 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_AUDIT_LOGFILE")
 	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
 	os.Unsetenv("ECS_DISABLE_IMAGE_CLEANUP")
-	os.Unsetenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE")
-	os.Unsetenv("ECS_IMAGE_MINIMUM_AGE_BEFORE_DELETE")
+	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
+	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
 	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -248,14 +248,14 @@ func TestConfigDefault(t *testing.T) {
 	if cfg.ImageCleanupDisabled {
 		t.Error("ImageCleanupDisabled default is set incorrectly")
 	}
-	if cfg.ImageMinimumAgeBeforeDeletion != DefaultAgeOfImageBeforeDeletion {
-		t.Error("ImageMinimumAgeBeforeDeletion default is set incorrectly")
+	if cfg.MinimumImageDeletionAge != DefaultImageDeletionAge {
+		t.Error("MinimumImageDeletionAge default is set incorrectly")
 	}
 	if cfg.ImageCleanupInterval != DefaultImageCleanupTimeInterval {
 		t.Error("ImageCleanupInterval default is set incorrectly")
 	}
-	if cfg.NumOfImageToDeletePerCycle != DefaultNumOfImageToDeletePerCycle {
-		t.Error("NumOfImageToDeletePerCycle default is set incorrectly")
+	if cfg.NumImagesToDeletePerCycle != DefaultNumImagesToDeletePerCycle {
+		t.Error("NumImagesToDeletePerCycle default is set incorrectly")
 	}
 }
 
@@ -273,7 +273,7 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	conf.AWSRegion = "us-west-2"
 	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"invalid-logging-driver"}
 
-	err := conf.validate()
+	err := conf.validateAndOverrideBounds()
 	if err == nil {
 		t.Error("Should be error with invalid-logging-driver")
 	}
@@ -299,7 +299,7 @@ func TestInvalideDockerStopTimeout(t *testing.T) {
 	conf := DefaultConfig()
 	conf.DockerStopTimeout = -1 * time.Second
 
-	err := conf.validate()
+	err := conf.validateAndOverrideBounds()
 	if err == nil {
 		t.Error("Should be error with negative DockerStopTimeout")
 	}
@@ -454,14 +454,14 @@ func TestImageCleanupMinimumInterval(t *testing.T) {
 	}
 }
 
-func TestImageCleanupMinimumNumberOfImageToDeletePerCycle(t *testing.T) {
-	os.Setenv("ECS_NUM_OF_IMAGE_DELETE_PER_CYCLE", "-1")
+func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
+	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "-1")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if cfg.NumOfImageToDeletePerCycle != DefaultNumOfImageToDeletePerCycle {
-		t.Errorf("Wrong value for NumOfImageToDeletePerCycle: %v", cfg.NumOfImageToDeletePerCycle)
+	if cfg.NumImagesToDeletePerCycle != DefaultNumImagesToDeletePerCycle {
+		t.Errorf("Wrong value for NumImagesToDeletePerCycle: %v", cfg.NumImagesToDeletePerCycle)
 	}
 }

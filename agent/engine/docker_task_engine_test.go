@@ -554,6 +554,7 @@ func TestStopWithPendingStops(t *testing.T) {
 
 	imageManager.EXPECT().AddContainerReferenceToImageState(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
+
 	taskEngine.AddTask(sleepTask2)
 	<-pullInvoked
 	stopSleep2 := *sleepTask2

@@ -123,17 +123,17 @@ type Config struct {
 	// automated image cleanup
 	ImageCleanupDisabled bool
 
-	// ImageMinimumAgeBeforeDeletion specifies the minimum time since it was pulled
+	// MinimumImageDeletionAge specifies the minimum time since it was pulled
 	// before it can be deleted
-	ImageMinimumAgeBeforeDeletion time.Duration
+	MinimumImageDeletionAge time.Duration
 
 	// ImageCleanupInterval specifies the time to wait before performing the image
 	// cleanup since last time it was executed
 	ImageCleanupInterval time.Duration
 
-	// NumOfImageToDeletePerCycle specifies the num of image to delete every time
+	// NumImagesToDeletePerCycle specifies the num of image to delete every time
 	// when Agent performs cleanup
-	NumOfImageToDeletePerCycle int
+	NumImagesToDeletePerCycle int
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

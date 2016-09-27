@@ -65,8 +65,8 @@ func NewImageManager(cfg *config.Config, client DockerClient, state *dockerstate
 	return &dockerImageManager{
 		client: client,
 		state:  state,
-		minimumAgeBeforeDeletion: cfg.ImageMinimumAgeBeforeDeletion,
-		numImagesToDelete:        cfg.NumOfImageToDeletePerCycle,
+		minimumAgeBeforeDeletion: cfg.MinimumImageDeletionAge,
+		numImagesToDelete:        cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: cfg.ImageCleanupInterval,
 	}
 }
