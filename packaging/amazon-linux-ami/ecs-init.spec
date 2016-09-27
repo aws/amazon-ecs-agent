@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.12.2
+Version:        1.13.0
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
