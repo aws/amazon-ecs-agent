@@ -342,10 +342,15 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 
 func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *docker.HostConfig, name string, timeout time.Duration) DockerContainerMetadata {
 	// Create a context that times out after the 'timeout' duration
-	// This is defined by 'createContainerTimeout'. 'timeout' makes it
-	// easier to write tests
+	// This is defined by the const 'createContainerTimeout'. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
+
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.createContainer(ctx, config, hostConfig, name) }()
 
@@ -358,8 +363,10 @@ func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *doc
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return DockerContainerMetadata{Error: &DockerTimeoutError{createContainerTimeout, "created"}}
+			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "created"}}
 		}
+		// Context was canceled even though there was no timeout. Send
+		// back an error.
 		return DockerContainerMetadata{Error: &CannotXContainerError{"Create", err.Error()}}
 	}
 }
@@ -384,9 +391,16 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 }
 
 func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) DockerContainerMetadata {
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by the const 'startContainerTimeout'. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
 	go func() { response <- dg.startContainer(ctx, id) }()
 	select {
@@ -438,13 +452,23 @@ func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duratio
 		container *docker.Container
 		err       error
 	}
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by the const 'inspectContainerTimeout'. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
+
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan inspectResponse, 1)
 	go func() {
 		container, err := dg.inspectContainer(dockerId, ctx)
 		response <- inspectResponse{container, err}
 	}()
+
+	// Wait until we get a response or for the 'done' context channel
 	select {
 	case resp := <-response:
 		return resp.container, resp.err
@@ -454,7 +478,7 @@ func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duratio
 			return nil, &DockerTimeoutError{timeout, "inspecting"}
 		}
 
-		return nil, &CannotXContainerError{"Describe", err.Error()}
+		return nil, &CannotXContainerError{"Inspect", err.Error()}
 	}
 }
 
@@ -469,6 +493,12 @@ func (dg *dockerGoClient) inspectContainer(dockerId string, ctx context.Context)
 func (dg *dockerGoClient) StopContainer(dockerId string, timeout time.Duration) DockerContainerMetadata {
 	timeout = timeout + dg.config.DockerStopTimeout
 
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by the const 'stopContainerTimeout' and the
+	// 'DockerStopTimeout' in the config. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
@@ -514,6 +544,8 @@ func (dg *dockerGoClient) RemoveContainer(dockerId string, timeout time.Duration
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan error, 1)
 	go func() { response <- dg.removeContainer(dockerId, ctx) }()
 	// Wait until we get a response or for the 'done' context channel
@@ -693,11 +725,16 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 
 // ListContainers returns a slice of container IDs.
 func (dg *dockerGoClient) ListContainers(all bool, timeout time.Duration) ListContainersResponse {
-	// timeout := dg.time().After(listContainersTimeout)
-
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by the const 'listContainersTimeout'. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
 	response := make(chan ListContainersResponse, 1)
 	go func() { response <- dg.listContainers(all, ctx) }()
 	select {
