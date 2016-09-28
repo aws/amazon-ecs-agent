@@ -39,11 +39,18 @@ func StartMockServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<
 			errChan <- err
 		}
 		go func() {
-			_, msg, err := ws.ReadMessage()
-			if err != nil {
-				errChan <- err
-			} else {
-				requestsChan <- string(msg)
+			for {
+				select {
+				case <-closeWS:
+					return
+				default:
+					_, msg, err := ws.ReadMessage()
+					if err != nil {
+						errChan <- err
+					} else {
+						requestsChan <- string(msg)
+					}
+				}
 			}
 		}()
 		for str := range serverChan {

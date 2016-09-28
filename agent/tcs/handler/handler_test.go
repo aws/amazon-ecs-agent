@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
 
@@ -88,13 +89,20 @@ func TestStartSession(t *testing.T) {
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
-	go startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval, deregisterInstanceEventStream)
+	go startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
 
 	// Read request channel to get the metric data published to the server.
 	request := <-requestChan
+	go func() {
+		for {
+			select {
+			case <-requestChan:
+			}
+		}
+	}()
 
 	// Decode and verify the metric data.
 	payload, err := getPayloadFromRequest(request)
@@ -139,7 +147,7 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	defer cancel()
 
 	// Start a session with the test server.
-	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, testPublishMetricsInterval, deregisterInstanceEventStream)
+	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -147,6 +155,38 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	if err != io.EOF {
 		t.Error("Expected io.EOF on closed connection, got: ", err)
 	}
+}
+
+// TestConnectionInactiveTimeout tests the tcs client reconnect when it loses network
+// connection or it's inactive for too long
+func TestConnectionInactiveTimeout(t *testing.T) {
+	// Start test server.
+	closeWS := make(chan bool)
+	server, _, requestChan, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
+	defer server.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		for {
+			select {
+			case <-requestChan:
+			}
+		}
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
+	deregisterInstanceEventStream.StartListening()
+	defer cancel()
+	// Start a session with the test server.
+	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, 50*time.Millisecond, 100*time.Millisecond, testPublishMetricsInterval, deregisterInstanceEventStream)
+	// if we are not blocked here, then the test pass as it will reconnect in StartSession
+	assert.Error(t, err, "Close the connection should cause the tcs client return error")
+	assert.EqualError(t, <-serverErr, io.ErrUnexpectedEOF.Error(), "Read from closed connection should got io.UnexpectedEOF error")
+
+	closeWS <- true
 }
 
 func TestDiscoverEndpointAndStartSession(t *testing.T) {
