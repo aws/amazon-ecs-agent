@@ -838,16 +838,3 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 	}
 	return client.RemoveImage(imageName)
 }
-
-// parseRepositoryTag mimics the go-dockerclient's ParseReposirotyData. The only difference
-// is that it doesn't ignore the sha when present.
-func parseRepositoryTag(repoTag string) (repository string, tag string) {
-	n := strings.LastIndex(repoTag, ":")
-	if n < 0 {
-		return repoTag, ""
-	}
-	if tag := repoTag[n+1:]; !strings.Contains(tag, "/") {
-		return repoTag[:n], tag
-	}
-	return repoTag, ""
-}
