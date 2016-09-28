@@ -35,8 +35,8 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 	}
 	credentials := IAMRoleCredentialsFromACS(acsCredentials)
 	expectedCredentials := IAMRoleCredentials{
-		CredentialsId:   "credsId",
-		AccessKeyId:     "keyId",
+		CredentialsID:   "credsId",
+		AccessKeyID:     "keyId",
 		Expiration:      "soon",
 		RoleArn:         "roleArn",
 		SecretAccessKey: "OhhSecret",
@@ -81,7 +81,7 @@ func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 // error when credentials object with no task arn used to set credentials
 func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
 	manager := NewManager()
-	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsId: "id"}})
+	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
 	if err == nil {
 		t.Error("Expected error adding credentials payload without credential id")
 	}
@@ -95,11 +95,11 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 		ARN: "t1",
 		IAMRoleCredentials: IAMRoleCredentials{
 			RoleArn:         "r1",
-			AccessKeyId:     "akid1",
+			AccessKeyID:     "akid1",
 			SecretAccessKey: "skid1",
 			SessionToken:    "stkn",
 			Expiration:      "ts",
-			CredentialsId:   "cid1",
+			CredentialsID:   "cid1",
 		},
 	}
 
@@ -119,11 +119,11 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 		ARN: "t1",
 		IAMRoleCredentials: IAMRoleCredentials{
 			RoleArn:         "r1",
-			AccessKeyId:     "akid2",
+			AccessKeyID:     "akid2",
 			SecretAccessKey: "skid2",
 			SessionToken:    "stkn2",
 			Expiration:      "ts2",
-			CredentialsId:   "cid1",
+			CredentialsID:   "cid1",
 		},
 	}
 	err = manager.SetTaskCredentials(updatedCredentials)
@@ -144,11 +144,11 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 	credentials := IAMRoleCredentials{
 		RoleArn:         "r1",
-		AccessKeyId:     "akid1",
+		AccessKeyID:     "akid1",
 		SecretAccessKey: "skid1",
 		SessionToken:    "stkn",
 		Expiration:      "ts",
-		CredentialsId:   "cid1",
+		CredentialsID:   "cid1",
 	}
 	generatedURI := credentials.GenerateCredentialsEndpointRelativeURI()
 	url, err := url.Parse(generatedURI)
@@ -160,9 +160,9 @@ func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 		t.Errorf("Credentials Endpoint mismatch. Expected path: %s, got %s", CredentialsPath, url.Path)
 	}
 
-	id := url.Query().Get(CredentialsIdQueryParameterName)
+	id := url.Query().Get(CredentialsIDQueryParameterName)
 	if "cid1" != id {
-		t.Errorf("Credentials Endpoing mismatch. Expected value for %s: %s, got %s", CredentialsIdQueryParameterName, "cid1", id)
+		t.Errorf("Credentials Endpoing mismatch. Expected value for %s: %s, got %s", CredentialsIDQueryParameterName, "cid1", id)
 	}
 }
 
@@ -174,11 +174,11 @@ func TestRemoveExistingCredentials(t *testing.T) {
 		ARN: "t1",
 		IAMRoleCredentials: IAMRoleCredentials{
 			RoleArn:         "r1",
-			AccessKeyId:     "akid1",
+			AccessKeyID:     "akid1",
 			SecretAccessKey: "skid1",
 			SessionToken:    "stkn",
 			Expiration:      "ts",
-			CredentialsId:   "cid1",
+			CredentialsID:   "cid1",
 		},
 	}
 	err := manager.SetTaskCredentials(credentials)

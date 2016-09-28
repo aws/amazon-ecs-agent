@@ -88,7 +88,7 @@ func TestCredentialsRequestWhenCredentialsFound(t *testing.T) {
 	creds := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
 			RoleArn:         roleArn,
-			AccessKeyId:     accessKeyID,
+			AccessKeyID:     accessKeyID,
 			SecretAccessKey: secretAccessKey,
 		},
 	}
@@ -105,8 +105,8 @@ func TestCredentialsRequestWhenCredentialsFound(t *testing.T) {
 	if roleArn != credentials.RoleArn {
 		t.Fatalf("Incorrect credentials received. Expected arn: %s, got: %s", roleArn, credentials.RoleArn)
 	}
-	if accessKeyID != credentials.AccessKeyId {
-		t.Fatalf("Incorrect credentials received. Expected Access Key: %s, got: %s", accessKeyID, credentials.AccessKeyId)
+	if accessKeyID != credentials.AccessKeyID {
+		t.Fatalf("Incorrect credentials received. Expected Access Key: %s, got: %s", accessKeyID, credentials.AccessKeyID)
 	}
 	if secretAccessKey != credentials.SecretAccessKey {
 		t.Fatalf("Incorrect credentials received. Expected Secret Key: %s, got: %s", secretAccessKey, credentials.SecretAccessKey)
@@ -164,7 +164,7 @@ func getResponseForCredentialsRequestWithParameters(t *testing.T, expectedStatus
 	auditLog.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any())
 
 	params := make(url.Values)
-	params[credentials.CredentialsIdQueryParameterName] = []string{credentialsID}
+	params[credentials.CredentialsIDQueryParameterName] = []string{credentialsID}
 
 	req, _ := http.NewRequest("GET", credentials.CredentialsPath+"?"+params.Encode(), nil)
 	server.Handler.ServeHTTP(recorder, req)

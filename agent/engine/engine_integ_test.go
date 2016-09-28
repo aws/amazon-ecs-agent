@@ -1116,7 +1116,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	testTask := createTestTask("testStartWithCredentials")
 	taskCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: credentialsIdIntegTest},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIdIntegTest},
 	}
 	credentialsManager.SetTaskCredentials(taskCredentials)
 	testTask.SetCredentialsId(credentialsIdIntegTest)

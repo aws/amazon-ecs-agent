@@ -191,7 +191,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetCredentialsId(taskCredentials.IAMRoleCredentials.CredentialsId)
+			apiTask.SetCredentialsId(taskCredentials.IAMRoleCredentials.CredentialsID)
 		}
 		validTasks = append(validTasks, apiTask)
 	}
@@ -243,7 +243,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			credentialsAcks = append(credentialsAcks, &ecsacs.IAMRoleCredentialsAckRequest{
 				MessageId:     payload.MessageId,
 				Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
-				CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsId),
+				CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
 			})
 		}
 

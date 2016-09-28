@@ -311,12 +311,12 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 		CredentialsId: aws.String(credentialsId),
 	}
 	expectedCredentials := credentials.IAMRoleCredentials{
-		AccessKeyId:     credentialsAccessKey,
+		AccessKeyID:     credentialsAccessKey,
 		Expiration:      credentialsExpiration,
 		RoleArn:         credentialsRoleArn,
 		SecretAccessKey: credentialsSecretKey,
 		SessionToken:    credentialsSessionToken,
-		CredentialsId:   credentialsId,
+		CredentialsID:   credentialsId,
 	}
 	err = validateTaskAndCredentials(taskCredentialsAckRequested, expectedCredentialsAck, addedTask, taskArn, expectedCredentials)
 	if err != nil {
@@ -553,12 +553,12 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		CredentialsId: aws.String(firstTaskCredentialsId),
 	}
 	expectedCredentialsForFirstTask := credentials.IAMRoleCredentials{
-		AccessKeyId:     firstTaskCredentialsAccessKey,
+		AccessKeyID:     firstTaskCredentialsAccessKey,
 		Expiration:      firstTaskCredentialsExpiration,
 		RoleArn:         firstTaskCredentialsRoleArn,
 		SecretAccessKey: firstTaskCredentialsSecretKey,
 		SessionToken:    firstTaskCredentialsSessionToken,
-		CredentialsId:   firstTaskCredentialsId,
+		CredentialsID:   firstTaskCredentialsId,
 	}
 	err := validateTaskAndCredentials(firstTaskCredentialsAckRequested, expectedCredentialsAckForFirstTask, firstAddedTask, firstTaskArn, expectedCredentialsForFirstTask)
 	if err != nil {
@@ -573,12 +573,12 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		CredentialsId: aws.String(secondTaskCredentialsId),
 	}
 	expectedCredentialsForSecondTask := credentials.IAMRoleCredentials{
-		AccessKeyId:     secondTaskCredentialsAccessKey,
+		AccessKeyID:     secondTaskCredentialsAccessKey,
 		Expiration:      secondTaskCredentialsExpiration,
 		RoleArn:         secondTaskCredentialsRoleArn,
 		SecretAccessKey: secondTaskCredentialsSecretKey,
 		SessionToken:    secondTaskCredentialsSessionToken,
-		CredentialsId:   secondTaskCredentialsId,
+		CredentialsID:   secondTaskCredentialsId,
 	}
 	err = validateTaskAndCredentials(secondTaskCredentialsAckRequested, expectedCredentialsAckForSecondTask, secondAddedTask, secondTaskArn, expectedCredentialsForSecondTask)
 	if err != nil {
@@ -597,7 +597,7 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	expectedTask := &api.Task{
 		Arn: expectedTaskArn,
 	}
-	expectedTask.SetCredentialsId(expectedTaskCredentials.CredentialsId)
+	expectedTask.SetCredentialsId(expectedTaskCredentials.CredentialsID)
 
 	if !reflect.DeepEqual(addedTask, expectedTask) {
 		return fmt.Errorf("Mismatch between expected and added tasks, expected: %v, added: %v", expectedTask, addedTask)

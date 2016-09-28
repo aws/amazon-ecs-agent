@@ -474,7 +474,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 	}
 
 	taskCredentials := &credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: "credsid"},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIdInTask).Return(taskCredentials, true)
 	task.initializeCredentialsEndpoint(credentialsManager)

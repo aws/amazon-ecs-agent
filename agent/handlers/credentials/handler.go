@@ -112,7 +112,7 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 // containing credentials when found. The HTTP status code of 400 is returned otherwise.
 func credentialsV1RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		credentialsID, ok := handlers.ValueFromRequest(r, credentials.CredentialsIdQueryParameterName)
+		credentialsID, ok := handlers.ValueFromRequest(r, credentials.CredentialsIDQueryParameterName)
 		if !ok {
 			credentialsID = ""
 		}

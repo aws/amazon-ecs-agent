@@ -62,7 +62,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	roleCredentials := &credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsId: "credsid"},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsId).Return(roleCredentials, true).AnyTimes()
 	credentialsManager.EXPECT().RemoveCredentials(credentialsId)

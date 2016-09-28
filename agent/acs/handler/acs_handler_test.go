@@ -526,11 +526,11 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 				ARN: "t1",
 				IAMRoleCredentials: rolecredentials.IAMRoleCredentials{
 					RoleArn:         "r1",
-					AccessKeyId:     "newakid",
+					AccessKeyID:     "newakid",
 					SecretAccessKey: "newskid",
 					SessionToken:    "newstkn",
 					Expiration:      "later",
-					CredentialsId:   credentialsIdInRefreshMessage,
+					CredentialsID:   credentialsIdInRefreshMessage,
 				},
 			}
 			if !reflect.DeepEqual(updatedCredentials, expectedCreds) {

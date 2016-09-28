@@ -49,11 +49,11 @@ var expectedCredentials = &credentials.TaskIAMRoleCredentials{
 	ARN: taskArn,
 	IAMRoleCredentials: credentials.IAMRoleCredentials{
 		RoleArn:         roleArn,
-		AccessKeyId:     accessKey,
+		AccessKeyID:     accessKey,
 		SecretAccessKey: secretKey,
 		SessionToken:    sessionToken,
 		Expiration:      expiration,
-		CredentialsId:   credentialsId,
+		CredentialsID:   credentialsId,
 	},
 }
 
