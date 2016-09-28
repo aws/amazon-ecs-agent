@@ -327,9 +327,9 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIds ...str
 }
 
 func cleanupImages(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1")
-	imageManager.client.RemoveContainer("test2")
-	imageManager.client.RemoveContainer("test3")
+	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
 	imageManager.client.RemoveImage(testImage1Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(testImage2Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(testImage3Name, imageRemovalTimeout)
