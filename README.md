@@ -123,8 +123,8 @@ configure them as something other than the defaults.
 | `ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST` | `true` | Whether to enable IAM Roles for Tasks when launched with `host` network mode on the Container Instance | `false` |
 | `ECS_DISABLE_IMAGE_CLEANUP` | `true` | Whether to disable automated image cleanup for the ECS Agent. | `false` |
 | `ECS_IMAGE_CLEANUP_INTERVAL` | 30m | The time interval between automated image cleanup cycles. If set to less than 10 minutes, the value is ignored. | 30m |
-| `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1 minute, the value is ignored. | 1h |
-| `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1 minute, the value is ignored. | 5 |
+| `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h |
+| `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 |
 
 ### Persistence
 

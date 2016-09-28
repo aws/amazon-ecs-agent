@@ -62,8 +62,8 @@ const (
 	// image cleanup.
 	DefaultNumImagesToDeletePerCycle = 5
 
-	//DefaultImageDeletionAge specifies the default time duration that an image
-	// can be deleted since it has been pulled.
+	//DefaultImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
+	// has been pulled before it can be deleted.
 	DefaultImageDeletionAge = 1 * time.Hour
 
 	// minimumTaskCleanupWaitDuration specifies the minimum duration to wait before cleaning up
