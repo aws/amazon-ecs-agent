@@ -33,7 +33,7 @@ const (
 	roleArn         = "r1"
 	accessKeyID     = "ak"
 	secretAccessKey = "sk"
-	credentialsId   = "credentialsId"
+	credentialsID   = "credentialsId"
 )
 
 // TestInvalidPath tests if HTTP status code 404 is returned when invalid path is queried.
@@ -45,7 +45,7 @@ func TestInvalidPath(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsRequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
-		Code:          NoIdInRequest,
+		Code:          NoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -56,12 +56,12 @@ func TestCredentialsRequestWithNoArguments(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsRequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          InvalidIdInRequest,
+		Code:          InvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
 	_, err := getResponseForCredentialsRequestWithParameters(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, credentialsId, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
+		expectedErrorMessage, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
 	if err != nil {
 		t.Fatalf("Error getting response body: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestCredentialsRequestWhenCredentialsUninitialized(t *testing.T) {
 		httpErrorCode: http.StatusServiceUnavailable,
 	}
 	_, err := getResponseForCredentialsRequestWithParameters(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, credentialsId, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
+		expectedErrorMessage, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
 	if err != nil {
 		t.Fatalf("Error getting response body: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestCredentialsRequestWhenCredentialsFound(t *testing.T) {
 			SecretAccessKey: secretAccessKey,
 		},
 	}
-	body, err := getResponseForCredentialsRequestWithParameters(t, http.StatusOK, nil, credentialsId, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
+	body, err := getResponseForCredentialsRequestWithParameters(t, http.StatusOK, nil, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
 	if err != nil {
 		t.Fatalf("Error retrieving credentials response: %v", err)
 	}
@@ -164,7 +164,7 @@ func getResponseForCredentialsRequestWithParameters(t *testing.T, expectedStatus
 	auditLog.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any())
 
 	params := make(url.Values)
-	params[credentials.CredentialsIdQueryParameterName] = []string{credentialsId}
+	params[credentials.CredentialsIdQueryParameterName] = []string{credentialsID}
 
 	req, _ := http.NewRequest("GET", credentials.CredentialsPath+"?"+params.Encode(), nil)
 	server.Handler.ServeHTTP(recorder, req)

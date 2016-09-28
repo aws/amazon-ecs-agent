@@ -38,11 +38,20 @@ const (
 	writeTimeout = 5 * time.Second
 
 	// Error Types
-	NoIdInRequest            = "NoIdInRequest"
-	InvalidIdInRequest       = "InvalidIdInRequest"
-	NoCredentialsAssociated  = "NoCredentialsAssociated"
+
+	// NoIDInRequest is the error code indicating that no ID was specified
+	NoIDInRequest = "NoIdInRequest"
+	// InvalidIDInRequest is the error code indicating that the ID was invalid
+	InvalidIDInRequest = "InvalidIdInRequest"
+	// NoCredentialsAssociated is the error code indicating no credentials are
+	// associated with the specified ID
+	NoCredentialsAssociated = "NoCredentialsAssociated"
+	// CredentialsUninitialized is the error code indicating that credentials were
+	// not properly initialized.  This may happen immediately after the agent is
+	// started, before it has completed state reconciliation.
 	CredentialsUninitialized = "CredentialsUninitialized"
-	InternalServerError      = "InternalServerError"
+	// InternalServerError is the error indicating something generic went wrong
+	InternalServerError = "InternalServerError"
 )
 
 // errorMessage is used to store the human-readable error Code and a descriptive Message
@@ -53,8 +62,8 @@ type errorMessage struct {
 	httpErrorCode int
 }
 
-// ServeHttp serves IAM Role Credentials for Tasks being managed by the agent.
-func ServeHttp(credentialsManager credentials.Manager, containerInstanceArn string, cfg *config.Config) {
+// ServeHTTP serves IAM Role Credentials for Tasks being managed by the agent.
+func ServeHTTP(credentialsManager credentials.Manager, containerInstanceArn string, cfg *config.Config) {
 	// Create and initialize the audit log
 	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := log.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -81,7 +90,7 @@ func ServeHttp(credentialsManager credentials.Manager, containerInstanceArn stri
 }
 
 // setupServer starts the HTTP server for serving IAM Role Credentials for Tasks.
-func setupServer(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) http.Server {
+func setupServer(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) *http.Server {
 	serverMux := http.NewServeMux()
 	serverMux.HandleFunc(credentials.CredentialsPath, credentialsV1RequestHandler(credentialsManager, auditLogger))
 
@@ -96,15 +105,18 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 		WriteTimeout: writeTimeout,
 	}
 
-	return server
+	return &server
 }
 
 // credentialsV1RequestHandler creates response for the 'v1/credentials' API. It returns a JSON response
 // containing credentials when found. The HTTP status code of 400 is returned otherwise.
 func credentialsV1RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		jsonResponse, arn, errorMessage, err := processCredentialsV1Request(credentialsManager, r)
+		credentialsID, ok := handlers.ValueFromRequest(r, credentials.CredentialsIdQueryParameterName)
+		if !ok {
+			credentialsID = ""
+		}
+		jsonResponse, arn, errorMessage, err := processCredentialsV1Request(credentialsManager, r, credentialsID)
 		if err != nil {
 			jsonMsg, _ := json.Marshal(errorMessage)
 			writeCredentialsV1RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), arn, auditLogger, jsonMsg)
@@ -118,30 +130,29 @@ func credentialsV1RequestHandler(credentialsManager credentials.Manager, auditLo
 func writeCredentialsV1RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
 	auditLogger.Log(request.LogRequest{Request: r, ARN: arn}, httpStatusCode, eventType)
 
-	writeJsonToResponse(w, httpStatusCode, message)
+	writeJSONToResponse(w, httpStatusCode, message)
 }
 
 // processCredentialsV1Request returns the response json containing credentials for the credentials id in the request
-func processCredentialsV1Request(credentialsManager credentials.Manager, r *http.Request) ([]byte, string, *errorMessage, error) {
-	credentialsId, ok := handlers.ValueFromRequest(r, credentials.CredentialsIdQueryParameterName)
+func processCredentialsV1Request(credentialsManager credentials.Manager, r *http.Request, credentialsID string) ([]byte, string, *errorMessage, error) {
 
-	if !ok {
+	if credentialsID == "" {
 		errText := "CredentialsV1Request: No ID in the request"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          NoIdInRequest,
+			Code:          NoIDInRequest,
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
 		return nil, "", msg, errors.New(errText)
 	}
 
-	credentials, ok := credentialsManager.GetTaskCredentials(credentialsId)
+	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		errText := "CredentialsV1Request: ID not found"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          InvalidIdInRequest,
+			Code:          InvalidIDInRequest,
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
@@ -176,7 +187,7 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 	return credentialsJSON, credentials.ARN, nil, nil
 }
 
-func writeJsonToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte) {
+func writeJSONToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatusCode)
 	_, err := w.Write(jsonMessage)

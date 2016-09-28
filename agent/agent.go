@@ -247,7 +247,7 @@ func _main() int {
 	go handlers.ServeHttp(&containerInstanceArn, taskEngine, cfg)
 
 	// Start serving the endpoint to fetch IAM Role credentials
-	go credentialshandler.ServeHttp(credentialsManager, containerInstanceArn, cfg)
+	go credentialshandler.ServeHTTP(credentialsManager, containerInstanceArn, cfg)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
