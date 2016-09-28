@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.0
+* Feature - Implemented automated image cleanup.
+* Enhancement - Add credential caching for ECR.
+* Enhancement - Add support for security-opt=no-new-privileges.
+* Bug - Fixed a potential deadlock in dockerstate.
+
 ## 1.12.2
 * Bug - Fixed a bug where agent keeps fetching stats of stopped containers.
 
