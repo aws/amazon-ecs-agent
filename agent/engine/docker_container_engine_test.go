@@ -51,7 +51,11 @@ func defaultTestConfig() *config.Config {
 	return cfg
 }
 
-func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoClient, *mock_ttime.MockTime, func()) {
+func dockerClientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoClient, *mock_ttime.MockTime, func()) {
+	return dockerClientSetupWithConfig(t, config.DefaultConfig())
+}
+
+func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (*mock_dockeriface.MockClient, *dockerGoClient, *mock_ttime.MockTime, func()) {
 	ctrl := gomock.NewController(t)
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
@@ -59,7 +63,6 @@ func dockerclientSetup(t *testing.T) (*mock_dockeriface.MockClient, *dockerGoCli
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 
-	conf := config.DefaultConfig()
 	conf.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
 	client, _ := NewDockerGoClient(factory, false, &conf)
 	goClient, _ := client.(*dockerGoClient)
@@ -82,7 +85,7 @@ func (matcher *pullImageOptsMatcher) Matches(x interface{}) bool {
 }
 
 func TestPullImageOutputTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time)
@@ -109,7 +112,7 @@ func TestPullImageOutputTimeout(t *testing.T) {
 }
 
 func TestPullImageGlobalTimeout(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time, 1)
@@ -148,7 +151,7 @@ func TestPullImageGlobalTimeout(t *testing.T) {
 }
 
 func TestPullImage(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -161,7 +164,7 @@ func TestPullImage(t *testing.T) {
 }
 
 func TestPullImageTag(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -174,7 +177,7 @@ func TestPullImageTag(t *testing.T) {
 }
 
 func TestPullImageDigest(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -190,7 +193,7 @@ func TestPullImageDigest(t *testing.T) {
 }
 
 func TestPullEmptyvolumeImage(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create, not pull
@@ -215,7 +218,7 @@ func TestPullEmptyvolumeImage(t *testing.T) {
 }
 
 func TestPullExistingEmptyvolumeImage(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create only if it doesn't exist
@@ -327,7 +330,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 }
 
 func TestCreateContainerTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
@@ -350,7 +353,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 }
 
 func TestCreateContainerInspectTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
@@ -378,7 +381,7 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 }
 
 func TestCreateContainer(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
@@ -406,7 +409,7 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestStartContainerTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
@@ -426,7 +429,7 @@ func TestStartContainerTimeout(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
@@ -443,7 +446,9 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStopContainerTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	cfg := config.DefaultConfig()
+	cfg.DockerStopTimeout = xContainerShortTimeout
+	mockDocker, client, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
 
 	warp := make(chan time.Time)
@@ -465,7 +470,7 @@ func TestStopContainerTimeout(t *testing.T) {
 }
 
 func TestStopContainer(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
@@ -482,7 +487,7 @@ func TestStopContainer(t *testing.T) {
 }
 
 func TestInspectContainerTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
@@ -504,7 +509,7 @@ func TestInspectContainerTimeout(t *testing.T) {
 }
 
 func TestInspectContainer(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	containerOutput := docker.Container{ID: "id", State: docker.State{ExitCode: 10}}
@@ -521,7 +526,7 @@ func TestInspectContainer(t *testing.T) {
 }
 
 func TestContainerEvents(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	var events chan<- *docker.APIEvents
@@ -660,7 +665,7 @@ func TestContainerEvents(t *testing.T) {
 }
 
 func TestDockerVersion(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	mockDocker.EXPECT().Version().Return(&docker.Env{"Version=1.6.0"}, nil)
@@ -675,7 +680,7 @@ func TestDockerVersion(t *testing.T) {
 }
 
 func TestListContainers(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	containers := []docker.APIContainers{docker.APIContainers{ID: "id"}}
@@ -696,7 +701,7 @@ func TestListContainers(t *testing.T) {
 }
 
 func TestListContainersTimeout(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
 	warp := make(chan time.Time)
@@ -782,7 +787,7 @@ func TestUnavailableVersionError(t *testing.T) {
 }
 
 func TestStatsNormalExit(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 	time1 := time.Now()
 	time2 := time1.Add(1 * time.Second)
@@ -824,7 +829,7 @@ func checkStatRead(t *testing.T, stat *docker.Stats, read time.Time) {
 }
 
 func TestStatsClosed(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 	time1 := time.Now()
 	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
@@ -868,7 +873,7 @@ func TestStatsClosed(t *testing.T) {
 }
 
 func TestStatsErrorReading(t *testing.T) {
-	mockDocker, client, _, done := dockerclientSetup(t)
+	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) error {
 		opts := x.(docker.StatsOptions)
@@ -902,7 +907,7 @@ func TestStatsClientError(t *testing.T) {
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
-	mockDocker, client, _, _ := dockerclientSetup(t)
+	mockDocker, client, _, _ := dockerClientSetup(t)
 	wait := sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().RemoveImage("image").Do(func(x interface{}) {
@@ -916,7 +921,7 @@ func TestRemoveImageTimeout(t *testing.T) {
 }
 
 func TestRemoveImage(t *testing.T) {
-	mockDocker, client, testTime, done := dockerclientSetup(t)
+	mockDocker, client, testTime, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
