@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
@@ -342,8 +343,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	}
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream)
-
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewDockerTaskEngineState())
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatalf("Error creating container: %v", err)

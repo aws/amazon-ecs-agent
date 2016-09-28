@@ -43,7 +43,8 @@ import (
 //      forward compatible)
 // 3) Add 'Protocol' field to 'portMappings' and 'KnownPortBindings'
 // 4) Add 'DockerConfig' struct
-const EcsDataVersion = 4
+// 5) Add 'ImageStates' struct as part of ImageManager
+const EcsDataVersion = 5
 
 // Filename in the ECS_DATADIR
 const ecsDataFile = "ecs_agent_data.json"
