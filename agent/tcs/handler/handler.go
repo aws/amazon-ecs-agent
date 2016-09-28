@@ -34,8 +34,8 @@ const (
 	defaultPublishMetricsInterval = 20 * time.Second
 
 	// The maximum time to wait between heartbeats without disconnecting
-	heartbeatTimeout                   = 5 * time.Minute
-	heartbeatJitter                    = 3 * time.Minute
+	defaultHeartbeatTimeout            = 5 * time.Minute
+	defaultHeartbeatJitter             = 3 * time.Minute
 	deregisterContainerInstanceHandler = "TCSDeregisterContainerInstanceHandler"
 )
 
@@ -90,10 +90,10 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 	}
 	log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
-	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
+	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
 
-func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration, deregisterInstanceEventStream *eventstream.EventStream) error {
+func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, heartbeatTimeout, heartbeatJitter, publishMetricsInterval time.Duration, deregisterInstanceEventStream *eventstream.EventStream) error {
 	client := tcsclient.New(url, region, credentialProvider, acceptInvalidCert, statsEngine, publishMetricsInterval)
 	defer client.Close()
 
@@ -110,7 +110,7 @@ func startSession(url string, region string, credentialProvider *credentials.Cre
 		// Close the connection if there haven't been any messages received from backend
 		// for a long time.
 		log.Debug("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
-		client.Close()
+		client.Disconnect()
 	})
 	defer timer.Stop()
 	client.AddRequestHandler(heartbeatHandler(timer))
@@ -127,7 +127,7 @@ func startSession(url string, region string, credentialProvider *credentials.Cre
 func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 	return func(*ecstcs.HeartbeatMessage) {
 		log.Debug("Received HeartbeatMessage from tcs")
-		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
+		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
 
@@ -136,7 +136,7 @@ func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 	return func(*ecstcs.AckPublishMetric) {
 		log.Debug("Received AckPublishMetric from tcs")
-		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
+		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
 
