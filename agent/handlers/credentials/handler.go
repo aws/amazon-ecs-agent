@@ -16,8 +16,10 @@ package credentials
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -36,6 +38,10 @@ const (
 	// writeTimeout specifies the maximum duration before timing out write of the response.
 	// The value is set to 5 seconds as per AWS SDK defaults.
 	writeTimeout = 5 * time.Second
+
+	// Credentials API versions
+	apiVersion1 = 1
+	apiVersion2 = 2
 
 	// Error Types
 
@@ -92,7 +98,8 @@ func ServeHTTP(credentialsManager credentials.Manager, containerInstanceArn stri
 // setupServer starts the HTTP server for serving IAM Role Credentials for Tasks.
 func setupServer(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) *http.Server {
 	serverMux := http.NewServeMux()
-	serverMux.HandleFunc(credentials.CredentialsPath, credentialsV1RequestHandler(credentialsManager, auditLogger))
+	serverMux.HandleFunc(credentials.V1CredentialsPath, credentialsV1V2RequestHandler(credentialsManager, auditLogger, getV1CredentialsID, apiVersion1))
+	serverMux.HandleFunc(credentials.V2CredentialsPath+"/", credentialsV1V2RequestHandler(credentialsManager, auditLogger, getV2CredentialsID, apiVersion2))
 
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
@@ -108,36 +115,48 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 	return &server
 }
 
-// credentialsV1RequestHandler creates response for the 'v1/credentials' API. It returns a JSON response
+// credentialsV1V2RequestHandler creates response for the 'v1/credentials' and 'v2/credentials' APIs. It returns a JSON response
 // containing credentials when found. The HTTP status code of 400 is returned otherwise.
-func credentialsV1RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
+func credentialsV1V2RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger, idFunc func(*http.Request) string, apiVersion int) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		credentialsID, ok := handlers.ValueFromRequest(r, credentials.CredentialsIDQueryParameterName)
-		if !ok {
-			credentialsID = ""
-		}
-		jsonResponse, arn, errorMessage, err := processCredentialsV1Request(credentialsManager, r, credentialsID)
+		credentialsID := idFunc(r)
+		jsonResponse, arn, errorMessage, err := processCredentialsV1V2Request(credentialsManager, r, credentialsID, apiVersion)
 		if err != nil {
 			jsonMsg, _ := json.Marshal(errorMessage)
-			writeCredentialsV1RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), arn, auditLogger, jsonMsg)
+			writeCredentialsV1V2RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), arn, auditLogger, jsonMsg)
 			return
 		}
 
-		writeCredentialsV1RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(), arn, auditLogger, jsonResponse)
+		writeCredentialsV1V2RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(), arn, auditLogger, jsonResponse)
 	}
 }
 
-func writeCredentialsV1RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
+func getV1CredentialsID(r *http.Request) string {
+	credentialsID, ok := handlers.ValueFromRequest(r, credentials.CredentialsIDQueryParameterName)
+	if !ok {
+		return ""
+	}
+	return credentialsID
+}
+
+func getV2CredentialsID(r *http.Request) string {
+	if strings.HasPrefix(r.URL.String(), credentials.CredentialsPath+"/") {
+		return r.URL.String()[len(credentials.V2CredentialsPath+"/"):]
+	}
+	return ""
+}
+
+func writeCredentialsV1V2RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
 	auditLogger.Log(request.LogRequest{Request: r, ARN: arn}, httpStatusCode, eventType)
 
 	writeJSONToResponse(w, httpStatusCode, message)
 }
 
-// processCredentialsV1Request returns the response json containing credentials for the credentials id in the request
-func processCredentialsV1Request(credentialsManager credentials.Manager, r *http.Request, credentialsID string) ([]byte, string, *errorMessage, error) {
-
+// processCredentialsV1V2Request returns the response json containing credentials for the credentials id in the request
+func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *http.Request, credentialsID string, apiVersion int) ([]byte, string, *errorMessage, error) {
+	errPrefix := fmt.Sprintf("CredentialsV%dRequest: ", apiVersion)
 	if credentialsID == "" {
-		errText := "CredentialsV1Request: No ID in the request"
+		errText := errPrefix + "No ID in the request"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
 			Code:          NoIDInRequest,
@@ -149,7 +168,7 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 
 	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
-		errText := "CredentialsV1Request: ID not found"
+		errText := errPrefix + "ID not found"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
 			Code:          InvalidIDInRequest,
@@ -161,7 +180,7 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 
 	if credentials == nil {
 		// This can happen when the agent is restarted and is reconciling its state.
-		errText := "CredentialsV1Request: Credentials uninitialized for ID"
+		errText := errPrefix + "Credentials uninitialized for ID"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
 			Code:          CredentialsUninitialized,
@@ -173,7 +192,7 @@ func processCredentialsV1Request(credentialsManager credentials.Manager, r *http
 
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
-		errText := "CredentialsV1Request: Error marshaling credentials"
+		errText := errPrefix + "Error marshaling credentials"
 		log.Errorf("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
 			Code:          InternalServerError,

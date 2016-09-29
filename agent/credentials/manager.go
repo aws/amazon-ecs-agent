@@ -15,7 +15,6 @@ package credentials
 
 import (
 	"fmt"
-	"net/url"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -27,12 +26,18 @@ const (
 	CredentialsIDQueryParameterName = "id"
 
 	// CredentialsPath is the path to the credentials handler.
-	CredentialsPath = "/v1/credentials"
+	CredentialsPath = V2CredentialsPath
+
+	V1CredentialsPath = "/v1/credentials"
+	V2CredentialsPath = "/v2/credentials"
 
 	// credentialsEndpointRelativeURIFormat defines the relative URI format
 	// for the credentials endpoint. The place holders are the API Path and
-	// Query Parameters.
-	credentialsEndpointRelativeURIFormat = "%s?%s"
+	// credentials ID
+	credentialsEndpointRelativeURIFormat = v2CredentialsEndpointRelativeURIFormat
+
+	v1CredentialsEndpointRelativeURIFormat = "%s?" + CredentialsIDQueryParameterName + "=%s"
+	v2CredentialsEndpointRelativeURIFormat = "%s/%s"
 )
 
 // IAMRoleCredentials is used to save credentials sent by ACS
@@ -57,9 +62,7 @@ type TaskIAMRoleCredentials struct {
 // GenerateCredentialsEndpointRelativeURI generates the relative URI for the
 // credentials endpoint, for a given task id.
 func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeURI() string {
-	params := make(url.Values)
-	params[CredentialsIDQueryParameterName] = []string{roleCredentials.CredentialsID}
-	return fmt.Sprintf(credentialsEndpointRelativeURIFormat, CredentialsPath, params.Encode())
+	return fmt.Sprintf(credentialsEndpointRelativeURIFormat, CredentialsPath, roleCredentials.CredentialsID)
 }
 
 // credentialsManager implements the Manager interface. It is used to

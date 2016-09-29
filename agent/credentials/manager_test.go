@@ -14,12 +14,13 @@
 package credentials
 
 import (
-	"net/url"
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestIAMRoleCredentialsFromACS tests if credentials sent from ACS can be
@@ -62,9 +63,7 @@ func TestGetTaskCredentialsUnknownId(t *testing.T) {
 func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 	manager := NewManager()
 	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{})
-	if err == nil {
-		t.Error("Expected error adding empty task credentials")
-	}
+	assert.Error(t, err, "Expected error adding empty task credentials")
 }
 
 // TestSetTaskCredentialsNoCredentialsId tests if credentials manager returns an
@@ -72,9 +71,7 @@ func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 	manager := NewManager()
 	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
-	if err == nil {
-		t.Error("Expected error adding credentials payload without credential id")
-	}
+	assert.Error(t, err, "Expected error adding credentials payload without credential ID")
 }
 
 // TestSetTaskCredentialsNoTaskArn tests if credentials manager returns an
@@ -82,9 +79,7 @@ func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
 	manager := NewManager()
 	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
-	if err == nil {
-		t.Error("Expected error adding credentials payload without credential id")
-	}
+	assert.Error(t, err, "Expected error adding credentials payload without task ARN")
 }
 
 // TestSetAndGetTaskCredentialsHappyPath tests the happy path workflow for setting
@@ -104,9 +99,8 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 	}
 
 	err := manager.SetTaskCredentials(credentials)
-	if err != nil {
-		t.Errorf("Error adding credentials: %v", err)
-	}
+	assert.NoError(t, err, "Error adding credentials")
+
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
 	if !ok {
 		t.Error("GetTaskCredentials returned false for existing credentials")
@@ -127,9 +121,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 		},
 	}
 	err = manager.SetTaskCredentials(updatedCredentials)
-	if err != nil {
-		t.Errorf("Error updating credentials: %v", err)
-	}
+	assert.NoError(t, err, "Error updating credentials")
 	credentialsFromManager, ok = manager.GetTaskCredentials("cid1")
 	if !ok {
 		t.Error("GetTaskCredentials returned false for existing credentials")
@@ -151,19 +143,8 @@ func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 		CredentialsID:   "cid1",
 	}
 	generatedURI := credentials.GenerateCredentialsEndpointRelativeURI()
-	url, err := url.Parse(generatedURI)
-	if err != nil {
-		t.Fatalf("Error parsing url: %s, error: %v", generatedURI, err)
-	}
-
-	if CredentialsPath != url.Path {
-		t.Errorf("Credentials Endpoint mismatch. Expected path: %s, got %s", CredentialsPath, url.Path)
-	}
-
-	id := url.Query().Get(CredentialsIDQueryParameterName)
-	if "cid1" != id {
-		t.Errorf("Credentials Endpoing mismatch. Expected value for %s: %s, got %s", CredentialsIDQueryParameterName, "cid1", id)
-	}
+	expectedURI := fmt.Sprintf(credentialsEndpointRelativeURIFormat, CredentialsPath, "cid1")
+	assert.Equal(t, expectedURI, generatedURI, "Credentials endpoint mismatch")
 }
 
 // TestRemoveExistingCredentials tests that GetTaskCredentials returns false when
@@ -182,9 +163,8 @@ func TestRemoveExistingCredentials(t *testing.T) {
 		},
 	}
 	err := manager.SetTaskCredentials(credentials)
-	if err != nil {
-		t.Errorf("Error adding credentials: %v", err)
-	}
+	assert.NoError(t, err, "Error adding credentials")
+
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
 	if !ok {
 		t.Error("GetTaskCredentials returned false for existing credentials")

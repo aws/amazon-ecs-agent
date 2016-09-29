@@ -27,6 +27,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -41,50 +42,87 @@ func TestInvalidPath(t *testing.T) {
 	testErrorResponsesFromServer(t, "/", nil)
 }
 
-// TestCredentialsRequestWithNoArguments tests if HTTP status code 400 is returned when
+// TestCredentialsV1RequestWithNoArguments tests if HTTP status code 400 is returned when
 // query parameters are not specified for the credentials endpoint.
-func TestCredentialsRequestWithNoArguments(t *testing.T) {
+func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
 		Code:          NoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
-	testErrorResponsesFromServer(t, credentials.CredentialsPath, msg)
+	testErrorResponsesFromServer(t, credentials.V1CredentialsPath, msg)
 }
 
-// TestCredentialsRequestWhenCredentialsIdNotFound tests if HTTP status code 400 is returned when
+// TestCredentialsV2RequestWithNoArguments tests if HTTP status code 400 is returned when
+// query parameters are not specified for the credentials endpoint.
+func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
+	msg := &errorMessage{
+		Code:          NoIDInRequest,
+		Message:       "CredentialsV2Request: No ID in the request",
+		httpErrorCode: http.StatusBadRequest,
+	}
+	testErrorResponsesFromServer(t, credentials.V2CredentialsPath+"/", msg)
+}
+
+// TestCredentialsV1RequestWhenCredentialsIdNotFound tests if HTTP status code 400 is returned when
 // the credentials manager does not contain the credentials id specified in the query.
-func TestCredentialsRequestWhenCredentialsIdNotFound(t *testing.T) {
+func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
 		Code:          InvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
-	_, err := getResponseForCredentialsRequestWithParameters(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
-	if err != nil {
-		t.Fatalf("Error getting response body: %v", err)
-	}
+	path := credentials.V1CredentialsPath + "?id=" + credentialsID
+	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
+		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
+	assert.NoError(t, err, "Error getting response body")
 }
 
-// TestCredentialsRequestWhenCredentialsUninitialized tests if HTTP status code 500 is returned when
+// TestCredentialsV2RequestWhenCredentialsIdNotFound tests if HTTP status code 400 is returned when
+// the credentials manager does not contain the credentials id specified in the query.
+func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
+	expectedErrorMessage := &errorMessage{
+		Code:          InvalidIDInRequest,
+		Message:       fmt.Sprintf("CredentialsV2Request: ID not found"),
+		httpErrorCode: http.StatusBadRequest,
+	}
+	path := credentials.V2CredentialsPath + "/" + credentialsID
+	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
+		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
+	assert.NoError(t, err, "Error getting response body")
+}
+
+// TestCredentialsV1RequestWhenCredentialsUninitialized tests if HTTP status code 500 is returned when
 // the credentials manager returns empty credentials.
-func TestCredentialsRequestWhenCredentialsUninitialized(t *testing.T) {
+func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
 		Code:          CredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials uninitialized for ID"),
 		httpErrorCode: http.StatusServiceUnavailable,
 	}
-	_, err := getResponseForCredentialsRequestWithParameters(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
-	if err != nil {
-		t.Fatalf("Error getting response body: %v", err)
-	}
+	path := credentials.V1CredentialsPath + "?id=" + credentialsID
+	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
+		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
+	assert.NoError(t, err, "Error getting response body")
 }
 
-// TestCredentialsRequestWhenCredentialsFound tests if HTTP status code 200 is returned when
+// TestCredentialsV2RequestWhenCredentialsUninitialized tests if HTTP status code 500 is returned when
+// the credentials manager returns empty credentials.
+func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
+	expectedErrorMessage := &errorMessage{
+		Code:          CredentialsUninitialized,
+		Message:       fmt.Sprintf("CredentialsV2Request: Credentials uninitialized for ID"),
+		httpErrorCode: http.StatusServiceUnavailable,
+	}
+	path := credentials.V2CredentialsPath + "/" + credentialsID
+	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
+		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
+	assert.NoError(t, err, "Error getting response body")
+}
+
+// TestCredentialsV1RequestWhenCredentialsFound tests if HTTP status code 200 is returned when
 // the credentials manager contains the credentials id specified in the query.
-func TestCredentialsRequestWhenCredentialsFound(t *testing.T) {
+func TestCredentialsV1RequestWhenCredentialsFound(t *testing.T) {
 	creds := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
 			RoleArn:         roleArn,
@@ -92,25 +130,40 @@ func TestCredentialsRequestWhenCredentialsFound(t *testing.T) {
 			SecretAccessKey: secretAccessKey,
 		},
 	}
-	body, err := getResponseForCredentialsRequestWithParameters(t, http.StatusOK, nil, credentialsID, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
+	path := credentials.V1CredentialsPath + "?id=" + credentialsID
+	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
+	assert.NoError(t, err)
+
+	credentials, err := parseResponseBody(body)
+	assert.NoError(t, err, "Error retrieving credentials")
+
+	assert.Equal(t, roleArn, credentials.RoleArn, "Incorrect credentials received: role ARN")
+	assert.Equal(t, accessKeyID, credentials.AccessKeyID, "Incorrect credentials received: access key ID")
+	assert.Equal(t, secretAccessKey, credentials.SecretAccessKey, "Incorrect credentials received: secret access key")
+}
+
+// TestCredentialsV2RequestWhenCredentialsFound tests if HTTP status code 200 is returned when
+// the credentials manager contains the credentials id specified in the query.
+func TestCredentialsV2RequestWhenCredentialsFound(t *testing.T) {
+	creds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			RoleArn:         roleArn,
+			AccessKeyID:     accessKeyID,
+			SecretAccessKey: secretAccessKey,
+		},
+	}
+	path := credentials.V2CredentialsPath + "/" + credentialsID
+	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
 	if err != nil {
 		t.Fatalf("Error retrieving credentials response: %v", err)
 	}
 
 	credentials, err := parseResponseBody(body)
-	if err != nil {
-		t.Fatalf("Error retrieving credentials: %v", err)
-	}
+	assert.NoError(t, err, "Error retrieving credentials")
 
-	if roleArn != credentials.RoleArn {
-		t.Fatalf("Incorrect credentials received. Expected arn: %s, got: %s", roleArn, credentials.RoleArn)
-	}
-	if accessKeyID != credentials.AccessKeyID {
-		t.Fatalf("Incorrect credentials received. Expected Access Key: %s, got: %s", accessKeyID, credentials.AccessKeyID)
-	}
-	if secretAccessKey != credentials.SecretAccessKey {
-		t.Fatalf("Incorrect credentials received. Expected Secret Key: %s, got: %s", secretAccessKey, credentials.SecretAccessKey)
-	}
+	assert.Equal(t, roleArn, credentials.RoleArn, "Incorrect credentials received: role ARN")
+	assert.Equal(t, accessKeyID, credentials.AccessKeyID, "Incorrect credentials received: access key ID")
+	assert.Equal(t, secretAccessKey, credentials.SecretAccessKey, "Incorrect credentials received: secret access key")
 }
 
 func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessage *errorMessage) {
@@ -123,7 +176,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
-	if path == credentials.CredentialsPath {
+	if path == credentials.V1CredentialsPath || path == credentials.V2CredentialsPath+"/" {
 		auditLog.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any())
 	}
 
@@ -132,26 +185,22 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 	if expectedErrorMessage != nil {
 		httpErrorCode = expectedErrorMessage.httpErrorCode
 	}
-	if recorder.Code != httpErrorCode {
-		t.Fatalf("Expected return code: %d. Got: %d", httpErrorCode, recorder.Code)
-	}
+	assert.Equal(t, httpErrorCode, recorder.Code, "Incorrect return code")
 
 	// Only paths that are equal to /v1/credentials will return valid error responses.
 	if path == credentials.CredentialsPath {
 		errorMessage := &errorMessage{}
 		json.Unmarshal(recorder.Body.Bytes(), errorMessage)
-		if errorMessage.Code != expectedErrorMessage.Code ||
-			errorMessage.Message != expectedErrorMessage.Message {
-			t.Fatalf("Unexpected values. Actual: %v| Expected: %v", errorMessage, expectedErrorMessage)
-		}
+		assert.Equal(t, expectedErrorMessage.Code, errorMessage.Code, "Incorrect error code")
+		assert.Equal(t, expectedErrorMessage.Message, errorMessage.Message, "Incorrect error message")
 	}
 }
 
 // getResponseForCredentialsRequestWithParameters queries credentials for the
 // given id. The getCredentials function is used to simulate getting the
 // credentials object from the CredentialsManager
-func getResponseForCredentialsRequestWithParameters(t *testing.T, expectedStatus int,
-	expectedErrorMessage *errorMessage, id string, getCredentials func() (*credentials.TaskIAMRoleCredentials, bool)) (*bytes.Buffer, error) {
+func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
+	expectedErrorMessage *errorMessage, path string, getCredentials func() (*credentials.TaskIAMRoleCredentials, bool)) (*bytes.Buffer, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
@@ -166,20 +215,17 @@ func getResponseForCredentialsRequestWithParameters(t *testing.T, expectedStatus
 	params := make(url.Values)
 	params[credentials.CredentialsIDQueryParameterName] = []string{credentialsID}
 
-	req, _ := http.NewRequest("GET", credentials.CredentialsPath+"?"+params.Encode(), nil)
+	req, _ := http.NewRequest("GET", path, nil)
 	server.Handler.ServeHTTP(recorder, req)
 
-	if recorder.Code != expectedStatus {
-		return nil, fmt.Errorf("Expected return code: %d. Got: %d", expectedStatus, recorder.Code)
-	}
+	assert.Equal(t, expectedStatus, recorder.Code, "Incorrect return code")
 
 	if recorder.Code != http.StatusOK {
 		errorMessage := &errorMessage{}
 		json.Unmarshal(recorder.Body.Bytes(), errorMessage)
 
-		if errorMessage.Code != expectedErrorMessage.Code || errorMessage.Message != expectedErrorMessage.Message {
-			return nil, fmt.Errorf("Unexpected values. Actual: %v| Expected: %v", errorMessage, expectedErrorMessage)
-		}
+		assert.Equal(t, expectedErrorMessage.Code, errorMessage.Code, "Incorrect error code")
+		assert.Equal(t, expectedErrorMessage.Message, errorMessage.Message, "Incorrect error message")
 	}
 
 	return recorder.Body, nil
