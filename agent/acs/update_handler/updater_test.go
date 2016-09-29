@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -43,7 +44,7 @@ func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *con
 	if cfg == nil {
 		cfg = &config.Config{
 			UpdatesEnabled:    true,
-			UpdateDownloadDir: "/tmp/test/",
+			UpdateDownloadDir: filepath.Clean("/tmp/test/"),
 		}
 	}
 	ctrl := gomock.NewController(t)
@@ -121,7 +122,7 @@ func TestFullUpdateFlow(t *testing.T) {
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
-		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockfs.EXPECT().WriteFile(filepath.Clean("/tmp/test/desired-image"), gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
@@ -227,7 +228,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
-		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockfs.EXPECT().WriteFile(filepath.Clean("/tmp/test/desired-image"), gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
@@ -299,7 +300,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		})),
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
-		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockfs.EXPECT().WriteFile(filepath.Clean("/tmp/test/desired-image"), gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
@@ -358,7 +359,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
-		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockfs.EXPECT().WriteFile(filepath.Clean("/tmp/test/desired-image"), gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
@@ -372,7 +373,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		}}),
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/new.tar")).Return(mock_http.SuccessResponse("newer-update-tar-data"), nil),
 		mockfs.EXPECT().Create(gomock.Any()).Return(mock_os.NopReadWriteCloser(&writtenFile), nil),
-		mockfs.EXPECT().WriteFile("/tmp/test/desired-image", gomock.Any(), gomock.Any()).Return(nil),
+		mockfs.EXPECT().WriteFile(filepath.Clean("/tmp/test/desired-image"), gomock.Any(), gomock.Any()).Return(nil),
 		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
