@@ -140,7 +140,7 @@ func getV1CredentialsID(r *http.Request) string {
 }
 
 func getV2CredentialsID(r *http.Request) string {
-	if strings.HasPrefix(r.URL.String(), credentials.CredentialsPath+"/") {
+	if strings.HasPrefix(r.URL.Path, credentials.CredentialsPath+"/") {
 		return r.URL.String()[len(credentials.V2CredentialsPath+"/"):]
 	}
 	return ""

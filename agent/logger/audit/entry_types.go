@@ -15,8 +15,10 @@ package audit
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	log "github.com/cihub/seelog"
 )
@@ -48,6 +50,7 @@ type commonAuditLogEntryFields struct {
 	arn          string
 }
 
+// GetCredentialsEventType is the type for a GetCredentials request
 func GetCredentialsEventType() string {
 	return getCredentialsEventType
 }
@@ -69,11 +72,16 @@ func (g *getCredentialsAuditLogEntryFields) string() string {
 
 func constructCommonAuditLogEntryFields(r request.LogRequest, httpResponseCode int) string {
 	httpRequest := r.Request
+	url := httpRequest.URL.Path
+	// V2CredentialsPath contains the credentials ID, which should not be logged
+	if strings.HasPrefix(url, credentials.V2CredentialsPath+"/") {
+		url = credentials.V2CredentialsPath
+	}
 	fields := &commonAuditLogEntryFields{
 		eventTime:    time.Now().UTC().Format(time.RFC3339),
 		responseCode: httpResponseCode,
 		srcAddr:      populateField(httpRequest.RemoteAddr),
-		theURL:       populateField(fmt.Sprintf(`"%s"`, httpRequest.URL.Path)),
+		theURL:       populateField(fmt.Sprintf(`"%s"`, url)),
 		userAgent:    populateField(fmt.Sprintf(`"%s"`, httpRequest.UserAgent())),
 		arn:          populateField(r.ARN),
 	}
