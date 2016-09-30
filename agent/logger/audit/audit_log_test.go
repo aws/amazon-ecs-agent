@@ -22,9 +22,11 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_infologger "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -32,8 +34,9 @@ const (
 	dummyCluster              = "cluster"
 	dummyEventType            = "someEvent"
 	dummyRemoteAddress        = "rAddr"
-	dummyUrl                  = "http://foo.com" + dummyUrlPath
-	dummyUrlPath              = "/urlPath"
+	dummyURL                  = "http://foo.com" + dummyURLPath + "?id=foo"
+	dummyURLPath              = "/urlPath"
+	dummyURLV2                = "http://foo.com" + credentials.V2CredentialsPath + "/" + taskARN
 	dummyUserAgent            = "userAgent"
 	dummyResponseCode         = 400
 	taskARN                   = "task-arn-1"
@@ -50,11 +53,11 @@ func TestWritingToAuditLog(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "foo", nil)
 	req.RemoteAddr = dummyRemoteAddress
-	parsedUrl, err := url.Parse(dummyUrl)
+	parsedURL, err := url.Parse(dummyURL)
 	if err != nil {
 		t.Fatal("error parsing dummyUrl")
 	}
-	req.URL = parsedUrl
+	req.URL = parsedURL
 	req.Header.Set("User-Agent", dummyUserAgent)
 
 	cfg := &config.Config{
@@ -63,21 +66,42 @@ func TestWritingToAuditLog(t *testing.T) {
 	}
 
 	auditLogger := NewAuditLog(dummyContainerInstanceArn, cfg, mockInfoLogger)
-
-	if auditLogger.GetCluster() != dummyCluster {
-		t.Fatal("Cluster is not initialized properly")
-	}
-
-	if auditLogger.GetContainerInstanceArn() != dummyContainerInstanceArn {
-		t.Fatal("ContainerInstanceArn is not initialized properly")
-	}
+	assert.Equal(t, dummyCluster, auditLogger.GetCluster(), "Cluster is not initialized properly")
+	assert.Equal(t, dummyContainerInstanceArn, auditLogger.GetContainerInstanceArn(), "ContainerInstanceArn is not initialized properly")
 
 	mockInfoLogger.EXPECT().Info(gomock.Any()).Do(func(logLine string) {
-		tokens := strings.Split(logLine, " ")
-		if len(tokens) != (commonAuditLogEntryFieldCount + getCredentialsEntryFieldCount) {
+		verifyAuditLogEntryResult(logLine, taskARN, dummyURLPath, t)
+	})
 
-		}
-		verifyAuditLogEntryResult(logLine, taskARN, t)
+	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType())
+}
+
+func TestWritingToAuditLogV2(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockInfoLogger := mock_infologger.NewMockInfoLogger(ctrl)
+
+	req, _ := http.NewRequest("GET", "foo", nil)
+	req.RemoteAddr = dummyRemoteAddress
+	parsedURL, err := url.Parse(dummyURLV2)
+	if err != nil {
+		t.Fatal("error parsing dummyUrl")
+	}
+	req.URL = parsedURL
+	req.Header.Set("User-Agent", dummyUserAgent)
+
+	cfg := &config.Config{
+		Cluster:                 dummyCluster,
+		CredentialsAuditLogFile: "foo.txt",
+	}
+
+	auditLogger := NewAuditLog(dummyContainerInstanceArn, cfg, mockInfoLogger)
+	assert.Equal(t, dummyCluster, auditLogger.GetCluster(), "Cluster is not initialized properly")
+	assert.Equal(t, dummyContainerInstanceArn, auditLogger.GetContainerInstanceArn(), "ContainerInstanceArn is not initialized properly")
+
+	mockInfoLogger.EXPECT().Info(gomock.Any()).Do(func(logLine string) {
+		verifyAuditLogEntryResult(logLine, taskARN, credentials.V2CredentialsPath, t)
 	})
 
 	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType())
@@ -91,11 +115,11 @@ func TestWritingErrorsToAuditLog(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "foo", nil)
 	req.RemoteAddr = dummyRemoteAddress
-	parsedUrl, err := url.Parse(dummyUrl)
+	parsedURL, err := url.Parse(dummyURL)
 	if err != nil {
 		t.Fatal("error parsing dummyUrl")
 	}
-	req.URL = parsedUrl
+	req.URL = parsedURL
 	req.Header.Set("User-Agent", dummyUserAgent)
 
 	cfg := &config.Config{
@@ -104,21 +128,11 @@ func TestWritingErrorsToAuditLog(t *testing.T) {
 	}
 
 	auditLogger := NewAuditLog(dummyContainerInstanceArn, cfg, mockInfoLogger)
-
-	if auditLogger.GetCluster() != dummyCluster {
-		t.Fatal("Cluster is not initialized properly")
-	}
-
-	if auditLogger.GetContainerInstanceArn() != dummyContainerInstanceArn {
-		t.Fatal("ContainerInstanceArn is not initialized properly")
-	}
+	assert.Equal(t, dummyCluster, auditLogger.GetCluster(), "Cluster is not initialized properly")
+	assert.Equal(t, dummyContainerInstanceArn, auditLogger.GetContainerInstanceArn(), "ContainerInstanceArn is not initialized properly")
 
 	mockInfoLogger.EXPECT().Info(gomock.Any()).Do(func(logLine string) {
-		tokens := strings.Split(logLine, " ")
-		if len(tokens) != (commonAuditLogEntryFieldCount + getCredentialsEntryFieldCount) {
-
-		}
-		verifyAuditLogEntryResult(logLine, "-", t)
+		verifyAuditLogEntryResult(logLine, "-", dummyURLPath, t)
 	})
 
 	auditLogger.Log(request.LogRequest{Request: req, ARN: ""}, dummyResponseCode, GetCredentialsEventType())
@@ -139,14 +153,8 @@ func TestWritingToAuditLogWhenDisabled(t *testing.T) {
 	}
 
 	auditLogger := NewAuditLog(dummyContainerInstanceArn, cfg, mockInfoLogger)
-
-	if auditLogger.GetCluster() != dummyCluster {
-		t.Fatal("Cluster is not initialized properly")
-	}
-
-	if auditLogger.GetContainerInstanceArn() != dummyContainerInstanceArn {
-		t.Fatal("ContainerInstanceArn is not initialized properly")
-	}
+	assert.Equal(t, dummyCluster, auditLogger.GetCluster(), "Cluster is not initialized properly")
+	assert.Equal(t, dummyContainerInstanceArn, auditLogger.GetContainerInstanceArn(), "ContainerInstanceArn is not initialized properly")
 
 	mockInfoLogger.EXPECT().Info(gomock.Any()).Times(0)
 
@@ -156,16 +164,16 @@ func TestWritingToAuditLogWhenDisabled(t *testing.T) {
 func TestConstructCommonAuditLogEntryFields(t *testing.T) {
 	req, _ := http.NewRequest("GET", "foo", nil)
 	req.RemoteAddr = dummyRemoteAddress
-	parsedUrl, err := url.Parse(dummyUrl)
+	parsedURL, err := url.Parse(dummyURL)
 	if err != nil {
 		t.Fatal("error parsing dummyUrl")
 	}
-	req.URL = parsedUrl
+	req.URL = parsedURL
 	req.Header.Set("User-Agent", dummyUserAgent)
 
 	result := constructCommonAuditLogEntryFields(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode)
 
-	verifyCommonAuditLogEntryFieldResult(result, taskARN, t)
+	verifyCommonAuditLogEntryFieldResult(result, taskARN, dummyURLPath, t)
 }
 
 func TestConstructAuditLogEntryByTypeGetCredentials(t *testing.T) {
@@ -174,76 +182,38 @@ func TestConstructAuditLogEntryByTypeGetCredentials(t *testing.T) {
 	verifyConstructAuditLogEntryGetCredentialsResult(result, t)
 }
 
-func verifyAuditLogEntryResult(logLine string, expectedTaskArn string, t *testing.T) {
+func verifyAuditLogEntryResult(logLine string, expectedTaskArn string, expectedURLPath string, t *testing.T) {
 	tokens := strings.Split(logLine, " ")
-	if len(tokens) != (commonAuditLogEntryFieldCount + getCredentialsEntryFieldCount) {
-		t.Fatalf("Incorrect number of tokens in audit log entry. Expected %d.",
-			commonAuditLogEntryFieldCount+getCredentialsEntryFieldCount)
-	}
-	verifyCommonAuditLogEntryFieldResult(strings.Join(tokens[:commonAuditLogEntryFieldCount], " "), expectedTaskArn, t)
+	assert.Equal(t, commonAuditLogEntryFieldCount+getCredentialsEntryFieldCount, len(tokens), "Incorrect number of tokens in audit log entry")
+	verifyCommonAuditLogEntryFieldResult(strings.Join(tokens[:commonAuditLogEntryFieldCount], " "), expectedTaskArn, expectedURLPath, t)
 	verifyConstructAuditLogEntryGetCredentialsResult(strings.Join(tokens[commonAuditLogEntryFieldCount:], " "), t)
 }
 
-func verifyCommonAuditLogEntryFieldResult(result string, expectedTaskArn string, t *testing.T) {
+func verifyCommonAuditLogEntryFieldResult(result string, expectedTaskArn string, expectedURLPath string, t *testing.T) {
 	tokens := strings.Split(result, " ")
-
-	if len(tokens) != commonAuditLogEntryFieldCount {
-		t.Fatalf("Incorrect number of tokens in common audit log entry. Expected %d.",
-			commonAuditLogEntryFieldCount)
-	}
+	assert.Equal(t, commonAuditLogEntryFieldCount, len(tokens), "Incorrect number of tokens in common audit log entry")
 
 	respCode, _ := strconv.Atoi(tokens[1])
-	if respCode != dummyResponseCode {
-		t.Fatal("response code does not match")
-	}
-
-	if tokens[2] != dummyRemoteAddress {
-		t.Fatal("remote address does not match")
-	}
-
-	if tokens[3] != fmt.Sprintf(`"%s"`, dummyUrlPath) {
-		t.Fatalf("url path does not match %v, %v", tokens[3], fmt.Sprintf(`"%s"`, dummyUrlPath))
-	}
-
-	if tokens[4] != fmt.Sprintf(`"%s"`, dummyUserAgent) {
-		t.Fatal("user agent does not match")
-	}
-
-	if tokens[5] != expectedTaskArn {
-		t.Fatal("arn for credentials does not match")
-	}
+	assert.Equal(t, dummyResponseCode, respCode, "response code does not match")
+	assert.Equal(t, dummyRemoteAddress, tokens[2], "remoted address does not match")
+	assert.Equal(t, fmt.Sprintf(`"%s"`, expectedURLPath), tokens[3], "URL path does not match")
+	assert.Equal(t, fmt.Sprintf(`"%s"`, dummyUserAgent), tokens[4], "User Agent does not match")
+	assert.Equal(t, expectedTaskArn, tokens[5], "ARN for credentials does not match")
 }
 
 func verifyConstructAuditLogEntryGetCredentialsResult(result string, t *testing.T) {
 	tokens := strings.Split(result, " ")
 
-	if len(tokens) != getCredentialsEntryFieldCount {
-		t.Fatalf("Incorrect number of tokens in getCredentials audit log entry. Expected %d.",
-			getCredentialsEntryFieldCount)
-	}
-
-	if tokens[0] != GetCredentialsEventType() {
-		t.Fatal("event type does not match")
-	}
+	assert.Equal(t, getCredentialsEntryFieldCount, len(tokens), "Incorrect number of tokens in GetCredentials audit log entry")
+	assert.Equal(t, GetCredentialsEventType(), tokens[0], "event type does not match")
 
 	auditLogVersion, _ := strconv.Atoi(tokens[1])
-	if auditLogVersion != getCredentialsAuditLogVersion {
-		t.Fatal("version does not match")
-	}
-
-	if tokens[2] != dummyCluster {
-		t.Fatal("cluster does not match")
-	}
-
-	if tokens[3] != dummyContainerInstanceArn {
-		t.Fatal("containerInstanceArn does not match")
-	}
+	assert.Equal(t, getCredentialsAuditLogVersion, auditLogVersion, "version does not match")
+	assert.Equal(t, dummyCluster, tokens[2], "cluster does not match")
+	assert.Equal(t, dummyContainerInstanceArn, tokens[3], "containerInstanceArn does not match")
 }
 
 func TestConstructAuditLogEntryByTypeUnknownType(t *testing.T) {
 	result := constructAuditLogEntryByType("unknownEvent", dummyCluster, dummyContainerInstanceArn)
-
-	if result != "" {
-		t.Fatal("unknown event type should not return an entry")
-	}
+	assert.Equal(t, "", result, "unknown event type should not return an entry")
 }
