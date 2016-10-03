@@ -16,47 +16,16 @@ package eventhandler
 import (
 	"errors"
 	"strconv"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
-
-type containerChangeFn func(change api.ContainerStateChange) error
-type taskChangeFn func(change api.TaskStateChange) error
-
-type MockECSClient struct {
-	submitTaskStateChange      taskChangeFn
-	submitContainerStateChange containerChangeFn
-}
-
-func (m *MockECSClient) CredentialProvider() *credentials.Credentials {
-	return credentials.AnonymousCredentials
-}
-func (m *MockECSClient) RegisterContainerInstance(string, []string) (string, error) {
-	return "", nil
-}
-func (m *MockECSClient) DiscoverPollEndpoint(string) (string, error) {
-	return "", nil
-}
-func (m *MockECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
-	return m.submitTaskStateChange(change)
-}
-func (m *MockECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
-	return m.submitContainerStateChange(change)
-}
-func (m *MockECSClient) DiscoverTelemetryEndpoint(string) (string, error) {
-	return "", nil
-}
-
-func mockClient(task taskChangeFn, cont containerChangeFn) api.ECSClient {
-	return &MockECSClient{
-		task, cont,
-	}
-}
 
 func contEvent(arn string) api.ContainerStateChange {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning}
@@ -65,136 +34,66 @@ func taskEvent(arn string) api.TaskStateChange {
 	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning}
 }
 
-func TestSendsEvents(t *testing.T) {
-
-	// These channels will submit "successful" state changes back to the test
-	taskStatus := make(chan api.TaskStateChange)
-	contStatus := make(chan api.ContainerStateChange)
-
-	// These counters let us know how many errors have happened of each type
-	var taskRetriableErrors, contRetriableErrors, taskUnretriableErrors, contUnretriableErrors, taskCalls, contCalls int32
-	resetCounters := func() {
-		taskCalls = 0
-		contCalls = 0
-		taskRetriableErrors = 0
-		contRetriableErrors = 0
-		taskUnretriableErrors = 0
-		contUnretriableErrors = 0
-	}
-	resetCounters()
-
-	// These channels are used to tell the mock functions if they should error
-	// or not
-	taskError := make(chan utils.RetriableError)
-	contError := make(chan utils.RetriableError)
-
-	// premade errors for ease of testing
-	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
-
-	client := mockClient(
-		func(change api.TaskStateChange) error {
-			atomic.AddInt32(&taskCalls, 1)
-			err := <-taskError
-			if err == nil {
-				taskStatus <- change
-				return err
-			}
-			if err.Retry() {
-				atomic.AddInt32(&taskRetriableErrors, 1)
-				return err
-			}
-
-			atomic.AddInt32(&taskUnretriableErrors, 1)
-			return err
-		},
-		func(change api.ContainerStateChange) error {
-			atomic.AddInt32(&contCalls, 1)
-			err := <-contError
-			if err == nil {
-				contStatus <- change
-				return err
-			}
-			if err.Retry() {
-				atomic.AddInt32(&contRetriableErrors, 1)
-				return err
-			}
-			atomic.AddInt32(&contUnretriableErrors, 1)
-			return err
-		},
-	)
+func TestSendsEventsOneContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
 
 	// Trivial: one container, no errors
+	contCalled := make(chan struct{})
+	taskCalled := make(chan struct{})
+	contEvent1 := contEvent("1")
+	contEvent2 := contEvent("2")
+	taskEvent2 := taskEvent("2")
 
-	AddContainerEvent(contEvent("1"), client)
-	go func() {
-		contError <- nil
-	}()
+	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { contCalled <- struct{}{} })
+	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { contCalled <- struct{}{} })
+	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { taskCalled <- struct{}{} })
 
-	sent := <-contStatus
-	if sent.TaskArn != "1" || sent.Status != api.ContainerRunning {
-		t.Error("Sent event did not match added event")
-	}
+	AddContainerEvent(contEvent1, client)
+	AddContainerEvent(contEvent2, client)
+	AddTaskEvent(taskEvent2, client)
 
-	AddContainerEvent(contEvent("2"), client)
-	AddTaskEvent(taskEvent("2"), client)
-	go func() {
-		contError <- nil
-	}()
-	go func() {
-		taskError <- nil
-	}()
+	<-contCalled
+	<-contCalled
+	<-taskCalled
+}
 
-	select {
-	case <-taskStatus:
-		t.Error("Should not submit task until after container")
-	case sent := <-contStatus:
-		if sent.TaskArn != "2" {
-			t.Error("Wrong task submitted")
-		}
-	}
+func TestSendsEventsOneEventRetries(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
 
-	tsent := <-taskStatus
-	if tsent.TaskArn != "2" {
-		t.Error("Wrong task submitted")
-	}
+	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
+	contCalled := make(chan struct{})
+	contEvent1 := contEvent("1")
 
-	select {
-	case <-contStatus:
-		t.Error("event should have been replaced")
-	case <-taskStatus:
-		t.Error("There should be no pending taskStatus events")
-	default:
-	}
+	gomock.InOrder(
+		client.EXPECT().SubmitContainerStateChange(contEvent1).Return(retriable).Do(func(interface{}) { contCalled <- struct{}{} }),
+		client.EXPECT().SubmitContainerStateChange(contEvent1).Return(nil).Do(func(interface{}) { contCalled <- struct{}{} }),
+	)
 
-	// Now a little more complicated; 1 event with retries
-	resetCounters()
-	AddContainerEvent(contEvent("3"), client)
-	go func() {
-		contError <- retriable
-		contError <- nil
-	}()
-	select {
-	case <-contStatus:
-		t.Error("Should not have sent a container status if there was a retriable error")
-	default:
-	}
-	sent = <-contStatus
-	if sent.TaskArn != "3" {
-		t.Error("Wrong task submitted")
-	}
-	if contRetriableErrors != 1 && contCalls != 2 {
-		t.Error("Didn't get the expected number of errors")
-	}
+	AddContainerEvent(contEvent1, client)
 
-	select {
-	case <-contStatus:
-		t.Error("event should have been replaced")
-	case <-taskStatus:
-		t.Error("There should be no pending taskStatus events")
-	default:
-	}
+	<-contCalled
+	<-contCalled
+}
 
-	resetCounters()
+func TestSendsEventsConcurrentLimit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+
+	contCalled := make(chan struct{}, concurrentEventCalls+1)
+	count := 0
+	countLock := &sync.Mutex{}
+	client.EXPECT().SubmitContainerStateChange(gomock.Any()).Times(concurrentEventCalls + 1).Do(func(interface{}) {
+		countLock.Lock()
+		count++
+		countLock.Unlock()
+		time.Sleep(10 * time.Millisecond)
+		contCalled <- struct{}{}
+	})
 	// Test concurrency; ensure it doesn't attempt to send more than
 	// concurrentEventCalls at once
 	// Put on N+1 events
@@ -203,165 +102,99 @@ func TestSendsEvents(t *testing.T) {
 	}
 	// N events should be waiting for potential errors; verify this is so
 	time.Sleep(5 * time.Millisecond)
-	if contCalls != concurrentEventCalls {
-		t.Error("Too many event calls got through concurrently")
-	}
-	// Let one through
-	go func() {
-		contError <- nil
-	}()
-	<-contStatus
+	assert.Equal(t, concurrentEventCalls, count, "Too many event calls got through concurrently")
 
-	time.Sleep(5 * time.Millisecond)
-	if contCalls != concurrentEventCalls+1 {
-		t.Error("Another concurrent call didn't start when expected")
-	}
-	// let through the rest
-	for i := 0; i < concurrentEventCalls; i++ {
-		go func() {
-			contError <- nil
-		}()
-		<-contStatus
+	time.Sleep(10 * time.Millisecond)
+	assert.Equal(t, concurrentEventCalls+1, count, "Another concurrent call didn't start when expected")
+
+	// ensure all completed
+	for i := 0; i < concurrentEventCalls+1; i++ {
+		<-contCalled
 	}
 	time.Sleep(5 * time.Millisecond)
-	if contCalls != concurrentEventCalls+1 {
-		t.Error("Somehow extra concurrenct calls appeared from nowhere")
-	}
+	assert.Equal(t, concurrentEventCalls+1, count, "Extra concurrent calls appeared from nowhere")
+}
+
+func TestSendsEventsContainerDifferences(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
 
 	// Test container event replacement doesn't happen
-	AddContainerEvent(contEvent("notreplaced1"), client)
+	notReplaced := contEvent("notreplaced1")
 	sortaRedundant := contEvent("notreplaced1")
 	sortaRedundant.Status = api.ContainerStopped
+	contCalled := make(chan struct{})
+	client.EXPECT().SubmitContainerStateChange(notReplaced).Do(func(interface{}) { contCalled <- struct{}{} })
+	client.EXPECT().SubmitContainerStateChange(sortaRedundant).Do(func(interface{}) { contCalled <- struct{}{} })
+
+	AddContainerEvent(notReplaced, client)
 	AddContainerEvent(sortaRedundant, client)
-	go func() {
-		contError <- nil
-		contError <- retriable
-		contError <- nil
-	}()
+	<-contCalled
+	<-contCalled
+}
 
-	time.Sleep(5 * time.Millisecond)
-	sent = <-contStatus
-	if sent.TaskArn != "notreplaced1" {
-		t.Error("Wrong arn, got " + sent.TaskArn)
-	}
-	if sent.Status != api.ContainerRunning {
-		t.Error("Wrong status, got " + sent.Status.String() + " instead of RUNNING")
-	}
-	sent = <-contStatus
-	if sent.TaskArn != "notreplaced1" {
-		t.Error("Wrong arn")
-	}
-	if sent.Status != api.ContainerStopped {
-		t.Error("Wrong status, got " + sent.Status.String() + " instead of STOPPED")
-	}
-
-	select {
-	case <-contStatus:
-		t.Error("event should have been replaced")
-	case <-taskStatus:
-		t.Error("There should be no pending taskStatus events")
-	default:
-	}
+func TestSendsEventsTaskDifferences(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
 
 	// Test task event replacement doesn't happen
-	AddContainerEvent(contEvent("notreplaced2"), client)
-	AddTaskEvent(taskEvent("notreplaced2"), client)
-	sortaRedundantc := contEvent("notreplaced2")
-	sortaRedundantc.Status = api.ContainerStopped
-	sortaRedundantt := taskEvent("notreplaced2")
-	sortaRedundantt.Status = api.TaskStopped
-	AddContainerEvent(sortaRedundantc, client)
-	AddTaskEvent(sortaRedundantt, client)
+	notReplacedCont := contEvent("notreplaced2")
+	sortaRedundantCont := contEvent("notreplaced2")
+	sortaRedundantCont.Status = api.ContainerStopped
+	notReplacedTask := taskEvent("notreplaced")
+	sortaRedundantTask := taskEvent("notreplaced2")
+	sortaRedundantTask.Status = api.TaskStopped
 
-	go func() {
-		taskError <- nil
-		taskError <- nil
-	}()
-	go func() {
-		contError <- nil
-		contError <- nil
-	}()
+	called := make(chan struct{})
+	client.EXPECT().SubmitContainerStateChange(notReplacedCont).Do(func(interface{}) { called <- struct{}{} })
+	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont).Do(func(interface{}) { called <- struct{}{} })
+	client.EXPECT().SubmitTaskStateChange(notReplacedTask).Do(func(interface{}) { called <- struct{}{} })
+	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask).Do(func(interface{}) { called <- struct{}{} })
 
-	time.Sleep(5 * time.Millisecond)
-	sent = <-contStatus
-	if sent.TaskArn != "notreplaced2" {
-		t.Error("Lost a task or task out of order")
-	}
-	tsent = <-taskStatus
-	if tsent.TaskArn != "notreplaced2" {
-		t.Error("Lost a task or task out of order")
-	}
-	if tsent.Status != api.TaskRunning {
-		t.Error("Wrong status")
-	}
-	sent = <-contStatus
-	if sent.TaskArn != "notreplaced2" {
-		t.Error("Lost a task or task out of order")
-	}
-	tsent = <-taskStatus
-	if tsent.TaskArn != "notreplaced2" {
-		t.Error("Lost a task or task out of order")
-	}
-	if tsent.Status != api.TaskStopped {
-		t.Error("Wrong status")
-	}
+	AddContainerEvent(notReplacedCont, client)
+	AddTaskEvent(notReplacedTask, client)
+	AddContainerEvent(sortaRedundantCont, client)
+	AddTaskEvent(sortaRedundantTask, client)
+
+	<-called
+	<-called
+	<-called
+	<-called
+}
+
+func TestSendsEventsDedupe(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
 
 	// Verify that a task doesn't get sent if we already have 'sent' it
-	task := taskEvent("alreadySent")
+	task1 := taskEvent("alreadySent")
 	taskRunning := api.TaskRunning
-	task.SentStatus = &taskRunning
-	cont := contEvent("alreadySent")
+	task1.SentStatus = &taskRunning
+	cont1 := contEvent("alreadySent")
 	containerRunning := api.ContainerRunning
-	cont.SentStatus = &containerRunning
-	AddContainerEvent(cont, client)
-	AddTaskEvent(task, client)
-	time.Sleep(5 * time.Millisecond)
-	select {
-	case <-contStatus:
-		t.Error("Did not expect container change; already sent")
-	case <-taskStatus:
-		t.Error("Did not expect task change; already sent")
-	case taskError <- nil:
-		t.Error("Did not expect to be able to write to taskError")
-	case contError <- nil:
-		t.Error("Did not expect to be able to write to contError")
-	default:
-	}
+	cont1.SentStatus = &containerRunning
 
-	task = taskEvent("containerSent")
+	AddContainerEvent(cont1, client)
+	AddTaskEvent(task1, client)
+
+	task2 := taskEvent("containerSent")
 	taskNone := api.TaskStatusNone
-	task.SentStatus = &taskNone
-	cont = contEvent("containerSent")
-	cont.SentStatus = &containerRunning
-	AddContainerEvent(cont, client)
-	AddTaskEvent(task, client)
-	// Expect to send a task status but not a container status
-	go func() {
-		taskError <- nil
-	}()
-	tsent = <-taskStatus
-	time.Sleep(5 * time.Millisecond)
-	if tsent.TaskArn != "containerSent" {
-		t.Error("Wrong arn")
-	}
-	if tsent.Status != api.TaskRunning {
-		t.Error("Wrong status")
-	}
-	if *task.SentStatus != api.TaskRunning {
-		t.Error("Status not updated: ")
-	}
+	task2.SentStatus = &taskNone
+	cont2 := contEvent("containerSent")
+	cont2.SentStatus = &containerRunning
 
-	select {
-	case <-contStatus:
-		t.Error("Read all events")
-	case <-taskStatus:
-		t.Error("Read all events")
-	case taskError <- nil:
-		t.Error("Task error channel read pending")
-	case contError <- nil:
-		t.Error("Container error channel read pending")
-	default:
-	}
+	// Expect to send a task status but not a container status
+	called := make(chan struct{})
+	client.EXPECT().SubmitTaskStateChange(task2).Do(func(interface{}) { called <- struct{}{} })
+
+	AddContainerEvent(cont2, client)
+	AddTaskEvent(task2, client)
+
+	<-called
+	time.Sleep(5 * time.Millisecond)
 }
 
 func TestShouldBeSent(t *testing.T) {
