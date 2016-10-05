@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -412,20 +413,19 @@ func TestStartContainerTimeout(t *testing.T) {
 	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
+	testDone := make(chan struct{})
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Do(func(x, y, z interface{}) {
-		wait.Wait()
-		// Don't return, verify timeout happens
+		wait.Wait() // wait until timeout happens
+		testDone <- struct{}{}
 	})
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error"))
 	metadata := client.StartContainer("id", xContainerShortTimeout)
-	if metadata.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.NotNil(t, metadata.Error, "Expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
 	wait.Done()
+	<-testDone
 }
 
 func TestStartContainer(t *testing.T) {
