@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -79,8 +80,16 @@ func TestStartSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	wait := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		t.Error(<-serverErr)
+		wait.Add(1)
+		select {
+		case sErr := <-serverErr:
+			t.Error(sErr)
+		case <-ctx.Done():
+		}
+		wait.Done()
 	}()
 	defer func() {
 		closeWS <- true
@@ -118,6 +127,8 @@ func TestStartSession(t *testing.T) {
 	if responseType != "PublishMetricsRequest" {
 		t.Fatal("Unexpected responseType: ", responseType)
 	}
+	cancel()
+	wait.Wait()
 }
 
 func TestSessionConenctionClosedByRemote(t *testing.T) {
