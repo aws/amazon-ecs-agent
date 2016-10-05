@@ -939,6 +939,8 @@ func TestGetTaskByArn(t *testing.T) {
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().AddContainerReferenceToImageState(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).AnyTimes() // TODO change to MaxTimes(1)
 	err := taskEngine.Init()
 	if err != nil {
