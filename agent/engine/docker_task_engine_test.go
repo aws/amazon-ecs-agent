@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"golang.org/x/net/context"
 )
@@ -448,6 +449,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
+	wait := &sync.WaitGroup{}
 	sleepTask := testdata.LoadTask("sleep5")
 
 	eventStream := make(chan DockerContainerChangeEvent)
@@ -460,15 +462,15 @@ func TestSteadyStatePoll(t *testing.T) {
 	}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	// set up expectations for each container in the task calling create + start
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 		imageManager.EXPECT().AddContainerReferenceToImageState(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
 		dockerConfig, err := sleepTask.DockerConfig(container)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.Nil(t, err)
+
 		// Container config should get updated with this during CreateContainer
 		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
 		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
@@ -478,32 +480,35 @@ func TestSteadyStatePoll(t *testing.T) {
 
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
-				go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
+				go func() {
+					wait.Add(1)
+					eventStream <- dockerEvent(api.ContainerCreated)
+					wait.Done()
+				}()
 			}).Return(DockerContainerMetadata{DockerId: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
-				go func() { eventStream <- dockerEvent(api.ContainerRunning) }()
+				go func() {
+					wait.Add(1)
+					eventStream <- dockerEvent(api.ContainerRunning)
+					wait.Done()
+				}()
 			}).Return(DockerContainerMetadata{DockerId: "containerId"})
 	}
 
-	steadyStateVerify := make(chan time.Time, 10)
+	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	err := taskEngine.Init()
+	err := taskEngine.Init() // start the task engine
 	taskEvents, contEvents := taskEngine.TaskEvents()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
-	taskEngine.AddTask(sleepTask)
+	taskEngine.AddTask(sleepTask) // actually add the task we created
 
-	if (<-contEvents).Status != api.ContainerRunning {
-		t.Fatal("Expected container to run first")
-	}
-	if (<-taskEvents).Status != api.TaskRunning {
-		t.Fatal("And then task")
-	}
+	// verify that we get events for the container and task starting, but no other events
+	assert.Equal(t, api.ContainerRunning, (<-contEvents).Status, "Expected container to run first")
+	assert.Equal(t, api.TaskRunning, (<-taskEvents).Status, "And then task")
 	select {
 	case <-taskEvents:
 		t.Fatal("Should be out of events")
@@ -519,25 +524,29 @@ func TestSteadyStatePoll(t *testing.T) {
 			DockerContainerMetadata{
 				DockerId: "containerId",
 			}).Times(2),
-		// TODO change AnyTimes() to MinTimes(1) after updating gomock
+		// TODO remove the extra expect and change AnyTimes() to MinTimes(1) after updating gomock
+		client.EXPECT().DescribeContainer("containerId").Return(
+			api.ContainerStopped,
+			DockerContainerMetadata{
+				DockerId: "containerId",
+			}),
 		client.EXPECT().DescribeContainer("containerId").Return(
 			api.ContainerStopped,
 			DockerContainerMetadata{
 				DockerId: "containerId",
 			}).AnyTimes(),
+		// the engine *may* call StopContainer even though it's already stopped
+		client.EXPECT().StopContainer("containerId", stopContainerTimeout).AnyTimes(),
 	)
+	// trigger steady state verification
 	for i := 0; i < 10; i++ {
 		steadyStateVerify <- time.Now()
 	}
 	close(steadyStateVerify)
 
 	contEvent := <-contEvents
-	if contEvent.Status != api.ContainerStopped {
-		t.Error("Expected container to be stopped")
-	}
-	if (<-taskEvents).Status != api.TaskStopped {
-		t.Fatal("And then task")
-	}
+	assert.Equal(t, api.ContainerStopped, contEvent.Status, "Expected container to be stopped")
+	assert.Equal(t, api.TaskStopped, (<-taskEvents).Status, "And then task")
 	select {
 	case <-taskEvents:
 		t.Fatal("Should be out of events")
@@ -548,6 +557,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	// cleanup expectations
 	testTime.EXPECT().Now().AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
+	wait.Wait()
 }
 
 func TestStopWithPendingStops(t *testing.T) {
