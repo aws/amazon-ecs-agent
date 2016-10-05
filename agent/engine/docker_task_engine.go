@@ -11,8 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// The DockerTaskEngine is an abstraction over the DockerGoClient so that
-// it does not have to know about tasks, only containers
+// Package engine contains the core logic for managing tasks
 package engine
 
 import (
@@ -36,14 +35,18 @@ import (
 )
 
 const (
-	DOCKER_ENDPOINT_ENV_VARIABLE = "DOCKER_HOST"
-	DOCKER_DEFAULT_ENDPOINT      = "unix:///var/run/docker.sock"
+	//DockerEndpointEnvVariable is the environment variable that can override the Docker endpoint
+	DockerEndpointEnvVariable = "DOCKER_HOST"
+	// DockerDefaultEndpoint is the default value for the Docker endpoint
+	DockerDefaultEndpoint        = "unix:///var/run/docker.sock"
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
 
+// DockerTaskEngine is an abstraction over the DockerGoClient so that
+// it does not have to know about tasks, only containers
 // The DockerTaskEngine interacts with docker to implement a task
 // engine
 type DockerTaskEngine struct {
@@ -180,6 +183,7 @@ func (engine *DockerTaskEngine) MustInit() {
 	})
 }
 
+// SetSaver sets the saver that is used by the DockerTaskEngine
 func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
 	engine.saver = saver
 }
@@ -399,10 +403,10 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) bool {
 	log.Debug("Handling a docker event", "event", event)
 
-	task, task_found := engine.state.TaskById(event.DockerId)
-	cont, container_found := engine.state.ContainerById(event.DockerId)
-	if !task_found || !container_found {
-		log.Debug("Event for container not managed", "dockerId", event.DockerId)
+	task, taskFound := engine.state.TaskById(event.DockerID)
+	cont, containerFound := engine.state.ContainerById(event.DockerID)
+	if !taskFound || !containerFound {
+		log.Debug("Event for container not managed", "dockerId", event.DockerID)
 		return false
 	}
 	engine.processTasks.RLock()
@@ -427,6 +431,7 @@ func (engine *DockerTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan
 	return engine.taskEvents, engine.containerEvents
 }
 
+// AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask(engine.credentialsManager)
 
@@ -450,10 +455,12 @@ func tryApplyTransition(task *api.Task, container *api.Container, to api.Contain
 	return f(task, container)
 }
 
+// ListTasks returns the tasks currently managed by the DockerTaskEngine
 func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 	return engine.state.AllTasks(), nil
 }
 
+// GetTaskByArn returns the task identified by that ARN
 func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 	return engine.state.TaskByArn(arn)
 }
@@ -541,10 +548,10 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	engine.saver.ForceSave()
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
-	if metadata.DockerId != "" {
-		engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerId, DockerName: containerName, Container: container}, task)
+	if metadata.DockerID != "" {
+		engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerID, DockerName: containerName, Container: container}, task)
 	}
-	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerId)
+	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata
 }
 

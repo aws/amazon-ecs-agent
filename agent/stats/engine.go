@@ -179,7 +179,7 @@ func (engine *DockerStatsEngine) addExistingContainers() error {
 		return listContainersResponse.Error
 	}
 
-	for _, containerID := range listContainersResponse.DockerIds {
+	for _, containerID := range listContainersResponse.DockerIDs {
 		engine.addContainer(containerID)
 	}
 
@@ -258,11 +258,11 @@ func (engine *DockerStatsEngine) handleDockerEvents(events ...interface{}) error
 
 		switch dockerContainerChangeEvent.Status {
 		case api.ContainerRunning:
-			engine.addContainer(dockerContainerChangeEvent.DockerId)
+			engine.addContainer(dockerContainerChangeEvent.DockerID)
 		case api.ContainerStopped:
-			engine.removeContainer(dockerContainerChangeEvent.DockerId)
+			engine.removeContainer(dockerContainerChangeEvent.DockerID)
 		default:
-			seelog.Debugf("Ignoring event for container, id: %s, status: %d", dockerContainerChangeEvent.DockerId, dockerContainerChangeEvent.Status)
+			seelog.Debugf("Ignoring event for container, id: %s, status: %d", dockerContainerChangeEvent.DockerID, dockerContainerChangeEvent.Status)
 		}
 	}
 

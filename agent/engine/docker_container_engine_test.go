@@ -251,13 +251,13 @@ func TestPullImageECRSuccess(t *testing.T) {
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 
-	registryId := "123456789012"
+	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &api.ECRAuthData{
-			RegistryId:       registryId,
+			RegistryId:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
 		},
@@ -273,7 +273,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	}
 
 	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
-	ecrClient.EXPECT().GetAuthorizationToken(registryId).Return(
+	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecrapi.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
@@ -307,13 +307,13 @@ func TestPullImageECRAuthFail(t *testing.T) {
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 
-	registryId := "123456789012"
+	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &api.ECRAuthData{
-			RegistryId:       registryId,
+			RegistryId:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
 		},
@@ -372,8 +372,8 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, &DockerTimeoutError{}),
 	)
 	metadata := client.CreateContainer(config.Config, nil, config.Name, 1*time.Second)
-	if metadata.DockerId != "id" {
-		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerId)
+	if metadata.DockerID != "id" {
+		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerID)
 	}
 	if metadata.Error == nil {
 		t.Error("Expected error for inspect timeout")
@@ -401,7 +401,7 @@ func TestCreateContainer(t *testing.T) {
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
-	if metadata.DockerId != "id" {
+	if metadata.DockerID != "id" {
 		t.Error("Wrong id")
 	}
 	if metadata.ExitCode != nil {
@@ -440,7 +440,7 @@ func TestStartContainer(t *testing.T) {
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
-	if metadata.DockerId != "id" {
+	if metadata.DockerID != "id" {
 		t.Error("Wrong id")
 	}
 }
@@ -481,7 +481,7 @@ func TestStopContainer(t *testing.T) {
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
-	if metadata.DockerId != "id" {
+	if metadata.DockerID != "id" {
 		t.Error("Wrong id")
 	}
 }
@@ -549,7 +549,7 @@ func TestContainerEvents(t *testing.T) {
 	}()
 
 	event := <-dockerEvents
-	if event.DockerId != "containerId" {
+	if event.DockerID != "containerId" {
 		t.Error("Wrong docker id")
 	}
 	if event.Status != api.ContainerCreated {
@@ -570,7 +570,7 @@ func TestContainerEvents(t *testing.T) {
 		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
 	}()
 	event = <-dockerEvents
-	if event.DockerId != "cid2" {
+	if event.DockerID != "cid2" {
 		t.Error("Wrong docker id")
 	}
 	if event.Status != api.ContainerRunning {
@@ -600,8 +600,8 @@ func TestContainerEvents(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
-		if anEvent.DockerId != "cid3"+strconv.Itoa(i) {
-			t.Error("Wrong container id: " + anEvent.DockerId)
+		if anEvent.DockerID != "cid3"+strconv.Itoa(i) {
+			t.Error("Wrong container id: " + anEvent.DockerID)
 		}
 		if anEvent.Status != api.ContainerStopped {
 			t.Error("Should be stopped")
@@ -658,7 +658,7 @@ func TestContainerEvents(t *testing.T) {
 		events <- &docker.APIEvents{Type: eventType, ID: "123", Status: eventStatus}
 		select {
 		case <-dockerEvents:
-			t.Error("No event should be available for %v", eventType)
+			t.Errorf("No event should be available for %v", eventType)
 		default:
 		}
 	}
@@ -690,7 +690,7 @@ func TestListContainers(t *testing.T) {
 		t.Error("Did not expect error")
 	}
 
-	containerIds := response.DockerIds
+	containerIds := response.DockerIDs
 	if len(containerIds) != 1 {
 		t.Error("Unexpected number of containers in list: ", len(containerIds))
 	}

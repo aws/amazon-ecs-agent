@@ -39,7 +39,7 @@ const (
 	testImage3Name = "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest"
 )
 
-const credentialsIdIntegTest = "credsid"
+const credentialsIDIntegTest = "credsid"
 
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -110,9 +110,9 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 		t.Logf("Found image state for %s", testImage3Name)
 	}
 
-	imageState1ImageId := imageState1.Image.ImageID
-	imageState2ImageId := imageState2.Image.ImageID
-	imageState3ImageId := imageState3.Image.ImageID
+	imageState1ImageID := imageState1.Image.ImageID
+	imageState2ImageID := imageState2.Image.ImageID
+	imageState3ImageID := imageState3.Image.ImageID
 
 	// Set the ImageState.LastUsedAt to a value far in the past to ensure the test images are deleted.
 	// This will make these test images the LRU images.
@@ -136,29 +136,29 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	imageManager.removeUnusedImages()
 
 	// Verify top 2 LRU images are deleted from image manager
-	err = verifyImagesAreRemoved(imageManager, imageState1ImageId, imageState2ImageId)
+	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState2ImageID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify 3rd LRU image is not removed
-	err = verifyImagesAreNotRemoved(imageManager, imageState3ImageId)
+	err = verifyImagesAreNotRemoved(imageManager, imageState3ImageID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify top 2 LRU images are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
 	if err != docker.ErrNoSuchImage {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
 	if err != docker.ErrNoSuchImage {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify 3rd LRU image has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -223,9 +223,9 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 		t.Logf("Found image state for %s", testImage3Name)
 	}
 
-	imageState1ImageId := imageState1.Image.ImageID
-	imageState2ImageId := imageState2.Image.ImageID
-	imageState3ImageId := imageState3.Image.ImageID
+	imageState1ImageID := imageState1.Image.ImageID
+	imageState2ImageID := imageState2.Image.ImageID
+	imageState3ImageID := imageState3.Image.ImageID
 
 	// Set the ImageState.LastUsedAt to a value far in the past to ensure the test images are deleted.
 	// This will make these the LRU images so they are deleted.
@@ -254,29 +254,29 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	imageManager.removeUnusedImages()
 
 	// Verify Image1 & Image3 are removed from ImageManager as they are beyond the minimumAge threshold
-	err = verifyImagesAreRemoved(imageManager, imageState1ImageId, imageState3ImageId)
+	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState3ImageID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify Image2 is not removed, below threshold for minimumAge
-	err = verifyImagesAreNotRemoved(imageManager, imageState2ImageId)
+	err = verifyImagesAreNotRemoved(imageManager, imageState2ImageID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify Image1 & Image3 are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
 	if err != docker.ErrNoSuchImage {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
 	if err != docker.ErrNoSuchImage {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify Image2 has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageId)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -296,34 +296,32 @@ func verifyTaskIsCleanedUp(taskName string, taskEngine TaskEngine) error {
 	return nil
 }
 
-func verifyImagesAreRemoved(imageManager *dockerImageManager, imageIds ...string) error {
-	var imagesNotRemovedList *list.List = list.New()
-	for _, imageId := range imageIds {
-		_, ok := imageManager.getImageState(imageId)
+func verifyImagesAreRemoved(imageManager *dockerImageManager, imageIDs ...string) error {
+	imagesNotRemovedList := list.New()
+	for _, imageID := range imageIDs {
+		_, ok := imageManager.getImageState(imageID)
 		if ok {
-			imagesNotRemovedList.PushFront(imageId)
+			imagesNotRemovedList.PushFront(imageID)
 		}
 	}
 	if imagesNotRemovedList.Len() > 0 {
-		return errors.New(fmt.Sprintf("Image states still exist for: %v", imagesNotRemovedList))
-	} else {
-		return nil
+		return fmt.Errorf("Image states still exist for: %v", imagesNotRemovedList)
 	}
+	return nil
 }
 
-func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIds ...string) error {
-	var imagesRemovedList *list.List = list.New()
-	for _, imageId := range imageIds {
-		_, ok := imageManager.getImageState(imageId)
+func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...string) error {
+	imagesRemovedList := list.New()
+	for _, imageID := range imageIDs {
+		_, ok := imageManager.getImageState(imageID)
 		if !ok {
-			imagesRemovedList.PushFront(imageId)
+			imagesRemovedList.PushFront(imageID)
 		}
 	}
 	if imagesRemovedList.Len() > 0 {
-		return errors.New(fmt.Sprintf("Could not find images: %v in ImageManager", imagesRemovedList))
-	} else {
-		return nil
+		return fmt.Errorf("Could not find images: %v in ImageManager", imagesRemovedList)
 	}
+	return nil
 }
 
 func cleanupImages(imageManager *dockerImageManager) {

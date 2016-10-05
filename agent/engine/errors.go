@@ -40,6 +40,7 @@ func (err *impossibleTransitionError) Error() string {
 }
 func (err *impossibleTransitionError) ErrorName() string { return "ImpossibleStateTransitionError" }
 
+// DockerTimeoutError is an error type for describing timeouts
 type DockerTimeoutError struct {
 	duration   time.Duration
 	transition string
@@ -48,26 +49,37 @@ type DockerTimeoutError struct {
 func (err *DockerTimeoutError) Error() string {
 	return "Could not transition to " + err.transition + "; timed out after waiting " + err.duration.String()
 }
+
+// ErrorName returns the name of the error
 func (err *DockerTimeoutError) ErrorName() string { return dockerTimeoutErrorName }
 
+// ContainerVanishedError is a type for describing a container that does not exist
 type ContainerVanishedError struct{}
 
-func (err ContainerVanishedError) Error() string     { return "No container matching saved ID found" }
+func (err ContainerVanishedError) Error() string { return "No container matching saved ID found" }
+
+// ErrorName returns the name of the error
 func (err ContainerVanishedError) ErrorName() string { return "ContainerVanishedError" }
 
+// CannotXContainerError is a type for errors involving containers
 type CannotXContainerError struct {
 	transition string
 	msg        string
 }
 
 func (err CannotXContainerError) Error() string { return err.msg }
+
+// ErrorName returns the name of the error
 func (err CannotXContainerError) ErrorName() string {
 	return "Cannot" + err.transition + "ContainerError"
 }
 
+// OutOfMemoryError is a type for errors caused by running out of memory
 type OutOfMemoryError struct{}
 
-func (err OutOfMemoryError) Error() string     { return "Container killed due to memory usage" }
+func (err OutOfMemoryError) Error() string { return "Container killed due to memory usage" }
+
+// ErrorName returns the name of the error
 func (err OutOfMemoryError) ErrorName() string { return "OutOfMemoryError" }
 
 // DockerStateError is a wrapper around the error docker puts in the '.State.Error' field of its inspect output.
@@ -76,6 +88,7 @@ type DockerStateError struct {
 	name        string
 }
 
+// NewDockerStateError creates a DockerStateError
 func NewDockerStateError(err string) DockerStateError {
 	// Add stringmatching logic as needed to provide better output than docker
 	return DockerStateError{
@@ -87,10 +100,13 @@ func NewDockerStateError(err string) DockerStateError {
 func (err DockerStateError) Error() string {
 	return err.dockerError
 }
+
+// ErrorName returns the name of the error
 func (err DockerStateError) ErrorName() string {
 	return err.name
 }
 
+// CannotGetDockerClientError is a type for failing to get a specific Docker client
 type CannotGetDockerClientError struct {
 	version dockerclient.DockerVersion
 	err     error
@@ -103,10 +119,12 @@ func (c CannotGetDockerClientError) Error() string {
 	return c.err.Error()
 }
 
+// ErrorName returns the name of the error
 func (CannotGetDockerClientError) ErrorName() string {
 	return "CannotGetDockerclientError"
 }
 
+// TaskStoppedBeforePullBeginError is a type for task errors involving pull
 type TaskStoppedBeforePullBeginError struct {
 	taskArn string
 }
@@ -115,6 +133,7 @@ func (err TaskStoppedBeforePullBeginError) Error() string {
 	return "Task stopped before image pull could begin for task: " + err.taskArn
 }
 
+// ErrorName returns the name of the error
 func (TaskStoppedBeforePullBeginError) ErrorName() string {
 	return "TaskStoppedBeforePullBeginError"
 }

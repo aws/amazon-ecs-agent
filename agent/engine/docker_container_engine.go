@@ -66,7 +66,7 @@ const (
 	statsInactivityTimeout = 5 * time.Second
 )
 
-// Interface to make testing it easier
+// DockerClient interface to make testing it easier
 type DockerClient interface {
 	// SupportedVersions returns a slice of the supported docker versions (or at least supposedly supported).
 	SupportedVersions() []dockerclient.DockerVersion
@@ -129,10 +129,6 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 
 // scratchCreateLock guards against multiple 'scratch' image creations at once
 var scratchCreateLock sync.Mutex
-
-type DockerImageResponse struct {
-	Images []docker.APIImages
-}
 
 // NewDockerGoClient creates a new DockerGoClient
 func NewDockerGoClient(clientFactory dockerclient.Factory, acceptInsecureCert bool, cfg *config.Config) (DockerClient, error) {
@@ -439,15 +435,15 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 	return api.ContainerStopped
 }
 
-func (dg *dockerGoClient) DescribeContainer(dockerId string) (api.ContainerStatus, DockerContainerMetadata) {
-	dockerContainer, err := dg.InspectContainer(dockerId, inspectContainerTimeout)
+func (dg *dockerGoClient) DescribeContainer(dockerID string) (api.ContainerStatus, DockerContainerMetadata) {
+	dockerContainer, err := dg.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
 		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotXContainerError{"Describe", err.Error()}}
 	}
 	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
 
-func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duration) (*docker.Container, error) {
+func (dg *dockerGoClient) InspectContainer(dockerID string, timeout time.Duration) (*docker.Container, error) {
 	type inspectResponse struct {
 		container *docker.Container
 		err       error
@@ -464,7 +460,7 @@ func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duratio
 	// read, and can still be GC'd
 	response := make(chan inspectResponse, 1)
 	go func() {
-		container, err := dg.inspectContainer(dockerId, ctx)
+		container, err := dg.inspectContainer(dockerID, ctx)
 		response <- inspectResponse{container, err}
 	}()
 
@@ -482,15 +478,15 @@ func (dg *dockerGoClient) InspectContainer(dockerId string, timeout time.Duratio
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(dockerId string, ctx context.Context) (*docker.Container, error) {
+func (dg *dockerGoClient) inspectContainer(dockerID string, ctx context.Context) (*docker.Container, error) {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.InspectContainerWithContext(dockerId, ctx)
+	return client.InspectContainerWithContext(dockerID, ctx)
 }
 
-func (dg *dockerGoClient) StopContainer(dockerId string, timeout time.Duration) DockerContainerMetadata {
+func (dg *dockerGoClient) StopContainer(dockerID string, timeout time.Duration) DockerContainerMetadata {
 	timeout = timeout + dg.config.DockerStopTimeout
 
 	// Create a context that times out after the 'timeout' duration
@@ -505,7 +501,7 @@ func (dg *dockerGoClient) StopContainer(dockerId string, timeout time.Duration) 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.stopContainer(ctx, dockerId) }()
+	go func() { response <- dg.stopContainer(ctx, dockerID) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -520,16 +516,16 @@ func (dg *dockerGoClient) StopContainer(dockerId string, timeout time.Duration) 
 	}
 }
 
-func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) DockerContainerMetadata {
+func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) DockerContainerMetadata {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StopContainerWithContext(dockerId, uint(dg.config.DockerStopTimeout/time.Second), ctx)
-	metadata := dg.containerMetadata(dockerId)
+	err = client.StopContainerWithContext(dockerID, uint(dg.config.DockerStopTimeout/time.Second), ctx)
+	metadata := dg.containerMetadata(dockerID)
 	if err != nil {
-		log.Debug("Error stopping container", "err", err, "id", dockerId)
+		log.Debug("Error stopping container", "err", err, "id", dockerID)
 		if metadata.Error == nil {
 			metadata.Error = CannotXContainerError{"Stop", err.Error()}
 		}
@@ -537,7 +533,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerId string) Do
 	return metadata
 }
 
-func (dg *dockerGoClient) RemoveContainer(dockerId string, timeout time.Duration) error {
+func (dg *dockerGoClient) RemoveContainer(dockerID string, timeout time.Duration) error {
 	// Remove a context that times out after the 'timeout' duration
 	// This is defined by 'removeContainerTimeout'. 'timeout' makes it
 	// easier to write tests
@@ -547,7 +543,7 @@ func (dg *dockerGoClient) RemoveContainer(dockerId string, timeout time.Duration
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
-	go func() { response <- dg.removeContainer(dockerId, ctx) }()
+	go func() { response <- dg.removeContainer(dockerID, ctx) }()
 	// Wait until we get a response or for the 'done' context channel
 	select {
 	case resp := <-response:
@@ -563,13 +559,13 @@ func (dg *dockerGoClient) RemoveContainer(dockerId string, timeout time.Duration
 	}
 }
 
-func (dg *dockerGoClient) removeContainer(dockerId string, ctx context.Context) error {
+func (dg *dockerGoClient) removeContainer(dockerID string, ctx context.Context) error {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return err
 	}
 	return client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            dockerId,
+		ID:            dockerID,
 		RemoveVolumes: true,
 		Force:         false,
 		Context:       ctx,
@@ -579,7 +575,7 @@ func (dg *dockerGoClient) removeContainer(dockerId string, ctx context.Context) 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id, inspectContainerTimeout)
 	if err != nil {
-		return DockerContainerMetadata{DockerId: id, Error: CannotXContainerError{"Inspect", err.Error()}}
+		return DockerContainerMetadata{DockerID: id, Error: CannotXContainerError{"Inspect", err.Error()}}
 	}
 	return metadataFromContainer(dockerContainer)
 }
@@ -596,7 +592,7 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		}
 	}
 	metadata := DockerContainerMetadata{
-		DockerId:     dockerContainer.ID,
+		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
@@ -641,7 +637,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				continue
 			}
 
-			containerId := event.ID
+			containerID := event.ID
 			log.Debug("Got event from docker daemon", "event", event)
 
 			var status api.ContainerStatus
@@ -711,7 +707,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				seelog.Debugf("Unknown status event from docker: %s", event.Status)
 			}
 
-			metadata := dg.containerMetadata(containerId)
+			metadata := dg.containerMetadata(containerID)
 
 			changedContainers <- DockerContainerChangeEvent{
 				Status:                  status,
@@ -772,7 +768,7 @@ func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListCont
 		containerIDs[i] = container.ID
 	}
 
-	return ListContainersResponse{DockerIds: containerIDs, Error: nil}
+	return ListContainersResponse{DockerIDs: containerIDs, Error: nil}
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {

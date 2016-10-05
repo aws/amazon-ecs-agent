@@ -16,6 +16,7 @@ package engine
 import "fmt"
 import "github.com/aws/amazon-ecs-agent/agent/api"
 
+// ContainerNotFound is a type for a missing container
 type ContainerNotFound struct {
 	TaskArn       string
 	ContainerName string
@@ -25,14 +26,16 @@ func (cnferror ContainerNotFound) Error() string {
 	return fmt.Sprintf("Could not find container '%s' in task '%s'", cnferror.ContainerName, cnferror.TaskArn)
 }
 
+// DockerContainerChangeEvent is a type for container change events
 type DockerContainerChangeEvent struct {
 	Status api.ContainerStatus
 
 	DockerContainerMetadata
 }
 
+// DockerContainerMetadata is a type for metadata about Docker containers
 type DockerContainerMetadata struct {
-	DockerId     string
+	DockerID     string
 	ExitCode     *int
 	PortBindings []api.PortBinding
 	Error        engineError
@@ -42,6 +45,6 @@ type DockerContainerMetadata struct {
 // ListContainersResponse encapsulates the response from the docker client for the
 // ListContainers call.
 type ListContainersResponse struct {
-	DockerIds []string
+	DockerIDs []string
 	Error     error
 }

@@ -38,7 +38,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const credentialsId = "credsid"
+const credentialsID = "credsid"
 
 var defaultConfig = config.DefaultConfig()
 
@@ -65,18 +65,18 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	roleCredentials := &credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 	}
-	credentialsManager.EXPECT().GetTaskCredentials(credentialsId).Return(roleCredentials, true).AnyTimes()
-	credentialsManager.EXPECT().RemoveCredentials(credentialsId)
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+	credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.SetCredentialsId(credentialsId)
+	sleepTask.SetCredentialsId(credentialsID)
 
 	eventStream := make(chan DockerContainerChangeEvent)
 	eventsReported := sync.WaitGroup{}
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 		}
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
@@ -115,7 +115,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerCreated)
 					eventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
@@ -124,7 +124,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerRunning)
 					eventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 	}
 
 	steadyStateVerify := make(chan time.Time, 1)
@@ -161,7 +161,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
-	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerId: "containerId", ExitCode: &exitCode}}
+	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerID: "containerId", ExitCode: &exitCode}}
 	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
@@ -179,7 +179,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
-	sleepTaskStop.SetCredentialsId(credentialsId)
+	sleepTaskStop.SetCredentialsId(credentialsID)
 	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
 	// As above, duplicate events should not be a problem
@@ -222,7 +222,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 		}
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
@@ -244,7 +244,7 @@ func TestRemoveEvents(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerCreated)
 					eventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
@@ -253,7 +253,7 @@ func TestRemoveEvents(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerRunning)
 					eventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 	}
 
 	steadyStateVerify := make(chan time.Time, 1)
@@ -293,7 +293,7 @@ func TestRemoveEvents(t *testing.T) {
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 			ExitCode: &exitCode,
 		},
 	}
@@ -350,7 +350,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 		}
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
@@ -377,7 +377,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{
 			Error: &DockerTimeoutError{},
@@ -456,7 +456,7 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 		}
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
@@ -485,7 +485,7 @@ func TestSteadyStatePoll(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerCreated)
 					wait.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
@@ -494,7 +494,7 @@ func TestSteadyStatePoll(t *testing.T) {
 					eventStream <- dockerEvent(api.ContainerRunning)
 					wait.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 	}
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
@@ -522,18 +522,18 @@ func TestSteadyStatePoll(t *testing.T) {
 		client.EXPECT().DescribeContainer("containerId").Return(
 			api.ContainerRunning,
 			DockerContainerMetadata{
-				DockerId: "containerId",
+				DockerID: "containerId",
 			}).Times(2),
 		// TODO remove the extra expect and change AnyTimes() to MinTimes(1) after updating gomock
 		client.EXPECT().DescribeContainer("containerId").Return(
 			api.ContainerStopped,
 			DockerContainerMetadata{
-				DockerId: "containerId",
+				DockerID: "containerId",
 			}),
 		client.EXPECT().DescribeContainer("containerId").Return(
 			api.ContainerStopped,
 			DockerContainerMetadata{
-				DockerId: "containerId",
+				DockerID: "containerId",
 			}).AnyTimes(),
 		// the engine *may* call StopContainer even though it's already stopped
 		client.EXPECT().StopContainer("containerId", stopContainerTimeout).AnyTimes(),
@@ -694,7 +694,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
-			DockerId: "containerId",
+			DockerID: "containerId",
 		}
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
@@ -726,7 +726,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- dockerEvent(api.ContainerCreated) }()
-			}).Return(DockerContainerMetadata{DockerId: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		// StartContainer returns timeout error. This should cause the engine
 		// to transition the task to STOPPED and to stop all containers of

@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
+// TaskEngine is an interface for the DockerTaskEngine
 type TaskEngine interface {
 	Init() error
 	MustInit()

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// The 'engine' package contains code for interacting with container-running backends and handling events from them.
+// Package engine contains code for interacting with container-running backends and handling events from them.
 // It supports Docker as the sole task engine type.
 package engine
 

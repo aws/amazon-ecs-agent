@@ -165,10 +165,10 @@ func createImageCleanupTestTask(taskName string) *api.Task {
 	}
 }
 
-var endpoint = utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
+var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 
 func removeImage(img string) {
-	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DOCKER_ENDPOINT_ENV_VARIABLE), DOCKER_DEFAULT_ENDPOINT)
+	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 	client, _ := docker.NewClient(removeEndpoint)
 
 	client.RemoveImage(img)
@@ -203,18 +203,18 @@ func TestStartStopUnpulledImage(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
 		}
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if taskEvent.Status != expected_event {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if taskEvent.Status != expectedEvent {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -238,18 +238,18 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
 		}
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if taskEvent.Status != expected_event {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if taskEvent.Status != expectedEvent {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -625,18 +625,18 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskRunning}
+	expectedEvents := []api.TaskStatus{api.TaskRunning}
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
 		}
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if taskEvent.Status != expected_event {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if taskEvent.Status != expectedEvent {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -676,18 +676,18 @@ func TestDockerAuth(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskRunning}
+	expectedEvents := []api.TaskStatus{api.TaskRunning}
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
 		}
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if taskEvent.Status != expected_event {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if taskEvent.Status != expectedEvent {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -861,18 +861,18 @@ func TestSweepContainer(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {
 			continue
 		}
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if taskEvent.Status != expected_event {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if taskEvent.Status != expectedEvent {
+			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -923,7 +923,7 @@ func TestInitOOMEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expected_events := []api.ContainerStatus{api.ContainerRunning, api.ContainerStopped}
+	expectedEvents := []api.ContainerStatus{api.ContainerRunning, api.ContainerStopped}
 
 	var contEvent api.ContainerStateChange
 	for contEvent = range contEvents {
@@ -931,12 +931,12 @@ func TestInitOOMEvent(t *testing.T) {
 			continue
 		}
 
-		expected_event := expected_events[0]
-		expected_events = expected_events[1:]
-		if contEvent.Status != expected_event {
-			t.Error("Got event " + contEvent.Status.String() + " but expected " + expected_event.String())
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		if contEvent.Status != expectedEvent {
+			t.Error("Got event " + contEvent.Status.String() + " but expected " + expectedEvent.String())
 		}
-		if len(expected_events) == 0 {
+		if len(expectedEvents) == 0 {
 			break
 		}
 	}
@@ -1116,10 +1116,10 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	testTask := createTestTask("testStartWithCredentials")
 	taskCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIdIntegTest},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDIntegTest},
 	}
 	credentialsManager.SetTaskCredentials(taskCredentials)
-	testTask.SetCredentialsId(credentialsIdIntegTest)
+	testTask.SetCredentialsId(credentialsIDIntegTest)
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -1131,7 +1131,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task
-	_, ok := credentialsManager.GetTaskCredentials(credentialsIdIntegTest)
+	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
 	if ok {
 		t.Error("Credentials not removed from credentials manager for stopped task")
 	}

@@ -47,7 +47,7 @@ const (
 	containerName         = "gremlin-container"
 )
 
-var endpoint = utils.DefaultIfBlank(os.Getenv(ecsengine.DOCKER_ENDPOINT_ENV_VARIABLE), ecsengine.DOCKER_DEFAULT_ENDPOINT)
+var endpoint = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
 
 var client, _ = docker.NewClient(endpoint)
 var clientFactory = dockerclient.NewFactory(endpoint)
@@ -163,7 +163,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -214,7 +214,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -277,7 +277,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -321,7 +321,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -410,7 +410,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -420,7 +420,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: unmappedContainer.ID,
+			DockerID: unmappedContainer.ID,
 		},
 	})
 	if err != nil {
@@ -455,7 +455,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {
@@ -532,7 +532,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
 		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerId: container.ID,
+			DockerID: container.ID,
 		},
 	})
 	if err != nil {

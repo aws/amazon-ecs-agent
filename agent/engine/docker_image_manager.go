@@ -61,6 +61,7 @@ type dockerImageManager struct {
 // ImageStatesForDeletion is used for implementing the sort interface
 type ImageStatesForDeletion []*image.ImageState
 
+// NewImageManager returns a new ImageManager
 func NewImageManager(cfg *config.Config, client DockerClient, state *dockerstate.DockerTaskEngineState) ImageManager {
 	return &dockerImageManager{
 		client: client,
