@@ -147,21 +147,19 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	sortaRedundantTask := taskEvent("notreplaced2")
 	sortaRedundantTask.Status = api.TaskStopped
 
-	called := make(chan struct{})
-	client.EXPECT().SubmitContainerStateChange(notReplacedCont).Do(func(interface{}) { called <- struct{}{} })
-	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont).Do(func(interface{}) { called <- struct{}{} })
-	client.EXPECT().SubmitTaskStateChange(notReplacedTask).Do(func(interface{}) { called <- struct{}{} })
-	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask).Do(func(interface{}) { called <- struct{}{} })
+	wait := &sync.WaitGroup{}
+	wait.Add(4)
+	client.EXPECT().SubmitContainerStateChange(notReplacedCont).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(notReplacedTask).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask).Do(func(interface{}) { wait.Done() })
 
 	AddContainerEvent(notReplacedCont, client)
 	AddTaskEvent(notReplacedTask, client)
 	AddContainerEvent(sortaRedundantCont, client)
 	AddTaskEvent(sortaRedundantTask, client)
 
-	<-called
-	<-called
-	<-called
-	<-called
+	wait.Wait()
 }
 
 func TestSendsEventsDedupe(t *testing.T) {
