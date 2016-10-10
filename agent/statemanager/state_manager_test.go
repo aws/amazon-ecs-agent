@@ -29,7 +29,7 @@ import (
 )
 
 func TestStateManager(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("/tmp", "ecs_statemanager_test")
+	tmpDir, err := ioutil.TempDir(filepath.Clean("/tmp"), "ecs_statemanager_test")
 	if err != nil {
 		t.Fatal(err)
 	}
