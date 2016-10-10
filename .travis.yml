@@ -6,4 +6,4 @@ before_install: ./scripts/hack/symlink-gopath-travisci
 install: make get-deps
 script:
     # Full tests require building/running docker containers; short only for now
-    - cd $HOME/gopath/src/github.com/aws/amazon-ecs-agent; make short-test
+    - cd $HOME/gopath/src/github.com/aws/amazon-ecs-agent; make test

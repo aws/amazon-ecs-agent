@@ -1,3 +1,4 @@
+//+build !integration
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -19,123 +20,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 )
-
-var defaultCluster = "default"
-var defaultContainerInstance = "ci"
-
-type MockTaskEngine struct {
-}
-
-func (engine *MockTaskEngine) Init() error {
-	return nil
-}
-func (engine *MockTaskEngine) MustInit() {
-}
-
-func (engine *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
-	return make(chan api.TaskStateChange), make(chan api.ContainerStateChange)
-}
-
-func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {
-}
-
-func (engine *MockTaskEngine) AddTask(*api.Task) error {
-	return nil
-}
-
-func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {
-	return nil, nil
-}
-
-func (engine *MockTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
-	return nil, false
-}
-
-func (engine *MockTaskEngine) UnmarshalJSON([]byte) error {
-	return nil
-}
-
-func (engine *MockTaskEngine) MarshalJSON() ([]byte, error) {
-	return make([]byte, 0), nil
-}
-
-func (engine *MockTaskEngine) Version() (string, error) {
-	return "", nil
-}
-
-func (engine *MockTaskEngine) Capabilities() []string {
-	return []string{}
-}
-
-func (engine *MockTaskEngine) Disable() {
-}
-
-func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expected int) error {
-	if len(containerMetrics) != expected {
-		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
-	}
-	for _, containerMetric := range containerMetrics {
-		if containerMetric.CpuStatsSet == nil {
-			return fmt.Errorf("CPUStatsSet is nil")
-		}
-		if containerMetric.MemoryStatsSet == nil {
-			return fmt.Errorf("MemoryStatsSet is nil")
-		}
-	}
-	return nil
-}
-
-func validateIdleContainerMetrics(engine *DockerStatsEngine) error {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	if err != nil {
-		return err
-	}
-	err = validateMetricsMetadata(metadata)
-	if err != nil {
-		return err
-	}
-	if !*metadata.Idle {
-		return fmt.Errorf("Expected idle metadata to be true")
-	}
-	if !*metadata.Fin {
-		return fmt.Errorf("Fin not set to true when idle")
-	}
-	if len(taskMetrics) != 0 {
-		return fmt.Errorf("Expected empty task metrics, got a list of length: %d", len(taskMetrics))
-	}
-
-	return nil
-}
-
-func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
-	if metadata == nil {
-		return fmt.Errorf("Metadata is nil")
-	}
-	if *metadata.Cluster != defaultCluster {
-		return fmt.Errorf("Expected cluster in metadata to be: %s, got %s", defaultCluster, *metadata.Cluster)
-	}
-	if *metadata.ContainerInstance != defaultContainerInstance {
-		return fmt.Errorf("Expected container instance in metadata to be %s, got %s", defaultContainerInstance, *metadata.ContainerInstance)
-	}
-	if len(*metadata.MessageId) == 0 {
-		return fmt.Errorf("Empty MessageId")
-	}
-
-	return nil
-}
-
-func createFakeContainerStats() []*ContainerStats {
-	return []*ContainerStats{
-		&ContainerStats{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		&ContainerStats{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
-	}
-}
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	ctrl := gomock.NewController(t)
