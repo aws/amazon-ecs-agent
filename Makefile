@@ -58,8 +58,8 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-short-test:
-	. ./scripts/shared_env && go test -short -timeout=25s $(shell go list ./agent/... | grep -v /vendor/)
+test:
+	. ./scripts/shared_env && go test -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
@@ -67,9 +67,6 @@ benchmark-test:
 # Run our 'test' registry needed for integ and functional tests
 test-registry: netkitten volumes-test squid awscli image-cleanup-test-images
 	@./scripts/setup-test-registry
-
-test: test-registry gremlin
-	. ./scripts/shared_env && go test -tags unit -timeout=180s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
@@ -82,8 +79,8 @@ run-functional-tests: testnnp test-registry
 testnnp:
 	cd misc/testnnp; $(MAKE) $(MFLAGS)
 
-run-integ-tests: test-registry
-	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/...
+run-integ-tests: test-registry gremlin
+	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)

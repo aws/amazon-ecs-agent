@@ -1,3 +1,4 @@
+//+build !integration
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -27,10 +28,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"golang.org/x/net/context"
 )
-
-// checkPointSleep is the sleep duration in milliseconds between
-// starting/stopping containers in the test code.
-const checkPointSleep = 5 * SleepBetweenUsageDataCollection
 
 type StatTestData struct {
 	timestamp time.Time

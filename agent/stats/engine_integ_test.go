@@ -1,3 +1,4 @@
+//+build integration
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -14,102 +15,15 @@
 package stats
 
 import (
-	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
-
-	"golang.org/x/net/context"
 )
-
-const (
-	testImageName = "amazon/amazon-ecs-gremlin:make"
-
-	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
-	defaultDockerTimeoutSeconds uint = 10
-
-	// waitForCleanupSleep is the sleep duration in milliseconds
-	// for the waiting after container cleanup before checking the state of the manager.
-	waitForCleanupSleep = 10 * time.Millisecond
-
-	taskArn               = "gremlin"
-	taskDefinitionFamily  = "docker-gremlin"
-	taskDefinitionVersion = "1"
-	containerName         = "gremlin-container"
-)
-
-var endpoint = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
-
-var client, _ = docker.NewClient(endpoint)
-var clientFactory = dockerclient.NewFactory(endpoint)
-var cfg = config.DefaultConfig()
-
-var dockerClient ecsengine.DockerClient
-
-func init() {
-	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
-	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, false, &cfg)
-}
-
-// eventStream returns the event stream used to receive container change events
-func eventStream(name string) *eventstream.EventStream {
-	eventStream := eventstream.NewEventStream(name, context.Background())
-	eventStream.StartListening()
-	return eventStream
-}
-
-// createGremlin creates the gremlin container using the docker client.
-// It is used only in the test code.
-func createGremlin(client *docker.Client) (*docker.Container, error) {
-	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
-			Image: testImageName,
-		},
-	})
-
-	return container, err
-}
-
-type IntegContainerMetadataResolver struct {
-	containerIDToTask            map[string]*api.Task
-	containerIDToDockerContainer map[string]*api.DockerContainer
-}
-
-func newIntegContainerMetadataResolver() *IntegContainerMetadataResolver {
-	resolver := IntegContainerMetadataResolver{
-		containerIDToTask:            make(map[string]*api.Task),
-		containerIDToDockerContainer: make(map[string]*api.DockerContainer),
-	}
-
-	return &resolver
-}
-
-func (resolver *IntegContainerMetadataResolver) ResolveTask(containerID string) (*api.Task, error) {
-	task, exists := resolver.containerIDToTask[containerID]
-	if !exists {
-		return nil, fmt.Errorf("unmapped container")
-	}
-
-	return task, nil
-}
-
-func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID string) (*api.DockerContainer, error) {
-	container, exists := resolver.containerIDToDockerContainer[containerID]
-	if !exists {
-		return nil, fmt.Errorf("unmapped container")
-	}
-
-	return container, nil
-}
 
 func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 	resolver.containerIDToTask[containerID] = &api.Task{
@@ -124,10 +38,6 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 }
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
-
 	// Create a new docker stats engine
 	// TODO make dockerStatsEngine not a singleton object
 	dockerStatsEngine = nil
@@ -231,10 +141,6 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 }
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
-
 	// Create a new docker stats engine
 	// TODO make dockerStatsEngine not a singleton object
 	dockerStatsEngine = nil
@@ -338,10 +244,6 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 }
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
-
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewDockerTaskEngineState())
 	container, err := createGremlin(client)
@@ -472,10 +374,6 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
-
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewDockerTaskEngineState())
 

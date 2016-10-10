@@ -1,4 +1,4 @@
-// +build integration !unit
+// +build integration
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -57,9 +57,6 @@ func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manag
 }
 
 func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if testing.Short() {
-		t.Skip("Skipping integ test in short mode")
-	}
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		t.Skip("Docker not running")
 	}
