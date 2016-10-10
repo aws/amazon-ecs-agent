@@ -16,10 +16,10 @@
 package statemanager
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
 	"github.com/cihub/seelog"
 
 	"golang.org/x/sys/windows/registry"
@@ -29,6 +29,10 @@ const (
 	ecsDataFileRootKey   = registry.LOCAL_MACHINE
 	ecsDataFileKeyPath   = `SOFTWARE\Amazon\ECS Agent\State File`
 	ecsDataFileValueName = "path"
+	// overrideValueNameEnv is the name of an environment variable that can be used to override the
+	// name of the registry value queried for the state file path.  This is useful in integration-
+	// and functional-tests, but should not be set for any non-test use-case.
+	overrideValueNameEnv = "ZZZ_I_KNOW_SETTING_TEST_VALUES_IN_PRODUCTION_IS_NOT_SUPPORTED"
 )
 
 /*
@@ -46,9 +50,22 @@ On each load, the agent reads a well-known registry key to find the name of the
 file to load.
 */
 
+type windowsDependencies struct {
+	registry dependencies.WindowsRegistry
+	fs       dependencies.FS
+}
+
+func newPlatformDependencies() platformDependencies {
+	return windowsDependencies{
+		registry: dependencies.StdRegistry{},
+		fs:       dependencies.StdFS{},
+	}
+}
+
 func (manager *basicStateManager) readFile() ([]byte, error) {
 	manager.savingLock.Lock()
 	defer manager.savingLock.Unlock()
+	deps := manager.platformDependencies.(windowsDependencies)
 	path, err := manager.getPath()
 	if err != nil {
 		if err == registry.ErrNotExist {
@@ -57,32 +74,42 @@ func (manager *basicStateManager) readFile() ([]byte, error) {
 		}
 		return nil, err
 	}
-	file, err := os.Open(filepath.Clean(path))
+	file, err := deps.fs.Open(filepath.Clean(path))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if deps.fs.IsNotExist(err) {
 			// Happens every first run; not a real error
 			return nil, nil
 		}
 		return nil, err
 	}
 	defer file.Close()
-	return ioutil.ReadAll(file)
+	return deps.fs.ReadAll(file)
 }
 
 func (manager *basicStateManager) getPath() (string, error) {
-	key, err := registry.OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, registry.READ)
+	deps := manager.platformDependencies.(windowsDependencies)
+	key, err := deps.registry.OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, registry.READ)
 	if err != nil {
 		return "", err
 	}
 	defer key.Close()
-	val, _, err := key.GetStringValue(ecsDataFileValueName)
+	val, _, err := key.GetStringValue(valueName())
 	if err != nil {
 		return "", err
 	}
 	return val, nil
 }
 
+func valueName() string {
+	valueName := ecsDataFileValueName
+	if os.Getenv(overrideValueNameEnv) != "" {
+		valueName = os.Getenv(overrideValueNameEnv)
+	}
+	return valueName
+}
+
 func (manager *basicStateManager) writeFile(data []byte) error {
+	deps := manager.platformDependencies.(windowsDependencies)
 	oldFile, err := manager.getPath()
 	if err != nil {
 		if err != registry.ErrNotExist {
@@ -90,7 +117,7 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 		}
 		oldFile = ""
 	}
-	dataFile, err := ioutil.TempFile(manager.statePath, ecsDataFile)
+	dataFile, err := deps.fs.TempFile(manager.statePath, ecsDataFile)
 	if err != nil {
 		seelog.Errorf("Error saving state; could not create file to save state: %v", err)
 		return err
@@ -112,28 +139,30 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 	err = dataFile.Close()
 	if err != nil {
 		seelog.Errorf("Error saving state; could not close file to save state: %s %v", dataFile.Name(), err)
+		return err
 	}
 	err = manager.savePath(dataFile.Name())
 	if err != nil {
 		seelog.Errorf("Failed to save the data file path: %v", err)
 		return err
 	}
-	err = os.Remove(oldFile)
+	err = deps.fs.Remove(oldFile)
 	if err != nil {
 		seelog.Errorf("Error removing old file %s; err %v", oldFile, err)
 	}
-	return err
+	return nil
 }
 
 func (manager *basicStateManager) savePath(path string) error {
-	key, existed, err := registry.CreateKey(ecsDataFileRootKey, ecsDataFileKeyPath, registry.SET_VALUE|registry.CREATE_SUB_KEY)
+	deps := manager.platformDependencies.(windowsDependencies)
+	key, existed, err := deps.registry.CreateKey(ecsDataFileRootKey, ecsDataFileKeyPath, registry.SET_VALUE|registry.CREATE_SUB_KEY)
 	if err != nil {
-		seelog.Error(err)
+		seelog.Errorf("Failed to create registry key %s %v", ecsDataFileKeyPath, err)
 		return err
 	}
 	defer key.Close()
 	if !existed {
-		seelog.Infof(`Created new registry key: %s\%s`, ecsDataFileRootKey, ecsDataFileKeyPath)
+		seelog.Infof(`Created new registry key: HKEY_LOCAL_MACHINE\%s`, ecsDataFileKeyPath)
 	}
-	return key.SetStringValue(ecsDataFileValueName, path)
+	return key.SetStringValue(valueName(), path)
 }

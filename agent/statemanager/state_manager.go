@@ -91,6 +91,8 @@ type versionOnlyState struct {
 	Version int
 }
 
+type platformDependencies interface{}
+
 // A StateManager can load and save state from disk.
 // Load is not expected to return an error if there is no state to load.
 type StateManager interface {
@@ -108,6 +110,8 @@ type basicStateManager struct {
 	nextPlannedSave time.Time  //the next time a save is planned
 
 	savingLock sync.Mutex // guards marshal, write, move (on Linux), and load (on Windows)
+
+	platformDependencies platformDependencies // platform-specific dependencies
 }
 
 // NewStateManager constructs a new StateManager which saves data at the
@@ -135,6 +139,8 @@ func NewStateManager(cfg *config.Config, options ...Option) (StateManager, error
 	for _, option := range options {
 		option(manager)
 	}
+
+	manager.platformDependencies = newPlatformDependencies()
 
 	return manager, nil
 }
