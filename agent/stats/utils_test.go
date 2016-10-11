@@ -39,6 +39,10 @@ func TestIsNetworkStatsError(t *testing.T) {
 func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 	// doing this with json makes me sad, but is the easiest way to deal with
 	// the inner structs
+
+	// numCores is a global variable in package agent/stas
+	// whichdenotes the number of cpu cores
+	numCores = 4
 	jsonStat := fmt.Sprintf(`
 		{
 			"cpu_stats":{
