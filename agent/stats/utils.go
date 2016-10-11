@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"runtime"
 	"time"
 
 	"github.com/cihub/seelog"
@@ -27,6 +28,8 @@ import (
 // if there's an error reading network stats.
 const networkStatsErrorPattern = "open /sys/class/net/veth.*: no such file or directory"
 
+var numCores = uint64(runtime.NumCPU())
+
 // nan32 returns a 32bit NaN.
 func nan32() float32 {
 	return (float32)(math.NaN())
@@ -35,9 +38,8 @@ func nan32() float32 {
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
 func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
 	// The length of PercpuUsage represents the number of cores in an instance.
-	numCores := uint64(len(dockerStats.CPUStats.CPUUsage.PercpuUsage))
-	if numCores == 0 {
-		seelog.Debug("Invalid container statitistics reported, got number of cores = 0")
+	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 {
+		seelog.Debug("Invalid container statistics reported, invalid stats payload from docker")
 		return nil, fmt.Errorf("Invalid container statistics reported")
 	}
 
