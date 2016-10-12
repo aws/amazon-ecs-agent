@@ -20,7 +20,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
 
-const dockerTimeoutErrorName = "DockerTimeoutError"
+const (
+	dockerTimeoutErrorName     = "DockerTimeoutError"
+	unretriableDockerErrorName = "UnretriableDockerError"
+	dockerStateErrorName       = "DockerStateError"
+)
 
 // engineError wraps the error interface with an identifier method that
 // is used to classify the error type
@@ -93,7 +97,7 @@ func NewDockerStateError(err string) DockerStateError {
 	// Add stringmatching logic as needed to provide better output than docker
 	return DockerStateError{
 		dockerError: err,
-		name:        "DockerStateError",
+		name:        dockerStateErrorName,
 	}
 }
 
@@ -136,4 +140,16 @@ func (err TaskStoppedBeforePullBeginError) Error() string {
 // ErrorName returns the name of the error
 func (TaskStoppedBeforePullBeginError) ErrorName() string {
 	return "TaskStoppedBeforePullBeginError"
+}
+
+type UnretriableDockerError struct {
+	dockerError error
+}
+
+func (err UnretriableDockerError) Error() string {
+	return err.dockerError.Error()
+}
+
+func (UnretriableDockerError) ErrorName() string {
+	return unretriableDockerErrorName
 }

@@ -486,6 +486,40 @@ func TestStopContainer(t *testing.T) {
 	}
 }
 
+func TestStopStoppedContainer(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	gomock.InOrder(
+		mockDocker.EXPECT().StopContainerWithContext("id", gomock.Any(), gomock.Any()).Return(&docker.ContainerNotRunning{}),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{}, nil),
+	)
+	metadata := client.StopContainer("id", stopContainerTimeout)
+	if metadata.Error == nil {
+		t.Error("Expected error stopping container")
+	}
+	if metadata.Error.ErrorName() != unretriableDockerErrorName {
+		t.Error("Unexpected error name. Expected %s, got %s", unretriableDockerErrorName, metadata.Error.ErrorName())
+	}
+}
+
+func TestStopUnknownContainer(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	gomock.InOrder(
+		mockDocker.EXPECT().StopContainerWithContext("id", gomock.Any(), gomock.Any()).Return(&docker.NoSuchContainer{}),
+		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{}, nil),
+	)
+	metadata := client.StopContainer("id", stopContainerTimeout)
+	if metadata.Error == nil {
+		t.Error("Expected error stopping container")
+	}
+	if metadata.Error.ErrorName() != unretriableDockerErrorName {
+		t.Error("Unexpected error name. Expected %s, got %s", unretriableDockerErrorName, metadata.Error.ErrorName())
+	}
+}
+
 func TestInspectContainerTimeout(t *testing.T) {
 	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()

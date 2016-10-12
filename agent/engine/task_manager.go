@@ -246,24 +246,32 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			container.ApplyingError = api.NewNamedError(event.Error)
 		}
 		if event.Status == api.ContainerStopped {
-			// If we were trying to transition to stopped and had a timeout error
-			// from docker, reset the known status to the current status and return
+			eventErrorName := event.Error.ErrorName()
+			// If we were trying to transition to stopped and had a transient error
+			// from docker (example: timeout), reset the known status to the current
+			// status and return.
+			// Errors such as "No such container", "Container already stopped" etc
+			// from docker do not fall into this category. Nor do errors such as
+			// "CannotStartContainer" or "DockerStateError" ("invalid executable
+			// in path").
 			// This ensures that we don't emit a containerstopped event; a
 			// terminal container event from docker event stream will instead be
 			// responsible for the transition. Alternatively, the steadyState check
 			// could also trigger the progress and have another go at stopping the
 			// container
-			if event.Error.ErrorName() == dockerTimeoutErrorName {
-				seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v", dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
+			if eventErrorName == "CannotStopContainerError" {
+				seelog.Infof("%s for 'docker stop' of container; ignoring state change; task: %v, container: %v, error: %v",
+					eventErrorName, mtask.Task, container, event.Error.Error())
 				container.SetKnownStatus(currentKnownStatus)
 				return
 			}
-			// If we were trying to transition to stopped and had an error, we
-			// clearly can't just continue trying to transition it to stopped
-			// again and again... In this case, assume it's stopped (or close
+			// If we were trying to transition to stopped and had an unretriable error,
+			// we clearly can't just continue trying to transition it to stopped
+			// again and again. In this case, assume it's stopped (or close
 			// enough) and get on with it
 			// This actually happens a lot for the case of stopping something that was not running.
-			llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways")
+			seelog.Infof("Error for 'docker stop' of container; assuming it's stopped anyways. task: %v, container: %v, error: %v",
+				eventErrorName, mtask.Task, container, event.Error.Error())
 			container.SetKnownStatus(api.ContainerStopped)
 			container.SetDesiredStatus(api.ContainerStopped)
 		} else if event.Status == api.ContainerPulled {

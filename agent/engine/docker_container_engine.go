@@ -527,7 +527,13 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerID)
 		if metadata.Error == nil {
-			metadata.Error = CannotXContainerError{"Stop", err.Error()}
+			if noSuchContainerError, ok := err.(*docker.NoSuchContainer); ok {
+				metadata.Error = UnretriableDockerError{noSuchContainerError}
+			} else if containerNotRunningError, ok := err.(*docker.ContainerNotRunning); ok {
+				metadata.Error = UnretriableDockerError{containerNotRunningError}
+			} else {
+				metadata.Error = CannotXContainerError{"Stop", err.Error()}
+			}
 		}
 	}
 	return metadata
