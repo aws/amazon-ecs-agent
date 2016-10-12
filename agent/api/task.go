@@ -16,6 +16,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ const (
 func (task *Task) PostUnmarshalTask(credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-
+	task.adjustForPlatform()
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 }
@@ -78,13 +79,14 @@ func (task *Task) initializeEmptyVolumes() {
 	if !ok {
 		mountPoints := make([]MountPoint, len(requiredEmptyVolumes))
 		for i, volume := range requiredEmptyVolumes {
-			containerPath := "/ecs-empty-volume/" + volume
+			// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
+			containerPath := getCanonicalPath(emptyvolume.ContainerPathPrefix + volume)
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
 			Name:          emptyHostVolumeName,
 			Image:         emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:       []string{"not-applicable"}, // Command required, but this only gets created so N/A
+			Command:       []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
 			MountPoints:   mountPoints,
 			Essential:     false,
 			IsInternal:    true,
@@ -125,6 +127,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 
 }
 
+// ContainerByName returns the *Container for the given name
 func (task *Task) ContainerByName(name string) (*Container, bool) {
 	container, ok := task.getContainersByName()[name]
 	return container, ok
@@ -155,12 +158,16 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 	return nil, false
 }
 
+// UpdateMountPoints updates the mount points of volumes that were created
+// without specifying a host path.  This is used as part of the empty host
+// volume feature.
 func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 	for _, mountPoint := range cont.MountPoints {
-		hostPath, ok := vols[mountPoint.ContainerPath]
+		containerPath := getCanonicalPath(mountPoint.ContainerPath)
+		hostPath, ok := vols[containerPath]
 		if !ok {
-			// /path/ -> /path
-			hostPath, ok = vols[strings.TrimRight(mountPoint.ContainerPath, "/")]
+			// /path/ -> /path or \path\ -> \path
+			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
 		}
 		if ok {
 			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {

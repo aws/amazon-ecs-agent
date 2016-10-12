@@ -931,3 +931,18 @@ func TestRemoveImage(t *testing.T) {
 		t.Errorf("Did not expect error, err: %v", err)
 	}
 }
+
+func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
+	mockDocker, client, _, _ := dockerClientSetup(t)
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{
+		Mounts: []docker.Mount{{
+			Destination: "destination1",
+			Source:      "source1",
+		}, {
+			Destination: "destination2",
+			Source:      "source2",
+		}},
+	}, nil)
+	metadata := client.containerMetadata("id")
+	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
+}

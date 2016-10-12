@@ -596,6 +596,15 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
+	// Workaround for https://github.com/docker/docker/issues/27601
+	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
+	// for how Docker handles API compatibility on Linux
+	if len(metadata.Volumes) == 0 {
+		metadata.Volumes = make(map[string]string)
+		for _, m := range dockerContainer.Mounts {
+			metadata.Volumes[m.Destination] = m.Source
+		}
+	}
 	if !dockerContainer.State.Running && !dockerContainer.State.FinishedAt.IsZero() {
 		// Only record an exitcode if it has exited
 		metadata.ExitCode = &dockerContainer.State.ExitCode
