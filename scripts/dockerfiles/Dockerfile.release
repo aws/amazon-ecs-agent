@@ -22,5 +22,5 @@ COPY ["LICENSE", "NOTICE", "/"]
 # https://golang.org/src/pkg/crypto/x509/root_unix.go
 COPY misc/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-EXPOSE 51678
+EXPOSE 51678 51679
 ENTRYPOINT ["/agent"]
