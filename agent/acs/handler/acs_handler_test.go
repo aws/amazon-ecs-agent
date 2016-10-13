@@ -541,8 +541,6 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	serverIn <- sampleRefreshCredentialsMessage
 
 	select {
-	case <-ended:
-		t.Fatal("Should not have stop session")
 	case err := <-errChan:
 		t.Fatal("Error should not have been returned from server", err)
 	case <-ctx.Done():
@@ -556,6 +554,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	}
 
 	go server.Close()
+	// Cancel context should close the session
 	<-ended
 }
 
