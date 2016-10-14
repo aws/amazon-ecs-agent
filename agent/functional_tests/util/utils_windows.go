@@ -1,4 +1,4 @@
-// +build !windows
+// +build windows
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -29,7 +29,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	"os/exec"
+  "golang.org/x/sys/windows/registry"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -144,6 +145,7 @@ type TestAgent struct {
 	TestDir              string
 	Logdir               string
 	Options              *AgentOptions
+	Process               *os.Process
 
 	DockerClient *docker.Client
 	t            *testing.T
@@ -163,25 +165,12 @@ type AgentOptions struct {
 // 'make'
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
-	agentImage := "amazon/amazon-ecs-agent:make"
-	if envImage := os.Getenv("ECS_AGENT_IMAGE"); envImage != "" {
-		agentImage = envImage
-	}
-	agent.Image = agentImage
 
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
 	agent.DockerClient = dockerClient
-
-	_, err = dockerClient.InspectImage(agentImage)
-	if err != nil {
-		err = dockerClient.PullImage(docker.PullImageOptions{Repository: agentImage}, docker.AuthConfiguration{})
-		if err != nil {
-			t.Fatal("Could not launch agent", err)
-		}
-	}
 
 	tmpdirOverride := os.Getenv("ECS_FTEST_TMP")
 
@@ -191,6 +180,21 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	}
 	logdir := filepath.Join(agentTempdir, "log")
 	datadir := filepath.Join(agentTempdir, "data")
+	os.Setenv("ECS_LOGFILE", logdir + "/log.log")
+	os.Setenv("ECS_DATADIR", datadir)
+	valueName := fmt.Sprintf("test_path_%d", time.Now().UnixNano())
+	fmt.Println("Registry location",valueName)
+  os.Setenv("ZZZ_I_KNOW_SETTING_TEST_VALUES_IN_PRODUCTION_IS_NOT_SUPPORTED", valueName)
+	os.Setenv("ECS_CLUSTER", Cluster)
+  os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
+	os.Setenv("ECS_LOGFILE", "C:/ecs/log/ecs-agent.log")
+  os.Setenv("DOCKER_HOST","npipe:////./pipe/docker_engine")
+	os.Setenv("ECS_DISABLE_METRICS", "true")
+  os.Setenv("ECS_AUDIT_LOGFILE", "C:/ecs/log/audit.log")
+  os.Setenv("ECS_DATADIR", "C:/ecs/data")
+  os.Setenv("ECS_LOGLEVEL", "debug")
+
+	t.Log("datadir", datadir)
 	os.Mkdir(logdir, 0755)
 	os.Mkdir(datadir, 0755)
 	agent.TestDir = agentTempdir
@@ -208,82 +212,13 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 }
 
 func (agent *TestAgent) StopAgent() error {
-	return agent.DockerClient.StopContainer(agent.DockerID, 10)
+	return agent.Process.Kill()
 }
 
-func (agent *TestAgent) StartAgent() error {
-	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
-	dockerConfig := &docker.Config{
-		Image: agent.Image,
-		ExposedPorts: map[docker.Port]struct{}{
-			"51678/tcp": struct{}{},
-		},
-		Env: []string{
-			"ECS_CLUSTER=" + Cluster,
-			"ECS_DATADIR=/data",
-			"ECS_LOGLEVEL=debug",
-			"ECS_LOGFILE=/log/integ_agent.log",
-			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
-			"AWS_ACCESS_KEY_ID=" + os.Getenv("AWS_ACCESS_KEY_ID"),
-			"AWS_DEFAULT_REGION=" + *ECS.Config.Region,
-			"AWS_SECRET_ACCESS_KEY=" + os.Getenv("AWS_SECRET_ACCESS_KEY"),
-			"ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=" + os.Getenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
-		},
-		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
-	}
-
-	binds := agent.getBindMounts()
-
-	hostConfig := &docker.HostConfig{
-		Binds: binds,
-		PortBindings: map[docker.Port][]docker.PortBinding{
-			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
-		},
-		Links: agent.Options.ContainerLinks,
-	}
-
-	if agent.Options != nil {
-		// Override the default docker envrionment variable
-		for key, value := range agent.Options.ExtraEnvironment {
-			envVarExists := false
-			for i, str := range dockerConfig.Env {
-				if strings.HasPrefix(str, key+"=") {
-					dockerConfig.Env[i] = key + "=" + value
-					envVarExists = true
-					break
-				}
-			}
-			if !envVarExists {
-				dockerConfig.Env = append(dockerConfig.Env, key+"="+value)
-			}
-		}
-
-		for key, value := range agent.Options.PortBindings {
-			hostConfig.PortBindings[key] = []docker.PortBinding{docker.PortBinding{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
-			dockerConfig.ExposedPorts[key] = struct{}{}
-		}
-	}
-
-	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{
-		Config:     dockerConfig,
-		HostConfig: hostConfig,
-	})
-	if err != nil {
-		agent.t.Fatal("Could not create agent container", err)
-	}
-	agent.DockerID = agentContainer.ID
-	agent.t.Logf("Agent started as docker container: %s\n", agentContainer.ID)
-
-	err = agent.DockerClient.StartContainer(agentContainer.ID, nil)
-	if err != nil {
-		return errors.New("Could not start agent container " + err.Error())
-	}
-
-	containerMetadata, err := agent.DockerClient.InspectContainer(agentContainer.ID)
-	if err != nil {
-		return errors.New("Could not inspect agent container: " + err.Error())
-	}
-	agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
+func (agent *TestAgent) StartAgent()  error {
+  agentInvoke := exec.Command("C:\\GoWrk\\src\\github.com\\aws\\amazon-ecs-agent\\agent")
+  agentInvoke.Start()
+  agent.IntrospectionURL = "http://localhost:51678"
 
 	// Wait up to 10s for it to register
 	var localMetadata handlers.MetadataResponse
@@ -305,12 +240,14 @@ func (agent *TestAgent) StartAgent() error {
 		}
 		time.Sleep(1 * time.Second)
 	}
+
 	if localMetadata.ContainerInstanceArn == nil {
 		agent.DockerClient.StopContainer(agent.DockerID, 1)
 		return errors.New("Could not get agent metadata after launching it")
 	}
 
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
+	fmt.Println("Container InstanceArn:", agent.ContainerInstanceArn)
 	agent.Cluster = localMetadata.Cluster
 	if localMetadata.Version != "" {
 		versionNumberRegex := regexp.MustCompile(` v(\d+\.\d+\.\d+) `)
@@ -323,6 +260,7 @@ func (agent *TestAgent) StartAgent() error {
 		agent.Version = "UNKNOWN"
 	}
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
+	agent.Process = agentInvoke.Process
 	return nil
 }
 
@@ -356,6 +294,12 @@ func (agent *TestAgent) getBindMounts() []string {
 }
 
 func (agent *TestAgent) Cleanup() {
+  key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Amazon\ECS Agent\State File`, registry.ALL_ACCESS)
+	if err != nil {
+		  return
+	}
+	key.DeleteValue(os.Getenv("ZZZ_I_KNOW_SETTING_TEST_VALUES_IN_PRODUCTION_IS_NOT_SUPPORTED"))
+	os.Unsetenv("ZZZ_I_KNOW_SETTING_TEST_VALUES_IN_PRODUCTION_IS_NOT_SUPPORTED")
 	agent.StopAgent()
 	if agent.t.Failed() {
 		agent.t.Logf("Preserving test dir for failed test %s", agent.TestDir)
@@ -371,12 +315,14 @@ func (agent *TestAgent) Cleanup() {
 }
 
 func (agent *TestAgent) StartMultipleTasks(t *testing.T, taskDefinition string, num int) ([]*TestTask, error) {
-	t.Logf("Task definition: %s", taskDefinition)
+	t.Logf("Task definition:", taskDefinition)
+	fmt.Println("Task Definition:", taskDefinition)
 	cis := make([]*string, num)
 	for i := 0; i < num; i++ {
 		cis[i] = &agent.ContainerInstanceArn
 	}
 
+	fmt.Println("ECS Start task")
 	resp, err := ECS.StartTask(&ecs.StartTaskInput{
 		Cluster:            &agent.Cluster,
 		ContainerInstances: cis,
@@ -385,12 +331,16 @@ func (agent *TestAgent) StartMultipleTasks(t *testing.T, taskDefinition string, 
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("here")
 	if len(resp.Failures) != 0 || len(resp.Tasks) == 0 {
+		fmt.Println("here1")
 		return nil, errors.New("Failure starting task: " + *resp.Failures[0].Reason)
 	}
 
 	testTasks := make([]*TestTask, num)
 	for i, task := range resp.Tasks {
+		fmt.Println("here2")
 		agent.t.Logf("Started task: %s\n", *task.TaskArn)
 		testTasks[i] = &TestTask{task}
 	}
@@ -403,6 +353,7 @@ func (agent *TestAgent) StartTask(t *testing.T, task string) (*TestTask, error) 
 		return nil, err
 	}
 
+  fmt.Println("ECS Start task")
 	tasks, err := agent.StartMultipleTasks(t, td, 1)
 	if err != nil {
 		return nil, err

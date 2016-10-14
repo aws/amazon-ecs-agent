@@ -1,0 +1,12 @@
+{
+  "family": "ecsftest-simple-exit-authed-windows",
+  "containerDefinitions": [{
+    "image": "microsoft/windowsservercore:10.0.14393.206",
+    "name": "exit",
+    "cpu": 10,
+    "memory": 10,
+    "essential": true,
+    "entryPoint": ["powershell"],
+    "command": ["exit", "42"]
+  }]
+}
