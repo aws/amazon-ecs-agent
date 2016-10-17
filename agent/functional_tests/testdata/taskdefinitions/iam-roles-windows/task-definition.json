@@ -1,0 +1,12 @@
+{
+    "family": "ecsftest-iamrole-test",
+    "taskRoleArn": "$$$TASK_ROLE$$$",
+    "containerDefinitions": [{
+        "memory": 100,
+        "cpu": 100,
+        "name": "container-with-iamrole-windows",
+        "image": "amazon/amazon-ecs-iamrolecontainer",
+         "entryPoint": ["powershell"],
+         "command": ["Import-Module \"${env:ProgramFiles(x86)}\\AWS Tools\\PowerShell\\AWSPowerShell\\AWSPowerShell.psd1\";.\\application.ps1; $env:AWS_REGION=\"us-east-1\";.\\ec2.exe; exit $LASTEXITCODE"]
+    }]
+}

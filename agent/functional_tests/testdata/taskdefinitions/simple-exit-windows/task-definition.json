@@ -1,7 +1,7 @@
 {
   "family": "ecsinteg-simple-exit-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:10.0.14393.206",
+    "image": "microsoft/windowsservercore:latest",
     "name": "exit",
     "cpu": 10,
     "memory": 10,

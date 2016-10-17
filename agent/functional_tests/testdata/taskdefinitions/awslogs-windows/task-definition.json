@@ -5,7 +5,7 @@
     "memory": 10,
     "name": "awslogs",
     "cpu": 10,
-    "image": "microsoft/windowsservercore:10.0.14393.206",
+    "image": "microsoft/windowsservercore:latest",
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
@@ -15,6 +15,6 @@
         }
     },
     "entryPoint": ["powershell"],
-    "command": ["echo", "helloworld"]    
+    "command": ["echo", "helloworld"]
   }]
 }

@@ -1,7 +1,7 @@
 {
   "family": "ecsftest-labels-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:10.0.14393.206",
+    "image": "microsoft/windowsservercore:latest",
     "name": "labeled",
     "cpu": 10,
     "memory": 10,
@@ -10,6 +10,6 @@
       "com.foo.label2": "value"
     },
     "entryPoint": ["powershell"],
-    "command": ["exit", "0"]    
+    "command": ["exit", "0"]
   }]
 }

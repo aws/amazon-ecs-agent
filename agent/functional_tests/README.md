@@ -47,3 +47,16 @@ In order to run TaskIamRole functional test, the following steps should be done 
   * Testing under net=host network mode requires additional command:
     `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679` and
     `export TEST_TASK_IAM_ROLE_NET_HOST=true`
+
+## Windows Setup
+
+Set the following environment variable.
+  * $env:ECS_WINDOWS_TEST_DIR=##Path where the agent binary is present.
+  * For performing the IAM roles test, perform the following additional tasks.
+    ** `$env:TEST_TASK_IAM_ROLE="true"`
+    ** `Set environment variable AWS_REGION. For example, `$env:AWS_REGION="us-east-1"`
+    ** devcon.exe should be present in system environment variable PATH.    
+
+## Running
+
+Running the command run-functional-tests.ps1 from the scripts directory

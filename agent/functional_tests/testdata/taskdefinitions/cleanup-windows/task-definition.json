@@ -1,10 +1,13 @@
 {
-  "family": "ecsftest-savedstate-windows",
+  "family": "ecsftest-cleanup-windows",
   "containerDefinitions": [{
     "image": "microsoft/windowsservercore:latest",
-    "name": "savedstate-windows",
+    "name": "cleanup-windows",
     "cpu": 10,
     "memory": 10,
+    "portBindings": [{
+      "containerPort": 80
+    }],
     "entryPoint": ["powershell"],
     "command": ["sleep", "500"]
   }]

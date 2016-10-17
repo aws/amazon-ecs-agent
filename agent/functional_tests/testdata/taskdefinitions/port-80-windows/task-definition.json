@@ -1,7 +1,7 @@
 {
-  "family": "ecsftest-busybox-port-5180-windows",
+  "family": "ecsftest-port-80-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:listen80",
+    "image": "amazon/amazon-ecs-listen80",
     "name": "sleep",
     "portBindings": [{
       "containerPort": 80,

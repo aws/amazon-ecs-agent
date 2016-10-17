@@ -1,4 +1,5 @@
-// +build windows
+// +build windows,functional
+
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,93 +16,27 @@
 package functional_tests
 
 import (
-	//"bytes"
 	"fmt"
-	//"io/ioutil"
-	//"os"
-	//"path/filepath"
-	"reflect"
-	//"regexp"
-	//"strconv"
+	"os"
 	"strings"
 	"testing"
 	"time"
-	"os"
 
-	//"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
-	//"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	//"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	//docker "github.com/fsouza/go-dockerclient"
-	//"github.com/pborman/uuid"
 )
 
 const (
-	waitTaskStateChangeDuration     = 2 * time.Minute
-	waitMetricsInCloudwatchDuration = 4 * time.Minute
-	awslogsLogGroupName             = "ecs-functional-tests"
+	savedStateTaskDefinition        = "savedstate-windows"
+	portResContentionTaskDefinition = "port-80-windows"
+	labelsTaskDefinition            = "labels-windows"
+	logDriverTaskDefinition         = "logdriver-jsonfile-windows"
+	cleanupTaskDefinition           = "cleanup-windows"
+	networkModeTaskDefinition       = "network-mode-windows"
 )
-
-// TestRunManyTasks runs several tasks in short succession and expects them to
-// all run.
-func TestRunManyTasks(t *testing.T) {
-fmt.Println("starting")
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	numToRun := 1
-	tasks := []*TestTask{}
-	attemptsTaken := 0
-  fmt.Println("get td")
-	td, err := GetTaskDefinition("simple-exit-windows")
-	if err != nil {
-		t.Fatalf("Get task definition error: %v", err)
-	}
-	fmt.Println("Starting Tasks")
-  t.Logf("Starting Tasks")
-	for numRun := 0; len(tasks) < numToRun; attemptsTaken++ {
-		startNum := 1
-		if numToRun-len(tasks) < 10 {
-			startNum = numToRun - len(tasks)
-		}
-
-		startedTasks, err := agent.StartMultipleTasks(t, td, startNum)
-		if err != nil {
-			t.Error(err)
-		}
-		tasks = append(tasks, startedTasks...)
-		numRun += 10
-	}
-
-	t.Logf("Ran %v containers; took %v tries\n", numToRun, attemptsTaken)
-	for _, task := range tasks {
-		err := task.WaitStopped(10 * time.Minute)
-		if err != nil {
-			t.Error(err)
-		}
-		fmt.Println("Container exit cod:", os.Getenv("LASTEXITCODE"))
-		if code, ok := task.ContainerExitcode("exit"); !ok || code != 42 {
-			t.Error("Wrong exit code")
-		}
-	}
-}
-
-// TestPullInvalidImage verifies that an invalid image returns an error
-func TestPullInvalidImage(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	testTask, err := agent.StartTask(t, "invalid-image")
-	if err != nil {
-		t.Fatalf("Expected to start invalid-image task: %v", err)
-	}
-	if err = testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute); err != nil {
-		t.Error(err)
-	}
-}
 
 // This test addresses a deadlock issue which was noted in GH:313 and fixed
 // in GH:320. It runs a service with 10 containers, waits for cleanup, starts
@@ -119,13 +54,16 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 
 	// Run two Tasks after cleanup, as the deadlock does not consistently occur after
 	// after just one task cleanup cycle.
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 
 		// Start a task with ten containers
 		testTask, err := agent.StartTask(t, "ten-containers-windows")
 		if err != nil {
 			t.Fatalf("Cycle %d: There was an error starting the Task: %v", i, err)
 		}
+
+		// Added 1 minute delay to allow the task to be in running state - Required only on Windows
+		testTask.WaitRunning(1 * time.Minute)
 
 		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
 		if err != nil || !isTaskRunning {
@@ -159,137 +97,6 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 		if err == nil {
 			t.Fatalf("Cycle %d: Expected error inspecting container in task.", i)
 		}
-	}
-}
-
-// TestSavedState verifies that stopping the agent, stopping a container under
-// its control, and starting the agent results in that container being moved to
-// 'stopped'
-func TestSavedState(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	testTask, err := agent.StartTask(t, "savedstate-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testTask.WaitRunning(1 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	dockerId, err := agent.ResolveTaskDockerID(testTask, "savedstate-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = agent.StopAgent()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = agent.DockerClient.StopContainer(dockerId, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = agent.StartAgent()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testTask.WaitStopped(1 * time.Minute)
-}
-
-// TestPortResourceContention verifies that running two tasks on the same port
-// in quick-succession does not result in the second one failing to run. It
-// verifies the 'seqnum' serialization stuff works.
-func TestPortResourceContention(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	testTask, err := agent.StartTask(t, "busybox-port-5180-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testTask.WaitRunning(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testTask.Stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testTask2, err := agent.StartTask(t, "busybox-port-5180-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = testTask2.WaitRunning(4 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	testTask2.Stop()
-
-	go testTask.WaitStopped(2 * time.Minute)
-	testTask2.WaitStopped(2 * time.Minute)
-}
-
-
-func TestLabels(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.5.0")
-
-	task, err := agent.StartTask(t, "labels-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dockerId, err := agent.ResolveTaskDockerID(task, "labeled")
-	if err != nil {
-		t.Fatal(err)
-	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if container.Config.Labels["label1"] != "" || container.Config.Labels["com.foo.label2"] != "value" {
-		t.Fatalf("Labels did not match expected; expected to contain label1: com.foo.label2:value, got %v", container.Config.Labels)
-	}
-}
-
-func TestLogdriverOptions(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.5.0")
-
-	task, err := agent.StartTask(t, "logdriver-jsonfile-windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dockerId, err := agent.ResolveTaskDockerID(task, "exit")
-	if err != nil {
-		t.Fatal(err)
-	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if container.HostConfig.LogConfig.Type != "json-file" {
-		t.Errorf("Expected json-file type logconfig, was %v", container.HostConfig.LogConfig.Type)
-	}
-	if !reflect.DeepEqual(map[string]string{"max-file": "50", "max-size": "50k"}, container.HostConfig.LogConfig.Config) {
-		t.Errorf("Expected max-file:50 max-size:50k for logconfig options, got %v", container.HostConfig.LogConfig.Config)
 	}
 }
 
@@ -351,6 +158,8 @@ func TestAwslogsDriver(t *testing.T) {
 		})
 	}()
 
+	// Added a delay of 1 minute to allow the task to be stopped - Windows only.
+	testTask.WaitStopped(1 * time.Minute)
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
@@ -361,8 +170,89 @@ func TestAwslogsDriver(t *testing.T) {
 	}
 
 	if len(resp.Events) != 1 {
-		t.Errorf("Get unexpected number of log events: %d", len(resp.Events))
-	} else if *resp.Events[0].Message != "hello world" {
-		t.Errorf("Got log events message unexpected: %s", *resp.Events[0].Message)
+		t.Errorf("Get number of log events: %d", len(resp.Events))
 	}
+}
+
+func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
+	// The test runs only when the environment TEST_IAM_ROLE was set
+	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
+		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_TASK_IAM_ROLE isn't set true")
+	}
+
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+		},
+	}
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	taskIamRolesTest("", agent, t)
+}
+
+func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		if err != nil {
+			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
+		}
+		roleArn = *role.Arn
+	}
+
+	tdOverride := make(map[string]string)
+	tdOverride["$$$TASK_ROLE$$$"] = roleArn
+	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverride["$$$NETWORK_MODE$$$"] = networkMode
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "iam-roles-windows", tdOverride)
+	if err != nil {
+		t.Fatalf("Error start iam-roles task: %v", err)
+	}
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	if err != nil {
+		t.Fatalf("Error waiting for task to run: %v", err)
+	}
+	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole-windows")
+	if err != nil {
+		t.Fatalf("Error resolving docker id for container in task: %v", err)
+	}
+
+	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("Could not inspect container for task: %v", err)
+	}
+	iamRoleEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI=") {
+				iamRoleEnabled = true
+				break
+			}
+		}
+	}
+	if !iamRoleEnabled {
+		task.Stop()
+		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container envrionment variable")
+	}
+
+	// Task will only run one command "aws ec2 describe-regions"
+	err = task.WaitStopped(2 * time.Minute)
+	if err != nil {
+		t.Fatalf("Waiting task to stop error : %v", err)
+	}
+
+	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("Could not inspect container for task: %v", err)
+	}
+
+	if containerMetaData.State.ExitCode != 42 {
+		t.Fatalf("Container exit code non-zero: %v", containerMetaData.State.ExitCode)
+	}
+
 }
