@@ -74,7 +74,7 @@ type ECSSubmitStateSDK interface {
 }
 
 // ApiECSClient implements ECSClient
-type ApiECSClient struct {
+type APIECSClient struct {
 	credentialProvider      *credentials.Credentials
 	config                  *config.Config
 	standardClient          ECSSDK
@@ -84,13 +84,13 @@ type ApiECSClient struct {
 
 // SetSDK overrides the SDK to the given one. This is useful for injecting a
 // test implementation
-func (client *ApiECSClient) SetSDK(sdk ECSSDK) {
+func (client *APIECSClient) SetSDK(sdk ECSSDK) {
 	client.standardClient = sdk
 }
 
 // SetSubmitStateChangeSDK overrides the SDK to the given one. This is useful
 // for injecting a test implementation
-func (client *ApiECSClient) SetSubmitStateChangeSDK(sdk ECSSubmitStateSDK) {
+func (client *APIECSClient) SetSubmitStateChangeSDK(sdk ECSSubmitStateSDK) {
 	client.submitStateChangeClient = sdk
 }
 
@@ -112,7 +112,7 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	}
 	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
-	return &ApiECSClient{
+	return &APIECSClient{
 		credentialProvider:      credentialProvider,
 		config:                  config,
 		standardClient:          standardClient,
@@ -136,7 +136,7 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 // CreateCluster creates a cluster from a given name and returns its arn
-func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
+func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 	resp, err := client.standardClient.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
 		log.Crit("Could not register", "err", err)
@@ -146,7 +146,7 @@ func (client *ApiECSClient) CreateCluster(clusterName string) (string, error) {
 	return *resp.Cluster.ClusterName, nil
 }
 
-func (client *ApiECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []string) (string, error) {
+func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []string) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -171,7 +171,7 @@ func (client *ApiECSClient) RegisterContainerInstance(containerInstanceArn strin
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes)
 }
 
-func (client *ApiECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
+func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	if containerInstanceArn != "" {
 		registerRequest.ContainerInstanceArn = &containerInstanceArn
@@ -243,7 +243,7 @@ func (client *ApiECSClient) registerContainerInstance(clusterRef string, contain
 	return *resp.ContainerInstance.ContainerInstanceArn, nil
 }
 
-func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) error {
+func (client *APIECSClient) SubmitTaskStateChange(change TaskStateChange) error {
 	if change.Status == TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
 		return errors.New("SubmitTaskStateChange called with an invalid change")
@@ -269,7 +269,7 @@ func (client *ApiECSClient) SubmitTaskStateChange(change TaskStateChange) error 
 	return nil
 }
 
-func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChange) error {
+func (client *APIECSClient) SubmitContainerStateChange(change ContainerStateChange) error {
 	req := ecs.SubmitContainerStateChangeInput{
 		Cluster:       &client.config.Cluster,
 		Task:          &change.TaskArn,
@@ -319,7 +319,7 @@ func (client *ApiECSClient) SubmitContainerStateChange(change ContainerStateChan
 	return nil
 }
 
-func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
+func (client *APIECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
 	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           &client.config.Cluster,
@@ -331,7 +331,7 @@ func (client *ApiECSClient) DiscoverPollEndpoint(containerInstanceArn string) (s
 	return *resp.Endpoint, nil
 }
 
-func (client *ApiECSClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
+func (client *APIECSClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
 	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           &client.config.Cluster,

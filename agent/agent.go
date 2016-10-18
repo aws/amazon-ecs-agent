@@ -263,7 +263,7 @@ func _main() int {
 		ContainerChangeEventStream:    containerChangeEventStream,
 		DockerClient:                  dockerClient,
 		AcceptInvalidCert:             *acceptInsecureCert,
-		EcsClient:                     client,
+		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
 	}
 

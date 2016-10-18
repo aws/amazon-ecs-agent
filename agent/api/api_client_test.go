@@ -40,8 +40,8 @@ func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient) (
 	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
-	client.(*api.ApiECSClient).SetSDK(mockSDK)
-	client.(*api.ApiECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
+	client.(*api.APIECSClient).SetSDK(mockSDK)
+	client.(*api.APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
 	return client, mockSDK, mockSubmitStateSDK
 }
 
@@ -299,7 +299,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	// Test the special 'empty cluster' behavior of creating 'default'
 	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient, mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
-	client.(*api.ApiECSClient).SetSDK(mc)
+	client.(*api.APIECSClient).SetSDK(mc)
 
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(

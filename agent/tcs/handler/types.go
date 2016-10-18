@@ -33,7 +33,7 @@ type TelemetrySessionParams struct {
 	ContainerChangeEventStream    *eventstream.EventStream
 	DockerClient                  engine.DockerClient
 	AcceptInvalidCert             bool
-	EcsClient                     api.ECSClient
+	ECSClient                     api.ECSClient
 	TaskEngine                    engine.TaskEngine
 	_time                         ttime.Time
 	_timeOnce                     sync.Once
