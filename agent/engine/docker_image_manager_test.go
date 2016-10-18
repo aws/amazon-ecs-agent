@@ -65,7 +65,6 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	if !reflect.DeepEqual(sourceImageState, imageState) {
 		t.Error("Mismatch between added and retrieved image state")
 	}
-	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
 	err = imageManager.RemoveContainerReferenceFromImageState(container)
 	if err != nil {
 		t.Error("Error removing container reference from image state")
@@ -176,8 +175,9 @@ func TestAddContainerReferenceToExistingImageState(t *testing.T) {
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewDockerTaskEngineState()}
 	imageID := "sha256:qwerty"
 	container := &api.Container{
-		Name:  "testContainer",
-		Image: "testContainerImage",
+		Name:    "testContainer",
+		Image:   "testContainerImage",
+		ImageID: imageID,
 	}
 	sourceImage := &image.Image{
 		ImageID: imageID,
@@ -194,7 +194,7 @@ func TestAddContainerReferenceToExistingImageState(t *testing.T) {
 	sourceImageState1.AddImageName("testContainerImage")
 	imageManager.addImageState(sourceImageState)
 	imageManager.addImageState(sourceImageState1)
-	if !imageManager.addContainerReferenceToExistingImageState(container, imageID) {
+	if !imageManager.addContainerReferenceToExistingImageState(container) {
 		t.Error("Error in adding container to an already existing image state")
 	}
 	if !reflect.DeepEqual(sourceImageState.Containers[0], container) {
@@ -210,12 +210,12 @@ func TestAddContainerReferenceToExistingImageStateNoState(t *testing.T) {
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewDockerTaskEngineState()}
-	imageID := "sha256:qwerty"
 	container := &api.Container{
-		Name:  "testContainer",
-		Image: "testContainerImage",
+		Name:    "testContainer",
+		Image:   "testContainerImage",
+		ImageID: "sha256:qwerty",
 	}
-	if imageManager.addContainerReferenceToExistingImageState(container, imageID) {
+	if imageManager.addContainerReferenceToExistingImageState(container) {
 		t.Error("Error adding container to an incorrect existing image state")
 	}
 }
@@ -229,10 +229,11 @@ func TestAddContainerReferenceToNewImageState(t *testing.T) {
 	var imageSize int64
 	imageSize = 18767
 	container := &api.Container{
-		Name:  "testContainer",
-		Image: "testContainerImage",
+		Name:    "testContainer",
+		Image:   "testContainerImage",
+		ImageID: imageID,
 	}
-	imageManager.addContainerReferenceToNewImageState(container, imageID, imageSize)
+	imageManager.addContainerReferenceToNewImageState(container, imageSize)
 	_, ok := imageManager.getImageState(imageID)
 	if !ok {
 		t.Error("Error adding container reference to new image state")
@@ -248,8 +249,9 @@ func TestAddContainerReferenceToNewImageStateAddedState(t *testing.T) {
 	var imageSize int64
 	imageSize = 18767
 	container := &api.Container{
-		Name:  "testContainer",
-		Image: "testContainerImage",
+		Name:    "testContainer",
+		Image:   "testContainerImage",
+		ImageID: imageID,
 	}
 	sourceImage := &image.Image{
 		ImageID: imageID,
@@ -266,7 +268,7 @@ func TestAddContainerReferenceToNewImageStateAddedState(t *testing.T) {
 	sourceImageState1.AddImageName("testContainerImage")
 	imageManager.addImageState(sourceImageState)
 	imageManager.addImageState(sourceImageState1)
-	imageManager.addContainerReferenceToNewImageState(container, imageID, imageSize)
+	imageManager.addContainerReferenceToNewImageState(container, imageSize)
 	if !reflect.DeepEqual(sourceImageState.Containers[0], container) {
 		t.Error("Incorrect container added to an already existing image state")
 	}

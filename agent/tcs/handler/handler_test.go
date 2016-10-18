@@ -92,7 +92,7 @@ func TestStartSession(t *testing.T) {
 		wait.Done()
 	}()
 	defer func() {
-		closeWS <- true
+		close(closeWS)
 		close(serverChan)
 	}()
 
@@ -148,7 +148,7 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	sleepBeforeClose := 10 * time.Millisecond
 	go func() {
 		time.Sleep(sleepBeforeClose)
-		closeWS <- true
+		close(closeWS)
 		close(serverChan)
 	}()
 
@@ -197,7 +197,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	assert.Error(t, err, "Close the connection should cause the tcs client return error")
 	assert.EqualError(t, <-serverErr, io.ErrUnexpectedEOF.Error(), "Read from closed connection should got io.UnexpectedEOF error")
 
-	closeWS <- true
+	close(closeWS)
 }
 
 func TestDiscoverEndpointAndStartSession(t *testing.T) {

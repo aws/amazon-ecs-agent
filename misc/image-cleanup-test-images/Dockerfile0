@@ -18,4 +18,4 @@ RUN date > boo.txt
 
 ENTRYPOINT ["sh","-c"]
 
-CMD ["sleep", "30"]
+CMD ["sleep 5"]

@@ -324,6 +324,16 @@ func (_mr *_MockDockerClientRecorder) SupportedVersions() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SupportedVersions")
 }
 
+func (_m *MockDockerClient) TagImage(_param0 string, _param1 go_dockerclient.TagImageOptions, _param2 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "TagImage", _param0, _param1, _param2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) TagImage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TagImage", arg0, arg1, arg2)
+}
+
 func (_m *MockDockerClient) Version() (string, error) {
 	ret := _m.ctrl.Call(_m, "Version")
 	ret0, _ := ret[0].(string)

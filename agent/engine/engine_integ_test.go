@@ -16,7 +16,6 @@ package engine
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -1175,31 +1174,38 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	}
 }
 
-func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTask *api.Task) error {
+func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
 	for {
 		select {
 		case taskEvent := <-taskEvents:
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			if taskEvent.Status == api.TaskRunning {
-				return nil
-			} else if taskEvent.Status > api.TaskRunning {
-				return errors.New("Task went straight to " + taskEvent.Status.String() + " without running")
+			for i, task := range testTasks {
+				if taskEvent.TaskArn != task.Arn {
+					continue
+				}
+				if taskEvent.Status == api.TaskRunning {
+					if len(testTasks) == 1 {
+						return nil
+					}
+					testTasks = append(testTasks[:i], testTasks[i+1:]...)
+				} else if taskEvent.Status > api.TaskRunning {
+					return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
+				}
 			}
 		}
 	}
 }
 
-func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTask *api.Task) {
+func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) {
 	for {
 		select {
 		case taskEvent := <-taskEvents:
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			if taskEvent.Status >= api.TaskStopped {
-				return
+			for i, task := range testTasks {
+				if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
+					if len(testTasks) == 1 {
+						return
+					}
+					testTasks = append(testTasks[:i], testTasks[i+1:]...)
+				}
 			}
 		}
 	}

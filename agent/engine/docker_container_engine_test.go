@@ -931,3 +931,78 @@ func TestRemoveImage(t *testing.T) {
 		t.Errorf("Did not expect error")
 	}
 }
+
+func TestTagImage(t *testing.T) {
+	mockDocker, client, testTime, done := dockerClientSetup(t)
+	defer done()
+
+	tagImageOption := docker.TagImageOptions{
+		Repo:  "repo",
+		Tag:   "tag",
+		Force: false,
+	}
+
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
+	mockDocker.EXPECT().TagImage("image", gomock.Any()).Return(nil)
+
+	err := client.TagImage("image", tagImageOption, imageTagTimeout)
+	if err != nil {
+		t.Errorf("Did not expect error")
+	}
+}
+
+func TestTagImageTimeout(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+
+	tagImageOption := docker.TagImageOptions{
+		Repo:  "repo",
+		Tag:   "tag",
+		Force: false,
+	}
+
+	mockDocker.EXPECT().TagImage("image", gomock.Any()).Do(func(x, y interface{}) {
+		wait.Wait()
+	})
+	err := client.TagImage("image", tagImageOption, 2*time.Millisecond)
+	if err == nil {
+		t.Errorf("Expected error for remove image timeout")
+	}
+	wait.Done()
+}
+
+func TestTagImageWithContext(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	tagImageOption := docker.TagImageOptions{
+		Repo:    "repo",
+		Tag:     "tag",
+		Force:   false,
+		Context: ctx,
+	}
+
+	invoked := make(chan struct{}, 1)
+	mockDocker.EXPECT().TagImage("image", tagImageOption).Do(func(x, y interface{}) {
+		invoked <- struct{}{}
+		wait.Wait()
+	})
+
+	go func() {
+		<-invoked
+		cancel()
+	}()
+
+	err := client.TagImage("image", tagImageOption, 1*time.Hour)
+	if err == nil {
+		t.Errorf("Expected error for canceling operation")
+	}
+	wait.Done()
+}

@@ -224,6 +224,7 @@ type ContainerOverrides struct {
 type Container struct {
 	Name                   string
 	Image                  string
+	ImageID                string
 	Command                []string
 	Cpu                    uint
 	Memory                 uint
