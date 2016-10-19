@@ -86,6 +86,8 @@ func (imageManager *dockerImageManager) AddAllImageStates(imageStates []*image.I
 
 // AddContainerReferenceToImageState adds container reference to the corresponding imageState object
 func (imageManager *dockerImageManager) AddContainerReferenceToImageState(container *api.Container) error {
+	// the image state has been updated, save the new state
+	defer imageManager.saver.ForceSave()
 	// ImageState restored from agent state file
 	if container.ImageID != "" {
 		if !imageManager.addContainerReferenceToExistingImageState(container) {
@@ -151,6 +153,8 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 
 // RemoveContainerReferenceFromImageState removes container reference from the corresponding imageState object
 func (imageManager *dockerImageManager) RemoveContainerReferenceFromImageState(container *api.Container) error {
+	// the image state has been updated, save the new state
+	defer imageManager.saver.ForceSave()
 	// this lock is for reading image states and finding the one that the container belongs to
 	imageManager.updateLock.RLock()
 	defer imageManager.updateLock.RUnlock()
