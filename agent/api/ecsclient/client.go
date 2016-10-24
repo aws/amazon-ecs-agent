@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package ecsclient
 
 import (
 	"errors"
@@ -19,90 +19,40 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/async"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/cihub/seelog"
 	"github.com/docker/docker/pkg/system"
+)
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+const (
+	ecsMaxReasonLength    = 255
+	pollEndpointCacheSize = 1
+	pollEndpointCacheTTL  = 20 * time.Minute
+	RoundtripTimeout      = 5 * time.Second
 )
 
 var log = logger.ForModule("api client")
 
-// ECSClient is an interface over the ECSSDK interface which abstracts away some
-// details around constructing the request and reading the response down to the
-// parts the agent cares about.
-// For example, the ever-present 'Cluster' member is abstracted out so that it
-// may be configured once and used throughout transparently.
-type ECSClient interface {
-	// RegisterContainerInstance calculates the appropriate resources, creates
-	// the default cluster if necessary, and returns the registered
-	// ContainerInstanceARN if successful. Supplying a non-empty container
-	// instance ARN allows a container instance to update its registered
-	// resources.
-	RegisterContainerInstance(existingContainerInstanceArn string, attributes []string) (string, error)
-	// SubmitTaskStateChange sends a state change and returns an error
-	// indicating if it was submitted
-	SubmitTaskStateChange(change TaskStateChange) error
-	// SubmitContainerStateChange sends a state change and returns an error
-	// indicating if it was submitted
-	SubmitContainerStateChange(change ContainerStateChange) error
-	// DiscoverPollEndpoint takes a ContainerInstanceARN and returns the
-	// endpoint at which this Agent should contact ACS
-	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
-	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
-	// endpoint at which this Agent should contact Telemetry Service
-	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
-}
-
-// ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
-// client that the Agent uses.  This interface is meant to allow injecting a
-// mock for testing.
-type ECSSDK interface {
-	CreateCluster(*ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error)
-	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
-	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
-}
-
-type ECSSubmitStateSDK interface {
-	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
-	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
-}
-
-// ApiECSClient implements ECSClient
+// APIECSClient implements ECSClient
 type APIECSClient struct {
 	credentialProvider      *credentials.Credentials
 	config                  *config.Config
-	standardClient          ECSSDK
-	submitStateChangeClient ECSSubmitStateSDK
+	standardClient          api.ECSSDK
+	submitStateChangeClient api.ECSSubmitStateSDK
 	ec2metadata             ec2.EC2MetadataClient
+	pollEndpoinCache        async.Cache
 }
 
-// SetSDK overrides the SDK to the given one. This is useful for injecting a
-// test implementation
-func (client *APIECSClient) SetSDK(sdk ECSSDK) {
-	client.standardClient = sdk
-}
-
-// SetSubmitStateChangeSDK overrides the SDK to the given one. This is useful
-// for injecting a test implementation
-func (client *APIECSClient) SetSubmitStateChangeSDK(sdk ECSSubmitStateSDK) {
-	client.submitStateChangeClient = sdk
-}
-
-const (
-	ECS_SERVICE = "ecs"
-
-	EcsMaxReasonLength = 255
-
-	RoundtripTimeout = 5 * time.Second
-)
-
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client, ec2MetadataClient ec2.EC2MetadataClient) ECSClient {
+func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, httpClient *http.Client, ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
@@ -112,27 +62,27 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 	}
 	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
+	pollEndpoinCache := async.NewLRUCache(pollEndpointCacheSize, pollEndpointCacheTTL)
 	return &APIECSClient{
 		credentialProvider:      credentialProvider,
 		config:                  config,
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,
+		pollEndpoinCache:        pollEndpoinCache,
 	}
 }
 
-func getCpuAndMemory() (int64, int64) {
-	memInfo, err := system.ReadMemInfo()
-	mem := int64(0)
-	if err == nil {
-		mem = memInfo.MemTotal / 1024 / 1024 // MiB
-	} else {
-		log.Error("Unable to get memory info", "err", err)
-	}
+// SetSDK overrides the SDK to the given one. This is useful for injecting a
+// test implementation
+func (client *APIECSClient) SetSDK(sdk api.ECSSDK) {
+	client.standardClient = sdk
+}
 
-	cpu := runtime.NumCPU() * 1024
-
-	return int64(cpu), mem
+// SetSubmitStateChangeSDK overrides the SDK to the given one. This is useful
+// for injecting a test implementation
+func (client *APIECSClient) SetSubmitStateChangeSDK(sdk api.ECSSubmitStateSDK) {
+	client.submitStateChangeClient = sdk
 }
 
 // CreateCluster creates a cluster from a given name and returns its arn
@@ -243,13 +193,27 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	return *resp.ContainerInstance.ContainerInstanceArn, nil
 }
 
-func (client *APIECSClient) SubmitTaskStateChange(change TaskStateChange) error {
-	if change.Status == TaskStatusNone {
+func getCpuAndMemory() (int64, int64) {
+	memInfo, err := system.ReadMemInfo()
+	mem := int64(0)
+	if err == nil {
+		mem = memInfo.MemTotal / 1024 / 1024 // MiB
+	} else {
+		log.Error("Unable to get memory info", "err", err)
+	}
+
+	cpu := runtime.NumCPU() * 1024
+
+	return int64(cpu), mem
+}
+
+func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
+	if change.Status == api.TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
 		return errors.New("SubmitTaskStateChange called with an invalid change")
 	}
 
-	if change.Status != TaskRunning && change.Status != TaskStopped {
+	if change.Status != api.TaskRunning && change.Status != api.TaskStopped {
 		log.Debug("Not submitting unsupported upstream task state", "state", change.Status.String())
 		// Not really an error
 		return nil
@@ -269,15 +233,15 @@ func (client *APIECSClient) SubmitTaskStateChange(change TaskStateChange) error 
 	return nil
 }
 
-func (client *APIECSClient) SubmitContainerStateChange(change ContainerStateChange) error {
+func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
 	req := ecs.SubmitContainerStateChangeInput{
 		Cluster:       &client.config.Cluster,
 		Task:          &change.TaskArn,
 		ContainerName: &change.ContainerName,
 	}
 	if change.Reason != "" {
-		if len(change.Reason) > EcsMaxReasonLength {
-			trimmed := change.Reason[0:EcsMaxReasonLength]
+		if len(change.Reason) > ecsMaxReasonLength {
+			trimmed := change.Reason[0:ecsMaxReasonLength]
 			req.Reason = &trimmed
 		} else {
 			req.Reason = &change.Reason
@@ -320,22 +284,16 @@ func (client *APIECSClient) SubmitContainerStateChange(change ContainerStateChan
 }
 
 func (client *APIECSClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
-		ContainerInstance: &containerInstanceArn,
-		Cluster:           &client.config.Cluster,
-	})
+	resp, err := client.discoverPollEndpoint(containerInstanceArn)
 	if err != nil {
 		return "", err
 	}
 
-	return *resp.Endpoint, nil
+	return aws.StringValue(resp.Endpoint), nil
 }
 
 func (client *APIECSClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
-		ContainerInstance: &containerInstanceArn,
-		Cluster:           &client.config.Cluster,
-	})
+	resp, err := client.discoverPollEndpoint(containerInstanceArn)
 	if err != nil {
 		return "", err
 	}
@@ -343,5 +301,30 @@ func (client *APIECSClient) DiscoverTelemetryEndpoint(containerInstanceArn strin
 		return "", errors.New("No telemetry endpoint returned; nil")
 	}
 
-	return *resp.TelemetryEndpoint, nil
+	return aws.StringValue(resp.TelemetryEndpoint), nil
+}
+
+func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*ecs.DiscoverPollEndpointOutput, error) {
+	// Try getting an entry from the cache
+	cachedEndpoint, found := client.pollEndpoinCache.Get(containerInstanceArn)
+	if found {
+		// Cache hit. Return the output.
+		if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
+			return output, nil
+		}
+	}
+
+	// Cache miss, invoke the ECS DiscoverPollEndpoint API.
+	seelog.Debugf("Invoking DiscoverPollEndpoint for '%s'", containerInstanceArn)
+	output, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
+		ContainerInstance: &containerInstanceArn,
+		Cluster:           &client.config.Cluster,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the response from ECS.
+	client.pollEndpoinCache.Set(containerInstanceArn, output)
+	return output, nil
 }
