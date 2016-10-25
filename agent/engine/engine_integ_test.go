@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
@@ -71,6 +72,7 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewDockerTaskEngineState()
 	imageManager := NewImageManager(cfg, dockerClient, state)
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
 	taskEngine.Init()
@@ -1162,7 +1164,8 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.DesiredStatus = api.TaskStopped
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	fmt.Println("*****Stopping the task")
 	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {

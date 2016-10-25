@@ -311,7 +311,6 @@ func TestRemoveEvents(t *testing.T) {
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
 	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
-	taskEngine.AddTask(sleepTaskStop)
 
 	// Expect a bunch of steady state 'poll' describes when we warp 4 hours
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
@@ -325,6 +324,7 @@ func TestRemoveEvents(t *testing.T) {
 			eventStream <- dockerEvent(api.ContainerStopped)
 		}).Return(nil)
 
+	taskEngine.AddTask(sleepTaskStop)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 	// trigger cleanup
 	cleanup <- time.Now()

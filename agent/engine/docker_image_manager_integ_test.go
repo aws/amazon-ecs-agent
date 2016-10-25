@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	dockerEndPoint            = "unix:///var/run/docker.sock"
 	imageRemovalTimeout       = 30 * time.Second
 	taskCleanupTimeoutSeconds = 30
 
@@ -40,6 +41,10 @@ const (
 )
 
 const credentialsIDIntegTest = "credsid"
+
+func newDockerClient() (*docker.Client, error) {
+	return docker.NewClient(dockerEndPoint)
+}
 
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -294,7 +299,13 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
-	goDockerClient := taskEngine.(*DockerTaskEngine).client
+	dockerClient := taskEngine.(*DockerTaskEngine).client
+
+	// DockerClient doesn't implement TagImage, create a go docker client
+	goDockerClient, err := newDockerClient()
+	if err != nil {
+		t.Errorf("Creating go docker client failed, err: %v", err)
+	}
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -303,20 +314,20 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	defer discardEvents(containerEvents)()
 
 	// Pull the images needed for the test
-	if _, err := goDockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
-		metadata := goDockerClient.PullImage(testImage1Name, nil)
+	if _, err := dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(testImage1Name, nil)
 		if metadata.Error != nil {
 			t.Errorf("Failed to pull image %s", testImage1Name)
 		}
 	}
-	if _, err := goDockerClient.InspectImage(testImage2Name); err == docker.ErrNoSuchImage {
-		metadata := goDockerClient.PullImage(testImage2Name, nil)
+	if _, err := dockerClient.InspectImage(testImage2Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(testImage2Name, nil)
 		if metadata.Error != nil {
 			t.Errorf("Failed to pull image %s", testImage2Name)
 		}
 	}
-	if _, err := goDockerClient.InspectImage(testImage3Name); err == docker.ErrNoSuchImage {
-		metadata := goDockerClient.PullImage(testImage3Name, nil)
+	if _, err := dockerClient.InspectImage(testImage3Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(testImage3Name, nil)
 		if metadata.Error != nil {
 			t.Errorf("Failed to pull image %s", testImage3Name)
 		}
@@ -332,7 +343,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	task2.Containers[0].Image = identicalImageName
 	task3.Containers[0].Image = identicalImageName
 
-	err := renameImage(testImage1Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
+	err = renameImage(testImage1Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	if err != nil {
 		t.Errorf("Renaming the image failed, err: %v", err)
 	}
@@ -468,7 +479,13 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
-	goDockerClient := taskEngine.(*DockerTaskEngine).client
+	dockerClient := taskEngine.(*DockerTaskEngine).client
+
+	// DockerClient doesn't implement TagImage, so create a go docker client
+	goDockerClient, err := newDockerClient()
+	if err != nil {
+		t.Errorf("Creating docker client failed, err: %v", err)
+	}
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -485,15 +502,15 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	task3.Containers[0].Image = "testimagewithsameidanddifferentnames-3:latest"
 
 	// Pull the images needed for the test
-	if _, err := goDockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
-		metadata := goDockerClient.PullImage(testImage1Name, nil)
+	if _, err = dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(testImage1Name, nil)
 		if metadata.Error != nil {
 			t.Errorf("Failed to pull image %s", testImage1Name)
 		}
 	}
 
 	// Using testImage1Name for all the tasks but with different name
-	err := renameImage(testImage1Name, "testimagewithsameidanddifferentnames-1", "latest", goDockerClient)
+	err = renameImage(testImage1Name, "testimagewithsameidanddifferentnames-1", "latest", goDockerClient)
 	if err != nil {
 		t.Fatalf("Renaming image failed, err: %v", err)
 	}
@@ -518,7 +535,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 		Repo:  "testimagewithsameidanddifferentnames-2",
 		Tag:   "latest",
 		Force: false,
-	}, 1*time.Second)
+	})
 	if err != nil {
 		t.Errorf("Trying to copy image failed, err: %v", err)
 	}
@@ -546,7 +563,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 		Repo:  "testimagewithsameidanddifferentnames-3",
 		Tag:   "latest",
 		Force: false,
-	}, 1*time.Second)
+	})
 	if err != nil {
 		t.Errorf("Trying to copy image failed, err: %v", err)
 	}
@@ -609,18 +626,18 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 }
 
 // renameImage retag the image and delete the original tag
-func renameImage(original, repo, tag string, client DockerClient) error {
+func renameImage(original, repo, tag string, client *docker.Client) error {
 	err := client.TagImage(original, docker.TagImageOptions{
 		Repo:  repo,
 		Tag:   tag,
 		Force: false,
-	}, 1*time.Second)
+	})
 	if err != nil {
 		return fmt.Errorf("Trying to tag image failed, err: %v", err)
 	}
 
 	// delete the original tag
-	err = client.RemoveImage(original, imageRemovalTimeout)
+	err = client.RemoveImage(original)
 	if err != nil {
 		return fmt.Errorf("Failed to remove the original tag of the image: %s", original)
 	}

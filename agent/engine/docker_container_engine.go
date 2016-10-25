@@ -16,7 +16,6 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -31,7 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 
@@ -53,7 +51,6 @@ const (
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
 	removeImageTimeout      = 3 * time.Minute
-	imageTagTimeout         = 30 * time.Second
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work
@@ -93,7 +90,6 @@ type DockerClient interface {
 	Version() (string, error)
 	InspectImage(string) (*docker.Image, error)
 	RemoveImage(string, time.Duration) error
-	TagImage(string, docker.TagImageOptions, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -837,36 +833,4 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
-}
-
-func (dg *dockerGoClient) TagImage(name string, options docker.TagImageOptions, imageTagTimeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), imageTagTimeout)
-	defer cancel()
-
-	if utils.ZeroOrNil(options.Context) {
-		options.Context = ctx
-	} else {
-		ctx = options.Context
-	}
-
-	response := make(chan error, 1)
-	go func() {
-		response <- dg.tagImage(name, options)
-	}()
-
-	select {
-	case resp := <-response:
-		return resp
-	case <-ctx.Done():
-		return fmt.Errorf("Tag image context returned: %v", ctx.Err())
-	}
-}
-
-func (dg *dockerGoClient) tagImage(name string, options docker.TagImageOptions) error {
-	client, err := dg.dockerClient()
-	if err != nil {
-		return err
-	}
-
-	return client.TagImage(name, options)
 }

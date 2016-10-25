@@ -218,16 +218,6 @@ func (_mr *_MockClientRecorder) StopContainerWithContext(arg0, arg1, arg2 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StopContainerWithContext", arg0, arg1, arg2)
 }
 
-func (_m *MockClient) TagImage(_param0 string, _param1 go_dockerclient.TagImageOptions) error {
-	ret := _m.ctrl.Call(_m, "TagImage", _param0, _param1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockClientRecorder) TagImage(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "TagImage", arg0, arg1)
-}
-
 func (_m *MockClient) Version() (*go_dockerclient.Env, error) {
 	ret := _m.ctrl.Call(_m, "Version")
 	ret0, _ := ret[0].(*go_dockerclient.Env)
