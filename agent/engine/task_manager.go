@@ -271,9 +271,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			llog.Info("Error while pulling container; will try to run anyways", "err", event.Error)
 		} else {
 			llog.Warn("Error with docker; stopping container", "container", container, "err", event.Error)
+			// Leave the container known status as it is when encountered transition error,
+			// as we are not sure if the container status changed or not, we will get the actual
+			// status change from the docker event stream
+			container.SetKnownStatus(currentKnownStatus)
 			container.SetDesiredStatus(api.ContainerStopped)
-			// the above 'knownstatus' is not truthful because of the error
-			// No point in emitting it, just continue on to stopped
+			// Container known status not changed, no need for further processing
 			return
 		}
 	}
@@ -444,7 +447,11 @@ func (mtask *managedTask) progressContainers() {
 	}
 	log.Debug("Done transitioning all containers for task", "task", mtask.Task)
 
-	mtask.UpdateStatus()
+	if mtask.UpdateStatus() {
+		log.Debug("Container change also resulted in task change")
+		// If knownStatus changed, let it be known
+		mtask.engine.emitTaskEvent(mtask.Task, "")
+	}
 }
 
 func (mtask *managedTask) time() ttime.Time {
