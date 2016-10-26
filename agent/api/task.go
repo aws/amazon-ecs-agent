@@ -129,22 +129,12 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 
 // ContainerByName returns the *Container for the given name
 func (task *Task) ContainerByName(name string) (*Container, bool) {
-	container, ok := task.getContainersByName()[name]
-	return container, ok
-}
-
-func (task *Task) getContainersByName() map[string]*Container {
-	task.containersByNameLock.Lock()
-	defer task.containersByNameLock.Unlock()
-
-	if task.containersByName != nil {
-		return task.containersByName
-	}
-	task.containersByName = make(map[string]*Container)
 	for _, container := range task.Containers {
-		task.containersByName[container.Name] = container
+		if container.Name == name {
+			return container, true
+		}
 	}
-	return task.containersByName
+	return nil, false
 }
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
@@ -232,10 +222,6 @@ func (task *Task) Overridden() *Task {
 	// Task has no overrides currently, just do the containers
 
 	// Shallow copy, take care of the deeper bits too
-	result.containersByNameLock.Lock()
-	result.containersByName = make(map[string]*Container)
-	result.containersByNameLock.Unlock()
-
 	result.Containers = make([]*Container, len(result.Containers))
 	for i, cont := range task.Containers {
 		result.Containers[i] = cont.Overridden()

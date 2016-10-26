@@ -15,7 +15,10 @@
 
 package api
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform() {
@@ -28,16 +31,18 @@ func (task *Task) adjustForPlatform() {
 func (task *Task) downcaseAllVolumePaths() {
 	for _, volume := range task.Volumes {
 		if hostVol, ok := volume.Volume.(*FSHostVolume); ok {
-			hostVol.FSSourcePath = strings.ToLower(hostVol.FSSourcePath)
+			hostVol.FSSourcePath = getCanonicalPath(hostVol.FSSourcePath)
 		}
 	}
 	for _, container := range task.Containers {
-		for _, mountPoint := range container.MountPoints {
-			mountPoint.ContainerPath = strings.ToLower(mountPoint.ContainerPath)
+		for i, mountPoint := range container.MountPoints {
+			// container.MountPoints is a slice of values, not a slice of pointers so
+			// we need to mutate the actual value instead of the copied value
+			container.MountPoints[i].ContainerPath = getCanonicalPath(mountPoint.ContainerPath)
 		}
 	}
 }
 
 func getCanonicalPath(path string) string {
-	return strings.ToLower(path)
+	return filepath.Clean(strings.ToLower(path))
 }
