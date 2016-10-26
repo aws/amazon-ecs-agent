@@ -29,7 +29,7 @@ $ iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIREC
 $ # Run the agent
 $ docker run --name ecs-agent \
     --detach=true \
-    --restart=on-failure:10 -d \
+    --restart=on-failure:10 \
     --volume=/var/run/docker.sock:/var/run/docker.sock \
     --volume=/var/log/ecs:/log \
     --volume=/var/lib/ecs/data:/data \
