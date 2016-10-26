@@ -382,16 +382,6 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{
 			Error: &DockerTimeoutError{},
 		})
-
-		// Expect it to try to stop the container before going on;
-		// in the future the agent might optimize to not stop unless the known
-		// status is running, at which point this can be safely removed
-		client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{
-			Error: CannotXContainerError{
-				transition: "start",
-				msg:        "Cannot start",
-			},
-		})
 	}
 
 	err := taskEngine.Init()
@@ -707,6 +697,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 			duration:   stopContainerTimeout,
 		},
 	}
+	dockerEventSent := make(chan int)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
@@ -731,25 +722,27 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		// StartContainer returns timeout error. This should cause the engine
 		// to transition the task to STOPPED and to stop all containers of
 		// the task
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{
-			Error: &DockerTimeoutError{},
-		})
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+			func(id string, timeout time.Duration) {
+				go func() {
+					eventStream <- dockerEvent(api.ContainerRunning)
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		gomock.InOrder(
 			// StopContainer times out as well
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(
-				func(id string, timeout time.Duration) {
-					// Simulate docker actually stopping the container even though
-					// StopContainer in container engine times out
-					go func() {
-						eventStream <- dockerEvent(api.ContainerStopped)
-					}()
-				}).Return(containerStopTimeoutError),
+			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError),
 			// Since task is not in steady state, progressContainers causes
 			// another invocation of StopContainer. Return a timeout error
 			// for that as well
 			// TODO change AnyTimes() to MinTimes(1) after updating gomock
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError).AnyTimes(),
+			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(
+				func(id string, timeout time.Duration) {
+					go func() {
+						dockerEventSent <- 1
+						eventStream <- dockerEvent(api.ContainerStopped)
+					}()
+				}).Return(containerStopTimeoutError).AnyTimes(),
 		)
 	}
 
@@ -759,20 +752,54 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		t.Fatalf("Error getting event streams from engine: %v", err)
 	}
 
-	taskEngine.AddTask(sleepTask)
-
-	// Expect it to go to stopped
+	go taskEngine.AddTask(sleepTask)
+	// wait for task running
 	contEvent := <-contEvents
+	if contEvent.Status != api.ContainerRunning {
+		t.Errorf("Expected container to be running, got: %v", contEvent)
+	}
+	*contEvent.SentStatus = api.ContainerRunning
+
+	taskEvent := <-taskEvents
+	if taskEvent.Status != api.TaskRunning {
+		t.Errorf("Expected task to be running, got: %v", taskEvent)
+	}
+	*taskEvent.SentStatus = api.TaskRunning
+
+	// Set the task desired status to be stopped and StopContainer will be called
+	updateSleepTask := *sleepTask
+	updateSleepTask.SetDesiredStatus(api.TaskStopped)
+	go taskEngine.AddTask(&updateSleepTask)
+
+	// StopContainer timeout error shouldn't cause cantainer/task status change
+	// until receive stop event from docker event stream
+	select {
+	case <-taskEvents:
+		t.Error("Should not get task events")
+	case <-contEvents:
+		t.Error("Should not get container events")
+	case <-dockerEventSent:
+		t.Logf("Send docker stop event")
+		go func() {
+			for {
+				<-dockerEventSent
+			}
+		}()
+	}
+
+	// StopContainer was called again and received stop event from docker event stream
+	// Expect it to go to stopped
+	contEvent = <-contEvents
 	if contEvent.Status != api.ContainerStopped {
 		t.Errorf("Expected container to timeout on start and stop, got: %v", contEvent)
 	}
 	*contEvent.SentStatus = api.ContainerStopped
-
-	taskEvent := <-taskEvents
+	taskEvent = <-taskEvents
 	if taskEvent.Status != api.TaskStopped {
 		t.Errorf("Expected task to be stopped, got: %v", taskEvent)
 	}
 	*taskEvent.SentStatus = api.TaskStopped
+
 	select {
 	case <-taskEvents:
 		t.Error("Should be out of events")
