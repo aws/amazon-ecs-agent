@@ -418,9 +418,10 @@ func TestStartContainerTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
-		testDone <- struct{}{}
+		close(testDone)
 	})
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error"))
+	// TODO This should be MaxTimes(1) after we update gomock
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
 	metadata := client.StartContainer("id", xContainerShortTimeout)
 	assert.NotNil(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
