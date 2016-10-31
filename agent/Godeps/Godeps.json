@@ -323,6 +323,10 @@
 			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
 		},
 		{
+			"ImportPath": "golang.org/x/sys/windows/registry",
+			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
+		},
+		{
 			"ImportPath": "golang.org/x/tools/go/ast/astutil",
 			"Rev": "af0a4481dd36113fd967a37a64d887d4b9d3425e"
 		},
