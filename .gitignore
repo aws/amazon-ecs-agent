@@ -3,6 +3,7 @@ misc/netkitten/netkitten
 out/
 coverage/
 _bin/
+*.exe
 *.swp
 *.orig
 /agent/version/_version.go
