@@ -20,6 +20,10 @@ import (
 	"strings"
 )
 
+const (
+	portBindingHostIP = ""
+)
+
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform() {
 	task.downcaseAllVolumePaths()

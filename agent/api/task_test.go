@@ -155,31 +155,16 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 
 	bindings, ok := config.PortBindings["10/tcp"]
-	if !ok {
-		t.Fatal("Could not get port bindings")
-	}
-	if len(bindings) != 1 {
-		t.Fatal("Wrong number of bindings")
-	}
-	if bindings[0].HostPort != "10" {
-		t.Error("Wrong hostport")
-	}
-	if bindings[0].HostIP != "0.0.0.0" {
-		t.Error("Wrong hostIP")
-	}
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, "10", bindings[0].HostPort, "Wrong hostport")
+	assert.Equal(t, portBindingHostIP, bindings[0].HostIP, "Wrong hostIP")
+
 	bindings, ok = config.PortBindings["20/udp"]
-	if !ok {
-		t.Fatal("Could not get port bindings")
-	}
-	if len(bindings) != 1 {
-		t.Fatal("Wrong number of bindings")
-	}
-	if bindings[0].HostPort != "20" {
-		t.Error("Wrong hostport")
-	}
-	if bindings[0].HostIP != "0.0.0.0" {
-		t.Error("Wrong hostIP")
-	}
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, "20", bindings[0].HostPort, "Wrong hostport")
+	assert.Equal(t, portBindingHostIP, bindings[0].HostIP, "Wrong hostIP")
 }
 
 func TestDockerHostConfigVolumesFrom(t *testing.T) {

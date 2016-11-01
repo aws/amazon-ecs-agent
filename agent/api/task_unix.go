@@ -15,6 +15,10 @@
 
 package api
 
+const (
+	portBindingHostIP = "0.0.0.0"
+)
+
 func (task *Task) adjustForPlatform() {}
 
 func getCanonicalPath(path string) string { return path }
