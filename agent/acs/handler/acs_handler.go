@@ -273,6 +273,8 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 	refreshCredsHandler := newRefreshCredentialsHandler(ctx, cfg.Cluster, args.ContainerInstanceArn, client, args.CredentialsManager, args.TaskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
+	defer refreshCredsHandler.stop()
+
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
@@ -280,6 +282,8 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
+	defer payloadHandler.stop()
+
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
 	// Ignore heartbeat messages; anyMessageHandler gets 'em
@@ -313,15 +317,11 @@ func startACSSession(ctx context.Context, client wsclient.ClientServer, timer tt
 		case <-ctx.Done():
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
-			payloadHandler.stop()
-			refreshCredsHandler.stop()
 			return ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
 			// the connection is closed by ACS or the agent
-			payloadHandler.stop()
-			refreshCredsHandler.stop()
 			return err
 		}
 	}
