@@ -29,7 +29,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
@@ -959,35 +958,6 @@ func TestDockerStopTimeout(t *testing.T) {
 	}
 	if ttime.Since(startTime) > testDockerStopTimeout+1*time.Second {
 		t.Errorf("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
-	}
-}
-
-// TestStartStopWithCredentials starts and stops a task for which credentials id
-// has been set
-func TestStartStopWithCredentials(t *testing.T) {
-	taskEngine, done, credentialsManager := setupWithDefaultConfig(t)
-	defer done()
-
-	testTask := createTestTask("testStartWithCredentials")
-	taskCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDIntegTest},
-	}
-	credentialsManager.SetTaskCredentials(taskCredentials)
-	testTask.SetCredentialsId(credentialsIDIntegTest)
-
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
-
-	go taskEngine.AddTask(testTask)
-
-	verifyTaskIsStopped(taskEvents, testTask)
-
-	// When task is stopped, credentials should have been removed for the
-	// credentials id set in the task
-	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
-	if ok {
-		t.Error("Credentials not removed from credentials manager for stopped task")
 	}
 }
 

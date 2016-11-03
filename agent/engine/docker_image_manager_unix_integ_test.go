@@ -39,8 +39,6 @@ const (
 	testImage3Name = "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest"
 )
 
-const credentialsIDIntegTest = "credsid"
-
 // Deletion of images in the order of LRU time: Happy path
 //  a. This includes starting up agent, pull images, start containers,
 //    account them in image manager,  stop containers, remove containers, account this in image manager,

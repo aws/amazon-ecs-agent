@@ -36,7 +36,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-const testDockerStopTimeout = 2 * time.Second
+const (
+	testDockerStopTimeout  = 2 * time.Second
+	credentialsIDIntegTest = "credsid"
+)
 
 func createTestTask(arn string) *api.Task {
 	return &api.Task{
@@ -191,6 +194,33 @@ func TestSweepContainer(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	assert.False(t, ok, "Expected container to have been swept but was not")
+}
+
+// TestStartStopWithCredentials starts and stops a task for which credentials id
+// has been set
+func TestStartStopWithCredentials(t *testing.T) {
+	taskEngine, done, credentialsManager := setupWithDefaultConfig(t)
+	defer done()
+
+	testTask := createTestTask("testStartWithCredentials")
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDIntegTest},
+	}
+	credentialsManager.SetTaskCredentials(taskCredentials)
+	testTask.SetCredentialsId(credentialsIDIntegTest)
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	defer discardEvents(contEvents)()
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsStopped(taskEvents, testTask)
+
+	// When task is stopped, credentials should have been removed for the
+	// credentials id set in the task
+	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
+	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
 }
 
 func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
