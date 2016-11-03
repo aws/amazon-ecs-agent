@@ -736,14 +736,7 @@ func createTestHostVolumeMountTask(tmpPath string) *api.Task {
 	return testTask
 }
 
-func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
-
+func createTestEmptyHostVolumeMountTask() *api.Task {
 	testTask := createTestTask("testEmptyHostVolumeMount")
 	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
@@ -755,13 +748,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	testTask.Containers[1].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
 	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
 	testTask.Containers[1].Essential = false
-	go taskEngine.AddTask(testTask)
-
-	verifyTaskIsStopped(taskEvents, testTask)
-
-	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
-		t.Error("Wrong exit code; file probably wasn't present")
-	}
+	return testTask
 }
 
 func TestSweepContainer(t *testing.T) {

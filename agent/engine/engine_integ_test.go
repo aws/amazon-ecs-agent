@@ -132,6 +132,23 @@ func TestHostVolumeMount(t *testing.T) {
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
 
+func TestEmptyHostVolumeMount(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	defer discardEvents(contEvents)()
+
+	testTask := createTestEmptyHostVolumeMountTask()
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsStopped(taskEvents, testTask)
+
+	assert.NotNil(t, testTask.Containers[0].KnownExitCode, "No exit code found")
+	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code, file probably wasn't present")
+}
+
 func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
 	for {
 		select {
