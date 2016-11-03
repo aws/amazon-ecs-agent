@@ -1,4 +1,3 @@
-# escape=`
 # Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,13 +10,18 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM microsoft/windowsservercore:latest
-MAINTAINER Amazon Web Services, Inc.
 
-SHELL ["powershell", "-command"]
+# Prepare dependencies
+Invoke-Expression "${PSScriptRoot}\..\misc\volumes-test\build.ps1"
 
-RUN mkdir C:/data
-RUN echo "test" > C:/data/test-file
+# Run the tests
+$cwd = (pwd).Path
+try {
+  cd "${PSScriptRoot}"
+  go test -tags integration -timeout=5m -v ../agent/engine ../agent/stats
+  $testsExitCode = $LastExitCode
+} finally {
+  cd "$cwd"
+}
 
-ENTRYPOINT ["powershell"]
-CMD ["Write-Output sleeping ; While ($true) { Start-Sleep -s 1 }"]
+exit $testsExitCode

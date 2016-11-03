@@ -11,4 +11,6 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+
+# TODO be smart about this and only rebuild if necessary
 docker build -t "amazon/amazon-ecs-volumes-test:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}
