@@ -29,7 +29,8 @@ func createTestContainer() *api.Container {
 	return &api.Container{
 		Name:          "windows",
 		Image:         "microsoft/windowsservercore:latest",
-		Command:       []string{},
+		EntryPoint:    &[]string{"powershell", "-Command"},
+		Command:       []string{"Start-Sleep -s 1"},
 		Essential:     true,
 		DesiredStatus: api.ContainerRunning,
 		Cpu:           100,

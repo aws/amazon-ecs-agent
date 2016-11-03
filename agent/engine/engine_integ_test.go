@@ -149,6 +149,50 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code, file probably wasn't present")
 }
 
+func TestSweepContainer(t *testing.T) {
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCleanupWaitDuration = 1 * time.Minute
+	taskEngine, done, _ := setup(cfg, t)
+	defer done()
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	defer discardEvents(contEvents)()
+
+	testTask := createTestTask("testSweepContainer")
+
+	go taskEngine.AddTask(testTask)
+
+	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+
+	for taskEvent := range taskEvents {
+		if taskEvent.TaskArn != testTask.Arn {
+			continue
+		}
+		expectedEvent := expectedEvents[0]
+		expectedEvents = expectedEvents[1:]
+		assert.Equal(t, expectedEvent, taskEvent.Status, "Got incorrect event")
+		if len(expectedEvents) == 0 {
+			break
+		}
+	}
+
+	defer discardEvents(taskEvents)()
+
+	// Should be stopped, let's verify it's still listed...
+	_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+	assert.True(t, ok, "Expected task to be present still, but wasn't")
+	time.Sleep(1 * time.Minute)
+	for i := 0; i < 60; i++ {
+		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+		if !ok {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	assert.False(t, ok, "Expected container to have been swept but was not")
+}
+
 func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
 	for {
 		select {

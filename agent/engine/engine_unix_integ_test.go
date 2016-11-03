@@ -751,56 +751,6 @@ func createTestEmptyHostVolumeMountTask() *api.Task {
 	return testTask
 }
 
-func TestSweepContainer(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
-	cfg.TaskCleanupWaitDuration = 1 * time.Minute
-	taskEngine, done, _ := setup(cfg, t)
-	defer done()
-
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
-
-	testTask := createTestTask("testSweepContainer")
-
-	go taskEngine.AddTask(testTask)
-
-	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
-
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		expectedEvent := expectedEvents[0]
-		expectedEvents = expectedEvents[1:]
-		if taskEvent.Status != expectedEvent {
-			t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
-		}
-		if len(expectedEvents) == 0 {
-			break
-		}
-	}
-
-	defer discardEvents(taskEvents)()
-
-	// Should be stopped, let's verify it's still listed...
-	_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
-	if !ok {
-		t.Error("Expected task to be present still, but wasn't")
-	}
-	time.Sleep(1 * time.Minute)
-	for i := 0; i < 60; i++ {
-		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
-		if !ok {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-	if ok {
-		t.Error("Expected container to have been sweept but was not")
-	}
-}
-
 // This integ test is meant to validate the docker assumptions related to
 // https://github.com/aws/amazon-ecs-agent/issues/261
 // Namely, this test verifies that Docker does emit a 'die' event after an OOM
