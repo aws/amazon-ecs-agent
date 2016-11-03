@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -42,11 +40,6 @@ const (
 )
 
 const credentialsIDIntegTest = "credsid"
-
-func defaultTestConfigIntegTest() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	return cfg
-}
 
 // Deletion of images in the order of LRU time: Happy path
 //  a. This includes starting up agent, pull images, start containers,

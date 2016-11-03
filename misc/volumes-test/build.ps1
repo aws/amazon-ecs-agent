@@ -1,5 +1,4 @@
-#!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -12,6 +11,4 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-volumes-test:make" > /dev/null ; then
-	docker build -q -t "amazon/amazon-ecs-volumes-test:make" -f "linux.dockerfile" .
-fi
+docker build -t "amazon/amazon-ecs-volumes-test:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}

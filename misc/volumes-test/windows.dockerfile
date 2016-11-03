@@ -1,5 +1,5 @@
-#!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# escape=`
+# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,15 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM microsoft/windowsservercore:latest
+MAINTAINER Amazon Web Services, Inc.
 
-if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-volumes-test:make" > /dev/null ; then
-	docker build -q -t "amazon/amazon-ecs-volumes-test:make" -f "linux.dockerfile" .
-fi
+SHELL ["powershell", "-command"]
+
+RUN mkdir C:/data
+RUN echo "test" > C:/data/test-file
+
+#VOLUME ["C:/data"]
+
+ENTRYPOINT ["powershell"]
+CMD ["try { Write-Output sleeping ; While ($true) { Start-Sleep -s 1 } } finally { Write-Output exiting ; exit 42 }"]
