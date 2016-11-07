@@ -10,19 +10,13 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM microsoft/windowsservercore:latest
 
-# Prepare dependencies
-Invoke-Expression "${PSScriptRoot}\..\misc\volumes-test\build.ps1"
-Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
+MAINTAINER Amazon Web Services, Inc.
 
-# Run the tests
-$cwd = (pwd).Path
-try {
-  cd "${PSScriptRoot}"
-  go test -tags integration -timeout=5m -v ../agent/engine ../agent/stats
-  $testsExitCode = $LastExitCode
-} finally {
-  cd "$cwd"
-}
+SHELL ["powershell", "-command"]
+RUN echo 5 > image.txt
+RUN date > file.txt
 
-exit $testsExitCode
+ENTRYPOINT ["powershell","-command"]
+CMD ["sleep", "30"]

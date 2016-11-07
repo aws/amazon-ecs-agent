@@ -67,41 +67,6 @@ func createTestContainer() *api.Container {
 	}
 }
 
-func createImageCleanupTestTask(taskName string) *api.Task {
-	return &api.Task{
-		Arn:           taskName,
-		Family:        taskName,
-		Version:       "1",
-		DesiredStatus: api.TaskRunning,
-		Containers: []*api.Container{
-			&api.Container{
-				Name:          "test1",
-				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image1:latest",
-				Essential:     false,
-				DesiredStatus: api.ContainerRunning,
-				Cpu:           10,
-				Memory:        10,
-			},
-			&api.Container{
-				Name:          "test2",
-				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image2:latest",
-				Essential:     false,
-				DesiredStatus: api.ContainerRunning,
-				Cpu:           10,
-				Memory:        10,
-			},
-			&api.Container{
-				Name:          "test3",
-				Image:         "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest",
-				Essential:     false,
-				DesiredStatus: api.ContainerRunning,
-				Cpu:           10,
-				Memory:        10,
-			},
-		},
-	}
-}
-
 var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 
 func removeImage(img string) {
