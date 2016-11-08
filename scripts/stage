@@ -62,6 +62,23 @@ stage_s3() {
 	rm "${tarball_md5}"
 }
 
+stage_windows_s3() {
+	local ziproot="$(mktemp -d)"
+	local ziptgtdir="$(mktemp -d)"
+	local zipfile="${ziptgtdir}/amazon-ecs-agent"
+	local zip_md5="$(mktemp)"
+	trap "rm -r \"$ziproot\" \"$ziptgtdir\" \"$zip_md5\"" RETURN EXIT
+	cp out/amazon-ecs-agent.exe "$ziproot"
+	pushd "$ziproot"
+	zip "$zipfile" *
+	md5sum "${zipfile}.zip" > "$zip_md5"
+	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
+		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip"
+		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.md5"
+	done
+	popd
+}
+
 while getopts ":d:p:b:i:a:o:sh" opt; do
 	case ${opt} in
 		d)
@@ -109,9 +126,16 @@ if [ -z "${S3_BUCKET}" ]; then
 	exit 1
 fi
 
-if ! $($SKIP_REBUILD); then
-	TARGET_OS="$TARGET_OS" make release
-fi
+if [ "$TARGET_OS" != "windows" ]; then
+	if ! $($SKIP_REBUILD); then
+		TARGET_OS="$TARGET_OS" make release
+	fi
 
-tag_and_push_docker
-stage_s3
+	tag_and_push_docker
+	stage_s3
+else
+	if ! $($SKIP_REBUILD); then
+		TARGET_OS="$TARGET_OS" make docker-release
+	fi
+	stage_windows_s3
+fi
