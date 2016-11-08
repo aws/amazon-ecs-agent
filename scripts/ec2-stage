@@ -52,10 +52,11 @@ usage() {
 	echo "  -k  SSH_KEY         SSH key name"
 	echo "  -s  SECURITY_GROUP  Security group name"
 	echo "  -i  IAM_ROLE        IAM Role name"
+	echo "  -o  TARGET_OS       Build for the given target OS (default is linux)"
 	echo "  -h                  Display this help message"
 }
 
-while getopts ":d:p:a:t:k:s:i:h" opt; do
+while getopts ":d:p:a:t:k:s:i:o:h" opt; do
 	case ${opt} in
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
@@ -79,6 +80,9 @@ while getopts ":d:p:a:t:k:s:i:h" opt; do
 			;;
 		i)
 			INSTANCE_PROFILE="${OPTARG}"
+			;;
+		o)
+			TARGET_OS="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -158,7 +162,7 @@ cd amazon-ecs-agent
 tar -xvz -f "${ec2_work_root}/source.tgz"
 git checkout "${commit}"
 make get-deps
-scripts/stage -b ${ARTIFACT_BUCKET} -d false
+scripts/stage -b ${ARTIFACT_BUCKET} -d false -o ${TARGET_OS:-linux}
 aws s3 cp "${ec2_work_root}/userdata.log" "${s3_source_prefix}/userdata.log"
 shutdown -hP now
 EOU

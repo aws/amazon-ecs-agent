@@ -28,7 +28,10 @@ static:
 # directory
 build-in-docker:
 	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
-	@docker run --net=none -v "$(shell pwd)/out:/out" -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-agent-build:make"
+	@docker run --net=none -e TARGET_OS="${TARGET_OS}" \
+	  -v "$(shell pwd)/out:/out" \
+	  -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" \
+	  "amazon/amazon-ecs-agent-build:make"
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
@@ -41,7 +44,8 @@ docker: certs build-in-docker
 # 'RELEASE' mode
 docker-release:
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
-	@docker run --net=none -v "$(shell pwd)/out:/out" -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
+	@docker run --net=none -e TARGET_OS="${TARGET_OS}" -v "$(shell pwd)/out:/out" \
+	  -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
 
 # Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release

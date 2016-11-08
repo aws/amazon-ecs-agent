@@ -39,6 +39,7 @@ usage() {
 	echo "  -b  BUCKET      AWS S3 Bucket"
 	echo "  -a  ACL         AWS S3 Object Canned ACL (default is public-read)"
 	echo "  -i  IMAGE       Docker image name"
+	echo "  -o  TARGET_OS   Build for the given OS (default is linux)"
 	echo "  -s              Skip re-build"
 	echo "  -h              Display this help message"
 }
@@ -61,7 +62,7 @@ stage_s3() {
 	rm "${tarball_md5}"
 }
 
-while getopts ":d:p:b:i:a:sh" opt; do
+while getopts ":d:p:b:i:a:o:sh" opt; do
 	case ${opt} in
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
@@ -82,6 +83,9 @@ while getopts ":d:p:b:i:a:sh" opt; do
 			;;
 		s)
 			SKIP_REBUILD=true
+			;;
+		o)
+			TARGET_OS="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -106,7 +110,7 @@ if [ -z "${S3_BUCKET}" ]; then
 fi
 
 if ! $($SKIP_REBUILD); then
-	make release
+	TARGET_OS="$TARGET_OS" make release
 fi
 
 tag_and_push_docker
