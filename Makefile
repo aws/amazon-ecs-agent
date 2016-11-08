@@ -118,7 +118,7 @@ clean:
         # ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
-	rm -f out/amazon-ecs-agent &> /dev/null
+	rm -f out/amazon-ecs-agent out/amazon-ecs-agent.exe &> /dev/null
 	rm -rf agent/Godeps/_workspace/pkg/
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
