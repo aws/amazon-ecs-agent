@@ -19,6 +19,6 @@ all:
 	docker build -f "linux2.dockerfile" -t amazon/image-cleanup-test-image3:make .
 
 clean:
-	docker rmi -f "amazon/image-cleanup-test-image1:make"
-	docker rmi -f "amazon/image-cleanup-test-image2:make"
-	docker rmi -f "amazon/image-cleanup-test-image3:make"
+	-docker rmi -f "amazon/image-cleanup-test-image1:make"
+	-docker rmi -f "amazon/image-cleanup-test-image2:make"
+	-docker rmi -f "amazon/image-cleanup-test-image3:make"

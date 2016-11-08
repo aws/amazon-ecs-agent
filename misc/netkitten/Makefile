@@ -23,4 +23,4 @@ image: netkitten
 
 clean:
 	rm -f netkitten
-	docker rmi "amazon/amazon-ecs-netkitten:make"
+	-docker rmi "amazon/amazon-ecs-netkitten:make"
