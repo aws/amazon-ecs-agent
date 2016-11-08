@@ -5,16 +5,14 @@ package winio
 import (
 	"syscall"
 	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 var _ unsafe.Pointer
 
 var (
-	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
-	modwinmm    = windows.NewLazySystemDLL("winmm.dll")
-	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
+	modkernel32 = syscall.NewLazyDLL("kernel32.dll")
+	modwinmm    = syscall.NewLazyDLL("winmm.dll")
+	modadvapi32 = syscall.NewLazyDLL("advapi32.dll")
 
 	procCancelIoEx                                           = modkernel32.NewProc("CancelIoEx")
 	procCreateIoCompletionPort                               = modkernel32.NewProc("CreateIoCompletionPort")

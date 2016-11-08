@@ -20,4 +20,4 @@ cd "${ROOT}"
 
 source ./scripts/shared_env
 
-go generate -x ./agent/...
+go generate -x $(go list ./agent/... | grep -v /vendor/)

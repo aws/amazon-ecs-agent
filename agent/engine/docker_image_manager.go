@@ -35,7 +35,7 @@ const (
 // ImageManager is responsible for saving the Image states,
 // adding and removing container references to ImageStates
 type ImageManager interface {
-	AddContainerReferenceToImageState(container *api.Container) error
+	RecordContainerReference(container *api.Container) error
 	RemoveContainerReferenceFromImageState(container *api.Container) error
 	AddAllImageStates(imageStates []*image.ImageState)
 	GetImageStateFromImageName(containerImageName string) *image.ImageState
@@ -84,11 +84,12 @@ func (imageManager *dockerImageManager) AddAllImageStates(imageStates []*image.I
 	}
 }
 
-// AddContainerReferenceToImageState adds container reference to the corresponding imageState object
-func (imageManager *dockerImageManager) AddContainerReferenceToImageState(container *api.Container) error {
+// RecordContainerReference adds container reference to the corresponding imageState object
+func (imageManager *dockerImageManager) RecordContainerReference(container *api.Container) error {
 	// the image state has been updated, save the new state
 	defer imageManager.saver.ForceSave()
-	// ImageState restored from agent state file
+	// On agent restart, container ID was retrieved from agent state file
+	// TODO add setter and getter for modifying this
 	if container.ImageID != "" {
 		if !imageManager.addContainerReferenceToExistingImageState(container) {
 			return fmt.Errorf("Failed to add container to existing image state")
@@ -316,6 +317,7 @@ func (imageManager *dockerImageManager) getUnusedImageForDeletion() *image.Image
 }
 
 func (imageManager *dockerImageManager) removeImage(leastRecentlyUsedImage *image.ImageState) {
+	// Handling deleting while traversing a slice
 	imageNames := make([]string, len(leastRecentlyUsedImage.Image.Names))
 	copy(imageNames, leastRecentlyUsedImage.Image.Names)
 	if len(imageNames) == 0 {

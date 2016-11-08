@@ -28,10 +28,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
-	dockerEndPoint            = "unix:///var/run/docker.sock"
 	imageRemovalTimeout       = 30 * time.Second
 	taskCleanupTimeoutSeconds = 30
 
@@ -41,10 +42,6 @@ const (
 )
 
 const credentialsIDIntegTest = "credsid"
-
-func newDockerClient() (*docker.Client, error) {
-	return docker.NewClient(dockerEndPoint)
-}
 
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -302,10 +299,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, create a go docker client
-	goDockerClient, err := newDockerClient()
-	if err != nil {
-		t.Errorf("Creating go docker client failed, err: %v", err)
-	}
+	goDockerClient, err := docker.NewClientFromEnv()
+	require.NoError(t, err, "Creating go docker client failed")
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -316,21 +311,15 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Pull the images needed for the test
 	if _, err := dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
 		metadata := dockerClient.PullImage(testImage1Name, nil)
-		if metadata.Error != nil {
-			t.Errorf("Failed to pull image %s", testImage1Name)
-		}
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage1Name)
 	}
 	if _, err := dockerClient.InspectImage(testImage2Name); err == docker.ErrNoSuchImage {
 		metadata := dockerClient.PullImage(testImage2Name, nil)
-		if metadata.Error != nil {
-			t.Errorf("Failed to pull image %s", testImage2Name)
-		}
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage2Name)
 	}
 	if _, err := dockerClient.InspectImage(testImage3Name); err == docker.ErrNoSuchImage {
 		metadata := dockerClient.PullImage(testImage3Name, nil)
-		if metadata.Error != nil {
-			t.Errorf("Failed to pull image %s", testImage3Name)
-		}
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage3Name)
 	}
 
 	// The same image name used by all tasks in this test
@@ -344,77 +333,51 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	task3.Containers[0].Image = identicalImageName
 
 	err = renameImage(testImage1Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
-	if err != nil {
-		t.Errorf("Renaming the image failed, err: %v", err)
-	}
+	assert.NoError(t, err, "Renaming the image failed")
 
 	// start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
 	err = verifyTaskIsRunning(taskEvents, task1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "task1")
 
 	// Verify image state is updated correctly
 	imageState1 := imageManager.GetImageStateFromImageName(identicalImageName)
-	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", identicalImageName)
-	} else {
-		t.Logf("Found image state for %s", identicalImageName)
-	}
+	require.NotNil(t, imageState1, "Could not find image state for %s", identicalImageName)
+	t.Logf("Found image state for %s", identicalImageName)
 	imageID1 := imageState1.Image.ImageID
 
 	// Using another image but rename to the same name as task1 for task2
 	err = renameImage(testImage2Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
-	if err != nil {
-		t.Errorf("Renaming the image failed, err: %v", err)
-	}
+	require.NoError(t, err, "Renaming the image failed")
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
 	err = verifyTaskIsRunning(taskEvents, task2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "task2")
 
 	// Verify image state is updated correctly
 	imageState2 := imageManager.GetImageStateFromImageName(identicalImageName)
-	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", identicalImageName)
-	} else {
-		t.Logf("Found image state for %s", identicalImageName)
-	}
+	require.NotNil(t, imageState2, "Could not find image state for %s", identicalImageName)
+	t.Logf("Found image state for %s", identicalImageName)
 	imageID2 := imageState2.Image.ImageID
-	if imageID2 == imageID1 {
-		t.Fatal("The image id in task 2 should be different from image in task 1")
-	}
+	require.NotEqual(t, imageID2, imageID1, "The image id in task 2 should be different from image in task 1")
 
 	// Using a different image for task3 and rename it to the same name as task1 and task2
 	err = renameImage(testImage3Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
-	if err != nil {
-		t.Errorf("Renaming the image failed, err: %v", err)
-	}
+	require.NoError(t, err, "Renaming the image failed")
 
 	// Start and wiat for task3 to be running
 	go taskEngine.AddTask(task3)
 	err = verifyTaskIsRunning(taskEvents, task3)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "task3")
 
 	// Verify image state is updated correctly
 	imageState3 := imageManager.GetImageStateFromImageName(identicalImageName)
-	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", identicalImageName)
-	} else {
-		t.Logf("Found image state for %s", identicalImageName)
-	}
+	require.NotNil(t, imageState3, "Could not find image state for %s", identicalImageName)
+	t.Logf("Found image state for %s", identicalImageName)
 	imageID3 := imageState3.Image.ImageID
-	if imageID3 == imageID1 {
-		t.Fatal("The image id in task3 should be different from image in task1")
-	} else if imageID3 == imageID2 {
-		t.Fatal("The image id in task3 should be different from image in task2")
-	}
+	require.NotEqual(t, imageID3, imageID1, "The image id in task3 should be different from image in task1")
+	require.NotEqual(t, imageID3, imageID2, "The image id in task3 should be different from image in task2")
 
 	// Modify image state sothat the image is eligible for deletion
 	imageState1.LastUsedAt = imageState1.LastUsedAt.Add(-99995 * time.Hour)
@@ -432,42 +395,28 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	err = verifyTaskIsCleanedUp("task1", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task1")
 	err = verifyTaskIsCleanedUp("task2", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task2")
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task3")
 
 	imageManager.removeUnusedImages()
 
 	// Verify all the three images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1, imageID2, imageID3)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Verify images are removed by docker
 	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
-	if err != docker.ErrNoSuchImage {
-		t.Fatalf("Image was not removed successfully, image: %s", imageID1)
-	}
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully, image: %s", imageID1)
 	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID2)
-	if err != docker.ErrNoSuchImage {
-		t.Fatalf("Image was not removed successfully, image: %s", imageID2)
-	}
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully, image: %s", imageID2)
 	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID3)
-	if err != docker.ErrNoSuchImage {
-		t.Fatalf("Image was not removed successfully, image: %s", imageID3)
-	}
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully, image: %s", imageID3)
 }
 
-// TestImageWithSameNameAndDifferentID tests images can be correctly removed if
+// TestImageWithSameIDAndDifferentNames tests images can be correctly removed if
 // tasks are running with the same image id but different image name
 func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
@@ -482,10 +431,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, so create a go docker client
-	goDockerClient, err := newDockerClient()
-	if err != nil {
-		t.Errorf("Creating docker client failed, err: %v", err)
-	}
+	goDockerClient, err := docker.NewClientFromEnv()
+	require.NoError(t, err, "Creating docker client failed")
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -504,30 +451,21 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
 		metadata := dockerClient.PullImage(testImage1Name, nil)
-		if metadata.Error != nil {
-			t.Errorf("Failed to pull image %s", testImage1Name)
-		}
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage1Name)
 	}
 
 	// Using testImage1Name for all the tasks but with different name
 	err = renameImage(testImage1Name, "testimagewithsameidanddifferentnames-1", "latest", goDockerClient)
-	if err != nil {
-		t.Fatalf("Renaming image failed, err: %v", err)
-	}
+	require.NoError(t, err, "Renaming image failed")
 
 	// Start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
 	err = verifyTaskIsRunning(taskEvents, task1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	imageState1 := imageManager.GetImageStateFromImageName(task1.Containers[0].Image)
-	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", task1.Containers[0].Image)
-	} else {
-		t.Logf("Found image state for %s", task1.Containers[0].Image)
-	}
+	require.NotNil(t, imageState1, "Could not find image state for %s", task1.Containers[0].Image)
+	t.Logf("Found image state for %s", task1.Containers[0].Image)
 	imageID1 := imageState1.Image.ImageID
 
 	// copy the image for task2 to run with same image but different name
@@ -536,27 +474,18 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 		Tag:   "latest",
 		Force: false,
 	})
-	if err != nil {
-		t.Errorf("Trying to copy image failed, err: %v", err)
-	}
+	require.NoError(t, err, "Trying to copy image failed")
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
 	err = verifyTaskIsRunning(taskEvents, task2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	imageState2 := imageManager.GetImageStateFromImageName(task2.Containers[0].Image)
-	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", task2.Containers[0].Image)
-	} else {
-		t.Logf("Found image state for %s", task2.Containers[0].Image)
-	}
+	require.NotNil(t, imageState2, "Could not find image state for %s", task2.Containers[0].Image)
+	t.Logf("Found image state for %s", task2.Containers[0].Image)
 	imageID2 := imageState2.Image.ImageID
-	if imageID2 != imageID1 {
-		t.Fatal("The image id in task2 should be same as in task1")
-	}
+	require.Equal(t, imageID2, imageID1, "The image id in task2 should be same as in task1")
 
 	// make task3 use the same image name but different image id
 	err = goDockerClient.TagImage(task1.Containers[0].Image, docker.TagImageOptions{
@@ -564,27 +493,18 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 		Tag:   "latest",
 		Force: false,
 	})
-	if err != nil {
-		t.Errorf("Trying to copy image failed, err: %v", err)
-	}
+	require.NoError(t, err, "Trying to copy image failed")
 
 	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
 	err = verifyTaskIsRunning(taskEvents, task3)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	imageState3 := imageManager.GetImageStateFromImageName(task3.Containers[0].Image)
-	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", task3.Containers[0].Image)
-	} else {
-		t.Logf("Found image state for %s", task3.Containers[0].Image)
-	}
+	require.NotNil(t, imageState3, "Could not find image state for %s", task3.Containers[0].Image)
+	t.Logf("Found image state for %s", task3.Containers[0].Image)
 	imageID3 := imageState3.Image.ImageID
-	if imageID3 != imageID1 {
-		t.Fatal("The image id in task3 should be the same as in task1")
-	}
+	require.Equal(t, imageID3, imageID1, "The image id in task3 should be the same as in task1")
 
 	// Modify the image state so that the image is eligible for deletion
 	// all the three tasks has the same imagestate
@@ -598,31 +518,21 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	err = verifyTaskIsCleanedUp("task1", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task1")
 	err = verifyTaskIsCleanedUp("task2", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task2")
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "task3")
 
 	imageManager.removeUnusedImages()
 
 	// Verify all the images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err, "imageID1")
 
 	// Verify images are removed by docker
 	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
-	if err != docker.ErrNoSuchImage {
-		t.Fatalf("Image was not removed successfully")
-	}
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully")
 }
 
 // renameImage retag the image and delete the original tag

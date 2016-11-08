@@ -55,7 +55,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -76,7 +76,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	}
 }
 
-func TestAddContainerReferenceToImageStateInspectError(t *testing.T) {
+func TestRecordContainerReferenceInspectError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
@@ -104,13 +104,13 @@ func TestAddContainerReferenceToImageStateInspectError(t *testing.T) {
 	sourceImageState.AddImageName(container.Image)
 	imageManager.addImageState(sourceImageState)
 	client.EXPECT().InspectImage(container.Image).Return(nil, errors.New("error inspecting")).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err == nil {
 		t.Error("Expected error in inspecting image while adding container to image state")
 	}
 }
 
-func TestAddContainerReferenceToImageStateWithNoImageName(t *testing.T) {
+func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := NewMockDockerClient(ctrl)
@@ -140,7 +140,7 @@ func TestAddContainerReferenceToImageStateWithNoImageName(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -166,7 +166,7 @@ func TestAddInvalidContainerReferenceToImageState(t *testing.T) {
 	container := &api.Container{
 		Image: "",
 	}
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err == nil {
 		t.Error("Expected error adding container reference with no image name to image state")
 	}
@@ -449,7 +449,7 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -494,12 +494,12 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err = imageManager.AddContainerReferenceToImageState(container2)
+	err = imageManager.RecordContainerReference(container2)
 	if err != nil {
 		t.Error("Error in adding container2 to an existing image state")
 	}
@@ -612,7 +612,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -624,7 +624,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		ID: "sha256:asdfg",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected1, nil)
-	err = imageManager.AddContainerReferenceToImageState(container1)
+	err = imageManager.RecordContainerReference(container1)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -659,7 +659,7 @@ func TestImageCleanupHappyPath(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -715,7 +715,7 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -765,7 +765,7 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -801,7 +801,7 @@ func TestDeleteImage(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -830,7 +830,7 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -859,7 +859,7 @@ func TestDeleteImageOtherRemoveImageErrors(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -918,7 +918,7 @@ func TestGetImageStateFromImageName(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
@@ -942,7 +942,7 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
-	err := imageManager.AddContainerReferenceToImageState(container)
+	err := imageManager.RecordContainerReference(container)
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}

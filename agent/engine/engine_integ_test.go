@@ -1165,7 +1165,6 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	// Kill the existing container now
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
-	fmt.Println("*****Stopping the task")
 	go taskEngine.AddTask(&taskUpdate)
 	for taskEvent := range taskEvents {
 		if taskEvent.TaskArn != testTask.Arn {

@@ -374,14 +374,14 @@ func (_mr *_MockImageManagerRecorder) AddAllImageStates(arg0 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddAllImageStates", arg0)
 }
 
-func (_m *MockImageManager) AddContainerReferenceToImageState(_param0 *api.Container) error {
-	ret := _m.ctrl.Call(_m, "AddContainerReferenceToImageState", _param0)
+func (_m *MockImageManager) RecordContainerReference(_param0 *api.Container) error {
+	ret := _m.ctrl.Call(_m, "RecordContainerReference", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockImageManagerRecorder) AddContainerReferenceToImageState(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddContainerReferenceToImageState", arg0)
+func (_mr *_MockImageManagerRecorder) RecordContainerReference(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RecordContainerReference", arg0)
 }
 
 func (_m *MockImageManager) GetImageStateFromImageName(_param0 string) *image.ImageState {

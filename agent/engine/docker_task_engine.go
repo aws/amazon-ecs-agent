@@ -229,7 +229,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 					cont.DockerId = describedCont.ID
 					// update mappings that need dockerid
 					engine.state.AddContainer(cont, task)
-					engine.imageManager.AddContainerReferenceToImageState(cont.Container)
+					engine.imageManager.RecordContainerReference(cont.Container)
 				}
 			}
 			if cont.DockerId != "" {
@@ -242,7 +242,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 						engine.imageManager.RemoveContainerReferenceFromImageState(cont.Container)
 					}
 				} else {
-					engine.imageManager.AddContainerReferenceToImageState(cont.Container)
+					engine.imageManager.RecordContainerReference(cont.Container)
 				}
 				if currentState > cont.Container.GetKnownStatus() {
 					cont.Container.SetKnownStatus(currentState)
@@ -483,7 +483,7 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
-	err := engine.imageManager.AddContainerReferenceToImageState(container)
+	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
 		seelog.Errorf("Error adding container reference to image state: %v", err)
 	}
