@@ -193,13 +193,23 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 
 	// Set to a large 'impossible' status that can't be the min
 	earliestStatus := ContainerZombie
+	essentialContainerStopped := false
 	for _, cont := range task.Containers {
 		contKnownStatus := cont.GetKnownStatus()
+		if contKnownStatus == ContainerStopped && cont.Essential {
+			essentialContainerStopped = true
+		}
 		if contKnownStatus < earliestStatus {
 			earliestStatus = contKnownStatus
 		}
 	}
 
+	// If the essential container is stopped while other containers may be running
+	// don't update the task status until the other containers are stopped.
+	if earliestStatus == ContainerRunning && essentialContainerStopped {
+		llog.Debug("Essential container is stopped while other containers are running, not update task status")
+		return TaskStatusNone
+	}
 	llog.Debug("Earliest status is " + earliestStatus.String())
 	if task.GetKnownStatus() < earliestStatus.TaskStatus() {
 		task.UpdateKnownStatusAndTime(earliestStatus.TaskStatus())
