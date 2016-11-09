@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api_test
+package ecsclient
 
 import (
 	"errors"
@@ -20,11 +20,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/async"
+	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
@@ -37,11 +40,11 @@ import (
 const configuredCluster = "mycluster"
 
 func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient, ec2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
-	client.(*api.ApiECSClient).SetSDK(mockSDK)
-	client.(*api.ApiECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
+	client.(*APIECSClient).SetSDK(mockSDK)
+	client.(*APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
 	return client, mockSDK, mockSubmitStateSDK
 }
 
@@ -171,7 +174,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	defer mockCtrl.Finish()
 	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	exitCode := 20
-	reason := strings.Repeat("a", api.EcsMaxReasonLength)
+	reason := strings.Repeat("a", ecsMaxReasonLength)
 
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
@@ -201,8 +204,8 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	defer mockCtrl.Finish()
 	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	exitCode := 20
-	trimmedReason := strings.Repeat("a", api.EcsMaxReasonLength)
-	reason := strings.Repeat("a", api.EcsMaxReasonLength+1)
+	trimmedReason := strings.Repeat("a", ecsMaxReasonLength)
+	reason := strings.Repeat("a", ecsMaxReasonLength+1)
 
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
@@ -297,9 +300,9 @@ func TestRegisterBlankCluster(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := api.NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient, mockEC2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient, mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
-	client.(*api.ApiECSClient).SetSDK(mc)
+	client.(*APIECSClient).SetSDK(mc)
 
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
@@ -344,8 +347,14 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 	if expectedEndpoint != endpoint {
 		t.Errorf("Expected telemetry endpoint(%s) != endpoint(%s)", expectedEndpoint, endpoint)
 	}
+}
+
+func TestDiscoverTelemetryEndpointError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("Error getting endpoint"))
-	endpoint, err = client.DiscoverTelemetryEndpoint("containerInstance")
+	_, err := client.DiscoverTelemetryEndpoint("containerInstance")
 	if err == nil {
 		t.Error("Expected error getting telemetry endpoint, didn't get any")
 	}
@@ -360,5 +369,111 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	_, err := client.DiscoverTelemetryEndpoint("containerInstance")
 	if err == nil {
 		t.Error("Expected error getting telemetry endpoint with old response")
+	}
+}
+
+func TestDiscoverPollEndpointCacheHit(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	pollEndpoinCache := mock_async.NewMockCache(mockCtrl)
+	client := &APIECSClient{
+		credentialProvider: credentials.AnonymousCredentials,
+		config: &config.Config{
+			Cluster:   configuredCluster,
+			AWSRegion: "us-east-1",
+		},
+		standardClient:   mockSDK,
+		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpoinCache: pollEndpoinCache,
+	}
+
+	pollEndpoint := "http://127.0.0.1"
+	pollEndpoinCache.EXPECT().Get("containerInstance").Return(
+		&ecs.DiscoverPollEndpointOutput{
+			Endpoint: aws.String(pollEndpoint),
+		}, true)
+	output, err := client.discoverPollEndpoint("containerInstance")
+	if err != nil {
+		t.Fatalf("Error in discoverPollEndpoint: %v", err)
+	}
+	if aws.StringValue(output.Endpoint) != pollEndpoint {
+		t.Errorf("Mismatch in poll endpoint: %s != %s", aws.StringValue(output.Endpoint), pollEndpoint)
+	}
+}
+
+func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	pollEndpoinCache := mock_async.NewMockCache(mockCtrl)
+	client := &APIECSClient{
+		credentialProvider: credentials.AnonymousCredentials,
+		config: &config.Config{
+			Cluster:   configuredCluster,
+			AWSRegion: "us-east-1",
+		},
+		standardClient:   mockSDK,
+		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpoinCache: pollEndpoinCache,
+	}
+	pollEndpoint := "http://127.0.0.1"
+	pollEndpointOutput := &ecs.DiscoverPollEndpointOutput{
+		Endpoint: &pollEndpoint,
+	}
+
+	gomock.InOrder(
+		pollEndpoinCache.EXPECT().Get("containerInstance").Return(nil, false),
+		mockSDK.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(pollEndpointOutput, nil),
+		pollEndpoinCache.EXPECT().Set("containerInstance", pollEndpointOutput),
+	)
+
+	output, err := client.discoverPollEndpoint("containerInstance")
+	if err != nil {
+		t.Fatalf("Error in discoverPollEndpoint: %v", err)
+	}
+	if aws.StringValue(output.Endpoint) != pollEndpoint {
+		t.Errorf("Mismatch in poll endpoint: %s != %s", aws.StringValue(output.Endpoint), pollEndpoint)
+	}
+}
+
+func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	pollEndpoinCache := async.NewLRUCache(1, 10*time.Minute)
+	client := &APIECSClient{
+		credentialProvider: credentials.AnonymousCredentials,
+		config: &config.Config{
+			Cluster:   configuredCluster,
+			AWSRegion: "us-east-1",
+		},
+		standardClient:   mockSDK,
+		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpoinCache: pollEndpoinCache,
+	}
+
+	pollEndpoint := "http://127.0.0.1"
+	mockSDK.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+		&ecs.DiscoverPollEndpointOutput{
+			Endpoint:          &pollEndpoint,
+			TelemetryEndpoint: &pollEndpoint,
+		}, nil)
+	endpoint, err := client.DiscoverPollEndpoint("containerInstance")
+	if err != nil {
+		t.Fatalf("Error in discoverPollEndpoint: %v", err)
+	}
+	if endpoint != pollEndpoint {
+		t.Errorf("Mismatch in poll endpoint: %s", endpoint)
+	}
+	telemetryEndpoint, err := client.DiscoverTelemetryEndpoint("containerInstance")
+	if err != nil {
+		t.Fatalf("Error in discoverTelemetryEndpoint: %v", err)
+	}
+	if telemetryEndpoint != pollEndpoint {
+		t.Errorf("Mismatch in poll endpoint: %s", endpoint)
 	}
 }

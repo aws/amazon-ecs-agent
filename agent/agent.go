@@ -22,6 +22,7 @@ import (
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -203,7 +204,8 @@ func _main() int {
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
-	client := api.NewECSClient(credentialProvider, cfg, httpclient.New(api.RoundtripTimeout, *acceptInsecureCert), ec2MetadataClient)
+	client := ecsclient.NewECSClient(credentialProvider, cfg,
+		httpclient.New(ecsclient.RoundtripTimeout, *acceptInsecureCert), ec2MetadataClient)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")
@@ -263,7 +265,7 @@ func _main() int {
 		ContainerChangeEventStream:    containerChangeEventStream,
 		DockerClient:                  dockerClient,
 		AcceptInvalidCert:             *acceptInsecureCert,
-		EcsClient:                     client,
+		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
 	}
 
