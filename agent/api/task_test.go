@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func strptr(s string) *string { return &s }
@@ -666,6 +667,78 @@ func TestTaskFromACS(t *testing.T) {
 	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
 		t.Fatal("StopSequenceNumber should be equal")
 	}
+}
+
+func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
+	testTask := &Task{
+		KnownStatus: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatus: ContainerCreated,
+			},
+			&Container{
+				KnownStatus: ContainerStopped,
+				Essential:   true,
+			},
+			&Container{
+				KnownStatus: ContainerRunning,
+			},
+		},
+	}
+
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "task status should depend on the earlist container status")
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should depend on the earlist container status")
+}
+
+// TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped tests when there is one essential
+// container is stopped while the other containers are running, the task status shouldn't be changed to running
+func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t *testing.T) {
+	testTask := &Task{
+		KnownStatus: TaskCreated,
+		Containers: []*Container{
+			&Container{
+				KnownStatus: ContainerRunning,
+				Essential:   true,
+			},
+			&Container{
+				KnownStatus: ContainerStopped,
+				Essential:   true,
+			},
+			&Container{
+				KnownStatus: ContainerRunning,
+			},
+		},
+	}
+
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should not move to running if essential container is stopped")
+}
+
+// TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped tests when there is one essential container
+// is stopped while other container status are prior to Running, the task status should be updated.
+func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.T) {
+	testTask := &Task{
+		KnownStatus: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatus: ContainerCreated,
+				Essential:   true,
+			},
+			&Container{
+				KnownStatus: ContainerStopped,
+				Essential:   true,
+			},
+			&Container{
+				KnownStatus: ContainerCreated,
+			},
+		},
+	}
+
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "task status should be updated when essential containers are stopped while not all the other containers are running")
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should be updated when essential containers are stopped while not all the other containers are running")
 }
 
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
