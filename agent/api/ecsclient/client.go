@@ -133,6 +133,11 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		})
 	}
 
+	additionalAttributes := getAdditionalAttributes()
+	for _, attribute := range additionalAttributes {
+		registerRequest.Attributes = append(registerRequest.Attributes, attribute)
+	}
+
 	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
@@ -205,6 +210,13 @@ func getCpuAndMemory() (int64, int64) {
 	cpu := runtime.NumCPU() * 1024
 
 	return int64(cpu), mem
+}
+
+func getAdditionalAttributes() []*ecs.Attribute {
+	return []*ecs.Attribute{&ecs.Attribute{
+		Name:  aws.String("ecs.os-type"),
+		Value: aws.String(api.OSType),
+	}}
 }
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {

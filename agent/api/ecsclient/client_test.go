@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -241,39 +242,21 @@ func TestRegisterContainerInstance(t *testing.T) {
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-		if *req.ContainerInstanceArn != "arn:test" {
-			t.Errorf("Wrong container instance ARN: %v", *req.ContainerInstanceArn)
-		}
-		if *req.Cluster != configuredCluster {
-			t.Errorf("Wrong cluster: %v", *req.Cluster)
-		}
-		if *req.InstanceIdentityDocument != "instanceIdentityDocument" {
-			t.Errorf("Wrong IID: %v", *req.InstanceIdentityDocument)
-		}
-		if *req.InstanceIdentityDocumentSignature != "signature" {
-			t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
-		}
-		if len(req.TotalResources) != 4 {
-			t.Errorf("Wrong length of TotalResources, expected 4 but was %d", len(req.TotalResources))
-		}
+		assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
+		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+		assert.Equal(t, "instanceIdentityDocument", *req.InstanceIdentityDocument, "Wrong IID")
+		assert.Equal(t, "signature", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+		assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
 		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
-		if !ok {
-			t.Error("Could not find resource \"PORTS_UDP\"")
-		}
-		if *resource.Type != "STRINGSET" {
-			t.Errorf("Wrong type for resource \"PORTS_UDP\".  Expected \"STRINGSET\" but was \"%s\"", *resource.Type)
-		}
-		if len(req.Attributes) != len(capabilities) {
-			t.Errorf("Wrong lenght of Attributes, expected %d but was %d", len(capabilities), len(req.Attributes))
-		}
+		assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+		assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+		assert.Equal(t, len(capabilities)+1, len(req.Attributes), "Wrong length of Attributes")
 		for i, _ := range capabilities {
-			if req.Attributes[i].Name == nil {
-				t.Errorf("nil name for attribute %d", i)
-			}
-			if *req.Attributes[i].Name != capabilities[i] {
-				t.Errorf("Wrong attribute, expected %s but was %s", capabilities[i], req.Attributes[i])
-			}
+			assert.NotNil(t, req.Attributes[i].Name, "nil name for attribute")
+			assert.Equal(t, capabilities[i], *req.Attributes[i].Name)
 		}
+		assert.Equal(t, "ecs.os-type", *req.Attributes[len(req.Attributes)-1].Name)
+		assert.Equal(t, api.OSType, *req.Attributes[len(req.Attributes)-1].Value)
 
 	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceArn: aws.String("registerArn")}}, nil)
 
