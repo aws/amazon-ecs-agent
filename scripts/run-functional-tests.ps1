@@ -21,7 +21,8 @@ docker run -d -p 80:51679 --name ecs-cred-proxy amazon/amazon-ecs-credential-pro
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -tags functional -timeout=30m -v ../agent/functional_tests/tests/
+  go test -tags functional -timeout=30m -v ../agent/functional_tests/tests
+  go test -tags functional -timeout=30m -v ../agent/functional_tests/tests/generated/simpletests_windows
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"

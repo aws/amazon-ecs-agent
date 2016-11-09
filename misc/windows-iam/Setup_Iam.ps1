@@ -11,8 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-Invoke-Expression "${PSScriptRoot}\hostsetup.ps1"
 Invoke-Expression "${PSScriptRoot}\loopback.ps1"
+Invoke-Expression "${PSScriptRoot}\hostsetup.ps1"
 Invoke-Expression "docker build -t amazon/amazon-ecs-credential-proxy --file ${PSScriptRoot}\credentialproxy.dockerfile ${PSScriptRoot}"
 
 $buildscript = @"

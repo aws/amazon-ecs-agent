@@ -11,6 +11,12 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package functional_tests
+package simpletest
 
-//go:generate go run ../../generators/simpletests.go
+import (
+	"testing"
+)
+
+// go test seems to require at least one non-tagged test to exist even when
+// running with a build tag
+func TestTest(t *testing.T) {}
