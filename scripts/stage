@@ -69,6 +69,8 @@ stage_windows_s3() {
 	local zip_md5="$(mktemp)"
 	trap "rm -r \"$ziproot\" \"$ziptgtdir\" \"$zip_md5\"" RETURN EXIT
 	cp out/amazon-ecs-agent.exe "$ziproot"
+	cp -v misc/windows-deploy/*.ps1 "$ziproot"
+	cp -v misc/windows-deploy/credentialproxy.dockerfile "$ziproot"
 	pushd "$ziproot"
 	zip "$zipfile" *
 	md5sum "${zipfile}.zip" > "$zip_md5"
