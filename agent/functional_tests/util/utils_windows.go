@@ -84,7 +84,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	os.Setenv("ECS_LOGFILE", logdir+"/log.log")
 	os.Setenv("ECS_DATADIR", datadir)
 	valueName := fmt.Sprintf("test_path_%d", time.Now().UnixNano())
-	fmt.Println("Registry location", valueName)
+	t.Log("Registry location", valueName)
 	os.Setenv("ZZZ_I_KNOW_SETTING_TEST_VALUES_IN_PRODUCTION_IS_NOT_SUPPORTED", valueName)
 	os.Setenv("ECS_CLUSTER", Cluster)
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
