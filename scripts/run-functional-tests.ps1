@@ -14,6 +14,18 @@
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-iam\Setup_Iam.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-listen80\Setup_Listen80.ps1"
 
+#First stop/remove any existing credential proxy containers
+$credentialProxy = "ecs-cred-proxy"
+docker inspect ${credentialProxy}
+if (${LastExitCode} -eq 0) {
+    try {
+        docker stop ${credentialProxy}
+        docker rm ${credentialProxy}
+    } catch {
+        exit 1
+    }
+}
+
 # Set up the proxy
 docker run -d -p 80:51679 --name ecs-cred-proxy amazon/amazon-ecs-credential-proxy
 

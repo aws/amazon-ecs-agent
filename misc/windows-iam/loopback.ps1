@@ -13,11 +13,17 @@
 
 devcon /r remove =net "@ROOT\NET\*"
 devcon -r install C:\Windows\INF\netloop.inf *MSLOOP
+[int]$retryattempts = 5
 
 $networkAdapters = Get-CimInstance -ClassName Win32_NetworkAdapter -Filter "AdapterTypeId='0' AND NetEnabled='True' AND Name LIKE '%Loopback Adapter%'" | Sort-Object -Property "Index"
-if(-not $networkAdapters -or $networkAdapters.Length -eq 0)
-{
-    throw New-Object System.Exception("Failed to find the primary network interface")
+while(-not $networkAdapters -or $networkAdapters.Length -eq 0) {
+    if ($retryattempts -eq 0) {
+        throw New-Object System.Exception("Failed to find the loopback network interface. Task IAM roles would not work")
+        exit 2
+    } else {
+        $networkAdapters = Get-CimInstance -ClassName Win32_NetworkAdapter -Filter "AdapterTypeId='0' AND NetEnabled='True' AND Name LIKE '%Loopback Adapter%'" | Sort-Object -Property "Index"
+        $retryattempts--
+   }
 }
 $loopbackIndex = $networkAdapters[0].InterfaceIndex
 
