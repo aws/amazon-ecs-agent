@@ -173,7 +173,7 @@ userdata=$(cat << EOU
 mkdir -p ${ec2_work_root}
 exec > >(tee -a ${ec2_work_root}/userdata.log)
 
-yum -y install docker golang git
+yum -y install docker golang git zip unzip
 service docker start
 aws s3 cp "${s3_source_gz}" "${ec2_work_root}/source.tgz"
 mkdir -p ${ec2_build_root}
