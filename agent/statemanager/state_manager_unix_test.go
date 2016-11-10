@@ -17,6 +17,7 @@ package statemanager_test
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -26,6 +27,7 @@ import (
 	engine_testutils "github.com/aws/amazon-ecs-agent/agent/engine/testutils"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStateManager(t *testing.T) {
@@ -44,9 +46,7 @@ func TestStateManager(t *testing.T) {
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewDockerTaskEngineState())
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 
 	containerInstanceArn = "containerInstanceArn"
 
@@ -54,27 +54,21 @@ func TestStateManager(t *testing.T) {
 	taskEngine.(*engine.DockerTaskEngine).State().AddTask(testTask)
 
 	err = manager.Save()
-	if err != nil {
-		t.Fatal("Error saving state", err)
-	}
+	require.Nil(t, err, "Error saving state")
+
+	assertFileMode(t, filepath.Join(tmpDir, "ecs_agent_data.json"))
 
 	// Now make sure we can load that state sanely
 	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewDockerTaskEngineState())
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 
 	err = manager.Load()
-	if err != nil {
-		t.Fatal("Error loading state", err)
-	}
+	require.Nil(t, err, "Error loading state")
 
-	if loadedContainerInstanceArn != containerInstanceArn {
-		t.Error("Did not load containerInstanceArn correctly; got ", loadedContainerInstanceArn, " instead of ", containerInstanceArn)
-	}
+	assert.Equal(t, containerInstanceArn, loadedContainerInstanceArn, "Did not load containerInstanceArn correctly")
 
 	if !engine_testutils.DockerTaskEnginesEqual(loadedTaskEngine.(*engine.DockerTaskEngine), (taskEngine.(*engine.DockerTaskEngine))) {
 		t.Error("Did not load taskEngine correctly")
@@ -82,14 +76,15 @@ func TestStateManager(t *testing.T) {
 
 	// I'd rather double check .Equal there; let's make sure ListTasks agrees.
 	tasks, err := loadedTaskEngine.ListTasks()
-	if err != nil {
-		t.Error("Error listing tasks", err)
-	}
-	if len(tasks) != 1 {
-		t.Error("Should have a task!")
-	} else {
-		if tasks[0].Arn != "test-arn" {
-			t.Error("Wrong arn, expected test-arn but got ", tasks[0].Arn)
-		}
-	}
+	assert.Nil(t, err, "Error listing tasks")
+	require.Equal(t, 1, len(tasks), "Should have a task!")
+	assert.Equal(t, "test-arn", tasks[0].Arn, "Wrong arn")
+}
+
+func assertFileMode(t *testing.T, path string) {
+	info, err := os.Stat(path)
+	assert.Nil(t, err)
+
+	mode := info.Mode()
+	assert.Equal(t, os.FileMode(0600), mode, "Wrong file mode")
 }
