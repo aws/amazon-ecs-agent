@@ -25,9 +25,18 @@ SOURCE_BUCKET=""
 KEY_NAME=""
 SECURITY_GROUP=""
 INSTANCE_PROFILE=""
-
+SUPPORTED_OSES=("linux" "windows")
+TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 source $(dirname "${0}")/publishing-common.sh
+
+supported_os() {
+	local os=$1
+	for entry in ${SUPPORTED_OSES[@]} ; do
+		test "$os" == "$entry" && return $(true)
+	done
+	return $(false)
+}
 
 usage() {
 	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
@@ -52,7 +61,8 @@ usage() {
 	echo "  -k  SSH_KEY         SSH key name"
 	echo "  -s  SECURITY_GROUP  Security group name"
 	echo "  -i  IAM_ROLE        IAM Role name"
-	echo "  -o  TARGET_OS       Build for the given target OS (default is linux)"
+	echo "  -o  TARGET_OS_LIST  Comma-separated list of OS targets to build."
+	echo "                      Default is linux,windows"
 	echo "  -h                  Display this help message"
 }
 
@@ -82,7 +92,7 @@ while getopts ":d:p:a:t:k:s:i:o:h" opt; do
 			INSTANCE_PROFILE="${OPTARG}"
 			;;
 		o)
-			TARGET_OS="${OPTARG}"
+			TARGET_OS_OPT="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -121,9 +131,21 @@ if [[ -n "$(git status --porcelain)" ]]; then
 	exit 1
 fi
 
+if [ -n "$TARGET_OS_OPT" ]; then
+	TARGET_OS_LIST=()
+	for os in `echo "$TARGET_OS_OPT" | tr ',' ' '`; do
+		echo "Testing validity of $os"
+		if supported_os "$os"; then
+			TARGET_OS_LIST+=($os)
+		else
+			echo "Unsupported target OS $os" >&2
+			exit 1
+		fi
+	done
+fi
+
 commit=$(git rev-parse HEAD)
 echo "Packaging ${commit} for staging..."
-
 agent_dir=$(pwd)
 tmpdir=$(mktemp -d)
 # Fresh clone to ensure our build doesn't rely on anything outside of vcs
@@ -162,7 +184,9 @@ cd amazon-ecs-agent
 tar -xvz -f "${ec2_work_root}/source.tgz"
 git checkout "${commit}"
 make get-deps
-scripts/stage -b ${ARTIFACT_BUCKET} -d false -o ${TARGET_OS:-linux}
+for target_os in ${TARGET_OS_LIST[@]}; do
+	scripts/stage -b ${ARTIFACT_BUCKET} -d false -o \$target_os
+done
 aws s3 cp "${ec2_work_root}/userdata.log" "${s3_source_prefix}/userdata.log"
 shutdown -hP now
 EOU
