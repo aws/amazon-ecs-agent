@@ -650,7 +650,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *a
 
 	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
 	if metadata.Error != nil {
-		clog.Info("Error transitioning container", "state", nextState.String())
+		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
 	} else {
 		clog.Debug("Transitioned container", "state", nextState.String())
 		engine.saver.Save()
