@@ -11,6 +11,8 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
+
 .PHONY: dev generate lint static test build-mock-images sources rpm
 
 dev:
@@ -51,6 +53,17 @@ srpm: sources
 rpm: sources
 	rpmbuild -bb ecs-init.spec
 
+ubuntu-trusty:
+	cp packaging/ubuntu-trusty/ecs.conf ecs.conf
+	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init ecs.conf scripts README.md
+	mkdir -p BUILDROOT
+	cp -r packaging/ubuntu-trusty/debian BUILDROOT/debian
+	cp -r ecs-init BUILDROOT
+	cp ecs.conf BUILDROOT
+	cp -r scripts BUILDROOT
+	cp README.md BUILDROOT
+	cd BUILDROOT && debuild
+
 get-deps:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cover
@@ -66,3 +79,4 @@ clean:
 	-rm ./ecs-init-* -r
 	-rm ./BUILDROOT -r
 	-rm ./x86_64 -r
+	-rm ./amazon-ecs-init_${VERSION}*
