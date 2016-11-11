@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
+DEB_SIGN ?= 1
 
 .PHONY: dev generate lint static test build-mock-images sources rpm
 
@@ -62,7 +63,7 @@ ubuntu-trusty:
 	cp ecs.conf BUILDROOT
 	cp -r scripts BUILDROOT
 	cp README.md BUILDROOT
-	cd BUILDROOT && debuild
+	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
 
 get-deps:
 	go get github.com/tools/godep
