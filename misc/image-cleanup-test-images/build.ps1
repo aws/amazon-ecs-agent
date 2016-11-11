@@ -19,3 +19,7 @@ docker build -t "amazon/image-cleanup-test-image3:make" -f "${PSScriptRoot}/wind
 docker build -t "amazon/image-cleanup-test-image4:make" -f "${PSScriptRoot}/windows3.dockerfile" ${PSScriptRoot}
 docker build -t "amazon/image-cleanup-test-image5:make" -f "${PSScriptRoot}/windows4.dockerfile" ${PSScriptRoot}
 docker build -t "amazon/image-cleanup-test-image6:make" -f "${PSScriptRoot}/windows5.dockerfile" ${PSScriptRoot}
+docker build -t "amazon/image-cleanup-test-image7:make" -f "${PSScriptRoot}/windows6.dockerfile" ${PSScriptRoot}
+docker build -t "amazon/image-cleanup-test-image8:make" -f "${PSScriptRoot}/windows7.dockerfile" ${PSScriptRoot}
+docker build -t "amazon/image-cleanup-test-image9:make" -f "${PSScriptRoot}/windows8.dockerfile" ${PSScriptRoot}
+docker build -t "amazon/image-cleanup-test-image10:make" -f "${PSScriptRoot}/windows9.dockerfile" ${PSScriptRoot}

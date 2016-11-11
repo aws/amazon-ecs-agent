@@ -17,6 +17,9 @@
 
 package engine
 
+// These constants are a hack around being unable to run a local registry on
+// Windows.  We're unable to run a local registry due to the lack of loopback
+// networking support in Windows Net NAT.
 const (
 	test1Image1Name = "amazon/image-cleanup-test-image1:make"
 	test1Image2Name = "amazon/image-cleanup-test-image2:make"
@@ -25,4 +28,10 @@ const (
 	test2Image1Name = "amazon/image-cleanup-test-image4:make"
 	test2Image2Name = "amazon/image-cleanup-test-image5:make"
 	test2Image3Name = "amazon/image-cleanup-test-image6:make"
+
+	test3Image1Name = "amazon/image-cleanup-test-image7:make"
+	test3Image2Name = "amazon/image-cleanup-test-image8:make"
+	test3Image3Name = "amazon/image-cleanup-test-image9:make"
+
+	test4Image1Name = "amazon/image-cleanup-test-image10:make"
 )

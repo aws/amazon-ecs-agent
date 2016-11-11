@@ -15,8 +15,7 @@ FROM microsoft/windowsservercore:latest
 MAINTAINER Amazon Web Services, Inc.
 
 SHELL ["powershell", "-command"]
-RUN echo 1 > image.txt
-RUN date > file.txt
-
 ENTRYPOINT ["powershell","-command"]
-CMD ["sleep", "30"]
+CMD ["sleep", "5"]
+
+RUN echo 1 > image.txt
