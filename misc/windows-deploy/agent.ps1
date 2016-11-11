@@ -22,7 +22,6 @@ function LogMsg([string]$message = "Logging no message", $logLevel = "INFO") {
 $env:ECS_DATADIR = $ecsRootDir + "data"
 $env:ECS_LOGFILE = $ecsRootDir + "log\ecs-agent.log"
 $env:ECS_AUDIT_LOGFILE = $ecsRootDir + "log\audit.log"
-$env:ECS_DISABLE_METRICS = "true"
 $env:ECS_LOGLEVEL = "debug"
 $env:ECS_AVAILABLE_LOGGING_DRIVERS = "[`"json-file`",`"awslogs`"]"
 

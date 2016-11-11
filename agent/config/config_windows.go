@@ -32,11 +32,12 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon ECS")
 	return Config{
-		DockerEndpoint:              "npipe:////./pipe/docker_engine",
-		ReservedPorts:               []uint16{DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
-		ReservedPortsUDP:            []uint16{},
-		DataDir:                     filepath.Join(ecsRoot, "data"),
-		DisableMetrics:              false,
+		DockerEndpoint:   "npipe:////./pipe/docker_engine",
+		ReservedPorts:    []uint16{DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		ReservedPortsUDP: []uint16{},
+		DataDir:          filepath.Join(ecsRoot, "data"),
+		// DisableMetrics is set to true on Windows as docker stats does not work
+		DisableMetrics:              true,
 		ReservedMemory:              0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
