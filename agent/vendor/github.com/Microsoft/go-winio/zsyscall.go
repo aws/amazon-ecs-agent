@@ -5,6 +5,8 @@ package winio
 import (
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var _ unsafe.Pointer
