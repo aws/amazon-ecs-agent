@@ -70,6 +70,7 @@ stage_windows_s3() {
 	local zip_md5="$(mktemp)"
 	trap "rm -r \"$ziproot\" \"$ziptgtdir\" \"$zip_md5\"" RETURN EXIT
 	install_devcon "$ziproot"
+	cp LICENSE "$ziproot"
 	cp out/amazon-ecs-agent.exe "$ziproot"
 	cp -v misc/windows-deploy/*.ps1 "$ziproot"
 	cp -v misc/windows-deploy/credentialproxy.dockerfile "$ziproot"
