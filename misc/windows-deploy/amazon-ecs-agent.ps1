@@ -14,6 +14,11 @@
 
 $ecsRootDir = "C:\ProgramData\Amazon ECS\"
 
+# LogMsg [-message] <String> [-logLevel <String>]
+## This function should be used to write a message to the log file so that we have consistent 
+## formatting and log levels.   
+## TODO: This is a very basic logging function. We should make it better, or replace it with 
+## something that knows about about actual log level.
 function LogMsg([string]$message = "Logging no message", $logLevel = "INFO") {
      $logdir = $ecsRootDir + "log\win-agent-init.log"
      Add-Content $logdir "$(Get-Date)    [$logLevel] $message"
@@ -36,6 +41,7 @@ try {
         mkdir $logdir
     }
 } catch  {
+    ## Just echo here because log isn't setup/
     echo $_.Exception.Message
     exit 1
 }
@@ -49,11 +55,18 @@ LogMsg "Checking if docker is running."
 try {
     $dockerSrv = Get-Service -Name 'docker'
     $stat = $dockerSrv.WaitForStatus('Running', '00:15:00')
-    LogMsg "Docker is running. Running 'docker ps'."
+    
+    LogMsg "Docker is running. Running 'docker ps' to make sure everything is ok."
+    docker ps
+    if (${LastExitCode} -ne 0) {
+        LogMsg -message "Docker ps didn't go well." -logLevel "ERROR"
+        LogMsg -message $_.Exception.Message -logLevel "ERROR"
+        exit 1;
+    }
 
-
+    LogMsg "Docker is good!"
+    
     LogMsg "First stop/remove any existing credential proxy containers"
-
     $credentialProxy = "ecs-cred-proxy"
     docker inspect ${credentialProxy}
     if (${LastExitCode} -eq 0) {
@@ -62,12 +75,11 @@ try {
             docker stop ${credentialProxy}
             docker rm ${credentialProxy}
         } catch {
-            LogMsg -message "Stopping/Removing Credential Proxy container failed" -logLevel "INFO"
-            LogMsg -message "IAM roles may not work. Try manually stopping/removing the container before running this script again." -logLevel "INFO"
+            LogMsg -message "Stopping/Removing Credential Proxy container failed" -logLevel "ERROR"
+            LogMsg -message "IAM roles may not work. Try manually stopping/removing the container before running this script again." -logLevel "ERROR"
             exit 1
         }
     }
-
 
     if([System.Environment]::GetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "Machine") -eq "true") {
         LogMsg "IAM roles environment variable is set."
@@ -79,18 +91,18 @@ try {
             docker build -t amazon/amazon-ecs-credential-proxy --file .\credentialproxy.dockerfile . | out-null
             docker run --name ecs-cred-proxy -d -p 80:51679 amazon/amazon-ecs-credential-proxy | out-null
         } catch {
-            LogMsg -message "Running Credential Proxy container failed" -logLevel "INFO"
+            LogMsg -message "Running Credential Proxy container failed." -logLevel "ERROR"
             LogMsg -message $_.Exception.Message -logLevel "ERROR"
             exit 2
         }
     }
-    LogMsg "Docker is good to go!"
-    LogMsg "Starting agent... here we go!"
+    
+    LogMsg "Starting agent... "
     try {
-        .\agent.exe
+        .\amazon-ecs-agent.exe
     } catch {
-        LogMsg "Could not start agent.exe."
-        LogMsg -message $_.Exception.Message -logLevel "INFO"
+        LogMsg -message "Could not start agent.exe." -logLevel "ERROR"
+        LogMsg -message $_.Exception.Message -logLevel "ERROR"
         exit 2
     }
 } catch [System.ServiceProcess.TimeoutException] {

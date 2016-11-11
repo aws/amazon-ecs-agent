@@ -10,3 +10,4 @@ _bin/
 /misc/gremlin/gremlin
 .agignore
 *.sublime-*
+.DS_Store
