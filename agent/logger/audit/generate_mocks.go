@@ -13,4 +13,4 @@
 
 package audit
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/logger/audit AuditLogger,InfoLogger mocks/audit_log_mocks.go
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/logger/audit AuditLogger,InfoLogger mocks/audit_log_mocks.go

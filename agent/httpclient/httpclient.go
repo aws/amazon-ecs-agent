@@ -30,7 +30,7 @@ const defaultTimeout = 10 * time.Minute
 const defaultDialTimeout = 30 * time.Second
 const defaultDialKeepalive = 30 * time.Second
 
-//go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go net/http RoundTripper mock/$GOFILE
 
 type ecsRoundTripper struct {
 	insecureSkipVerify bool

@@ -13,7 +13,7 @@
 
 package stats
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
 
 import (
 	"fmt"

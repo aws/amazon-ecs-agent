@@ -13,4 +13,4 @@
 
 package dockerclient
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/engine/dockerclient Factory mocks/dockerclient_mocks.go
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/engine/dockerclient Factory mocks/dockerclient_mocks.go

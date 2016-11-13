@@ -13,4 +13,4 @@
 
 package ecr
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/ecr ECRSDK,ECRFactory,ECRClient mocks/ecr_mocks.go
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/ecr ECRSDK,ECRFactory,ECRClient mocks/ecr_mocks.go
