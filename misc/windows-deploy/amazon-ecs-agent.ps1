@@ -12,12 +12,12 @@
 # permissions and limitations under the License.
 
 
-$ecsRootDir = "C:\ProgramData\Amazon ECS\"
+$ecsRootDir = "C:\ProgramData\Amazon\ECS\"
 
 # LogMsg [-message] <String> [-logLevel <String>]
-## This function should be used to write a message to the log file so that we have consistent 
-## formatting and log levels.   
-## TODO: This is a very basic logging function. We should make it better, or replace it with 
+## This function should be used to write a message to the log file so that we have consistent
+## formatting and log levels.
+## TODO: This is a very basic logging function. We should make it better, or replace it with
 ## something that knows about about actual log level.
 function LogMsg([string]$message = "Logging no message", $logLevel = "INFO") {
      $logdir = $ecsRootDir + "log\win-agent-init.log"
@@ -55,7 +55,7 @@ LogMsg "Checking if docker is running."
 try {
     $dockerSrv = Get-Service -Name 'docker'
     $stat = $dockerSrv.WaitForStatus('Running', '00:15:00')
-    
+
     LogMsg "Docker is running. Running 'docker ps' to make sure everything is ok."
     docker ps
     if (${LastExitCode} -ne 0) {
@@ -64,8 +64,8 @@ try {
         exit 1;
     }
 
-    LogMsg "Docker is good!"
-    
+    LogMsg "Docker is running"
+
     LogMsg "First stop/remove any existing credential proxy containers"
     $credentialProxy = "ecs-cred-proxy"
     docker inspect ${credentialProxy}
@@ -96,7 +96,7 @@ try {
             exit 2
         }
     }
-    
+
     LogMsg "Starting agent... "
     try {
         .\amazon-ecs-agent.exe
