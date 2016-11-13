@@ -7,6 +7,6 @@
         "name": "container-with-iamrole-windows",
         "image": "amazon/amazon-ecs-iamrolecontainer",
          "entryPoint": ["powershell"],
-         "command": ["Import-Module \"${env:ProgramFiles(x86)}\\AWS Tools\\PowerShell\\AWSPowerShell\\AWSPowerShell.psd1\";.\\application.ps1; $env:AWS_REGION=\"us-east-1\";.\\ec2.exe; exit $LASTEXITCODE"]
+         "command": [".\\application.ps1; $env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\ec2.exe; exit $LASTEXITCODE"]
     }]
 }

@@ -30,6 +30,7 @@ func main() {
 	// Call the DescribeInstances Operation
 	regions, err := svc.DescribeRegions(nil)
 	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 	fmt.Println("Success")
