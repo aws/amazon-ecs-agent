@@ -45,9 +45,9 @@ func TestConfigDefault(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
-	assert.Equal(t, `C:\ProgramData\Amazon ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
+	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
 	assert.True(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
-	assert.Equal(t, 4, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
+	assert.Equal(t, 10, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
@@ -56,7 +56,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
-	assert.Equal(t, `C:\ProgramData\Amazon ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
+	assert.Equal(t, `C:\ProgramData\Amazon\ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
@@ -68,7 +68,19 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Nil(t, err)
-	assert.Equal(t, []uint16{DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort, httpPort}, cfg.ReservedPorts)
+	assert.Equal(t, []uint16{
+		DockerReservedPort,
+		DockerReservedSSLPort,
+		AgentIntrospectionPort,
+		AgentCredentialsPort,
+		rdpPort,
+		rpcPort,
+		smbPort,
+		winRMPort,
+		dnsPort,
+		netBIOSPort,
+		httpPort,
+	}, cfg.ReservedPorts)
 
 	os.Setenv("ECS_RESERVED_PORTS", "[1]")
 	cfg, err = NewConfig(ec2.NewBlackholeEC2MetadataClient())

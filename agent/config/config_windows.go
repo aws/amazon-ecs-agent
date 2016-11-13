@@ -24,16 +24,40 @@ import (
 
 const (
 	defaultCredentialsAuditLogFile = `log\audit.log`
-	httpPort                       = 80
+	// When using IAM roles for tasks on Windows, the credential proxy consumes port 80
+	httpPort = 80
+	// Remote Desktop / Terminal Services
+	rdpPort = 3389
+	// RPC client
+	rpcPort = 135
+	// Server Message Block (SMB) over TCP
+	smbPort = 445
+	// Windows Remote Management (WinRM) listener
+	winRMPort = 5985
+	// DNS client
+	dnsPort = 53
+	// NetBIOS over TCP/IP
+	netBIOSPort = 139
 )
 
 // DefaultConfig returns the default configuration for Windows
 func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
-	ecsRoot := filepath.Join(programData, "Amazon ECS")
+	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	return Config{
-		DockerEndpoint:   "npipe:////./pipe/docker_engine",
-		ReservedPorts:    []uint16{DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		DockerEndpoint: "npipe:////./pipe/docker_engine",
+		ReservedPorts: []uint16{
+			DockerReservedPort,
+			DockerReservedSSLPort,
+			AgentIntrospectionPort,
+			AgentCredentialsPort,
+			rdpPort,
+			rpcPort,
+			smbPort,
+			winRMPort,
+			dnsPort,
+			netBIOSPort,
+		},
 		ReservedPortsUDP: []uint16{},
 		DataDir:          filepath.Join(ecsRoot, "data"),
 		// DisableMetrics is set to true on Windows as docker stats does not work
