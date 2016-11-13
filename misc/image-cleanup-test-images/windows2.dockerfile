@@ -16,6 +16,6 @@ MAINTAINER Amazon Web Services, Inc.
 
 SHELL ["powershell", "-command"]
 ENTRYPOINT ["powershell","-command"]
-CMD ["sleep", "30"]
+CMD ["Start-Sleep -s 20"]
 
 RUN echo 3 > image.txt

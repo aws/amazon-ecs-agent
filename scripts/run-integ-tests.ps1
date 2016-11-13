@@ -19,7 +19,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -tags integration -timeout=5m -v ../agent/engine ../agent/stats
+  go test -tags integration -timeout=10m -v ../agent/engine ../agent/stats
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"
