@@ -46,17 +46,12 @@ try {
     exit 1
 }
 
-if(!$(Test-Path env:ECS_CLUSTER)) {
-    $env:ECS_CLUSTER = "windows"
-}
-
 LogMsg "Checking if docker is running."
 
 try {
     $dockerSrv = Get-Service -Name 'docker'
     $stat = $dockerSrv.WaitForStatus('Running', '00:15:00')
 
-    LogMsg "Docker is running. Running 'docker ps' to make sure everything is ok."
     docker ps
     if (${LastExitCode} -ne 0) {
         LogMsg -message "Docker ps didn't go well." -logLevel "ERROR"
@@ -64,7 +59,7 @@ try {
         exit 1;
     }
 
-    LogMsg "Docker is running"
+    LogMsg "Docker is running and ready."
 
     LogMsg "First stop/remove any existing credential proxy containers"
     $credentialProxy = "ecs-cred-proxy"
