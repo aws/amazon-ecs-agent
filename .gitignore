@@ -4,6 +4,7 @@ out/
 coverage/
 _bin/
 *.exe
+*.zip
 *.swp
 *.orig
 /agent/version/_version.go
@@ -11,3 +12,4 @@ _bin/
 .agignore
 *.sublime-*
 .DS_Store
+/misc/windows-iam/devcon*
