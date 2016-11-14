@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.1
+* Enhancement - Added cache for DiscoverPollEndPoint API.
+* Enhancement - Expose port 51679 so docker tasks can fetch IAM credentials.
+* Bug - fixed a bug that could lead to exhausting the open file limit.
+* Bug - Fixed a bug where images were not deleted when using image cleanup.
+* Bug - Fixed a bug where task status may be reported as pending while task is running.
+* Bug - Fixed a bug where task may have a temporary "RUNNING" state when
+  task failed to start.
+* Bug - Fixed a bug where CPU metrics would be reported incorrectly for kernel >= 4.7.0.
+* Bug - Fixed a bug that may cause agent not report metrics.
+
 ## 1.13.0
 * Feature - Implemented automated image cleanup.
 * Enhancement - Add credential caching for ECR.
