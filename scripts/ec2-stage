@@ -25,18 +25,9 @@ SOURCE_BUCKET=""
 KEY_NAME=""
 SECURITY_GROUP=""
 INSTANCE_PROFILE=""
-SUPPORTED_OSES=("linux" "windows")
 TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 source $(dirname "${0}")/publishing-common.sh
-
-supported_os() {
-	local os=$1
-	for entry in ${SUPPORTED_OSES[@]} ; do
-		test "${os}" == "${entry}" && return $(true)
-	done
-	return $(false)
-}
 
 usage() {
 	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
