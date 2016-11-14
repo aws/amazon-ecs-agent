@@ -18,7 +18,7 @@
 package version
 
 // Version is the version of the ecs-init
-const Version = "1.13.0"
+const Version = "1.13.1"
 
 // GitDirty indicates the cleanliness of the git repo when this ecs-init was built
 const GitDirty = true
