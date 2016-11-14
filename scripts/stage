@@ -68,15 +68,15 @@ stage_windows_s3() {
 	local ziptgtdir="$(mktemp -d)"
 	local zipfile="${ziptgtdir}/amazon-ecs-agent"
 	local zip_md5="$(mktemp)"
-	trap "rm -r \"$ziproot\" \"$ziptgtdir\" \"$zip_md5\"" RETURN EXIT
-	install_devcon "$ziproot"
-	cp LICENSE "$ziproot"
-	cp out/amazon-ecs-agent.exe "$ziproot"
-	cp -v misc/windows-deploy/*.ps1 "$ziproot"
-	cp -v misc/windows-deploy/credentialproxy.dockerfile "$ziproot"
-	pushd "$ziproot"
-	zip "$zipfile" *
-	md5sum "${zipfile}.zip" | sed 's/ .*//' > "$zip_md5"
+	trap "rm -r \"${ziproot}\" \"${ziptgtdir}\" \"${zip_md5}\"" RETURN EXIT
+	install_devcon "${ziproot}"
+	cp LICENSE "${ziproot}"
+	cp out/amazon-ecs-agent.exe "${ziproot}"
+	cp -v misc/windows-deploy/*.ps1 "${ziproot}"
+	cp -v misc/windows-deploy/credentialproxy.dockerfile "${ziproot}"
+	pushd "${ziproot}"
+	zip "${zipfile}" *
+	md5sum "${zipfile}.zip" | sed 's/ .*//' > "${zip_md5}"
 	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
 		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip"
 		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.md5"
@@ -88,15 +88,15 @@ install_devcon() {
 	local ziproot="$1"
 	local zipfile=$(mktemp)
 	local md5file=$(mktemp)
-	trap "rm -vf \"$zipfile\" \"$md5file\"" RETURN EXIT
-	s3_cp "$DEVCON_ZIP_URI" "$zipfile"
-	s3_cp "${DEVCON_ZIP_URI}.md5" "$md5file"
-	if ! check_md5 "$zipfile" "$md5file"; then
-		echo "$DEVCON_ZIP_URI did not match expected checksum." >&2
+	trap "rm -vf \"${zipfile}\" \"${md5file}\"" RETURN EXIT
+	s3_cp "$DEVCON_ZIP_URI" "${zipfile}"
+	s3_cp "${DEVCON_ZIP_URI}.md5" "${md5file}"
+	if ! check_md5 "${zipfile}" "${md5file}"; then
+		echo "${DEVCON_ZIP_URI} did not match expected checksum." >&2
 		exit 1
 	fi
-	pushd "$ziproot"
-	unzip "$zipfile"
+	pushd "${ziproot}"
+	unzip "${zipfile}"
 	popd
 }
 
@@ -150,16 +150,16 @@ if [ -z "${S3_BUCKET}" ]; then
 	exit 1
 fi
 
-if [ "$TARGET_OS" != "windows" ]; then
-	if ! $($SKIP_REBUILD); then
-		TARGET_OS="$TARGET_OS" make release
+if [ "${TARGET_OS}" != "windows" ]; then
+	if ! $(${SKIP_REBUILD}); then
+		TARGET_OS="${TARGET_OS}" make release
 	fi
 
 	tag_and_push_docker
 	stage_s3
 else
-	if ! $($SKIP_REBUILD); then
-		TARGET_OS="$TARGET_OS" make docker-release
+	if ! $(${SKIP_REBUILD}); then
+		TARGET_OS="${TARGET_OS}" make docker-release
 	fi
 	stage_windows_s3
 fi

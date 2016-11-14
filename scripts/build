@@ -38,7 +38,7 @@ trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXI
 cd ./agent/version/
 go run gen/version-gen.go
 
-if [ "$TARGET_OS" == "windows" ]; then
+if [ "${TARGET_OS}" == "windows" ]; then
     unset static
     build_exe="out/amazon-ecs-agent.exe"
     export GOOS=windows

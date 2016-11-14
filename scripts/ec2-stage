@@ -33,7 +33,7 @@ source $(dirname "${0}")/publishing-common.sh
 supported_os() {
 	local os=$1
 	for entry in ${SUPPORTED_OSES[@]} ; do
-		test "$os" == "$entry" && return $(true)
+		test "${os}" == "${entry}" && return $(true)
 	done
 	return $(false)
 }
@@ -127,18 +127,18 @@ running this script.
 EOW
 )
 if [[ -n "$(git status --porcelain)" ]]; then
-	echo "$DIRTY_WARNING"
+	echo "${DIRTY_WARNING}"
 	exit 1
 fi
 
-if [ -n "$TARGET_OS_OPT" ]; then
+if [ -n "${TARGET_OS_OPT}" ]; then
 	TARGET_OS_LIST=()
-	for os in `echo "$TARGET_OS_OPT" | tr ',' ' '`; do
-		echo "Testing validity of $os"
-		if supported_os "$os"; then
-			TARGET_OS_LIST+=($os)
+	for os in `echo "${TARGET_OS_OPT}" | tr ',' ' '`; do
+		echo "Testing validity of ${os}"
+		if supported_os "${os}"; then
+			TARGET_OS_LIST+=(${os})
 		else
-			echo "Unsupported target OS $os" >&2
+			echo "Unsupported target OS ${os}" >&2
 			exit 1
 		fi
 	done
