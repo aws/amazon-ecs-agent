@@ -25,9 +25,9 @@ SOURCE_BUCKET=""
 KEY_NAME=""
 SECURITY_GROUP=""
 INSTANCE_PROFILE=""
-TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 source $(dirname "${0}")/publishing-common.sh
+TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 usage() {
 	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
