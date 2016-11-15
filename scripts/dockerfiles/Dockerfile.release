@@ -13,7 +13,9 @@
 
 # Not from scratch because we also want a little directory structure,
 # specifically /tmp
-FROM amazon/amazon-ecs-scratch:make
+FROM alpine:3.3
+
+RUN apk add --no-cache socat
 
 COPY out/amazon-ecs-agent /agent
 COPY ["LICENSE", "NOTICE", "/"]
@@ -23,4 +25,7 @@ COPY ["LICENSE", "NOTICE", "/"]
 COPY misc/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 EXPOSE 51678
-ENTRYPOINT ["/agent"]
+
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/agent"]
