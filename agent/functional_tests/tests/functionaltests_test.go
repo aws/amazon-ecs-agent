@@ -566,6 +566,9 @@ func TestAwslogsDriver(t *testing.T) {
 		})
 	}()
 
+	strs := strings.Split(*testTask.TaskArn, "/")
+	taskId := strs[len(strs)-1]
+
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
