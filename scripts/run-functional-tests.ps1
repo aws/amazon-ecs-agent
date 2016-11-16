@@ -27,7 +27,7 @@ if (${LastExitCode} -eq 0) {
 }
 
 # Set up the proxy
-docker run -d -p 80:51679 --name ecs-cred-proxy amazon/amazon-ecs-credential-proxy
+Invoke-Expression "${PSScriptRoot}\..\misc\windows-deploy\setupcredentialproxy.ps1"
 
 # Run the tests
 $cwd = (pwd).Path

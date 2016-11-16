@@ -84,7 +84,7 @@ try {
 
         try {
             docker build -t amazon/amazon-ecs-credential-proxy --file .\credentialproxy.dockerfile . | out-null
-            docker run --name ecs-cred-proxy -d -p 80:51679 amazon/amazon-ecs-credential-proxy | out-null
+            .\setupcredentialproxy.ps1 | out-null
         } catch {
             LogMsg -message "Running Credential Proxy container failed." -logLevel "ERROR"
             LogMsg -message $_.Exception.Message -logLevel "ERROR"
