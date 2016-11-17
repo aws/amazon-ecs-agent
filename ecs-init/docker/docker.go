@@ -36,6 +36,8 @@ const (
 	defaultDockerEndpoint = "/var/run"
 	// networkMode specifies the networkmode to create the agent container
 	networkMode = "host"
+	// usernsMode specifies the userns mode to create the agent container
+	usernsMode = "host"
 	// minBackoffDuration specifies the minimum backoff duration for ping to
 	// return a success response from the docker socket
 	minBackoffDuration = time.Second
@@ -225,6 +227,7 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 	return &godocker.HostConfig{
 		Binds:       binds,
 		NetworkMode: networkMode,
+		UsernsMode:  usernsMode,
 	}
 }
 
