@@ -1,6 +1,5 @@
 <powershell>
-## The string 'windows' shoud be replaced with
-## template variable for cluster name.
+## The string 'windows' shoud be replaced with your cluster name
 
 # Set agent env variables for the Machine context (durable)
 [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "windows", "Machine")
@@ -34,22 +33,21 @@ if($expectedMD5 -ne $actualMD5) {
 Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
 
 ## Start the agent script in the background.
-
-# The description of the task
 $jobname = "ECS-Agent-Init"
 $script =  "cd '$ecsExeDir'; .\amazon-ecs-agent.ps1"
 $repeat = (New-TimeSpan -Minutes 1)
 
-try {
-    Unregister-ScheduledJob -Name $jobname | out-null
-}
-catch {
-    #noop
+$jobpath = $env:LOCALAPPDATA + "\Microsoft\Windows\PowerShell\ScheduledJobs\$jobname\ScheduledJobDefinition.xml"
+if($(Test-Path -Path $jobpath)) {
+  echo "Job definition already present"
+  exit 0
+
 }
 
 $scriptblock = [scriptblock]::Create("$script")
 $trigger = New-JobTrigger -At (Get-Date).Date -RepeatIndefinitely -RepetitionInterval $repeat -Once
 $options = New-ScheduledJobOption -RunElevated -ContinueIfGoingOnBattery -StartIfOnBattery
 Register-ScheduledJob -Name $jobname -ScriptBlock $scriptblock -Trigger $trigger -ScheduledJobOption $options -RunNow
+Add-JobTrigger -Name $jobname -Trigger (New-JobTrigger -AtStartup -RandomDelay 00:1:00)
 </powershell>
 <persist>true</persist>
