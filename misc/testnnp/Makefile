@@ -18,4 +18,4 @@ image:
 	docker build -f Dockerfile -t "amazon/testnnp:make" .
 
 clean:
-	docker rmi "amazon/testnnp:make"
+	-docker rmi "amazon/testnnp:make"

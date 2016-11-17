@@ -1,0 +1,13 @@
+{
+  "family": "ecsftest-port-80-windows",
+  "containerDefinitions": [{
+    "image": "amazon/amazon-ecs-listen80",
+    "name": "sleep",
+    "portBindings": [{
+      "containerPort": 80,
+      "hostPort": 5180
+    }],
+    "memory": 50,
+    "command": ["powershell", "\\listen80.exe"]
+  }]
+}

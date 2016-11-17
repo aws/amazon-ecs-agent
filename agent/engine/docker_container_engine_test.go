@@ -418,9 +418,10 @@ func TestStartContainerTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
-		testDone <- struct{}{}
+		close(testDone)
 	})
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error"))
+	// TODO This should be MaxTimes(1) after we update gomock
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
 	metadata := client.StartContainer("id", xContainerShortTimeout)
 	assert.NotNil(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
@@ -930,4 +931,19 @@ func TestRemoveImage(t *testing.T) {
 	if err != nil {
 		t.Errorf("Did not expect error, err: %v", err)
 	}
+}
+
+func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
+	mockDocker, client, _, _ := dockerClientSetup(t)
+	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{
+		Mounts: []docker.Mount{{
+			Destination: "destination1",
+			Source:      "source1",
+		}, {
+			Destination: "destination2",
+			Source:      "source2",
+		}},
+	}, nil)
+	metadata := client.containerMetadata("id")
+	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
 }

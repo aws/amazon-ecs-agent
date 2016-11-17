@@ -23,6 +23,7 @@ IMAGE_NAME=""
 AWS_PROFILE=""
 S3_BUCKET=""
 S3_ACL_OVERRIDE=""
+DEVCON_ZIP_URI="s3://amazon-ecs-devcon/devcon-3a3f98688359aa1b905147831f910218.zip"
 
 source $(dirname "${0}")/publishing-common.sh
 
@@ -39,6 +40,7 @@ usage() {
 	echo "  -b  BUCKET      AWS S3 Bucket"
 	echo "  -a  ACL         AWS S3 Object Canned ACL (default is public-read)"
 	echo "  -i  IMAGE       Docker image name"
+	echo "  -o  TARGET_OS   Build for the given OS (default is linux)"
 	echo "  -s              Skip re-build"
 	echo "  -h              Display this help message"
 }
@@ -61,7 +63,44 @@ stage_s3() {
 	rm "${tarball_md5}"
 }
 
-while getopts ":d:p:b:i:a:sh" opt; do
+stage_windows_s3() {
+	local ziproot="$(mktemp -d)"
+	local ziptgtdir="$(mktemp -d)"
+	local zipfile="${ziptgtdir}/amazon-ecs-agent"
+	local zip_md5="$(mktemp)"
+	trap "rm -r \"${ziproot}\" \"${ziptgtdir}\" \"${zip_md5}\"" RETURN EXIT
+	install_devcon "${ziproot}"
+	cp LICENSE "${ziproot}"
+	cp out/amazon-ecs-agent.exe "${ziproot}"
+	cp -v misc/windows-deploy/*.ps1 "${ziproot}"
+	cp -v misc/windows-deploy/credentialproxy.dockerfile "${ziproot}"
+	pushd "${ziproot}"
+	zip "${zipfile}" *
+	md5sum "${zipfile}.zip" | sed 's/ .*//' > "${zip_md5}"
+	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
+		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip"
+		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.md5"
+	done
+	popd
+}
+
+install_devcon() {
+	local ziproot="$1"
+	local zipfile=$(mktemp)
+	local md5file=$(mktemp)
+	trap "rm -vf \"${zipfile}\" \"${md5file}\"" RETURN EXIT
+	s3_cp "$DEVCON_ZIP_URI" "${zipfile}"
+	s3_cp "${DEVCON_ZIP_URI}.md5" "${md5file}"
+	if ! check_md5 "${zipfile}" "${md5file}"; then
+		echo "${DEVCON_ZIP_URI} did not match expected checksum." >&2
+		exit 1
+	fi
+	pushd "${ziproot}"
+	unzip "${zipfile}"
+	popd
+}
+
+while getopts ":d:p:b:i:a:o:sh" opt; do
 	case ${opt} in
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
@@ -82,6 +121,12 @@ while getopts ":d:p:b:i:a:sh" opt; do
 			;;
 		s)
 			SKIP_REBUILD=true
+			;;
+		o)
+			TARGET_OS="${OPTARG}"
+			;;
+		e)
+			DEVCON_ZIP_URI="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -105,9 +150,16 @@ if [ -z "${S3_BUCKET}" ]; then
 	exit 1
 fi
 
-if ! $($SKIP_REBUILD); then
-	make release
-fi
+if [ "${TARGET_OS}" != "windows" ]; then
+	if ! $(${SKIP_REBUILD}); then
+		TARGET_OS="${TARGET_OS}" make release
+	fi
 
-tag_and_push_docker
-stage_s3
+	tag_and_push_docker
+	stage_s3
+else
+	if ! $(${SKIP_REBUILD}); then
+		TARGET_OS="${TARGET_OS}" make docker-release
+	fi
+	stage_windows_s3
+fi

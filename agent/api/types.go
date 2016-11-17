@@ -103,9 +103,6 @@ type Task struct {
 
 	SentStatus TaskStatus
 
-	containersByNameLock sync.Mutex
-	containersByName     map[string]*Container
-
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
 

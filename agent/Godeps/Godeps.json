@@ -1,15 +1,15 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v74",
+	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Microsoft/go-winio",
-			"Comment": "v0.3.5-2-gce2922f",
-			"Rev": "ce2922f643c8fd76b46cadc7f404a06282678b34"
+			"Comment": "0.3.6",
+			"Rev": "562bb09f6612d9a4e91597184709d1cdba95af93"
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -320,6 +320,10 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/windows",
+			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/windows/registry",
 			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
 		},
 		{

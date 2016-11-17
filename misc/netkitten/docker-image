@@ -14,6 +14,6 @@
 
 if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-netkitten:make" > /dev/null ; then
 	tar -c netkitten | docker import - "amazon/amazon-ecs-netkitten:premake"
-	docker build -q -t "amazon/amazon-ecs-netkitten:make" .
+	docker build -q -t "amazon/amazon-ecs-netkitten:make" -f linux.dockerfile .
 	docker rmi "amazon/amazon-ecs-netkitten:premake"
 fi

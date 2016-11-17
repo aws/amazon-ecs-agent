@@ -14,11 +14,11 @@
 .PHONY: all clean
 
 all:
-	docker build -f "Dockerfile0" -t amazon/image-cleanup-test-image1:make .
-	docker build -f "Dockerfile1" -t amazon/image-cleanup-test-image2:make .
-	docker build -f "Dockerfile2" -t amazon/image-cleanup-test-image3:make .
+	docker build -f "linux0.dockerfile" -t amazon/image-cleanup-test-image1:make .
+	docker build -f "linux1.dockerfile" -t amazon/image-cleanup-test-image2:make .
+	docker build -f "linux2.dockerfile" -t amazon/image-cleanup-test-image3:make .
 
 clean:
-	docker rmi -f "amazon/image-cleanup-test-image1:make"
-	docker rmi -f "amazon/image-cleanup-test-image2:make"
-	docker rmi -f "amazon/image-cleanup-test-image3:make"
+	-docker rmi -f "amazon/image-cleanup-test-image1:make"
+	-docker rmi -f "amazon/image-cleanup-test-image2:make"
+	-docker rmi -f "amazon/image-cleanup-test-image3:make"

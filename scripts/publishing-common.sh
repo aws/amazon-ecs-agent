@@ -19,6 +19,15 @@ export IMAGE_TAG_LATEST="latest"
 export IMAGE_TAG_SHA=$(git rev-parse --short HEAD)
 export IMAGE_TAG_VERSION="v${VERSION}"
 
+SUPPORTED_OSES=("linux" "windows")
+
+supported_os() {
+	local os=$1
+	for entry in ${SUPPORTED_OSES[@]} ; do
+		test "${os}" == "${entry}" && return $(true)
+	done
+	return $(false)
+}
 
 dryval() {
 	if ${DRYRUN} ; then

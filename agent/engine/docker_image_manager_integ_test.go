@@ -24,8 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -35,18 +34,7 @@ import (
 const (
 	imageRemovalTimeout       = 30 * time.Second
 	taskCleanupTimeoutSeconds = 30
-
-	testImage1Name = "127.0.0.1:51670/amazon/image-cleanup-test-image1:latest"
-	testImage2Name = "127.0.0.1:51670/amazon/image-cleanup-test-image2:latest"
-	testImage3Name = "127.0.0.1:51670/amazon/image-cleanup-test-image3:latest"
 )
-
-const credentialsIDIntegTest = "credsid"
-
-func defaultTestConfigIntegTest() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	return cfg
-}
 
 // Deletion of images in the order of LRU time: Happy path
 //  a. This includes starting up agent, pull images, start containers,
@@ -74,7 +62,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	defer func() {
 		done()
 		// Force cleanup all test images and containers
-		cleanupImages(imageManager)
+		cleanupImagesHappy(imageManager)
 	}()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
@@ -83,7 +71,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 
 	// Create test Task
 	taskName := "imgClean"
-	testTask := createImageCleanupTestTask(taskName)
+	testTask := createImageCleanupHappyTestTask(taskName)
 
 	go taskEngine.AddTask(testTask)
 
@@ -93,23 +81,23 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	imageState1 := imageManager.GetImageStateFromImageName(testImage1Name)
+	imageState1 := imageManager.GetImageStateFromImageName(test1Image1Name)
 	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", testImage1Name)
+		t.Fatalf("Could not find image state for %s", test1Image1Name)
 	} else {
-		t.Logf("Found image state for %s", testImage1Name)
+		t.Logf("Found image state for %s", test1Image1Name)
 	}
-	imageState2 := imageManager.GetImageStateFromImageName(testImage2Name)
+	imageState2 := imageManager.GetImageStateFromImageName(test1Image2Name)
 	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", testImage2Name)
+		t.Fatalf("Could not find image state for %s", test1Image2Name)
 	} else {
-		t.Logf("Found image state for %s", testImage2Name)
+		t.Logf("Found image state for %s", test1Image2Name)
 	}
-	imageState3 := imageManager.GetImageStateFromImageName(testImage3Name)
+	imageState3 := imageManager.GetImageStateFromImageName(test1Image3Name)
 	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", testImage3Name)
+		t.Fatalf("Could not find image state for %s", test1Image3Name)
 	} else {
-		t.Logf("Found image state for %s", testImage3Name)
+		t.Logf("Found image state for %s", test1Image3Name)
 	}
 
 	imageState1ImageID := imageState1.Image.ImageID
@@ -187,7 +175,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	defer func() {
 		done()
 		// Force cleanup all test images and containers
-		cleanupImages(imageManager)
+		cleanupImagesThreshold(imageManager)
 	}()
 
 	taskEvents, containerEvents := taskEngine.TaskEvents()
@@ -195,7 +183,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 
 	// Create test Task
 	taskName := "imgClean"
-	testTask := createImageCleanupTestTask(taskName)
+	testTask := createImageCleanupThresholdTestTask(taskName)
 
 	// Start Task
 	go taskEngine.AddTask(testTask)
@@ -206,23 +194,23 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	imageState1 := imageManager.GetImageStateFromImageName(testImage1Name)
+	imageState1 := imageManager.GetImageStateFromImageName(test2Image1Name)
 	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", testImage1Name)
+		t.Fatalf("Could not find image state for %s", test2Image1Name)
 	} else {
-		t.Logf("Found image state for %s", testImage1Name)
+		t.Logf("Found image state for %s", test2Image1Name)
 	}
-	imageState2 := imageManager.GetImageStateFromImageName(testImage2Name)
+	imageState2 := imageManager.GetImageStateFromImageName(test2Image2Name)
 	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", testImage2Name)
+		t.Fatalf("Could not find image state for %s", test2Image2Name)
 	} else {
-		t.Logf("Found image state for %s", testImage2Name)
+		t.Logf("Found image state for %s", test2Image2Name)
 	}
-	imageState3 := imageManager.GetImageStateFromImageName(testImage3Name)
+	imageState3 := imageManager.GetImageStateFromImageName(test2Image3Name)
 	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", testImage3Name)
+		t.Fatalf("Could not find image state for %s", test2Image3Name)
 	} else {
-		t.Logf("Found image state for %s", testImage3Name)
+		t.Logf("Found image state for %s", test2Image3Name)
 	}
 
 	imageState1ImageID := imageState1.Image.ImageID
@@ -309,17 +297,17 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	defer discardEvents(containerEvents)()
 
 	// Pull the images needed for the test
-	if _, err := dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
-		metadata := dockerClient.PullImage(testImage1Name, nil)
-		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage1Name)
+	if _, err = dockerClient.InspectImage(test3Image1Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(test3Image1Name, nil)
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image1Name)
 	}
-	if _, err := dockerClient.InspectImage(testImage2Name); err == docker.ErrNoSuchImage {
-		metadata := dockerClient.PullImage(testImage2Name, nil)
-		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage2Name)
+	if _, err = dockerClient.InspectImage(test3Image2Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(test3Image2Name, nil)
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image2Name)
 	}
-	if _, err := dockerClient.InspectImage(testImage3Name); err == docker.ErrNoSuchImage {
-		metadata := dockerClient.PullImage(testImage3Name, nil)
-		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage3Name)
+	if _, err = dockerClient.InspectImage(test3Image3Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(test3Image3Name, nil)
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image3Name)
 	}
 
 	// The same image name used by all tasks in this test
@@ -332,7 +320,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	task2.Containers[0].Image = identicalImageName
 	task3.Containers[0].Image = identicalImageName
 
-	err = renameImage(testImage1Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
+	err = renameImage(test3Image1Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	assert.NoError(t, err, "Renaming the image failed")
 
 	// start and wait for task1 to be running
@@ -347,7 +335,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	imageID1 := imageState1.Image.ImageID
 
 	// Using another image but rename to the same name as task1 for task2
-	err = renameImage(testImage2Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
+	err = renameImage(test3Image2Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	require.NoError(t, err, "Renaming the image failed")
 
 	// Start and wait for task2 to be running
@@ -363,7 +351,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NotEqual(t, imageID2, imageID1, "The image id in task 2 should be different from image in task 1")
 
 	// Using a different image for task3 and rename it to the same name as task1 and task2
-	err = renameImage(testImage3Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
+	err = renameImage(test3Image3Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	require.NoError(t, err, "Renaming the image failed")
 
 	// Start and wiat for task3 to be running
@@ -449,13 +437,13 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	task3.Containers[0].Image = "testimagewithsameidanddifferentnames-3:latest"
 
 	// Pull the images needed for the test
-	if _, err = dockerClient.InspectImage(testImage1Name); err == docker.ErrNoSuchImage {
-		metadata := dockerClient.PullImage(testImage1Name, nil)
-		assert.NoError(t, metadata.Error, "Failed to pull image %s", testImage1Name)
+	if _, err = dockerClient.InspectImage(test4Image1Name); err == docker.ErrNoSuchImage {
+		metadata := dockerClient.PullImage(test4Image1Name, nil)
+		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
 
 	// Using testImage1Name for all the tasks but with different name
-	err = renameImage(testImage1Name, "testimagewithsameidanddifferentnames-1", "latest", goDockerClient)
+	err = renameImage(test4Image1Name, "testimagewithsameidanddifferentnames-1", "latest", goDockerClient)
 	require.NoError(t, err, "Renaming image failed")
 
 	// Start and wait for task1 to be running
@@ -555,6 +543,76 @@ func renameImage(original, repo, tag string, client *docker.Client) error {
 	return nil
 }
 
+func createImageCleanupHappyTestTask(taskName string) *api.Task {
+	return &api.Task{
+		Arn:           taskName,
+		Family:        taskName,
+		Version:       "1",
+		DesiredStatus: api.TaskRunning,
+		Containers: []*api.Container{
+			&api.Container{
+				Name:          "test1",
+				Image:         test1Image1Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test2",
+				Image:         test1Image2Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test3",
+				Image:         test1Image3Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+		},
+	}
+}
+
+func createImageCleanupThresholdTestTask(taskName string) *api.Task {
+	return &api.Task{
+		Arn:           taskName,
+		Family:        taskName,
+		Version:       "1",
+		DesiredStatus: api.TaskRunning,
+		Containers: []*api.Container{
+			&api.Container{
+				Name:          "test1",
+				Image:         test2Image1Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test2",
+				Image:         test2Image2Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+			&api.Container{
+				Name:          "test3",
+				Image:         test2Image3Name,
+				Essential:     false,
+				DesiredStatus: api.ContainerRunning,
+				Cpu:           10,
+				Memory:        10,
+			},
+		},
+	}
+}
+
 func verifyTaskIsCleanedUp(taskName string, taskEngine TaskEngine) error {
 	for i := 0; i < taskCleanupTimeoutSeconds; i++ {
 		_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskName)
@@ -597,11 +655,20 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...str
 	return nil
 }
 
-func cleanupImages(imageManager *dockerImageManager) {
+func cleanupImagesHappy(imageManager *dockerImageManager) {
 	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
 	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
 	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
-	imageManager.client.RemoveImage(testImage1Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(testImage2Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(testImage3Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(test1Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(test1Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(test1Image3Name, imageRemovalTimeout)
+}
+
+func cleanupImagesThreshold(imageManager *dockerImageManager) {
+	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
+	imageManager.client.RemoveImage(test2Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(test2Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(test2Image3Name, imageRemovalTimeout)
 }

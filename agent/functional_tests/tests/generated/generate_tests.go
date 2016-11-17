@@ -13,5 +13,4 @@
 
 package functional_tests
 
-//go:generate mkdir -p simpletests
-//go:generate go run ../../generators/simpletests.go simpletests/simpletests_generated_test
+//go:generate go run ../../generators/simpletests.go

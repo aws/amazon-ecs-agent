@@ -15,18 +15,25 @@ Please provide the following information:
 <!-- How was this tested? -->
 <!--
 Note for external contributors:
-`make short-test` and `make test` can run anywhere in a development environment
-like your laptop.  Please ensure both of these pass before opening the pull
-request.  `make run-functional-tests` must be run on an EC2 instance with an
+`make test` and `make run-integ-tests` can run in a Linux development
+environment like your laptop.  `go test -timeout=25s ./agent/...` and
+`.\scripts\run-integ.tests.ps1` can run in a Windows development environment
+like your laptop.  Please ensure unit and integration tests pass (on at least
+one platform) before opening the pull request.  `make run-functional-tests` and
+`.\scripts\run-functional-tests.ps1` must be run on an EC2 instance with an
 instance profile allowing it access to AWS resources.  Running
-`make run-functional-tests` may incur charges to your AWS account; if you're
-unable or unwilling to run these tests in your own account, we can run the tests
-and provide test results.
+`make run-functional-tests` and `.\scripts\run-functional-tests.ps1` may incur
+charges to your AWS account; if you're unable or unwilling to run these tests
+in your own account, we can run the tests and provide test results.
 -->
-- [ ] Builds (`make release`)
-- [ ] Unit tests (`make test`) pass
-- [ ] Integration tests (`make run-integ-tests`) pass
-- [ ] Functional tests (`make run-functional-tests`) pass
+- [ ] Builds on Linux (`make release`)
+- [ ] Builds on Windows (`go build -out amazon-ecs-agent.exe ./agent`)
+- [ ] Unit tests on Linux (`make test`) pass
+- [ ] Unit tests on Windows (`go test -timeout=25s ./agent/...`) pass
+- [ ] Integration tests on Linux (`make run-integ-tests`) pass
+- [ ] Integration tests on Windows (`.\scripts\run-integ-tests.ps1`) pass
+- [ ] Functional tests on Linux (`make run-functional-tests`) pass
+- [ ] Functional tests on Windows (`.\scripts\run-functional-tests.ps1`) pass
 
 New tests cover the changes: <!-- yes|no -->
 

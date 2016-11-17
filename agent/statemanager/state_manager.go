@@ -20,9 +20,7 @@ package statemanager
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -31,9 +29,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
-// The current version of saved data. Any backwards or forwards incompatible
-// changes to the data-format should increment this number and retain the
-// ability to read old data versions.
+// EcsDataVersion is the current version of saved data. Any backwards or
+// forwards incompatible changes to the data-format should increment this number
+// and retain the ability to read old data versions.
 // Version changes:
 // 1) initial
 // 2)
@@ -93,6 +91,8 @@ type versionOnlyState struct {
 	Version int
 }
 
+type platformDependencies interface{}
+
 // A StateManager can load and save state from disk.
 // Load is not expected to return an error if there is no state to load.
 type StateManager interface {
@@ -109,7 +109,9 @@ type basicStateManager struct {
 	lastSave        time.Time  //the last time a save completed
 	nextPlannedSave time.Time  //the next time a save is planned
 
-	savingLock sync.Mutex // guards marshal, write, and move
+	savingLock sync.Mutex // guards marshal, write, move (on Linux), and load (on Windows)
+
+	platformDependencies platformDependencies // platform-specific dependencies
 }
 
 // NewStateManager constructs a new StateManager which saves data at the
@@ -137,6 +139,8 @@ func NewStateManager(cfg *config.Config, options ...Option) (StateManager, error
 	for _, option := range options {
 		option(manager)
 	}
+
+	manager.platformDependencies = newPlatformDependencies()
 
 	return manager, nil
 }
@@ -200,56 +204,26 @@ func (manager *basicStateManager) ForceSave() error {
 		log.Error("Error saving state; could not marshal data; this is odd", "err", err)
 		return err
 	}
-	// Make our temp-file on the same volume as our data-file to ensure we can
-	// actually move it atomically; cross-device renaming will error out.
-	tmpfile, err := ioutil.TempFile(manager.statePath, "tmp_ecs_agent_data")
-	if err != nil {
-		log.Error("Error saving state; could not create temp file to save state", "err", err)
-		return err
-	}
-	_, err = tmpfile.Write(data)
-	if err != nil {
-		log.Error("Error saving state; could not write to temp file to save state", "err", err)
-		return err
-	}
-	err = os.Rename(tmpfile.Name(), filepath.Join(manager.statePath, ecsDataFile))
-	if err != nil {
-		log.Error("Error saving state; could not move to data file", "err", err)
-	}
-	return err
+	return manager.writeFile(data)
 }
 
 // Load reads state off the disk from the well-known filepath and loads it into
 // the passed State object.
 func (manager *basicStateManager) Load() error {
-	// Note that even if Save overwrites the file we're looking at here, we
-	// still hold the old inode and should read the old data so no locking is
-	// needed (given Linux and the ext* family of fs at least).
 	s := manager.state
 	log.Info("Loading state!")
-	file, err := os.Open(filepath.Join(manager.statePath, ecsDataFile))
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Happens every first run; not a real error
-			return nil
-		}
-		return err
-	}
-	data, err := ioutil.ReadAll(file)
+	data, err := manager.readFile()
 	if err != nil {
 		log.Error("Error reading existing state file", "err", err)
 		return err
 	}
-	// Dry-run to make sure this is a version we can understand
-	tmps := versionOnlyState{}
-	err = json.Unmarshal(data, &tmps)
-	if err != nil {
-		log.Crit("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
-		return err
+	if data == nil {
+		return nil
 	}
-	if tmps.Version > EcsDataVersion {
-		strversion := strconv.Itoa(tmps.Version)
-		return errors.New("Unsupported data format: Version " + strversion + " not " + strconv.Itoa(EcsDataVersion))
+	// Dry-run to make sure this is a version we can understand
+	err = manager.dryRun(data)
+	if err != nil {
+		return err
 	}
 	// Now load it into the actual state. The reason we do this with the
 	// intermediate state is that we *must* unmarshal directly into the
@@ -279,5 +253,20 @@ func (manager *basicStateManager) Load() error {
 	}
 
 	log.Debug("Loaded state!", "state", s)
+	return nil
+}
+
+func (manager *basicStateManager) dryRun(data []byte) error {
+	// Dry-run to make sure this is a version we can understand
+	tmps := versionOnlyState{}
+	err := json.Unmarshal(data, &tmps)
+	if err != nil {
+		log.Crit("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
+		return err
+	}
+	if tmps.Version > EcsDataVersion {
+		strversion := strconv.Itoa(tmps.Version)
+		return errors.New("Unsupported data format: Version " + strversion + " not " + strconv.Itoa(EcsDataVersion))
+	}
 	return nil
 }

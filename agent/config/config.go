@@ -80,9 +80,6 @@ const (
 	// minimumNumImagesToDeletePerCycle specifies the minimum number of images that to be deleted when
 	// performing image cleanup.
 	minimumNumImagesToDeletePerCycle = 1
-
-	// defaultAuditLogFile specifies the default audit log filename
-	defaultCredentialsAuditLogFile = "/log/audit.log"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -176,26 +173,6 @@ func (cfg *Config) trimWhitespace() {
 		}
 		str := cfgField.Interface().(string)
 		cfgField.SetString(strings.TrimSpace(str))
-	}
-}
-
-func DefaultConfig() Config {
-	return Config{
-		DockerEndpoint:              "unix:///var/run/docker.sock",
-		ReservedPorts:               []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
-		ReservedPortsUDP:            []uint16{},
-		DataDir:                     "/data/",
-		DisableMetrics:              false,
-		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
-		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
-		DockerStopTimeout:           DefaultDockerStopTimeout,
-		CredentialsAuditLogFile:     defaultCredentialsAuditLogFile,
-		CredentialsAuditLogDisabled: false,
-		ImageCleanupDisabled:        false,
-		MinimumImageDeletionAge:     DefaultImageDeletionAge,
-		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
-		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 	}
 }
 
@@ -457,6 +434,8 @@ func (config *Config) validateAndOverrideBounds() error {
 		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, config.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
 		config.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
 	}
+
+	config.platformOverrides()
 
 	return nil
 }

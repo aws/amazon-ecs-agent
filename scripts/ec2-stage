@@ -26,8 +26,8 @@ KEY_NAME=""
 SECURITY_GROUP=""
 INSTANCE_PROFILE=""
 
-
 source $(dirname "${0}")/publishing-common.sh
+TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 usage() {
 	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
@@ -52,10 +52,12 @@ usage() {
 	echo "  -k  SSH_KEY         SSH key name"
 	echo "  -s  SECURITY_GROUP  Security group name"
 	echo "  -i  IAM_ROLE        IAM Role name"
+	echo "  -o  TARGET_OS_LIST  Comma-separated list of OS targets to build."
+	echo "                      Default is linux,windows"
 	echo "  -h                  Display this help message"
 }
 
-while getopts ":d:p:a:t:k:s:i:h" opt; do
+while getopts ":d:p:a:t:k:s:i:o:h" opt; do
 	case ${opt} in
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
@@ -79,6 +81,9 @@ while getopts ":d:p:a:t:k:s:i:h" opt; do
 			;;
 		i)
 			INSTANCE_PROFILE="${OPTARG}"
+			;;
+		o)
+			TARGET_OS_OPT="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -113,13 +118,25 @@ running this script.
 EOW
 )
 if [[ -n "$(git status --porcelain)" ]]; then
-	echo "$DIRTY_WARNING"
+	echo "${DIRTY_WARNING}"
 	exit 1
+fi
+
+if [ -n "${TARGET_OS_OPT}" ]; then
+	TARGET_OS_LIST=()
+	for os in `echo "${TARGET_OS_OPT}" | tr ',' ' '`; do
+		echo "Testing validity of ${os}"
+		if supported_os "${os}"; then
+			TARGET_OS_LIST+=(${os})
+		else
+			echo "Unsupported target OS ${os}" >&2
+			exit 1
+		fi
+	done
 fi
 
 commit=$(git rev-parse HEAD)
 echo "Packaging ${commit} for staging..."
-
 agent_dir=$(pwd)
 tmpdir=$(mktemp -d)
 # Fresh clone to ensure our build doesn't rely on anything outside of vcs
@@ -147,7 +164,7 @@ userdata=$(cat << EOU
 mkdir -p ${ec2_work_root}
 exec > >(tee -a ${ec2_work_root}/userdata.log)
 
-yum -y install docker golang git
+yum -y install docker golang git zip unzip
 service docker start
 aws s3 cp "${s3_source_gz}" "${ec2_work_root}/source.tgz"
 mkdir -p ${ec2_build_root}
@@ -158,7 +175,9 @@ cd amazon-ecs-agent
 tar -xvz -f "${ec2_work_root}/source.tgz"
 git checkout "${commit}"
 make get-deps
-scripts/stage -b ${ARTIFACT_BUCKET} -d false
+for target_os in ${TARGET_OS_LIST[@]}; do
+	scripts/stage -b ${ARTIFACT_BUCKET} -d false -o \$target_os
+done
 aws s3 cp "${ec2_work_root}/userdata.log" "${s3_source_prefix}/userdata.log"
 shutdown -hP now
 EOU

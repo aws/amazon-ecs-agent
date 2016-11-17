@@ -3,9 +3,13 @@ misc/netkitten/netkitten
 out/
 coverage/
 _bin/
+*.exe
+*.zip
 *.swp
 *.orig
 /agent/version/_version.go
 /misc/gremlin/gremlin
 .agignore
 *.sublime-*
+.DS_Store
+/misc/windows-iam/devcon*

@@ -17,10 +17,12 @@ package httpclient
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -30,7 +32,7 @@ const defaultTimeout = 10 * time.Minute
 const defaultDialTimeout = 30 * time.Second
 const defaultDialKeepalive = 30 * time.Second
 
-//go:generate mockgen.sh net/http RoundTripper mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go net/http RoundTripper mock/$GOFILE
 
 type ecsRoundTripper struct {
 	insecureSkipVerify bool
@@ -38,7 +40,7 @@ type ecsRoundTripper struct {
 }
 
 func userAgent() string {
-	return version.String() + " (+http://aws.amazon.com/ecs/)"
+	return fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", version.String(), api.OSType)
 }
 
 func (client *ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

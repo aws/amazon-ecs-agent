@@ -1,0 +1,74 @@
+{
+  "family": "ten-containers-windows",
+  "containerDefinitions": [{
+    "name": "1",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "2",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "3",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "4",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "5",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "6",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "7",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "8",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "9",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }, {
+    "name": "10",
+    "image": "microsoft/windowsservercore:latest",
+    "memory": 10,
+    "cpu": 0,
+    "entryPoint": ["powershell"],
+    "command": ["sleep", "20"]
+  }]
+}

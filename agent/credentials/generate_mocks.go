@@ -13,4 +13,4 @@
 
 package credentials
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/credentials Manager mocks/credentials_mocks.go
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/credentials Manager mocks/credentials_mocks.go

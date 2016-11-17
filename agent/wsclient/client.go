@@ -95,7 +95,7 @@ type ClientServer interface {
 	io.Closer
 }
 
-//go:generate mockgen.sh github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/$GOFILE
 
 // ClientServerImpl wraps commonly used methods defined in ClientServer interface.
 type ClientServerImpl struct {
