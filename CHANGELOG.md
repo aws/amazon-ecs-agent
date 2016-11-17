@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.14.0-1.windows.1
+* Feature - Support Docker on Windows Server 2016.
+
 ## 1.13.1
 * Enhancement - Added cache for DiscoverPollEndPoint API.
 * Enhancement - Expose port 51679 so docker tasks can fetch IAM credentials.
