@@ -15,6 +15,7 @@ package util
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -161,4 +162,14 @@ func compareSemver(lhs, rhs semver) int {
 		return 1
 	}
 	return 0
+}
+
+// extractVersion extracts a matching version from the version number string
+func extractVersion(input string) string {
+	versionNumberRegex := regexp.MustCompile(` v(\d+\.\d+\.\d+(\-[\S\.\-]+)?(\+[\S\.\-]+)?)`)
+	versionNumberStr := versionNumberRegex.FindStringSubmatch(input)
+	if len(versionNumberStr) >= 2 {
+		return string(versionNumberStr[1])
+	}
+	return "UNKNOWN"
 }

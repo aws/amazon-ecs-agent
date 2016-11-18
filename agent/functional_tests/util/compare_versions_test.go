@@ -14,7 +14,11 @@
 
 package util
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestParseSemver(t *testing.T) {
 	testCases := []struct {
@@ -63,6 +67,15 @@ func TestParseSemver(t *testing.T) {
 				patch:             0,
 				preReleaseVersion: "rc1",
 				buildMetadata:     "sha.xyz",
+			},
+		},
+		{
+			input: "1.14.0-1.windows.1",
+			output: semver{
+				major:             1,
+				minor:             14,
+				patch:             0,
+				preReleaseVersion: "1.windows.1",
 			},
 		},
 	}
@@ -167,6 +180,11 @@ func TestVersionMatches(t *testing.T) {
 			selector:       ">=1.9.0,<=1.9.1",
 			expectedOutput: true,
 		},
+		{
+			version:        "1.14.0-1.windows.1",
+			selector:       ">=1.5.0",
+			expectedOutput: true,
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -177,5 +195,42 @@ func TestVersionMatches(t *testing.T) {
 		if result != testCase.expectedOutput {
 			t.Errorf("#%v: %v(%v) expected %v but got %v", i, testCase.version, testCase.selector, testCase.expectedOutput, result)
 		}
+	}
+}
+
+func TestExtractVersion(t *testing.T) {
+	testCases := []struct {
+		version        string
+		expectedOutput string
+	}{
+		{
+			version:        "Amazon ECS v1.0.0",
+			expectedOutput: "1.0.0",
+		},
+		{
+			version:        " v1.0.0-test",
+			expectedOutput: "1.0.0-test",
+		},
+		{
+			version:        "Amazon ECS v1.2.3-1.test.2",
+			expectedOutput: "1.2.3-1.test.2",
+		},
+		{
+			version:        " v1.2.3-1.test.2+build.123",
+			expectedOutput: "1.2.3-1.test.2+build.123",
+		},
+		{
+			version:        "",
+			expectedOutput: "UNKNOWN",
+		},
+		{
+			version:        " abcd",
+			expectedOutput: "UNKNOWN",
+		},
+	}
+
+	for i, testCase := range testCases {
+		result := extractVersion(testCase.version)
+		assert.Equal(t, testCase.expectedOutput, result, "Test case %d", i)
 	}
 }

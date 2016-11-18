@@ -29,7 +29,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"regexp"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -92,7 +91,6 @@ func GetTaskDefinitionWithOverrides(name string, overrides map[string]string) (s
 	return fmt.Sprintf("%s:%d", *registered.TaskDefinition.Family, *registered.TaskDefinition.Revision), nil
 }
 
-
 type TestAgent struct {
 	Image                string
 	DockerID             string
@@ -145,20 +143,10 @@ func (agent *TestAgent) platformIndependentStartAgent() error {
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
 	fmt.Println("Container InstanceArn:", agent.ContainerInstanceArn)
 	agent.Cluster = localMetadata.Cluster
-	if localMetadata.Version != "" {
-		versionNumberRegex := regexp.MustCompile(` v(\d+\.\d+\.\d+) `)
-		versionNumberStr := versionNumberRegex.FindStringSubmatch(localMetadata.Version)
-		if len(versionNumberStr) == 2 {
-			agent.Version = string(versionNumberStr[1])
-		}
-	}
-	if agent.Version == "" {
-		agent.Version = "UNKNOWN"
-	}
+	agent.Version = extractVersion(localMetadata.Version)
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
 	return nil
 }
-
 
 // Platform Independent piece of Agent Cleanup. Gets executed on both linux and Windows.
 func (agent *TestAgent) platformIndependentCleanup() {
