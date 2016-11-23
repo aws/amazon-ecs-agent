@@ -176,24 +176,24 @@ func (cfg *Config) trimWhitespace() {
 	}
 }
 
-func fileConfig() Config {
+func fileConfig() (Config, error) {
 	config_file := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), "/etc/ecs_container_agent/config.json")
+	config := Config{}
 
 	file, err := os.Open(config_file)
 	if err != nil {
-		return Config{}
+		return config, nil
 	}
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		seelog.Errorf("Unable to read config file, err %v", err)
-		return Config{}
+		return config, err
 	}
 	if strings.TrimSpace(string(data)) == "" {
 		// empty file, not an error
-		return Config{}
+		return config, nil
 	}
 
-	config := Config{}
 	err = json.Unmarshal(data, &config)
 	if err != nil {
 		seelog.Errorf("Error reading config json data, err %v", err)
@@ -203,12 +203,13 @@ func fileConfig() Config {
 	if utils.ZeroOrNil(config.Cluster) && !utils.ZeroOrNil(config.ClusterArn) {
 		config.Cluster = config.ClusterArn
 	}
-	return config
+	return config, nil
 }
 
 // environmentConfig reads the given configs from the environment and attempts
 // to convert them to the given type
-func environmentConfig() Config {
+func environmentConfig() (Config, error) {
+	var errs []error
 	endpoint := os.Getenv("ECS_BACKEND_HOST")
 
 	clusterRef := os.Getenv("ECS_CLUSTER")
@@ -238,7 +239,8 @@ func environmentConfig() Config {
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
-		seelog.Warnf("Invalid format for \"ECS_RESERVED_PORTS\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
+		err := fmt.Errorf("Invalid format for \"ECS_RESERVED_PORTS\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
+		seelog.Warn(err)
 	}
 
 	reservedPortUDPEnv := os.Getenv("ECS_RESERVED_PORTS_UDP")
@@ -249,7 +251,8 @@ func environmentConfig() Config {
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
-		seelog.Warnf("Invalid format for \"ECS_RESERVED_PORTS_UDP\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
+		err := fmt.Errorf("Invalid format for \"ECS_RESERVED_PORTS_UDP\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
+		seelog.Warn(err)
 	}
 
 	updateDownloadDir := os.Getenv("ECS_UPDATE_DOWNLOAD_DIR")
@@ -276,7 +279,8 @@ func environmentConfig() Config {
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
-		seelog.Warnf("Invalid format for \"ECS_AVAILABLE_LOGGING_DRIVERS\" environment variable; expected a JSON array like [\"json-file\",\"syslog\"]. err %v", err)
+		err := fmt.Errorf("Invalid format for \"ECS_AVAILABLE_LOGGING_DRIVERS\" environment variable; expected a JSON array like [\"json-file\",\"syslog\"]. err %v", err)
+		seelog.Warn(err)
 	}
 
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
@@ -297,6 +301,25 @@ func environmentConfig() Config {
 		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
 
+	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
+	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
+	var instanceAttributes map[string]string
+
+	err = attributeDecoder.Decode(&instanceAttributes)
+	if err != io.EOF && err != nil {
+		err := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash")
+		seelog.Warn(err)
+		errs = append(errs, err)
+	}
+	for attributeKey, attributeValue := range instanceAttributes {
+		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
+	}
+
+	if len(errs) > 0 {
+		err = utils.NewMultiError(errs...)
+	} else {
+		err = nil
+	}
 	return Config{
 		Cluster:                          clusterRef,
 		APIEndpoint:                      endpoint,
@@ -326,7 +349,8 @@ func environmentConfig() Config {
 		MinimumImageDeletionAge:          minimumImageDeletionAge,
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
-	}
+		InstanceAttributes:               instanceAttributes,
+	}, err
 }
 
 func parseEnvVariableUint16(envVar string) uint16 {
@@ -373,12 +397,25 @@ func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 // error is returned, however, if the config is incomplete in some way that is
 // considered fatal.
 func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
-	ctmp := environmentConfig() //Environment overrides all else
-	config = &ctmp
+	var errs []error
+	var errTmp error
+	envConfig, errTmp := environmentConfig() //Environment overrides all else
+	if errTmp != nil {
+		errs = append(errs, errTmp)
+	}
+	config = &envConfig
 	defer func() {
 		config.trimWhitespace()
 		config.Merge(DefaultConfig())
-		err = config.validateAndOverrideBounds()
+		errTmp = config.validateAndOverrideBounds()
+		if errTmp != nil {
+			errs = append(errs, errTmp)
+		}
+		if len(errs) != 0 {
+			err = utils.NewMultiError(errs...)
+		} else {
+			err = nil
+		}
 	}()
 
 	if config.complete() {
@@ -386,7 +423,11 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 		return config, nil
 	}
 
-	config.Merge(fileConfig())
+	fcfg, errTmp := fileConfig()
+	if errTmp != nil {
+		errs = append(errs, errTmp)
+	}
+	config.Merge(fcfg)
 
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)

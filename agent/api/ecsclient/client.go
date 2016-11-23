@@ -17,6 +17,7 @@ import (
 	"errors"
 	"net/http"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -123,21 +124,31 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 
 func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
+	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
+		// We are re-connecting a previously registered instance, restored from snapshot.
 		registerRequest.ContainerInstanceArn = &containerInstanceArn
+	} else {
+		// This is a new instance, not previously registered.
+		// Custom attribute registration only happens on initial instance registration.
+		for _, attribute := range client.getCustomAttributes() {
+			seelog.Debugf("Added a new custom attribute %v=%v",
+				aws.StringValue(attribute.Name),
+				aws.StringValue(attribute.Value),
+			)
+			registrationAttributes = append(registrationAttributes, attribute)
+		}
 	}
-
+	// Standard attributes are included with all registrations.
 	for _, attribute := range attributes {
-		registerRequest.Attributes = append(registerRequest.Attributes, &ecs.Attribute{
+		registrationAttributes = append(registrationAttributes, &ecs.Attribute{
 			Name: aws.String(attribute),
 		})
 	}
-
-	additionalAttributes := getAdditionalAttributes()
-	for _, attribute := range additionalAttributes {
-		registerRequest.Attributes = append(registerRequest.Attributes, attribute)
+	for _, attribute := range client.getAdditionalAttributes() {
+		registrationAttributes = append(registrationAttributes, attribute)
 	}
-
+	registerRequest.Attributes = registrationAttributes
 	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
 	iidRetrieved := true
 	if err != nil {
@@ -191,11 +202,49 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 
 	resp, err := client.standardClient.RegisterContainerInstance(&registerRequest)
 	if err != nil {
-		log.Error("Could not register", "err", err)
+		seelog.Errorf("Could not register: %v", err)
 		return "", err
 	}
 	log.Info("Registered!")
-	return *resp.ContainerInstance.ContainerInstanceArn, nil
+	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
+	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
+}
+
+func attributesToMap(attributes []*ecs.Attribute) map[string]string {
+	attributeMap := make(map[string]string)
+	attribs := attributes
+	for _, attribute := range attribs {
+		attributeMap[aws.StringValue(attribute.Name)] = aws.StringValue(attribute.Value)
+	}
+	return attributeMap
+}
+
+func findMissingAttributes(expectedAttributes, actualAttributes map[string]string) ([]string, error) {
+	missingAttributes := make([]string, 0)
+	var err error
+	for key, val := range expectedAttributes {
+		if actualAttributes[key] != val {
+			missingAttributes = append(missingAttributes, key)
+		} else {
+			seelog.Tracef("Response contained expected value for attribute %v", key)
+		}
+	}
+	if len(missingAttributes) > 0 {
+		err = utils.NewAttributeError("Attribute validation failed")
+	}
+	return missingAttributes, err
+}
+
+func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecs.Attribute) error {
+	var err error
+	expectedAttributesMap := attributesToMap(expectedAttributes)
+	actualAttributesMap := attributesToMap(actualAttributes)
+	missingAttributes, err := findMissingAttributes(expectedAttributesMap, actualAttributesMap)
+	if err != nil {
+		msg := strings.Join(missingAttributes, ",")
+		seelog.Errorf("Error registering attributes: %v", msg)
+	}
+	return err
 }
 
 func getCpuAndMemory() (int64, int64) {
@@ -212,11 +261,22 @@ func getCpuAndMemory() (int64, int64) {
 	return int64(cpu), mem
 }
 
-func getAdditionalAttributes() []*ecs.Attribute {
+func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 	return []*ecs.Attribute{&ecs.Attribute{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
+}
+
+func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
+	var attributes []*ecs.Attribute
+	for attribute, value := range client.config.InstanceAttributes {
+		attributes = append(attributes, &ecs.Attribute{
+			Name:  aws.String(attribute),
+			Value: aws.String(value),
+		})
+	}
+	return attributes
 }
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {

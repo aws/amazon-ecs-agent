@@ -40,8 +40,12 @@ import (
 
 const configuredCluster = "mycluster"
 
-func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: configuredCluster, AWSRegion: "us-east-1"}, http.DefaultClient, ec2Metadata)
+func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, additionalAttributes map[string]string) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{Cluster: configuredCluster,
+			AWSRegion:          "us-east-1",
+			InstanceAttributes: additionalAttributes,
+		}, http.DefaultClient, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -84,7 +88,7 @@ func (lhs *containerSubmitInputMatcher) String() string {
 func TestSubmitContainerStateChange(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
 			Cluster:       strptr(configuredCluster),
@@ -133,7 +137,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 func TestSubmitContainerStateChangeFull(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	exitCode := 20
 	reason := "I exited"
 
@@ -173,7 +177,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 func TestSubmitContainerStateChangeReason(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	exitCode := 20
 	reason := strings.Repeat("a", ecsMaxReasonLength)
 
@@ -203,7 +207,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	exitCode := 20
 	trimmedReason := strings.Repeat("a", ecsMaxReasonLength)
 	reason := strings.Repeat("a", ecsMaxReasonLength+1)
@@ -231,13 +235,35 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	}
 }
 
-func TestRegisterContainerInstance(t *testing.T) {
+func buildAttributeList(capabilities []string, attributes map[string]string) []*ecs.Attribute {
+	var rv []*ecs.Attribute
+	for _, capability := range capabilities {
+		rv = append(rv, &ecs.Attribute{Name: aws.String(capability)})
+	}
+	for key, value := range attributes {
+		rv = append(rv, &ecs.Attribute{Name: aws.String(key), Value: aws.String(value)})
+	}
+	return rv
+}
+
+func TestReRegisterContainerInstance(t *testing.T) {
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+		"attribute_name_with_no_value": "",
+	}
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata)
+	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
 	capabilities := []string{"capability1", "capability2"}
+	expectedAttributes := map[string]string{
+		"ecs.os-type": api.OSType,
+	}
+	for i := range capabilities {
+		expectedAttributes[capabilities[i]] = ""
+	}
 
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
 	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
@@ -250,15 +276,24 @@ func TestRegisterContainerInstance(t *testing.T) {
 		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 		assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 		assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-		assert.Equal(t, len(capabilities)+1, len(req.Attributes), "Wrong length of Attributes")
-		for i, _ := range capabilities {
-			assert.NotNil(t, req.Attributes[i].Name, "nil name for attribute")
-			assert.Equal(t, capabilities[i], *req.Attributes[i].Name)
+		assert.Equal(t, 3, len(req.Attributes), "Wrong number of Attributes")
+		reqAttributes := func() map[string]string {
+			rv := make(map[string]string, len(req.Attributes))
+			for i := range req.Attributes {
+				rv[*req.Attributes[i].Name] = aws.StringValue(req.Attributes[i].Value)
+			}
+			return rv
+		}()
+		for k, v := range reqAttributes {
+			assert.Contains(t, expectedAttributes, k)
+			assert.Equal(t, expectedAttributes[k], v)
 		}
-		assert.Equal(t, "ecs.os-type", *req.Attributes[len(req.Attributes)-1].Name)
-		assert.Equal(t, api.OSType, *req.Attributes[len(req.Attributes)-1].Value)
-
-	}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceArn: aws.String("registerArn")}}, nil)
+	}).Return(&ecs.RegisterContainerInstanceOutput{
+		ContainerInstance: &ecs.ContainerInstance{
+			ContainerInstanceArn: aws.String("registerArn"),
+			Attributes:           buildAttributeList(capabilities, expectedAttributes),
+		}},
+		nil)
 
 	arn, err := client.RegisterContainerInstance("arn:test", capabilities)
 	if err != nil {
@@ -267,6 +302,70 @@ func TestRegisterContainerInstance(t *testing.T) {
 	if arn != "registerArn" {
 		t.Errorf("Wrong arn: %v", arn)
 	}
+}
+
+func TestRegisterContainerInstance(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
+
+	capabilities := []string{"capability1", "capability2"}
+	expectedAttributes := map[string]string{
+		"ecs.os-type":               api.OSType,
+		"my_custom_attribute":       "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+
+	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
+	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+		assert.Nil(t, req.ContainerInstanceArn)
+		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+		assert.Equal(t, "instanceIdentityDocument", *req.InstanceIdentityDocument, "Wrong IID")
+		assert.Equal(t, "signature", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+		assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+		assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+		assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+		assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+		for i := range req.Attributes {
+			if strings.Contains(*req.Attributes[i].Name, "capability") {
+				assert.Contains(t, capabilities, *req.Attributes[i].Name)
+			} else {
+				assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
+			}
+		}
+	}).Return(&ecs.RegisterContainerInstanceOutput{
+		ContainerInstance: &ecs.ContainerInstance{
+			ContainerInstanceArn: aws.String("registerArn"),
+			Attributes:           buildAttributeList(capabilities, expectedAttributes)}},
+		nil)
+
+	arn, err := client.RegisterContainerInstance("", capabilities)
+	assert.NoError(t, err)
+	assert.Equal(t, "registerArn", arn)
+}
+
+func TestValidateRegisteredAttributes(t *testing.T) {
+	origAttributes := []*ecs.Attribute{
+		{Name: aws.String("foo"), Value: aws.String("bar")},
+		{Name: aws.String("baz"), Value: aws.String("quux")},
+		{Name: aws.String("no_value"), Value: aws.String("")},
+	}
+	actualAttributes := []*ecs.Attribute{
+		{Name: aws.String("baz"), Value: aws.String("quux")},
+		{Name: aws.String("foo"), Value: aws.String("bar")},
+		{Name: aws.String("no_value"), Value: aws.String("")},
+		{Name: aws.String("ecs.internal-attribute"), Value: aws.String("some text")},
+	}
+	assert.NoError(t, validateRegisteredAttributes(origAttributes, actualAttributes))
+
+	origAttributes = append(origAttributes, &ecs.Attribute{Name: aws.String("abc"), Value: aws.String("xyz")})
+	assert.Error(t, validateRegisteredAttributes(origAttributes, actualAttributes))
 }
 
 func findResource(resources []*ecs.Resource, name string) (*ecs.Resource, bool) {
@@ -287,6 +386,9 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 
+	expectedAttributes := map[string]string{
+		"ecs.os-type": api.OSType,
+	}
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
@@ -305,7 +407,11 @@ func TestRegisterBlankCluster(t *testing.T) {
 			if *req.InstanceIdentityDocumentSignature != "signature" {
 				t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
 			}
-		}).Return(&ecs.RegisterContainerInstanceOutput{ContainerInstance: &ecs.ContainerInstance{ContainerInstanceArn: aws.String("registerArn")}}, nil),
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(nil, expectedAttributes)}},
+			nil),
 	)
 
 	arn, err := client.RegisterContainerInstance("", nil)
@@ -320,7 +426,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 func TestDiscoverTelemetryEndpoint(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := client.DiscoverTelemetryEndpoint("containerInstance")
@@ -335,7 +441,7 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 func TestDiscoverTelemetryEndpointError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("Error getting endpoint"))
 	_, err := client.DiscoverTelemetryEndpoint("containerInstance")
 	if err == nil {
@@ -346,7 +452,7 @@ func TestDiscoverTelemetryEndpointError(t *testing.T) {
 func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient())
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := client.DiscoverTelemetryEndpoint("containerInstance")
