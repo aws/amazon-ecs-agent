@@ -54,9 +54,12 @@ go build -o C:\IAM\ec2.exe C:\IAM\ec2.go
 cp C:\IAM\ec2.exe C:\ecs
 "@
 
+$buildimage="golang:1.7-windowsservercore"
+docker pull $buildimage
+
 docker run `
   --volume ${PSScriptRoot}:C:\ecs `
-  golang:1.7-windowsservercore `
+  $buildimage `
   powershell ${buildscript}
 
 Invoke-Expression "docker build -t amazon/amazon-ecs-iamrolecontainer --file ${PSScriptRoot}\iamroles.dockerfile ${PSScriptRoot}"
