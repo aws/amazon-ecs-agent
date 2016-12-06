@@ -24,5 +24,8 @@ $containerGateway = (Get-NetNat).InternalIPInterfaceAddressPrefix | %{ $_ -repla
 
 netsh interface portproxy add v4tov4 listenaddress=$containerGateway listenport=51679 connectaddress=127.0.0.1 connectport=51679 protocol=tcp
 
-route -p delete 169.254.170.2/32
+$existingRoute=route print 169.254.170.2 -4 | Sort-Object -Property "IPv4 Route Table"
+if ($existingRoute -Match "169.254.170.2") {
+   route -p delete 169.254.170.2/32
+}
 New-NetRoute -DestinationPrefix 169.254.170.2/32 -InterfaceIndex $ifIndex -NextHop $defaultGateway
