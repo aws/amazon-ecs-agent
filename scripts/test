@@ -19,6 +19,5 @@ sleep 2
 
 make get-deps
 cd agent
-export GOPATH=`godep path`:$GOPATH
 cd ..
 make test
