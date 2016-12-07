@@ -84,3 +84,35 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 		t.Error("Expected error converting container stats with empty PercpuUsage")
 	}
 }
+
+func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
+	jsonStat := fmt.Sprintf(`
+		{
+			"cpu_stats":{
+				"cpu_usage":{
+					"percpu_usage":[%d, %d, %d, %d],
+					"total_usage":%d
+				}
+			},
+			"memory_stats":{
+				"usage": %d,
+				"max_usage": %d,
+				"stats": {
+					"cache": %d,
+					"rss": %d
+				}
+			}
+		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10)
+	dockerStat := &docker.Stats{}
+	json.Unmarshal([]byte(jsonStat), dockerStat)
+	containerStats, err := dockerStatsToContainerStats(dockerStat)
+	if err != nil {
+		t.Errorf("Error converting container stats: %v", err)
+	}
+	if containerStats == nil {
+		t.Fatal("containerStats should not be nil")
+	}
+	if containerStats.memoryUsage != 10 {
+		t.Error("Unexpected value for memoryUsage", containerStats.memoryUsage)
+	}
+}
