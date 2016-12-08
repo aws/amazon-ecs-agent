@@ -33,6 +33,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -40,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
 )
@@ -110,28 +112,28 @@ const (
 	acsURL = "http://endpoint.tld"
 )
 
-type mockSession struct {
+type mockSessionResources struct {
 	client wsclient.ClientServer
 }
 
-func (m *mockSession) createACSClient(url string) wsclient.ClientServer {
+func (m *mockSessionResources) createACSClient(url string) wsclient.ClientServer {
 	return m.client
 }
 
-func (m *mockSession) connectedToACS() {
+func (m *mockSessionResources) connectedToACS() {
 }
 
-func (m *mockSession) getSendCredentialsURLParameter() string {
+func (m *mockSessionResources) getSendCredentialsURLParameter() string {
 	return "true"
 }
-func TestAcsWsUrl(t *testing.T) {
+func TestACSWSURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 
 	taskEngine.EXPECT().Version().Return("Docker version result", nil)
 
-	wsurl := acsWsURL(acsURL, "myCluster", "myContainerInstance", taskEngine, &mockSession{})
+	wsurl := acsWsURL(acsURL, "myCluster", "myContainerInstance", taskEngine, &mockSessionResources{})
 
 	parsed, err := url.Parse(wsurl)
 	if err != nil {
@@ -193,22 +195,96 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 			cancel()
 		}).Return(io.EOF),
 	)
-	session := &mockSession{mockWsClient}
-
-	args := StartSessionArguments{
-		ContainerInstanceArn: "myArn",
-		CredentialProvider:   credentials.AnonymousCredentials,
-		Config:               &config.Config{Cluster: "someCluster"},
-		TaskEngine:           taskEngine,
-		ECSClient:            ecsClient,
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
 		StateManager:         statemanager,
-		AcceptInvalidCert:    true,
+		acceptInsecureCert:   true,
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                  ctx,
+		cancel:               cancel,
+		resources:            &mockSessionResources{mockWsClient},
 	}
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
-		startSession(ctx, args, backoff, session)
+		session.Start()
+	}()
+
+	// Wait for context to be cancelled
+	select {
+	case <-ctx.Done():
+	}
+}
+
+// TestHandleACSErrorReturnsFalseForNonInactiveInstanceError tests if the handleACSError
+// method returns true for reconnecting to ACS when handling io.EOF
+func TestHandleACSErrorReturnsFalseForNonInactiveInstanceError(t *testing.T) {
+	session := Session{
+		backoff: utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+	}
+	assert.True(t, session.handleACSError(io.EOF), "ACS error is not correctly handled")
+}
+
+// TestHandleACSErrorReturnsTrueForInactiveInstanceError tests if the handleACSError
+// method returns false for reconnecting to ACS when handling InactiveInstanceException
+func TestHandleACSErrorReturnsTrueForInactiveInstanceError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+	deregisterInstanceEventStream.StartListening()
+	session := Session{
+		deregisterInstanceEventStream: deregisterInstanceEventStream,
+	}
+	assert.False(t, session.handleACSError(fmt.Errorf("InactiveInstanceException:")),
+		"InactiveInstanceException is not correctly handled")
+	cancel()
+}
+
+// TestHandlerDoesNotReconnectsOnInactiveInstanceError tests if handler stops reconnect
+// attempts with ACS when ClientServer.Connect() returns the InstanceInactive error
+func TestHandlerDoesNotReconnectsOnInactiveInstanceError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	statemanager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Connect().Do(func() {
+		cancel()
+	}).Return(fmt.Errorf("InactiveInstanceException:"))
+	session := Session{
+		containerInstanceARN:          "myArn",
+		credentialsProvider:           credentials.AnonymousCredentials,
+		agentConfig:                   &config.Config{Cluster: "someCluster"},
+		taskEngine:                    taskEngine,
+		ecsClient:                     ecsClient,
+		deregisterInstanceEventStream: deregisterInstanceEventStream,
+		StateManager:                  statemanager,
+		acceptInsecureCert:            true,
+		_heartbeatTimeout:             20 * time.Millisecond,
+		_heartbeatJitter:              10 * time.Millisecond,
+		backoff:                       utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                           ctx,
+		cancel:                        cancel,
+		resources:                     &mockSessionResources{mockWsClient},
+	}
+	go func() {
+		session.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -246,22 +322,24 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 			cancel()
 		}).Return(io.EOF),
 	)
-	session := &mockSession{mockWsClient}
 
-	args := StartSessionArguments{
-		ContainerInstanceArn: "myArn",
-		CredentialProvider:   credentials.AnonymousCredentials,
-		Config:               &config.Config{Cluster: "someCluster"},
-		TaskEngine:           taskEngine,
-		ECSClient:            ecsClient,
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
 		StateManager:         statemanager,
-		AcceptInvalidCert:    true,
+		acceptInsecureCert:   true,
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                  ctx,
+		cancel:               cancel,
+		resources:            &mockSessionResources{mockWsClient},
 	}
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
-		startSession(ctx, args, backoff, session)
+		session.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -293,28 +371,29 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		cancel()
 	}).Return(io.EOF)
 
-	session := &mockSession{mockWsClient}
-
 	gomock.InOrder(
 		// DiscoverPollEndpoint returns an error on its first invocation
 		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("", fmt.Errorf("oops")).Times(1),
 		// Second invocation returns a success
 		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).Times(1),
 	)
-	args := StartSessionArguments{
-		ContainerInstanceArn: "myArn",
-		CredentialProvider:   credentials.AnonymousCredentials,
-		Config:               &config.Config{Cluster: "someCluster"},
-		TaskEngine:           taskEngine,
-		ECSClient:            ecsClient,
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
 		StateManager:         statemanager,
-		AcceptInvalidCert:    true,
+		acceptInsecureCert:   true,
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                  ctx,
+		cancel:               cancel,
+		resources:            &mockSessionResources{mockWsClient},
 	}
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
 	go func() {
-		startSession(ctx, args, backoff, session)
+		session.Start()
 	}()
 	start := time.Now()
 
@@ -364,23 +443,24 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		// Record connection closed
 		connectionClosed <- true
 	}).Return(nil)
-	ctx := context.Background()
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
-	args := StartSessionArguments{
-		ContainerInstanceArn: "myArn",
-		CredentialProvider:   credentials.AnonymousCredentials,
-		Config:               &config.Config{Cluster: "someCluster"},
-		TaskEngine:           taskEngine,
-		ECSClient:            ecsClient,
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
 		StateManager:         statemanager,
-		AcceptInvalidCert:    true,
+		acceptInsecureCert:   true,
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
+		ctx:                  context.Background(),
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		resources:            &mockSessionResources{},
 	}
 	go func() {
-		timer := newDisconnectionTimer(mockWsClient, args.time(), args.heartbeatTimeout(), args.heartbeatJitter())
+		timer := newDisconnectionTimer(mockWsClient, session.time(), session.heartbeatTimeout(), session.heartbeatJitter())
 		defer timer.Stop()
-		startACSSession(ctx, mockWsClient, timer, args, backoff, &mockSession{})
+		session.startACSSession(mockWsClient, timer)
 	}()
 
 	// Wait for connection to be closed. If the connection is not closed
@@ -419,18 +499,21 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		StartSession(ctx, StartSessionArguments{
-			ContainerInstanceArn: "myArn",
-			CredentialProvider:   credentials.AnonymousCredentials,
-			Config:               &config.Config{Cluster: "someCluster"},
-			TaskEngine:           taskEngine,
-			ECSClient:            ecsClient,
-			StateManager:         statemanager,
-			AcceptInvalidCert:    true,
-			CredentialsManager:   rolecredentials.NewManager(),
-			_heartbeatTimeout:    20 * time.Millisecond,
-			_heartbeatJitter:     10 * time.Millisecond,
-		})
+		session := NewSession(ctx,
+			true,
+			&config.Config{Cluster: "someCluster"},
+			nil,
+			"myArn",
+			credentials.AnonymousCredentials,
+			ecsClient,
+			statemanager,
+			taskEngine,
+			rolecredentials.NewManager(),
+		)
+		session._heartbeatTimeout = 20 * time.Millisecond
+		session._heartbeatJitter = 10 * time.Millisecond
+
+		session.Start()
 		ended <- true
 	}()
 	// Warm it up
@@ -495,16 +578,18 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 
 	ended := make(chan bool, 1)
 	go func() {
-		StartSession(ctx, StartSessionArguments{
-			ContainerInstanceArn: "myArn",
-			CredentialProvider:   credentials.AnonymousCredentials,
-			Config:               &config.Config{Cluster: "someCluster"},
-			TaskEngine:           taskEngine,
-			ECSClient:            ecsClient,
-			StateManager:         stateManager,
-			AcceptInvalidCert:    true,
-			CredentialsManager:   credentialsManager,
-		})
+		session := NewSession(ctx,
+			true,
+			&config.Config{Cluster: "someCluster"},
+			nil,
+			"myArn",
+			credentials.AnonymousCredentials,
+			ecsClient,
+			stateManager,
+			taskEngine,
+			credentialsManager,
+		)
+		session.Start()
 		// StartSession should never return unless the context is canceled
 		ended <- true
 	}()
@@ -550,7 +635,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	// Validate that the correct credentialsId is set for the task
 	credentialsIdFromTask := taskFromEngine.GetCredentialsId()
 	if credentialsIdFromTask != credentialsIdInRefreshMessage {
-		t.Errorf("Mismatch between expected and added credentials id for task, expected: %s, aded: %s", credentialsIdInRefreshMessage, credentialsIdFromTask)
+		t.Errorf("Mismatch between expected and added credentials id for task, expected: %s, added: %s", credentialsIdInRefreshMessage, credentialsIdFromTask)
 	}
 
 	go server.Close()
@@ -561,7 +646,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 // TestACSSessionResourcesCorrectlySetsSendCredentials tests if acsSessionResources
 // struct correctly sets 'sendCredentials'
 func TestACSSessionResourcesCorrectlySetsSendCredentials(t *testing.T) {
-	acsResources := newSessionResources(StartSessionArguments{})
+	acsResources := newSessionResources("", nil, true)
 	// Validate that 'sendCredentials' is set to true on create
 	sendCredentials := acsResources.getSendCredentialsURLParameter()
 	if sendCredentials != "true" {
@@ -589,42 +674,43 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	ctx, cancel := context.WithCancel(context.Background())
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	args := StartSessionArguments{
-		ContainerInstanceArn: "myArn",
-		CredentialProvider:   credentials.AnonymousCredentials,
-		Config:               &config.Config{Cluster: "someCluster"},
-		TaskEngine:           taskEngine,
-		ECSClient:            ecsClient,
-		StateManager:         statemanager,
-		AcceptInvalidCert:    true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
-	}
-	session := newSessionResources(args)
-
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Serve().Return(io.EOF).AnyTimes()
+	resources := newSessionResources("", credentials.AnonymousCredentials, true)
 	gomock.InOrder(
 		// When the websocket client connects to ACS for the first
 		// time, 'sendCredentials' should be set to true
 		mockWsClient.EXPECT().Connect().Do(func() {
-			validateSendCredentialsInSession(t, session, "true")
+			validateSendCredentialsInSession(t, resources, "true")
 		}).Return(nil),
 		// For all subsequent connections to ACS, 'sendCredentials'
 		// should be set to false
 		mockWsClient.EXPECT().Connect().Do(func() {
-			validateSendCredentialsInSession(t, session, "false")
+			validateSendCredentialsInSession(t, resources, "false")
 		}).Return(nil).AnyTimes(),
 	)
 
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier)
-	timer := newDisconnectionTimer(mockWsClient, args.time(), args.heartbeatTimeout(), args.heartbeatJitter())
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
+		StateManager:         statemanager,
+		acceptInsecureCert:   true,
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
+		ctx:                  ctx,
+		resources:            resources,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+	}
+	timer := newDisconnectionTimer(mockWsClient, session.time(), session.heartbeatTimeout(), session.heartbeatJitter())
 	defer timer.Stop()
 	go func() {
 		for i := 0; i < 10; i++ {
-			startACSSession(ctx, mockWsClient, timer, args, backoff, session)
+			session.startACSSession(mockWsClient, timer)
 		}
 		cancel()
 	}()
