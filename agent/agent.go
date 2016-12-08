@@ -272,18 +272,20 @@ func _main() int {
 	// Start metrics session in a go routine
 	go tcshandler.StartMetricsSession(telemetrySessionParams)
 
+	acsSession := acshandler.NewSession(
+		ctx,
+		*acceptInsecureCert,
+		cfg,
+		deregisterInstanceEventStream,
+		containerInstanceArn,
+		credentialProvider,
+		client,
+		stateManager,
+		taskEngine,
+		credentialsManager,
+	)
 	log.Info("Beginning Polling for updates")
-	err = acshandler.StartSession(ctx, acshandler.StartSessionArguments{
-		AcceptInvalidCert: *acceptInsecureCert,
-		Config:            cfg,
-		DeregisterInstanceEventStream: deregisterInstanceEventStream,
-		ContainerInstanceArn:          containerInstanceArn,
-		CredentialProvider:            credentialProvider,
-		ECSClient:                     client,
-		StateManager:                  stateManager,
-		TaskEngine:                    taskEngine,
-		CredentialsManager:            credentialsManager,
-	})
+	err = acsSession.Start()
 	if err != nil {
 		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal

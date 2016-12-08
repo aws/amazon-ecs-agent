@@ -44,9 +44,10 @@ func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, er
 	}
 
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
+	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats.Cache
 	return &ContainerStats{
 		cpuUsage:    cpuUsage,
-		memoryUsage: dockerStats.MemoryStats.Usage,
+		memoryUsage: memoryUsage,
 		timestamp:   dockerStats.Read,
 	}, nil
 }

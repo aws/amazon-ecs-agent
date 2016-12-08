@@ -20,8 +20,8 @@ Any contributions should pass all tests, including those not run by our
 current CI system.
 
 You may run all test by either running the `make test` target (requires `go`,
-`godep`, and `go cover` to be installed), or by running the `make
-test-in-docker` target which requires only Docker to be installed.
+and `go cover` to be installed), or by running the `make test-in-docker`
+target which requires only Docker to be installed.
 
 ## Licensing
 
