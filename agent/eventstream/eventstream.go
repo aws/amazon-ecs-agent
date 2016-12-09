@@ -79,7 +79,7 @@ func (eventStream *EventStream) Unsubscribe(name string) {
 
 	for handler, _ := range eventStream.handlers {
 		if handler == name {
-			seelog.Debugf("Unsbuscribe event handler %s from event stream %s", handler, eventStream.name)
+			seelog.Debugf("Unsubscribing event handler %s from event stream %s", handler, eventStream.name)
 			delete(eventStream.handlers, handler)
 			return
 		}
