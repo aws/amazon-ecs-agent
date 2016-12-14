@@ -203,12 +203,12 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
 		acceptInsecureCert:   true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
 		session.Start()
@@ -220,9 +220,10 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	}
 }
 
-// TestHandleACSErrorReturnsFalseForNonInactiveInstanceError tests if the handleACSError
-// method returns true for reconnecting to ACS when handling io.EOF
-func TestHandleACSErrorReturnsFalseForNonInactiveInstanceError(t *testing.T) {
+// TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsTrue tests if
+// the applyBackoffAndGenerateReconnectAndDeregisterMessages method returns true
+// for reconnecting to ACS when handling io.EOF
+func TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsTrue(t *testing.T) {
 	connectToACS := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
@@ -232,13 +233,14 @@ func TestHandleACSErrorReturnsFalseForNonInactiveInstanceError(t *testing.T) {
 	session := Session{
 		backoff: utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 	}
-	assert.True(t, session.handleACSError(io.EOF, connectToACS), "ACS error is not correctly handled")
+	assert.True(t, session.applyBackoffAndGenerateReconnectAndDeregisterMessages(io.EOF, connectToACS), "ACS error is not correctly handled")
 	<-done
 }
 
-// TestHandleACSErrorReturnsTrueForInactiveInstanceError tests if the handleACSError
-// method returns false for reconnecting to ACS when handling InactiveInstanceException
-func TestHandleACSErrorReturnsTrueForInactiveInstanceError(t *testing.T) {
+// TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsFalse tests if
+// the applyBackoffAndGenerateReconnectAndDeregisterMessages method returns false
+// for reconnecting to ACS when handling InactiveInstanceException
+func TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsFalse(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
@@ -246,7 +248,7 @@ func TestHandleACSErrorReturnsTrueForInactiveInstanceError(t *testing.T) {
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 	}
 	connectToACS := make(chan struct{})
-	assert.False(t, session.handleACSError(fmt.Errorf("InactiveInstanceException:"), connectToACS),
+	assert.False(t, session.applyBackoffAndGenerateReconnectAndDeregisterMessages(fmt.Errorf("InactiveInstanceException:"), connectToACS),
 		"InactiveInstanceException is not correctly handled")
 	cancel()
 }
@@ -284,12 +286,12 @@ func TestHandlerDoesNotReconnectsOnInactiveInstanceError(t *testing.T) {
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 		stateManager:                  statemanager,
 		acceptInsecureCert:            true,
-		_heartbeatTimeout:             20 * time.Millisecond,
-		_heartbeatJitter:              10 * time.Millisecond,
 		backoff:                       utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                           ctx,
 		cancel:                        cancel,
 		resources:                     &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:             20 * time.Millisecond,
+		_heartbeatJitter:              10 * time.Millisecond,
 	}
 	go func() {
 		session.Start()
@@ -339,12 +341,12 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
 		acceptInsecureCert:   true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
 		session.Start()
@@ -393,12 +395,12 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
 		acceptInsecureCert:   true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
 		session.Start()
@@ -459,14 +461,14 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
 		acceptInsecureCert:   true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
 		ctx:                  context.Background(),
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		resources:            &mockSessionResources{},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		timer := newDisconnectionTimer(mockWsClient, session.time(), session.heartbeatTimeout(), session.heartbeatJitter())
+		timer := newDisconnectionTimer(mockWsClient, session.heartbeatTimeout(), session.heartbeatJitter())
 		defer timer.Stop()
 		session.startACSSession(mockWsClient, timer)
 	}()
@@ -708,13 +710,13 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
 		acceptInsecureCert:   true,
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
 		ctx:                  ctx,
 		resources:            resources,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
-	timer := newDisconnectionTimer(mockWsClient, session.time(), session.heartbeatTimeout(), session.heartbeatJitter())
+	timer := newDisconnectionTimer(mockWsClient, session.heartbeatTimeout(), session.heartbeatJitter())
 	defer timer.Stop()
 	go func() {
 		for i := 0; i < 10; i++ {

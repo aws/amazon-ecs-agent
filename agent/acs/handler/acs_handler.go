@@ -79,10 +79,8 @@ type Session struct {
 	backoff                       *utils.SimpleBackoff
 	resources                     sessionResources
 	reconnectStoppedNotification  sync.Once
-	_time                         ttime.Time
 	_heartbeatTimeout             time.Duration
 	_heartbeatJitter              time.Duration
-	_timeOnce                     sync.Once
 }
 
 // sessionResources defines the resource creator interface for starting
@@ -154,6 +152,8 @@ func NewSession(ctx context.Context,
 		cancel:                        cancel,
 		backoff:                       backoff,
 		resources:                     resources,
+		_heartbeatTimeout:             heartbeatTimeout,
+		_heartbeatJitter:              heartbeatJitter,
 	}
 }
 
@@ -165,7 +165,7 @@ func NewSession(ctx context.Context,
 // by the context.
 // If the instance is deregistered, Start() would emit an event to the
 // deregister-instance event stream and blocks until the ECS Agent is killed.
-func (s *Session) Start() error {
+func (session *Session) Start() error {
 	// connectToACS channel is used to inidcate the intent to connect to ACS
 	// It's processed by the select loop to connect to ACS
 	connectToACS := make(chan struct{})
@@ -177,9 +177,9 @@ func (s *Session) Start() error {
 	for {
 		select {
 		case <-connectToACS:
-			s.handleACSError(s.startSessionOnce(), connectToACS)
-		case <-s.ctx.Done():
-			return s.ctx.Err()
+			session.applyBackoffAndGenerateReconnectAndDeregisterMessages(session.startSessionOnce(), connectToACS)
+		case <-session.ctx.Done():
+			return session.ctx.Err()
 		}
 
 	}
@@ -187,34 +187,34 @@ func (s *Session) Start() error {
 
 // startSessionOnce creates a session with ACS and handles requests using the passed
 // in arguments
-func (s *Session) startSessionOnce() error {
-	acsEndpoint, err := s.ecsClient.DiscoverPollEndpoint(s.containerInstanceARN)
+func (session *Session) startSessionOnce() error {
+	acsEndpoint, err := session.ecsClient.DiscoverPollEndpoint(session.containerInstanceARN)
 	if err != nil {
 		seelog.Errorf("Unable to discover poll endpoint, err: %v", err)
 		return err
 	}
 
-	url := acsWsURL(acsEndpoint, s.agentConfig.Cluster, s.containerInstanceARN, s.taskEngine, s.resources)
-	client := s.resources.createACSClient(url)
+	url := acsWsURL(acsEndpoint, session.agentConfig.Cluster, session.containerInstanceARN, session.taskEngine, session.resources)
+	client := session.resources.createACSClient(url)
 	defer client.Close()
 
 	// Start inactivity timer for closing the connection
-	timer := newDisconnectionTimer(client, s.time(), s.heartbeatTimeout(), s.heartbeatJitter())
+	timer := newDisconnectionTimer(client, session.heartbeatTimeout(), session.heartbeatJitter())
 	defer timer.Stop()
 
-	return s.startACSSession(client, timer)
+	return session.startACSSession(client, timer)
 }
 
 // startACSSession starts a session with ACS. It adds request handlers for various
 // kinds of messages expected from ACS. It returns on server disconnection or when
 // the context is cancelled
-func (s *Session) startACSSession(client wsclient.ClientServer, timer ttime.Timer) error {
+func (session *Session) startACSSession(client wsclient.ClientServer, timer ttime.Timer) error {
 	// Any message from the server resets the disconnect timeout
 	client.SetAnyRequestHandler(anyMessageHandler(timer))
-	cfg := s.agentConfig
+	cfg := session.agentConfig
 
-	refreshCredsHandler := newRefreshCredentialsHandler(s.ctx, cfg.Cluster, s.containerInstanceARN,
-		client, s.credentialsManager, s.taskEngine)
+	refreshCredsHandler := newRefreshCredentialsHandler(session.ctx, cfg.Cluster, session.containerInstanceARN,
+		client, session.credentialsManager, session.taskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 	defer refreshCredsHandler.stop()
@@ -222,8 +222,8 @@ func (s *Session) startACSSession(client wsclient.ClientServer, timer ttime.Time
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(s.ctx, s.taskEngine, s.ecsClient, cfg.Cluster,
-		s.containerInstanceARN, client, s.stateManager, refreshCredsHandler, s.credentialsManager)
+	payloadHandler := newPayloadRequestHandler(session.ctx, session.taskEngine, session.ecsClient, cfg.Cluster,
+		session.containerInstanceARN, client, session.stateManager, refreshCredsHandler, session.credentialsManager)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
@@ -234,22 +234,22 @@ func (s *Session) startACSSession(client wsclient.ClientServer, timer ttime.Time
 	// Ignore heartbeat messages; anyMessageHandler gets 'em
 	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
-	updater.AddAgentUpdateHandlers(client, cfg, s.stateManager, s.taskEngine)
+	updater.AddAgentUpdateHandlers(client, cfg, session.stateManager, session.taskEngine)
 
 	err := client.Connect()
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-	s.resources.connectedToACS()
+	session.resources.connectedToACS()
 
-	backoffResetTimer := s.time().AfterFunc(
-		utils.AddJitter(s.heartbeatTimeout(), s.heartbeatJitter()), func() {
+	backoffResetTimer := time.AfterFunc(
+		utils.AddJitter(session.heartbeatTimeout(), session.heartbeatJitter()), func() {
 			// If we do not have an error connecting and remain connected for at
 			// least 5 or so minutes, reset the backoff. This prevents disconnect
 			// errors that only happen infrequently from damaging the
 			// reconnectability as significantly.
-			s.backoff.Reset()
+			session.backoff.Reset()
 		})
 	defer backoffResetTimer.Stop()
 
@@ -260,10 +260,10 @@ func (s *Session) startACSSession(client wsclient.ClientServer, timer ttime.Time
 
 	for {
 		select {
-		case <-s.ctx.Done():
+		case <-session.ctx.Done():
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
-			return s.ctx.Err()
+			return session.ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
@@ -273,23 +273,24 @@ func (s *Session) startACSSession(client wsclient.ClientServer, timer ttime.Time
 	}
 }
 
-// handleACSError handles an error from ACS. It returns true if the session can reconnect
-// to ACS. Else, it returns false. It also applies the appropriate backoff policy for
-// errors which can result in the handler reconnecting to ACS. For an "InactiveInstance"
-// error, it emits an event to the deregister instance event stream.
-func (s *Session) handleACSError(acsError error, connectToACS chan<- struct{}) bool {
+// applyBackoffAndGenerateReconnectAndDeregisterMessages handles errors from ACS. It
+// returns true if the session can reconnect to ACS. Else, it returns false. It also
+// applies the appropriate backoff policy for errors which can result in the handler
+// reconnecting to ACS. For an "InactiveInstance" error, it emits an event to the
+// deregister instance event stream.
+func (session *Session) applyBackoffAndGenerateReconnectAndDeregisterMessages(acsError error, connectToACS chan<- struct{}) bool {
 	if acsError == nil || acsError == io.EOF {
-		s.backoff.Reset()
+		session.backoff.Reset()
 	} else if strings.HasPrefix(acsError.Error(), "InactiveInstanceException:") {
 		seelog.Debug("Container instance is deregistered, notifying listeners")
-		err := s.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
+		err := session.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
 		if err != nil {
 			seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
 		}
 		return false
 	} else {
 		seelog.Infof("Error from acs; backing off, err: %v", acsError)
-		s.time().Sleep(s.backoff.Duration())
+		time.Sleep(session.backoff.Duration())
 	}
 
 	// Received a non-terminal error from ACS. Emit an event to the connectToACS channel
@@ -299,33 +300,12 @@ func (s *Session) handleACSError(acsError error, connectToACS chan<- struct{}) b
 	return true
 }
 
-func (s *Session) time() ttime.Time {
-	s.initTime()
-	return s._time
+func (session *Session) heartbeatTimeout() time.Duration {
+	return session._heartbeatTimeout
 }
 
-func (s *Session) heartbeatTimeout() time.Duration {
-	s.initTime()
-	return s._heartbeatTimeout
-}
-
-func (s *Session) heartbeatJitter() time.Duration {
-	s.initTime()
-	return s._heartbeatJitter
-}
-
-func (s *Session) initTime() {
-	s._timeOnce.Do(func() {
-		if s._time == nil {
-			s._time = &ttime.DefaultTime{}
-		}
-		if s._heartbeatTimeout == 0 {
-			s._heartbeatTimeout = heartbeatTimeout
-		}
-		if s._heartbeatJitter == 0 {
-			s._heartbeatJitter = heartbeatJitter
-		}
-	})
+func (session *Session) heartbeatJitter() time.Duration {
+	return session._heartbeatJitter
 }
 
 // createACSClient creates the ACS Client using the specified URL
@@ -377,8 +357,8 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 
 // newDisconnectionTimer creates a new time object, with a callback to
 // disconnect from ACS on inactivity
-func newDisconnectionTimer(client wsclient.ClientServer, _time ttime.Time, timeout time.Duration, jitter time.Duration) ttime.Timer {
-	timer := _time.AfterFunc(utils.AddJitter(timeout, jitter), func() {
+func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
+	timer := time.AfterFunc(utils.AddJitter(timeout, jitter), func() {
 		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
 		closeErr := client.Close()
 		if closeErr != nil {
