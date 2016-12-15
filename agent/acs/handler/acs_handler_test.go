@@ -196,19 +196,20 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		}).Return(io.EOF),
 	)
 	session := Session{
-		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
-		taskEngine:           taskEngine,
-		ecsClient:            ecsClient,
-		stateManager:         statemanager,
-		acceptInsecureCert:   true,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-		ctx:                  ctx,
-		cancel:               cancel,
-		resources:            &mockSessionResources{mockWsClient},
-		_heartbeatTimeout:    20 * time.Millisecond,
-		_heartbeatJitter:     10 * time.Millisecond,
+		containerInstanceARN:            "myArn",
+		credentialsProvider:             credentials.AnonymousCredentials,
+		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		taskEngine:                      taskEngine,
+		ecsClient:                       ecsClient,
+		stateManager:                    statemanager,
+		acceptInsecureCert:              true,
+		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                             ctx,
+		cancel:                          cancel,
+		resources:                       &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:               20 * time.Millisecond,
+		_heartbeatJitter:                10 * time.Millisecond,
+		_inactiveInstanceReconnectDelay: 1 * time.Millisecond,
 	}
 	go func() {
 		session.Start()

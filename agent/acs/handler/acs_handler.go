@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/net/context"
@@ -48,6 +47,8 @@ const (
 	heartbeatTimeout = 5 * time.Minute
 	heartbeatJitter  = 3 * time.Minute
 
+	inactiveInstanceReconnectDelay = 1 * time.Hour
+
 	connectionBackoffMin        = 250 * time.Millisecond
 	connectionBackoffMax        = 2 * time.Minute
 	connectionBackoffJitter     = 0.2
@@ -65,22 +66,22 @@ const (
 // and to handle messages recieved by ACS. The Session.Start() method can be used
 // to start processing messages from ACS.
 type Session struct {
-	containerInstanceARN          string
-	credentialsProvider           *credentials.Credentials
-	agentConfig                   *config.Config
-	deregisterInstanceEventStream *eventstream.EventStream
-	taskEngine                    engine.TaskEngine
-	ecsClient                     api.ECSClient
-	stateManager                  statemanager.StateManager
-	acceptInsecureCert            bool
-	credentialsManager            rolecredentials.Manager
-	ctx                           context.Context
-	cancel                        context.CancelFunc
-	backoff                       *utils.SimpleBackoff
-	resources                     sessionResources
-	reconnectStoppedNotification  sync.Once
-	_heartbeatTimeout             time.Duration
-	_heartbeatJitter              time.Duration
+	containerInstanceARN            string
+	credentialsProvider             *credentials.Credentials
+	agentConfig                     *config.Config
+	deregisterInstanceEventStream   *eventstream.EventStream
+	taskEngine                      engine.TaskEngine
+	ecsClient                       api.ECSClient
+	stateManager                    statemanager.StateManager
+	acceptInsecureCert              bool
+	credentialsManager              rolecredentials.Manager
+	ctx                             context.Context
+	cancel                          context.CancelFunc
+	backoff                         *utils.SimpleBackoff
+	resources                       sessionResources
+	_heartbeatTimeout               time.Duration
+	_heartbeatJitter                time.Duration
+	_inactiveInstanceReconnectDelay time.Duration
 }
 
 // sessionResources defines the resource creator interface for starting
@@ -139,21 +140,22 @@ func NewSession(ctx context.Context,
 	derivedContext, cancel := context.WithCancel(ctx)
 
 	return &Session{
-		acceptInsecureCert:            acceptInsecureCert,
-		agentConfig:                   config,
-		deregisterInstanceEventStream: deregisterInstanceEventStream,
-		containerInstanceARN:          containerInstanceArn,
-		credentialsProvider:           credentialsProvider,
-		ecsClient:                     ecsClient,
-		stateManager:                  stateManager,
-		taskEngine:                    taskEngine,
-		credentialsManager:            credentialsManager,
-		ctx:                           derivedContext,
-		cancel:                        cancel,
-		backoff:                       backoff,
-		resources:                     resources,
-		_heartbeatTimeout:             heartbeatTimeout,
-		_heartbeatJitter:              heartbeatJitter,
+		acceptInsecureCert:              acceptInsecureCert,
+		agentConfig:                     config,
+		deregisterInstanceEventStream:   deregisterInstanceEventStream,
+		containerInstanceARN:            containerInstanceArn,
+		credentialsProvider:             credentialsProvider,
+		ecsClient:                       ecsClient,
+		stateManager:                    stateManager,
+		taskEngine:                      taskEngine,
+		credentialsManager:              credentialsManager,
+		ctx:                             derivedContext,
+		cancel:                          cancel,
+		backoff:                         backoff,
+		resources:                       resources,
+		_heartbeatTimeout:               heartbeatTimeout,
+		_heartbeatJitter:                heartbeatJitter,
+		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 }
 
@@ -177,8 +179,10 @@ func (session *Session) Start() error {
 	for {
 		select {
 		case <-connectToACS:
+			seelog.Debugf("Received connect to ACS")
 			session.applyBackoffAndGenerateReconnectAndDeregisterMessages(session.startSessionOnce(), connectToACS)
 		case <-session.ctx.Done():
+			seelog.Debugf("context done")
 			return session.ctx.Err()
 		}
 
@@ -279,6 +283,11 @@ func (session *Session) startACSSession(client wsclient.ClientServer, timer ttim
 // reconnecting to ACS. For an "InactiveInstance" error, it emits an event to the
 // deregister instance event stream.
 func (session *Session) applyBackoffAndGenerateReconnectAndDeregisterMessages(acsError error, connectToACS chan<- struct{}) bool {
+	defer func() {
+		go func() {
+			connectToACS <- struct{}{}
+		}()
+	}()
 	if acsError == nil || acsError == io.EOF {
 		session.backoff.Reset()
 	} else if strings.HasPrefix(acsError.Error(), "InactiveInstanceException:") {
@@ -287,16 +296,13 @@ func (session *Session) applyBackoffAndGenerateReconnectAndDeregisterMessages(ac
 		if err != nil {
 			seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
 		}
+		time.Sleep(session._inactiveInstanceReconnectDelay)
 		return false
 	} else {
 		seelog.Infof("Error from acs; backing off, err: %v", acsError)
 		time.Sleep(session.backoff.Duration())
 	}
 
-	// Received a non-terminal error from ACS. Emit an event to the connectToACS channel
-	go func() {
-		connectToACS <- struct{}{}
-	}()
 	return true
 }
 
