@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package util
+package utils
 
 import (
 	"fmt"
@@ -164,8 +164,8 @@ func compareSemver(lhs, rhs semver) int {
 	return 0
 }
 
-// extractVersion extracts a matching version from the version number string
-func extractVersion(input string) string {
+// ExtractVersion extracts a matching version from the version number string
+func ExtractVersion(input string) string {
 	versionNumberRegex := regexp.MustCompile(` v(\d+\.\d+\.\d+(\-[\S\.\-]+)?(\+[\S\.\-]+)?)`)
 	versionNumberStr := versionNumberRegex.FindStringSubmatch(input)
 	if len(versionNumberStr) >= 2 {

@@ -793,7 +793,7 @@ func (dg *dockerGoClient) Version() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "DockerVersion: " + info.Get("Version"), nil
+	return info.Get("Version"), nil
 }
 
 // Stats returns a channel of *docker.Stats entries for the container.

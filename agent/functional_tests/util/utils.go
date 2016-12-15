@@ -143,7 +143,7 @@ func (agent *TestAgent) platformIndependentStartAgent() error {
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
 	fmt.Println("Container InstanceArn:", agent.ContainerInstanceArn)
 	agent.Cluster = localMetadata.Cluster
-	agent.Version = extractVersion(localMetadata.Version)
+	agent.Version = utils.ExtractVersion(localMetadata.Version)
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
 	return nil
 }
@@ -415,7 +415,7 @@ func (agent *TestAgent) RequireVersion(version string) {
 		agent.t.Skipf("Skipping test requiring version %v; agent version unknown", version)
 	}
 
-	matches, err := Version(agent.Version).Matches(version)
+	matches, err := utils.Version(agent.Version).Matches(version)
 	if err != nil {
 		agent.t.Skipf("Skipping test requiring version %v; could not compare because of error: %v", version, err)
 	}
@@ -532,7 +532,7 @@ func RequireDockerVersion(t *testing.T, selector string) {
 
 	version := dockerVersion.Get("Version")
 
-	match, err := Version(version).Matches(selector)
+	match, err := utils.Version(version).Matches(selector)
 	if err != nil {
 		t.Fatalf("Could not check docker version to match required: %v", err)
 	}
