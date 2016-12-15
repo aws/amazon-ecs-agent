@@ -675,7 +675,7 @@ func TestDockerVersion(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if str != "DockerVersion: 1.6.0" {
+	if str != "1.6.0" {
 		t.Error("Got unexpected version string: " + str)
 	}
 }

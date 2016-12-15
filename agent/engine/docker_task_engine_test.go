@@ -81,6 +81,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	var createdContainerName string
 	for _, container := range sleepTask.Containers {
@@ -227,6 +228,7 @@ func TestRemoveEvents(t *testing.T) {
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	var createdContainerName string
 	for _, container := range sleepTask.Containers {
@@ -355,6 +357,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
@@ -451,6 +454,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	// set up expectations for each container in the task calling create + start
 	for _, container := range sleepTask.Containers {
@@ -563,6 +567,7 @@ func TestStopWithPendingStops(t *testing.T) {
 
 	eventStream := make(chan DockerContainerChangeEvent)
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	err := taskEngine.Init()
 	if err != nil {
@@ -689,6 +694,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 	}
 
+	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStopTimeoutError := DockerContainerMetadata{
@@ -963,6 +969,7 @@ func TestGetTaskByArn(t *testing.T) {
 	ctrl, client, _, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
+	client.EXPECT().Version()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
@@ -987,5 +994,42 @@ func TestGetTaskByArn(t *testing.T) {
 	_, found = taskEngine.GetTaskByArn(sleepTaskArn + "arn")
 	if found {
 		t.Fatal("Task with invalid arn found in the task engine")
+	}
+}
+
+func TestEngineEnableConcurrentPull(t *testing.T) {
+	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().Version().Return("1.11.1", nil)
+	client.EXPECT().ContainerEvents(gomock.Any())
+	err := taskEngine.Init()
+	if err != nil {
+		t.Fatal(err)
+
+	}
+
+	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
+
+	if !dockerTaskEngine.enabledConcurrentPull {
+		t.Error("Task engine should be able to perform concurrent pulling for docker version >= 1.9.0")
+	}
+}
+
+func TestEngineDisableConcurrentPull(t *testing.T) {
+	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().Version().Return("1.11.0", nil)
+	client.EXPECT().ContainerEvents(gomock.Any())
+	err := taskEngine.Init()
+	if err != nil {
+		t.Fatal(err)
+
+	}
+
+	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
+	if dockerTaskEngine.enabledConcurrentPull {
+		t.Error("Task engine should not be able to perform concurrent pulling for version < 1.11.1")
 	}
 }

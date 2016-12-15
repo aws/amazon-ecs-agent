@@ -84,10 +84,11 @@ type DockerTaskEngine struct {
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
 
-	credentialsManager credentials.Manager
-	_time              ttime.Time
-	_timeOnce          sync.Once
-	imageManager       ImageManager
+	enabledConcurrentPull bool
+	credentialsManager    credentials.Manager
+	_time                 ttime.Time
+	_timeOnce             sync.Once
+	imageManager          ImageManager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -107,7 +108,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		containerEvents: make(chan api.ContainerStateChange),
 		taskEvents:      make(chan api.TaskStateChange),
 
-		credentialsManager: credentialsManager,
+		enabledConcurrentPull: false,
+		credentialsManager:    credentialsManager,
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
@@ -116,10 +118,10 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 	return dockerTaskEngine
 }
 
-// ImagePullDeleteLock ensures that pulls and deletes do not run at the same time.
+// ImagePullDeleteLock ensures that pulls and deletes do not run at the same time and pulls can be run at the same time for docker >= 1.11.1
 // Pulls are serialized as a temporary workaround for a devicemapper issue. (see https://github.com/docker/docker/issues/9718)
 // Deletes must not run at the same time as pulls to prevent deletion of images that are being used to launch new tasks.
-var ImagePullDeleteLock sync.Mutex
+var ImagePullDeleteLock sync.RWMutex
 
 // UnmarshalJSON restores a previously marshaled task-engine state from json
 func (engine *DockerTaskEngine) UnmarshalJSON(data []byte) error {
@@ -138,6 +140,10 @@ func (engine *DockerTaskEngine) Init() error {
 	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	ctx, cancel := context.WithCancel(context.TODO())
 	engine.stopEngine = cancel
+
+	// Determine whether the engine can perform concurrent "docker pull" based on docker version
+	engine.enabledConcurrentPull = engine.enableConcurrentPull()
+
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
@@ -466,14 +472,36 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Pulling container", "task", task, "container", container)
+	if engine.enabledConcurrentPull {
+		return engine.concurrentPull(task, container)
+	} else {
+		return engine.serialPull(task, container)
+	}
+}
+
+func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) DockerContainerMetadata {
+	log.Info("Pulling container concurrently", "task", task, "container", container)
+	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
+
+	ImagePullDeleteLock.RLock()
+	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
+	defer ImagePullDeleteLock.RUnlock()
+
+	return engine.pullAndUpdateContainerReference(task, container)
+}
+
+func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Container) DockerContainerMetadata {
+	log.Info("Pulling container serially", "task", task, "container", container)
 	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
 
 	ImagePullDeleteLock.Lock()
-	seelog.Debugf("Obtained ImagePullDeleteLock to pull image - %s", container.Image)
 	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
 	defer ImagePullDeleteLock.Unlock()
 
+	return engine.pullAndUpdateContainerReference(task, container)
+}
+
+func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, container *api.Container) DockerContainerMetadata {
 	// If a task is blocked here for some time, and before it starts pulling image,
 	// the task's desired status is set to stopped, then don't pull the image
 	if task.GetDesiredStatus() == api.TaskStopped {
@@ -757,4 +785,26 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
 	return engine.client.Version()
+}
+
+// enableConcurrentPull checks the docker version and return true if docker version >= 1.11.1
+func (engine *DockerTaskEngine) enableConcurrentPull() bool {
+	version, err := engine.Version()
+	if err != nil {
+		seelog.Warnf("Failed to get docker version, err %v", err)
+		return false
+	}
+
+	match, err := utils.Version(version).Matches(">=1.11.1")
+	if err != nil {
+		seelog.Warnf("Could not compare docker version, err %v", err)
+		return false
+	}
+
+	if match {
+		seelog.Warnf("Docker version: %v, enable concurrent pulling", version)
+		return true
+	}
+
+	return false
 }
