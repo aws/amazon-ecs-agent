@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,17 +23,18 @@ import (
 )
 
 // StartMockServer starts a mock websocket server.
-func StartMockServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
+func StartMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string)
 	requestsChan := make(chan string)
 	errChan := make(chan error)
+	stopListen := make(chan bool)
 
 	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
 		go func() {
-			<-closeWS
-			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
+			ws.WriteControl(websocket.CloseMessage, <-closeWS, time.Now().Add(time.Second))
+			close(stopListen)
 		}()
 		if err != nil {
 			errChan <- err
@@ -41,7 +42,7 @@ func StartMockServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<
 		go func() {
 			for {
 				select {
-				case <-closeWS:
+				case <-stopListen:
 					return
 				default:
 					_, msg, err := ws.ReadMessage()

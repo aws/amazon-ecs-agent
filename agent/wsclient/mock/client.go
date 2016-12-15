@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -84,6 +84,16 @@ func (_mr *_MockClientServerRecorder) Disconnect(arg0 ...interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Disconnect", arg0...)
 }
 
+func (_m *MockClientServer) IsConnected() bool {
+	ret := _m.ctrl.Call(_m, "IsConnected")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockClientServerRecorder) IsConnected() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsConnected")
+}
+
 func (_m *MockClientServer) MakeRequest(_param0 interface{}) error {
 	ret := _m.ctrl.Call(_m, "MakeRequest", _param0)
 	ret0, _ := ret[0].(error)
@@ -110,4 +120,22 @@ func (_m *MockClientServer) SetAnyRequestHandler(_param0 wsclient.RequestHandler
 
 func (_mr *_MockClientServerRecorder) SetAnyRequestHandler(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetAnyRequestHandler", arg0)
+}
+
+func (_m *MockClientServer) SetConnection(_param0 wsclient.WebsocketConn) {
+	_m.ctrl.Call(_m, "SetConnection", _param0)
+}
+
+func (_mr *_MockClientServerRecorder) SetConnection(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetConnection", arg0)
+}
+
+func (_m *MockClientServer) WriteMessage(_param0 []byte) error {
+	ret := _m.ctrl.Call(_m, "WriteMessage", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientServerRecorder) WriteMessage(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WriteMessage", arg0)
 }

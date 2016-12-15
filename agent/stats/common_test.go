@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -62,7 +62,7 @@ var defaultContainerInstance = "ci"
 
 func init() {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
-	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, false, &cfg)
+	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, &cfg)
 }
 
 // eventStream returns the event stream used to receive container change events

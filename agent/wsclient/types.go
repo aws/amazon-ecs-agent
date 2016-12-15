@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,4 +26,34 @@ type TypeDecoder interface {
 	// the 'type' field) to a pointer to the corresponding struct type this type should
 	// be marshalled/unmarshalled to/from.
 	GetRecognizedTypes() map[string]reflect.Type
+}
+
+// TypeDecoderImpl is an implementation for general use between ACS and
+// TCS clients
+type TypeDecoderImpl struct {
+	typeMappings map[string]reflect.Type
+}
+
+// BuildTypeDecoder takes a list of interfaces and stores them internally as a
+// list of typeMappings in the format below.
+// "MyMessage": TypeOf(ecstcs.MyMessage)
+func BuildTypeDecoder(recognizedTypes []interface{}) TypeDecoder {
+	typeMappings := make(map[string]reflect.Type)
+	for _, recognizedType := range recognizedTypes {
+		typeMappings[reflect.TypeOf(recognizedType).Name()] = reflect.TypeOf(recognizedType)
+	}
+
+	return &TypeDecoderImpl{typeMappings: typeMappings}
+}
+
+func (d *TypeDecoderImpl) NewOfType(typeString string) (interface{}, bool) {
+	rtype, ok := d.typeMappings[typeString]
+	if !ok {
+		return nil, false
+	}
+	return reflect.New(rtype).Interface(), true
+}
+
+func (d *TypeDecoderImpl) GetRecognizedTypes() map[string]reflect.Type {
+	return d.typeMappings
 }

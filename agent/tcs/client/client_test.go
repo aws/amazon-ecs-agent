@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
@@ -222,9 +223,13 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 
 func testCS() (wsclient.ClientServer, *messageLogger) {
 	testCreds := credentials.AnonymousCredentials
-	cs := New("localhost:443", "us-east-1", testCreds, true, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
+	cfg := &config.Config{
+		AWSRegion:          "us-east-1",
+		AcceptInsecureCert: true,
+	}
+	cs := New("localhost:443", cfg, testCreds, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
 	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
-	cs.Conn = ml
+	cs.SetConnection(ml)
 	return cs, ml
 }
 

@@ -131,7 +131,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory, acceptInsecureCert bool, cfg *config.Config) (DockerClient, error) {
+func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (DockerClient, error) {
 	client, err := clientFactory.GetDefaultClient()
 	if err != nil {
 		log.Error("Unable to connect to docker daemon. Ensure docker is running.", "err", err)
@@ -149,7 +149,7 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, acceptInsecureCert bo
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
-		ecrClientFactory: ecr.NewECRFactory(acceptInsecureCert),
+		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		config:           cfg,
 	}, nil
 }

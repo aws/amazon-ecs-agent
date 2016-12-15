@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
@@ -45,6 +47,11 @@ const (
 )
 
 type mockStatsEngine struct{}
+
+var testCfg = &config.Config{
+	AcceptInsecureCert: true,
+	AWSRegion:          "us-east-1",
+}
 
 func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	req := createPublishMetricsRequest()
@@ -74,7 +81,7 @@ func TestFormatURL(t *testing.T) {
 
 func TestStartSession(t *testing.T) {
 	// Start test server.
-	closeWS := make(chan bool)
+	closeWS := make(chan []byte)
 	server, serverChan, requestChan, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
 	defer server.Close()
 	if err != nil {
@@ -92,13 +99,13 @@ func TestStartSession(t *testing.T) {
 		wait.Done()
 	}()
 	defer func() {
-		close(closeWS)
+		closeSocket(closeWS)
 		close(serverChan)
 	}()
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
-	go startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
+	go startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
@@ -120,7 +127,7 @@ func TestStartSession(t *testing.T) {
 	}
 
 	// Decode and verify the metric data.
-	_, responseType, err := wsclient.DecodeData([]byte(payload), &tcsclient.TcsDecoder{})
+	_, responseType, err := wsclient.DecodeData([]byte(payload), tcsclient.NewTCSDecoder())
 	if err != nil {
 		t.Fatal("error decoding data: ", err)
 	}
@@ -131,9 +138,9 @@ func TestStartSession(t *testing.T) {
 	wait.Wait()
 }
 
-func TestSessionConenctionClosedByRemote(t *testing.T) {
+func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start test server.
-	closeWS := make(chan bool)
+	closeWS := make(chan []byte)
 	server, serverChan, _, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
 	defer server.Close()
 	if err != nil {
@@ -141,14 +148,14 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	}
 	go func() {
 		serr := <-serverErr
-		if serr != io.EOF {
+		if !websocket.IsCloseError(serr, websocket.CloseNormalClosure) {
 			t.Error(serr)
 		}
 	}()
 	sleepBeforeClose := 10 * time.Millisecond
 	go func() {
 		time.Sleep(sleepBeforeClose)
-		close(closeWS)
+		closeSocket(closeWS)
 		close(serverChan)
 	}()
 
@@ -158,7 +165,7 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 	defer cancel()
 
 	// Start a session with the test server.
-	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
+	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -172,7 +179,7 @@ func TestSessionConenctionClosedByRemote(t *testing.T) {
 // connection or it's inactive for too long
 func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
-	closeWS := make(chan bool)
+	closeWS := make(chan []byte)
 	server, _, requestChan, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
 	defer server.Close()
 	if err != nil {
@@ -192,12 +199,13 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 	// Start a session with the test server.
-	err = startSession(server.URL, "us-east-1", credentials.AnonymousCredentials, true, &mockStatsEngine{}, 50*time.Millisecond, 100*time.Millisecond, testPublishMetricsInterval, deregisterInstanceEventStream)
+	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, 50*time.Millisecond, 100*time.Millisecond, testPublishMetricsInterval, deregisterInstanceEventStream)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
 	assert.Error(t, err, "Close the connection should cause the tcs client return error")
-	assert.EqualError(t, <-serverErr, io.ErrUnexpectedEOF.Error(), "Read from closed connection should got io.UnexpectedEOF error")
 
-	close(closeWS)
+	assert.True(t, websocket.IsCloseError(<-serverErr, websocket.CloseAbnormalClosure), "Read from closed connection should produce an io.EOF error")
+
+	closeSocket(closeWS)
 }
 
 func TestDiscoverEndpointAndStartSession(t *testing.T) {
@@ -220,6 +228,13 @@ func getPayloadFromRequest(request string) (string, error) {
 	}
 
 	return "", errors.New("Could not get payload")
+}
+
+// closeSocket tells the server to send a close frame. This lets us test
+// what happens if the connection is closed by the remote server.
+func closeSocket(ws chan<- []byte) {
+	ws <- websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+	close(ws)
 }
 
 func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {

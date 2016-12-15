@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -140,6 +140,9 @@ type Config struct {
 	// ECS service and used to influence behavior such as launch
 	// placement.
 	InstanceAttributes map[string]string
+
+	// Set if clients validate ssl certificates. Used mainly for testing
+	AcceptInsecureCert bool `json:"-"`
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

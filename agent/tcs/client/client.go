@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -27,7 +28,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
-	"github.com/gorilla/websocket"
 )
 
 // tasksInMessage is the maximum number of tasks that can be sent in a message to the backend
@@ -46,19 +46,18 @@ type clientServer struct {
 // New returns a client/server to bidirectionally communicate with the backend.
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
+func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
 	cs := &clientServer{
 		statsEngine:            statsEngine,
 		publishTicker:          nil,
 		publishMetricsInterval: publishMetricsInterval,
 	}
 	cs.URL = url
-	cs.Region = region
+	cs.AgentConfig = cfg
 	cs.CredentialProvider = credentialProvider
-	cs.AcceptInvalidCert = acceptInvalidCert
 	cs.ServiceError = &tcsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
-	cs.TypeDecoder = &TcsDecoder{}
+	cs.TypeDecoder = NewTCSDecoder()
 	return cs
 }
 
@@ -67,8 +66,8 @@ func New(url string, region string, credentialProvider *credentials.Credentials,
 // call as unhandled requests will be discarded.
 func (cs *clientServer) Serve() error {
 	seelog.Debug("TCS client starting websocket poll loop")
-	if cs.Conn == nil {
-		return fmt.Errorf("nil connection")
+	if !cs.IsReady() {
+		return fmt.Errorf("Websocket not ready for connections")
 	}
 
 	if cs.statsEngine == nil {
@@ -96,7 +95,7 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 
 	// Over the wire we send something like
 	// {"type":"AckRequest","message":{"messageId":"xyz"}}
-	return cs.Conn.WriteMessage(websocket.TextMessage, data)
+	return cs.WriteMessage(data)
 }
 
 func (cs *clientServer) signRequest(payload []byte) []byte {
@@ -104,7 +103,7 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, reqBody)
-	utils.SignHTTPRequest(request, cs.Region, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
+	utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
 
 	request.Header.Add("Host", request.Host)
 	var dataBuffer bytes.Buffer

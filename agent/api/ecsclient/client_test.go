@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,7 +16,6 @@ package ecsclient
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -45,7 +44,7 @@ func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, a
 		&config.Config{Cluster: configuredCluster,
 			AWSRegion:          "us-east-1",
 			InstanceAttributes: additionalAttributes,
-		}, http.DefaultClient, ec2Metadata)
+		}, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -382,7 +381,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, http.DefaultClient, mockEC2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 

@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,12 +14,11 @@
 package acsclient
 
 import (
-	"reflect"
-
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 )
 
-var acsTypeMappings map[string]reflect.Type
+var acsRecognizedTypes []interface{}
 
 func init() {
 	// This list is currently *manually updated* and assumes that the generated
@@ -29,7 +28,7 @@ func init() {
 	// I couldn't figure out how to get a list of all structs in a package via
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
-	recognizedTypes := []interface{}{
+	acsRecognizedTypes = []interface{}{
 		ecsacs.HeartbeatMessage{},
 		ecsacs.PayloadMessage{},
 		ecsacs.CloseMessage{},
@@ -47,26 +46,8 @@ func init() {
 		ecsacs.InactiveInstanceException{},
 		ecsacs.ErrorMessage{},
 	}
-
-	acsTypeMappings = make(map[string]reflect.Type)
-	// This produces a map of:
-	// "MyMessage": TypeOf(ecsacs.MyMessage)
-	for _, recognizedType := range recognizedTypes {
-		acsTypeMappings[reflect.TypeOf(recognizedType).Name()] = reflect.TypeOf(recognizedType)
-	}
 }
 
-// decoder implments wsclient.TypeDecoder.
-type decoder struct{}
-
-func (dc *decoder) NewOfType(acsType string) (interface{}, bool) {
-	rtype, ok := acsTypeMappings[acsType]
-	if !ok {
-		return nil, false
-	}
-	return reflect.New(rtype).Interface(), true
-}
-
-func (dc *decoder) GetRecognizedTypes() map[string]reflect.Type {
-	return acsTypeMappings
+func NewACSDecoder() wsclient.TypeDecoder {
+	return wsclient.BuildTypeDecoder(acsRecognizedTypes)
 }

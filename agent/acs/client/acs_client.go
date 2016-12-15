@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,6 +21,7 @@ package acsclient
 import (
 	"errors"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -36,15 +37,14 @@ type clientServer struct {
 // New returns a client/server to bidirectionally communicate with ACS
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool) wsclient.ClientServer {
+func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials) wsclient.ClientServer {
 	cs := &clientServer{}
 	cs.URL = url
-	cs.Region = region
 	cs.CredentialProvider = credentialProvider
-	cs.AcceptInvalidCert = acceptInvalidCert
+	cs.AgentConfig = cfg
 	cs.ServiceError = &acsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
-	cs.TypeDecoder = &decoder{}
+	cs.TypeDecoder = NewACSDecoder()
 	return cs
 }
 
@@ -53,8 +53,8 @@ func New(url string, region string, credentialProvider *credentials.Credentials,
 // call as unhandled requests will be discarded.
 func (cs *clientServer) Serve() error {
 	log.Debug("Starting websocket poll loop")
-	if cs.Conn == nil {
-		return errors.New("nil connection")
+	if !cs.IsReady() {
+		return errors.New("Websocket not ready for connections")
 	}
 	return cs.ConsumeMessages()
 }

@@ -113,11 +113,16 @@ const (
 	acsURL = "http://endpoint.tld"
 )
 
+var testConfig = &config.Config{
+	Cluster:            "someCluster",
+	AcceptInsecureCert: true,
+}
+
 type mockSessionResources struct {
 	client wsclient.ClientServer
 }
 
-func (m *mockSessionResources) createACSClient(url string) wsclient.ClientServer {
+func (m *mockSessionResources) createACSClient(url string, cfg *config.Config) wsclient.ClientServer {
 	return m.client
 }
 
@@ -201,11 +206,10 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
@@ -344,12 +348,11 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
-		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		stateManager:                    statemanager,
-		acceptInsecureCert:              true,
 		backoff:                         mockBackoff,
 		ctx:                             ctx,
 		cancel:                          cancel,
@@ -406,12 +409,11 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN:          "myArn",
 		credentialsProvider:           credentials.AnonymousCredentials,
-		agentConfig:                   &config.Config{Cluster: "someCluster"},
+		agentConfig:                   testConfig,
 		taskEngine:                    taskEngine,
 		ecsClient:                     ecsClient,
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 		stateManager:                  statemanager,
-		acceptInsecureCert:            true,
 		backoff:                       mockBackoff,
 		ctx:                           ctx,
 		cancel:                        cancel,
@@ -464,12 +466,11 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
-		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		stateManager:                    statemanager,
-		acceptInsecureCert:              true,
 		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                             ctx,
 		cancel:                          cancel,
@@ -532,12 +533,11 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
-		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		stateManager:                    statemanager,
-		acceptInsecureCert:              true,
 		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                             ctx,
 		cancel:                          cancel,
@@ -589,11 +589,10 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
@@ -639,11 +638,10 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
@@ -693,11 +691,10 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
@@ -759,11 +756,10 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		ctx:                  context.Background(),
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		resources:            &mockSessionResources{},
@@ -781,7 +777,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	<-connectionClosed
 }
 
-func TestHandlerDoesntLeakGouroutines(t *testing.T) {
+func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -815,17 +811,14 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 		acsSession := session{
 			containerInstanceARN: "myArn",
 			credentialsProvider:  credentials.AnonymousCredentials,
-			agentConfig:          &config.Config{Cluster: "someCluster"},
+			agentConfig:          testConfig,
 			taskEngine:           taskEngine,
 			ecsClient:            ecsClient,
 			stateManager:         statemanager,
-			acceptInsecureCert:   true,
 			ctx:                  ctx,
 			backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-			resources:            newSessionResources("", credentials.AnonymousCredentials, true),
+			resources:            newSessionResources(credentials.AnonymousCredentials),
 			credentialsManager:   rolecredentials.NewManager(),
-			_heartbeatTimeout:    20 * time.Millisecond,
-			_heartbeatJitter:     10 * time.Millisecond,
 		}
 		acsSession.Start()
 		ended <- true
@@ -844,9 +837,12 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	cancel()
 	<-ended
 
+	// The number of goroutines finishing in the MockACSServer will affect
+	// the result unless we wait here.
+	time.Sleep(10 * time.Millisecond)
 	afterGoroutines := runtime.NumGoroutine()
 
-	t.Logf("Gorutines after 1 and after 100 acs messages: %v and %v", beforeGoroutines, afterGoroutines)
+	t.Logf("Goroutines after 1 and after %v acs messages: %v and %v", timesConnected, beforeGoroutines, afterGoroutines)
 
 	if timesConnected < 50 {
 		t.Fatal("Expected times connected to be a large number, was ", timesConnected)
@@ -855,6 +851,7 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 		t.Error("Goroutine leak, oh no!")
 		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	}
+
 }
 
 // TestStartSessionHandlesRefreshCredentialsMessages tests the agent restart
@@ -893,8 +890,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(ctx,
-			true,
-			&config.Config{Cluster: "someCluster"},
+			testConfig,
 			nil,
 			"myArn",
 			credentials.AnonymousCredentials,
@@ -960,7 +956,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 // TestACSSessionResourcesCorrectlySetsSendCredentials tests if acsSessionResources
 // struct correctly sets 'sendCredentials'
 func TestACSSessionResourcesCorrectlySetsSendCredentials(t *testing.T) {
-	acsResources := newSessionResources("", nil, true)
+	acsResources := newSessionResources(nil)
 	// Validate that 'sendCredentials' is set to true on create
 	sendCredentials := acsResources.getSendCredentialsURLParameter()
 	if sendCredentials != "true" {
@@ -992,7 +988,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Serve().Return(io.EOF).AnyTimes()
-	resources := newSessionResources("", credentials.AnonymousCredentials, true)
+	resources := newSessionResources(credentials.AnonymousCredentials)
 	gomock.InOrder(
 		// When the websocket client connects to ACS for the first
 		// time, 'sendCredentials' should be set to true
@@ -1009,11 +1005,10 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
-		agentConfig:          &config.Config{Cluster: "someCluster"},
+		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		stateManager:         statemanager,
-		acceptInsecureCert:   true,
 		ctx:                  ctx,
 		resources:            resources,
 		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
@@ -1040,20 +1035,14 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 	requestsChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
-	serverRestart := make(chan bool, 1)
 	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
-		go func() {
-			<-closeWS
-			ws.WriteMessage(websocket.CloseMessage, nil)
-			ws.Close()
-			serverRestart <- true
-			errChan <- io.EOF
-		}()
+
 		if err != nil {
 			errChan <- err
 		}
+
 		go func() {
 			_, msg, err := ws.ReadMessage()
 			if err != nil {
@@ -1069,10 +1058,15 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 				if err != nil {
 					errChan <- err
 				}
-			case <-serverRestart:
+
+			case <-closeWS:
+				ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				ws.Close()
+				errChan <- io.EOF
 				// Quit listening to serverChan if we've been closed
 				return
 			}
+
 		}
 	})
 

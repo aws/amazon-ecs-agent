@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
@@ -90,11 +91,13 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 	}
 	log.Debugf("Connecting to TCS endpoint %v", tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
-	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
+	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
 
-func startSession(url string, region string, credentialProvider *credentials.Credentials, acceptInvalidCert bool, statsEngine stats.Engine, heartbeatTimeout, heartbeatJitter, publishMetricsInterval time.Duration, deregisterInstanceEventStream *eventstream.EventStream) error {
-	client := tcsclient.New(url, region, credentialProvider, acceptInvalidCert, statsEngine, publishMetricsInterval)
+func startSession(url string, cfg *config.Config, credentialProvider *credentials.Credentials,
+	statsEngine stats.Engine, heartbeatTimeout, heartbeatJitter, publishMetricsInterval time.Duration,
+	deregisterInstanceEventStream *eventstream.EventStream) error {
+	client := tcsclient.New(url, cfg, credentialProvider, statsEngine, publishMetricsInterval)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)

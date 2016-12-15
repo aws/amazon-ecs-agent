@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -79,7 +79,6 @@ type session struct {
 	taskEngine                      engine.TaskEngine
 	ecsClient                       api.ECSClient
 	stateManager                    statemanager.StateManager
-	acceptInsecureCert              bool
 	credentialsManager              rolecredentials.Manager
 	ctx                             context.Context
 	cancel                          context.CancelFunc
@@ -99,7 +98,7 @@ type session struct {
 // The goal is to make it easier to test and inject dependencies
 type sessionResources interface {
 	// createACSClient creates a new websocket client
-	createACSClient(url string) wsclient.ClientServer
+	createACSClient(url string, cfg *config.Config) wsclient.ClientServer
 	sessionState
 }
 
@@ -107,9 +106,7 @@ type sessionResources interface {
 // to create resources needed to connect to ACS and to record session state
 // for the same
 type acsSessionResources struct {
-	region              string
 	credentialsProvider *credentials.Credentials
-	acceptInsecureCert  bool
 	// sendCredentials is used to set the 'sendCredentials' URL parameter
 	// used to connect to ACS
 	// It is set to 'true' for the very first successful connection on
@@ -131,7 +128,6 @@ type sessionState interface {
 
 // NewSession creates a new Session object
 func NewSession(ctx context.Context,
-	acceptInsecureCert bool,
 	config *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	containerInstanceArn string,
@@ -140,13 +136,12 @@ func NewSession(ctx context.Context,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager) Session {
-	resources := newSessionResources(config.AWSRegion, credentialsProvider, acceptInsecureCert)
+	resources := newSessionResources(credentialsProvider)
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
 	derivedContext, cancel := context.WithCancel(ctx)
 
 	return &session{
-		acceptInsecureCert:              acceptInsecureCert,
 		agentConfig:                     config,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		containerInstanceARN:            containerInstanceArn,
@@ -239,7 +234,7 @@ func (acsSession *session) startSessionOnce() error {
 	}
 
 	url := acsWsURL(acsEndpoint, acsSession.agentConfig.Cluster, acsSession.containerInstanceARN, acsSession.taskEngine, acsSession.resources)
-	client := acsSession.resources.createACSClient(url)
+	client := acsSession.resources.createACSClient(url, acsSession.agentConfig)
 	defer client.Close()
 
 	// Start inactivity timer for closing the connection
@@ -347,9 +342,8 @@ func (acsSession *session) heartbeatJitter() time.Duration {
 }
 
 // createACSClient creates the ACS Client using the specified URL
-func (acsResources *acsSessionResources) createACSClient(url string) wsclient.ClientServer {
-	return acsclient.New(
-		url, acsResources.region, acsResources.credentialsProvider, acsResources.acceptInsecureCert)
+func (acsResources *acsSessionResources) createACSClient(url string, cfg *config.Config) wsclient.ClientServer {
+	return acsclient.New(url, cfg, acsResources.credentialsProvider)
 }
 
 // connectedToACS records a successful connection to ACS
@@ -364,11 +358,9 @@ func (acsResources *acsSessionResources) getSendCredentialsURLParameter() string
 	return strconv.FormatBool(acsResources.sendCredentials)
 }
 
-func newSessionResources(region string, credentialsProvider *credentials.Credentials, acceptInsecureCert bool) sessionResources {
+func newSessionResources(credentialsProvider *credentials.Credentials) sessionResources {
 	return &acsSessionResources{
-		region:              region,
 		credentialsProvider: credentialsProvider,
-		acceptInsecureCert:  acceptInsecureCert,
 		sendCredentials:     true,
 	}
 }

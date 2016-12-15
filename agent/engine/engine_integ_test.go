@@ -1,5 +1,5 @@
 // +build integration
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -68,7 +68,7 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 		t.Skip("Docker not running")
 	}
 	clientFactory := dockerclient.NewFactory(dockerEndpoint)
-	dockerClient, err := NewDockerGoClient(clientFactory, false, cfg)
+	dockerClient, err := NewDockerGoClient(clientFactory, cfg)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}
