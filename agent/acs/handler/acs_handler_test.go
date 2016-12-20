@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -126,6 +127,8 @@ func (m *mockSessionResources) connectedToACS() {
 func (m *mockSessionResources) getSendCredentialsURLParameter() string {
 	return "true"
 }
+
+// TestACSWSURL tests if the URL is constructed correctly when connecting to ACS
 func TestACSWSURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -196,20 +199,19 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		}).Return(io.EOF),
 	)
 	session := Session{
-		containerInstanceARN:            "myArn",
-		credentialsProvider:             credentials.AnonymousCredentials,
-		agentConfig:                     &config.Config{Cluster: "someCluster"},
-		taskEngine:                      taskEngine,
-		ecsClient:                       ecsClient,
-		stateManager:                    statemanager,
-		acceptInsecureCert:              true,
-		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-		ctx:                             ctx,
-		cancel:                          cancel,
-		resources:                       &mockSessionResources{mockWsClient},
-		_heartbeatTimeout:               20 * time.Millisecond,
-		_heartbeatJitter:                10 * time.Millisecond,
-		_inactiveInstanceReconnectDelay: 1 * time.Millisecond,
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
+		stateManager:         statemanager,
+		acceptInsecureCert:   true,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                  ctx,
+		cancel:               cancel,
+		resources:            &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
 		session.Start()
@@ -221,42 +223,275 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	}
 }
 
-// TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsTrue tests if
-// the applyBackoffAndGenerateReconnectAndDeregisterMessages method returns true
-// for reconnecting to ACS when handling io.EOF
-func TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsTrue(t *testing.T) {
-	connectToACS := make(chan struct{})
-	done := make(chan struct{})
-	go func() {
-		<-connectToACS
-		done <- struct{}{}
-	}()
-	session := Session{
-		backoff: utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-	}
-	assert.True(t, session.applyBackoffAndGenerateReconnectAndDeregisterMessages(io.EOF, connectToACS), "ACS error is not correctly handled")
-	<-done
+// TestIsInactiveInstanceErrorReturnsTrueForInactiveInstance tests if the 'InactiveInstance'
+// exception is identified correctly by the handler
+func TestIsInactiveInstanceErrorReturnsTrueForInactiveInstance(t *testing.T) {
+	assert.True(t, isInactiveInstanceError(fmt.Errorf("InactiveInstanceException: ")),
+		"inactive instance exception message parsed incorrectly")
 }
 
-// TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsFalse tests if
-// the applyBackoffAndGenerateReconnectAndDeregisterMessages method returns false
-// for reconnecting to ACS when handling InactiveInstanceException
-func TestApplyBackoffAndGenerateReconnectAndDeregisterMessagesReturnsFalse(t *testing.T) {
+// TestIsInactiveInstanceErrorReturnsFalseForActiveInstance tests if non 'InactiveInstance'
+// exceptions are identified correctly by the handler
+func TestIsInactiveInstanceErrorReturnsFalseForActiveInstance(t *testing.T) {
+	assert.False(t, isInactiveInstanceError(io.EOF),
+		"inactive instance exception message parsed incorrectly")
+}
+
+// TestComputeReconnectDelayForInactiveInstance tests if the reconnect delay is computed
+// correctly for an inactive instance
+func TestComputeReconnectDelayForInactiveInstance(t *testing.T) {
+	session := Session{_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay}
+	assert.Equal(t, inactiveInstanceReconnectDelay, session.computeReconnectDelay(true),
+		"Reconnect delay doesn't match expected value for inactive instance")
+}
+
+// TestComputeReconnectDelayForActiveInstance tests if the reconnect delay is computed
+// correctly for an active instance
+func TestComputeReconnectDelayForActiveInstance(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff.EXPECT().Duration().Return(connectionBackoffMax)
+
+	session := Session{backoff: mockBackoff}
+	assert.Equal(t, connectionBackoffMax, session.computeReconnectDelay(false),
+		"Reconnect delay doesn't match expected value for active instance")
+}
+
+// TestWaitForDurationReturnsTrueWhenContextNotCancelled tests if the
+// waitForDurationOrCancelledSession method behaves correctly when the session context
+// is not cancelled
+func TestWaitForDurationReturnsTrueWhenContextNotCancelled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	session := Session{
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	assert.True(t, session.waitForDurationOrCancelledSession(time.Millisecond),
+		"WaitForDuration should return true when uninterrupted")
+}
+
+// TestWaitForDurationReturnsFalseWhenContextCancelled tests if the
+// waitForDurationOrCancelledSession method behaves correctly when the session contexnt
+// is cancelled
+func TestWaitForDurationReturnsFalseWhenContextCancelled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	session := Session{
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	cancel()
+
+	assert.False(t, session.waitForDurationOrCancelledSession(time.Millisecond),
+		"WaitForDuration should return false when interrupted")
+}
+
+func TestShouldReconnectWithoutBackoffReturnsTrueForEOF(t *testing.T) {
+	assert.True(t, shouldReconnectWithoutBackoff(io.EOF),
+		"Reconnect without backoff should return true when connection is closed")
+}
+
+func TestShouldReconnectWithoutBackoffReturnsFalseForNonEOF(t *testing.T) {
+	assert.False(t, shouldReconnectWithoutBackoff(fmt.Errorf("not EOF")),
+		"Reconnect without backoff should return false for non io.EOF error")
+}
+
+// TestHandlerReconnectsWithoutBackoffOnEOFError tests if the session handler reconnects
+// to ACS without any delay when the connection is closed with the io.EOF error
+func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	statemanager := statemanager.NewNoopStateManager()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
+
+	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+	gomock.InOrder(
+		mockWsClient.EXPECT().Connect().Return(io.EOF),
+		// The backoff.Reset() method is expected to be invoked when the connection
+		// is closed with io.EOF
+		mockBackoff.EXPECT().Reset(),
+		mockWsClient.EXPECT().Connect().Do(func() {
+			// cancel the context on the 2nd connect attempt, which should stop
+			// the test
+			cancel()
+		}).Return(io.EOF),
+		mockBackoff.EXPECT().Reset().AnyTimes(),
+	)
 	session := Session{
-		deregisterInstanceEventStream: deregisterInstanceEventStream,
+		containerInstanceARN:            "myArn",
+		credentialsProvider:             credentials.AnonymousCredentials,
+		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		taskEngine:                      taskEngine,
+		ecsClient:                       ecsClient,
+		deregisterInstanceEventStream:   deregisterInstanceEventStream,
+		stateManager:                    statemanager,
+		acceptInsecureCert:              true,
+		backoff:                         mockBackoff,
+		ctx:                             ctx,
+		cancel:                          cancel,
+		resources:                       &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:               20 * time.Millisecond,
+		_heartbeatJitter:                10 * time.Millisecond,
+		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
-	connectToACS := make(chan struct{})
-	assert.False(t, session.applyBackoffAndGenerateReconnectAndDeregisterMessages(fmt.Errorf("InactiveInstanceException:"), connectToACS),
-		"InactiveInstanceException is not correctly handled")
-	cancel()
+	go func() {
+		session.Start()
+	}()
+
+	// Wait for context to be cancelled
+	select {
+	case <-ctx.Done():
+	}
 }
 
-// TestHandlerDoesNotReconnectsOnInactiveInstanceError tests if handler stops reconnect
-// attempts with ACS when ClientServer.Connect() returns the InstanceInactive error
-func TestHandlerDoesNotReconnectsOnInactiveInstanceError(t *testing.T) {
+// TestHandlerReconnectsWithoutBackoffOnEOFError tests if the session handler reconnects
+// to ACS after a backoff duration when the connection is closed with non io.EOF error
+func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	statemanager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+	gomock.InOrder(
+		mockWsClient.EXPECT().Connect().Return(fmt.Errorf("not EOF")),
+		// The backoff.Duration() method is expected to be invoked when
+		// the connection is closed with a non-EOF error code to compute
+		// the backoff. Also, no calls to backoff.Reset() are expected
+		// in this code path.
+		mockBackoff.EXPECT().Duration().Return(time.Millisecond),
+		mockWsClient.EXPECT().Connect().Do(func() {
+			cancel()
+		}).Return(io.EOF),
+		mockBackoff.EXPECT().Reset().AnyTimes(),
+	)
+	session := Session{
+		containerInstanceARN:          "myArn",
+		credentialsProvider:           credentials.AnonymousCredentials,
+		agentConfig:                   &config.Config{Cluster: "someCluster"},
+		taskEngine:                    taskEngine,
+		ecsClient:                     ecsClient,
+		deregisterInstanceEventStream: deregisterInstanceEventStream,
+		stateManager:                  statemanager,
+		acceptInsecureCert:            true,
+		backoff:                       mockBackoff,
+		ctx:                           ctx,
+		cancel:                        cancel,
+		resources:                     &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:             20 * time.Millisecond,
+		_heartbeatJitter:              10 * time.Millisecond,
+	}
+	go func() {
+		session.Start()
+	}()
+
+	// Wait for context to be cancelled
+	select {
+	case <-ctx.Done():
+	}
+}
+
+// TestHandlerGeneratesDeregisteredInstanceEvent tests if the session handler generates
+// an event into the deregister instance event stream when the acs connection is closed
+// with inactive instance error
+func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	statemanager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+
+	// receiverFunc cancels the context when invoked. Any event on the deregister
+	// instance even stream would trigger this.
+	receiverFunc := func(...interface{}) error {
+		cancel()
+		return nil
+	}
+	err := deregisterInstanceEventStream.Subscribe("DeregisterContainerInstance", receiverFunc)
+	assert.NoError(t, err, "Error adding deregister instance event stream subscriber")
+	deregisterInstanceEventStream.StartListening()
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Connect().Return(fmt.Errorf("InactiveInstanceException:"))
+	inactiveInstanceReconnectDelay := 200 * time.Millisecond
+	session := Session{
+		containerInstanceARN:            "myArn",
+		credentialsProvider:             credentials.AnonymousCredentials,
+		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		taskEngine:                      taskEngine,
+		ecsClient:                       ecsClient,
+		deregisterInstanceEventStream:   deregisterInstanceEventStream,
+		stateManager:                    statemanager,
+		acceptInsecureCert:              true,
+		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                             ctx,
+		cancel:                          cancel,
+		resources:                       &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:               20 * time.Millisecond,
+		_heartbeatJitter:                10 * time.Millisecond,
+		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+	}
+	go func() {
+		session.Start()
+	}()
+
+	// Wait for context to be cancelled
+	select {
+	case <-ctx.Done():
+	}
+}
+
+// TestHandlerReconnectDelayForInactiveInstanceError tests if the session handler applies
+// the proper reconnect delay with ACS when ClientServer.Connect() returns the
+// InstanceInactive error
+func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -275,24 +510,37 @@ func TestHandlerDoesNotReconnectsOnInactiveInstanceError(t *testing.T) {
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	mockWsClient.EXPECT().Connect().Do(func() {
-		cancel()
-	}).Return(fmt.Errorf("InactiveInstanceException:"))
+	var firstConnectionAttemptTime time.Time
+	inactiveInstanceReconnectDelay := 200 * time.Millisecond
+	gomock.InOrder(
+		mockWsClient.EXPECT().Connect().Do(func() {
+			firstConnectionAttemptTime = time.Now()
+		}).Return(fmt.Errorf("InactiveInstanceException:")),
+		mockWsClient.EXPECT().Connect().Do(func() {
+			reconnectDelay := time.Now().Sub(firstConnectionAttemptTime)
+			t.Logf("Delay between successive connections: %v", reconnectDelay)
+			if reconnectDelay < inactiveInstanceReconnectDelay {
+				t.Errorf("Reconnect delay %v is not less than inactive instance reconnect delay %v", reconnectDelay, inactiveInstanceReconnectDelay)
+			}
+			cancel()
+		}).Return(io.EOF),
+	)
 	session := Session{
-		containerInstanceARN:          "myArn",
-		credentialsProvider:           credentials.AnonymousCredentials,
-		agentConfig:                   &config.Config{Cluster: "someCluster"},
-		taskEngine:                    taskEngine,
-		ecsClient:                     ecsClient,
-		deregisterInstanceEventStream: deregisterInstanceEventStream,
-		stateManager:                  statemanager,
-		acceptInsecureCert:            true,
-		backoff:                       utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-		ctx:                           ctx,
-		cancel:                        cancel,
-		resources:                     &mockSessionResources{mockWsClient},
-		_heartbeatTimeout:             20 * time.Millisecond,
-		_heartbeatJitter:              10 * time.Millisecond,
+		containerInstanceARN:            "myArn",
+		credentialsProvider:             credentials.AnonymousCredentials,
+		agentConfig:                     &config.Config{Cluster: "someCluster"},
+		taskEngine:                      taskEngine,
+		ecsClient:                       ecsClient,
+		deregisterInstanceEventStream:   deregisterInstanceEventStream,
+		stateManager:                    statemanager,
+		acceptInsecureCert:              true,
+		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                             ctx,
+		cancel:                          cancel,
+		resources:                       &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:               20 * time.Millisecond,
+		_heartbeatJitter:                10 * time.Millisecond,
+		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 	go func() {
 		session.Start()
@@ -357,6 +605,56 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 	select {
 	case <-ctx.Done():
 	}
+}
+
+// TestHandlerStopsWhenContextIsCancelled tests if the session's Start() method returns
+// when session context is cancelled
+func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	statemanager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Connect().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+	gomock.InOrder(
+		mockWsClient.EXPECT().Serve().Return(io.EOF),
+		mockWsClient.EXPECT().Serve().Do(func() {
+			cancel()
+		}).Return(io.EOF),
+	)
+	session := Session{
+		containerInstanceARN: "myArn",
+		credentialsProvider:  credentials.AnonymousCredentials,
+		agentConfig:          &config.Config{Cluster: "someCluster"},
+		taskEngine:           taskEngine,
+		ecsClient:            ecsClient,
+		stateManager:         statemanager,
+		acceptInsecureCert:   true,
+		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		ctx:                  ctx,
+		cancel:               cancel,
+		resources:            &mockSessionResources{mockWsClient},
+		_heartbeatTimeout:    20 * time.Millisecond,
+		_heartbeatJitter:     10 * time.Millisecond,
+	}
+
+	// The session error channel would have an event when the Start() method returns
+	// Cancelling the context should trigger this
+	sessionError := make(chan error)
+	go func() {
+		sessionError <- session.Start()
+	}()
+	<-sessionError
 }
 
 // TestHandlerReconnectsOnDiscoverPollEndpointError tests if handler retries
