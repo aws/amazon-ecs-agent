@@ -1,0 +1,78 @@
+{
+    "family": "concurrent-pull-test",
+    "containerDefinitions": [
+    {
+        "name": "busybox",
+        "image": "busybox",
+        "cpu": 10,
+        "command":  [ "sh", "-c", "while [ true ]; do sleep 1s; date +%T; done"],
+        "memory": 10,
+        "essential": true
+    },
+    {
+        "name": "ubuntu",
+        "image": "ubuntu",
+        "cpu": 10,
+        "memory": 10,
+        "essential": true,
+        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+    },
+    {
+        "name": "consul",
+        "image": "consul",
+        "cpu": 10,
+        "memory": 50
+    },
+    {
+        "name": "debian",
+        "image": "debian",
+        "cpu": 10,
+        "memory": 10,
+        "essential": true,
+        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+    },
+    {
+        "name": "debian-2",
+        "image": "debian",
+        "cpu": 10,
+        "memory": 10,
+        "essential": true,
+        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+    },
+    {
+        "name": "httpd",
+        "image": "httpd",
+        "cpu": 10,
+        "memory": 10,
+        "essential": true
+    },
+    {
+        "name": "mongo",
+        "image": "mongo",
+        "cpu": 10,
+        "memory": 100,
+        "essential": true
+    },
+    {
+        "name": "nginx",
+        "image": "nginx",
+        "cpu": 10,
+        "memory": 50,
+        "essential": true
+    },
+    {
+        "name": "redis",
+        "image": "redis",
+        "cpu": 10,
+        "memory": 10,
+        "essential": true
+    },
+    {
+        "name": "registry",
+        "image": "registry",
+        "cpu": 10,
+        "memory": 50,
+        "essential": true
+    }
+    ]
+}

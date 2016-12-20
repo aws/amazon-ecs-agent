@@ -1012,7 +1012,7 @@ func TestEngineEnableConcurrentPull(t *testing.T) {
 	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
 
 	if !dockerTaskEngine.enabledConcurrentPull {
-		t.Error("Task engine should be able to perform concurrent pulling for docker version >= 1.9.0")
+		t.Error("Task engine should be able to perform concurrent pulling for docker version >= 1.11.1")
 	}
 }
 
