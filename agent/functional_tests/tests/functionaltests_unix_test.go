@@ -713,3 +713,40 @@ func TestNetworkModeBridge(t *testing.T) {
 		t.Fatalf("Networking mode bridge testing failed, err: %v", err)
 	}
 }
+
+// TestDockerConcurrentPull tests the agent can perform concurrent pull for docker >= 1.11.1
+// Start 4 tasks totaling 40 containers at the same time.
+func TestDockerConcurrentPull(t *testing.T) {
+	RequireDockerVersion(t, ">=1.11.1")
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	td, err := GetTaskDefinition("concurrent-pull")
+	if err != nil {
+		t.Fatalf("Get task definition error: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 4)
+	if err != nil {
+		t.Fatalf("Failed to start tasks, err: %v", err)
+	}
+
+	for _, testTask := range testTasks {
+		testTask.WaitRunning(1 * time.Minute)
+	}
+
+	// Cleanup, stop all the tasks, and wait for the containers to be stopped
+	for _, testTask := range testTasks {
+		err = testTask.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop the task, err %v", err)
+		}
+	}
+
+	for _, testTask := range testTasks {
+		err := testTask.WaitStopped(1 * time.Minute)
+		if err != nil {
+			t.Errorf("Failed to wait the task to be stopped, err %v", err)
+		}
+	}
+}

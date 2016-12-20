@@ -142,7 +142,7 @@ func (engine *DockerTaskEngine) Init() error {
 	engine.stopEngine = cancel
 
 	// Determine whether the engine can perform concurrent "docker pull" based on docker version
-	engine.enabledConcurrentPull = engine.enableConcurrentPull()
+	engine.enabledConcurrentPull = engine.isParallelPullCompatible()
 
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
@@ -787,8 +787,8 @@ func (engine *DockerTaskEngine) Version() (string, error) {
 	return engine.client.Version()
 }
 
-// enableConcurrentPull checks the docker version and return true if docker version >= 1.11.1
-func (engine *DockerTaskEngine) enableConcurrentPull() bool {
+// isParallelPullCompatible checks the docker version and return true if docker version >= 1.11.1
+func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	version, err := engine.Version()
 	if err != nil {
 		seelog.Warnf("Failed to get docker version, err %v", err)
@@ -802,7 +802,7 @@ func (engine *DockerTaskEngine) enableConcurrentPull() bool {
 	}
 
 	if match {
-		seelog.Warnf("Docker version: %v, enable concurrent pulling", version)
+		seelog.Debugf("Docker version: %v, enable concurrent pulling", version)
 		return true
 	}
 
