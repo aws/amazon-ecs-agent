@@ -1,5 +1,5 @@
 //+build !integration
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -308,4 +309,56 @@ func TestCpuStatsSetNotSetToInfinity(t *testing.T) {
 	if sampleCount != 1 {
 		t.Errorf("Computed cpuStatsSet.SampleCount (%d) != expected value (%d)", sampleCount, 1)
 	}
+}
+
+func TestResetThresholdElapsed(t *testing.T) {
+	// create a queue
+	queueLength := 3
+	queue := NewQueue(queueLength)
+
+	queue.Reset()
+
+	thresholdElapsed := queue.resetThresholdElapsed(2 * time.Millisecond)
+	assert.False(t, thresholdElapsed, "Queue reset threshold is not expected to elapse right after reset")
+
+	time.Sleep(3 * time.Millisecond)
+	thresholdElapsed = queue.resetThresholdElapsed(2 * time.Millisecond)
+
+	assert.True(t, thresholdElapsed, "Queue reset threshold is expected to elapse after waiting")
+}
+
+func TestEnoughDatapointsInBuffer(t *testing.T) {
+	// timestamps will be used to simulate +Inf CPU Usage
+	// timestamps[0] = timestamps[1]
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.333776335Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+		248503503,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+		3649536,
+	}
+	// create a queue
+	queueLength := 3
+	queue := NewQueue(queueLength)
+
+	enoughDataPoints := queue.enoughDatapointsInBuffer()
+	assert.False(t, enoughDataPoints, "Queue is expected to not have enough data points right after creation")
+	for i, time := range timestamps {
+		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+	}
+
+	enoughDataPoints = queue.enoughDatapointsInBuffer()
+	assert.True(t, enoughDataPoints, "Queue is expected to have enough data points when it has more than 2 msgs queued")
+
+	queue.Reset()
+	enoughDataPoints = queue.enoughDatapointsInBuffer()
+	assert.False(t, enoughDataPoints, "Queue is expected to not have enough data points right after RESET")
 }

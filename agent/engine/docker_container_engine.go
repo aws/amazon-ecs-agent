@@ -61,9 +61,9 @@ const (
 	// output will be suppressed in debug mode
 	pullStatusSuppressDelay = 2 * time.Second
 
-	// statsInactivityTimeout controls the amount of time we hold open a
+	// StatsInactivityTimeout controls the amount of time we hold open a
 	// connection to the Docker daemon waiting for stats data
-	statsInactivityTimeout = 5 * time.Second
+	StatsInactivityTimeout = 5 * time.Second
 )
 
 // DockerClient interface to make testing it easier
@@ -809,7 +809,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 		Stats:             stats,
 		Stream:            true,
 		Context:           ctx,
-		InactivityTimeout: statsInactivityTimeout,
+		InactivityTimeout: StatsInactivityTimeout,
 	}
 
 	go func() {

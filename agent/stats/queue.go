@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
@@ -27,11 +28,14 @@ const (
 	BytesInMiB = 1024 * 1024
 )
 
+const minimumQueueDatapoints = 2
+
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
-	buffer     []UsageStats
-	maxSize    int
-	bufferLock sync.RWMutex
+	buffer        []UsageStats
+	maxSize       int
+	lastResetTime time.Time
+	bufferLock    sync.RWMutex
 }
 
 // NewQueue creates a queue.
@@ -46,7 +50,7 @@ func NewQueue(maxSize int) *Queue {
 func (queue *Queue) Reset() {
 	queue.bufferLock.Lock()
 	defer queue.bufferLock.Unlock()
-
+	queue.lastResetTime = time.Now()
 	queue.buffer = queue.buffer[:0]
 }
 
@@ -132,6 +136,19 @@ func getMemoryUsagePerc(s *UsageStats) float64 {
 }
 
 type getUsageFunc func(*UsageStats) float64
+
+func (queue *Queue) resetThresholdElapsed(timeout time.Duration) bool {
+	queue.bufferLock.RLock()
+	defer queue.bufferLock.RUnlock()
+	duration := time.Since(queue.lastResetTime)
+	return duration.Seconds() > timeout.Seconds()
+}
+
+func (queue *Queue) enoughDatapointsInBuffer() bool {
+	queue.bufferLock.RLock()
+	defer queue.bufferLock.RUnlock()
+	return len(queue.buffer) >= minimumQueueDatapoints
+}
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.

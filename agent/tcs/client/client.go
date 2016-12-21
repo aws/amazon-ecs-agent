@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -137,12 +137,18 @@ func (cs *clientServer) publishMetrics() {
 	// Publish metrics immediately after we connect and wait for ticks. This makes
 	// sure that there is no data loss when a scheduled metrics publishing fails
 	// due to a connection reset.
-	cs.publishMetricsOnce()
+	err := cs.publishMetricsOnce()
+	if err != nil && err != stats.EmptyMetricsError {
+		seelog.Warnf("Error publishing metrics: %v", err)
+	}
 	// don't simply range over the ticker since its channel doesn't ever get closed
 	for {
 		select {
 		case <-cs.publishTicker.C:
-			cs.publishMetricsOnce()
+			err := cs.publishMetricsOnce()
+			if err != nil {
+				seelog.Warnf("Error publishing metrics: %v", err)
+			}
 		case <-cs.endPublish:
 			return
 		}
@@ -150,20 +156,21 @@ func (cs *clientServer) publishMetrics() {
 }
 
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishMetricsOnce() {
+func (cs *clientServer) publishMetricsOnce() error {
 	// Get the list of objects to send to backend.
 	requests, err := cs.metricsToPublishMetricRequests()
 	if err != nil {
-		seelog.Warnf("Error getting instance metrics: %v", err)
+		return err
 	}
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		err = cs.MakeRequest(request)
 		if err != nil {
-			seelog.Warnf("Error publishing metrics: %v. Request: %v", err, request)
+			return err
 		}
 	}
+	return nil
 }
 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest

@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
 
@@ -77,6 +78,12 @@ type mockStatsEngine struct{}
 
 func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("uninitialized")
+}
+
+type emptyStatsEngine struct{}
+
+func (engine *emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	return nil, nil, fmt.Errorf("empty stats")
 }
 
 type idleStatsEngine struct{}
@@ -149,6 +156,14 @@ func TestPublishMetricsRequest(t *testing.T) {
 	}
 
 	cs.Close()
+}
+func TestPublishMetricsOnceEmptyStatsError(t *testing.T) {
+	cs := clientServer{
+		statsEngine: &emptyStatsEngine{},
+	}
+	err := cs.publishMetricsOnce()
+
+	assert.Error(t, err, "Failed: expecting publishMerticOnce return err ")
 }
 
 func TestPublishOnceIdleStatsEngine(t *testing.T) {

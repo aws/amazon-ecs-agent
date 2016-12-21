@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -518,9 +518,13 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 		}).Return(fmt.Errorf("InactiveInstanceException:")),
 		mockWsClient.EXPECT().Connect().Do(func() {
 			reconnectDelay := time.Now().Sub(firstConnectionAttemptTime)
+			reconnectDelayTime := time.Now()
 			t.Logf("Delay between successive connections: %v", reconnectDelay)
+			timeSubFuncSlopAllowed := 2 * time.Millisecond
 			if reconnectDelay < inactiveInstanceReconnectDelay {
-				t.Errorf("Reconnect delay %v is not less than inactive instance reconnect delay %v", reconnectDelay, inactiveInstanceReconnectDelay)
+				// On windows platform, we found issue with time.Now().Sub(...) reporting 199.9989 even
+				// after the code has already waited for time.NewTimer(200)ms.
+				assert.WithinDuration(t, reconnectDelayTime, firstConnectionAttemptTime.Add(inactiveInstanceReconnectDelay), timeSubFuncSlopAllowed)
 			}
 			cancel()
 		}).Return(io.EOF),
