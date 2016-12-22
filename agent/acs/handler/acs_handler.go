@@ -60,12 +60,18 @@ const (
 	// in the ACS URL that is used to indicate if ACS should send
 	// credentials for all tasks on establishing the connection
 	sendCredentialsURLParameterName = "sendCredentials"
+	inactiveInstanceExceptionPrefix = "InactiveInstanceException:"
 )
 
-// Session encapsulates all arguments needed by the handler to connect to ACS
+// Session defines an interface for handler's long-lived connection with ACS.
+type Session interface {
+	Start() error
+}
+
+// session encapsulates all arguments needed by the handler to connect to ACS
 // and to handle messages recieved by ACS. The Session.Start() method can be used
 // to start processing messages from ACS.
-type Session struct {
+type session struct {
 	containerInstanceARN            string
 	credentialsProvider             *credentials.Credentials
 	agentConfig                     *config.Config
@@ -133,13 +139,13 @@ func NewSession(ctx context.Context,
 	ecsClient api.ECSClient,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
-	credentialsManager rolecredentials.Manager) *Session {
+	credentialsManager rolecredentials.Manager) Session {
 	resources := newSessionResources(config.AWSRegion, credentialsProvider, acceptInsecureCert)
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
 	derivedContext, cancel := context.WithCancel(ctx)
 
-	return &Session{
+	return &session{
 		acceptInsecureCert:              acceptInsecureCert,
 		agentConfig:                     config,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
@@ -159,15 +165,14 @@ func NewSession(ctx context.Context,
 	}
 }
 
-// Start starts the session. It'll forever keep trying to connect to ACS unless:
-// 1. The context is cancelled
-// 2. Instance is deregistered
+// Start starts the session. It'll forever keep trying to connect to ACS unless
+// the context is cancelled.
 //
 // If the context is cancelled, Start() would return with the error code returned
 // by the context.
 // If the instance is deregistered, Start() would emit an event to the
-// deregister-instance event stream and blocks until the ECS Agent is killed.
-func (session *Session) Start() error {
+// deregister-instance event stream and sets the connection backoff time to 1 hour.
+func (acsSession *session) Start() error {
 	// connectToACS channel is used to inidcate the intent to connect to ACS
 	// It's processed by the select loop to connect to ACS
 	connectToACS := make(chan struct{})
@@ -181,14 +186,14 @@ func (session *Session) Start() error {
 		case <-connectToACS:
 			seelog.Debugf("Received connect to ACS message")
 			// Start a session with ACS
-			acsError := session.startSessionOnce()
+			acsError := acsSession.startSessionOnce()
 			// Session with ACS was stopped with some error, start processing the error
 			isInactiveInstance := isInactiveInstanceError(acsError)
 			if isInactiveInstance {
 				// If the instance was deregistered, send an event to the event stream
 				// for the same
 				seelog.Debug("Container instance is deregistered, notifying listeners")
-				err := session.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
+				err := acsSession.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
 				if err != nil {
 					seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
 				}
@@ -196,14 +201,14 @@ func (session *Session) Start() error {
 			if shouldReconnectWithoutBackoff(acsError) {
 				// If ACS closed the connection, there's no need to backoff,
 				// reconnect immediately
-				session.backoff.Reset()
+				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
 			} else {
 				// Disconnected unexpectedly from ACS, compute backoff duration to
 				// reconnect
-				reconnectDelay := session.computeReconnectDelay(isInactiveInstance)
+				reconnectDelay := acsSession.computeReconnectDelay(isInactiveInstance)
 				seelog.Debugf("Reconnecting to ACS in: %v", reconnectDelay)
-				waitComplete := session.waitForDurationOrCancelledSession(reconnectDelay)
+				waitComplete := acsSession.waitForDuration(reconnectDelay)
 				if waitComplete {
 					// If the context was not cancelled and we've waited for the
 					// wait duration without any errors, send the message to the channel
@@ -216,9 +221,9 @@ func (session *Session) Start() error {
 					seelog.Info("Interrupted waiting for reconnect delay to elapse; Expect session to close")
 				}
 			}
-		case <-session.ctx.Done():
+		case <-acsSession.ctx.Done():
 			seelog.Debugf("context done")
-			return session.ctx.Err()
+			return acsSession.ctx.Err()
 		}
 
 	}
@@ -226,34 +231,34 @@ func (session *Session) Start() error {
 
 // startSessionOnce creates a session with ACS and handles requests using the passed
 // in arguments
-func (session *Session) startSessionOnce() error {
-	acsEndpoint, err := session.ecsClient.DiscoverPollEndpoint(session.containerInstanceARN)
+func (acsSession *session) startSessionOnce() error {
+	acsEndpoint, err := acsSession.ecsClient.DiscoverPollEndpoint(acsSession.containerInstanceARN)
 	if err != nil {
 		seelog.Errorf("Unable to discover poll endpoint, err: %v", err)
 		return err
 	}
 
-	url := acsWsURL(acsEndpoint, session.agentConfig.Cluster, session.containerInstanceARN, session.taskEngine, session.resources)
-	client := session.resources.createACSClient(url)
+	url := acsWsURL(acsEndpoint, acsSession.agentConfig.Cluster, acsSession.containerInstanceARN, acsSession.taskEngine, acsSession.resources)
+	client := acsSession.resources.createACSClient(url)
 	defer client.Close()
 
 	// Start inactivity timer for closing the connection
-	timer := newDisconnectionTimer(client, session.heartbeatTimeout(), session.heartbeatJitter())
+	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	defer timer.Stop()
 
-	return session.startACSSession(client, timer)
+	return acsSession.startACSSession(client, timer)
 }
 
 // startACSSession starts a session with ACS. It adds request handlers for various
 // kinds of messages expected from ACS. It returns on server disconnection or when
 // the context is cancelled
-func (session *Session) startACSSession(client wsclient.ClientServer, timer ttime.Timer) error {
+func (acsSession *session) startACSSession(client wsclient.ClientServer, timer ttime.Timer) error {
 	// Any message from the server resets the disconnect timeout
 	client.SetAnyRequestHandler(anyMessageHandler(timer))
-	cfg := session.agentConfig
+	cfg := acsSession.agentConfig
 
-	refreshCredsHandler := newRefreshCredentialsHandler(session.ctx, cfg.Cluster, session.containerInstanceARN,
-		client, session.credentialsManager, session.taskEngine)
+	refreshCredsHandler := newRefreshCredentialsHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
+		client, acsSession.credentialsManager, acsSession.taskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 	defer refreshCredsHandler.stop()
@@ -261,8 +266,8 @@ func (session *Session) startACSSession(client wsclient.ClientServer, timer ttim
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(session.ctx, session.taskEngine, session.ecsClient, cfg.Cluster,
-		session.containerInstanceARN, client, session.stateManager, refreshCredsHandler, session.credentialsManager)
+	payloadHandler := newPayloadRequestHandler(acsSession.ctx, acsSession.taskEngine, acsSession.ecsClient, cfg.Cluster,
+		acsSession.containerInstanceARN, client, acsSession.stateManager, refreshCredsHandler, acsSession.credentialsManager)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
@@ -273,22 +278,22 @@ func (session *Session) startACSSession(client wsclient.ClientServer, timer ttim
 	// Ignore heartbeat messages; anyMessageHandler gets 'em
 	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
-	updater.AddAgentUpdateHandlers(client, cfg, session.stateManager, session.taskEngine)
+	updater.AddAgentUpdateHandlers(client, cfg, acsSession.stateManager, acsSession.taskEngine)
 
 	err := client.Connect()
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-	session.resources.connectedToACS()
+	acsSession.resources.connectedToACS()
 
 	backoffResetTimer := time.AfterFunc(
-		utils.AddJitter(session.heartbeatTimeout(), session.heartbeatJitter()), func() {
+		utils.AddJitter(acsSession.heartbeatTimeout(), acsSession.heartbeatJitter()), func() {
 			// If we do not have an error connecting and remain connected for at
 			// least 5 or so minutes, reset the backoff. This prevents disconnect
 			// errors that only happen infrequently from damaging the
 			// reconnectability as significantly.
-			session.backoff.Reset()
+			acsSession.backoff.Reset()
 		})
 	defer backoffResetTimer.Stop()
 
@@ -299,10 +304,10 @@ func (session *Session) startACSSession(client wsclient.ClientServer, timer ttim
 
 	for {
 		select {
-		case <-session.ctx.Done():
+		case <-acsSession.ctx.Done():
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
-			return session.ctx.Err()
+			return acsSession.ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
@@ -312,47 +317,33 @@ func (session *Session) startACSSession(client wsclient.ClientServer, timer ttim
 	}
 }
 
-func (session *Session) computeReconnectDelay(isInactiveInstance bool) time.Duration {
+func (acsSession *session) computeReconnectDelay(isInactiveInstance bool) time.Duration {
 	if isInactiveInstance {
-		return session._inactiveInstanceReconnectDelay
+		return acsSession._inactiveInstanceReconnectDelay
 	}
 
-	return session.backoff.Duration()
+	return acsSession.backoff.Duration()
 }
 
-func (session *Session) waitForDurationOrCancelledSession(delay time.Duration) bool {
+// waitForDuration waits for the specified duration of time. If the wait is interrupted,
+// it returns a false value. Else, it returns true, indicating completion of wait time.
+func (acsSession *session) waitForDuration(delay time.Duration) bool {
 	reconnectTimer := time.NewTimer(delay)
 	select {
 	case <-reconnectTimer.C:
 		return true
-	case <-session.ctx.Done():
+	case <-acsSession.ctx.Done():
 		reconnectTimer.Stop()
 		return false
 	}
 }
 
-func shouldReconnectWithoutBackoff(acsError error) bool {
-	if acsError == nil || acsError == io.EOF {
-		return true
-	}
-
-	return false
+func (acsSession *session) heartbeatTimeout() time.Duration {
+	return acsSession._heartbeatTimeout
 }
 
-func isInactiveInstanceError(acsError error) bool {
-	if acsError != nil && strings.HasPrefix(acsError.Error(), "InactiveInstanceException:") {
-		return true
-	}
-
-	return false
-}
-
-func (session *Session) heartbeatTimeout() time.Duration {
-	return session._heartbeatTimeout
-}
-
-func (session *Session) heartbeatJitter() time.Duration {
-	return session._heartbeatJitter
+func (acsSession *session) heartbeatJitter() time.Duration {
+	return acsSession._heartbeatJitter
 }
 
 // createACSClient creates the ACS Client using the specified URL
@@ -423,6 +414,14 @@ func anyMessageHandler(timer ttime.Timer) func(interface{}) {
 		seelog.Debug("ACS activity occured")
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
+}
+
+func shouldReconnectWithoutBackoff(acsError error) bool {
+	return acsError == nil || acsError == io.EOF
+}
+
+func isInactiveInstanceError(acsError error) bool {
+	return acsError != nil && strings.HasPrefix(acsError.Error(), inactiveInstanceExceptionPrefix)
 }
 
 // sendEmptyMessageOnChannel sends an empty message using a go-routine on the

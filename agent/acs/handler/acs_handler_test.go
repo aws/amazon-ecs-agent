@@ -198,7 +198,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 			cancel()
 		}).Return(io.EOF),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -214,7 +214,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -240,8 +240,8 @@ func TestIsInactiveInstanceErrorReturnsFalseForActiveInstance(t *testing.T) {
 // TestComputeReconnectDelayForInactiveInstance tests if the reconnect delay is computed
 // correctly for an inactive instance
 func TestComputeReconnectDelayForInactiveInstance(t *testing.T) {
-	session := Session{_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay}
-	assert.Equal(t, inactiveInstanceReconnectDelay, session.computeReconnectDelay(true),
+	acsSession := session{_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay}
+	assert.Equal(t, inactiveInstanceReconnectDelay, acsSession.computeReconnectDelay(true),
 		"Reconnect delay doesn't match expected value for inactive instance")
 }
 
@@ -254,8 +254,8 @@ func TestComputeReconnectDelayForActiveInstance(t *testing.T) {
 	mockBackoff := mock_utils.NewMockBackoff(ctrl)
 	mockBackoff.EXPECT().Duration().Return(connectionBackoffMax)
 
-	session := Session{backoff: mockBackoff}
-	assert.Equal(t, connectionBackoffMax, session.computeReconnectDelay(false),
+	acsSession := session{backoff: mockBackoff}
+	assert.Equal(t, connectionBackoffMax, acsSession.computeReconnectDelay(false),
 		"Reconnect delay doesn't match expected value for active instance")
 }
 
@@ -269,12 +269,12 @@ func TestWaitForDurationReturnsTrueWhenContextNotCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	session := Session{
+	acsSession := session{
 		ctx:    ctx,
 		cancel: cancel,
 	}
 
-	assert.True(t, session.waitForDurationOrCancelledSession(time.Millisecond),
+	assert.True(t, acsSession.waitForDuration(time.Millisecond),
 		"WaitForDuration should return true when uninterrupted")
 }
 
@@ -286,13 +286,13 @@ func TestWaitForDurationReturnsFalseWhenContextCancelled(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	session := Session{
+	acsSession := session{
 		ctx:    ctx,
 		cancel: cancel,
 	}
 	cancel()
 
-	assert.False(t, session.waitForDurationOrCancelledSession(time.Millisecond),
+	assert.False(t, acsSession.waitForDuration(time.Millisecond),
 		"WaitForDuration should return false when interrupted")
 }
 
@@ -341,7 +341,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		}).Return(io.EOF),
 		mockBackoff.EXPECT().Reset().AnyTimes(),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
 		agentConfig:                     &config.Config{Cluster: "someCluster"},
@@ -359,7 +359,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -403,7 +403,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 		}).Return(io.EOF),
 		mockBackoff.EXPECT().Reset().AnyTimes(),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN:          "myArn",
 		credentialsProvider:           credentials.AnonymousCredentials,
 		agentConfig:                   &config.Config{Cluster: "someCluster"},
@@ -420,7 +420,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 		_heartbeatJitter:              10 * time.Millisecond,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -461,7 +461,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Connect().Return(fmt.Errorf("InactiveInstanceException:"))
 	inactiveInstanceReconnectDelay := 200 * time.Millisecond
-	session := Session{
+	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
 		agentConfig:                     &config.Config{Cluster: "someCluster"},
@@ -479,7 +479,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -525,7 +525,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 			cancel()
 		}).Return(io.EOF),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN:            "myArn",
 		credentialsProvider:             credentials.AnonymousCredentials,
 		agentConfig:                     &config.Config{Cluster: "someCluster"},
@@ -543,7 +543,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -582,7 +582,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		}).Return(io.EOF),
 	)
 
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -598,7 +598,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 
 	// Wait for context to be cancelled
@@ -632,7 +632,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 			cancel()
 		}).Return(io.EOF),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -652,7 +652,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	// Cancelling the context should trigger this
 	sessionError := make(chan error)
 	go func() {
-		sessionError <- session.Start()
+		sessionError <- acsSession.Start()
 	}()
 	<-sessionError
 }
@@ -686,7 +686,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		// Second invocation returns a success
 		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).Times(1),
 	)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -702,7 +702,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		session.Start()
+		acsSession.Start()
 	}()
 	start := time.Now()
 
@@ -752,7 +752,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		// Record connection closed
 		connectionClosed <- true
 	}).Return(nil)
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -767,9 +767,9 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		timer := newDisconnectionTimer(mockWsClient, session.heartbeatTimeout(), session.heartbeatJitter())
+		timer := newDisconnectionTimer(mockWsClient, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 		defer timer.Stop()
-		session.startACSSession(mockWsClient, timer)
+		acsSession.startACSSession(mockWsClient, timer)
 	}()
 
 	// Wait for connection to be closed. If the connection is not closed
@@ -808,21 +808,22 @@ func TestHandlerDoesntLeakGouroutines(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ended := make(chan bool, 1)
 	go func() {
-		session := NewSession(ctx,
-			true,
-			&config.Config{Cluster: "someCluster"},
-			nil,
-			"myArn",
-			credentials.AnonymousCredentials,
-			ecsClient,
-			statemanager,
-			taskEngine,
-			rolecredentials.NewManager(),
-		)
-		session._heartbeatTimeout = 20 * time.Millisecond
-		session._heartbeatJitter = 10 * time.Millisecond
-
-		session.Start()
+		acsSession := session{
+			containerInstanceARN: "myArn",
+			credentialsProvider:  credentials.AnonymousCredentials,
+			agentConfig:          &config.Config{Cluster: "someCluster"},
+			taskEngine:           taskEngine,
+			ecsClient:            ecsClient,
+			stateManager:         statemanager,
+			acceptInsecureCert:   true,
+			ctx:                  ctx,
+			backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+			resources:            newSessionResources("", credentials.AnonymousCredentials, true),
+			credentialsManager:   rolecredentials.NewManager(),
+			_heartbeatTimeout:    20 * time.Millisecond,
+			_heartbeatJitter:     10 * time.Millisecond,
+		}
+		acsSession.Start()
 		ended <- true
 	}()
 	// Warm it up
@@ -887,7 +888,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 
 	ended := make(chan bool, 1)
 	go func() {
-		session := NewSession(ctx,
+		acsSession := NewSession(ctx,
 			true,
 			&config.Config{Cluster: "someCluster"},
 			nil,
@@ -898,7 +899,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			taskEngine,
 			credentialsManager,
 		)
-		session.Start()
+		acsSession.Start()
 		// StartSession should never return unless the context is canceled
 		ended <- true
 	}()
@@ -1001,7 +1002,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		}).Return(nil).AnyTimes(),
 	)
 
-	session := Session{
+	acsSession := session{
 		containerInstanceARN: "myArn",
 		credentialsProvider:  credentials.AnonymousCredentials,
 		agentConfig:          &config.Config{Cluster: "someCluster"},
@@ -1015,11 +1016,11 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
-	timer := newDisconnectionTimer(mockWsClient, session.heartbeatTimeout(), session.heartbeatJitter())
+	timer := newDisconnectionTimer(mockWsClient, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	defer timer.Stop()
 	go func() {
 		for i := 0; i < 10; i++ {
-			session.startACSSession(mockWsClient, timer)
+			acsSession.startACSSession(mockWsClient, timer)
 		}
 		cancel()
 	}()
