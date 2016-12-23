@@ -36,6 +36,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pborman/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -58,9 +60,7 @@ func TestRunManyTasks(t *testing.T) {
 	attemptsTaken := 0
 
 	td, err := GetTaskDefinition("simple-exit")
-	if err != nil {
-		t.Fatalf("Get task definition error: %v", err)
-	}
+	require.NoError(t, err, "Register task definition failed")
 	for numRun := 0; len(tasks) < numToRun; attemptsTaken++ {
 		startNum := 10
 		if numToRun-len(tasks) < 10 {
@@ -78,12 +78,10 @@ func TestRunManyTasks(t *testing.T) {
 	t.Logf("Ran %v containers; took %v tries\n", numToRun, attemptsTaken)
 	for _, task := range tasks {
 		err := task.WaitStopped(10 * time.Minute)
-		if err != nil {
-			t.Error(err)
-		}
-		if code, ok := task.ContainerExitcode("exit"); !ok || code != 42 {
-			t.Error("Wrong exit code")
-		}
+		assert.NoError(t, err)
+		code, ok := task.ContainerExitcode("exit")
+		assert.True(t, ok, "Get exit code failed")
+		assert.Equal(t, 42, code, "Wrong exit code")
 	}
 }
 
@@ -94,12 +92,9 @@ func TestOOMContainer(t *testing.T) {
 	defer agent.Cleanup()
 
 	testTask, err := agent.StartTask(t, "oom-container")
-	if err != nil {
-		t.Fatalf("Expected to start invalid-image task: %v", err)
-	}
-	if err = testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err, "Expected to start invalid-image task")
+	err = testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
+	assert.NoError(t, err)
 }
 
 // This test addresses a deadlock issue which was noted in GH:313 and fixed
@@ -122,32 +117,24 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 
 		// Start a task with ten containers
 		testTask, err := agent.StartTask(t, "ten-containers")
-		if err != nil {
-			t.Fatalf("Cycle %d: There was an error starting the Task: %v", i, err)
-		}
+		require.NoError(t, err, fmt.Sprintf("Cycle %d: There was an error starting the Task", i))
 
 		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
-		if err != nil || !isTaskRunning {
-			t.Fatalf("Cycle %d: Task should be RUNNING but is not: %v", i, err)
-		}
+		require.NoError(t, err, "Waiting for task running failed")
+		require.True(t, isTaskRunning, fmt.Sprintf("Cycle %d: Task should be RUNNING but is not", i))
 
 		// Get the dockerID so we can later check that the container has been cleaned up.
 		dockerId, err := agent.ResolveTaskDockerID(testTask, "1")
-		if err != nil {
-			t.Fatalf("Cycle %d: Error resolving docker id for container in task: %v", i, err)
-		}
+		require.NoError(t, err, fmt.Sprintf("Cycle %d: Error resolving docker id for container in task", i))
 
 		// 2 minutes should be enough for the Task to have completed. If the task has not
 		// completed and is in PENDING, the agent is most likely deadlocked.
 		err = testTask.WaitStopped(2 * time.Minute)
-		if err != nil {
-			t.Fatalf("Cycle %d: Task did not transition into to STOPPED in time: %v", i, err)
-		}
+		require.NoError(t, err, fmt.Sprintf("Cycle %d: Task did not transition into to STOPPED in time", i))
 
 		isTaskStopped, err := agent.WaitStoppedViaIntrospection(testTask)
-		if err != nil || !isTaskStopped {
-			t.Fatalf("Cycle %d: Task should be STOPPED but is not: %v", i, err)
-		}
+		require.NoError(t, err, "Waiting for task stopped failed")
+		require.True(t, isTaskStopped, fmt.Sprintf("Cycle %d: Task should be STOPPED but is not", i))
 
 		// Wait for the tasks to be cleaned up
 		time.Sleep(90 * time.Second)
@@ -155,9 +142,7 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 		// Ensure that tasks are cleaned up. WWe should not be able to describe the
 		// container now since it has been cleaned up.
 		_, err = agent.DockerClient.InspectContainer(dockerId)
-		if err == nil {
-			t.Fatalf("Cycle %d: Expected error inspecting container in task.", i)
-		}
+		require.NoError(t, err, fmt.Sprintf("Cycle %d: Expected error inspecting container in task.", i))
 	}
 }
 
@@ -173,17 +158,12 @@ func TestCommandOverrides(t *testing.T) {
 			Command: []*string{strptr("sh"), strptr("-c"), strptr("exit 21")},
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exitCode, _ := task.ContainerExitcode("exit"); exitCode != 21 {
-		t.Errorf("Expected exit code of 21; got %v", exitCode)
-	}
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("exit")
+	assert.Equal(t, 21, exitCode, fmt.Sprintf("Expected exit code of 21; got %d", exitCode))
 }
 
 func TestDockerAuth(t *testing.T) {
@@ -196,17 +176,12 @@ func TestDockerAuth(t *testing.T) {
 	defer agent.Cleanup()
 
 	task, err := agent.StartTask(t, "simple-exit-authed")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exitCode, _ := task.ContainerExitcode("exit"); exitCode != 42 {
-		t.Errorf("Expected exit code of 42; got %v", exitCode)
-	}
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("exit")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 
 	// verify there's no sign of auth details in the config; action item taken as
 	// a result of accidentally logging them once
@@ -238,17 +213,13 @@ func TestDockerAuth(t *testing.T) {
 		return nil
 	})
 
-	if err != nil {
-		t.Errorf("Could not walk logdir: %v", err)
-	}
+	assert.NoError(t, err, "Could not walk logdir")
 }
 
 func TestSquidProxy(t *testing.T) {
 	// Run a squid proxy manually, verify that the agent can connect through it
 	client, err := docker.NewVersionedClientFromEnv("1.17")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	dockerConfig := docker.Config{
 		Image: "127.0.0.1:51670/amazon/squid:latest",
@@ -259,12 +230,9 @@ func TestSquidProxy(t *testing.T) {
 		Config:     &dockerConfig,
 		HostConfig: &dockerHostConfig,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.StartContainer(squidContainer.ID, &dockerHostConfig); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	err = client.StartContainer(squidContainer.ID, &dockerHostConfig)
+	require.NoError(t, err)
 	defer func() {
 		client.RemoveContainer(docker.RemoveContainerOptions{
 			Force:         true,
@@ -275,9 +243,7 @@ func TestSquidProxy(t *testing.T) {
 
 	// Resolve the name so we can use it in the link below; the create returns an ID only
 	squidContainer, err = client.InspectContainer(squidContainer.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Squid startup time
 	time.Sleep(1 * time.Second)
@@ -293,18 +259,14 @@ func TestSquidProxy(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
 	task, err := agent.StartTask(t, "simple-exit")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	// Verify the agent can run a container using the proxy
 	task.WaitStopped(1 * time.Minute)
 
 	// stop the agent, thus forcing it to close its connections; this is needed
 	// because squid's access logs are written on DC not connect
 	err = agent.StopAgent()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Now verify it actually used the proxy via squids access logs. Get all the
 	// unique addresses that squid proxied for (assume nothing else used the
@@ -326,18 +288,14 @@ func TestSquidProxy(t *testing.T) {
 		// Takes a second to flush the file sometimes, so slightly complicated command to wait for it to be written
 		Cmd: []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Logf("Execing cat of /var/log/squid/access.log on %v", squidContainer.ID)
 
 	var squidLogs bytes.Buffer
 	err = client.StartExec(logExec.ID, docker.StartExecOptions{
 		OutputStream: &squidLogs,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for {
 		tmp, _ := client.InspectExec(logExec.ID)
 		if !tmp.Running {
@@ -375,9 +333,7 @@ func TestAwslogsDriver(t *testing.T) {
 	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
 		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
 	})
-	if err != nil {
-		t.Fatalf("CloudWatchLogs describe log groups error: %v", err)
-	}
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
 	logGroupExists := false
 	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
 		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
@@ -390,9 +346,7 @@ func TestAwslogsDriver(t *testing.T) {
 		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 			LogGroupName: aws.String(awslogsLogGroupName),
 		})
-		if err != nil {
-			t.Fatalf("Failed to create log group %s : %v", awslogsLogGroupName, err)
-		}
+		require.NoError(t, err, fmt.Sprintf("Failed to create log group %s", awslogsLogGroupName))
 	}
 
 	agentOptions := AgentOptions{
@@ -408,9 +362,7 @@ func TestAwslogsDriver(t *testing.T) {
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "awslogs", tdOverrides)
-	if err != nil {
-		t.Fatalf("Expected to start task using awslogs driver failed: %v", err)
-	}
+	require.NoError(t, err, "Expected to start task using awslogs driver failed")
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
@@ -430,15 +382,10 @@ func TestAwslogsDriver(t *testing.T) {
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
 	}
 	resp, err := cwlClient.GetLogEvents(params)
-	if err != nil {
-		t.Fatalf("CloudWatchLogs get log failed: %v", err)
-	}
+	require.NoError(t, err, "CloudWatchLogs get log failed")
 
-	if len(resp.Events) != 1 {
-		t.Errorf("Get unexpected number of log events: %d", len(resp.Events))
-	} else if *resp.Events[0].Message != "hello world" {
-		t.Errorf("Got log events message unexpected: %s", *resp.Events[0].Message)
-	}
+	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 }
 
 // TestTelemetry tests whether agent can send metrics to TACS
@@ -448,9 +395,7 @@ func TestTelemetry(t *testing.T) {
 	_, err := ECS.CreateCluster(&ecs.CreateClusterInput{
 		ClusterName: aws.String(newClusterName),
 	})
-	if err != nil {
-		t.Fatalf("Failed to create cluster %s : %v", newClusterName, err)
-	}
+	require.NoError(t, err, "Failed to create cluster")
 	defer DeleteCluster(t, newClusterName)
 
 	agentOptions := AgentOptions{
@@ -482,60 +427,46 @@ func TestTelemetry(t *testing.T) {
 	time.Sleep(waitMetricsInCloudwatchDuration)
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	if err = VerifyMetrics(cwclient, params, true); err != nil {
-		t.Errorf("Before task running, verify metrics for CPU utilization failed: %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, true)
+	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	if err = VerifyMetrics(cwclient, params, true); err != nil {
-		t.Errorf("Before task running, verify metrics for memory utilization failed: %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, true)
+	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
 	testTask, err := agent.StartTask(t, "telemetry")
-	if err != nil {
-		t.Fatalf("Expected to start telemetry task: %v", err)
-	}
+	require.NoError(t, err, "Failed to start telemetry task")
 	// Wait for the task to run and the agent to send back metrics
 	err = testTask.WaitRunning(waitTaskStateChangeDuration)
-	if err != nil {
-		t.Fatalf("Error start telemetry task: %v", err)
-	}
+	require.NoError(t, err, "Error wait telemetry task running")
 
 	time.Sleep(waitMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	if err = VerifyMetrics(cwclient, params, false); err != nil {
-		t.Errorf("Task is running, verify metrics for CPU utilization failed: %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, false)
+	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	if err = VerifyMetrics(cwclient, params, false); err != nil {
-		t.Errorf("Task is running, verify metrics for memory utilization failed: %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, false)
+	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 
 	err = testTask.Stop()
-	if err != nil {
-		t.Fatalf("Failed to stop the telemetry task: %v", err)
-	}
+	require.NoError(t, err, "Failed to stop the telemetry task")
 
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
-	if err != nil {
-		t.Fatalf("Waiting for task stop error: %v", err)
-	}
+	require.NoError(t, err, "Waiting for task stop failed")
 
 	time.Sleep(waitMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	if err = VerifyMetrics(cwclient, params, true); err != nil {
-		t.Errorf("Task stopped: verify metrics for CPU utilization failed:  %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, true)
+	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	if err = VerifyMetrics(cwclient, params, true); err != nil {
-		t.Errorf("Task stopped, verify metrics for memory utilization failed: %v", err)
-	}
+	err = VerifyMetrics(cwclient, params, true)
+	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
 func TestTaskIamRolesNetHostMode(t *testing.T) {
@@ -590,9 +521,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	if utils.ZeroOrNil(roleArn) {
 		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
 		role, err := GetInstanceIAMRole()
-		if err != nil {
-			t.Fatalf("Error getting IAM Roles from instance profile, err: %v", err)
-		}
+		require.NoError(t, err, "Error getting IAM Roles from instance profile")
 		roleArn = *role.Arn
 	}
 
@@ -602,23 +531,15 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	tdOverride["$$$NETWORK_MODE$$$"] = networkMode
 
 	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "iam-roles", tdOverride)
-	if err != nil {
-		t.Fatalf("Error start iam-roles task: %v", err)
-	}
+	require.NoError(t, err, "Error start iam-roles task")
 	err = task.WaitRunning(waitTaskStateChangeDuration)
-	if err != nil {
-		t.Fatalf("Error waiting for task to run: %v", err)
-	}
+	require.NoError(t, err, "Error waiting for task to run")
 	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole")
-	if err != nil {
-		t.Fatalf("Error resolving docker id for container in task: %v", err)
-	}
+	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
 	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
-	if err != nil {
-		t.Fatalf("Could not inspect container for task: %v", err)
-	}
+	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
 	if containerMetaData.Config != nil {
 		for _, env := range containerMetaData.Config.Env {
@@ -635,24 +556,16 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 
 	// Task will only run one command "aws ec2 describe-regions"
 	err = task.WaitStopped(30 * time.Second)
-	if err != nil {
-		t.Fatalf("Waiting task to stop error : %v", err)
-	}
+	require.NoError(t, err, "Waiting task to stop error")
 
 	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
-	if err != nil {
-		t.Fatalf("Could not inspect container for task: %v", err)
-	}
+	require.NoError(t, err, "Could not inspect container for task")
 
-	if containerMetaData.State.ExitCode != 0 {
-		t.Fatalf("Container exit code non-zero: %v", containerMetaData.State.ExitCode)
-	}
+	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
 
 	// Search the audit log to verify the credential request
 	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
-	if err != nil {
-		t.Fatalf("Verify credential request failed, err: %v", err)
-	}
+	require.NoError(t, err, "Verify credential request failed")
 }
 
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
@@ -665,29 +578,21 @@ func TestMemoryOvercommit(t *testing.T) {
 
 	tdOverride["$$$$MEMORY_RESERVATION$$$$"] = strconv.FormatInt(memoryReservation, 10)
 	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "memory-overcommit", tdOverride)
-	if err != nil {
-		t.Fatalf("Error starting task: %v", err)
-	}
+	require.NoError(t, err, "Error starting task")
 	defer task.Stop()
 
 	err = task.WaitRunning(waitTaskStateChangeDuration)
-	if err != nil {
-		t.Fatalf("Error waiting for running task: %v", err)
-	}
+	require.NoError(t, err, "Error waiting for running task")
 
 	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
-	if err != nil {
-		t.Fatalf("Error resolving docker id for container in task: %v", err)
-	}
+	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
-	if err != nil {
-		t.Fatalf("Could not inspect container for task: %v", err)
-	}
+	require.NoError(t, err, "Could not inspect container for task")
 
-	if containerMetaData.HostConfig.MemoryReservation != memoryReservation*1024*1024 {
-		t.Fatalf("MemoryReservation in container metadata is not as expected: %v, expected: %v", containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024)
-	}
+	require.Equal(t, memoryReservation*1024*1024, containerMetaData.HostConfig.MemoryReservation,
+		fmt.Sprintf("MemoryReservation in container metadata is not as expected: %v, expected: %v",
+			containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024))
 }
 
 // TestNetworkModeBridge tests the container network can be configured
@@ -697,9 +602,7 @@ func TestNetworkModeHost(t *testing.T) {
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "host")
-	if err != nil {
-		t.Fatalf("Networking mode host testing failed, err: %v", err)
-	}
+	require.NoError(t, err, "Networking mode host testing failed")
 }
 
 // TestNetworkModeBridge tests the container network can be configured
@@ -709,9 +612,7 @@ func TestNetworkModeBridge(t *testing.T) {
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "bridge")
-	if err != nil {
-		t.Fatalf("Networking mode bridge testing failed, err: %v", err)
-	}
+	require.NoError(t, err, "Networking mode bridge testing failed")
 }
 
 // TestDockerConcurrentPull tests the agent can perform concurrent pull for docker >= 1.11.1
@@ -723,13 +624,9 @@ func TestDockerConcurrentPull(t *testing.T) {
 	defer agent.Cleanup()
 
 	td, err := GetTaskDefinition("concurrent-pull")
-	if err != nil {
-		t.Fatalf("Get task definition error: %v", err)
-	}
+	require.NoError(t, err, "Register task definition failed")
 	testTasks, err := agent.StartMultipleTasks(t, td, 4)
-	if err != nil {
-		t.Fatalf("Failed to start tasks, err: %v", err)
-	}
+	require.NoError(t, err, "Failed to start tasks")
 
 	for _, testTask := range testTasks {
 		testTask.WaitRunning(1 * time.Minute)
@@ -738,15 +635,11 @@ func TestDockerConcurrentPull(t *testing.T) {
 	// Cleanup, stop all the tasks, and wait for the containers to be stopped
 	for _, testTask := range testTasks {
 		err = testTask.Stop()
-		if err != nil {
-			t.Errorf("Failed to stop the task, err %v", err)
-		}
+		assert.NoError(t, err, "Failed to stop the task")
 	}
 
 	for _, testTask := range testTasks {
 		err := testTask.WaitStopped(1 * time.Minute)
-		if err != nil {
-			t.Errorf("Failed to wait the task to be stopped, err %v", err)
-		}
+		assert.NoError(t, err, "Failed to wait the task to be stopped")
 	}
 }
