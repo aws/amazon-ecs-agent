@@ -1,6 +1,6 @@
 // +build functional,windows
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,7 @@ import (
 
 // TestDataVolume Check that basic data volumes work
 func TestDataVolume(t *testing.T) {
+
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
@@ -38,27 +39,36 @@ func TestDataVolume(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.0.0")
 
-	testTask, err := agent.StartTask(t, "datavolume-windows")
+	td, err := GetTaskDefinition("datavolume-windows")
 	if err != nil {
-		t.Fatal("Could not start task", err)
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		t.Fatalf("Could not start task: %v", err)
 	}
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
-		t.Fatal("Could not parse timeout", err)
-	}
-	err = testTask.WaitStopped(timeout)
-	if err != nil {
-		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		t.Fatalf("Could not parse timeout: %#v", err)
 	}
 
-	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
-		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+		}
+
 	}
 
 }
 
 // TestHostname Check that hostname works
 func TestHostname(t *testing.T) {
+
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
@@ -68,27 +78,36 @@ func TestHostname(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
 
-	testTask, err := agent.StartTask(t, "hostname-windows")
+	td, err := GetTaskDefinition("hostname-windows")
 	if err != nil {
-		t.Fatal("Could not start task", err)
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		t.Fatalf("Could not start task: %v", err)
 	}
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
-		t.Fatal("Could not parse timeout", err)
-	}
-	err = testTask.WaitStopped(timeout)
-	if err != nil {
-		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		t.Fatalf("Could not parse timeout: %#v", err)
 	}
 
-	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
-		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+		}
+
 	}
 
 }
 
 // TestSimpleExit Tests that the basic premis of this testing fromwork works (e.g. exit codes go through, etc)
 func TestSimpleExit(t *testing.T) {
+
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
@@ -98,27 +117,36 @@ func TestSimpleExit(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.0.0")
 
-	testTask, err := agent.StartTask(t, "simple-exit-windows")
+	td, err := GetTaskDefinition("simple-exit-windows")
 	if err != nil {
-		t.Fatal("Could not start task", err)
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		t.Fatalf("Could not start task: %v", err)
 	}
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
-		t.Fatal("Could not parse timeout", err)
-	}
-	err = testTask.WaitStopped(timeout)
-	if err != nil {
-		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		t.Fatalf("Could not parse timeout: %#v", err)
 	}
 
-	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
-		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+		}
+
 	}
 
 }
 
 // TestWorkingDir Check that working dir works
 func TestWorkingDir(t *testing.T) {
+
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
@@ -128,21 +156,29 @@ func TestWorkingDir(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
 
-	testTask, err := agent.StartTask(t, "working-dir-windows")
+	td, err := GetTaskDefinition("working-dir-windows")
 	if err != nil {
-		t.Fatal("Could not start task", err)
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		t.Fatalf("Could not start task: %v", err)
 	}
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
-		t.Fatal("Could not parse timeout", err)
-	}
-	err = testTask.WaitStopped(timeout)
-	if err != nil {
-		t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		t.Fatalf("Could not parse timeout: %#v", err)
 	}
 
-	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
-		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+		}
+
 	}
 
 }
