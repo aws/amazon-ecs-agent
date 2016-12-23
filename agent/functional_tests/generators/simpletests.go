@@ -32,7 +32,7 @@ import (
 var simpleTestPattern = `
 // +build functional,%s
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -63,6 +63,11 @@ import (
 
 // Test{{ $el.Name }} {{ $el.Description }}
 func Test{{ $el.Name }}(t *testing.T) {
+	{{if $el.DockerVersion}}
+	// Test only available for docker version {{ $el.DockerVersion }}
+	RequireDockerVersion(t, "{{ $el.DockerVersion }}") 
+	{{end}}
+	
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" { t.Parallel() }
@@ -70,37 +75,66 @@ func Test{{ $el.Name }}(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion("{{ $el.Version }}")
 
-	testTask, err := agent.StartTask(t, "{{ $el.TaskDefinition }}")
+	td, err := GetTaskDefinition("{{ $el.TaskDefinition }}")
 	if err != nil {
-		t.Fatal("Could not start task", err)
+		t.Fatalf("Could not register task definition: %%v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, {{ $el.Count }})
+	if err != nil {
+		t.Fatalf("Could not start task: %%v", err)
 	}
 	timeout, err := time.ParseDuration("{{ $el.Timeout }}")
 	if err != nil {
-		t.Fatal("Could not parse timeout", err)
-	}
-	err = testTask.WaitStopped(timeout)
-	if err != nil {
-		t.Fatalf("Timed out waiting for task to reach stopped. Error %%#v, task %%#v", err, testTask)
+		t.Fatalf("Could not parse timeout: %%#v", err)
 	}
 
-	{{ range $name, $code := $el.ExitCodes }}
-	if exit, ok := testTask.ContainerExitcode("{{$name}}"); !ok || exit != {{ $code }} {
-		t.Errorf("Expected {{$name}} to exit with {{$code}}; actually exited (%%v) with %%v", ok, exit)
+	{{if $el.LongRunningTask}}
+	// Make sure the task is running
+	for _, testTask := range testTasks {
+		err = testTask.WaitRunning(timeout)
+		if err != nil {
+			t.Errorf("Timed out waiting for task to reach running. Error %%v, task %%v", err, testTask)
+		}
 	}
-	{{ end }}
+
+	// Cleanup, stop all the tasks and wait for the containers to be stopped
+	for _, testTask := range testTasks {
+		err = testTask.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop task, Error %%v, task %%v", err, testTask)
+		}
+	}
+	{{end}}
+
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %%#v, task %%#v", err, testTask)
+		}
+
+		{{ range $name, $code := $el.ExitCodes }}
+		if exit, ok := testTask.ContainerExitcode("{{$name}}"); !ok || exit != {{ $code }} {
+			t.Errorf("Expected {{$name}} to exit with {{$code}}; actually exited (%%v) with %%v", ok, exit)
+		}
+		{{ end }}
+	}
+
 }
 {{ end }}
 `
 
 func main() {
 	type simpleTestMetadata struct {
-		Name           string
-		Description    string
-		TaskDefinition string
-		Timeout        string
-		ExitCodes      map[string]int
-		Tags           []string
-		Version        string
+		Name            string
+		Description     string
+		TaskDefinition  string
+		Timeout         string
+		ExitCodes       map[string]int
+		Tags            []string
+		Version         string
+		Count           int
+		DockerVersion   string
+		LongRunningTask bool
 	}
 
 	types := []struct {
@@ -133,6 +167,9 @@ func main() {
 			if err != nil {
 				panic("Cannot read file " + f)
 			}
+
+			// By default the number of task to run is 1
+			testMetadatas[i].Count = 1
 			err = json.Unmarshal(data, &testMetadatas[i])
 			if err != nil {
 				panic("Cannot parse " + f + ": " + err.Error())

@@ -614,32 +614,3 @@ func TestNetworkModeBridge(t *testing.T) {
 	err := networkModeTest(t, agent, "bridge")
 	require.NoError(t, err, "Networking mode bridge testing failed")
 }
-
-// TestDockerConcurrentPull tests the agent can perform concurrent pull for docker >= 1.11.1
-// Start 4 tasks totaling 40 containers at the same time.
-func TestDockerConcurrentPull(t *testing.T) {
-	RequireDockerVersion(t, ">=1.11.1")
-
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	td, err := GetTaskDefinition("concurrent-pull")
-	require.NoError(t, err, "Register task definition failed")
-	testTasks, err := agent.StartMultipleTasks(t, td, 4)
-	require.NoError(t, err, "Failed to start tasks")
-
-	for _, testTask := range testTasks {
-		testTask.WaitRunning(1 * time.Minute)
-	}
-
-	// Cleanup, stop all the tasks, and wait for the containers to be stopped
-	for _, testTask := range testTasks {
-		err = testTask.Stop()
-		assert.NoError(t, err, "Failed to stop the task")
-	}
-
-	for _, testTask := range testTasks {
-		err := testTask.WaitStopped(1 * time.Minute)
-		assert.NoError(t, err, "Failed to wait the task to be stopped")
-	}
-}
