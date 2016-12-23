@@ -67,7 +67,6 @@ func Test{{ $el.Name }}(t *testing.T) {
 	// Test only available for docker version {{ $el.DockerVersion }}
 	RequireDockerVersion(t, "{{ $el.DockerVersion }}") 
 	{{end}}
-	
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" { t.Parallel() }
