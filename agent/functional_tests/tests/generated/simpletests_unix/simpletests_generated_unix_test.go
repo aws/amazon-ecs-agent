@@ -62,6 +62,7 @@ func TestDataVolume(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -101,6 +102,7 @@ func TestDataVolume2(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -140,6 +142,7 @@ func TestDisableNetworking(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -179,6 +182,7 @@ func TestDnsSearchDomains(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -218,6 +222,7 @@ func TestDnsServers(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -257,6 +262,7 @@ func TestExtraHosts(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -296,6 +302,7 @@ func TestHostname(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -335,6 +342,7 @@ func TestLinkVolumeDependencies(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -374,6 +382,7 @@ func TestNetworkLink(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -428,6 +437,7 @@ func TestParallelPull(t *testing.T) {
 			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -467,6 +477,7 @@ func TestPrivileged(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -506,6 +517,7 @@ func TestReadonlyRootfs(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -545,6 +557,7 @@ func TestSecurityOptNoNewPrivileges(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -584,6 +597,7 @@ func TestSimpleExit(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -623,6 +637,7 @@ func TestNofilesULimit(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -662,6 +677,7 @@ func TestUserNobody(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -701,6 +717,7 @@ func TestWorkingDir(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
