@@ -142,7 +142,7 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 		// Ensure that tasks are cleaned up. WWe should not be able to describe the
 		// container now since it has been cleaned up.
 		_, err = agent.DockerClient.InspectContainer(dockerId)
-		require.NoError(t, err, fmt.Sprintf("Cycle %d: Expected error inspecting container in task.", i))
+		require.Error(t, err, fmt.Sprintf("Cycle %d: Expected error inspecting container in task.", i))
 	}
 }
 

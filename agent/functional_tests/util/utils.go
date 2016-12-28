@@ -16,6 +16,7 @@
 package util
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -618,4 +619,30 @@ func (agent *TestAgent) GetContainerNetworkMode(containerId string) ([]string, e
 	}
 
 	return networks, nil
+}
+
+// SweepTask removes all the containers belong to a task
+func (agent *TestAgent) SweepTask(task *TestTask) error {
+	bodyData, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return err
+	}
+
+	var taskResponse handlers.TaskResponse
+	err = json.Unmarshal(*bodyData, &taskResponse)
+	if err != nil {
+		return err
+	}
+
+	for _, container := range taskResponse.Containers {
+		ctx, _ := context.WithTimeout(context.Background(), 1*time.Minute)
+		agent.DockerClient.RemoveContainer(docker.RemoveContainerOptions{
+			ID:            container.DockerId,
+			RemoveVolumes: true,
+			Force:         true,
+			Context:       ctx,
+		})
+	}
+
+	return nil
 }
