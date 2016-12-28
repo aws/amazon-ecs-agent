@@ -116,6 +116,7 @@ func Test{{ $el.Name }}(t *testing.T) {
 			t.Errorf("Expected {{$name}} to exit with {{$code}}; actually exited (%%v) with %%v", ok, exit)
 		}
 		{{ end }}
+		defer agent.SweepTask(testTask)
 	}
 
 }
