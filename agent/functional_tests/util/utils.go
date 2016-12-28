@@ -16,7 +16,6 @@
 package util
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -40,6 +39,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
 	docker "github.com/fsouza/go-dockerclient"
+	"golang.org/x/net/context"
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named

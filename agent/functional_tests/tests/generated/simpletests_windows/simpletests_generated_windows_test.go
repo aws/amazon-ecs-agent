@@ -62,6 +62,7 @@ func TestDataVolume(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -101,6 +102,7 @@ func TestHostname(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -140,6 +142,7 @@ func TestSimpleExit(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
@@ -179,6 +182,7 @@ func TestWorkingDir(t *testing.T) {
 			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
 		}
 
+		defer agent.SweepTask(testTask)
 	}
 
 }
