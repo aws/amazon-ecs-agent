@@ -34,11 +34,16 @@ $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
   go test -tags functional -timeout=30m -v ../agent/functional_tests/tests
+  $handwrittenExitCode = $LastExitCode
+  echo "Handwritten functional tests exited with ${handwrittenExitCode}"
   go test -tags functional -timeout=30m -v ../agent/functional_tests/tests/generated/simpletests_windows
-  $testsExitCode = $LastExitCode
+  $simpletestExitCode = $LastExitCode
+  echo "Simple functional tests exited with ${simpletestExitCode}"
 } finally {
   cd "$cwd"
   docker stop ecs-cred-proxy
 }
-
-exit $testsExitCode
+if (${handwrittenExitCode} -ne 0) {
+  exit $handwrittenExitCode
+}
+exit $simpletestExitCode
