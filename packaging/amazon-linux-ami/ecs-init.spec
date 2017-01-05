@@ -14,7 +14,7 @@
 
 Name:           ecs-init
 Version:        1.13.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang
 
-Requires:       docker >= 1.6.0, docker <= 1.11.2
+Requires:       docker >= 1.6.0, docker <= 1.12.6
 Requires:       upstart
 Requires:       iptables
 Requires:       procps
@@ -149,6 +149,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
+- Update Requires to indicate support for docker <= 1.12.6
 * Tue Nov 14 2016 Peng Yin <penyin@amazon.com> - 1.13.1-1
 - Cache Agent version 1.13.1
 * Tue Sep 27 2016 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.0-1
