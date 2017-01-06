@@ -6,5 +6,5 @@
   "DockerVersion": ">=1.11.1",
   "Timeout": "1m",
   "Count": 4,
-  "LongRunningTask": true
+  "Daemon": true
 }
