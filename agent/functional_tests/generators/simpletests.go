@@ -87,7 +87,7 @@ func Test{{ $el.Name }}(t *testing.T) {
 		t.Fatalf("Could not parse timeout: %%#v", err)
 	}
 
-	{{if $el.LongRunningTask}}
+	{{if $el.Daemon}}
 	// Make sure the task is running
 	for _, testTask := range testTasks {
 		err = testTask.WaitRunning(timeout)
@@ -125,16 +125,16 @@ func Test{{ $el.Name }}(t *testing.T) {
 
 func main() {
 	type simpleTestMetadata struct {
-		Name            string
-		Description     string
-		TaskDefinition  string
-		Timeout         string
-		ExitCodes       map[string]int
-		Tags            []string
-		Version         string
-		Count           int
-		DockerVersion   string
-		LongRunningTask bool
+		Name           string
+		Description    string
+		TaskDefinition string
+		Timeout        string
+		ExitCodes      map[string]int
+		Tags           []string
+		Version        string
+		Count          int
+		DockerVersion  string
+		Daemon         bool
 	}
 
 	types := []struct {
