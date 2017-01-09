@@ -118,9 +118,10 @@ func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 func TestPayloadHandlerCalled(t *testing.T) {
 	cs, ml := testCS()
 
-	var handledPayload *ecstcs.AckPublishMetric
+	handledPayload := make(chan *ecstcs.AckPublishMetric)
+
 	reqHandler := func(payload *ecstcs.AckPublishMetric) {
-		handledPayload = payload
+		handledPayload <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
 
@@ -134,11 +135,8 @@ func TestPayloadHandlerCalled(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Millisecond)
-	if handledPayload == nil {
-		t.Fatal("Handler was not called")
-	}
-
+	t.Log("Waiting for handler to return payload.")
+	<-handledPayload
 	isClosed = true
 	cs.Close()
 }

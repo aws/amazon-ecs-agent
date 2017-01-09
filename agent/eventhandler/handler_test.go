@@ -85,13 +85,14 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	contCalled := make(chan struct{}, concurrentEventCalls+1)
+	completeStateChange := make(chan bool, concurrentEventCalls+1)
 	count := 0
 	countLock := &sync.Mutex{}
 	client.EXPECT().SubmitContainerStateChange(gomock.Any()).Times(concurrentEventCalls + 1).Do(func(interface{}) {
 		countLock.Lock()
 		count++
 		countLock.Unlock()
-		time.Sleep(10 * time.Millisecond)
+		<-completeStateChange
 		contCalled <- struct{}{}
 	})
 	// Test concurrency; ensure it doesn't attempt to send more than
@@ -100,15 +101,20 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	for i := 0; i < concurrentEventCalls+1; i++ {
 		AddContainerEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
-	// N events should be waiting for potential errors; verify this is so
-	time.Sleep(5 * time.Millisecond)
-	assert.Equal(t, concurrentEventCalls, count, "Too many event calls got through concurrently")
-
 	time.Sleep(10 * time.Millisecond)
+
+	// N events should be waiting for potential errors since we havent started completing state changes
+	assert.Equal(t, concurrentEventCalls, count, "Too many event calls got through concurrently")
+	// Let one state change finish
+	completeStateChange <- true
+	<-contCalled
+	time.Sleep(10 * time.Millisecond)
+
 	assert.Equal(t, concurrentEventCalls+1, count, "Another concurrent call didn't start when expected")
 
-	// ensure all completed
-	for i := 0; i < concurrentEventCalls+1; i++ {
+	// ensure the remaining requests are completed
+	for i := 0; i < concurrentEventCalls; i++ {
+		completeStateChange <- true
 		<-contCalled
 	}
 	time.Sleep(5 * time.Millisecond)
