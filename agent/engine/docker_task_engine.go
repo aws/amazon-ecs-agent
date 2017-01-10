@@ -84,11 +84,11 @@ type DockerTaskEngine struct {
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
 
-	enabledConcurrentPull bool
-	credentialsManager    credentials.Manager
-	_time                 ttime.Time
-	_timeOnce             sync.Once
-	imageManager          ImageManager
+	enableConcurrentPull bool
+	credentialsManager   credentials.Manager
+	_time                ttime.Time
+	_timeOnce            sync.Once
+	imageManager         ImageManager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -108,8 +108,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		containerEvents: make(chan api.ContainerStateChange),
 		taskEvents:      make(chan api.TaskStateChange),
 
-		enabledConcurrentPull: false,
-		credentialsManager:    credentialsManager,
+		enableConcurrentPull: false,
+		credentialsManager:   credentialsManager,
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
@@ -142,7 +142,7 @@ func (engine *DockerTaskEngine) Init() error {
 	engine.stopEngine = cancel
 
 	// Determine whether the engine can perform concurrent "docker pull" based on docker version
-	engine.enabledConcurrentPull = engine.isParallelPullCompatible()
+	engine.enableConcurrentPull = engine.isParallelPullCompatible()
 
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
@@ -472,7 +472,7 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	if engine.enabledConcurrentPull {
+	if engine.enableConcurrentPull {
 		return engine.concurrentPull(task, container)
 	} else {
 		return engine.serialPull(task, container)
