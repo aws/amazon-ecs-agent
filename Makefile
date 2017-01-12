@@ -63,7 +63,7 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 test:
-	. ./scripts/shared_env && go test -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -timeout=60s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
