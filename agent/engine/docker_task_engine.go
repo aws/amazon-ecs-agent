@@ -16,6 +16,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -592,12 +593,16 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container belongs to unrecognized task " + task.Arn}}
+		return DockerContainerMetadata{
+			Error: CannotStartContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
+		return DockerContainerMetadata{
+			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
+		}
 	}
 	return client.StartContainer(dockerContainer.DockerId, startContainerTimeout)
 }
@@ -606,12 +611,16 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	log.Info("Stopping container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container belongs to unrecognized task " + task.Arn}}
+		return DockerContainerMetadata{
+			Error: CannotStopContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container not recorded as created"}}
+		return DockerContainerMetadata{
+			Error: CannotStopContainerError{fmt.Errorf("Container not recorded as created")},
+		}
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerId, stopContainerTimeout)

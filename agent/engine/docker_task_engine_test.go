@@ -16,6 +16,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -418,10 +419,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 
 	// Expect it to try to stop it once now
 	client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{
-		Error: CannotXContainerError{
-			transition: "start",
-			msg:        "Cannot start",
-		},
+		Error: CannotStartContainerError{fmt.Errorf("cannot start container")},
 	}).AnyTimes()
 	// Now surprise surprise, it actually did start!
 	eventStream <- dockerEvent(api.ContainerRunning)

@@ -62,19 +62,6 @@ func (err ContainerVanishedError) Error() string { return "No container matching
 // ErrorName returns the name of the error
 func (err ContainerVanishedError) ErrorName() string { return "ContainerVanishedError" }
 
-// CannotXContainerError is a type for errors involving containers
-type CannotXContainerError struct {
-	transition string
-	msg        string
-}
-
-func (err CannotXContainerError) Error() string { return err.msg }
-
-// ErrorName returns the name of the error
-func (err CannotXContainerError) ErrorName() string {
-	return "Cannot" + err.transition + "ContainerError"
-}
-
 // OutOfMemoryError is a type for errors caused by running out of memory
 type OutOfMemoryError struct{}
 
@@ -161,4 +148,110 @@ func (err CannotStopContainerError) IsUnretriableError() bool {
 	}
 
 	return false
+}
+
+// CannotPullContainerError indicates any error when trying to pull
+// a container image
+type CannotPullContainerError struct {
+	fromError error
+}
+
+func (err CannotPullContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotPullContainerError) ErrorName() string {
+	return "CannotPullContainerError"
+}
+
+// CannotPullECRContainerError indicates any error when trying to pull
+// a container image from ECR
+type CannotPullECRContainerError struct {
+	fromError error
+}
+
+func (err CannotPullECRContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotPullECRContainerError) ErrorName() string {
+	return "CannotPullECRContainerError"
+}
+
+// CannotCreateContainerError indicates any error when trying to create a container
+type CannotCreateContainerError struct {
+	fromError error
+}
+
+func (err CannotCreateContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotCreateContainerError) ErrorName() string {
+	return "CannotCreateContainerError"
+}
+
+// CannotStartContainerError indicates any error when trying to start a container
+type CannotStartContainerError struct {
+	fromError error
+}
+
+func (err CannotStartContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotStartContainerError) ErrorName() string {
+	return "CannotStartContainerError"
+}
+
+// CannotInspectContainerError indicates any error when trying to inspect a container
+type CannotInspectContainerError struct {
+	fromError error
+}
+
+func (err CannotInspectContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotInspectContainerError) ErrorName() string {
+	return "CannotInspectContainerError"
+}
+
+// CannotRemoveContainerError indicates any error when trying to remove a container
+type CannotRemoveContainerError struct {
+	fromError error
+}
+
+func (err CannotRemoveContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotRemoveContainerError) ErrorName() string {
+	return "CannotRemoveContainerError"
+}
+
+// CannotDescribeContainerError indicates any error when trying to describe a container
+type CannotDescribeContainerError struct {
+	fromError error
+}
+
+func (err CannotDescribeContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotDescribeContainerError) ErrorName() string {
+	return "CannotDescribeContainerError"
+}
+
+// CannotListContainersError indicates any error when trying to list containers
+type CannotListContainersError struct {
+	fromError error
+}
+
+func (err CannotListContainersError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotListContainersError) ErrorName() string {
+	return "CannotListContainersError"
 }
