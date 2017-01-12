@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -527,7 +527,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerID)
 		if metadata.Error == nil {
-			metadata.Error = CannotXContainerError{"Stop", err.Error()}
+			metadata.Error = CannotStopContainerError{err}
 		}
 	}
 	return metadata

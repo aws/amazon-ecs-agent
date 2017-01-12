@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 const dockerTimeoutErrorName = "DockerTimeoutError"
@@ -136,4 +137,28 @@ func (err TaskStoppedBeforePullBeginError) Error() string {
 // ErrorName returns the name of the error
 func (TaskStoppedBeforePullBeginError) ErrorName() string {
 	return "TaskStoppedBeforePullBeginError"
+}
+
+// CannotStopContainerError indicates any error when trying to stop a container
+type CannotStopContainerError struct {
+	fromError error
+}
+
+func (err CannotStopContainerError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotStopContainerError) ErrorName() string {
+	return "CannotStopContainerError"
+}
+
+func (err CannotStopContainerError) IsUnretriableError() bool {
+	if _, ok := err.fromError.(*docker.NoSuchContainer); ok {
+		return true
+	}
+	if _, ok := err.fromError.(*docker.ContainerNotRunning); ok {
+		return true
+	}
+
+	return false
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -678,7 +678,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *a
 
 	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
 	if metadata.Error != nil {
-		clog.Info("Error transitioning container", "state", nextState.String())
+		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
 	} else {
 		clog.Debug("Transitioned container", "state", nextState.String())
 		engine.saver.Save()
