@@ -815,7 +815,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 }
 
 // TestTaskTransitionWhenStopContainerReturnsUnretriableError tests if the task transitions
-// to stopped withouth retrying stopping the container in the task when the initial
+// to stopped without retrying stopping the container in the task when the initial
 // stop container call returns an unretriable error from docker, specifically the
 // ContainerNotRunning error
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
@@ -834,7 +834,6 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
-	// dockerEventSent := make(chan int)
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
@@ -920,7 +919,6 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	containerStoppingError := DockerContainerMetadata{
 		Error: &CannotStopContainerError{errors.New("Error stopping container")},
 	}
-	dockerEventSent := make(chan int)
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
@@ -948,7 +946,6 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(
 				func(id string, timeout time.Duration) {
 					go func() {
-						dockerEventSent <- 1
 						// Emit 'ContainerStopped' event to the container event stream
 						// This should cause the container and the task to transition
 						// to 'STOPPED'
@@ -977,24 +974,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	updateSleepTask.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&updateSleepTask)
 
-	// StopContainer error shouldn't cause cantainer/task status change
-	// until receive stop event from docker event stream
-	select {
-	case <-taskEvents:
-		t.Error("Should not get task events")
-	case <-contEvents:
-		t.Error("Should not get container events")
-	case <-dockerEventSent:
-		t.Logf("Send docker stop event")
-		go func() {
-			for {
-				<-dockerEventSent
-			}
-		}()
-	}
-
-	// StopContainer was called again and received stop event from docker event stream
-	// Expect it to go to stopped
+	// StopContainer invocation should have caused it to stop eventually.
 	contEvent = <-contEvents
 	assert.Equal(t, contEvent.Status, api.ContainerStopped, "Expected container to be stopped")
 	*contEvent.SentStatus = api.ContainerStopped
