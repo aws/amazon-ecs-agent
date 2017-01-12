@@ -156,6 +156,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	default:
 	}
 	eventsReported.Wait()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
 	// backwards in state" stop and we haven't 'expect'd for that
@@ -188,7 +189,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTaskStop)
 
 	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
-	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
 		func(removedContainerName string, timeout time.Duration) {
 			if createdContainerName != removedContainerName {
