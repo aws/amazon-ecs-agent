@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -254,16 +254,27 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			// could also trigger the progress and have another go at stopping the
 			// container
 			if event.Error.ErrorName() == dockerTimeoutErrorName {
-				seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v", dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
+				seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v",
+					dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
 				container.SetKnownStatus(currentKnownStatus)
 				return
 			}
+			// If docker returned a transient error while trying to stop a container,
+			// reset the known status to the current status and return
+			cannotStopContainerError, ok := event.Error.(*CannotStopContainerError)
+			if ok && !cannotStopContainerError.IsUnretriableError() {
+				seelog.Infof("Error stopping the container, ignoring state change; error: %s, task: %v",
+					cannotStopContainerError.Error(), mtask.Task)
+				container.SetKnownStatus(currentKnownStatus)
+				return
+			}
+
 			// If we were trying to transition to stopped and had an error, we
 			// clearly can't just continue trying to transition it to stopped
 			// again and again... In this case, assume it's stopped (or close
 			// enough) and get on with it
 			// This actually happens a lot for the case of stopping something that was not running.
-			llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways")
+			llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways", "err", event.Error)
 			container.SetKnownStatus(api.ContainerStopped)
 			container.SetDesiredStatus(api.ContainerStopped)
 		} else if event.Status == api.ContainerPulled {

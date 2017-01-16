@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -592,12 +593,16 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container belongs to unrecognized task " + task.Arn}}
+		return DockerContainerMetadata{
+			Error: CannotStartContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Start", "Container not recorded as created"}}
+		return DockerContainerMetadata{
+			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
+		}
 	}
 	return client.StartContainer(dockerContainer.DockerId, startContainerTimeout)
 }
@@ -606,12 +611,16 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	log.Info("Stopping container", "task", task, "container", container)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container belongs to unrecognized task " + task.Arn}}
+		return DockerContainerMetadata{
+			Error: CannotStopContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Stop", "Container not recorded as created"}}
+		return DockerContainerMetadata{
+			Error: CannotStopContainerError{fmt.Errorf("Container not recorded as created")},
+		}
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerId, stopContainerTimeout)
@@ -678,7 +687,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *a
 
 	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
 	if metadata.Error != nil {
-		clog.Info("Error transitioning container", "state", nextState.String())
+		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
 	} else {
 		clog.Debug("Transitioned container", "state", nextState.String())
 		engine.saver.Save()

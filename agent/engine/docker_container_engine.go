@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -202,7 +202,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 
 	authConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
+		return DockerContainerMetadata{Error: CannotPullContainerError{err}}
 	}
 
 	pullDebugOut, pullWriter := io.Pipe()
@@ -267,7 +267,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		break
 	case pullErr := <-pullFinished:
 		if pullErr != nil {
-			return DockerContainerMetadata{Error: CannotXContainerError{"Pull", pullErr.Error()}}
+			return DockerContainerMetadata{Error: CannotPullContainerError{pullErr}}
 		}
 		return DockerContainerMetadata{}
 	case <-timeout:
@@ -278,7 +278,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 
 	err = <-pullFinished
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Pull", err.Error()}}
+		return DockerContainerMetadata{Error: CannotPullContainerError{err}}
 	}
 	return DockerContainerMetadata{}
 }
@@ -331,7 +331,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 	provider := dockerauth.NewECRAuthProvider(authData.ECRAuthData, dg.ecrClientFactory)
 	authConfig, err := provider.GetAuthconfig(image)
 	if err != nil {
-		return authConfig, CannotXContainerError{"PullECR", err.Error()}
+		return authConfig, CannotPullECRContainerError{err}
 	}
 	return authConfig, nil
 }
@@ -363,7 +363,7 @@ func (dg *dockerGoClient) CreateContainer(config *docker.Config, hostConfig *doc
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
-		return DockerContainerMetadata{Error: &CannotXContainerError{"Create", err.Error()}}
+		return DockerContainerMetadata{Error: &CannotCreateContainerError{err}}
 	}
 }
 
@@ -381,7 +381,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	}
 	dockerContainer, err := client.CreateContainer(containerOptions)
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotXContainerError{"Create", err.Error()}}
+		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
 	return dg.containerMetadata(dockerContainer.ID)
 }
@@ -409,7 +409,7 @@ func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) Docke
 		if err == context.DeadlineExceeded {
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "started"}}
 		}
-		return DockerContainerMetadata{Error: CannotXContainerError{"Start", err.Error()}}
+		return DockerContainerMetadata{Error: CannotStartContainerError{err}}
 	}
 }
 
@@ -422,7 +422,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	err = client.StartContainerWithContext(id, nil, ctx)
 	metadata := dg.containerMetadata(id)
 	if err != nil {
-		metadata.Error = CannotXContainerError{"Start", err.Error()}
+		metadata.Error = CannotStartContainerError{err}
 	}
 
 	return metadata
@@ -438,7 +438,7 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 func (dg *dockerGoClient) DescribeContainer(dockerID string) (api.ContainerStatus, DockerContainerMetadata) {
 	dockerContainer, err := dg.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
-		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotXContainerError{"Describe", err.Error()}}
+		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
 	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
 }
@@ -474,7 +474,7 @@ func (dg *dockerGoClient) InspectContainer(dockerID string, timeout time.Duratio
 			return nil, &DockerTimeoutError{timeout, "inspecting"}
 		}
 
-		return nil, &CannotXContainerError{"Inspect", err.Error()}
+		return nil, &CannotInspectContainerError{err}
 	}
 }
 
@@ -512,7 +512,7 @@ func (dg *dockerGoClient) StopContainer(dockerID string, timeout time.Duration) 
 		if err == context.DeadlineExceeded {
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "stopped"}}
 		}
-		return DockerContainerMetadata{Error: &CannotXContainerError{"Stop", err.Error()}}
+		return DockerContainerMetadata{Error: &CannotStopContainerError{err}}
 	}
 }
 
@@ -527,7 +527,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 	if err != nil {
 		log.Debug("Error stopping container", "err", err, "id", dockerID)
 		if metadata.Error == nil {
-			metadata.Error = CannotXContainerError{"Stop", err.Error()}
+			metadata.Error = CannotStopContainerError{err}
 		}
 	}
 	return metadata
@@ -555,7 +555,7 @@ func (dg *dockerGoClient) RemoveContainer(dockerID string, timeout time.Duration
 		if err == context.DeadlineExceeded {
 			return &DockerTimeoutError{removeContainerTimeout, "removing"}
 		}
-		return &CannotXContainerError{"Remove", err.Error()}
+		return &CannotRemoveContainerError{err}
 	}
 }
 
@@ -575,7 +575,7 @@ func (dg *dockerGoClient) removeContainer(dockerID string, ctx context.Context) 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	dockerContainer, err := dg.InspectContainer(id, inspectContainerTimeout)
 	if err != nil {
-		return DockerContainerMetadata{DockerID: id, Error: CannotXContainerError{"Inspect", err.Error()}}
+		return DockerContainerMetadata{DockerID: id, Error: CannotInspectContainerError{err}}
 	}
 	return metadataFromContainer(dockerContainer)
 }
@@ -752,7 +752,7 @@ func (dg *dockerGoClient) ListContainers(all bool, timeout time.Duration) ListCo
 		if err == context.DeadlineExceeded {
 			return ListContainersResponse{Error: &DockerTimeoutError{timeout, "listing"}}
 		}
-		return ListContainersResponse{Error: &CannotXContainerError{"List", err.Error()}}
+		return ListContainersResponse{Error: &CannotListContainersError{err}}
 	}
 }
 
