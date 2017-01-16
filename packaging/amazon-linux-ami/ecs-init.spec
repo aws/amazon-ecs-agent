@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.13.1
-Release:        2%{?dist}
+Version:        1.14.0
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -149,6 +149,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Mon Jan 16 2017 Derek Petersen <petderek@amazon.com> - 1.14.0-1
+- Cache Agent version 1.14.0
 * Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
 - Update Requires to indicate support for docker <= 1.12.6
 * Tue Nov 14 2016 Peng Yin <penyin@amazon.com> - 1.13.1-1
