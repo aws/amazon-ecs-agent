@@ -819,6 +819,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 // stop container call returns an unretriable error from docker, specifically the
 // ContainerNotRunning error
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
+	t.Skip("Skipping test with high false-positive rate.")
 	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
