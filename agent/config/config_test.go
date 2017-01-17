@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMerge(t *testing.T) {
@@ -93,58 +94,33 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")
 	os.Setenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")
 	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")
+	os.Setenv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")
 
-	conf := environmentConfig()
-	if conf.Cluster != "myCluster" {
-		t.Error("Wrong value for cluster ", conf.Cluster)
-	}
-	if len(conf.ReservedPortsUDP) != 2 {
-		t.Error("Wrong length for ReservedPortsUDP")
-	}
-	if conf.ReservedPortsUDP[0] != 42 || conf.ReservedPortsUDP[1] != 99 {
-		t.Error("Wrong value for ReservedPortsUDP ", conf.ReservedPortsUDP)
-	}
-	if conf.ReservedMemory != 20 {
-		t.Error("Wrong value for ReservedMemory", conf.ReservedMemory)
-	}
+	conf, err := environmentConfig()
+	assert.Nil(t, err)
+	assert.Equal(t, "myCluster", conf.Cluster)
+	assert.Equal(t, 2, len(conf.ReservedPortsUDP))
+	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))
+	assert.Contains(t, conf.ReservedPortsUDP, uint16(99))
+	assert.Equal(t, uint16(20), conf.ReservedMemory)
+
 	expectedDuration, _ := time.ParseDuration("60s")
-	if conf.DockerStopTimeout != expectedDuration {
-		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
-	}
+	assert.Equal(t, expectedDuration, conf.DockerStopTimeout)
 
-	if !reflect.DeepEqual(conf.AvailableLoggingDrivers, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}) {
-		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
-	}
-	if !conf.PrivilegedDisabled {
-		t.Error("Wrong value for PrivilegedDisabled")
-	}
-	if !conf.SELinuxCapable {
-		t.Error("Wrong value for SELinuxCapable")
-	}
-	if !conf.AppArmorCapable {
-		t.Error("Wrong value for AppArmorCapable")
-	}
-	if conf.TaskCleanupWaitDuration != (90 * time.Second) {
-		t.Error("Wrong value for TaskCleanupWaitDuration")
-	}
-	if !conf.TaskIAMRoleEnabled {
-		t.Error("Wrong value for TaskIAMRoleEnabled")
-	}
-	if !conf.TaskIAMRoleEnabledForNetworkHost {
-		t.Error("Wrong value for TaskIAMRoleEnabledForNetworkHost")
-	}
-	if !conf.ImageCleanupDisabled {
-		t.Error("Wrong value for ImageCleanupDisabled")
-	}
-	if conf.MinimumImageDeletionAge != (30 * time.Minute) {
-		t.Error("Wrong value for MinimumImageDeletionAge", conf.MinimumImageDeletionAge, os.Getenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE"))
-	}
-	if conf.ImageCleanupInterval != (2 * time.Hour) {
-		t.Error("Wrong value for ImageCleanupInterval", conf.ImageCleanupInterval)
-	}
-	if conf.NumImagesToDeletePerCycle != 2 {
-		t.Error("Wrong value for NumImagesToDeletePerCycle")
-	}
+	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
+
+	assert.True(t, conf.PrivilegedDisabled)
+	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
+	assert.True(t, conf.AppArmorCapable, "Wrong value for AppArmorCapable")
+	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
+	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
+	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
+
+	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
+	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
+	assert.Equal(t, 2, conf.NumImagesToDeletePerCycle)
+	assert.Equal(t, "testing", conf.InstanceAttributes["my_attribute"])
+	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
 }
 
 func TestTrimWhitespace(t *testing.T) {
@@ -186,11 +162,20 @@ func TestConfigBoolean(t *testing.T) {
 
 func TestBadLoggingDriverSerialization(t *testing.T) {
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\"malformed]")
+	defer os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 
-	conf := environmentConfig()
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
 	if len(conf.AvailableLoggingDrivers) != 0 {
 		t.Error("Wrong value for AvailableLoggingDrivers", conf.AvailableLoggingDrivers)
 	}
+}
+
+func TestBadAttributesSerialization(t *testing.T) {
+	os.Setenv("ECS_INSTANCE_ATTRIBUTES", "This is not valid JSON")
+	defer os.Unsetenv("ECS_INSTANCE_ATTRIBUTES")
+	_, err := environmentConfig()
+	assert.Error(t, err)
 }
 
 func TestInvalidLoggingDriver(t *testing.T) {
@@ -206,7 +191,10 @@ func TestInvalidLoggingDriver(t *testing.T) {
 
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")
-	conf := environmentConfig()
+	conf, err := environmentConfig()
+	if err != nil {
+		t.Error("environmentConfig() returned unexpected error %v", err)
+	}
 	if conf.DockerStopTimeout != 0 {
 		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
 	}
@@ -214,10 +202,9 @@ func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 
 func TestInvalideValueDockerStopTimeout(t *testing.T) {
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")
-	conf := environmentConfig()
-	if conf.DockerStopTimeout != 0 {
-		t.Error("Wrong value for DockerStopTimeout", conf.DockerStopTimeout)
-	}
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.Zero(t, conf.DockerStopTimeout)
 }
 
 func TestInvalideDockerStopTimeout(t *testing.T) {

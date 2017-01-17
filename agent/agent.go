@@ -214,6 +214,9 @@ func _main() int {
 			log.Errorf("Error registering: %v", err)
 			if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
 				return exitcodes.ExitTerminal
+			} else if _, ok := err.(utils.AttributeError); ok {
+				log.Criticalf("Instance registration attempt with an invalid attribute.")
+				return exitcodes.ExitTerminal
 			}
 			return exitcodes.ExitError
 		}
@@ -225,8 +228,13 @@ func _main() int {
 		_, err = client.RegisterContainerInstance(containerInstanceArn, capabilities)
 		if err != nil {
 			log.Errorf("Error re-registering: %v", err)
-			if awserr, ok := err.(awserr.Error); ok && api.IsInstanceTypeChangedError(awserr) {
-				log.Criticalf("The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance. Error: %v", err)
+			if awserr, ok := err.(awserr.Error); ok {
+				if api.IsInstanceTypeChangedError(awserr) {
+					log.Criticalf("The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance. Error: %v", err)
+					return exitcodes.ExitTerminal
+				}
+			} else if _, ok := err.(utils.AttributeError); ok {
+				log.Criticalf("Instance re-registration attempt with an invalid attribute.")
 				return exitcodes.ExitTerminal
 			}
 			return exitcodes.ExitError

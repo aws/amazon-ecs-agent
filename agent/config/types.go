@@ -134,6 +134,12 @@ type Config struct {
 	// NumImagesToDeletePerCycle specifies the num of image to delete every time
 	// when Agent performs cleanup
 	NumImagesToDeletePerCycle int
+
+	// InstanceAttributes contains key/value pairs representing
+	// attributes to be associated with this instance within the
+	// ECS service and used to influence behavior such as launch
+	// placement.
+	InstanceAttributes map[string]string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

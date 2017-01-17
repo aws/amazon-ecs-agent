@@ -53,6 +53,18 @@ func NewRetriableError(retriable Retriable, err error) RetriableError {
 	}
 }
 
+type AttributeError struct {
+	err string
+}
+
+func (e AttributeError) Error() string {
+	return e.err
+}
+
+func NewAttributeError(err string) AttributeError {
+	return AttributeError{err}
+}
+
 // Implements error
 type MultiErr struct {
 	errors []error
