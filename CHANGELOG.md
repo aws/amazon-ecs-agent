@@ -1,7 +1,12 @@
 # Changelog
 
-## 1.14.0-1.windows.1
+## 1.14.0
+* Feature - Support definition of custom attributes on agent registration.
 * Feature - Support Docker on Windows Server 2016.
+* Enhancement - Enable concurrent docker pull for docker version >= 1.11.1.
+* Bug - Fixes a bug where a task could be prematurely marked as stopped.
+* Bug - Fixes an issue where ECS Agent would keep reconnecting to ACS without any backoff.
+* Bug - Fix memory metric to exclude cache value.
 
 ## 1.13.1
 * Enhancement - Added cache for DiscoverPollEndPoint API.
