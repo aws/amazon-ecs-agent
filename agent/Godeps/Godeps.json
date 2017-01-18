@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
-	"GoVersion": "go1.6",
+	"GoVersion": "go1.7",
 	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
@@ -257,7 +257,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/mock/gomock",
-			"Rev": "15f8b22550555c0d3edf5afa97d74001bda2208b"
+			"Rev": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
