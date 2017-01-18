@@ -855,6 +855,12 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
 			// StopContainer errors out. However, since this is a known unretriable error,
 			// the task engine should not retry stopping the container and move on.
+			// If there's a delay in task engine's processing of the ContainerRunning
+			// event, StopContainer will be invoked again as the engine considers it
+			// as a stopped container coming back. MinTimes() should guarantee that
+			// StopContainer is invoked at least once and in protecting agasint a test
+			// failure when there's a delay in task engine processing the ContainerRunning
+			// event.
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{
 				Error: CannotStopContainerError{&docker.ContainerNotRunning{}},
 			}).MinTimes(1),
