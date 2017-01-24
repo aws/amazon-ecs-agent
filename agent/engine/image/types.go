@@ -14,6 +14,7 @@
 package image
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -97,4 +98,19 @@ func (imageState *ImageState) RemoveContainerReference(container *api.Container)
 		}
 	}
 	return fmt.Errorf("Container reference is not found in the image state container: %s", container.String())
+}
+
+func (imageState *ImageState) MarshalJSON() ([]byte, error) {
+	imageState.updateLock.Lock()
+	defer imageState.updateLock.Unlock()
+
+	return json.Marshal(&struct {
+		Image      *Image
+		PulledAt   time.Time
+		LastUsedAt time.Time
+	}{
+		Image:      imageState.Image,
+		PulledAt:   imageState.PulledAt,
+		LastUsedAt: imageState.LastUsedAt,
+	})
 }
