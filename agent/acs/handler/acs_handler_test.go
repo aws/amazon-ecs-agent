@@ -1036,20 +1036,14 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 	requestsChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
-	serverRestart := make(chan bool, 1)
 	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
-		go func() {
-			<-closeWS
-			ws.WriteMessage(websocket.CloseMessage, nil)
-			ws.Close()
-			serverRestart <- true
-			errChan <- io.EOF
-		}()
+
 		if err != nil {
 			errChan <- err
 		}
+
 		go func() {
 			_, msg, err := ws.ReadMessage()
 			if err != nil {
@@ -1065,10 +1059,15 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 				if err != nil {
 					errChan <- err
 				}
-			case <-serverRestart:
+
+			case <-closeWS:
+				ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				ws.Close()
+				errChan <- io.EOF
 				// Quit listening to serverChan if we've been closed
 				return
 			}
+
 		}
 	})
 

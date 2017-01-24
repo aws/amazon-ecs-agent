@@ -19,9 +19,7 @@
 package wsclient
 
 import (
-	"bufio"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,7 +28,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -122,32 +119,44 @@ type ClientServerImpl struct {
 // 'MakeRequest' can be made after calling this, but responss will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
+
 	parsedURL, err := url.Parse(cs.URL)
+
 	if err != nil {
 		return err
 	}
+
+	// gorilla/websocket expects the websocket scheme (ws[s]://)
+	parsedURL.Scheme = "wss"
 
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
-	request, _ := http.NewRequest("GET", cs.URL, nil)
+	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
+
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
 	utils.SignHTTPRequest(request, cs.Region, ServiceName, cs.CredentialProvider, nil)
 
-	wsConn, err := cs.websocketConn(parsedURL, request)
-	if err != nil {
-		return err
+	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
+	tlsConfig := &tls.Config{ServerName: parsedURL.Host, InsecureSkipVerify: cs.AcceptInvalidCert}
+
+	dialer := websocket.Dialer{
+		ReadBufferSize:  readBufSize,
+		WriteBufferSize: writeBufSize,
+		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
+		NetDial:         timeoutDialer.Dial,
 	}
 
-	websocketConn, httpResponse, err := websocket.NewClient(wsConn, parsedURL, request.Header, readBufSize, writeBufSize)
-	if httpResponse != nil {
-		defer httpResponse.Body.Close()
-	}
+	websocketConn, httpResponse, err := dialer.Dial(parsedURL.String(), request.Header)
+
 	if err != nil {
-		defer wsConn.Close()
 		var resp []byte
 		if httpResponse != nil {
+			defer httpResponse.Body.Close()
+
 			var readErr error
 			resp, readErr = ioutil.ReadAll(httpResponse.Body)
+
 			if readErr != nil {
 				return fmt.Errorf("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
 			}
@@ -215,28 +224,30 @@ func (cs *ClientServerImpl) MakeRequest(input interface{}) error {
 // ConsumeMessages reads messages from the websocket connection and handles read
 // messages from an active connection.
 func (cs *ClientServerImpl) ConsumeMessages() error {
-	var err error
 	for {
-		messageType, message, cerr := cs.Conn.ReadMessage()
-		err = cerr
-		if err != nil {
-			if err != io.EOF && err != io.ErrUnexpectedEOF {
-				if message != nil {
-					seelog.Errorf("Error getting message from ws backend: %v, message: %v", err, string(message))
-				} else {
-					seelog.Errorf("Error getting message from ws backend: %v", err)
-				}
+		messageType, message, err := cs.Conn.ReadMessage()
+
+		switch {
+
+		case err == nil:
+			if messageType != websocket.TextMessage {
+				// maybe not fatal though, we'll try to process it anyways
+				seelog.Errorf("Unexpected messageType: %v", messageType)
 			}
-			break
+			seelog.Debug("Got a message from websocket")
+			cs.handleMessage(message)
+
+		case err == io.EOF || err == io.ErrUnexpectedEOF || containsValidCloseCode(err):
+			//This isn't a problem - It indicates that the connection has closed
+			return io.EOF
+
+		default:
+			//Unexpected error occurred
+			seelog.Errorf("Error getting message from ws backend: error: [%v], message: [%s], messageType: [%v] ", err, message, messageType)
+			return err
 		}
-		if messageType != websocket.TextMessage {
-			seelog.Errorf("Unexpected messageType: %s", messageType)
-			// maybe not fatal though, we'll try to process it anyways
-		}
-		seelog.Debug("Got a message from websocket")
-		cs.handleMessage(message)
+
 	}
-	return err
 }
 
 // CreateRequestMessage creates the request json message using the given input.
@@ -290,75 +301,7 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	}
 }
 
-// websocketConn establishes a connection to the given URL, respecting any proxy configuration in the environment.
-// A standard proxying setup involves setting the following environment variables
-// (may be listed in /etc/ecs/ecs.config if using ecs-init):
-// HTTP_PROXY=http://<your-proxy>/ # HTTPS_PROXY may be set instead or additionally
-// NO_PROXY=169.254.169.254,/var/run/docker.sock # Directly connect to metadata service and docker socket
-func (cs *ClientServerImpl) websocketConn(parsedURL *url.URL, request *http.Request) (net.Conn, error) {
-	proxyURL, err := http.ProxyFromEnvironment(request)
-	if err != nil {
-		return nil, err
-	}
-
-	// url.Host might not have the port, but tls.Dial needs it
-	targetHost := parsedURL.Host
-	if !strings.Contains(targetHost, ":") {
-		targetHost += ":443"
-	}
-	targetHostname, _, err := net.SplitHostPort(targetHost)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConfig := tls.Config{ServerName: targetHostname, InsecureSkipVerify: cs.AcceptInvalidCert}
-	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
-
-	if proxyURL == nil {
-		// directly connect
-		seelog.Infof("Creating poll dialer, host: %s", parsedURL.Host)
-		return tls.DialWithDialer(timeoutDialer, "tcp", targetHost, &tlsConfig)
-	}
-
-	// connect via proxy
-	seelog.Infof("Creating poll dialer, proxy: %s", proxyURL.Host)
-	plainConn, err := timeoutDialer.Dial("tcp", proxyURL.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	// TLS over an HTTP proxy via CONNECT taken from: https://golang.org/src/net/http/transport.go
-	connectReq := &http.Request{
-		Method: "CONNECT",
-		URL:    &url.URL{Opaque: targetHost},
-		Host:   targetHost,
-		Header: make(http.Header),
-	}
-
-	if proxyUser := proxyURL.User; proxyUser != nil {
-		username := proxyUser.Username()
-		password, _ := proxyUser.Password()
-		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-		connectReq.Header.Set("Proxy-Authorization", "Basic "+auth)
-	}
-
-	connectReq.Write(plainConn)
-
-	// Read response.
-	// Okay to use and discard buffered reader here, because
-	// TLS server will not speak until spoken to.
-	br := bufio.NewReader(plainConn)
-	resp, err := http.ReadResponse(br, connectReq)
-	if err != nil {
-		plainConn.Close()
-		return nil, err
-	}
-	if resp.StatusCode != 200 {
-		plainConn.Close()
-		return nil, fmt.Errorf(resp.Status)
-	}
-
-	tlsConn := tls.Client(plainConn, &tlsConfig)
-
-	return tlsConn, nil
+// See github.com/gorilla/websocket/conn.go method 'isValidReceivedCloseCode'
+func containsValidCloseCode(err error) bool {
+	return websocket.IsCloseError(err, 1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011, 1012, 1013)
 }

@@ -261,7 +261,8 @@
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
-			"Rev": "87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9"
+			"Comment": "v1.0.0-40-g0868951",
+			"Rev": "0868951cdb8e69bc42df4598bdc6164ff2f1a072"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/go-cleanhttp",
