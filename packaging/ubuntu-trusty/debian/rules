@@ -8,4 +8,9 @@ export DH_VERBOSE=1
 	dh $@
 
 build:
-	./scripts/gobuild.sh ubuntu
+	PATH=/usr/lib/go-1.6/bin:$(PATH) ./scripts/gobuild.sh ubuntu
+
+clean:
+	dh $@
+	rm -f amazon-ecs-init
+	PATH=/usr/lib/go-1.6/bin:$(PATH) go clean

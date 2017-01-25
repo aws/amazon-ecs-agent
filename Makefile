@@ -60,7 +60,7 @@ ubuntu-trusty:
 	mkdir -p BUILDROOT
 	cp -r packaging/ubuntu-trusty/debian BUILDROOT/debian
 	cp -r ecs-init BUILDROOT
-	cp ecs.conf BUILDROOT
+	cp packaging/ubuntu-trusty/ecs.conf BUILDROOT
 	cp -r scripts BUILDROOT
 	cp README.md BUILDROOT
 	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")

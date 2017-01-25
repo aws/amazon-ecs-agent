@@ -14,7 +14,6 @@
 # limitations under the License.
 set -x
 set -e
-export PATH=/usr/lib/go-1.6/bin:$PATH
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
 export GOPATH="${TOPWD}/ecs-init/Godeps/_workspace:${BUILDDIR}"

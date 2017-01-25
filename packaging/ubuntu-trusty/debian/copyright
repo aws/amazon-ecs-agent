@@ -4,13 +4,15 @@ Source: https://github.com/aws/amazon-ecs-init
 
 Files: *
 Copyright: 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-License: Apache 2.0
+License: Apache
+Version: 2.0
 
 Files: ecs-init/Godeps/_workspace/src/github.com/golang/mock/*
 Copyright: 2010-2012 Google Inc. 2011 Alex Reece.
-License: Apache 2.0
+License: Apache
+Version: 2.0
 
-License: Apache 2.0
+License: Apache
  Apache License
  .
  Version 2.0, January 2004
