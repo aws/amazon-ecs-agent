@@ -14,7 +14,7 @@
 
 Name:           ecs-init
 Version:        1.14.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -149,6 +149,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Wed Jan 25 2017 Anirudh Aithal <aithal@amazon.com> - 1.14.0-2
+- Add retry-backoff for pinging docker socket when creating the docker client
 * Mon Jan 16 2017 Derek Petersen <petderek@amazon.com> - 1.14.0-1
 - Cache Agent version 1.14.0
 * Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
