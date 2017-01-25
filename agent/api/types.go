@@ -206,7 +206,7 @@ func (t *TaskStateChange) String() string {
 }
 
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.GetKnownStatus().String(), t.DesiredStatus.String())
+	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.GetKnownStatus().String(), t.GetDesiredStatus().String())
 	res += " Containers: ["
 	for _, c := range t.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
