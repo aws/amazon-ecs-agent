@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -124,6 +124,48 @@ func (_m *Mockdockerclient) StopContainer(id string, timeout uint) error {
 
 func (_mr *_MockdockerclientRecorder) StopContainer(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StopContainer", arg0, arg1)
+}
+
+func (_m *Mockdockerclient) Ping() error {
+	ret := _m.ctrl.Call(_m, "Ping")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockdockerclientRecorder) Ping() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Ping")
+}
+
+// Mock of dockerClientFactory interface
+type MockdockerClientFactory struct {
+	ctrl     *gomock.Controller
+	recorder *_MockdockerClientFactoryRecorder
+}
+
+// Recorder for MockdockerClientFactory (not exported)
+type _MockdockerClientFactoryRecorder struct {
+	mock *MockdockerClientFactory
+}
+
+func NewMockdockerClientFactory(ctrl *gomock.Controller) *MockdockerClientFactory {
+	mock := &MockdockerClientFactory{ctrl: ctrl}
+	mock.recorder = &_MockdockerClientFactoryRecorder{mock}
+	return mock
+}
+
+func (_m *MockdockerClientFactory) EXPECT() *_MockdockerClientFactoryRecorder {
+	return _m.recorder
+}
+
+func (_m *MockdockerClientFactory) NewVersionedClient(endpoint string, apiVersionString string) (dockerclient, error) {
+	ret := _m.ctrl.Call(_m, "NewVersionedClient", endpoint, apiVersionString)
+	ret0, _ := ret[0].(dockerclient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockdockerClientFactoryRecorder) NewVersionedClient(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewVersionedClient", arg0, arg1)
 }
 
 // Mock of fileSystem interface

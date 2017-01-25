@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,9 +17,14 @@ package docker
 
 import (
 	"io/ioutil"
+	"net"
+	"net/http"
+	"time"
 
+	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 
+	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
@@ -32,22 +37,46 @@ type dockerclient interface {
 	StartContainer(id string, hostConfig *godocker.HostConfig) error
 	WaitContainer(id string) (int, error)
 	StopContainer(id string, timeout uint) error
+	Ping() error
 }
 
 type _dockerclient struct {
-	docker *godocker.Client
+	docker dockerclient
 }
 
-func newDockerClient() (*_dockerclient, error) {
+type dockerClientFactory interface {
+	NewVersionedClient(endpoint string, apiVersionString string) (dockerclient, error)
+}
+
+type godockerClientFactory struct{}
+
+func (client godockerClientFactory) NewVersionedClient(endpoint string, apiVersionString string) (dockerclient, error) {
+	return godocker.NewVersionedClient(endpoint, apiVersionString)
+}
+
+func newDockerClient(dockerClientFactory dockerClientFactory, pingBackoff backoff.Backoff) (dockerclient, error) {
 	dockerUnixSocketSourcePath, fromEnv := config.DockerUnixSocket()
 	if !fromEnv {
 		dockerUnixSocketSourcePath = "/var/run/docker.sock"
 	}
-	client, err := godocker.NewVersionedClient(config.UnixSocketPrefix+dockerUnixSocketSourcePath, "1.15")
+	client, err := dockerClientFactory.NewVersionedClient(
+		config.UnixSocketPrefix+dockerUnixSocketSourcePath, "1.15")
 	if err != nil {
 		return nil, err
 	}
-	err = client.Ping()
+	for {
+		err = client.Ping()
+		if err == nil {
+			break
+		}
+		shouldRetry := (isNetworkError(err) || isRetryablePingError(err)) && pingBackoff.ShouldRetry()
+		if !shouldRetry {
+			break
+		}
+		backoffDuration := pingBackoff.Duration()
+		log.Infof("Network error connecting to docker, backing off for '%v', error: %v", backoffDuration, err)
+		time.Sleep(backoffDuration)
+	}
 	return &_dockerclient{
 		docker: client,
 	}, err
@@ -85,6 +114,10 @@ func (d *_dockerclient) StopContainer(id string, timeout uint) error {
 	return d.docker.StopContainer(id, timeout)
 }
 
+func (d *_dockerclient) Ping() error {
+	return d.docker.Ping()
+}
+
 type fileSystem interface {
 	ReadFile(filename string) ([]byte, error)
 }
@@ -95,4 +128,18 @@ var standardFS = &_standardFS{}
 
 func (s *_standardFS) ReadFile(filename string) ([]byte, error) {
 	return ioutil.ReadFile(filename)
+}
+
+func isNetworkError(err error) bool {
+	_, ok := err.(*net.OpError)
+	return ok
+}
+
+func isRetryablePingError(err error) bool {
+	godockerError, ok := err.(*godocker.Error)
+	if ok && godockerError.Status != http.StatusOK {
+		return true
+	}
+
+	return false
 }

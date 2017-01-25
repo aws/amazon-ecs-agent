@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,7 +16,9 @@ package docker
 import (
 	"io"
 	"strings"
+	"time"
 
+	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 
 	log "github.com/cihub/seelog"
@@ -32,6 +34,21 @@ const (
 	defaultDockerEndpoint = "/var/run"
 	// networkMode specifies the networkmode to create the agent container
 	networkMode = "host"
+	// minBackoffDuration specifies the minimum backoff duration for ping to
+	// return a success response from the docker socket
+	minBackoffDuration = time.Second
+	// maxBackoffDuration specifies the maximum backoff duration for ping to
+	// return a success response from docker socket
+	maxBackoffDuration = 5 * time.Second
+	// backoffJitterMultiple specifies the backoff jitter multiplier
+	// coefficient when pinging the docker socket
+	backoffJitterMultiple = 0.2
+	// backoffMultiple specifies the backoff multiplier coefficient when
+	// pinging the docker socket
+	backoffMultiple = 2
+	// maxRetries specifies the maximum number of retries for ping to return
+	// a successful response from the docker socket
+	maxRetries = 5
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -42,7 +59,12 @@ type Client struct {
 
 // NewClient reutrns a new Client
 func NewClient() (*Client, error) {
-	client, err := newDockerClient()
+	// Create a backoff for pinging the docker socker. This should result in 17-19
+	// seconds of delay in the worst-case between different actions that depend on
+	// docker
+	pingBackoff := backoff.NewBackoff(minBackoffDuration, maxBackoffDuration, backoffJitterMultiple,
+		backoffMultiple, maxRetries)
+	client, err := newDockerClient(godockerClientFactory{}, pingBackoff)
 	if err != nil {
 		return nil, err
 	}
