@@ -13,4 +13,3 @@ build:
 clean:
 	dh $@
 	rm -f amazon-ecs-init
-	PATH=/usr/lib/go-1.6/bin:$(PATH) go clean

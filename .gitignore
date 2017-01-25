@@ -4,3 +4,4 @@
 /sources.tar
 /ecs-init-*
 *.swp
+/ecs.conf
