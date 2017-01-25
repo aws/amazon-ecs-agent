@@ -62,9 +62,10 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 			t.Fatalf("Cycle %d: There was an error starting the Task: %v", i, err)
 		}
 
-		// Added 1 minute delay to allow the task to be in running state - Required only on Windows
-		testTask.WaitRunning(1 * time.Minute)
+		// Wait for the task to be running
+		testTask.WaitRunning(2 * time.Minute)
 
+		// Make sure the task is running on the instance
 		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
 		if err != nil || !isTaskRunning {
 			t.Fatalf("Cycle %d: Task should be RUNNING but is not: %v", i, err)
@@ -76,7 +77,12 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 			t.Fatalf("Cycle %d: Error resolving docker id for container in task: %v", i, err)
 		}
 
-		// 2 minutes should be enough for the Task to have completed. If the task has not
+		err = testTask.Stop()
+		if err != nil {
+			t.Fatalf("Cycle %d: Failed to stop task: %v", i, err)
+		}
+
+		// 2 minutes should be enough for the Task to be stopped. If the task has not
 		// completed and is in PENDING, the agent is most likely deadlocked.
 		err = testTask.WaitStopped(2 * time.Minute)
 		if err != nil {

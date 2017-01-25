@@ -6,69 +6,69 @@
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "2",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "3",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "4",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "5",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "6",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "7",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "8",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "9",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }, {
     "name": "10",
     "image": "microsoft/windowsservercore:latest",
     "memory": 10,
     "cpu": 0,
     "entryPoint": ["powershell"],
-    "command": ["sleep", "20"]
+    "command": ["sleep", "300"]
   }]
 }
