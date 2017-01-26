@@ -150,7 +150,7 @@ fi
 
 %changelog
 * Wed Jan 25 2017 Anirudh Aithal <aithal@amazon.com> - 1.14.0-2
-- Add retry-backoff for pinging docker socket when creating the docker client
+- Add retry-backoff for pinging the Docker socket when creating the Docker client
 * Mon Jan 16 2017 Derek Petersen <petderek@amazon.com> - 1.14.0-1
 - Cache Agent version 1.14.0
 * Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
