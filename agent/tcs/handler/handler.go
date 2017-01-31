@@ -44,7 +44,7 @@ const (
 func StartMetricsSession(params TelemetrySessionParams) {
 	disabled, err := params.isTelemetryDisabled()
 	if err != nil {
-		log.Warn("Error getting telemetry config", "err", err)
+		log.Warnf("Error getting telemetry config: %v", err)
 		return
 	}
 
@@ -52,12 +52,12 @@ func StartMetricsSession(params TelemetrySessionParams) {
 		statsEngine := stats.NewDockerStatsEngine(params.Cfg, params.DockerClient, params.ContainerChangeEventStream)
 		err := statsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster, params.ContainerInstanceArn)
 		if err != nil {
-			log.Warn("Error initializing metrics engine", "err", err)
+			log.Warnf("Error initializing metrics engine: %v", err)
 			return
 		}
 		err = StartSession(params, statsEngine)
 		if err != nil {
-			log.Warn("Error starting metrics session with backend", "err", err)
+			log.Warnf("Error starting metrics session with backend: %v", err)
 			return
 		}
 	} else {
@@ -76,7 +76,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 		if tcsError == nil || tcsError == io.EOF {
 			backoff.Reset()
 		} else {
-			log.Info("Error from tcs; backing off", "err", tcsError)
+			log.Infof("Error from tcs; backing off: %v", tcsError)
 			params.time().Sleep(backoff.Duration())
 		}
 	}
@@ -85,10 +85,10 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	tcsEndpoint, err := params.ECSClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
-		log.Error("Unable to discover poll endpoint", "err", err)
+		log.Errorf("Unable to discover poll endpoint: ", err)
 		return err
 	}
-	log.Debug("Connecting to TCS endpoint " + tcsEndpoint)
+	log.Debugf("Connecting to TCS endpoint %v", tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
 	return startSession(url, params.Cfg.AWSRegion, params.CredentialProvider, params.AcceptInvalidCert, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
@@ -117,7 +117,7 @@ func startSession(url string, region string, credentialProvider *credentials.Cre
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	err = client.Connect()
 	if err != nil {
-		log.Error("Error connecting to TCS: " + err.Error())
+		log.Errorf("Error connecting to TCS: %v", err.Error())
 		return err
 	}
 	return client.Serve()
