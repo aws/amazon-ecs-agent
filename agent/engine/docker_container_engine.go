@@ -45,8 +45,8 @@ const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
 	ListContainersTimeout   = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
-	createContainerTimeout  = 3 * time.Minute
-	startContainerTimeout   = 1*time.Minute + 30*time.Second
+	createContainerTimeout  = 4 * time.Minute
+	startContainerTimeout   = 3 * time.Minute
 	stopContainerTimeout    = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
