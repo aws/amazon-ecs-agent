@@ -150,6 +150,11 @@ func (agent *TestAgent) StartAgent() error {
 		Cmd: strings.Split(os.Getenv("ECS_FTEST_AGENT_ARGS"), " "),
 	}
 
+	// Append ECS_INSTANCE_ATTRIBUTES to dockerConfig
+	if attr := os.Getenv("ECS_INSTANCE_ATTRIBUTES"); attr != "" {
+		dockerConfig.Env = append(dockerConfig.Env, "ECS_INSTANCE_ATTRIBUTES="+attr)
+	}
+
 	binds := agent.getBindMounts()
 
 	hostConfig := &docker.HostConfig{
