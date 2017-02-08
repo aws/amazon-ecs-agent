@@ -19,10 +19,15 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
+	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -269,4 +274,46 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 		return fmt.Errorf("did not found the expected network mode")
 	}
 	return nil
+}
+
+// TestCustomAttributesWithMaxOptions tests the ECS_INSTANCE_ATTRIBUTES
+// upon agent registration with maximum number of supported key, value pairs
+func TestCustomAttributesWithMaxOptions(t *testing.T) {
+	maxAttributes := 10
+	customAttributes := `{
+                "key1": "val1",
+                "key2": "val2",
+                "key3": "val3",
+                "key4": "val4",
+                "key5": "val5",
+                "key6": "val6",
+                "key7": "val7",
+                "key8": "val8",
+                "key9": "val9",
+                "key0": "val0"
+        }`
+	os.Setenv("ECS_INSTANCE_ATTRIBUTES", customAttributes)
+	defer os.Unsetenv("ECS_INSTANCE_ATTRIBUTES")
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	params := &ecsapi.DescribeContainerInstancesInput{
+		Cluster:            &agent.Cluster,
+		ContainerInstances: []*string{&agent.ContainerInstanceArn},
+	}
+
+	resp, err := ECS.DescribeContainerInstances(params)
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.ContainerInstances)
+	require.Len(t, resp.ContainerInstances, 1)
+
+	attribMap := AttributesToMap(resp.ContainerInstances[0].Attributes)
+	assert.NotEmpty(t, attribMap)
+
+	for i := 0; i < maxAttributes; i++ {
+		k := "key" + strconv.Itoa(i)
+		v := "val" + strconv.Itoa(i)
+		assert.Equal(t, v, attribMap[k], "Values should match")
+	}
 }

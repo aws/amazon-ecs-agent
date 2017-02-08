@@ -120,10 +120,14 @@ func (agent *TestAgent) StartAgent() error {
 	if TestDirectory := os.Getenv("ECS_WINDOWS_TEST_DIR"); TestDirectory != "" {
 		agentInvoke.Dir = TestDirectory
 	}
-	agentInvoke.Start()
+	err := agentInvoke.Start()
+	if err != nil {
+		agent.t.Logf("Agent start invocation failed with %s", err.Error())
+		return err
+	}
 	agent.Process = agentInvoke.Process
 	agent.IntrospectionURL = "http://localhost:51678"
-	err := agent.platformIndependentStartAgent()
+	err = agent.platformIndependentStartAgent()
 	return err
 }
 

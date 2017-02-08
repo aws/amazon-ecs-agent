@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
@@ -152,8 +152,8 @@ func TestCommandOverrides(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
-	task, err := agent.StartTaskWithOverrides(t, "simple-exit", []*ecs.ContainerOverride{
-		&ecs.ContainerOverride{
+	task, err := agent.StartTaskWithOverrides(t, "simple-exit", []*ecsapi.ContainerOverride{
+		&ecsapi.ContainerOverride{
 			Name:    strptr("exit"),
 			Command: []*string{strptr("sh"), strptr("-c"), strptr("exit 21")},
 		},
@@ -396,7 +396,7 @@ func TestAwslogsDriver(t *testing.T) {
 func TestTelemetry(t *testing.T) {
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
-	_, err := ECS.CreateCluster(&ecs.CreateClusterInput{
+	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
 		ClusterName: aws.String(newClusterName),
 	})
 	require.NoError(t, err, "Failed to create cluster")

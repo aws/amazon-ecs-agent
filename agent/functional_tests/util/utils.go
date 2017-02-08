@@ -646,3 +646,12 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 
 	return nil
 }
+
+// AttributesToMap transforms a list of key, value attributes to return a map
+func AttributesToMap(attributes []*ecs.Attribute) map[string]string {
+	attributeMap := make(map[string]string)
+	for _, attribute := range attributes {
+		attributeMap[aws.StringValue(attribute.Name)] = aws.StringValue(attribute.Value)
+	}
+	return attributeMap
+}
