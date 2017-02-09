@@ -187,6 +187,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
 	}
 	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
+	sleepTask.SetSentStatus(api.TaskStopped)
 
 	// Extra events should not block forever; duplicate acs and docker events are possible
 	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
@@ -317,6 +318,7 @@ func TestRemoveEvents(t *testing.T) {
 		}).Return(nil)
 
 	taskEngine.AddTask(sleepTaskStop)
+	sleepTask.SetSentStatus(api.TaskStopped)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 	// trigger cleanup
 	cleanup <- time.Now()

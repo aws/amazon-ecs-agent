@@ -112,6 +112,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 
 	// Verify Task is stopped.
 	verifyTaskIsStopped(taskEvents, testTask)
+	testTask.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
 	time.Sleep(5 * time.Second)
@@ -230,6 +231,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 
 	// Verify Task is stopped
 	verifyTaskIsStopped(taskEvents, testTask)
+	testTask.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
 	time.Sleep(2 * time.Second)
@@ -378,6 +380,9 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Verify Task is stopped
 	verifyTaskIsStopped(taskEvents, task1, task2, task3)
+	task1.SetSentStatus(api.TaskStopped)
+	task2.SetSentStatus(api.TaskStopped)
+	task3.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
 	time.Sleep(2 * time.Second)
@@ -501,6 +506,9 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Verify Task is stopped
 	verifyTaskIsStopped(taskEvents, task1, task2, task3)
+	task1.SetSentStatus(api.TaskStopped)
+	task2.SetSentStatus(api.TaskStopped)
+	task3.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
 	time.Sleep(2 * time.Second)

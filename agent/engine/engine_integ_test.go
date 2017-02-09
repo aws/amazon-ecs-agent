@@ -41,6 +41,11 @@ const (
 	credentialsIDIntegTest = "credsid"
 )
 
+func init() {
+	// Set this very low for integ tests only
+	_stoppedSentWaitInterval = 1 * time.Second
+}
+
 func createTestTask(arn string) *api.Task {
 	return &api.Task{
 		Arn:           arn,
@@ -183,8 +188,9 @@ func TestSweepContainer(t *testing.T) {
 	defer discardEvents(taskEvents)()
 
 	// Should be stopped, let's verify it's still listed...
-	_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
 	assert.True(t, ok, "Expected task to be present still, but wasn't")
+	task.SetSentStatus(api.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")

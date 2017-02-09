@@ -26,6 +26,8 @@ import (
 
 const (
 	steadyStateTaskVerifyInterval = 10 * time.Minute
+	stoppedSentWaitInterval       = 30 * time.Second
+	maxStoppedWaitTimes           = 72 * time.Hour / stoppedSentWaitInterval
 )
 
 type acsTaskUpdate struct {
@@ -474,6 +476,9 @@ func (mtask *managedTask) time() ttime.Time {
 	return mtask._time
 }
 
+var _stoppedSentWaitInterval = stoppedSentWaitInterval
+var _maxStoppedWaitTimes = int(maxStoppedWaitTimes)
+
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
@@ -489,8 +494,27 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		cleanupTimeBool <- true
 		close(cleanupTimeBool)
 	}()
+	// wait for the cleanup time to elapse, signalled by cleanupTimeBool
 	for !mtask.waitEvent(cleanupTimeBool) {
 	}
+	stoppedSentBool := make(chan bool)
+	go func() {
+		for i := 0; i < _maxStoppedWaitTimes; i++ {
+			// ensure that we block until api.TaskStopped is actually sent
+			sentStatus := mtask.GetSentStatus()
+			if sentStatus >= api.TaskStopped {
+				stoppedSentBool <- true
+				close(stoppedSentBool)
+				return
+			}
+			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i, _maxStoppedWaitTimes)
+			mtask._time.Sleep(_stoppedSentWaitInterval)
+		}
+	}()
+	// wait for api.TaskStopped to be sent
+	for !mtask.waitEvent(stoppedSentBool) {
+	}
+
 	log.Info("Cleaning up task's containers and data", "task", mtask.Task)
 
 	// For the duration of this, simply discard any task events; this ensures the
