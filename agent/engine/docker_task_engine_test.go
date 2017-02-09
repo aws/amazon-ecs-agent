@@ -59,9 +59,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
-
 	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
-
 	defer ctrl.Finish()
 
 	roleCredentials := &credentials.TaskIAMRoleCredentials{
@@ -74,7 +72,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	sleepTask.SetCredentialsId(credentialsID)
 
 	eventStream := make(chan DockerContainerChangeEvent)
-	eventsReported := sync.WaitGroup{}
+	// createStartEventsReported is used to force the test to wait until the container created and started
+	// events are processed
+	createStartEventsReported := sync.WaitGroup{}
 
 	dockerEvent := func(status api.ContainerStatus) DockerContainerChangeEvent {
 		meta := DockerContainerMetadata{
@@ -92,12 +92,12 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
 		dockerConfig, err := sleepTask.DockerConfig(container)
-		// Container config should get updated with this during PostUnmarshalTask
-		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
-		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Container config should get updated with this during PostUnmarshalTask
+		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
 		// Container config should get updated with this during CreateContainer
 		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
 		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
@@ -113,43 +113,45 @@ func TestBatchContainerHappyPath(t *testing.T) {
 				// sleep5 task contains only one container. Just assign
 				// the containerName to createdContainerName
 				createdContainerName = containerName
-				eventsReported.Add(1)
+				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- dockerEvent(api.ContainerCreated)
-					eventsReported.Done()
+					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
-				eventsReported.Add(1)
+				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- dockerEvent(api.ContainerRunning)
-					eventsReported.Done()
+					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 	}
 
+	// steadyStateCheckWait is used to force the test to wait until the steady-state check
+	// has been invoked at least once
+	steadyStateCheckWait := sync.WaitGroup{}
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
-	mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
-	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+			steadyStateCheckWait.Done()
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
 
 	err := taskEngine.Init()
-	taskEvents, contEvents := taskEngine.TaskEvents()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
 
-	if (<-contEvents).Status != api.ContainerRunning {
-		t.Fatal("Expected container to run first")
-	}
-	if (<-taskEvents).Status != api.TaskRunning {
-		t.Fatal("And then task")
-	}
+	assert.Equal(t, (<-contEvents).Status, api.ContainerRunning, "Expected container to run first")
+	assert.Equal(t, (<-taskEvents).Status, api.TaskRunning, "Expected task to be RUNNING")
 	select {
 	case <-taskEvents:
 		t.Fatal("Should be out of events")
@@ -157,14 +159,27 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
-	eventsReported.Wait()
+
+	// Wait for container create and start events to be processed
+	createStartEventsReported.Wait()
+	// Wait for steady state check to be invoked
+	steadyStateCheckWait.Wait()
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
 	// backwards in state" stop and we haven't 'expect'd for that
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
-	eventStream <- DockerContainerChangeEvent{Status: api.ContainerStopped, DockerContainerMetadata: DockerContainerMetadata{DockerID: "containerId", ExitCode: &exitCode}}
+	eventStream <- DockerContainerChangeEvent{
+		Status: api.ContainerStopped,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: "containerId",
+			ExitCode: &exitCode,
+		},
+	}
 	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
@@ -173,9 +188,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			t.Fatal("Exit code should be present")
 		}
 	}
-	if (<-taskEvents).Status != api.TaskStopped {
-		t.Fatal("And then task")
-	}
+	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
 
 	// Extra events should not block forever; duplicate acs and docker events are possible
 	go func() { eventStream <- dockerEvent(api.ContainerStopped) }()
@@ -190,12 +203,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTaskStop)
 
 	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
-	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
 		func(removedContainerName string, timeout time.Duration) {
-			if createdContainerName != removedContainerName {
-				t.Errorf("Container name mismatch, created: %s, removed: %s", createdContainerName, removedContainerName)
-			}
+			assert.Equal(t, createdContainerName, removedContainerName, "Container name mismatch")
 		}).Return(nil)
 
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
