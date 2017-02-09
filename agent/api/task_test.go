@@ -33,7 +33,7 @@ func strptr(s string) *string { return &s }
 func dockerMap(task *Task) map[string]*DockerContainer {
 	m := make(map[string]*DockerContainer)
 	for _, c := range task.Containers {
-		m[c.Name] = &DockerContainer{DockerId: "dockerid-" + c.Name, DockerName: "dockername-" + c.Name, Container: c}
+		m[c.Name] = &DockerContainer{DockerID: "dockerid-" + c.Name, DockerName: "dockername-" + c.Name, Container: c}
 	}
 	return m
 }
@@ -84,7 +84,7 @@ func TestDockerConfigCPUShareZero(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name: "c1",
-				Cpu:  0,
+				CPU:  0,
 			},
 		},
 	}
@@ -104,7 +104,7 @@ func TestDockerConfigCPUShareMinimum(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name: "c1",
-				Cpu:  1,
+				CPU:  1,
 			},
 		},
 	}
@@ -124,7 +124,7 @@ func TestDockerConfigCPUShareUnchanged(t *testing.T) {
 		Containers: []*Container{
 			&Container{
 				Name: "c1",
-				Cpu:  100,
+				CPU:  100,
 			},
 		},
 	}
@@ -257,7 +257,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 			&Container{
 				Name:        "c1",
 				Image:       "image",
-				Cpu:         50,
+				CPU:         50,
 				Memory:      100,
 				VolumesFrom: []VolumeFrom{VolumeFrom{SourceContainer: "c2"}},
 				DockerConfig: DockerConfig{
@@ -394,7 +394,7 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 			&Container{
 				Name:   "c1",
 				Image:  "image",
-				Cpu:    50,
+				CPU:    50,
 				Memory: 100,
 				DockerConfig: DockerConfig{
 					Config: strptr(string(rawConfig)),
@@ -456,7 +456,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 				Name:        "c2",
 				Environment: make(map[string]string),
 			}},
-		credentialsId: credentialsIDInTask,
+		credentialsID: credentialsIDInTask,
 	}
 
 	taskCredentials := &credentials.TaskIAMRoleCredentials{
@@ -652,7 +652,7 @@ func TestTaskFromACS(t *testing.T) {
 				EntryPoint:  &[]string{"sh", "-c"},
 				Essential:   true,
 				Environment: map[string]string{"key": "value"},
-				Cpu:         10,
+				CPU:         10,
 				Memory:      100,
 				MountPoints: []MountPoint{
 					MountPoint{

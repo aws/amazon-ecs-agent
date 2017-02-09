@@ -73,7 +73,7 @@ func TestJsonEncoding(t *testing.T) {
 	testTask := createTestTask("test1", 1)
 	testState.AddTask(testTask)
 	for i, cont := range testTask.Containers {
-		testState.AddContainer(&api.DockerContainer{DockerId: "docker" + strconv.Itoa(i), DockerName: "someName", Container: cont}, testTask)
+		testState.AddContainer(&api.DockerContainer{DockerID: "docker" + strconv.Itoa(i), DockerName: "someName", Container: cont}, testTask)
 	}
 	other := decodeEqual(t, testState)
 	_, ok := other.ContainerMapByArn("test1")

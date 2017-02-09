@@ -52,7 +52,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string) (docker.AuthCon
 		return docker.AuthConfiguration{}, fmt.Errorf("ecrAuthProvider cannot be used without AuthData")
 	}
 	log.Debugf("Calling ECR.GetAuthorizationToken for %s", image)
-	authData, err := authProvider.client.GetAuthorizationToken(authProvider.authData.RegistryId)
+	authData, err := authProvider.client.GetAuthorizationToken(authProvider.authData.RegistryID)
 	if err != nil {
 		return docker.AuthConfiguration{}, err
 	}

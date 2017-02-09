@@ -38,7 +38,7 @@ func ContainersEqual(lhs, rhs *api.Container) bool {
 	if !utils.StrSliceEqual(lhs.Command, rhs.Command) {
 		return false
 	}
-	if lhs.Cpu != rhs.Cpu || lhs.Memory != rhs.Memory {
+	if lhs.CPU != rhs.CPU || lhs.Memory != rhs.Memory {
 		return false
 	}
 	// Order doesn't matter

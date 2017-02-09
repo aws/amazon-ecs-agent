@@ -26,7 +26,7 @@ func TestOverridden(t *testing.T) {
 		Name:          "name",
 		Image:         "image",
 		Command:       []string{"foo", "bar"},
-		Cpu:           1,
+		CPU:           1,
 		Memory:        1,
 		Links:         []string{},
 		Ports:         []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
@@ -63,7 +63,7 @@ func (pair configPair) Equal() bool {
 	if (conf.Memory / 1024 / 1024) != int64(cont.Memory) {
 		return false
 	}
-	if conf.CPUShares != int64(cont.Cpu) {
+	if conf.CPUShares != int64(cont.CPU) {
 		return false
 	}
 	if conf.Image != cont.Image {

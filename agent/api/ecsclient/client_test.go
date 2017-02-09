@@ -116,12 +116,12 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		Status:        api.ContainerRunning,
 		PortBindings: []api.PortBinding{
 			api.PortBinding{
-				BindIp:        "1.2.3.4",
+				BindIP:        "1.2.3.4",
 				ContainerPort: 1,
 				HostPort:      2,
 			},
 			api.PortBinding{
-				BindIp:        "2.2.3.4",
+				BindIP:        "2.2.3.4",
 				ContainerPort: 3,
 				HostPort:      4,
 				Protocol:      api.TransportProtocolUDP,
@@ -247,7 +247,7 @@ func buildAttributeList(capabilities []string, attributes map[string]string) []*
 
 func TestReRegisterContainerInstance(t *testing.T) {
 	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
-		"my_other_custom_attribute": "Custom_Value2",
+		"my_other_custom_attribute":    "Custom_Value2",
 		"attribute_name_with_no_value": "",
 	}
 

@@ -31,7 +31,7 @@ func createTestContainer() *api.Container {
 		Image:         "microsoft/windowsservercore:latest",
 		Essential:     true,
 		DesiredStatus: api.ContainerRunning,
-		Cpu:           100,
+		CPU:           100,
 		Memory:        80,
 	}
 }

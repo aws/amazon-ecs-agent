@@ -226,26 +226,26 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			continue
 		}
 		for _, cont := range conts {
-			if cont.DockerId == "" {
+			if cont.DockerID == "" {
 				log.Debug("Found container potentially created while we were down", "name", cont.DockerName)
 				// Figure out the dockerid
 				describedCont, err := engine.client.InspectContainer(cont.DockerName, inspectContainerTimeout)
 				if err != nil {
 					log.Warn("Could not find matching container for expected", "name", cont.DockerName)
 				} else {
-					cont.DockerId = describedCont.ID
+					cont.DockerID = describedCont.ID
 					// update mappings that need dockerid
 					engine.state.AddContainer(cont, task)
 					engine.imageManager.RecordContainerReference(cont.Container)
 				}
 			}
-			if cont.DockerId != "" {
-				currentState, metadata := engine.client.DescribeContainer(cont.DockerId)
+			if cont.DockerID != "" {
+				currentState, metadata := engine.client.DescribeContainer(cont.DockerID)
 				if metadata.Error != nil {
 					currentState = api.ContainerStopped
 					if !cont.Container.KnownTerminal() {
 						cont.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
-						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerId, "name", cont.DockerName)
+						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerID, "name", cont.DockerName)
 						engine.imageManager.RemoveContainerReferenceFromImageState(cont.Container)
 					}
 				} else {
@@ -274,7 +274,7 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 		if !ok {
 			continue
 		}
-		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerId)
+		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerID)
 		engine.processTasks.RLock()
 		managedTask, ok := engine.managedTasks[task.Arn]
 		engine.processTasks.RUnlock()
@@ -578,7 +578,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
-		engine.state.AddContainer(&api.DockerContainer{DockerId: metadata.DockerID, DockerName: containerName, Container: container}, task)
+		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata
@@ -604,7 +604,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
 		}
 	}
-	return client.StartContainer(dockerContainer.DockerId, startContainerTimeout)
+	return client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -623,7 +623,7 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	return engine.client.StopContainer(dockerContainer.DockerId, stopContainerTimeout)
+	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {

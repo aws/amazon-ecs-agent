@@ -21,40 +21,62 @@ import (
 	"time"
 )
 
+// TaskStatus is an enumeration of valid states in the task lifecycle
 type TaskStatus int32
 
 const (
+	// TaskStatusNone is the zero state of a task; this task has been received but no further progress has completed
 	TaskStatusNone TaskStatus = iota
+	// TaskPulled represents a task which has had all its container images pulled, but not all have yet progressed passed pull
 	TaskPulled
+	// TaskCreated represents a task which has had all its containers created
 	TaskCreated
+	// TaskRunning represents a task which has had all its containers started
 	TaskRunning
+	// TaskStopped represents a task in which all containers are stopped
 	TaskStopped
 )
 
+// ContainerStatus is an enumeration of valid states in the container lifecycle
 type ContainerStatus int32
 
 const (
+	// ContainerStatusNone is the zero state of a container; this container has not completed pull
 	ContainerStatusNone ContainerStatus = iota
+	// ContainerPulled represents a container which has had the image pulled
 	ContainerPulled
+	// ContainerCreated represents a container that has been created
 	ContainerCreated
+	// ContainerRunning represents a container that has started
 	ContainerRunning
+	// ContainerStopped represents a container that has stopped
 	ContainerStopped
 
-	ContainerZombie // Impossible status to use as a virtual 'max'
+	// ContainerZombie is an "impossible" state that is used as the maximum
+	ContainerZombie
 )
 
+// TransportProtocol is an enumeration of valid transport protocols
 type TransportProtocol int32
 
 const (
+	// TransportProtocolTCP represents TCP
 	TransportProtocolTCP TransportProtocol = iota
+	// TransportProtocolUDP represents UDP
 	TransportProtocolUDP
 )
 
+const (
+	tcp = "tcp"
+	udp = "udp"
+)
+
+// NewTransportProtocol returns a TransportProtocol from a string in the task
 func NewTransportProtocol(protocol string) (TransportProtocol, error) {
 	switch protocol {
-	case "tcp":
+	case tcp:
 		return TransportProtocolTCP, nil
-	case "udp":
+	case udp:
 		return TransportProtocolUDP, nil
 	default:
 		return TransportProtocolTCP, errors.New(protocol + " is not a recognized transport protocol")
@@ -63,54 +85,85 @@ func NewTransportProtocol(protocol string) (TransportProtocol, error) {
 
 func (tp *TransportProtocol) String() string {
 	if tp == nil {
-		return "tcp"
+		return tcp
 	}
 	switch *tp {
 	case TransportProtocolUDP:
-		return "udp"
+		return udp
 	case TransportProtocolTCP:
-		return "tcp"
+		return tcp
 	default:
 		log.Crit("Unknown TransportProtocol type!")
-		return "tcp"
+		return tcp
 	}
 }
 
+// PortBinding represents a port binding for a container
 type PortBinding struct {
+	// ContainerPort is the port inside the container
 	ContainerPort uint16
-	HostPort      uint16
-	BindIp        string
-	Protocol      TransportProtocol
+	// HostPort is the port exposed on the host
+	HostPort uint16
+	// BindIP is the IP address to which the port is bound
+	BindIP string `json:"BindIp"`
+	// Protocol is the protocol of the port
+	Protocol TransportProtocol
 }
 
+// TaskOverrides are the overrides applied to a task
 type TaskOverrides struct{}
 
+// Task is the internal representation of a task in the ECS agent
 type Task struct {
-	Arn        string
-	Overrides  TaskOverrides `json:"-"`
-	Family     string
-	Version    string
+	// Arn is the unique identifer for the task
+	Arn string
+	// Overrides are the overrides applied to a task
+	Overrides TaskOverrides `json:"-"`
+	// Family is the name of the task definition family
+	Family string
+	// Version is the version of the task definition
+	Version string
+	// Containers are the containers for the task
 	Containers []*Container
-	Volumes    []TaskVolume `json:"volumes"`
+	// Volumes are the volumes for the task
+	Volumes []TaskVolume `json:"volumes"`
 
+	// DesiredStatus represents the state where the task should go.  Generally the desired status is informed by the ECS
+	// backend as a result of either API calls made to ECS or decisions made by the ECS service scheduler.  The
+	// DesiredStatus is almost always either TaskRunning or TaskStopped.  Do not access DesiredStatus directly.  Instead,
+	// use `UpdateStatus`, `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
+	// TODO DesiredStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
 	DesiredStatus     TaskStatus
 	desiredStatusLock sync.RWMutex
 
-	KnownStatus         TaskStatus
-	knownStatusLock     sync.RWMutex
+	// KnownStatus represents the state where the task is.  This is generally the minimum of equivalent status types for
+	// the containers in the task; if one container is at ContainerRunning and another is at ContainerPulled, the task
+	// KnownStatus would be TaskPulled.  Do not access KnownStatus directly.  Instead, use `UpdateStatus`,
+	// `UpdateKnownStatusAndTime`,  and `GetKnownStatus`.
+	// TODO KnownStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	KnownStatus     TaskStatus
+	knownStatusLock sync.RWMutex
+	// KnownStatusTime captures the time when the KnownStatus was last updated.  Do not access KnownStatusTime directly,
+	// instead use `GetKnownStatusTime`.
 	KnownStatusTime     time.Time `json:"KnownTime"`
 	knownStatusTimeLock sync.RWMutex
 
+	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitTaskStateChange API.
+	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
+	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
 	SentStatus TaskStatus
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
 
-	// credentialsId is used to set the CredentialsId field for the
+	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
 	// used to look up the credentials for task in the credentials manager
-	credentialsId     string
-	credentialsIdLock sync.RWMutex
+	credentialsID     string
+	credentialsIDLock sync.RWMutex
 }
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -145,26 +198,38 @@ func (fs *FSHostVolume) SourcePath() string {
 	return fs.FSSourcePath
 }
 
+// EmptyHostVolume represents a volume without a specified host path
 type EmptyHostVolume struct {
 	HostPath string `json:"hostPath"`
 }
 
+// SourcePath returns the generated host path for the volume
 func (e *EmptyHostVolume) SourcePath() string {
 	return e.HostPath
 }
 
+// ContainerStateChange represents a state change that needs to be sent to the
+// SubmitContainerStateChange API
 type ContainerStateChange struct {
-	TaskArn       string
+	// TaskArn is the unique identifier for the task
+	TaskArn string
+	// ContainerName is the name of the container
 	ContainerName string
-	Status        ContainerStatus
+	// Status is the status to send
+	Status ContainerStatus
 
-	Reason       string
-	ExitCode     *int
+	// Reason may contain details of why the container stopped
+	Reason string
+	// ExitCode is the exit code of the container, if available
+	ExitCode *int
+	// PortBindings are the details of the host ports picked for the specified
+	// container ports
 	PortBindings []PortBinding
 
 	// This bit is a little hacky; a pointer to the container's sentstatus which
 	// may be updated to indicate what status was sent. This is used to ensure
 	// the same event is handled only once.
+	// TODO(samuelkarp) Change this to expose a *Container and use container.UpdateSentStatus
 	SentStatus *ContainerStatus
 }
 
@@ -185,15 +250,21 @@ func (c *ContainerStateChange) String() string {
 	return res
 }
 
+// TaskStateChange represents a state change that needs to be sent to the
+// SubmitTaskStateChange API
 type TaskStateChange struct {
+	// TaskArn is the unique identifier for the task
 	TaskArn string
-	Status  TaskStatus
-	Reason  string
+	// Status is the status to send
+	Status TaskStatus
+	// Reason may contain details of why the task stopped
+	Reason string
 
 	// As above, this is the same sort of hacky.
 	// This is a pointer to the task's sent-status that gives the event handler a
 	// hook into storing metadata about the task on the task such that it follows
 	// the lifecycle of the task and so on.
+	// TODO(samuelkarp) Change this to expose a *Task and use task.UpdateSentStatus
 	SentStatus *TaskStatus
 }
 
@@ -214,16 +285,22 @@ func (t *Task) String() string {
 	return res + "]"
 }
 
+// ContainerOverrides are overrides applied to the container
 type ContainerOverrides struct {
 	Command *[]string `json:"command"`
 }
 
+// Container is the internal representation of a container in the ECS agent
 type Container struct {
-	Name                   string
-	Image                  string
-	ImageID                string
+	// Name is the name of the container specified in the task definition
+	Name string
+	// Image is the image name specified in the task definition
+	Image string
+	// ImageID is the local ID of the image used in the container
+	ImageID string
+
 	Command                []string
-	Cpu                    uint
+	CPU                    uint `json:"Cpu"`
 	Memory                 uint
 	Links                  []string
 	VolumesFrom            []VolumeFrom  `json:"volumesFrom"`
@@ -236,9 +313,20 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
+	// DesiredStatus represents the state where the container should go.  Generally the desired status is informed by the
+	// ECS backend as a result of either API calls made to ECS or decisions made by the ECS service scheduler, though the
+	// agent may also set the DesiredStatus if a different "essential" container in the task exits.  The DesiredStatus is
+	// almost always either ContainerRunning or ContainerStopped.  Do not access DesiredStatus directly.  Instead,
+	// use `GetDesiredStatus` and `SetDesiredStatus`.
+	// TODO DesiredStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
 	DesiredStatus     ContainerStatus `json:"desiredStatus"`
 	desiredStatusLock sync.RWMutex
 
+	// KnownStatus represents the state where the container is.  Do not access KnownStatus directly.  Instead, use
+	// `GetKnownStatus` and `SetKnownStatus`.
+	// TODO KnownStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
 	KnownStatus     ContainerStatus
 	knownStatusLock sync.RWMutex
 
@@ -248,11 +336,17 @@ type Container struct {
 	// 'Internal' containers are ones that are not directly specified by task definitions, but created by the agent
 	IsInternal bool
 
+	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull, Create, Start, or Stop) but we don't
+	// yet know that the application was successful.
 	AppliedStatus ContainerStatus
 	// ApplyingError is an error that occured trying to transition the container to its desired state
 	// It is propagated to the backend in the form 'Name: ErrorString' as the 'reason' field.
 	ApplyingError *DefaultNamedError
 
+	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitContainerStateChange API.
+	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
+	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
+	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
 	SentStatus ContainerStatus
 
 	KnownExitCode     *int
@@ -277,15 +371,18 @@ type VolumeFrom struct {
 	ReadOnly        bool   `json:"readOnly"`
 }
 
+// RegistryAuthenticationData is the authentication data sent by the ECS backend.  Currently, the only supported
+// authentication data is for ECR.
 type RegistryAuthenticationData struct {
 	Type        string       `json:"type"`
 	ECRAuthData *ECRAuthData `json:"ecrAuthData"`
 }
 
+// ECRAuthData is the authentication details for ECR specifying the region, registryID, and possible endpoint override
 type ECRAuthData struct {
 	EndpointOverride string `json:"endpointOverride"`
 	Region           string `json:"region"`
-	RegistryId       string `json:"registryId"`
+	RegistryID       string `json:"registryId"`
 }
 
 func (c *Container) String() string {
@@ -296,6 +393,7 @@ func (c *Container) String() string {
 	return ret
 }
 
+// Resource is an on-host resource
 type Resource struct {
 	Name        string
 	Type        string
@@ -303,12 +401,12 @@ type Resource struct {
 	LongValue   int64
 }
 
-// This is a mapping between containers-as-docker-knows-them and
+// DockerContainer is a mapping between containers-as-docker-knows-them and
 // containers-as-we-know-them.
 // This is primarily used in DockerState, but lives here such that tasks and
 // containers know how to convert themselves into Docker's desired config format
 type DockerContainer struct {
-	DockerId   string
+	DockerID   string `json:"DockerId"`
 	DockerName string // needed for linking
 
 	Container *Container
@@ -318,5 +416,5 @@ func (dc *DockerContainer) String() string {
 	if dc == nil {
 		return "nil"
 	}
-	return fmt.Sprintf("Id: %s, Name: %s, Container: %s", dc.DockerId, dc.DockerName, dc.Container.String())
+	return fmt.Sprintf("Id: %s, Name: %s, Container: %s", dc.DockerID, dc.DockerName, dc.Container.String())
 }

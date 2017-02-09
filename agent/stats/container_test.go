@@ -137,7 +137,7 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	close(closedChan)
 
 	mockContainer := &api.DockerContainer{
-		DockerId: dockerID,
+		DockerID: dockerID,
 		Container: &api.Container{
 			KnownStatus: api.ContainerRunning,
 		},
@@ -178,7 +178,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 
 	statsErr := fmt.Errorf("test error")
 	mockContainer := &api.DockerContainer{
-		DockerId: dockerID,
+		DockerID: dockerID,
 		Container: &api.Container{
 			KnownStatus: api.ContainerStopped,
 		},

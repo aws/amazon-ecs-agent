@@ -1103,7 +1103,7 @@ func validateAddedContainer(expectedContainer *api.Container, addedContainer *ap
 	// fields that we are intrested in for comparison
 	containerToCompareFromAdded := &api.Container{
 		Name:      addedContainer.Name,
-		Cpu:       addedContainer.Cpu,
+		CPU:       addedContainer.CPU,
 		Essential: addedContainer.Essential,
 		Memory:    addedContainer.Memory,
 		Image:     addedContainer.Image,

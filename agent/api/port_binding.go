@@ -47,7 +47,7 @@ func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docke
 			portBindings = append(portBindings, PortBinding{
 				ContainerPort: uint16(containerPort),
 				HostPort:      uint16(hostPort),
-				BindIp:        binding.HostIP,
+				BindIP:        binding.HostIP,
 				Protocol:      protocol,
 			})
 		}

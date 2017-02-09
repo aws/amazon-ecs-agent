@@ -272,7 +272,7 @@ func stateSetupHelper(state *dockerstate.DockerTaskEngineState, tasks []*api.Tas
 		for _, container := range task.Containers {
 			state.AddContainer(&api.DockerContainer{
 				Container:  container,
-				DockerId:   "dockerid-" + task.Arn + "-" + container.Name,
+				DockerID:   "dockerid-" + task.Arn + "-" + container.Name,
 				DockerName: "dockername-" + task.Arn + "-" + container.Name,
 			}, task)
 		}

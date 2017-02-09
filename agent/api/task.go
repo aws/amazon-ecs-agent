@@ -265,7 +265,7 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		Volumes:      dockerVolumes,
 		Env:          dockerEnv,
 		Memory:       dockerMem,
-		CPUShares:    task.dockerCpuShares(container.Cpu),
+		CPUShares:    task.dockerCpuShares(container.CPU),
 	}
 
 	if container.DockerConfig.Config != nil {
@@ -545,17 +545,17 @@ func (task *Task) updateKnownStatusTime() {
 }
 
 func (task *Task) SetCredentialsId(id string) {
-	task.credentialsIdLock.Lock()
-	defer task.credentialsIdLock.Unlock()
+	task.credentialsIDLock.Lock()
+	defer task.credentialsIDLock.Unlock()
 
-	task.credentialsId = id
+	task.credentialsID = id
 }
 
 func (task *Task) GetCredentialsId() string {
-	task.credentialsIdLock.RLock()
-	defer task.credentialsIdLock.RUnlock()
+	task.credentialsIDLock.RLock()
+	defer task.credentialsIDLock.RUnlock()
 
-	return task.credentialsId
+	return task.credentialsID
 }
 
 func (task *Task) GetDesiredStatus() TaskStatus {

@@ -97,11 +97,11 @@ func TestTwophaseAddContainer(t *testing.T) {
 	if container.DockerName != "dockerName" {
 		t.Fatal("Incorrect docker name")
 	}
-	if container.DockerId != "" {
+	if container.DockerID != "" {
 		t.Fatal("DockerID Should be blank")
 	}
 
-	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerId: "did"}, testTask)
+	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerID: "did"}, testTask)
 
 	containerMap, ok = state.ContainerMapByArn("test")
 	if !ok {
@@ -115,7 +115,7 @@ func TestTwophaseAddContainer(t *testing.T) {
 	if container.DockerName != "dockerName" {
 		t.Fatal("Incorrect docker name")
 	}
-	if container.DockerId != "did" {
+	if container.DockerID != "did" {
 		t.Fatal("DockerID should have been updated")
 	}
 
@@ -123,7 +123,7 @@ func TestTwophaseAddContainer(t *testing.T) {
 	if !ok {
 		t.Fatal("Could not get container by id")
 	}
-	if container.DockerName != "dockerName" || container.DockerId != "did" {
+	if container.DockerName != "dockerName" || container.DockerID != "did" {
 		t.Fatal("Incorrect container fetched")
 	}
 }
@@ -134,7 +134,7 @@ func TestRemoveTask(t *testing.T) {
 		Name: "c1",
 	}
 	testDockerContainer := &api.DockerContainer{
-		DockerId:  "did",
+		DockerID:  "did",
 		Container: testContainer,
 	}
 	testTask := &api.Task{

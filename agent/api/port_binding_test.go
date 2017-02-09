@@ -31,7 +31,7 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 			},
 			[]PortBinding{
 				PortBinding{
-					BindIp:        "1.2.3.4",
+					BindIP:        "1.2.3.4",
 					HostPort:      55,
 					ContainerPort: 53,
 					Protocol:      TransportProtocolUDP,
@@ -47,13 +47,13 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 			},
 			[]PortBinding{
 				PortBinding{
-					BindIp:        "2.3.4.5",
+					BindIP:        "2.3.4.5",
 					HostPort:      8080,
 					ContainerPort: 80,
 					Protocol:      TransportProtocolTCP,
 				},
 				PortBinding{
-					BindIp:        "5.6.7.8",
+					BindIP:        "5.6.7.8",
 					HostPort:      80,
 					ContainerPort: 80,
 					Protocol:      TransportProtocolTCP,

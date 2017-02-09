@@ -33,7 +33,7 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 		Version: taskDefinitionVersion,
 	}
 	resolver.containerIDToDockerContainer[containerID] = &api.DockerContainer{
-		DockerId:  containerID,
+		DockerID:  containerID,
 		Container: &api.Container{},
 	}
 }
@@ -281,7 +281,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	dockerTaskEngine.State().AddTask(&testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
-			DockerId:   container.ID,
+			DockerID:   container.ID,
 			DockerName: "gremlin",
 			Container:  containers[0],
 		},
@@ -405,7 +405,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	dockerTaskEngine.State().AddTask(&testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
-			DockerId:   container.ID,
+			DockerID:   container.ID,
 			DockerName: "gremlin",
 			Container:  containers[0],
 		},

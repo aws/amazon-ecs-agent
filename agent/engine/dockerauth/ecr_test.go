@@ -46,7 +46,7 @@ func TestNewAuthProviderECRAuth(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 
@@ -66,7 +66,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 	proxyEndpoint := "proxy"
@@ -78,7 +78,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 		authData: authData,
 	}
 
-	client.EXPECT().GetAuthorizationToken(authData.RegistryId).Return(&ecrapi.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
@@ -105,7 +105,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 	proxyEndpoint := "proxy"
@@ -117,7 +117,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 		authData: authData,
 	}
 
-	client.EXPECT().GetAuthorizationToken(authData.RegistryId).Return(&ecrapi.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
@@ -139,7 +139,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 	proxyEndpoint := "proxy"
@@ -151,7 +151,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 		authData: authData,
 	}
 
-	client.EXPECT().GetAuthorizationToken(authData.RegistryId).Return(&ecrapi.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String((username + ":" + password)),
 	}, nil)
@@ -173,7 +173,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 	proxyEndpoint := "proxy"
@@ -183,7 +183,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 		authData: authData,
 	}
 
-	client.EXPECT().GetAuthorizationToken(authData.RegistryId)
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID)
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
 	if err == nil {
@@ -202,7 +202,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 
 	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
-		RegistryId:       "0123456789012",
+		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
 	}
 	proxyEndpoint := "proxy"
@@ -212,7 +212,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 		authData: authData,
 	}
 
-	client.EXPECT().GetAuthorizationToken(authData.RegistryId).Return(nil, errors.New("test error"))
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(nil, errors.New("test error"))
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint + "/myimage")
 	if err == nil {

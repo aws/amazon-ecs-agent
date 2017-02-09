@@ -125,8 +125,8 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 	delete(state.taskToId, task.Arn)
 
 	for _, dockerContainer := range containerMap {
-		delete(state.idToTask, dockerContainer.DockerId)
-		delete(state.idToContainer, dockerContainer.DockerId)
+		delete(state.idToTask, dockerContainer.DockerID)
+		delete(state.idToContainer, dockerContainer.DockerID)
 	}
 }
 
@@ -163,8 +163,8 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 		state.tasks[task.Arn] = task
 	}
 
-	if container.DockerId != "" {
-		state.idToTask[container.DockerId] = task.Arn
+	if container.DockerID != "" {
+		state.idToTask[container.DockerID] = task.Arn
 	}
 	existingMap, exists := state.taskToId[task.Arn]
 	if !exists {
@@ -173,8 +173,8 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 	}
 	existingMap[container.Container.Name] = container
 
-	if container.DockerId != "" {
-		state.idToContainer[container.DockerId] = container
+	if container.DockerID != "" {
+		state.idToContainer[container.DockerID] = container
 	}
 }
 

@@ -257,7 +257,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &api.ECRAuthData{
-			RegistryId:       registryID,
+			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
 		},
@@ -313,7 +313,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &api.ECRAuthData{
-			RegistryId:       registryID,
+			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
 		},

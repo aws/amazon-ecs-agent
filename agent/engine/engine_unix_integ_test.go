@@ -62,7 +62,7 @@ func createTestContainer() *api.Container {
 		Command:       []string{},
 		Essential:     true,
 		DesiredStatus: api.ContainerRunning,
-		Cpu:           100,
+		CPU:           100,
 		Memory:        80,
 	}
 }
@@ -188,7 +188,7 @@ func TestPortForward(t *testing.T) {
 
 	// Kill the existing container now to make the test run more quickly.
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
-	cid := containerMap[testTask.Containers[0].Name].DockerId
+	cid := containerMap[testTask.Containers[0].Name].DockerID
 	client, _ := docker.NewClient(endpoint)
 	err = client.KillContainer(docker.KillContainerOptions{ID: cid})
 	if err != nil {
@@ -816,7 +816,7 @@ func TestSignalEvent(t *testing.T) {
 
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
-	cid := containerMap[testTask.Containers[0].Name].DockerId
+	cid := containerMap[testTask.Containers[0].Name].DockerID
 	client, _ := docker.NewClient(endpoint)
 	err := client.KillContainer(docker.KillContainerOptions{ID: cid, Signal: docker.Signal(int(syscall.SIGUSR1))})
 	if err != nil {
