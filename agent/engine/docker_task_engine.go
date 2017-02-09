@@ -316,10 +316,10 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 		return
 	}
 	event := api.TaskStateChange{
-		TaskArn:    task.Arn,
-		Status:     taskKnownStatus,
-		Reason:     reason,
-		SentStatus: &task.SentStatus,
+		TaskArn: task.Arn,
+		Status:  taskKnownStatus,
+		Reason:  reason,
+		Task:    task,
 	}
 	log.Info("Task change event", "event", event)
 	engine.taskEvents <- event
@@ -374,7 +374,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 		ExitCode:      cont.KnownExitCode,
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,
-		SentStatus:    &cont.SentStatus,
+		Container:     cont,
 	}
 	log.Debug("Container change event", "event", event)
 	engine.containerEvents <- event

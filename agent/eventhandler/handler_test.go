@@ -28,10 +28,10 @@ import (
 )
 
 func contEvent(arn string) api.ContainerStateChange {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
 }
 func taskEvent(arn string) api.TaskStateChange {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning}
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
 }
 
 func TestSendsEventsOneContainer(t *testing.T) {
@@ -175,20 +175,17 @@ func TestSendsEventsDedupe(t *testing.T) {
 
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent("alreadySent")
-	taskRunning := api.TaskRunning
-	task1.SentStatus = &taskRunning
+	task1.Task.SetSentStatus(api.TaskRunning)
 	cont1 := contEvent("alreadySent")
-	containerRunning := api.ContainerRunning
-	cont1.SentStatus = &containerRunning
+	cont1.Container.SetSentStatus(api.ContainerRunning)
 
 	AddContainerEvent(cont1, client)
 	AddTaskEvent(task1, client)
 
 	task2 := taskEvent("containerSent")
-	taskNone := api.TaskStatusNone
-	task2.SentStatus = &taskNone
+	task2.Task.SetSentStatus(api.TaskStatusNone)
 	cont2 := contEvent("containerSent")
-	cont2.SentStatus = &containerRunning
+	cont2.Container.SetSentStatus(api.ContainerRunning)
 
 	// Expect to send a task status but not a container status
 	called := make(chan struct{})

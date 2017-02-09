@@ -154,7 +154,8 @@ type Task struct {
 	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
 	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
 	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
-	SentStatus TaskStatus
+	SentStatus     TaskStatus
+	sentStatusLock sync.RWMutex
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
@@ -226,11 +227,9 @@ type ContainerStateChange struct {
 	// container ports
 	PortBindings []PortBinding
 
-	// This bit is a little hacky; a pointer to the container's sentstatus which
-	// may be updated to indicate what status was sent. This is used to ensure
-	// the same event is handled only once.
-	// TODO(samuelkarp) Change this to expose a *Container and use container.UpdateSentStatus
-	SentStatus *ContainerStatus
+	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
+	// storing what status was sent.  This is used to ensure the same event is handled only once.
+	Container *Container
 }
 
 func (c *ContainerStateChange) String() string {
@@ -244,8 +243,8 @@ func (c *ContainerStateChange) String() string {
 	if len(c.PortBindings) != 0 {
 		res += fmt.Sprintf(", Ports %v", c.PortBindings)
 	}
-	if c.SentStatus != nil {
-		res += ", Known Sent: " + c.SentStatus.String()
+	if c.Container != nil {
+		res += ", Known Sent: " + c.Container.GetSentStatus().String()
 	}
 	return res
 }
@@ -260,18 +259,15 @@ type TaskStateChange struct {
 	// Reason may contain details of why the task stopped
 	Reason string
 
-	// As above, this is the same sort of hacky.
-	// This is a pointer to the task's sent-status that gives the event handler a
-	// hook into storing metadata about the task on the task such that it follows
-	// the lifecycle of the task and so on.
-	// TODO(samuelkarp) Change this to expose a *Task and use task.UpdateSentStatus
-	SentStatus *TaskStatus
+	// Task is a pointer to the task involved in the state change that gives the event handler a hook into storing
+	// what status was sent.  This is used to ensure the same event is handled only once.
+	Task *Task
 }
 
 func (t *TaskStateChange) String() string {
 	res := fmt.Sprintf("%s -> %s", t.TaskArn, t.Status.String())
-	if t.SentStatus != nil {
-		res += ", Known Sent: " + t.SentStatus.String()
+	if t.Task != nil {
+		res += ", Known Sent: " + t.Task.GetSentStatus().String()
 	}
 	return res
 }
@@ -344,10 +340,10 @@ type Container struct {
 	ApplyingError *DefaultNamedError
 
 	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitContainerStateChange API.
-	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
 	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
 	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
-	SentStatus ContainerStatus
+	SentStatus     ContainerStatus
+	sentStatusLock sync.RWMutex
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding

@@ -571,3 +571,19 @@ func (task *Task) SetDesiredStatus(status TaskStatus) {
 
 	task.DesiredStatus = status
 }
+
+// GetSentStatus safely returns the SentStatus of the task
+func (task *Task) GetSentStatus() TaskStatus {
+	task.sentStatusLock.RLock()
+	defer task.sentStatusLock.RUnlock()
+
+	return task.SentStatus
+}
+
+// SetSentStatus safely sets the SentStatus of the task
+func (task *Task) SetSentStatus(status TaskStatus) {
+	task.sentStatusLock.Lock()
+	defer task.sentStatusLock.Unlock()
+
+	task.SentStatus = status
+}

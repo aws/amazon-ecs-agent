@@ -76,7 +76,7 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 	if tevent.Status == api.TaskStatusNone {
 		return false // defensive programming :)
 	}
-	if event.taskSent || (tevent.SentStatus != nil && *tevent.SentStatus >= tevent.Status) {
+	if event.taskSent || (tevent.Task != nil && tevent.Task.GetSentStatus() >= tevent.Status) {
 		return false // redundant event
 	}
 	return true
@@ -87,7 +87,7 @@ func (event *sendableEvent) containerShouldBeSent() bool {
 		return false
 	}
 	cevent := event.containerChange
-	if event.containerSent || (cevent.SentStatus != nil && *cevent.SentStatus >= cevent.Status) {
+	if event.containerSent || (cevent.Container != nil && cevent.Container.GetSentStatus() >= cevent.Status) {
 		return false
 	}
 	return true

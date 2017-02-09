@@ -62,3 +62,19 @@ func (c *Container) SetDesiredStatus(status ContainerStatus) {
 
 	c.DesiredStatus = status
 }
+
+// GetSentStatus safely returns the SentStatus of the container
+func (c *Container) GetSentStatus() ContainerStatus {
+	c.sentStatusLock.RLock()
+	defer c.sentStatusLock.RUnlock()
+
+	return c.SentStatus
+}
+
+// SetSentStatus safely sets the SentStatus of the container
+func (c *Container) SetSentStatus(status ContainerStatus) {
+	c.sentStatusLock.Lock()
+	defer c.sentStatusLock.Unlock()
+
+	c.SentStatus = status
+}
