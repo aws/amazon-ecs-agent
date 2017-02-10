@@ -648,11 +648,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
 	managedTask, ok := engine.managedTasks[task.Arn]
 	if !ok {
-		log.Crit("ACS message for a task we thought we managed, but don't!", "arn", task.Arn)
-		// Is this the right thing to do?
-		// Calling startTask should overwrite our bad 'state' data with the new
-		// task which we do manage.. but this is still scary and shouldn't have happened
-		engine.startTask(update)
+		log.Crit("ACS message for a task we thought we managed, but don't!  Aborting.", "arn", task.Arn)
 		return
 	}
 	// Keep the lock because sequence numbers cannot be correct unless they are
