@@ -507,16 +507,12 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks
 	handleCleanupDone := make(chan struct{})
-	go func() {
-		mtask.engine.sweepTask(mtask.Task)
-		mtask.engine.state.RemoveTask(mtask.Task)
-		handleCleanupDone <- struct{}{}
-	}()
 	// discard events while the task is being removed from engine state
-	mtask.discardEventsUntil(handleCleanupDone)
+	go mtask.discardEventsUntil(handleCleanupDone)
+	mtask.engine.sweepTask(mtask.Task)
+	mtask.engine.state.RemoveTask(mtask.Task)
 	log.Debug("Finished removing task data; removing from state no longer managing", "task", mtask.Task)
 	// Now remove ourselves from the global state and cleanup channels
-	go mtask.discardEventsUntil(handleCleanupDone) // keep discarding events until the task is fully gone
 	mtask.engine.processTasks.Lock()
 	delete(mtask.engine.managedTasks, mtask.Arn)
 	handleCleanupDone <- struct{}{}

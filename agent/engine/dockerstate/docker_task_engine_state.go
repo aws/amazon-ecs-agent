@@ -225,7 +225,7 @@ func (state *DockerTaskEngineState) AddImageState(imageState *image.ImageState) 
 }
 
 // RemoveTask removes a task from this state. It removes all containers and
-// other associated metadata. It does aquire the write lock.
+// other associated metadata. It does acquire the write lock.
 func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
