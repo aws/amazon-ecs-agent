@@ -476,9 +476,6 @@ func (mtask *managedTask) time() ttime.Time {
 	return mtask._time
 }
 
-var _stoppedSentWaitInterval = stoppedSentWaitInterval
-var _maxStoppedWaitTimes = int(maxStoppedWaitTimes)
-
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
@@ -497,27 +494,10 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// wait for the cleanup time to elapse, signalled by cleanupTimeBool
 	for !mtask.waitEvent(cleanupTimeBool) {
 	}
-	stoppedSentBool := make(chan bool)
-	taskStopped := false
-	go func() {
-		for i := 0; i < _maxStoppedWaitTimes; i++ {
-			// ensure that we block until api.TaskStopped is actually sent
-			sentStatus := mtask.GetSentStatus()
-			if sentStatus >= api.TaskStopped {
-				stoppedSentBool <- true
-				taskStopped = true
-				close(stoppedSentBool)
-				return
-			}
-			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i+1, _maxStoppedWaitTimes)
-			mtask._time.Sleep(_stoppedSentWaitInterval)
-		}
-		stoppedSentBool <- true
-	}()
+
 	// wait for api.TaskStopped to be sent
-	for !mtask.waitEvent(stoppedSentBool) {
-	}
-	if !taskStopped {
+	ok := mtask.waitForStopReported()
+	if !ok{
 		seelog.Errorf("Aborting cleanup for task %v as it is not reported stopped.  SentStatus: %v", mtask, mtask.GetSentStatus())
 		return
 	}
@@ -572,4 +552,32 @@ func (mtask *managedTask) discardPendingMessages() {
 			return
 		}
 	}
+}
+
+var _stoppedSentWaitInterval = stoppedSentWaitInterval
+var _maxStoppedWaitTimes = int(maxStoppedWaitTimes)
+
+// waitForStopReported will wait for the task to be reported stopped and return true, or will time-out and return false.
+// Messages on the mtask.dockerMessages and mtask.acsMessages channels will be handled while this function is waiting.
+func (mtask *managedTask) waitForStopReported() bool {
+	stoppedSentBool := make(chan bool)
+	taskStopped := false
+	go func() {
+		for i := 0; i < _maxStoppedWaitTimes; i++ {
+			// ensure that we block until api.TaskStopped is actually sent
+			sentStatus := mtask.GetSentStatus()
+			if sentStatus >= api.TaskStopped {
+				taskStopped = true
+				break
+			}
+			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i+1, _maxStoppedWaitTimes)
+			mtask._time.Sleep(_stoppedSentWaitInterval)
+		}
+		stoppedSentBool <- true
+		close(stoppedSentBool)
+	}()
+	// wait for api.TaskStopped to be sent
+	for !mtask.waitEvent(stoppedSentBool) {
+	}
+	return taskStopped
 }
