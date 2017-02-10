@@ -498,21 +498,28 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	for !mtask.waitEvent(cleanupTimeBool) {
 	}
 	stoppedSentBool := make(chan bool)
+	taskStopped := false
 	go func() {
 		for i := 0; i < _maxStoppedWaitTimes; i++ {
 			// ensure that we block until api.TaskStopped is actually sent
 			sentStatus := mtask.GetSentStatus()
 			if sentStatus >= api.TaskStopped {
 				stoppedSentBool <- true
+				taskStopped = true
 				close(stoppedSentBool)
 				return
 			}
-			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i, _maxStoppedWaitTimes)
+			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i+1, _maxStoppedWaitTimes)
 			mtask._time.Sleep(_stoppedSentWaitInterval)
 		}
+		stoppedSentBool <- true
 	}()
 	// wait for api.TaskStopped to be sent
 	for !mtask.waitEvent(stoppedSentBool) {
+	}
+	if !taskStopped {
+		seelog.Errorf("Aborting cleanup for task %v as it is not reported stopped.  SentStatus: %v", mtask, mtask.GetSentStatus())
+		return
 	}
 
 	log.Info("Cleaning up task's containers and data", "task", mtask.Task)

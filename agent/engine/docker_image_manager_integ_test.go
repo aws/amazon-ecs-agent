@@ -234,7 +234,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	testTask.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Verify Task is cleaned up
 	err = verifyTaskIsCleanedUp(taskName, taskEngine)
@@ -385,7 +385,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	task3.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	err = verifyTaskIsCleanedUp("task1", taskEngine)
 	assert.NoError(t, err, "task1")
@@ -511,7 +511,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	task3.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	err = verifyTaskIsCleanedUp("task1", taskEngine)
 	assert.NoError(t, err, "task1")
