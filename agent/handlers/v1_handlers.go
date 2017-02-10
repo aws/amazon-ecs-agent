@@ -90,7 +90,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 	}
 }
 
-func newTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
+func newTasksResponse(state dockerstate.TaskEngineState) *TasksResponse {
 	allTasks := state.AllTasks()
 	taskResponses := make([]*TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
@@ -102,7 +102,7 @@ func newTasksResponse(state *dockerstate.DockerTaskEngineState) *TasksResponse {
 }
 
 // Creates JSON response and sets the http status code for the task queried.
-func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state *dockerstate.DockerTaskEngineState) ([]byte, int) {
+func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state dockerstate.TaskEngineState) ([]byte, int) {
 	var responseJSON []byte
 	status := http.StatusOK
 	if found {
@@ -134,7 +134,7 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 		}
 		if dockerIdExists {
 			// Create TaskResponse for the docker id in the query.
-			task, found := dockerTaskEngineState.TaskById(dockerId)
+			task, found := dockerTaskEngineState.TaskByID(dockerId)
 			responseJSON, status = createTaskJSONResponse(task, found, dockerId, dockerTaskEngineState)
 			w.WriteHeader(status)
 		} else if taskArnExists {
@@ -161,7 +161,7 @@ func licenseHandler(w http.ResponseWriter, h *http.Request) {
 	}
 }
 
-func setupServer(containerInstanceArn *string, taskEngine DockerStateResolver, cfg *config.Config) http.Server {
+func setupServer(containerInstanceArn *string, taskEngine DockerStateResolver, cfg *config.Config) *http.Server {
 	serverFunctions := map[string]func(w http.ResponseWriter, r *http.Request){
 		"/v1/metadata": metadataV1RequestHandlerMaker(containerInstanceArn, cfg),
 		"/v1/tasks":    tasksV1RequestHandlerMaker(taskEngine),
@@ -190,7 +190,7 @@ func setupServer(containerInstanceArn *string, taskEngine DockerStateResolver, c
 	loggingServeMux := http.NewServeMux()
 	loggingServeMux.Handle("/", LoggingHandler{serverMux})
 
-	server := http.Server{
+	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(config.AgentIntrospectionPort),
 		Handler:      loggingServeMux,
 		ReadTimeout:  5 * time.Second,

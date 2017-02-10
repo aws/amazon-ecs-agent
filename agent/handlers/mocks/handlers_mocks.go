@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -42,9 +42,9 @@ func (_m *MockDockerStateResolver) EXPECT() *_MockDockerStateResolverRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDockerStateResolver) State() *dockerstate.DockerTaskEngineState {
+func (_m *MockDockerStateResolver) State() dockerstate.TaskEngineState {
 	ret := _m.ctrl.Call(_m, "State")
-	ret0, _ := ret[0].(*dockerstate.DockerTaskEngineState)
+	ret0, _ := ret[0].(dockerstate.TaskEngineState)
 	return ret0
 }
 

@@ -62,7 +62,7 @@ type DockerTaskEngine struct {
 	// current state and mappings to/from dockerId and name.
 	// This is used to checkpoint state to disk so tasks may survive agent
 	// failures or updates
-	state        *dockerstate.DockerTaskEngineState
+	state        dockerstate.TaskEngineState
 	managedTasks map[string]*managedTask
 
 	taskStopGroup *utilsync.SequentialWaitGroup
@@ -96,7 +96,7 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state *dockerstate.DockerTaskEngineState) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -410,8 +410,8 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) bool {
 	log.Debug("Handling a docker event", "event", event)
 
-	task, taskFound := engine.state.TaskById(event.DockerID)
-	cont, containerFound := engine.state.ContainerById(event.DockerID)
+	task, taskFound := engine.state.TaskByID(event.DockerID)
+	cont, containerFound := engine.state.ContainerByID(event.DockerID)
 	if !taskFound || !containerFound {
 		log.Debug("Event for container not managed", "dockerId", event.DockerID)
 		return false
@@ -717,7 +717,7 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 // State is a function primarily meant for testing usage; it is explicitly not
 // part of the TaskEngine interface and should not be relied upon.
 // It returns an internal representation of the state of this DockerTaskEngine.
-func (engine *DockerTaskEngine) State() *dockerstate.DockerTaskEngineState {
+func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 	return engine.state
 }
 

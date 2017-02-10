@@ -1,4 +1,4 @@
-// Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -55,7 +55,7 @@ func main() {
 	copyrightHeader := fmt.Sprintf(copyrightHeaderFormat, time.Now().Year())
 
 	path, _ := filepath.Split(outputPath)
-	err := os.MkdirAll(path, os.ModeDir)
+	err := os.MkdirAll(path, os.ModeDir|0755)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

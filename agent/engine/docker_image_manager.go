@@ -50,7 +50,7 @@ type dockerImageManager struct {
 	client                           DockerClient
 	updateLock                       sync.RWMutex
 	imageCleanupTicker               *time.Ticker
-	state                            *dockerstate.DockerTaskEngineState
+	state                            dockerstate.TaskEngineState
 	saver                            statemanager.Saver
 	imageStatesConsideredForDeletion map[string]*image.ImageState
 	minimumAgeBeforeDeletion         time.Duration
@@ -62,7 +62,7 @@ type dockerImageManager struct {
 type ImageStatesForDeletion []*image.ImageState
 
 // NewImageManager returns a new ImageManager
-func NewImageManager(cfg *config.Config, client DockerClient, state *dockerstate.DockerTaskEngineState) ImageManager {
+func NewImageManager(cfg *config.Config, client DockerClient, state dockerstate.TaskEngineState) ImageManager {
 	return &dockerImageManager{
 		client: client,
 		state:  state,

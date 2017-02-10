@@ -53,7 +53,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 	containerChangeEventStream := eventstream.NewEventStream("TESTTASKENGINE", context.Background())
 	containerChangeEventStream.StartListening()
 	imageManager := NewMockImageManager(ctrl)
-	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, dockerstate.NewDockerTaskEngineState())
+	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, dockerstate.NewTaskEngineState())
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager
 }

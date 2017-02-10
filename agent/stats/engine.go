@@ -76,7 +76,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*
 	if resolver.dockerTaskEngine == nil {
 		return nil, fmt.Errorf("Docker task engine uninitialized")
 	}
-	task, found := resolver.dockerTaskEngine.State().TaskById(dockerID)
+	task, found := resolver.dockerTaskEngine.State().TaskByID(dockerID)
 	if !found {
 		return nil, fmt.Errorf("Could not map docker id to task: %s", dockerID)
 	}
@@ -89,7 +89,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 	if resolver.dockerTaskEngine == nil {
 		return nil, fmt.Errorf("Docker task engine uninitialized")
 	}
-	container, found := resolver.dockerTaskEngine.State().ContainerById(dockerID)
+	container, found := resolver.dockerTaskEngine.State().ContainerByID(dockerID)
 	if !found {
 		return nil, fmt.Errorf("Could not map docker id to container: %s", dockerID)
 	}

@@ -41,5 +41,5 @@ type ContainerResponse struct {
 }
 
 type DockerStateResolver interface {
-	State() *dockerstate.DockerTaskEngineState
+	State() dockerstate.TaskEngineState
 }

@@ -21,7 +21,7 @@ import api_testutils "github.com/aws/amazon-ecs-agent/agent/api/testutils"
 
 // DockerStatesEqual determines if the two given dockerstates are equal, for
 // equal meaning they have the same tasks and their tasks are equal
-func DockerStatesEqual(lhs, rhs *dockerstate.DockerTaskEngineState) bool {
+func DockerStatesEqual(lhs, rhs dockerstate.TaskEngineState) bool {
 	// Simple equality check; just verify that all tasks are equal
 	lhsTasks := lhs.AllTasks()
 	rhsTasks := rhs.AllTasks()

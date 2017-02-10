@@ -25,8 +25,8 @@ import (
 // DockerTaskEngine state
 type savedState struct {
 	Tasks         []*api.Task
-	IdToContainer map[string]*api.DockerContainer // DockerId -> api.DockerContainer
-	IdToTask      map[string]string               // DockerId -> taskarn
+	IdToContainer map[string]*api.DockerContainer `json:"IdToContainer"` // DockerId -> api.DockerContainer
+	IdToTask      map[string]string               `json:"IdToTask"`      // DockerId -> taskarn
 	ImageStates   []*image.ImageState
 }
 
@@ -53,7 +53,7 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 	// reset it by just creating a new one and swapping shortly.
 	// This also means we don't have to lock for the remainder of this function
 	// because we are the only ones with a reference to clean
-	clean := NewDockerTaskEngineState()
+	clean := newDockerTaskEngineState()
 
 	for _, task := range saved.Tasks {
 		clean.AddTask(task)

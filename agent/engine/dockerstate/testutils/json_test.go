@@ -48,12 +48,12 @@ func createTestTask(arn string, numContainers int) *api.Task {
 	return task
 }
 
-func decodeEqual(t *testing.T, state *dockerstate.DockerTaskEngineState) *dockerstate.DockerTaskEngineState {
+func decodeEqual(t *testing.T, state dockerstate.TaskEngineState) dockerstate.TaskEngineState {
 	data, err := json.Marshal(&state)
 	if err != nil {
 		t.Error(err)
 	}
-	otherState := dockerstate.NewDockerTaskEngineState()
+	otherState := dockerstate.NewTaskEngineState()
 	err = json.Unmarshal(data, &otherState)
 	if err != nil {
 		t.Error(err)
@@ -66,10 +66,10 @@ func decodeEqual(t *testing.T, state *dockerstate.DockerTaskEngineState) *docker
 }
 
 func TestJsonEncoding(t *testing.T) {
-	state := dockerstate.NewDockerTaskEngineState()
+	state := dockerstate.NewTaskEngineState()
 	decodeEqual(t, state)
 
-	testState := dockerstate.NewDockerTaskEngineState()
+	testState := dockerstate.NewTaskEngineState()
 	testTask := createTestTask("test1", 1)
 	testState.AddTask(testTask)
 	for i, cont := range testTask.Containers {

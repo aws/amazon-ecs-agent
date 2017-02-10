@@ -135,7 +135,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 		Containers:    containers,
 	}
 
-	state := dockerstate.NewDockerTaskEngineState()
+	state := dockerstate.NewTaskEngineState()
 	stateSetupHelper(state, []*api.Task{testTask})
 
 	mockStateResolver.EXPECT().State().Return(state)
@@ -266,7 +266,7 @@ var testTasks = []*api.Task{
 	},
 }
 
-func stateSetupHelper(state *dockerstate.DockerTaskEngineState, tasks []*api.Task) {
+func stateSetupHelper(state dockerstate.TaskEngineState, tasks []*api.Task) {
 	for _, task := range tasks {
 		state.AddTask(task)
 		for _, container := range task.Containers {
@@ -285,7 +285,7 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 
 	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
 
-	state := dockerstate.NewDockerTaskEngineState()
+	state := dockerstate.NewTaskEngineState()
 	stateSetupHelper(state, testTasks)
 
 	mockStateResolver.EXPECT().State().Return(state)
