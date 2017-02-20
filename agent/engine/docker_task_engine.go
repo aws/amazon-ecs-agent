@@ -473,15 +473,18 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+	pullStart := time.Now()
+	defer seelog.Infof("Finished pulling container %v after %v.", container, time.Since(pullStart).String())
 	if engine.enableConcurrentPull {
+		seelog.Infof("Pulling container %v concurrently. Task: %v", container, task)
 		return engine.concurrentPull(task, container)
 	} else {
+		seelog.Infof("Pulling container %v serially. Task: %v", container, task)
 		return engine.serialPull(task, container)
 	}
 }
 
 func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Pulling container concurrently", "task", task, "container", container)
 	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
 
 	ImagePullDeleteLock.RLock()
@@ -492,7 +495,6 @@ func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Co
 }
 
 func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Pulling container serially", "task", task, "container", container)
 	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
 
 	ImagePullDeleteLock.Lock()
