@@ -1,5 +1,5 @@
-amazon-ecs-init (1.13.1-1) trusty; urgency=low
+amazon-ecs-init (1.14.0-2) trusty; urgency=low
 
   * Initial release
 
- -- Samuel Karp <skarp@amazon.com>  Fri, 16 Oct 2015 13:29:13 +0000
+ -- Samuel Karp <skarp@amazon.com>  Wed, 22 Feb 2017 10:03:16 +0000
