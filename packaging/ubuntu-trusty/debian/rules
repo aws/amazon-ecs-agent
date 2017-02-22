@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+
+%:
+	dh $@
+
+build:
+	PATH=/usr/lib/go-1.6/bin:$(PATH) ./scripts/gobuild.sh ubuntu
+
+clean:
+	dh $@
+	rm -f amazon-ecs-init

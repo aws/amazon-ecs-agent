@@ -1,0 +1,2 @@
+amazon-ecs-init usr/sbin/
+ecs.conf etc/init
