@@ -474,7 +474,7 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	pullStart := time.Now()
-	defer seelog.Infof("Finished pulling container %v after %v.", container, time.Since(pullStart).String())
+	defer seelog.Infof("Finished pulling container %v. Lock acquisition and pull took %v.", container, time.Since(pullStart).String())
 	if engine.enableConcurrentPull {
 		seelog.Infof("Pulling container %v concurrently. Task: %v", container, task)
 		return engine.concurrentPull(task, container)
