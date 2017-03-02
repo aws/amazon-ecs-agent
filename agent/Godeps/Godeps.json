@@ -308,6 +308,18 @@
 			"Rev": "d77da356e56a7428ad25149ca77381849a6a5232"
 		},
 		{
+			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "fe3b5664d23a11b52ba59bece4ff29c52772a56b"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink/nl",
+			"Rev": "fe3b5664d23a11b52ba59bece4ff29c52772a56b"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netns",
+			"Rev": "54f0e4339ce73702a0607f49922aaa1e749b418d"
+		},
+		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "f09c4662a0bd6bd8943ac7b4931e185df9471da4"
 		},
