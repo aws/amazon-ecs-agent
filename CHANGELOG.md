@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.1
+* Enhancement - Log completion of image pulls. [#715](https://github.com/aws/amazon-ecs-agent/pull/715)
+* Enhancement - Increase start and create timeouts to improve reliability under
+  some workloads. [#696](https://github.com/aws/amazon-ecs-agent/pull/696)
+* Bug - Fixed a bug where throttles on state change reporting could lead to
+  corrupted state. [#705](https://github.com/aws/amazon-ecs-agent/pull/705)
+* Bug - Correct formatting of log messages from tcshandler. [#693](https://github.com/aws/amazon-ecs-agent/pull/693)
+* Bug - Fixed an issue where agent could crash. [#692](https://github.com/aws/amazon-ecs-agent/pull/692)
+
 ## 1.14.0
 * Feature - Support definition of custom attributes on agent registration.
 * Feature - Support Docker on Windows Server 2016.
