@@ -174,7 +174,7 @@ configure them as something other than the defaults.
 | `ECS_IMAGE_CLEANUP_INTERVAL` | 30m | The time interval between automated image cleanup cycles. If set to less than 10 minutes, the value is ignored. | 30m | 30m |
 | `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h | 1h |
 | `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 | 5 |
-| `ECS_INSTANCE_ATTRIBUTES` | `[{"stack": "prod"}]` | A list of custom attributes, in JSON form, to apply to your container instances. | `[]` | `[]` |
+| `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | A map of custom attributes, in JSON form, to apply to your container instances. | `{}` | `{}` |
 
 ### Persistence
 
