@@ -510,10 +510,10 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// discard events while the task is being removed from engine state
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
-	mtask.engine.state.RemoveTask(mtask.Task)
-	log.Debug("Finished removing task data; removing from state no longer managing", "task", mtask.Task)
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()
+	mtask.engine.state.RemoveTask(mtask.Task)
+	seelog.Debug("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
 	delete(mtask.engine.managedTasks, mtask.Arn)
 	handleCleanupDone <- struct{}{}
 	mtask.engine.processTasks.Unlock()
