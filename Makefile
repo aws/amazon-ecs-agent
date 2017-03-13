@@ -83,6 +83,9 @@ run-functional-tests: testnnp test-registry
 testnnp:
 	cd misc/testnnp; $(MAKE) $(MFLAGS)
 
+pause-container:
+	cd misc/pause-container; $(MAKE) $(MFLAGS)
+
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
 
