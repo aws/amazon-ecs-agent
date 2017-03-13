@@ -83,6 +83,9 @@ type DockerClient interface {
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
 	RemoveContainer(string, time.Duration) error
 
+	PauseContainer(string) error
+	UnpauseContainer(string) error
+
 	InspectContainer(string, time.Duration) (*docker.Container, error)
 	ListContainers(bool, time.Duration) ListContainersResponse
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
@@ -778,6 +781,26 @@ func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListCont
 	}
 
 	return ListContainersResponse{DockerIDs: containerIDs, Error: nil}
+}
+
+func (dg *dockerGoClient) PauseContainer(id string) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.PauseContainer(id)
+	return err
+}
+
+func (dg *dockerGoClient) UnpauseContainer(id string) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.UnpauseContainer(id)
+	return err
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
