@@ -11,10 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM gcc:4.9
-COPY pause.c /usr/src/
+FROM scratch
+COPY pause /usr/src/
 WORKDIR /usr/src
-RUN gcc -o pause pause.c
-RUN chmod +s ./pause
 USER 1000
 CMD ["./pause"]

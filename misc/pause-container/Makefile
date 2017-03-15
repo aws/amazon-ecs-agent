@@ -18,7 +18,7 @@ SRCS = pause.c
 CFLAGS = -Os -Wall -Werror -static
 GCC = gcc
 
-TAG = 3.0
+TAG = 1.0
 IMAGE = "amazon-ecs-pause"
 
 all: container
@@ -26,7 +26,8 @@ all: container
 bin:
 	$(GCC) $(CFLAGS) $(SRCS) -o $(BIN)
 
-container:
+container: bin
+	# Switch to pull from ECR/Docker-Hub
 	docker build . -t "$(IMAGE):$(TAG)"
 
 clean:
