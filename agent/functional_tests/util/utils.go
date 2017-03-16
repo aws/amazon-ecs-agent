@@ -579,23 +579,28 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 	}
 
 	var desiredFile string
+	found := false
+
 	for _, file := range logfiles {
 		if strings.HasPrefix(file.Name(), filePrefix) {
 			desiredFile = file.Name()
-			break
+			if utils.ZeroOrNil(desiredFile) {
+				return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
+			}
+
+			data, err := ioutil.ReadFile(filepath.Join(dir, desiredFile))
+			if err != nil {
+				return fmt.Errorf("Failed to read file, err: %v", err)
+			}
+
+			if strings.Contains(string(data), content) {
+				found = true
+				break
+			}
 		}
 	}
 
-	if utils.ZeroOrNil(desiredFile) {
-		return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
-	}
-
-	data, err := ioutil.ReadFile(filepath.Join(dir, desiredFile))
-	if err != nil {
-		return fmt.Errorf("Failed to read file, err: %v", err)
-	}
-
-	if !strings.Contains(string(data), content) {
+	if !found {
 		return fmt.Errorf("Could not find the content: %v in the file: %v", content, desiredFile)
 	}
 
