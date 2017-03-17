@@ -17,6 +17,7 @@ package engine
 import (
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,8 +26,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
 
@@ -950,4 +954,70 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 	if imageState != nil {
 		t.Error("Incorrect image state retrieved by image name")
 	}
+}
+
+// TestConcurrentRemoveUnusedImages checks for concurrent map writes
+// in the imageManager
+func TestConcurrentRemoveUnusedImages(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := NewMockDockerClient(ctrl)
+
+	imageManager := &dockerImageManager{
+		client: client,
+		state:  dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
+		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
+	}
+
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	container := &api.Container{
+		Name:  "testContainer",
+		Image: "testContainerImage",
+	}
+	sourceImage := &image.Image{
+		ImageID: "sha256:qwerty",
+	}
+	sourceImage.Names = append(sourceImage.Names, container.Image)
+	imageInspected := &docker.Image{
+		ID: "sha256:qwerty",
+	}
+	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
+	err := imageManager.RecordContainerReference(container)
+	if err != nil {
+		t.Error("Error in adding container to an existing image state")
+	}
+	require.Equal(t, 1, len(imageManager.imageStates))
+
+	// Remove container reference from image state to trigger cleanup
+	err = imageManager.RemoveContainerReferenceFromImageState(container)
+	assert.NoError(t, err)
+
+	imageState, _ := imageManager.getImageState(imageInspected.ID)
+	imageState.PulledAt = time.Now().AddDate(0, -2, 0)
+	imageState.LastUsedAt = time.Now().AddDate(0, -2, 0)
+
+	client.EXPECT().RemoveImage(container.Image, removeImageTimeout).Return(nil)
+	require.Equal(t, 1, len(imageManager.imageStates))
+
+	// We create 1000 goroutines and then perform a channel close
+	// to simulate the concurrent map write problem
+	numRoutines := 1000
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(numRoutines)
+
+	ok := make(chan bool)
+
+	for i := 0; i < numRoutines; i++ {
+		go func() {
+			<-ok
+			imageManager.removeUnusedImages()
+			waitGroup.Done()
+		}()
+	}
+
+	close(ok)
+	waitGroup.Wait()
+	require.Equal(t, 0, len(imageManager.imageStates))
 }
