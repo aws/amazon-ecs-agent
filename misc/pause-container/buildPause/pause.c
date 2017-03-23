@@ -1,8 +1,7 @@
-// This file is derived from the Kubernetes Project, Copyright 2015 Google Inc. All rights reserved.
+// This file is derived from the Kubernetes Project, Copyright 2016 The Kubernetes Authors.
 //
-// The original code may be found :
-// https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c
-//
+// The original code may be found at:
+// https://github.com/kubernetes/kubernetes/blob/c25c186ec544cf3501a31e77e8fbabce7b138b49/build/pause/pause.c
 /*
 Copyright 2016 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +30,8 @@ static void sigdown(int signo) {
 }
 
 static void sigreap(int signo) {
-  while (waitpid(-1, NULL, WNOHANG) > 0)
-    ;
+  // NOTE: Moved semi-colon for semantic consistency
+  while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
 int main() {

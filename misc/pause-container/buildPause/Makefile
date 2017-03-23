@@ -11,16 +11,14 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-.PHONY: all container clean
+.PHONY: all
 
+BIN = /out/pause
+SRCS = pause.c
+CFLAGS = -Os -Wall -Werror -static
+GCC = gcc
 
-IMAGE = "amazon/amazon-ecs-pause"
-TAG = 1.0
+all: bin
 
-all: container
-
-container:
-	docker build . -t "$(IMAGE):$(TAG)"
-
-clean:
-	docker rmi "$(IMAGE):$(TAG)"
+bin:
+	$(GCC) $(CFLAGS) $(SRCS) -o $(BIN)

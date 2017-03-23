@@ -41,6 +41,4 @@ type Client interface {
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error
-	PauseContainer(string) error
-	UnpauseContainer(string) error
 }

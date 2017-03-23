@@ -12,7 +12,8 @@
 # permissions and limitations under the License.
 
 FROM scratch
-COPY pause /usr/src/
-WORKDIR /usr/src
+MAINTAINER Amazon Web Services, Inc.
+COPY pause /usr/bin/
+WORKDIR /usr/bin
 USER 1000
 CMD ["./pause"]
