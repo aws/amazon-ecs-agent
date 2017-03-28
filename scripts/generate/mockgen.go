@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	projectVendor         = `github.com/aws/amazon-ecs-agent/agent/vendor`
+	projectVendor         = `github.com/aws/amazon-ecs-agent/agent/vendor/`
 	copyrightHeaderFormat = "// Copyright 2015-%v Amazon.com, Inc. or its affiliates. All Rights Reserved."
 	licenseBlock          = `
 //
