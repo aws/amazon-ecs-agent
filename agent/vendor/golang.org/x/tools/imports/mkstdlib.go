@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"go/format"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -46,6 +47,12 @@ func main() {
 		mustOpen(api("go1.txt")),
 		mustOpen(api("go1.1.txt")),
 		mustOpen(api("go1.2.txt")),
+		mustOpen(api("go1.3.txt")),
+		mustOpen(api("go1.4.txt")),
+		mustOpen(api("go1.5.txt")),
+		mustOpen(api("go1.6.txt")),
+		mustOpen(api("go1.7.txt")),
+		mustOpen(api("go1.8.txt")),
 	)
 	sc := bufio.NewScanner(f)
 	fullImport := map[string]string{} // "zip.NewReader" => "archive/zip"
@@ -81,10 +88,17 @@ func main() {
 			outf("\t%q: %q,\n", key, fullImport[key])
 		}
 	}
+	outf("\n")
+	for _, sym := range [...]string{"Alignof", "ArbitraryType", "Offsetof", "Pointer", "Sizeof"} {
+		outf("\t%q: %q,\n", "unsafe."+sym, "unsafe")
+	}
 	outf("}\n")
 	fmtbuf, err := format.Source(buf.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.Stdout.Write(fmtbuf)
+	err = ioutil.WriteFile("zstdlib.go", fmtbuf, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

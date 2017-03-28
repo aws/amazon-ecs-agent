@@ -324,11 +324,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
-			"Rev": "f09c4662a0bd6bd8943ac7b4931e185df9471da4"
+			"Rev": "6c23252515492caf9b228a9d5cabcdbde29f7f82"
 		},
 		{
 			"ImportPath": "golang.org/x/net/context/ctxhttp",
-			"Rev": "f09c4662a0bd6bd8943ac7b4931e185df9471da4"
+			"Rev": "6c23252515492caf9b228a9d5cabcdbde29f7f82"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html",
@@ -340,23 +340,23 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
+			"Rev": "afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/windows",
-			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
+			"Rev": "afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/windows/registry",
-			"Rev": "62bee037599929a6e9146f29d10dd5208c43507d"
+			"Rev": "afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd"
 		},
 		{
 			"ImportPath": "golang.org/x/tools/go/ast/astutil",
-			"Rev": "af0a4481dd36113fd967a37a64d887d4b9d3425e"
+			"Rev": "d63e2b22b05a9682de336cd4802bba367ed429e7"
 		},
 		{
 			"ImportPath": "golang.org/x/tools/imports",
-			"Rev": "af0a4481dd36113fd967a37a64d887d4b9d3425e"
+			"Rev": "d63e2b22b05a9682de336cd4802bba367ed429e7"
 		}
 	]
 }
