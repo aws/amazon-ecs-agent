@@ -447,9 +447,8 @@ func childrenOf(n ast.Node) []ast.Node {
 	case *ast.ValueSpec:
 		// TODO(adonovan): ValueSpec.{Doc,Comment}?
 
-	default:
-		// Includes *ast.BadDecl, *ast.BadExpr, *ast.BadStmt.
-		panic(fmt.Sprintf("unexpected node type %T", n))
+	case *ast.BadDecl, *ast.BadExpr, *ast.BadStmt:
+		// nop
 	}
 
 	// TODO(adonovan): opt: merge the logic of ast.Inspect() into
@@ -510,7 +509,10 @@ func NodeDescription(n ast.Node) string {
 			return "fall-through statement"
 		}
 	case *ast.CallExpr:
-		return "function call (or conversion)"
+		if len(n.Args) == 1 && !n.Ellipsis.IsValid() {
+			return "function call (or conversion)"
+		}
+		return "function call"
 	case *ast.CaseClause:
 		return "case clause"
 	case *ast.ChanType:
