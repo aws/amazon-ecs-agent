@@ -473,8 +473,6 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	pullStart := time.Now()
-	defer seelog.Infof("Finished pulling container %v. Lock acquisition and pull took %v.", container, time.Since(pullStart).String())
 	if engine.enableConcurrentPull {
 		seelog.Infof("Pulling container %v concurrently. Task: %v", container, task)
 		return engine.concurrentPull(task, container)
@@ -485,22 +483,30 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 }
 
 func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
-
+	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s. Task: %v", container.Image, task)
 	ImagePullDeleteLock.RLock()
-	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
+	seelog.Debugf("Acquired ImagePullDeleteLock, start pulling image - %s. Task: %v", container.Image, task)
+	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s. Task: %v", container.Image, task)
 	defer ImagePullDeleteLock.RUnlock()
 
+	pullStart := time.Now()
+	defer func(startTime time.Time) {
+		seelog.Infof("Finished pulling container %v in %s. Task: %v", container.Image, time.Since(startTime).String(), task)
+	}(pullStart)
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
 func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s", container.Image)
-
+	seelog.Debugf("Attempting to obtain ImagePullDeleteLock to pull image - %s. Task: %v", container.Image, task)
 	ImagePullDeleteLock.Lock()
-	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s", container.Image)
+	seelog.Debugf("Acquired ImagePullDeleteLock, start pulling image - %s. Task: %v", container.Image, task)
+	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s. Task: %v", container.Image, task)
 	defer ImagePullDeleteLock.Unlock()
 
+	pullStart := time.Now()
+	defer func(startTime time.Time) {
+		seelog.Infof("Finished pulling container %v in %s. Task: %v", container.Image, time.Since(startTime).String(), task)
+	}(pullStart)
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
