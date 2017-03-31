@@ -113,11 +113,14 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 
 	// Run two Tasks after cleanup, as the deadlock does not consistently occur after
 	// after just one task cleanup cycle.
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 
 		// Start a task with ten containers
 		testTask, err := agent.StartTask(t, "ten-containers")
 		require.NoError(t, err, fmt.Sprintf("Cycle %d: There was an error starting the Task", i))
+
+		// Wait for the task to be running
+		testTask.WaitRunning(2 * time.Minute)
 
 		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
 		require.NoError(t, err, "Waiting for task running failed")
@@ -126,6 +129,9 @@ func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
 		// Get the dockerID so we can later check that the container has been cleaned up.
 		dockerId, err := agent.ResolveTaskDockerID(testTask, "1")
 		require.NoError(t, err, fmt.Sprintf("Cycle %d: Error resolving docker id for container in task", i))
+
+		err = testTask.Stop()
+		require.NoError(t, err, fmt.Sprintf("Cycle %d: Failed to stop task", i))
 
 		// 2 minutes should be enough for the Task to have completed. If the task has not
 		// completed and is in PENDING, the agent is most likely deadlocked.
