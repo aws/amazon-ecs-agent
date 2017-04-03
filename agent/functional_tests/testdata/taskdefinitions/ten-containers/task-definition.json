@@ -5,60 +5,60 @@
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "2",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "3",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "4",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "5",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "6",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "7",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "8",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "9",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }, {
     "name": "10",
     "image": "busybox",
     "memory": 10,
     "cpu": 0,
-    "command": ["sleep", "5"]
+    "command": ["sleep", "300"]
   }]
 }
