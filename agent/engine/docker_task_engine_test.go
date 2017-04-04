@@ -187,6 +187,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
 	}
 	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
+	// This ensures that managedTask.waitForStopReported makes progress
 	sleepTask.SetSentStatus(api.TaskStopped)
 
 	// Extra events should not block forever; duplicate acs and docker events are possible
@@ -223,90 +224,69 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	}
 }
 
+// TestRemoveEvents tests if the task engine can handle task events while the task is being
+// cleaned up. This test ensures that there's no regression in the task engine and ensures
+// there's no deadlock as seen in #313
 func TestRemoveEvents(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
-
-	var once sync.Once
-	waitTimeout := make(chan struct{})
 	eventStream := make(chan DockerContainerChangeEvent)
-	cleanupDone := sync.WaitGroup{}
-	eventsReported := sync.WaitGroup{}
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
+	// createStartEventsReported is used to force the test to wait until the container created and started
+	// events are processed
+	createStartEventsReported := sync.WaitGroup{}
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	var createdContainerName string
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
-		imageManager.EXPECT().RecordContainerReference(container)
+		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(x, y interface{}, containerName string, z time.Duration) {
-				// sleep5 task contains only one container. Just assign
-				// the containerName to createdContainerName
+			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 				createdContainerName = containerName
-				eventsReported.Add(1)
+				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerCreated)
-					eventsReported.Done()
+					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
-				eventsReported.Add(1)
+				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
-					eventsReported.Done()
+					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-
-		cleanupDone.Add(1)
-		client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
-			func(removedContainerName string, timeout time.Duration) {
-				assert.Equal(t, createdContainerName, removedContainerName, "Container name mismatch")
-				cleanupDone.Done()
-			}).Return(nil)
-		client.EXPECT().DescribeContainer(gomock.Any()).MinTimes(1)
-		imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 	}
 
+	// steadyStateCheckWait is used to force the test to wait until the steady-state check
+	// has been invoked at least once
+	steadyStateCheckWait := sync.WaitGroup{}
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
-	testTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
-	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).MinTimes(1)
-	testTime.EXPECT().After(gomock.Any()).Return(cleanup).Times(2)
-	testTime.EXPECT().Sleep(gomock.Any()).Return().AnyTimes() // This will speed up the test
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			// trigger check task state and a bunch of 'poll' describe containers
-			case steadyStateVerify <- time.Now():
-				once.Do(func() {
-					waitTimeout <- struct{}{}
-				})
-			default:
-			}
-		}
-	}()
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+			steadyStateCheckWait.Done()
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
 
 	err := taskEngine.Init()
 	assert.NoError(t, err)
+
 	taskEvents, contEvents := taskEngine.TaskEvents()
+	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
 
 	assert.Equal(t, (<-contEvents).Status, api.ContainerRunning, "Expected container to run first")
 	assert.Equal(t, (<-taskEvents).Status, api.TaskRunning, "Expected task to be RUNNING")
-
 	select {
 	case <-taskEvents:
 		t.Fatal("Should be out of events")
@@ -314,14 +294,19 @@ func TestRemoveEvents(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
-	eventsReported.Wait()
+
+	// Wait for container create and start events to be processed
+	createStartEventsReported.Wait()
+	// Wait for steady state check to be invoked
+	steadyStateCheckWait.Wait()
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
 	// backwards in state" stop and we haven't 'expect'd for that
 
 	exitCode := 0
-	<-waitTimeout
 	// And then docker reports that sleep died, as sleep is wont to do
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
@@ -330,40 +315,39 @@ func TestRemoveEvents(t *testing.T) {
 			ExitCode: &exitCode,
 		},
 	}
+	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
 	}
-	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Expected task to be STOPPED")
-	sleepTask.SetSentStatus(api.TaskStopped)
+	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
 
-	// Previous task is waiting for clean up, adding second task
 	sleepTaskStop := testdata.LoadTask("sleep5")
-	sleepTaskStop.Arn = "second_task"
 	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
-
-	// Cleaning up the second task will update the imagestate
-	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
-
 	taskEngine.AddTask(sleepTaskStop)
 
-	cleanupDone.Add(1)
-	go func() {
-		// Wait for the second task to be stopped
-		assert.Equal(t, (<-contEvents).Status, api.ContainerStopped, "Expected container stopped event")
-		assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Expected task to be STOPPED")
-		cleanupDone.Done()
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
+		func(removedContainerName string, timeout time.Duration) {
+			assert.Equal(t, createdContainerName, removedContainerName, "Container name mismatch")
 
-		// Set the sent status so that cleanup won't be blocked
-		sleepTaskStop.SetSentStatus(api.TaskStopped)
-	}()
+			// Emit a couple of events for the task before cleanup finishes. This forces
+			// discardEventsUntil to be invoked and should test the code path that
+			// caused the deadlock, which was fixed with #320
+			eventStream <- createDockerEvent(api.ContainerStopped)
+			eventStream <- createDockerEvent(api.ContainerStopped)
+		}).Return(nil)
 
-	// trigger cleanup for the two tasks
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
+
+	// This ensures that managedTask.waitForStopReported makes progress
+	sleepTask.SetSentStatus(api.TaskStopped)
+
+	// trigger cleanup
 	cleanup <- time.Now()
-	cleanup <- time.Now()
 
-	cleanupDone.Wait()
+	// Wait for the task to actually be dead; if we just fallthrough immediately,
+	// the remove might not have happened (expectation failure)
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
 		if len(tasks) == 0 {
