@@ -97,55 +97,6 @@ func TestOOMContainer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// This test addresses a deadlock issue which was noted in GH:313 and fixed
-// in GH:320. It runs a service with 10 containers, waits for cleanup, starts
-// another two instances of that service and ensures that those tasks complete.
-func TestTaskCleanupDoesNotDeadlock(t *testing.T) {
-	// Set the ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION to its lowest permissible value
-	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "60s")
-	defer os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	// This bug was fixed in v1.8.1
-	agent.RequireVersion(">=1.8.1")
-
-	// Run two Tasks after cleanup, as the deadlock does not consistently occur after
-	// after just one task cleanup cycle.
-	for i := 0; i < 3; i++ {
-
-		// Start a task with ten containers
-		testTask, err := agent.StartTask(t, "ten-containers")
-		require.NoError(t, err, fmt.Sprintf("Cycle %d: There was an error starting the Task", i))
-
-		isTaskRunning, err := agent.WaitRunningViaIntrospection(testTask)
-		require.NoError(t, err, "Waiting for task running failed")
-		require.True(t, isTaskRunning, fmt.Sprintf("Cycle %d: Task should be RUNNING but is not", i))
-
-		// Get the dockerID so we can later check that the container has been cleaned up.
-		dockerId, err := agent.ResolveTaskDockerID(testTask, "1")
-		require.NoError(t, err, fmt.Sprintf("Cycle %d: Error resolving docker id for container in task", i))
-
-		// 2 minutes should be enough for the Task to have completed. If the task has not
-		// completed and is in PENDING, the agent is most likely deadlocked.
-		err = testTask.WaitStopped(2 * time.Minute)
-		require.NoError(t, err, fmt.Sprintf("Cycle %d: Task did not transition into to STOPPED in time", i))
-
-		isTaskStopped, err := agent.WaitStoppedViaIntrospection(testTask)
-		require.NoError(t, err, "Waiting for task stopped failed")
-		require.True(t, isTaskStopped, fmt.Sprintf("Cycle %d: Task should be STOPPED but is not", i))
-
-		// Wait for the tasks to be cleaned up
-		time.Sleep(90 * time.Second)
-
-		// Ensure that tasks are cleaned up. WWe should not be able to describe the
-		// container now since it has been cleaned up.
-		_, err = agent.DockerClient.InspectContainer(dockerId)
-		require.Error(t, err, fmt.Sprintf("Cycle %d: Expected error inspecting container in task.", i))
-	}
-}
-
 func strptr(s string) *string { return &s }
 
 func TestCommandOverrides(t *testing.T) {
