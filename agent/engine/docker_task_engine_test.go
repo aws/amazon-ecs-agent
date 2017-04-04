@@ -509,17 +509,11 @@ func TestSteadyStatePoll(t *testing.T) {
 			DockerContainerMetadata{
 				DockerID: "containerId",
 			}).Times(2),
-		// TODO remove the extra expect and change AnyTimes() to MinTimes(1) after updating gomock
 		client.EXPECT().DescribeContainer("containerId").Return(
 			api.ContainerStopped,
 			DockerContainerMetadata{
 				DockerID: "containerId",
-			}),
-		client.EXPECT().DescribeContainer("containerId").Return(
-			api.ContainerStopped,
-			DockerContainerMetadata{
-				DockerID: "containerId",
-			}).AnyTimes(),
+			}).MinTimes(1),
 		// the engine *may* call StopContainer even though it's already stopped
 		client.EXPECT().StopContainer("containerId", stopContainerTimeout).AnyTimes(),
 	)
@@ -717,7 +711,6 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 			// Since task is not in steady state, progressContainers causes
 			// another invocation of StopContainer. Return a timeout error
 			// for that as well.
-			// TODO change AnyTimes() to MinTimes(1) after updating gomock
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(
 				func(id string, timeout time.Duration) {
 					go func() {
@@ -727,7 +720,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 						// to 'STOPPED'
 						eventStream <- createDockerEvent(api.ContainerStopped)
 					}()
-				}).Return(containerStopTimeoutError).AnyTimes(),
+				}).Return(containerStopTimeoutError).MinTimes(1),
 		)
 	}
 
