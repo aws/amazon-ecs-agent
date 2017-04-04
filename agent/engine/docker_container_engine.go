@@ -16,6 +16,7 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
+	"encoding/json"
 	"io"
 	"strings"
 	"sync"
@@ -146,9 +147,13 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (
 		return nil, err
 	}
 
+	var dockerAuthData json.RawMessage
+	if cfg.EngineAuthData != nil {
+		dockerAuthData = cfg.EngineAuthData.Contents()
+	}
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
-		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
+		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		config:           cfg,
 	}, nil

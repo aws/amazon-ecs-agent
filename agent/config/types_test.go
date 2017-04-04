@@ -17,6 +17,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSensitiveRawMessageImplements(t *testing.T) {
@@ -29,15 +31,20 @@ func TestSensitiveRawMessageImplements(t *testing.T) {
 func TestSensitiveRawMessage(t *testing.T) {
 	sensitive := NewSensitiveRawMessage(json.RawMessage("secret"))
 
-	for i, str := range []string{
+	for _, str := range []string{
 		sensitive.String(),
 		sensitive.GoString(),
 		fmt.Sprintf("%v", sensitive),
 		fmt.Sprintf("%#v", sensitive),
 		fmt.Sprint(sensitive),
 	} {
-		if str != "[redacted]" {
-			t.Errorf("#%v: expected redacted, got %s", i, str)
-		}
+		assert.Equal(t, "[redacted]", str, "expected redacted")
 	}
+}
+
+// TestEmptySensitiveRawMessage tests the message content is empty
+func TestEmptySensitiveRawMessage(t *testing.T) {
+	sensitive := NewSensitiveRawMessage(json.RawMessage(""))
+
+	assert.Nil(t, sensitive, "empty message should return nil")
 }

@@ -154,9 +154,12 @@ type SensitiveRawMessage struct {
 	contents json.RawMessage
 }
 
-// NewSensitiveRawMessage returns a new encapsulated json.RawMessage that
-// cannot be accidentally logged via .String/.GoString/%v/%#v
+// NewSensitiveRawMessage returns a new encapsulated json.RawMessage or nil if
+// the data is empty. It cannot be accidentally logged via .String/.GoString/%v/%#v
 func NewSensitiveRawMessage(data json.RawMessage) *SensitiveRawMessage {
+	if len(data) == 0 {
+		return nil
+	}
 	return &SensitiveRawMessage{contents: data}
 }
 
