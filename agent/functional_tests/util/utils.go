@@ -1,6 +1,6 @@
 // +build functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -114,8 +114,9 @@ type AgentOptions struct {
 	PortBindings     map[docker.Port]map[string]string
 }
 
-// PLatform Independent piece of Agent Startup. Gets executed on both linux and Windows.
-func (agent *TestAgent) platformIndependentStartAgent() error {
+// verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
+// This is a platform-independent piece of Agent Startup.
+func (agent *TestAgent) verifyIntrospectionAPI() error {
 	// Wait up to 10s for it to register
 	var localMetadata handlers.MetadataResponse
 	for i := 0; i < 10; i++ {

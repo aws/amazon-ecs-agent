@@ -946,7 +946,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 func TestCapabilities(t *testing.T) {
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
-			dockerclient.JsonFileDriver,
+			dockerclient.JSONFileDriver,
 			dockerclient.SyslogDriver,
 			dockerclient.JournaldDriver,
 			dockerclient.GelfDriver,

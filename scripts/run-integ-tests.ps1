@@ -1,4 +1,4 @@
-# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -19,7 +19,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -tags integration -timeout=10m -v ../agent/engine ../agent/stats
+  go test -tags integration -timeout=15m -v ../agent/engine ../agent/stats
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"
