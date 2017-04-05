@@ -28,6 +28,8 @@ var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
 
 func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
 	statesaver = saver
+	handler := NewTaskHandler()
+
 	for {
 		taskEvents, containerEvents := taskEngine.TaskEvents()
 
@@ -40,7 +42,8 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 					break
 				}
 
-				AddContainerEvent(event, client)
+				handler.AddContainerEvent(event, client)
+
 			case event, open := <-taskEvents:
 				if !open {
 					taskEvents = nil
@@ -48,7 +51,7 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 					break
 				}
 
-				AddTaskEvent(event, client)
+				handler.AddTaskEvent(event, client)
 			}
 		}
 	}

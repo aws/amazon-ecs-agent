@@ -273,8 +273,10 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 		return
 	}
 
+	handler := eventhandler.NewTaskHandler()
+
 	// Only need to stop the task; it brings down the containers too.
-	eventhandler.AddTaskEvent(api.TaskStateChange{
+	handler.AddTaskEvent(api.TaskStateChange{
 		TaskArn: *task.Arn,
 		Status:  api.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
