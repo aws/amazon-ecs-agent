@@ -180,7 +180,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			ExitCode: &exitCode,
 		},
 	}
-	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -315,7 +314,6 @@ func TestRemoveEvents(t *testing.T) {
 			ExitCode: &exitCode,
 		},
 	}
-	steadyStateVerify <- time.Now()
 
 	if cont := <-contEvents; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
