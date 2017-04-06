@@ -16,6 +16,8 @@ package config
 import (
 	"os"
 	"strings"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
@@ -29,7 +31,17 @@ const (
 	AgentLogFile = "ecs-agent.log"
 
 	UnixSocketPrefix = "unix://"
+
+	// Default region name
+	DefaultRegionName = "default"
 )
+
+var S3BucketMap = map[string]string{
+	"us-east-1" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+	"us-west-2" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+}
 
 // AgentConfigDirectory returns the location on disk for configuration
 func AgentConfigDirectory() string {
@@ -77,7 +89,7 @@ func AgentTarball() string {
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
 func AgentRemoteTarball() string {
-	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.14.1.tar"
+	return FindTarballUrl()
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
@@ -98,4 +110,43 @@ func DockerUnixSocket() (string, bool) {
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
 	// eg: Docker daemon restart
 	return "/var/run", false
+}
+
+// Find AZ information from Metadata. If error return a blank result
+func EC2MetadataAZ () string {
+	sessionInstance := session.Must(session.NewSession())
+	metadata := ec2metadata.New(sessionInstance)
+	azName, err := metadata.GetMetadata("placement/availability-zone")
+
+	if err != nil {
+		return ""
+	}
+
+	return azName
+}
+
+//convert AZ name to Region name or default if blank is returned
+func AZToRegionName (azName string) string {
+	if azName == "" {
+		return DefaultRegionName
+	}
+
+	return azName[0:len(azName)-1]
+}
+
+// Get Bucket from list of S3 Buckets by region name or default if key is not found
+func GetS3BucketMapByRegion(regionName string) string {
+	val, exists := S3BucketMap[regionName]
+	if !exists {
+		return S3BucketMap[DefaultRegionName]
+	}
+
+	return val
+}
+
+// Retreive tarball URL from S3 Bucket list by searching for region name
+func FindTarballUrl () string {
+	azName := EC2MetadataAZ()
+	regionName := AZToRegionName(azName)
+	return GetS3BucketMapByRegion(regionName)
 }

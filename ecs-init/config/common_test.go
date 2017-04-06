@@ -45,3 +45,47 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 		t.Error("DockerUnixSocket() should read from envrionment variable DOCKER_HOST, when DOCKER_HOST is set")
 	}
 }
+
+func TestEC2MetadataAZ(t *testing.T) {
+	//Test if az is returned
+	azName := EC2MetadataAZ()
+	if azName == "" {
+		t.Errorf("Result is not proper Availability Zone Name. AZ returned: " + azName)
+	}
+
+}
+
+func TestAZToRegionName(t *testing.T) {
+	regionName := AZToRegionName("")
+	if regionName != DefaultRegionName {
+		t.Errorf("AZ Name did not return default. Region returned: " + regionName)
+	}
+
+	regionName = AZToRegionName("us-west-2b")
+	if regionName != "us-west-2" {
+		t.Errorf("AZ Name did  not format to proper Region name returned: " + regionName)
+	}
+}
+
+func TestGetS3BucketMapByRegion(t *testing.T) {
+	s3Bucket := GetS3BucketMapByRegion(DefaultRegionName)
+	if s3Bucket != S3BucketMap[DefaultRegionName]{
+		t.Errorf("Region Bucket for default region did not match default. Region bucket returned: " + s3Bucket)
+	}
+
+	s3Bucket = GetS3BucketMapByRegion("Incorect Region Name")
+	if s3Bucket != S3BucketMap[DefaultRegionName]{
+		t.Errorf("Region Bucket invalid region did not match default. Region bucket returned: " + s3Bucket)
+	}
+
+	s3Bucket = GetS3BucketMapByRegion("us-west-2")
+	if s3Bucket != S3BucketMap["us-west-2"]{
+		t.Errorf("Region Bucket did not contain entry for region. Region bucket returned: " + s3Bucket)
+	}
+
+	s3Bucket = GetS3BucketMapByRegion("cn-north-1")
+	if s3Bucket != S3BucketMap["cn-north-1"]{
+		t.Errorf("Region Bucket did  contain entry for region. Region bucket returned: " + s3Bucket)
+	}
+
+}
