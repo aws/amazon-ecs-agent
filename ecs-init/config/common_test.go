@@ -61,8 +61,8 @@ func TestAZToRegionName(t *testing.T) {
 		t.Errorf("AZ Name did not return default. Region returned: " + regionName)
 	}
 
-	regionName = AZToRegionName("us-west-2b")
-	if regionName != "us-west-2" {
+	regionName = AZToRegionName("us-east-1b")
+	if regionName != "us-east-1" {
 		t.Errorf("AZ Name did  not format to proper Region name returned: " + regionName)
 	}
 }
@@ -78,8 +78,8 @@ func TestGetS3BucketMapByRegion(t *testing.T) {
 		t.Errorf("Region Bucket invalid region did not match default. Region bucket returned: " + s3Bucket)
 	}
 
-	s3Bucket = GetS3BucketMapByRegion("us-west-2")
-	if s3Bucket != S3BucketMap["us-west-2"]{
+	s3Bucket = GetS3BucketMapByRegion("us-east-1")
+	if s3Bucket != S3BucketMap["us-east-1"]{
 		t.Errorf("Region Bucket did not contain entry for region. Region bucket returned: " + s3Bucket)
 	}
 

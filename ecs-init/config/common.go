@@ -38,7 +38,6 @@ const (
 
 var S3BucketMap = map[string]string{
 	"us-east-1" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
-	"us-west-2" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
 	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
 	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
 }
