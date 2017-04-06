@@ -17,7 +17,7 @@
 # Because the Agent's tests include starting docker containers, it is necessary
 # to have both go and docker available in the testing environment.
 # It's easier to get go, so start with docker-in-docker and add go on top
-FROM golang:1.7
+FROM golang:1.5
 MAINTAINER Amazon Web Services, Inc.
 
 RUN mkdir -p /go/src/github.com/aws/
