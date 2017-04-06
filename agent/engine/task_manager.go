@@ -165,7 +165,7 @@ func (mtask *managedTask) overseeTask() {
 	// We only break out of the above if this task is known to be stopped. Do
 	// onetime cleanup here, including removing the task after a timeout
 	llog.Debug("Task has reached stopped. We're just waiting and removing containers now")
-	taskCredentialsID := mtask.GetCredentialsId()
+	taskCredentialsID := mtask.GetCredentialsID()
 	if taskCredentialsID != "" {
 		mtask.engine.credentialsManager.RemoveCredentials(taskCredentialsID)
 	}
@@ -497,7 +497,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	// wait for api.TaskStopped to be sent
 	ok := mtask.waitForStopReported()
-	if !ok{
+	if !ok {
 		seelog.Errorf("Aborting cleanup for task %v as it is not reported stopped.  SentStatus: %v", mtask, mtask.GetSentStatus())
 		return
 	}

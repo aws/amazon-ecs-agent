@@ -597,7 +597,7 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	expectedTask := &api.Task{
 		Arn: expectedTaskArn,
 	}
-	expectedTask.SetCredentialsId(expectedTaskCredentials.CredentialsID)
+	expectedTask.SetCredentialsID(expectedTaskCredentials.CredentialsID)
 
 	if !reflect.DeepEqual(addedTask, expectedTask) {
 		return fmt.Errorf("Mismatch between expected and added tasks, expected: %v, added: %v", expectedTask, addedTask)

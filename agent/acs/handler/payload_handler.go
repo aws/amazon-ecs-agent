@@ -191,7 +191,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetCredentialsId(taskCredentials.IAMRoleCredentials.CredentialsID)
+			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
 		}
 		validTasks = append(validTasks, apiTask)
 	}
@@ -229,7 +229,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 
 		// Generate an ack request for the credentials in the task, if the
 		// task is associated with an IAM Role
-		taskCredentialsId := task.GetCredentialsId()
+		taskCredentialsId := task.GetCredentialsID()
 		if taskCredentialsId == "" {
 			// CredentialsId not set for task, no need to ack.
 			continue

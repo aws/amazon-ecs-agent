@@ -136,7 +136,7 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		seelog.Errorf("Error updating credentials, err: %v messageId: %s", err, messageId)
 		return fmt.Errorf("Error updating credentials %v", err)
 	}
-	task.SetCredentialsId(aws.StringValue(message.RoleCredentials.CredentialsId))
+	task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
 
 	go func() {
 		response := &ecsacs.IAMRoleCredentialsAckRequest{

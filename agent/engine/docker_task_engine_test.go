@@ -76,7 +76,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.SetCredentialsId(credentialsID)
+	sleepTask.SetCredentialsID(credentialsID)
 
 	eventStream := make(chan DockerContainerChangeEvent)
 	// createStartEventsReported is used to force the test to wait until the container created and started
@@ -194,7 +194,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
-	sleepTaskStop.SetCredentialsId(credentialsID)
+	sleepTaskStop.SetCredentialsID(credentialsID)
 	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
 	// As above, duplicate events should not be a problem

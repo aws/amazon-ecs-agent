@@ -943,7 +943,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	}
 
 	// Validate that the correct credentialsId is set for the task
-	credentialsIdFromTask := taskFromEngine.GetCredentialsId()
+	credentialsIdFromTask := taskFromEngine.GetCredentialsID()
 	if credentialsIdFromTask != credentialsIdInRefreshMessage {
 		t.Errorf("Mismatch between expected and added credentials id for task, expected: %s, added: %s", credentialsIdInRefreshMessage, credentialsIdFromTask)
 	}

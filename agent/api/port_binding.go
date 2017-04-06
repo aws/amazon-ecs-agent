@@ -24,6 +24,18 @@ const (
 	UnparseablePortErrorName               = "UnparsablePort"
 )
 
+// PortBinding represents a port binding for a container
+type PortBinding struct {
+	// ContainerPort is the port inside the container
+	ContainerPort uint16
+	// HostPort is the port exposed on the host
+	HostPort uint16
+	// BindIP is the IP address to which the port is bound
+	BindIP string `json:"BindIp"`
+	// Protocol is the protocol of the port
+	Protocol TransportProtocol
+}
+
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
 func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, NamedError) {

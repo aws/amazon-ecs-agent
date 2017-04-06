@@ -213,7 +213,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDIntegTest},
 	}
 	credentialsManager.SetTaskCredentials(taskCredentials)
-	testTask.SetCredentialsId(credentialsIDIntegTest)
+	testTask.SetCredentialsID(credentialsIDIntegTest)
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
