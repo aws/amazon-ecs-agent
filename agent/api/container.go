@@ -62,47 +62,54 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
-	// DesiredStatus represents the state where the container should go.  Generally the desired status is informed by the
-	// ECS backend as a result of either API calls made to ECS or decisions made by the ECS service scheduler, though the
-	// agent may also set the DesiredStatus if a different "essential" container in the task exits.  The DesiredStatus is
-	// almost always either ContainerRunning or ContainerStopped.  Do not access DesiredStatus directly.  Instead,
-	// use `GetDesiredStatus` and `SetDesiredStatus`.
-	// TODO DesiredStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// DesiredStatus represents the state where the container should go. Generally,
+	// the desired status is informed by the ECS backend as a result of either
+	// API calls made to ECS or decisions made by the ECS service scheduler,
+	// though the agent may also set the DesiredStatus if a different "essential"
+	// container in the task exits. The DesiredStatus is almost always either
+	// ContainerRunning or ContainerStopped.
+	// NOTE: Do not access DesiredStatus directly.  Instead, use `GetDesiredStatus`
+	// and `SetDesiredStatus`.
+	// TODO DesiredStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// is handled properly so that the state storage continues to work.
 	DesiredStatus     ContainerStatus `json:"desiredStatus"`
 	desiredStatusLock sync.RWMutex
 
-	// KnownStatus represents the state where the container is.  Do not access KnownStatus directly.  Instead, use
-	// `GetKnownStatus` and `SetKnownStatus`.
-	// TODO KnownStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// KnownStatus represents the state where the container is.
+	// NOTE: Do not access `KnownStatus` directly.  Instead, use `GetKnownStatus`
+	// and `SetKnownStatus`.
+	// TODO KnownStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// is handled properly so that the state storage continues to work.
 	KnownStatus     ContainerStatus
 	knownStatusLock sync.RWMutex
 
 	// RunDependencies is a list of containers that must be run before
 	// this one is created
 	RunDependencies []string
-	// 'Internal' containers are ones that are not directly specified by task definitions, but created by the agent
+	// 'Internal' containers are ones that are not directly specified by
+	// task definitions, but created by the agent
 	IsInternal bool
 
-	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull, Create, Start, or Stop) but we don't
-	// yet know that the application was successful.
+	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull,
+	// Create, Start, or Stop) but we don't yet know that the application was successful.
 	AppliedStatus ContainerStatus
-	// ApplyingError is an error that occured trying to transition the container to its desired state
-	// It is propagated to the backend in the form 'Name: ErrorString' as the 'reason' field.
+	// ApplyingError is an error that occured trying to transition the container
+	// to its desired state. It is propagated to the backend in the form
+	// 'Name: ErrorString' as the 'reason' field.
 	ApplyingError *DefaultNamedError
 
-	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitContainerStateChange API.
-	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// SentStatus represents the last KnownStatus that was sent to the ECS
+	// SubmitContainerStateChange API.
+	// TODO SentStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON is
+	// handled properly so that the state storage continues to work.
 	SentStatus     ContainerStatus
 	sentStatusLock sync.RWMutex
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding
-
-	// Not upstream; todo move this out into a wrapper type
-	StatusLock sync.Mutex
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and

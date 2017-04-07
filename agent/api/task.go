@@ -66,32 +66,39 @@ type Task struct {
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 
-	// DesiredStatus represents the state where the task should go.  Generally the desired status is informed by the ECS
-	// backend as a result of either API calls made to ECS or decisions made by the ECS service scheduler.  The
-	// DesiredStatus is almost always either TaskRunning or TaskStopped.  Do not access DesiredStatus directly.  Instead,
-	// use `UpdateStatus`, `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
-	// TODO DesiredStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// DesiredStatus represents the state where the task should go. Generally,
+	// the desired status is informed by the ECS backend as a result of either
+	// API calls made to ECS or decisions made by the ECS service scheduler.
+	// The DesiredStatus is almost always either TaskRunning or TaskStopped.
+	// NOTE: Do not access DesiredStatus directly.  Instead, use `UpdateStatus`,
+	// `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
+	// TODO DesiredStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// is handled properly so that the state storage continues to work.
 	DesiredStatus     TaskStatus
 	desiredStatusLock sync.RWMutex
 
-	// KnownStatus represents the state where the task is.  This is generally the minimum of equivalent status types for
-	// the containers in the task; if one container is at ContainerRunning and another is at ContainerPulled, the task
-	// KnownStatus would be TaskPulled.  Do not access KnownStatus directly.  Instead, use `UpdateStatus`,
-	// `UpdateKnownStatusAndTime`,  and `GetKnownStatus`.
-	// TODO KnownStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// KnownStatus represents the state where the task is.  This is generally
+	// the minimum of equivalent status types for the containers in the task;
+	// if one container is at ContainerRunning and another is at ContainerPulled,
+	// the task KnownStatus would be TaskPulled.
+	// NOTE: Do not access KnownStatus directly.  Instead, use `UpdateStatus`,
+	// and `GetKnownStatus`.
+	// TODO KnownStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// is handled properly so that the state storage continues to work.
 	KnownStatus     TaskStatus
 	knownStatusLock sync.RWMutex
-	// KnownStatusTime captures the time when the KnownStatus was last updated.  Do not access KnownStatusTime directly,
-	// instead use `GetKnownStatusTime`.
+	// KnownStatusTime captures the time when the KnownStatus was last updated.
+	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTime     time.Time `json:"KnownTime"`
 	knownStatusTimeLock sync.RWMutex
 
 	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitTaskStateChange API.
 	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
-	// TODO SentStatus should probably be private with appropriately written setter/getter.  When this is done, we need
-	// to ensure that the UnmarshalJSON is handled properly so that the state storage continues to work.
+	// TODO SentStatus should probably be private with appropriately written
+	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// is handled properly so that the state storage continues to work.
 	SentStatus     TaskStatus
 	sentStatusLock sync.RWMutex
 
@@ -264,7 +271,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	}
 	llog.Debug("Earliest status is " + earliestStatus.String())
 	if task.GetKnownStatus() < earliestStatus.TaskStatus() {
-		task.UpdateKnownStatusAndTime(earliestStatus.TaskStatus())
+		task.SetKnownStatus(earliestStatus.TaskStatus())
 		return task.GetKnownStatus()
 	}
 	return TaskStatusNone
@@ -537,7 +544,7 @@ func (task *Task) UpdateStatus() bool {
 	return change != TaskStatusNone
 }
 
-// SetKnownStatus sets the known status of the task
+// UpdateDesiredStatus sets the known status of the task
 func (task *Task) UpdateDesiredStatus() {
 	task.updateTaskDesiredStatus()
 	task.updateContainerDesiredStatus()
@@ -587,13 +594,6 @@ func (task *Task) updateKnownStatusTime() {
 	defer task.knownStatusTimeLock.Unlock()
 
 	task.KnownStatusTime = ttime.Now()
-}
-
-// UpdateKnownStatusAndTime updates the KnownStatus and KnownStatusTime
-// of the task
-func (task *Task) UpdateKnownStatusAndTime(status TaskStatus) {
-	task.setKnownStatus(status)
-	task.updateKnownStatusTime()
 }
 
 // GetKnownStatus gets the KnownStatus of the task

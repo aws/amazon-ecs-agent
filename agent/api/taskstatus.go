@@ -63,3 +63,23 @@ func (ts *TaskStatus) BackendStatus() string {
 func (ts *TaskStatus) BackendRecognized() bool {
 	return *ts == TaskRunning || *ts == TaskStopped
 }
+
+// ContainerStatus maps the task status to the corresponding container status
+func (ts *TaskStatus) ContainerStatus() ContainerStatus {
+	switch *ts {
+	case TaskStatusNone:
+		return ContainerStatusNone
+	case TaskCreated:
+		return ContainerCreated
+	case TaskRunning:
+		return ContainerRunning
+	case TaskStopped:
+		return ContainerStopped
+	}
+	return ContainerStatusNone
+}
+
+// Terminal returns true if the Task status is STOPPED
+func (ts TaskStatus) Terminal() bool {
+	return ts == TaskStopped
+}
