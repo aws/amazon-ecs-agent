@@ -35,11 +35,11 @@ func createTestContainer(num int) *api.Container {
 
 func createTestTask(arn string, numContainers int) *api.Task {
 	task := &api.Task{
-		Arn:           arn,
-		Family:        arn,
-		Version:       "1",
-		DesiredStatus: api.TaskRunning,
-		Containers:    []*api.Container{},
+		Arn:                 arn,
+		Family:              arn,
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		Containers:          []*api.Container{},
 	}
 
 	for i := 0; i < numContainers; i++ {

@@ -127,12 +127,12 @@ func TestBackendMismatchMapping(t *testing.T) {
 		},
 	}
 	testTask := &api.Task{
-		Arn:           "task1",
-		DesiredStatus: api.TaskRunning,
-		KnownStatus:   api.TaskStopped,
-		Family:        "test",
-		Version:       "1",
-		Containers:    containers,
+		Arn:                 "task1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskStopped,
+		Family:              "test",
+		Version:             "1",
+		Containers:          containers,
 	}
 
 	state := dockerstate.NewTaskEngineState()
@@ -238,11 +238,11 @@ func taskDiffHelper(t *testing.T, expected []*api.Task, actual TasksResponse) {
 
 var testTasks = []*api.Task{
 	{
-		Arn:           "task1",
-		DesiredStatus: api.TaskRunning,
-		KnownStatus:   api.TaskRunning,
-		Family:        "test",
-		Version:       "1",
+		Arn:                 "task1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "test",
+		Version:             "1",
 		Containers: []*api.Container{
 			{
 				Name: "one",
@@ -253,11 +253,11 @@ var testTasks = []*api.Task{
 		},
 	},
 	{
-		Arn:           "task2",
-		DesiredStatus: api.TaskRunning,
-		KnownStatus:   api.TaskRunning,
-		Family:        "test",
-		Version:       "2",
+		Arn:                 "task2",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "test",
+		Version:             "2",
 		Containers: []*api.Container{
 			{
 				Name: "foo",

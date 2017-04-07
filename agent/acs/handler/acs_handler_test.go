@@ -1084,7 +1084,7 @@ func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
 		Arn:                 addedTask.Arn,
 		Family:              addedTask.Family,
 		Version:             addedTask.Version,
-		DesiredStatus:       addedTask.DesiredStatus,
+		DesiredStatusUnsafe: addedTask.GetDesiredStatus(),
 		StartSequenceNumber: addedTask.StartSequenceNumber,
 	}
 

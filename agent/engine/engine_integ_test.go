@@ -48,11 +48,11 @@ func init() {
 
 func createTestTask(arn string) *api.Task {
 	return &api.Task{
-		Arn:           arn,
-		Family:        arn,
-		Version:       "1",
-		DesiredStatus: api.TaskRunning,
-		Containers:    []*api.Container{createTestContainer()},
+		Arn:                 arn,
+		Family:              arn,
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		Containers:          []*api.Container{createTestContainer()},
 	}
 }
 

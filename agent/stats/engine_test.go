@@ -238,7 +238,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatus: api.TaskStopped}, nil)
+	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatusUnsafe: api.TaskStopped}, nil)
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
 	defer engine.removeAll()
 

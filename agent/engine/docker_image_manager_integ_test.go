@@ -553,10 +553,10 @@ func renameImage(original, repo, tag string, client *docker.Client) error {
 
 func createImageCleanupHappyTestTask(taskName string) *api.Task {
 	return &api.Task{
-		Arn:           taskName,
-		Family:        taskName,
-		Version:       "1",
-		DesiredStatus: api.TaskRunning,
+		Arn:                 taskName,
+		Family:              taskName,
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
 		Containers: []*api.Container{
 			&api.Container{
 				Name:          "test1",
@@ -588,10 +588,10 @@ func createImageCleanupHappyTestTask(taskName string) *api.Task {
 
 func createImageCleanupThresholdTestTask(taskName string) *api.Task {
 	return &api.Task{
-		Arn:           taskName,
-		Family:        taskName,
-		Version:       "1",
-		DesiredStatus: api.TaskRunning,
+		Arn:                 taskName,
+		Family:              taskName,
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
 		Containers: []*api.Container{
 			&api.Container{
 				Name:          "test1",

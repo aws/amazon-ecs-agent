@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
 
@@ -358,29 +359,17 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, nil, stateManager, refreshCredentialsHandler{}, credentialsManager)
 	_, ok := buffer.addPayloadTasks(payloadMessage)
-	if !ok {
-		t.Error("addPayloadTasks returned false")
-	}
-	if len(tasksAddedToEngine) != 2 {
-		t.Errorf("Incorrect number of tasks added to the engine. Expected: %d, got: %d", 2, len(tasksAddedToEngine))
-	}
+	assert.True(t, ok)
+	assert.Len(t, tasksAddedToEngine, 2)
 
 	// Verify if stopped task is added before running task
 	firstTaskAdded := tasksAddedToEngine[0]
-	if firstTaskAdded.Arn != stoppedTaskArn {
-		t.Errorf("Expected first task arn: %s, got: %s", stoppedTaskArn, firstTaskAdded.Arn)
-	}
-	if firstTaskAdded.DesiredStatus != api.TaskStopped {
-		t.Errorf("Expected first task state be be: %s , got: %s", "STOPPED", firstTaskAdded.DesiredStatus.String())
-	}
+	assert.Equal(t, firstTaskAdded.Arn, stoppedTaskArn)
+	assert.Equal(t, firstTaskAdded.GetDesiredStatus(), api.TaskStopped)
 
 	secondTaskAdded := tasksAddedToEngine[1]
-	if secondTaskAdded.Arn != runningTaskArn {
-		t.Errorf("Expected second task arn: %s, got: %s", runningTaskArn, secondTaskAdded.Arn)
-	}
-	if secondTaskAdded.DesiredStatus != api.TaskRunning {
-		t.Errorf("Expected second task state be be: %s , got: %s", "RUNNNING", secondTaskAdded.DesiredStatus.String())
-	}
+	assert.Equal(t, secondTaskAdded.Arn, runningTaskArn)
+	assert.Equal(t, secondTaskAdded.GetDesiredStatus(), api.TaskRunning)
 }
 
 // TestPayloadBufferHandler tests if the async payloadBufferHandler routine

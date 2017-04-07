@@ -639,10 +639,10 @@ func TestTaskFromACS(t *testing.T) {
 		},
 	}
 	expectedTask := &Task{
-		Arn:           "myArn",
-		DesiredStatus: TaskRunning,
-		Family:        "myFamily",
-		Version:       "1",
+		Arn:                 "myArn",
+		DesiredStatusUnsafe: TaskRunning,
+		Family:              "myFamily",
+		Version:             "1",
 		Containers: []*Container{
 			&Container{
 				Name:        "myName",
@@ -716,7 +716,7 @@ func TestTaskFromACS(t *testing.T) {
 
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 	testTask := &Task{
-		KnownStatus: TaskStatusNone,
+		KnownStatusUnsafe: TaskStatusNone,
 		Containers: []*Container{
 			&Container{
 				KnownStatus: ContainerCreated,
@@ -740,7 +740,7 @@ func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 // container is stopped while the other containers are running, the task status shouldn't be changed to running
 func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatus: TaskCreated,
+		KnownStatusUnsafe: TaskCreated,
 		Containers: []*Container{
 			&Container{
 				KnownStatus: ContainerRunning,
@@ -765,7 +765,7 @@ func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t 
 // is stopped while other container status are prior to Running, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatus: TaskStatusNone,
+		KnownStatusUnsafe: TaskStatusNone,
 		Containers: []*Container{
 			&Container{
 				KnownStatus: ContainerCreated,

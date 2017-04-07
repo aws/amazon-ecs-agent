@@ -39,7 +39,7 @@ func TasksEqual(lhs, rhs *api.Task) bool {
 		}
 	}
 
-	if lhs.DesiredStatus != rhs.DesiredStatus {
+	if lhs.DesiredStatusUnsafe != rhs.DesiredStatusUnsafe {
 		return false
 	}
 	if lhs.GetKnownStatus() != rhs.GetKnownStatus() {

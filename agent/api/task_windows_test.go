@@ -65,10 +65,10 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		},
 	}
 	expectedTask := &Task{
-		Arn:           "myArn",
-		DesiredStatus: TaskRunning,
-		Family:        "myFamily",
-		Version:       "1",
+		Arn:                 "myArn",
+		DesiredStatusUnsafe: TaskRunning,
+		Family:              "myFamily",
+		Version:             "1",
 		Containers: []*Container{
 			&Container{
 				Name: "myName",

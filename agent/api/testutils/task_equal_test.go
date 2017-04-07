@@ -25,8 +25,8 @@ func TestTaskEqual(t *testing.T) {
 		Task{Family: "a"}, Task{Family: "a"},
 		Task{Version: "a"}, Task{Version: "a"},
 		Task{Containers: []*Container{&Container{Name: "a"}}}, Task{Containers: []*Container{&Container{Name: "a"}}},
-		Task{DesiredStatus: TaskRunning}, Task{DesiredStatus: TaskRunning},
-		Task{KnownStatus: TaskRunning}, Task{KnownStatus: TaskRunning},
+		Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskRunning},
+		Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskRunning},
 	}
 
 	unequalPairs := []Task{
@@ -34,8 +34,8 @@ func TestTaskEqual(t *testing.T) {
 		Task{Family: "a"}, Task{Family: "あ"},
 		Task{Version: "a"}, Task{Version: "あ"},
 		Task{Containers: []*Container{&Container{Name: "a"}}}, Task{Containers: []*Container{&Container{Name: "あ"}}},
-		Task{DesiredStatus: TaskRunning}, Task{DesiredStatus: TaskStopped},
-		Task{KnownStatus: TaskRunning}, Task{KnownStatus: TaskStopped},
+		Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskStopped},
+		Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskStopped},
 	}
 
 	for i := 0; i < len(equalPairs); i += 2 {

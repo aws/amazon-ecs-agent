@@ -66,41 +66,41 @@ type Task struct {
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 
-	// DesiredStatus represents the state where the task should go. Generally,
+	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler.
-	// The DesiredStatus is almost always either TaskRunning or TaskStopped.
-	// NOTE: Do not access DesiredStatus directly.  Instead, use `UpdateStatus`,
+	// The DesiredStatusUnsafe is almost always either TaskRunning or TaskStopped.
+	// NOTE: Do not access DesiredStatusUnsafe directly.  Instead, use `UpdateStatus`,
 	// `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
-	// TODO DesiredStatus should probably be private with appropriately written
+	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatus     TaskStatus
-	desiredStatusLock sync.RWMutex
+	DesiredStatusUnsafe TaskStatus `json:"DesiredStatus"`
+	desiredStatusLock   sync.RWMutex
 
-	// KnownStatus represents the state where the task is.  This is generally
+	// KnownStatusUnsafe represents the state where the task is.  This is generally
 	// the minimum of equivalent status types for the containers in the task;
 	// if one container is at ContainerRunning and another is at ContainerPulled,
-	// the task KnownStatus would be TaskPulled.
-	// NOTE: Do not access KnownStatus directly.  Instead, use `UpdateStatus`,
+	// the task KnownStatusUnsafe would be TaskPulled.
+	// NOTE: Do not access KnownStatusUnsafe directly.  Instead, use `UpdateStatus`,
 	// and `GetKnownStatus`.
-	// TODO KnownStatus should probably be private with appropriately written
+	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatus     TaskStatus
-	knownStatusLock sync.RWMutex
-	// KnownStatusTime captures the time when the KnownStatus was last updated.
+	KnownStatusUnsafe TaskStatus `json:"KnownStatus"`
+	knownStatusLock   sync.RWMutex
+	// KnownStatusTimeUnsafe captures the time when the KnownStatusUnsafe was last updated.
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
-	KnownStatusTime     time.Time `json:"KnownTime"`
-	knownStatusTimeLock sync.RWMutex
+	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
+	knownStatusTimeLock   sync.RWMutex
 
-	// SentStatus represents the last KnownStatus that was sent to the ECS SubmitTaskStateChange API.
-	// TODO(samuelkarp) SentStatus needs a lock and setters/getters.
-	// TODO SentStatus should probably be private with appropriately written
+	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS SubmitTaskStateChange API.
+	// TODO(samuelkarp) SentStatusUnsafe needs a lock and setters/getters.
+	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	SentStatus     TaskStatus
-	sentStatusLock sync.RWMutex
+	SentStatusUnsafe TaskStatus `json:"SentStatus"`
+	sentStatusLock   sync.RWMutex
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
@@ -586,14 +586,14 @@ func (task *Task) setKnownStatus(status TaskStatus) {
 	task.knownStatusLock.Lock()
 	defer task.knownStatusLock.Unlock()
 
-	task.KnownStatus = status
+	task.KnownStatusUnsafe = status
 }
 
 func (task *Task) updateKnownStatusTime() {
 	task.knownStatusTimeLock.Lock()
 	defer task.knownStatusTimeLock.Unlock()
 
-	task.KnownStatusTime = ttime.Now()
+	task.KnownStatusTimeUnsafe = ttime.Now()
 }
 
 // GetKnownStatus gets the KnownStatus of the task
@@ -601,7 +601,7 @@ func (task *Task) GetKnownStatus() TaskStatus {
 	task.knownStatusLock.RLock()
 	defer task.knownStatusLock.RUnlock()
 
-	return task.KnownStatus
+	return task.KnownStatusUnsafe
 }
 
 // GetKnownStatusTime gets the KnownStatusTime of the task
@@ -609,7 +609,7 @@ func (task *Task) GetKnownStatusTime() time.Time {
 	task.knownStatusTimeLock.RLock()
 	defer task.knownStatusTimeLock.RUnlock()
 
-	return task.KnownStatusTime
+	return task.KnownStatusTimeUnsafe
 }
 
 // SetCredentialsID sets the credentials ID for the task
@@ -633,7 +633,7 @@ func (task *Task) GetDesiredStatus() TaskStatus {
 	task.desiredStatusLock.RLock()
 	defer task.desiredStatusLock.RUnlock()
 
-	return task.DesiredStatus
+	return task.DesiredStatusUnsafe
 }
 
 // SetDesiredStatus sets the desired status of the task
@@ -641,7 +641,7 @@ func (task *Task) SetDesiredStatus(status TaskStatus) {
 	task.desiredStatusLock.Lock()
 	defer task.desiredStatusLock.Unlock()
 
-	task.DesiredStatus = status
+	task.DesiredStatusUnsafe = status
 }
 
 // GetSentStatus safely returns the SentStatus of the task
@@ -649,7 +649,7 @@ func (task *Task) GetSentStatus() TaskStatus {
 	task.sentStatusLock.RLock()
 	defer task.sentStatusLock.RUnlock()
 
-	return task.SentStatus
+	return task.SentStatusUnsafe
 }
 
 // SetSentStatus safely sets the SentStatus of the task
@@ -657,7 +657,7 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 	task.sentStatusLock.Lock()
 	defer task.sentStatusLock.Unlock()
 
-	task.SentStatus = status
+	task.SentStatusUnsafe = status
 }
 
 // String returns a human readable string representation of this object

@@ -29,9 +29,7 @@ import (
 func TestStateManagerNonexistantDirectory(t *testing.T) {
 	cfg := &config.Config{DataDir: "/path/to/directory/that/doesnt/exist"}
 	_, err := statemanager.NewStateManager(cfg)
-	if err == nil {
-		t.Fatal("State manager should not load if the directory doesn't exist")
-	}
+	assert.Error(t, err)
 }
 
 func TestLoadsV1DataCorrectly(t *testing.T) {
@@ -51,49 +49,24 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
 		statemanager.AddSaveable("SeqNum", &sequenceNumber),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	assert.NoError(t, err)
 	err = stateManager.Load()
-	if err != nil {
-		t.Fatal("Error loading state", err)
-	}
-
-	if cluster != "test" {
-		t.Fatal("Wrong cluster: " + cluster)
-	}
-
-	if sequenceNumber != 0 {
-		t.Fatal("v1 should give a sequence number of 0")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, cluster, "test")
+	assert.True(t, sequenceNumber == 0)
 	tasks, err := taskEngine.ListTasks()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	var deadTask *api.Task
 	for _, task := range tasks {
 		if task.Arn == "arn:aws:ecs:us-west-2:1234567890:task/f44b4fc9-adb0-4f4f-9dff-871512310588" {
 			deadTask = task
 		}
 	}
-	if deadTask == nil {
-		t.Fatal("Could not find task expected to be in state")
-	}
-	if deadTask.SentStatus != api.TaskStopped {
-		t.Fatal("task dead should be stopped now")
-	}
-	if deadTask.Containers[0].SentStatus != api.ContainerStopped {
-		t.Fatal("container Dead should go to stopped")
-	}
-	if deadTask.Containers[0].DesiredStatus != api.ContainerStopped {
-		t.Fatal("container Dead should go to stopped")
-	}
-	if deadTask.Containers[0].KnownStatus != api.ContainerStopped {
-		t.Fatal("container Dead should go to stopped")
-	}
+	assert.NotNil(t, deadTask)
+	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatus, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatus, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatus, api.ContainerStopped)
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
-	if deadTask.KnownStatusTime != expected {
-		t.Fatal("Time was not correct")
-	}
+	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
 }
