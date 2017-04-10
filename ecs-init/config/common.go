@@ -32,15 +32,18 @@ const (
 
 	UnixSocketPrefix = "unix://"
 
-	//DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
-	//S3BucketMap.
+	// AgentFileName is the filename, including version number, of the agent to be downloaded.
+	AgentFilename = "ecs-agent-v1.14.1.tar"
+
+	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
+	// S3BucketMap.
 	DefaultRegionName = "default"
 )
 
-//s3BucketMap provides a mapping of region names to specific URI's for the region.
+// s3BucketMap provides a mapping of region names to specific URI's for the region.
 var s3BucketMap = map[string]string{
-	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
-	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
+	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/",
 }
 
 // AgentConfigDirectory returns the location on disk for configuration
@@ -88,10 +91,11 @@ func AgentTarball() string {
 }
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
-//by region.
+// by region and the agent filename is appended.
 func AgentRemoteTarball() string {
 	regionName := ec2MetadataRegion()
-	return getS3BucketMapByRegion(regionName)
+	baseURI := getS3BucketMapByRegion(regionName)
+	return baseURI + AgentFilename
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
@@ -114,8 +118,8 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
-//ec2MetadataRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
-//is returned.
+// ec2MetadataRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
+// is returned.
 func ec2MetadataRegion () string {
 	// Find Region name from Metadata. If error return a blank result
 	sessionInstance := session.Must(session.NewSession())
@@ -129,10 +133,10 @@ func ec2MetadataRegion () string {
 	return regionName
 }
 
-//getS3BucketMapByRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
+// getS3BucketMapByRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getS3BucketMapByRegion(regionName string) string {
-	val, exists := s3BucketMap[regionName]
-	if !exists {
+	val, ok := s3BucketMap[regionName]
+	if !ok {
 		return s3BucketMap[DefaultRegionName]
 	}
 

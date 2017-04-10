@@ -70,5 +70,4 @@ func TestGetS3BucketMapByRegion(t *testing.T) {
 	if s3Bucket != s3BucketMap["cn-north-1"]{
 		t.Errorf("Region Bucket did  contain entry for region. Region bucket returned: " + s3Bucket)
 	}
-
 }
