@@ -32,12 +32,13 @@ const (
 
 	UnixSocketPrefix = "unix://"
 
-	// Default region name
+	//DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
+	//S3BucketMap.
 	DefaultRegionName = "default"
 )
 
-var S3BucketMap = map[string]string{
-	"us-east-1" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
+//s3BucketMap provides a mapping of region names to specific URI's for the region.
+var s3BucketMap = map[string]string{
 	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
 	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v1.14.1.tar",
 }
@@ -86,9 +87,11 @@ func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"
 }
 
-// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
+// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
+//by region.
 func AgentRemoteTarball() string {
-	return FindTarballUrl()
+	regionName := ec2MetadataRegion()
+	return getS3BucketMapByRegion(regionName)
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
@@ -111,8 +114,9 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
-// Find Region name from Metadata. If error return the default region name
-func EC2MetadataRegion () string {
+//ec2MetadataRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
+//is returned.
+func ec2MetadataRegion () string {
 	// Find Region name from Metadata. If error return a blank result
 	sessionInstance := session.Must(session.NewSession())
 	metadata := ec2metadata.New(sessionInstance)
@@ -125,18 +129,12 @@ func EC2MetadataRegion () string {
 	return regionName
 }
 
-// Get Bucket from list of S3 Buckets by region name or default if key is not found
-func GetS3BucketMapByRegion(regionName string) string {
-	val, exists := S3BucketMap[regionName]
+//getS3BucketMapByRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
+func getS3BucketMapByRegion(regionName string) string {
+	val, exists := s3BucketMap[regionName]
 	if !exists {
-		return S3BucketMap[DefaultRegionName]
+		return s3BucketMap[DefaultRegionName]
 	}
 
 	return val
-}
-
-// Retrieve tarball URL from S3 Bucket list by searching for region name
-func FindTarballUrl () string {
-	regionName := EC2MetadataRegion()
-	return GetS3BucketMapByRegion(regionName)
 }

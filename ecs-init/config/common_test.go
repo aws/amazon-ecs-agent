@@ -48,7 +48,7 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 
 func TestEC2MetadataRegion(t *testing.T) {
 	//Test if region
-	regionName := EC2MetadataRegion()
+	regionName := ec2MetadataRegion()
 	if regionName == "" {
 		t.Errorf("Result is not proper Region Name. Region Name returned: " + regionName)
 	}
@@ -56,23 +56,18 @@ func TestEC2MetadataRegion(t *testing.T) {
 }
 
 func TestGetS3BucketMapByRegion(t *testing.T) {
-	s3Bucket := GetS3BucketMapByRegion(DefaultRegionName)
-	if s3Bucket != S3BucketMap[DefaultRegionName]{
+	s3Bucket := getS3BucketMapByRegion(DefaultRegionName)
+	if s3Bucket != s3BucketMap[DefaultRegionName]{
 		t.Errorf("Region Bucket for default region did not match default. Region bucket returned: " + s3Bucket)
 	}
 
-	s3Bucket = GetS3BucketMapByRegion("Incorect Region Name")
-	if s3Bucket != S3BucketMap[DefaultRegionName]{
+	s3Bucket = getS3BucketMapByRegion("Incorect Region Name")
+	if s3Bucket != s3BucketMap[DefaultRegionName]{
 		t.Errorf("Region Bucket invalid region did not match default. Region bucket returned: " + s3Bucket)
 	}
 
-	s3Bucket = GetS3BucketMapByRegion("us-east-1")
-	if s3Bucket != S3BucketMap["us-east-1"]{
-		t.Errorf("Region Bucket did not contain entry for region. Region bucket returned: " + s3Bucket)
-	}
-
-	s3Bucket = GetS3BucketMapByRegion("cn-north-1")
-	if s3Bucket != S3BucketMap["cn-north-1"]{
+	s3Bucket = getS3BucketMapByRegion("cn-north-1")
+	if s3Bucket != s3BucketMap["cn-north-1"]{
 		t.Errorf("Region Bucket did  contain entry for region. Region bucket returned: " + s3Bucket)
 	}
 
