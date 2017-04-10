@@ -26,10 +26,10 @@ import (
 
 func createTestContainer(num int) *api.Container {
 	return &api.Container{
-		Name:          "busybox-" + strconv.Itoa(num),
-		Image:         "busybox:latest",
-		Essential:     true,
-		DesiredStatus: api.ContainerRunning,
+		Name:                "busybox-" + strconv.Itoa(num),
+		Image:               "busybox:latest",
+		Essential:           true,
+		DesiredStatusUnsafe: api.ContainerRunning,
 	}
 }
 

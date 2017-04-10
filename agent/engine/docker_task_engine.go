@@ -359,7 +359,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 	if cont.IsInternal {
 		return
 	}
-	if cont.SentStatus >= contKnownStatus {
+	if cont.GetSentStatus() >= contKnownStatus {
 		log.Debug("Already sent container event; no need to re-send", "task", task.Arn, "container", cont.Name, "event", contKnownStatus.String())
 		return
 	}

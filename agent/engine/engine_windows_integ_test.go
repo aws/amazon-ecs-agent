@@ -27,12 +27,12 @@ func isDockerRunning() bool { return true }
 
 func createTestContainer() *api.Container {
 	return &api.Container{
-		Name:          "windows",
-		Image:         "microsoft/windowsservercore:latest",
-		Essential:     true,
-		DesiredStatus: api.ContainerRunning,
-		CPU:           100,
-		Memory:        80,
+		Name:                "windows",
+		Image:               "microsoft/windowsservercore:latest",
+		Essential:           true,
+		DesiredStatusUnsafe: api.ContainerRunning,
+		CPU:                 100,
+		Memory:              80,
 	}
 }
 

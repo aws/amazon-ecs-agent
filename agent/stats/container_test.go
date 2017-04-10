@@ -139,7 +139,7 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	mockContainer := &api.DockerContainer{
 		DockerID: dockerID,
 		Container: &api.Container{
-			KnownStatus: api.ContainerRunning,
+			KnownStatusUnsafe: api.ContainerRunning,
 		},
 	}
 	gomock.InOrder(
@@ -180,7 +180,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	mockContainer := &api.DockerContainer{
 		DockerID: dockerID,
 		Container: &api.Container{
-			KnownStatus: api.ContainerStopped,
+			KnownStatusUnsafe: api.ContainerStopped,
 		},
 	}
 	gomock.InOrder(

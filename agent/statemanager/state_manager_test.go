@@ -64,9 +64,9 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	}
 	assert.NotNil(t, deadTask)
 	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatus, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatus, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatus, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, api.ContainerStopped)
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
 	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
 }

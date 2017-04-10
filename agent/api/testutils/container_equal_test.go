@@ -42,9 +42,9 @@ func TestContainerEqual(t *testing.T) {
 		Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "2"}},
 		Container{Environment: map[string]string{}}, Container{Environment: map[string]string{}},
 		Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"c": "d", "a": "b"}},
-		Container{DesiredStatus: ContainerRunning}, Container{DesiredStatus: ContainerRunning},
+		Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerRunning},
 		Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerRunning},
-		Container{KnownStatus: ContainerRunning}, Container{KnownStatus: ContainerRunning},
+		Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerRunning},
 		Container{KnownExitCode: nil}, Container{KnownExitCode: nil},
 		Container{KnownExitCode: onePtr}, Container{KnownExitCode: anotherOnePtr},
 	}
@@ -65,9 +65,9 @@ func TestContainerEqual(t *testing.T) {
 		Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"2", "1"}},
 		Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "二"}},
 		Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"し": "d", "a": "b"}},
-		Container{DesiredStatus: ContainerRunning}, Container{DesiredStatus: ContainerStopped},
+		Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerStopped},
 		Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerStopped},
-		Container{KnownStatus: ContainerRunning}, Container{KnownStatus: ContainerStopped},
+		Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerStopped},
 		Container{KnownExitCode: nil}, Container{KnownExitCode: onePtr},
 		Container{KnownExitCode: onePtr}, Container{KnownExitCode: twoPtr},
 	}

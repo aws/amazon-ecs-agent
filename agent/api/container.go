@@ -62,28 +62,28 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
-	// DesiredStatus represents the state where the container should go. Generally,
+	// DesiredStatusUnsafe represents the state where the container should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler,
-	// though the agent may also set the DesiredStatus if a different "essential"
+	// though the agent may also set the DesiredStatusUnsafe if a different "essential"
 	// container in the task exits. The DesiredStatus is almost always either
 	// ContainerRunning or ContainerStopped.
-	// NOTE: Do not access DesiredStatus directly.  Instead, use `GetDesiredStatus`
+	// NOTE: Do not access DesiredStatusUnsafe directly.  Instead, use `GetDesiredStatus`
 	// and `SetDesiredStatus`.
-	// TODO DesiredStatus should probably be private with appropriately written
+	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatus     ContainerStatus `json:"desiredStatus"`
-	desiredStatusLock sync.RWMutex
+	DesiredStatusUnsafe ContainerStatus `json:"desiredStatus"`
+	desiredStatusLock   sync.RWMutex
 
-	// KnownStatus represents the state where the container is.
-	// NOTE: Do not access `KnownStatus` directly.  Instead, use `GetKnownStatus`
+	// KnownStatusUnsafe represents the state where the container is.
+	// NOTE: Do not access `KnownStatusUnsafe` directly.  Instead, use `GetKnownStatus`
 	// and `SetKnownStatus`.
-	// TODO KnownStatus should probably be private with appropriately written
+	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatus     ContainerStatus
-	knownStatusLock sync.RWMutex
+	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
+	knownStatusLock   sync.RWMutex
 
 	// RunDependencies is a list of containers that must be run before
 	// this one is created
@@ -100,13 +100,13 @@ type Container struct {
 	// 'Name: ErrorString' as the 'reason' field.
 	ApplyingError *DefaultNamedError
 
-	// SentStatus represents the last KnownStatus that was sent to the ECS
+	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS
 	// SubmitContainerStateChange API.
-	// TODO SentStatus should probably be private with appropriately written
+	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON is
 	// handled properly so that the state storage continues to work.
-	SentStatus     ContainerStatus
-	sentStatusLock sync.RWMutex
+	SentStatusUnsafe ContainerStatus `json:"SentStatus"`
+	sentStatusLock   sync.RWMutex
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding
@@ -159,7 +159,7 @@ func (c *Container) GetKnownStatus() ContainerStatus {
 	c.knownStatusLock.RLock()
 	defer c.knownStatusLock.RUnlock()
 
-	return c.KnownStatus
+	return c.KnownStatusUnsafe
 }
 
 // SetKnownStatus sets the known status of the container
@@ -167,7 +167,7 @@ func (c *Container) SetKnownStatus(status ContainerStatus) {
 	c.knownStatusLock.Lock()
 	defer c.knownStatusLock.Unlock()
 
-	c.KnownStatus = status
+	c.KnownStatusUnsafe = status
 }
 
 // GetDesiredStatus gets the desired status of the container
@@ -175,7 +175,7 @@ func (c *Container) GetDesiredStatus() ContainerStatus {
 	c.desiredStatusLock.RLock()
 	defer c.desiredStatusLock.RUnlock()
 
-	return c.DesiredStatus
+	return c.DesiredStatusUnsafe
 }
 
 // SetDesiredStatus sets the desired status of the container
@@ -183,23 +183,23 @@ func (c *Container) SetDesiredStatus(status ContainerStatus) {
 	c.desiredStatusLock.Lock()
 	defer c.desiredStatusLock.Unlock()
 
-	c.DesiredStatus = status
+	c.DesiredStatusUnsafe = status
 }
 
-// GetSentStatus safely returns the SentStatus of the container
+// GetSentStatus safely returns the SentStatusUnsafe of the container
 func (c *Container) GetSentStatus() ContainerStatus {
 	c.sentStatusLock.RLock()
 	defer c.sentStatusLock.RUnlock()
 
-	return c.SentStatus
+	return c.SentStatusUnsafe
 }
 
-// SetSentStatus safely sets the SentStatus of the container
+// SetSentStatus safely sets the SentStatusUnsafe of the container
 func (c *Container) SetSentStatus(status ContainerStatus) {
 	c.sentStatusLock.Lock()
 	defer c.sentStatusLock.Unlock()
 
-	c.SentStatus = status
+	c.SentStatusUnsafe = status
 }
 
 // String returns a human readable string representation of this object

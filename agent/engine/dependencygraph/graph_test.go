@@ -30,18 +30,18 @@ func volumeStrToVol(vols []string) []api.VolumeFrom {
 
 func runningContainer(name string, links, volumes []string) *api.Container {
 	return &api.Container{
-		Name:          name,
-		Links:         links,
-		VolumesFrom:   volumeStrToVol(volumes),
-		DesiredStatus: api.ContainerRunning,
+		Name:                name,
+		Links:               links,
+		VolumesFrom:         volumeStrToVol(volumes),
+		DesiredStatusUnsafe: api.ContainerRunning,
 	}
 }
 func createdContainer(name string, links, volumes []string) *api.Container {
 	return &api.Container{
-		Name:          name,
-		Links:         links,
-		VolumesFrom:   volumeStrToVol(volumes),
-		DesiredStatus: api.ContainerCreated,
+		Name:                name,
+		Links:               links,
+		VolumesFrom:         volumeStrToVol(volumes),
+		DesiredStatusUnsafe: api.ContainerCreated,
 	}
 }
 
@@ -56,8 +56,8 @@ func TestValidDependencies(t *testing.T) {
 	task = &api.Task{
 		Containers: []*api.Container{
 			&api.Container{
-				Name:          "redis",
-				DesiredStatus: api.ContainerRunning,
+				Name:                "redis",
+				DesiredStatusUnsafe: api.ContainerRunning,
 			},
 		},
 	}
@@ -112,8 +112,8 @@ func TestDependenciesAreResolved(t *testing.T) {
 	task := &api.Task{
 		Containers: []*api.Container{
 			&api.Container{
-				Name:          "redis",
-				DesiredStatus: api.ContainerRunning,
+				Name:                "redis",
+				DesiredStatusUnsafe: api.ContainerRunning,
 			},
 		},
 	}
@@ -148,13 +148,13 @@ func TestDependenciesAreResolved(t *testing.T) {
 	if !resolved {
 		t.Error("data volume with no deps should resolve")
 	}
-	dbdata.KnownStatus = api.ContainerCreated
+	dbdata.KnownStatusUnsafe = api.ContainerCreated
 
 	resolved = DependenciesAreResolved(php, task.Containers)
 	if resolved {
 		t.Error("Php shouldn't run, db is not created")
 	}
-	db.KnownStatus = api.ContainerCreated
+	db.KnownStatusUnsafe = api.ContainerCreated
 	resolved = DependenciesAreResolved(php, task.Containers)
 	if resolved {
 		t.Error("Php shouldn't run, db is not running")
@@ -164,7 +164,7 @@ func TestDependenciesAreResolved(t *testing.T) {
 	if !resolved {
 		t.Error("db should be resolved, dbdata volume is Created")
 	}
-	db.KnownStatus = api.ContainerRunning
+	db.KnownStatusUnsafe = api.ContainerRunning
 
 	resolved = DependenciesAreResolved(php, task.Containers)
 	if !resolved {
@@ -174,14 +174,14 @@ func TestDependenciesAreResolved(t *testing.T) {
 
 func TestRunningependsOnDependencies(t *testing.T) {
 	c1 := &api.Container{
-		Name:        "a",
-		KnownStatus: api.ContainerStatusNone,
+		Name:              "a",
+		KnownStatusUnsafe: api.ContainerStatusNone,
 	}
 	c2 := &api.Container{
-		Name:            "b",
-		KnownStatus:     api.ContainerStatusNone,
-		DesiredStatus:   api.ContainerCreated,
-		RunDependencies: []string{"a"},
+		Name:                "b",
+		KnownStatusUnsafe:   api.ContainerStatusNone,
+		DesiredStatusUnsafe: api.ContainerCreated,
+		RunDependencies:     []string{"a"},
 	}
 	task := &api.Task{Containers: []*api.Container{c1, c2}}
 
@@ -192,7 +192,7 @@ func TestRunningependsOnDependencies(t *testing.T) {
 	if DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should not be resolved")
 	}
-	task.Containers[0].KnownStatus = api.ContainerRunning
+	task.Containers[0].KnownStatusUnsafe = api.ContainerRunning
 
 	if !DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should be resolved")

@@ -57,13 +57,13 @@ func isDockerRunning() bool {
 
 func createTestContainer() *api.Container {
 	return &api.Container{
-		Name:          "netcat",
-		Image:         testRegistryImage,
-		Command:       []string{},
-		Essential:     true,
-		DesiredStatus: api.ContainerRunning,
-		CPU:           100,
-		Memory:        80,
+		Name:                "netcat",
+		Image:               testRegistryImage,
+		Command:             []string{},
+		Essential:           true,
+		DesiredStatusUnsafe: api.ContainerRunning,
+		CPU:                 100,
+		Memory:              80,
 	}
 }
 

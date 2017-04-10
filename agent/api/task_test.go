@@ -719,14 +719,14 @@ func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 		KnownStatusUnsafe: TaskStatusNone,
 		Containers: []*Container{
 			&Container{
-				KnownStatus: ContainerCreated,
+				KnownStatusUnsafe: ContainerCreated,
 			},
 			&Container{
-				KnownStatus: ContainerStopped,
-				Essential:   true,
+				KnownStatusUnsafe: ContainerStopped,
+				Essential:         true,
 			},
 			&Container{
-				KnownStatus: ContainerRunning,
+				KnownStatusUnsafe: ContainerRunning,
 			},
 		},
 	}
@@ -743,15 +743,15 @@ func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t 
 		KnownStatusUnsafe: TaskCreated,
 		Containers: []*Container{
 			&Container{
-				KnownStatus: ContainerRunning,
-				Essential:   true,
+				KnownStatusUnsafe: ContainerRunning,
+				Essential:         true,
 			},
 			&Container{
-				KnownStatus: ContainerStopped,
-				Essential:   true,
+				KnownStatusUnsafe: ContainerStopped,
+				Essential:         true,
 			},
 			&Container{
-				KnownStatus: ContainerRunning,
+				KnownStatusUnsafe: ContainerRunning,
 			},
 		},
 	}
@@ -768,15 +768,15 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 		KnownStatusUnsafe: TaskStatusNone,
 		Containers: []*Container{
 			&Container{
-				KnownStatus: ContainerCreated,
-				Essential:   true,
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
 			},
 			&Container{
-				KnownStatus: ContainerStopped,
-				Essential:   true,
+				KnownStatusUnsafe: ContainerStopped,
+				Essential:         true,
 			},
 			&Container{
-				KnownStatus: ContainerCreated,
+				KnownStatusUnsafe: ContainerCreated,
 			},
 		},
 	}

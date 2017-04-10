@@ -157,13 +157,13 @@ func (task *Task) initializeEmptyVolumes() {
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
-			Name:          emptyHostVolumeName,
-			Image:         emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:       []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
-			MountPoints:   mountPoints,
-			Essential:     false,
-			IsInternal:    true,
-			DesiredStatus: ContainerRunning,
+			Name:                emptyHostVolumeName,
+			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
+			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
+			MountPoints:         mountPoints,
+			Essential:           false,
+			IsInternal:          true,
+			DesiredStatusUnsafe: ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}

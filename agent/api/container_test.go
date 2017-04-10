@@ -23,17 +23,17 @@ import (
 
 func TestOverridden(t *testing.T) {
 	container := &Container{
-		Name:          "name",
-		Image:         "image",
-		Command:       []string{"foo", "bar"},
-		CPU:           1,
-		Memory:        1,
-		Links:         []string{},
-		Ports:         []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
-		Overrides:     ContainerOverrides{},
-		DesiredStatus: ContainerRunning,
-		AppliedStatus: ContainerRunning,
-		KnownStatus:   ContainerRunning,
+		Name:                "name",
+		Image:               "image",
+		Command:             []string{"foo", "bar"},
+		CPU:                 1,
+		Memory:              1,
+		Links:               []string{},
+		Ports:               []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
+		Overrides:           ContainerOverrides{},
+		DesiredStatusUnsafe: ContainerRunning,
+		AppliedStatus:       ContainerRunning,
+		KnownStatusUnsafe:   ContainerRunning,
 	}
 
 	overridden := container.Overridden()
