@@ -111,26 +111,18 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
-// Find AZ information from Metadata. If error return a blank result
-func EC2MetadataAZ () string {
+// Find Region name from Metadata. If error return the default region name
+func EC2MetadataRegion () string {
+	// Find Region name from Metadata. If error return a blank result
 	sessionInstance := session.Must(session.NewSession())
 	metadata := ec2metadata.New(sessionInstance)
-	azName, err := metadata.GetMetadata("placement/availability-zone")
+	regionName, err := metadata.Region()
 
 	if err != nil {
-		return ""
-	}
-
-	return azName
-}
-
-//convert AZ name to Region name or default if blank is returned
-func AZToRegionName (azName string) string {
-	if azName == "" {
 		return DefaultRegionName
 	}
 
-	return azName[0:len(azName)-1]
+	return regionName
 }
 
 // Get Bucket from list of S3 Buckets by region name or default if key is not found
@@ -143,9 +135,8 @@ func GetS3BucketMapByRegion(regionName string) string {
 	return val
 }
 
-// Retreive tarball URL from S3 Bucket list by searching for region name
+// Retrieve tarball URL from S3 Bucket list by searching for region name
 func FindTarballUrl () string {
-	azName := EC2MetadataAZ()
-	regionName := AZToRegionName(azName)
+	regionName := EC2MetadataRegion()
 	return GetS3BucketMapByRegion(regionName)
 }

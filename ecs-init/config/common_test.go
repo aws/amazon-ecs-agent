@@ -46,25 +46,13 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
-func TestEC2MetadataAZ(t *testing.T) {
-	//Test if az is returned
-	azName := EC2MetadataAZ()
-	if azName == "" {
-		t.Errorf("Result is not proper Availability Zone Name. AZ returned: " + azName)
+func TestEC2MetadataRegion(t *testing.T) {
+	//Test if region
+	regionName := EC2MetadataRegion()
+	if regionName == "" {
+		t.Errorf("Result is not proper Region Name. Region Name returned: " + regionName)
 	}
 
-}
-
-func TestAZToRegionName(t *testing.T) {
-	regionName := AZToRegionName("")
-	if regionName != DefaultRegionName {
-		t.Errorf("AZ Name did not return default. Region returned: " + regionName)
-	}
-
-	regionName = AZToRegionName("us-east-1b")
-	if regionName != "us-east-1" {
-		t.Errorf("AZ Name did  not format to proper Region name returned: " + regionName)
-	}
 }
 
 func TestGetS3BucketMapByRegion(t *testing.T) {
