@@ -311,7 +311,7 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 	if !taskKnownStatus.BackendRecognized() {
 		return
 	}
-	if task.SentStatusUnsafe >= taskKnownStatus {
+	if task.GetSentStatus() >= taskKnownStatus {
 		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", taskKnownStatus.String())
 		return
 	}

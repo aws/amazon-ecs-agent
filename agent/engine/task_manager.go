@@ -129,7 +129,7 @@ func (mtask *managedTask) overseeTask() {
 	for {
 		// If it's steadyState, just spin until we need to do work
 		for mtask.steadyState() {
-			llog.Debug("Task at steady state", "state", mtask.KnownStatusUnsafe.String())
+			llog.Debug("Task at steady state", "state", mtask.GetKnownStatus().String())
 			maxWait := make(chan bool, 1)
 			timer := mtask.time().After(steadyStateTaskVerifyInterval)
 			go func() {
@@ -144,7 +144,7 @@ func (mtask *managedTask) overseeTask() {
 			}
 		}
 
-		if !mtask.KnownStatusUnsafe.Terminal() {
+		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be able to move some containers along
 			llog.Debug("Task not steady state or terminal; progressing it")
 			mtask.progressContainers()
@@ -158,7 +158,7 @@ func (mtask *managedTask) overseeTask() {
 		if err != nil {
 			llog.Warn("Error checkpointing task's states to disk", "err", err)
 		}
-		if mtask.KnownStatusUnsafe.Terminal() {
+		if mtask.GetKnownStatus().Terminal() {
 			break
 		}
 	}
