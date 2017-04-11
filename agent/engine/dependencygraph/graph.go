@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,10 +17,8 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
+	log "github.com/cihub/seelog"
 )
-
-var log = logger.ForModule("dependencygraph")
 
 // Because a container may depend on another container being created
 // (volumes-from) or running (links) it makes sense to abstract it out
@@ -47,7 +45,7 @@ OuterLoop:
 				continue OuterLoop
 			}
 		}
-		log.Warn("Could not resolve some containers", "task", task, "unresolved", unresolved)
+		log.Warnf("Could not resolve some containers: [%v] for task %v", unresolved, task)
 		return false
 	}
 
@@ -100,7 +98,7 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 
 	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
 		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
-		verifyStatusResolveable(target, nameMap, target.RunDependencies, onRunIsResolved)
+		verifyStatusResolveable(target, nameMap, target.RunDependencies, onSteadyStateIsResolved)
 }
 
 // verifyStatusResolveable validates that `target` can be resolved given that
@@ -109,7 +107,7 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 // passed should return true if the named container is resolved.
 func verifyStatusResolveable(target *api.Container, existingContainers map[string]*api.Container, dependencies []string, resolves func(*api.Container, *api.Container) bool) bool {
 	targetGoal := target.GetDesiredStatus()
-	if targetGoal != api.ContainerRunning && targetGoal != api.ContainerCreated {
+	if targetGoal != api.GetContainerSteadyStateStatus() && targetGoal != api.ContainerCreated {
 		// A container can always stop, die, or reach whatever other statre it
 		// wants regardless of what dependencies it has
 		return true
@@ -131,11 +129,11 @@ func linkCanResolve(target *api.Container, link *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
 	linkDesiredStatus := link.GetDesiredStatus()
 	if targetDesiredStatus == api.ContainerCreated {
-		return linkDesiredStatus == api.ContainerCreated || linkDesiredStatus == api.ContainerRunning
-	} else if targetDesiredStatus == api.ContainerRunning {
-		return linkDesiredStatus == api.ContainerRunning
+		return linkDesiredStatus == api.ContainerCreated || linkDesiredStatus == api.GetContainerSteadyStateStatus()
+	} else if targetDesiredStatus == api.GetContainerSteadyStateStatus() {
+		return linkDesiredStatus == api.GetContainerSteadyStateStatus()
 	}
-	log.Error("Unexpected desired status", "target", target)
+	log.Errorf("Failed to resolve the desired status of the link [%v] for the target [%v]", link, target)
 	return false
 }
 
@@ -143,45 +141,45 @@ func linkIsResolved(target *api.Container, link *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
 	if targetDesiredStatus == api.ContainerCreated {
 		knownStatus := link.GetKnownStatus()
-		return knownStatus == api.ContainerCreated || knownStatus == api.ContainerRunning
-	} else if targetDesiredStatus == api.ContainerRunning {
-		return link.GetKnownStatus() == api.ContainerRunning
+		return knownStatus == api.ContainerCreated || knownStatus == api.GetContainerSteadyStateStatus()
+	} else if targetDesiredStatus == api.GetContainerSteadyStateStatus() {
+		return link.GetKnownStatus() == api.GetContainerSteadyStateStatus()
 	}
-	log.Error("Unexpected desired status", "target", target)
+	log.Errorf("Failed to resolve if the link [%v] has been resolved for the target [%v]", link, target)
 	return false
 }
 
 func volumeCanResolve(target *api.Container, volume *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
 	volumeDesiredStatus := volume.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.ContainerRunning {
+	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.GetContainerSteadyStateStatus() {
 		return volumeDesiredStatus == api.ContainerCreated ||
-			volumeDesiredStatus == api.ContainerRunning ||
+			volumeDesiredStatus == api.GetContainerSteadyStateStatus() ||
 			volumeDesiredStatus == api.ContainerStopped
 	}
 
-	log.Error("Unexpected desired status", "target", target)
+	log.Errorf("Failed to resolve the desired status of the volume [%v] for the target [%v]", volume, target)
 	return false
 }
 
 func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.ContainerRunning {
+	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == api.GetContainerSteadyStateStatus() {
 		knownStatus := volume.GetKnownStatus()
 		return knownStatus == api.ContainerCreated ||
-			knownStatus == api.ContainerRunning ||
+			knownStatus == api.GetContainerSteadyStateStatus() ||
 			knownStatus == api.ContainerStopped
 	}
 
-	log.Error("Unexpected desired status", "target", target)
+	log.Errorf("Failed to resolve if the volume [%v] has been resolved for the target [%v]", volume, target)
 	return false
 }
 
-// onRunIsResolved defines a relationship where a target cannot be created until
-// 'run' has reached a running state.
-func onRunIsResolved(target *api.Container, run *api.Container) bool {
+// onProvisionResourcesIsResolved defines a relationship where a target cannot be
+// created until 'dependency' has reached the steady state
+func onSteadyStateIsResolved(target *api.Container, dependency *api.Container) bool {
 	if target.GetDesiredStatus() >= api.ContainerCreated {
-		return run.GetKnownStatus() >= api.ContainerRunning
+		return dependency.GetKnownStatus() >= api.GetContainerSteadyStateStatus()
 	}
 	return false
 }

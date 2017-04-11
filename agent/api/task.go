@@ -163,7 +163,7 @@ func (task *Task) initializeEmptyVolumes() {
 			MountPoints:         mountPoints,
 			Essential:           false,
 			IsInternal:          true,
-			DesiredStatusUnsafe: ContainerRunning,
+			DesiredStatusUnsafe: GetContainerSteadyStateStatus(),
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -251,27 +251,27 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	llog.Debug("Updating task")
 
 	// Set to a large 'impossible' status that can't be the min
-	earliestStatus := ContainerZombie
+	containerEarliestKnownStatus := ContainerZombie
 	essentialContainerStopped := false
 	for _, cont := range task.Containers {
 		contKnownStatus := cont.GetKnownStatus()
 		if contKnownStatus == ContainerStopped && cont.Essential {
 			essentialContainerStopped = true
 		}
-		if contKnownStatus < earliestStatus {
-			earliestStatus = contKnownStatus
+		if contKnownStatus < containerEarliestKnownStatus {
+			containerEarliestKnownStatus = contKnownStatus
 		}
 	}
 
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
-	if earliestStatus == ContainerRunning && essentialContainerStopped {
+	if containerEarliestKnownStatus == GetContainerSteadyStateStatus() && essentialContainerStopped {
 		llog.Debug("Essential container is stopped while other containers are running, not update task status")
 		return TaskStatusNone
 	}
-	llog.Debug("Earliest status is " + earliestStatus.String())
-	if task.GetKnownStatus() < earliestStatus.TaskStatus() {
-		task.SetKnownStatus(earliestStatus.TaskStatus())
+	llog.Debug("Earliest known container status is " + containerEarliestKnownStatus.String())
+	if task.GetKnownStatus() < containerEarliestKnownStatus.TaskStatus() {
+		task.SetKnownStatus(containerEarliestKnownStatus.TaskStatus())
 		return task.GetKnownStatus()
 	}
 	return TaskStatusNone
@@ -662,7 +662,9 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 
 // String returns a human readable string representation of this object
 func (t *Task) String() string {
-	res := fmt.Sprintf("%s:%s %s, Status: (%s->%s)", t.Family, t.Version, t.Arn, t.GetKnownStatus().String(), t.GetDesiredStatus().String())
+	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
+		t.Family, t.Version, t.Arn,
+		t.GetKnownStatus().String(), t.GetDesiredStatus().String())
 	res += " Containers: ["
 	for _, c := range t.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())

@@ -22,6 +22,13 @@ const (
 	ContainerCreated
 	// ContainerRunning represents a container that has started
 	ContainerRunning
+	// ContainerResourcesProvisioned represents a container that has completed provisioning all of its
+	// resources. Non-internal containers (containers present in the task definition) transition to
+	// this state without doing any additional work. However, containers that are added to a task
+	// by the ECS Agent would possibly need to perform additional actions before they can be
+	// considered "ready" and contribute to the progress of a task. For example, the "pause" container
+	// would be provisioned by invoking CNI plugins
+	ContainerResourcesProvisioned
 	// ContainerStopped represents a container that has stopped
 	ContainerStopped
 	// ContainerZombie is an "impossible" state that is used as the maximum
@@ -32,11 +39,12 @@ const (
 type ContainerStatus int32
 
 var containerStatusMap = map[string]ContainerStatus{
-	"NONE":    ContainerStatusNone,
-	"PULLED":  ContainerPulled,
-	"CREATED": ContainerCreated,
-	"RUNNING": ContainerRunning,
-	"STOPPED": ContainerStopped,
+	"NONE":                  ContainerStatusNone,
+	"PULLED":                ContainerPulled,
+	"CREATED":               ContainerCreated,
+	"RUNNING":               ContainerRunning,
+	"RESOURCES_PROVISIONED": ContainerResourcesProvisioned,
+	"STOPPED":               ContainerStopped,
 }
 
 // String returns a human readable string representation of this object
@@ -49,7 +57,12 @@ func (cs ContainerStatus) String() string {
 	return "NONE"
 }
 
-// TaskStatus maps the container status to the corresponding task status
+// TaskStatus maps the container status to the corresponding task status. The
+// transition map is illustreated below.
+//
+// Container: None -> Created -> Running -> Provisioned -> Stopped -> Zombie
+//
+// Task     : None ->     Created        -> Running     -> Stopped
 func (cs *ContainerStatus) TaskStatus() TaskStatus {
 	switch *cs {
 	case ContainerStatusNone:
@@ -57,6 +70,8 @@ func (cs *ContainerStatus) TaskStatus() TaskStatus {
 	case ContainerCreated:
 		return TaskCreated
 	case ContainerRunning:
+		return TaskCreated
+	case ContainerResourcesProvisioned:
 		return TaskRunning
 	case ContainerStopped:
 		return TaskStopped
@@ -64,14 +79,36 @@ func (cs *ContainerStatus) TaskStatus() TaskStatus {
 	return TaskStatusNone
 }
 
-// BackendRecognized returns true if the container status is recognized as a valid state
-// by ECS. Note that not all container statuses are recognized by ECS or map to ECS
-// states
-func (cs *ContainerStatus) BackendRecognized() bool {
-	return *cs == ContainerRunning || *cs == ContainerStopped
+// ShouldReportToBackend returns true if the container status is recognized as a
+// valid state by ECS. Note that not all container statuses are recognized by ECS
+// or map to ECS states
+func (cs *ContainerStatus) ShouldReportToBackend() bool {
+	return *cs == ContainerResourcesProvisioned || *cs == ContainerStopped
+}
+
+// BackendStatus maps the internal container status in the agent to that in the
+// backend
+func (cs *ContainerStatus) BackendStatus() ContainerStatus {
+	if *cs == ContainerResourcesProvisioned {
+		return ContainerRunning
+	}
+
+	if *cs == ContainerStopped {
+		return ContainerStopped
+	}
+
+	return ContainerStatusNone
 }
 
 // Terminal returns true if the container status is STOPPED
 func (cs ContainerStatus) Terminal() bool {
 	return cs == ContainerStopped
+}
+
+// GetContainerSteadyStateStatus returns the "steady state" for a container. This
+// used to be ContainerRunning prior to the addition of the
+// ContainerResourcesProvisioned state. Now, we expect all containers to reach
+// the new ContainerResourcesProvisioned state
+func GetContainerSteadyStateStatus() ContainerStatus {
+	return ContainerResourcesProvisioned
 }
