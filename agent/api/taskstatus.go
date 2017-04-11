@@ -46,7 +46,7 @@ func (ts TaskStatus) String() string {
 	return "NONE"
 }
 
-// Mapping task status in the agent to that in the backend
+// BackendStatus maps the internal task status in the agent to that in the backend
 func (ts *TaskStatus) BackendStatus() string {
 	switch *ts {
 	case TaskRunning:
@@ -72,7 +72,7 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 	case TaskCreated:
 		return ContainerCreated
 	case TaskRunning:
-		return ContainerRunning
+		return ContainerResourcesProvisioned
 	case TaskStopped:
 		return ContainerStopped
 	}

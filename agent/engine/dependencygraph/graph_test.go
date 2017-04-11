@@ -1,5 +1,5 @@
 // +build !integration
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -28,12 +28,12 @@ func volumeStrToVol(vols []string) []api.VolumeFrom {
 	return ret
 }
 
-func runningContainer(name string, links, volumes []string) *api.Container {
+func resourcesProvisionedContainer(name string, links, volumes []string) *api.Container {
 	return &api.Container{
 		Name:                name,
 		Links:               links,
 		VolumesFrom:         volumeStrToVol(volumes),
-		DesiredStatusUnsafe: api.ContainerRunning,
+		DesiredStatusUnsafe: api.GetContainerSteadyStateStatus(),
 	}
 }
 func createdContainer(name string, links, volumes []string) *api.Container {
@@ -67,11 +67,11 @@ func TestValidDependencies(t *testing.T) {
 	}
 
 	// Webserver stack
-	php := runningContainer("php", []string{"db"}, []string{})
-	db := runningContainer("db", []string{}, []string{"dbdatavolume"})
+	php := resourcesProvisionedContainer("php", []string{"db"}, []string{})
+	db := resourcesProvisionedContainer("db", []string{}, []string{"dbdatavolume"})
 	dbdata := createdContainer("dbdatavolume", []string{}, []string{})
-	webserver := runningContainer("webserver", []string{"php"}, []string{"htmldata"})
-	htmldata := runningContainer("htmldata", []string{}, []string{"sharedcssfiles"})
+	webserver := resourcesProvisionedContainer("webserver", []string{"php"}, []string{"htmldata"})
+	htmldata := resourcesProvisionedContainer("htmldata", []string{}, []string{"sharedcssfiles"})
 	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{})
 
 	task = &api.Task{
@@ -88,8 +88,8 @@ func TestValidDependencies(t *testing.T) {
 	// Unresolveable: cycle
 	task = &api.Task{
 		Containers: []*api.Container{
-			runningContainer("a", []string{"b"}, []string{}),
-			runningContainer("b", []string{"a"}, []string{}),
+			resourcesProvisionedContainer("a", []string{"b"}, []string{}),
+			resourcesProvisionedContainer("b", []string{"a"}, []string{}),
 		},
 	}
 	resolveable = ValidDependencies(task)
@@ -99,7 +99,7 @@ func TestValidDependencies(t *testing.T) {
 	// Unresolveable, reference doesn't exist
 	task = &api.Task{
 		Containers: []*api.Container{
-			runningContainer("php", []string{"db"}, []string{}),
+			resourcesProvisionedContainer("php", []string{"db"}, []string{}),
 		},
 	}
 	resolveable = ValidDependencies(task)
@@ -113,7 +113,7 @@ func TestDependenciesAreResolved(t *testing.T) {
 		Containers: []*api.Container{
 			&api.Container{
 				Name:                "redis",
-				DesiredStatusUnsafe: api.ContainerRunning,
+				DesiredStatusUnsafe: api.GetContainerSteadyStateStatus(),
 			},
 		},
 	}
@@ -123,11 +123,11 @@ func TestDependenciesAreResolved(t *testing.T) {
 	}
 
 	// Webserver stack
-	php := runningContainer("php", []string{"db"}, []string{})
-	db := runningContainer("db", []string{}, []string{"dbdatavolume"})
+	php := resourcesProvisionedContainer("php", []string{"db"}, []string{})
+	db := resourcesProvisionedContainer("db", []string{}, []string{"dbdatavolume"})
 	dbdata := createdContainer("dbdatavolume", []string{}, []string{})
-	webserver := runningContainer("webserver", []string{"php"}, []string{"htmldata"})
-	htmldata := runningContainer("htmldata", []string{}, []string{"sharedcssfiles"})
+	webserver := resourcesProvisionedContainer("webserver", []string{"php"}, []string{"htmldata"})
+	htmldata := resourcesProvisionedContainer("htmldata", []string{}, []string{"sharedcssfiles"})
 	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{})
 
 	task = &api.Task{
@@ -164,7 +164,7 @@ func TestDependenciesAreResolved(t *testing.T) {
 	if !resolved {
 		t.Error("db should be resolved, dbdata volume is Created")
 	}
-	db.KnownStatusUnsafe = api.ContainerRunning
+	db.KnownStatusUnsafe = api.GetContainerSteadyStateStatus()
 
 	resolved = DependenciesAreResolved(php, task.Containers)
 	if !resolved {
@@ -188,11 +188,11 @@ func TestRunningependsOnDependencies(t *testing.T) {
 	if DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should not be resolved")
 	}
-	task.Containers[1].SetDesiredStatus(api.ContainerRunning)
+	task.Containers[1].SetDesiredStatus(api.GetContainerSteadyStateStatus())
 	if DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should not be resolved")
 	}
-	task.Containers[0].KnownStatusUnsafe = api.ContainerRunning
+	task.Containers[0].KnownStatusUnsafe = api.GetContainerSteadyStateStatus()
 
 	if !DependenciesAreResolved(c2, task.Containers) {
 		t.Error("Dependencies should be resolved")

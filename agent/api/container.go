@@ -85,7 +85,7 @@ type Container struct {
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 	knownStatusLock   sync.RWMutex
 
-	// RunDependencies is a list of containers that must be run before
+	// RunDependencies is a list of containers that must be in "steady state" before
 	// this one is created
 	RunDependencies []string
 	// 'Internal' containers are ones that are not directly specified by
