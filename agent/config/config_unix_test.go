@@ -43,6 +43,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
 	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
 	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+	os.Unsetenv("ECS_TASK_NETWORK")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Nil(t, err)
@@ -56,6 +57,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JsonFileDriver}, cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
+	assert.False(t, cfg.TaskNetworkEnabled, "TaskNetworkEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")

@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_cni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -43,6 +44,9 @@ const (
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
+	attributePrefix              = "ecs."
+	capabilityTaskNetwork        = "task-eni"
+	capabilityPlugin             = "cni-plugin"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
 
@@ -760,6 +764,10 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
+//    com.amazonaws.ecs.capability.task-network
+//    com.amazonaws.ecs.capability.cni-plugin-eni-0.1.0
+//    com.amazonaws.ecs.capability.cni-plugin-ipam-0.1.0
+//    com.amazonaws.ecs.capability.cni-plugin-bridge-0.1.0
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -809,6 +817,13 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 		}
 	}
 
+	taskNetworkCapabilities, ok := engine.taskNetworkAttributes()
+	if ok {
+		for _, capability := range taskNetworkCapabilities {
+			capabilities = append(capabilities, capability)
+		}
+	}
+
 	return capabilities
 }
 
@@ -837,4 +852,25 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	}
 
 	return false
+}
+
+// taskNetworkAttributes checks if the task network was enabled and whether the plugin are existed
+func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
+	plugins := []string{"bridge", "eni", "ipam"}
+
+	var attributes []string
+	if engine.cfg.TaskNetworkEnabled {
+		// Check if all the plugin existed in the specific directory
+		for _, plugin := range plugins {
+			version, err := ecs_cni.Version(plugin)
+			if err != nil {
+				log.Error("taskNetworkCapable engine: Check version of plugin %s failed", plugin)
+				return nil, false
+			}
+			attributes = append(attributes, fmt.Sprintf("%s%s-%s-%s", attributePrefix, capabilityPlugin, plugin, version))
+		}
+		attributes = append(attributes, fmt.Sprintf("%s%s", attributePrefix, capabilityTaskNetwork))
+		return attributes, true
+	}
+	return nil, false
 }

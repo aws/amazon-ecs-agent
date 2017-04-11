@@ -286,6 +286,7 @@ func environmentConfig() (Config, error) {
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
+	taskNetworkEnabled := utils.ParseBool(os.Getenv("ECS_TASK_NETWORK"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 
@@ -340,6 +341,7 @@ func environmentConfig() (Config, error) {
 		SELinuxCapable:                   seLinuxCapable,
 		AppArmorCapable:                  appArmorCapable,
 		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
+		TaskNetworkEnabled:               taskNetworkEnabled,
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
 		CredentialsAuditLogFile:          credentialsAuditLogFile,

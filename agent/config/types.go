@@ -119,6 +119,10 @@ type Config struct {
 	// tasks with IAM Roles when networkMode is set to 'host'
 	TaskIAMRoleEnabledForNetworkHost bool
 
+	// TaskNetwork specifies if the Agent is capable of launching task within
+	// defined EC2 networks
+	TaskNetworkEnabled bool
+
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
 	ImageCleanupDisabled bool
