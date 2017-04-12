@@ -26,9 +26,8 @@ var log = logger.ForModule("eventhandler")
 // changes to a task or container's SentStatus
 var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
 
-func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver) {
+func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver, eventhandler *TaskHandler) {
 	statesaver = saver
-	handler := NewTaskHandler()
 
 	for {
 		taskEvents, containerEvents := taskEngine.TaskEvents()
@@ -42,7 +41,7 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 					break
 				}
 
-				handler.AddContainerEvent(event, client)
+				eventhandler.AddContainerEvent(event, client)
 
 			case event, open := <-taskEvents:
 				if !open {
@@ -51,7 +50,7 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 					break
 				}
 
-				handler.AddTaskEvent(event, client)
+				eventhandler.AddTaskEvent(event, client)
 			}
 		}
 	}

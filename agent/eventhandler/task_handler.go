@@ -22,49 +22,49 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-// Maximum number of tasks that may be handled at once by the taskHandler
+// Maximum number of tasks that may be handled at once by the TaskHandler
 const concurrentEventCalls = 3
 
 type eventList struct {
-	sending    bool // whether the list is already being handled
-	sync.Mutex      // Locks both the list and sending bool
-	*list.List      // list of *sendableEvents
+	*list.List            // list of *sendableEvents
+	sending    bool       // whether the list is already being handled
+	mu         sync.Mutex // Locks both the list and sending bool
 }
 
-type taskHandler struct {
+type TaskHandler struct {
 	submitSemaphore utils.Semaphore       // Semaphore on the number of tasks that may be handled at once
 	taskMap         map[string]*eventList // arn:*eventList map so events may be serialized per task
-	sync.RWMutex                          // Lock for the taskMap
+	taskMapMu       sync.RWMutex          // Lock for the taskMap
 }
 
-func NewTaskHandler() *taskHandler {
+func NewTaskHandler() *TaskHandler {
 	taskMap := make(map[string]*eventList)
 	submitSemaphore := utils.NewSemaphore(concurrentEventCalls)
 
-	return &taskHandler{
+	return &TaskHandler{
 		taskMap:         taskMap,
 		submitSemaphore: submitSemaphore,
 	}
 }
 
 // AddTaskEvent queues up a state change for sending using the given client.
-func (handler *taskHandler) AddTaskEvent(change api.TaskStateChange, client api.ECSClient) {
+func (handler *TaskHandler) AddTaskEvent(change api.TaskStateChange, client api.ECSClient) {
 	handler.addEvent(newSendableTaskEvent(change), client)
 }
 
 // AddContainerEvent queues up a state change for sending using the given client.
-func (handler *taskHandler) AddContainerEvent(change api.ContainerStateChange, client api.ECSClient) {
+func (handler *TaskHandler) AddContainerEvent(change api.ContainerStateChange, client api.ECSClient) {
 	handler.addEvent(newSendableContainerEvent(change), client)
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate
 // eventList
-func (handler *taskHandler) addEvent(change *sendableEvent, client api.ECSClient) {
+func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient) {
 
 	log.Info("Adding event", "change", change)
 
-	handler.Lock()
-	defer handler.Unlock()
+	handler.taskMapMu.Lock()
+	defer handler.taskMapMu.Unlock()
 
 	events, ok := handler.taskMap[change.taskArn()]
 
@@ -74,8 +74,8 @@ func (handler *taskHandler) addEvent(change *sendableEvent, client api.ECSClient
 		handler.taskMap[change.taskArn()] = events
 	}
 
-	events.Lock()
-	defer events.Unlock()
+	events.mu.Lock()
+	defer events.mu.Unlock()
 
 	// Update taskEvent
 	events.PushBack(change)
@@ -88,7 +88,7 @@ func (handler *taskHandler) addEvent(change *sendableEvent, client api.ECSClient
 
 // Continuously retries sending an event until it succeeds, sleeping between each
 // attempt
-func (handler *taskHandler) SubmitTaskEvents(events *eventList, client api.ECSClient) {
+func (handler *TaskHandler) SubmitTaskEvents(events *eventList, client api.ECSClient) {
 	backoff := utils.NewSimpleBackoff(1*time.Second, 30*time.Second, 0.20, 1.3)
 
 	// Mirror events.sending, but without the need to lock since this is local
@@ -107,8 +107,8 @@ func (handler *taskHandler) SubmitTaskEvents(events *eventList, client api.ECSCl
 			defer handler.submitSemaphore.Post()
 
 			log.Debug("Aquiring lock for sending event...")
-			events.Lock()
-			defer events.Unlock()
+			events.mu.Lock()
+			defer events.mu.Unlock()
 			log.Debug("Aquired lock!")
 
 			var err error
