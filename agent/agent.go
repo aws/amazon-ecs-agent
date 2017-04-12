@@ -259,8 +259,10 @@ func _main() int {
 	// Start serving the endpoint to fetch IAM Role credentials
 	go credentialshandler.ServeHTTP(credentialsManager, containerInstanceArn, cfg)
 
+	taskHandler := eventhandler.NewTaskHandler()
+
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager)
+	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager, taskHandler)
 
 	deregisterInstanceEventStream := eventstream.NewEventStream(DeregisterContainerInstanceEventStream, ctx)
 	deregisterInstanceEventStream.StartListening()
@@ -289,6 +291,7 @@ func _main() int {
 		stateManager,
 		taskEngine,
 		credentialsManager,
+		taskHandler,
 	)
 	log.Info("Beginning Polling for updates")
 	err = acsSession.Start()
