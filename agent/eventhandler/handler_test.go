@@ -41,24 +41,24 @@ func TestSendsEventsOneContainer(t *testing.T) {
 
 	handler := NewTaskHandler()
 
+	var wg sync.WaitGroup
+	wg.Add(3)
+
 	// Trivial: one container, no errors
-	contCalled := make(chan struct{})
-	taskCalled := make(chan struct{})
 	contEvent1 := contEvent("1")
 	contEvent2 := contEvent("2")
 	taskEvent2 := taskEvent("2")
 
-	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { contCalled <- struct{}{} })
-	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { contCalled <- struct{}{} })
-	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { taskCalled <- struct{}{} })
+	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { wg.Done() })
 
 	handler.AddContainerEvent(contEvent1, client)
 	handler.AddContainerEvent(contEvent2, client)
 	handler.AddTaskEvent(taskEvent2, client)
 
-	<-contCalled
-	<-contCalled
-	<-taskCalled
+	wg.Wait()
+
 }
 
 func TestSendsEventsOneEventRetries(t *testing.T) {
