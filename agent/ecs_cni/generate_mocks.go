@@ -13,4 +13,4 @@
 
 package ecs_cni
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/ecs_cni CNIClient mocks/ecs_cni_mocks.go
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/ecs_cni CNIClient mocks/ecs_cni_mocks.go

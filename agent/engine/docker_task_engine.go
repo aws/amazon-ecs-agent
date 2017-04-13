@@ -80,6 +80,7 @@ type DockerTaskEngine struct {
 
 	client     DockerClient
 	clientLock sync.Mutex
+	CNIClient  ecs_cni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -121,6 +122,10 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
+		CNIClient: ecs_cni.NewClient(&ecs_cni.Config{
+			PluginPath: cfg.PluginPath,
+			CniVersion: cfg.CniVersion,
+		}),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -862,7 +867,7 @@ func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
 	if engine.cfg.TaskNetworkEnabled {
 		// Check if all the plugin existed in the specific directory
 		for _, plugin := range plugins {
-			version, err := ecs_cni.Version(plugin)
+			version, err := engine.CNIClient.Version(plugin)
 			if err != nil {
 				log.Error("taskNetworkCapable engine: Check version of plugin %s failed", plugin)
 				return nil, false
