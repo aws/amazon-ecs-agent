@@ -28,6 +28,142 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
+func TestContainerNextStateFromNone(t *testing.T) {
+	// NONE -> RUNNING transition is allowed and actionable, when desired is Running
+	// The exptected next status is Pulled
+	testContainerNextStateAssertions(t,
+		api.ContainerStatusNone, api.ContainerRunning,
+		api.ContainerPulled, true, true)
+
+	// NONE -> NONE transition is not be allowed and is not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerStatusNone, api.ContainerStatusNone,
+		api.ContainerStatusNone, false, false)
+
+	// NONE -> STOPPED transition will result in STOPPED and is allowed, but not
+	// actionable, when desired is STOPPED
+	testContainerNextStateAssertions(t,
+		api.ContainerStatusNone, api.ContainerStopped,
+		api.ContainerStopped, false, true)
+}
+
+func TestContainerNextStateFromPulled(t *testing.T) {
+	// PULLED -> RUNNING transition is allowed and actionable, when desired is Running
+	// The exptected next status is Created
+	testContainerNextStateAssertions(t,
+		api.ContainerPulled, api.ContainerRunning,
+		api.ContainerCreated, true, true)
+
+	// PULLED -> PULLED transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerPulled, api.ContainerPulled,
+		api.ContainerStatusNone, false, false)
+
+	// PULLED -> NONE transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerPulled, api.ContainerStatusNone,
+		api.ContainerStatusNone, false, false)
+
+	// PULLED -> STOPPED transition will result in STOPPED and is allowed, but not
+	// actionable, when desired is STOPPED
+	testContainerNextStateAssertions(t,
+		api.ContainerPulled, api.ContainerStopped,
+		api.ContainerStopped, false, true)
+}
+
+func TestContainerNextStateFromCreated(t *testing.T) {
+	// CREATED -> RUNNING transition is allowed and actionable, when desired is Running
+	// The exptected next status is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerCreated, api.ContainerRunning,
+		api.ContainerRunning, true, true)
+
+	// CREATED -> CREATED transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerCreated, api.ContainerCreated,
+		api.ContainerStatusNone, false, false)
+
+	// CREATED -> NONE transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerCreated, api.ContainerStatusNone,
+		api.ContainerStatusNone, false, false)
+
+	// CREATED -> PULLED transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerCreated, api.ContainerPulled,
+		api.ContainerStatusNone, false, false)
+
+	// CREATED -> STOPPED transition will result in STOPPED and is allowed, but not
+	// actionable, when desired is STOPPED
+	testContainerNextStateAssertions(t,
+		api.ContainerCreated, api.ContainerStopped,
+		api.ContainerStopped, false, true)
+}
+
+func TestContainerNextStateFromRunning(t *testing.T) {
+	// RUNNING -> STOPPED transition is allowed and actionable, when desired is Running
+	// The exptected next status is STOPPED
+	testContainerNextStateAssertions(t,
+		api.ContainerRunning, api.ContainerStopped,
+		api.ContainerStopped, true, true)
+
+	// RUNNING -> RUNNING transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerRunning, api.ContainerRunning,
+		api.ContainerStatusNone, false, false)
+
+	// RUNNING -> NONE transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerRunning, api.ContainerStatusNone,
+		api.ContainerStatusNone, false, false)
+
+	// RUNNING -> PULLED transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerRunning, api.ContainerPulled,
+		api.ContainerStatusNone, false, false)
+
+	// RUNNING -> CREATED transition is not allowed and not actionable,
+	// when desired is Running
+	testContainerNextStateAssertions(t,
+		api.ContainerRunning, api.ContainerCreated,
+		api.ContainerStatusNone, false, false)
+}
+
+func testContainerNextStateAssertions(t *testing.T,
+	containerCurrentStatus api.ContainerStatus,
+	containerDesiredStatus api.ContainerStatus,
+	expectedContainerStatus api.ContainerStatus,
+	expectedTransitionActionable bool,
+	expectedTransitionPossible bool) {
+	container := &api.Container{
+		DesiredStatusUnsafe: containerDesiredStatus,
+		KnownStatusUnsafe:   containerCurrentStatus,
+	}
+	task := &managedTask{
+		Task: &api.Task{
+			Containers: []*api.Container{
+				container,
+			},
+			DesiredStatusUnsafe: api.TaskRunning,
+		},
+	}
+	nextStatus, actionRequired, possible := task.containerNextState(container)
+	assert.Equal(t, nextStatus, expectedContainerStatus,
+		"Retrieved next state [%s] != Expected next state [%s]",
+		nextStatus.String(), expectedContainerStatus.String())
+	assert.Equal(t, actionRequired, expectedTransitionActionable)
+	assert.Equal(t, possible, expectedTransitionPossible)
+}
+
 func TestCleanupTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
