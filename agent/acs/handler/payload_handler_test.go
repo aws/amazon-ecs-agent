@@ -56,7 +56,8 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 		ecsClient,
 		clusterName,
 		containerInstanceArn,
-		nil, stateManager,
+		nil,
+		stateManager,
 		refreshCredentialsHandler{},
 		credentialsManager,
 		taskHandler)
@@ -99,7 +100,17 @@ func TestHandlePayloadMessageAddTaskError(t *testing.T) {
 	taskEngine.EXPECT().AddTask(gomock.Any()).Return(fmt.Errorf("oops")).Times(2)
 
 	ctx := context.Background()
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, nil, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		nil,
+		stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
 
 	// Test AddTask error with RUNNING task
 	payloadMessage := &ecsacs.PayloadMessage{
@@ -153,7 +164,17 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	stateManager.EXPECT().Save().Return(fmt.Errorf("oops"))
 
 	ctx := context.Background()
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, nil, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		nil,
+		stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
 
 	// Check if handleSingleMessage returns an error when state manager returns error on Save()
 	err := buffer.handleSingleMessage(&ecsacs.PayloadMessage{
@@ -200,7 +221,18 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 		ackRequested = ackRequest
 		cancel()
 	}).Times(1)
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, mockWsClient, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		mockWsClient,
+		stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
+
 	go buffer.start()
 
 	// Send a payload message
@@ -274,7 +306,18 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 
-	payloadHandler := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, mockWsClient, stateManager, refreshCredsHandler, credentialsManager, taskHandler)
+	payloadHandler := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		mockWsClient,
+		stateManager,
+		refreshCredsHandler,
+		credentialsManager,
+		taskHandler)
+
 	go payloadHandler.start()
 
 	taskArn := "t1"
@@ -373,7 +416,18 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 
 	ctx := context.Background()
 	stateManager := statemanager.NewNoopStateManager()
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, nil, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		nil,
+		stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
+
 	_, ok := buffer.addPayloadTasks(payloadMessage)
 	assert.True(t, ok)
 	assert.Len(t, tasksAddedToEngine, 2)
@@ -412,7 +466,18 @@ func TestPayloadBufferHandler(t *testing.T) {
 		cancel()
 	}).Times(1)
 
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, mockWsClient, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		mockWsClient,
+		stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
+
 	go buffer.start()
 	// Send a payload message to the payloadBufferChannel
 	taskArn := "t1"
@@ -492,7 +557,18 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 	refreshCredsHandler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
-	payloadHandler := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, mockWsClient, stateManager, refreshCredsHandler, credentialsManager, taskHandler)
+	payloadHandler := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		mockWsClient,
+		stateManager,
+		refreshCredsHandler,
+		credentialsManager,
+		taskHandler)
+
 	go payloadHandler.start()
 
 	firstTaskArn := "t1"

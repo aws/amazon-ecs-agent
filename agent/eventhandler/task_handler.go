@@ -27,17 +27,26 @@ import (
 const concurrentEventCalls = 3
 
 type eventList struct {
-	events   *list.List // list of *sendableEvents
-	sending  bool       // whether the list is already being handled
-	listLock sync.Mutex // Locks both the list and sending bool
+	// events is a list of *sendableEvents
+	events *list.List
+	// sending will check whether the list is already being handlerd
+	sending bool
+	//eventsListLock locks both the list and sending bool
+	eventListLock sync.Mutex
 }
 
+// TaskHandler encapsulates the the map of a task arn to task and container events
+// associated with said task
 type TaskHandler struct {
-	submitSemaphore   utils.Semaphore       // Semaphore on the number of tasks that may be handled at once
-	tasksToEvents     map[string]*eventList // arn:*eventList map so events may be serialized per task
-	tasksToEventsLock sync.RWMutex          // Lock for the taskMap
+	// submitSemaphore for the number of tasks that may be handled at once
+	submitSemaphore utils.Semaphore
+	// taskToEvents is arn:*eventList map so events may be serialized per task
+	tasksToEvents map[string]*eventList
+	// tasksToEventsLock for locking the map
+	tasksToEventsLock sync.RWMutex
 }
 
+// NewTaskHandler returns a pointer to TaskHandler
 func NewTaskHandler() *TaskHandler {
 	return &TaskHandler{
 		tasksToEvents:   make(map[string]*eventList),
@@ -72,8 +81,8 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 		handler.tasksToEvents[change.taskArn()] = eventsToSubmit
 	}
 
-	eventsToSubmit.listLock.Lock()
-	defer eventsToSubmit.listLock.Unlock()
+	eventsToSubmit.eventListLock.Lock()
+	defer eventsToSubmit.eventListLock.Unlock()
 
 	// Update taskEvent
 	eventsToSubmit.events.PushBack(change)
@@ -105,8 +114,8 @@ func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client a
 			defer handler.submitSemaphore.Post()
 
 			seelog.Debug("TaskHandler, Aquiring lock for sending event...")
-			eventsToSubmit.listLock.Lock()
-			defer eventsToSubmit.listLock.Unlock()
+			eventsToSubmit.eventListLock.Lock()
+			defer eventsToSubmit.eventListLock.Unlock()
 			seelog.Debug("TaskHandler, Aquired lock!")
 
 			var err error
