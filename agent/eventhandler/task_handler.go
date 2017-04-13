@@ -70,16 +70,7 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 
 	seelog.Info("TaskHandler, Adding event: ", change)
 
-	handler.tasksToEventsLock.Lock()
-	defer handler.tasksToEventsLock.Unlock()
-
-	eventsToSubmit, ok := handler.tasksToEvents[change.taskArn()]
-
-	if !ok {
-		seelog.Debug("TaskHandler, New event: ", change)
-		eventsToSubmit = &eventList{events: list.New(), sending: false}
-		handler.tasksToEvents[change.taskArn()] = eventsToSubmit
-	}
+	eventsToSubmit := handler.getTaskEventList(change)
 
 	eventsToSubmit.eventListLock.Lock()
 	defer eventsToSubmit.eventListLock.Unlock()
@@ -91,6 +82,24 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 		eventsToSubmit.sending = true
 		go handler.SubmitTaskEvents(eventsToSubmit, client)
 	}
+}
+
+// getTaskEventList gets the eventList from taskToEvent map, and reduces the
+// scope of the taskToEventsLock to just this function
+func (handler *TaskHandler) getTaskEventList(change *sendableEvent) (eventsToSubmit *eventList) {
+
+	handler.tasksToEventsLock.Lock()
+	defer handler.tasksToEventsLock.Unlock()
+
+	eventsToSubmit, ok := handler.tasksToEvents[change.taskArn()]
+
+	if !ok {
+		seelog.Debug("TaskHandler, New event: ", change)
+		eventsToSubmit = &eventList{events: list.New(), sending: false}
+		handler.tasksToEvents[change.taskArn()] = eventsToSubmit
+	}
+
+	return eventsToSubmit
 }
 
 // Continuously retries sending an event until it succeeds, sleeping between each
