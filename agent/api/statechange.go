@@ -52,7 +52,7 @@ type TaskStateChange struct {
 	Reason string
 
 	// Task is a pointer to the task involved in the state change that gives the event handler a hook into storing
-	// what stats was sent.  This is used to ensure the same event is handled only once.
+	// what status was sent.  This is used to ensure the same event is handled only once.
 	Task *Task
 }
 

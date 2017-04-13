@@ -26,24 +26,21 @@ import (
 const concurrentEventCalls = 3
 
 type eventList struct {
-	*list.List            // list of *sendableEvents
-	sending    bool       // whether the list is already being handled
-	mu         sync.Mutex // Locks both the list and sending bool
+	events   *list.List // list of *sendableEvents
+	sending  bool       // whether the list is already being handled
+	listLock sync.Mutex // Locks both the list and sending bool
 }
 
 type TaskHandler struct {
-	submitSemaphore utils.Semaphore       // Semaphore on the number of tasks that may be handled at once
-	taskMap         map[string]*eventList // arn:*eventList map so events may be serialized per task
-	taskMapMu       sync.RWMutex          // Lock for the taskMap
+	submitSemaphore   utils.Semaphore       // Semaphore on the number of tasks that may be handled at once
+	tasksToEvents     map[string]*eventList // arn:*eventList map so events may be serialized per task
+	tasksToEventsLock sync.RWMutex          // Lock for the taskMap
 }
 
 func NewTaskHandler() *TaskHandler {
-	taskMap := make(map[string]*eventList)
-	submitSemaphore := utils.NewSemaphore(concurrentEventCalls)
-
 	return &TaskHandler{
-		taskMap:         taskMap,
-		submitSemaphore: submitSemaphore,
+		tasksToEvents:   make(map[string]*eventList),
+		submitSemaphore: utils.NewSemaphore(concurrentEventCalls),
 	}
 }
 
@@ -63,32 +60,32 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 
 	log.Info("Adding event", "change", change)
 
-	handler.taskMapMu.Lock()
-	defer handler.taskMapMu.Unlock()
+	handler.tasksToEventsLock.Lock()
+	defer handler.tasksToEventsLock.Unlock()
 
-	events, ok := handler.taskMap[change.taskArn()]
+	eventsToSubmit, ok := handler.tasksToEvents[change.taskArn()]
 
 	if !ok {
 		log.Debug("New event", "change", change)
-		events = &eventList{List: list.New(), sending: false}
-		handler.taskMap[change.taskArn()] = events
+		eventsToSubmit = &eventList{events: list.New(), sending: false}
+		handler.tasksToEvents[change.taskArn()] = eventsToSubmit
 	}
 
-	events.mu.Lock()
-	defer events.mu.Unlock()
+	eventsToSubmit.listLock.Lock()
+	defer eventsToSubmit.listLock.Unlock()
 
 	// Update taskEvent
-	events.PushBack(change)
+	eventsToSubmit.events.PushBack(change)
 
-	if !events.sending {
-		events.sending = true
-		go handler.SubmitTaskEvents(events, client)
+	if !eventsToSubmit.sending {
+		eventsToSubmit.sending = true
+		go handler.SubmitTaskEvents(eventsToSubmit, client)
 	}
 }
 
 // Continuously retries sending an event until it succeeds, sleeping between each
 // attempt
-func (handler *TaskHandler) SubmitTaskEvents(events *eventList, client api.ECSClient) {
+func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client api.ECSClient) {
 	backoff := utils.NewSimpleBackoff(1*time.Second, 30*time.Second, 0.20, 1.3)
 
 	// Mirror events.sending, but without the need to lock since this is local
@@ -107,21 +104,21 @@ func (handler *TaskHandler) SubmitTaskEvents(events *eventList, client api.ECSCl
 			defer handler.submitSemaphore.Post()
 
 			log.Debug("Aquiring lock for sending event...")
-			events.mu.Lock()
-			defer events.mu.Unlock()
+			eventsToSubmit.listLock.Lock()
+			defer eventsToSubmit.listLock.Unlock()
 			log.Debug("Aquired lock!")
 
 			var err error
 
-			if events.Len() == 0 {
+			if eventsToSubmit.events.Len() == 0 {
 				log.Debug("No events left; not retrying more")
 
-				events.sending = false
+				eventsToSubmit.sending = false
 				done = true
 				return nil
 			}
 
-			eventToSubmit := events.Front()
+			eventToSubmit := eventsToSubmit.events.Front()
 			event := eventToSubmit.Value.(*sendableEvent)
 			llog := log.New("event", event)
 
@@ -137,7 +134,7 @@ func (handler *TaskHandler) SubmitTaskEvents(events *eventList, client api.ECSCl
 					statesaver.Save()
 					llog.Debug("Submitted container state change")
 					backoff.Reset()
-					events.Remove(eventToSubmit)
+					eventsToSubmit.events.Remove(eventToSubmit)
 				} else {
 					llog.Error("Unretriable error submitting container state change", "err", err)
 				}
@@ -153,19 +150,19 @@ func (handler *TaskHandler) SubmitTaskEvents(events *eventList, client api.ECSCl
 					statesaver.Save()
 					llog.Debug("Submitted task state change")
 					backoff.Reset()
-					events.Remove(eventToSubmit)
+					eventsToSubmit.events.Remove(eventToSubmit)
 				} else {
 					llog.Error("Unretriable error submitting container state change", "err", err)
 				}
 			} else {
 				// Shouldn't be sent as either a task or container change event; must have been already sent
 				llog.Info("Not submitting redundant event; just removing")
-				events.Remove(eventToSubmit)
+				eventsToSubmit.events.Remove(eventToSubmit)
 			}
 
-			if events.Len() == 0 {
+			if eventsToSubmit.events.Len() == 0 {
 				llog.Debug("Removed the last element, no longer sending")
-				events.sending = false
+				eventsToSubmit.sending = false
 				done = true
 				return nil
 			}

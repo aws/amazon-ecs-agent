@@ -48,7 +48,17 @@ type payloadRequestHandler struct {
 }
 
 // newPayloadRequestHandler returns a new payloadRequestHandler object
-func newPayloadRequestHandler(ctx context.Context, taskEngine engine.TaskEngine, ecsClient api.ECSClient, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, saver statemanager.Saver, refreshHandler refreshCredentialsHandler, credentialsManager credentials.Manager, taskHandler *eventhandler.TaskHandler) payloadRequestHandler {
+func newPayloadRequestHandler(
+	ctx context.Context,
+	taskEngine engine.TaskEngine,
+	ecsClient api.ECSClient,
+	cluster string,
+	containerInstanceArn string,
+	acsClient wsclient.ClientServer,
+	saver statemanager.Saver,
+	refreshHandler refreshCredentialsHandler,
+	credentialsManager credentials.Manager,
+	taskHandler *eventhandler.TaskHandler) payloadRequestHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return payloadRequestHandler{
