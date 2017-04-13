@@ -50,7 +50,16 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	taskHandler := eventhandler.NewTaskHandler()
 
 	ctx := context.Background()
-	buffer := newPayloadRequestHandler(ctx, taskEngine, ecsClient, clusterName, containerInstanceArn, nil, stateManager, refreshCredentialsHandler{}, credentialsManager, taskHandler)
+	buffer := newPayloadRequestHandler(
+		ctx,
+		taskEngine,
+		ecsClient,
+		clusterName,
+		containerInstanceArn,
+		nil, stateManager,
+		refreshCredentialsHandler{},
+		credentialsManager,
+		taskHandler)
 
 	// test adding a payload message without the MessageId field
 	payloadMessage := &ecsacs.PayloadMessage{
