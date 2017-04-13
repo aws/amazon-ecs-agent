@@ -265,8 +265,17 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(acsSession.ctx, acsSession.taskEngine, acsSession.ecsClient, cfg.Cluster,
-		acsSession.containerInstanceARN, client, acsSession.stateManager, refreshCredsHandler, acsSession.credentialsManager, acsSession.taskHandler)
+	payloadHandler := newPayloadRequestHandler(
+		acsSession.ctx,
+		acsSession.taskEngine,
+		acsSession.ecsClient,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.stateManager,
+		refreshCredsHandler,
+		acsSession.credentialsManager,
+		acsSession.taskHandler)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
