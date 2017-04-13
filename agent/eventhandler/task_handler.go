@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/cihub/seelog"
 )
 
 // Maximum number of tasks that may be handled at once by the TaskHandler
@@ -58,7 +59,7 @@ func (handler *TaskHandler) AddContainerEvent(change api.ContainerStateChange, c
 // eventList
 func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient) {
 
-	log.Info("Adding event", "change", change)
+	seelog.Info("TaskHandler, Adding event: ", change)
 
 	handler.tasksToEventsLock.Lock()
 	defer handler.tasksToEventsLock.Unlock()
@@ -66,7 +67,7 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 	eventsToSubmit, ok := handler.tasksToEvents[change.taskArn()]
 
 	if !ok {
-		log.Debug("New event", "change", change)
+		seelog.Debug("TaskHandler, New event: ", change)
 		eventsToSubmit = &eventList{events: list.New(), sending: false}
 		handler.tasksToEvents[change.taskArn()] = eventsToSubmit
 	}
@@ -99,19 +100,19 @@ func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client a
 		utils.RetryWithBackoff(backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
-			log.Debug("Waiting on semaphore to send...")
+			seelog.Debug("TaskHandler, Waiting on semaphore to send...")
 			handler.submitSemaphore.Wait()
 			defer handler.submitSemaphore.Post()
 
-			log.Debug("Aquiring lock for sending event...")
+			seelog.Debug("TaskHandler, Aquiring lock for sending event...")
 			eventsToSubmit.listLock.Lock()
 			defer eventsToSubmit.listLock.Unlock()
-			log.Debug("Aquired lock!")
+			seelog.Debug("TaskHandler, Aquired lock!")
 
 			var err error
 
 			if eventsToSubmit.events.Len() == 0 {
-				log.Debug("No events left; not retrying more")
+				seelog.Debug("TaskHandler, No events left; not retrying more")
 
 				eventsToSubmit.sending = false
 				done = true
@@ -120,10 +121,9 @@ func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client a
 
 			eventToSubmit := eventsToSubmit.events.Front()
 			event := eventToSubmit.Value.(*sendableEvent)
-			llog := log.New("event", event)
 
 			if event.containerShouldBeSent() {
-				llog.Info("Sending container change", "change", event)
+				seelog.Info("TaskHandler, Sending container change: ", event)
 				err = client.SubmitContainerStateChange(event.containerChange)
 				if err == nil {
 					// submitted; ensure we don't retry it
@@ -132,14 +132,14 @@ func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client a
 						event.containerChange.Container.SetSentStatus(event.containerChange.Status)
 					}
 					statesaver.Save()
-					llog.Debug("Submitted container state change")
+					seelog.Debug("TaskHandler, Submitted container state change")
 					backoff.Reset()
 					eventsToSubmit.events.Remove(eventToSubmit)
 				} else {
-					llog.Error("Unretriable error submitting container state change", "err", err)
+					seelog.Error("TaskHandler, Unretriable error submitting container state change ", err)
 				}
 			} else if event.taskShouldBeSent() {
-				llog.Info("Sending task change", "change", event)
+				seelog.Info("TaskHandler, Sending task change: ", event)
 				err = client.SubmitTaskStateChange(event.taskChange)
 				if err == nil {
 					// submitted or can't be retried; ensure we don't retry it
@@ -148,20 +148,20 @@ func (handler *TaskHandler) SubmitTaskEvents(eventsToSubmit *eventList, client a
 						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					}
 					statesaver.Save()
-					llog.Debug("Submitted task state change")
+					seelog.Debug("TaskHandler, Submitted task state change")
 					backoff.Reset()
 					eventsToSubmit.events.Remove(eventToSubmit)
 				} else {
-					llog.Error("Unretriable error submitting container state change", "err", err)
+					seelog.Error("TaskHandler, Unretriable error submitting container state change: ", err)
 				}
 			} else {
 				// Shouldn't be sent as either a task or container change event; must have been already sent
-				llog.Info("Not submitting redundant event; just removing")
+				seelog.Info("TaskHandler, Not submitting redundant event; just removing")
 				eventsToSubmit.events.Remove(eventToSubmit)
 			}
 
 			if eventsToSubmit.events.Len() == 0 {
-				llog.Debug("Removed the last element, no longer sending")
+				seelog.Debug("TaskHandler, Removed the last element, no longer sending")
 				eventsToSubmit.sending = false
 				done = true
 				return nil
