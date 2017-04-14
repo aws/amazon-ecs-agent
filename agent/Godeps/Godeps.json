@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/aws/amazon-ecs-agent/agent",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v75",
+	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
 	],
@@ -165,6 +165,10 @@
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Comment": "v1.0.0-3-g6d21280",
 			"Rev": "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
+		},
+		{
+			"ImportPath": "github.com/deniswernert/udev",
+			"Rev": "82fe5be8ca5f7d8255cc838723687f61bb175120"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/api/types/filters",
