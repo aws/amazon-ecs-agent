@@ -29,6 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	eniWatcher "github.com/aws/amazon-ecs-agent/agent/eni"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkWrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -44,6 +46,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	log "github.com/cihub/seelog"
+	"github.com/deniswernert/udev"
 	"golang.org/x/net/context"
 )
 
@@ -241,6 +244,9 @@ func _main() int {
 		}
 	}
 
+	// Setup ENI Watcher
+	initializeENIWatcher(ctx)
+
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetSaver(stateManager)
 	imageManager.SetSaver(stateManager)
@@ -317,4 +323,25 @@ func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cl
 		return nil, err
 	}
 	return stateManager, nil
+}
+
+// initializeENIWatcher wraps up the setup for creating the ENI Watcher
+func initializeENIWatcher(ctx context.Context) {
+	log.Debug("Setting up ENI Watcher")
+	// Create UDev Monitor
+	udevMonitor, err := udev.NewMonitor()
+	if err != nil {
+		log.Errorf("Error creating udev monitor: %v", err)
+		return
+	}
+	// Create Watcher
+	watcher := eniWatcher.New(ctx, netlinkWrapper.NetLinkClient{}, udevMonitor)
+
+	err = watcher.Init()
+	if err != nil {
+		log.Errorf("Error initializing ENI Watcher: %v", err)
+		watcher.Stop()
+		return
+	}
+	go watcher.Start()
 }
