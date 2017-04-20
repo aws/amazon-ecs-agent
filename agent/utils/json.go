@@ -32,7 +32,7 @@ func JsonKeys(b []byte) ([]string, error) {
 
 	keys := make([]string, len(keyMap))
 	ndx := 0
-	for k, _ := range keyMap {
+	for k := range keyMap {
 		keys[ndx] = k
 		ndx++
 	}

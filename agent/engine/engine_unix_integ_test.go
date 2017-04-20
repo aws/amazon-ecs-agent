@@ -201,7 +201,7 @@ func TestPortForward(t *testing.T) {
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
-	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
 
 	taskEngine.AddTask(testTask)
 
@@ -256,12 +256,12 @@ func TestMultiplePortForwards(t *testing.T) {
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container1"}
-	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
-	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24752}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24752}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -310,7 +310,7 @@ func TestDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -377,7 +377,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container", `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751}, api.PortBinding{ContainerPort: 24751, HostPort: 0}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}, {ContainerPort: 24751, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -459,7 +459,7 @@ func TestLinking(t *testing.T) {
 	testTask.Containers[0].Name = "linkee"
 	testTask.Containers[1].Command = []string{"-l=24751", "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
 
 	taskEvents, contEvents := taskEngine.TaskEvents()
 
@@ -620,9 +620,9 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []api.PortBinding{api.PortBinding{ContainerPort: 80, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: 24751}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -669,11 +669,11 @@ func TestVolumesFromRO(t *testing.T) {
 		cont.Essential = i > 0
 		testTask.Containers = append(testTask.Containers, cont)
 	}
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
+	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
-	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
-	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{api.VolumeFrom{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
+	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
 
 	go taskEngine.AddTask(testTask)
@@ -693,23 +693,23 @@ func TestVolumesFromRO(t *testing.T) {
 
 func createTestHostVolumeMountTask(tmpPath string) *api.Task {
 	testTask := createTestTask("testHostVolumeMount")
-	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.FSHostVolume{FSSourcePath: tmpPath}}}
+	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
 	return testTask
 }
 
 func createTestEmptyHostVolumeMountTask() *api.Task {
 	testTask := createTestTask("testEmptyHostVolumeMount")
-	testTask.Volumes = []api.TaskVolume{api.TaskVolume{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
+	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].MountPoints = []api.MountPoint{api.MountPoint{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
+	testTask.Containers[1].MountPoints = []api.MountPoint{{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
 	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
 	testTask.Containers[1].Essential = false
 	return testTask

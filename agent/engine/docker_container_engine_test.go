@@ -561,7 +561,7 @@ func TestContainerEvents(t *testing.T) {
 		ID: "cid2",
 		NetworkSettings: &docker.NetworkSettings{
 			Ports: map[docker.Port][]docker.PortBinding{
-				"80/tcp": []docker.PortBinding{docker.PortBinding{HostPort: "9001"}},
+				"80/tcp": {{HostPort: "9001"}},
 			},
 		},
 		Volumes: map[string]string{"/host/path": "/container/path"},
@@ -684,7 +684,7 @@ func TestListContainers(t *testing.T) {
 	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
-	containers := []docker.APIContainers{docker.APIContainers{ID: "id"}}
+	containers := []docker.APIContainers{{ID: "id"}}
 	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
 	response := client.ListContainers(true, ListContainersTimeout)
 	if response.Error != nil {

@@ -95,11 +95,11 @@ func discardEvents(from interface{}) func() {
 	go func() {
 		for {
 			ndx, _, _ := reflect.Select([]reflect.SelectCase{
-				reflect.SelectCase{
+				{
 					Dir:  reflect.SelectRecv,
 					Chan: reflect.ValueOf(from),
 				},
-				reflect.SelectCase{
+				{
 					Dir:  reflect.SelectRecv,
 					Chan: reflect.ValueOf(done),
 				},

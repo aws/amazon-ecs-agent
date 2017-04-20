@@ -77,7 +77,7 @@ func (eventStream *EventStream) Unsubscribe(name string) {
 	eventStream.handlersLock.Lock()
 	defer eventStream.handlersLock.Unlock()
 
-	for handler, _ := range eventStream.handlers {
+	for handler := range eventStream.handlers {
 		if handler == name {
 			seelog.Debugf("Unsubscribing event handler %s from event stream %s", handler, eventStream.name)
 			delete(eventStream.handlers, handler)

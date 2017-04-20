@@ -566,7 +566,7 @@ func createImageCleanupHappyTestTask(taskName string) *api.Task {
 		Version:             "1",
 		DesiredStatusUnsafe: api.TaskRunning,
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:                "test1",
 				Image:               test1Image1Name,
 				Essential:           false,
@@ -574,7 +574,7 @@ func createImageCleanupHappyTestTask(taskName string) *api.Task {
 				CPU:                 10,
 				Memory:              10,
 			},
-			&api.Container{
+			{
 				Name:                "test2",
 				Image:               test1Image2Name,
 				Essential:           false,
@@ -582,7 +582,7 @@ func createImageCleanupHappyTestTask(taskName string) *api.Task {
 				CPU:                 10,
 				Memory:              10,
 			},
-			&api.Container{
+			{
 				Name:                "test3",
 				Image:               test1Image3Name,
 				Essential:           false,
@@ -601,7 +601,7 @@ func createImageCleanupThresholdTestTask(taskName string) *api.Task {
 		Version:             "1",
 		DesiredStatusUnsafe: api.TaskRunning,
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:                "test1",
 				Image:               test2Image1Name,
 				Essential:           false,
@@ -609,7 +609,7 @@ func createImageCleanupThresholdTestTask(taskName string) *api.Task {
 				CPU:                 10,
 				Memory:              10,
 			},
-			&api.Container{
+			{
 				Name:                "test2",
 				Image:               test2Image2Name,
 				Essential:           false,
@@ -617,7 +617,7 @@ func createImageCleanupThresholdTestTask(taskName string) *api.Task {
 				CPU:                 10,
 				Memory:              10,
 			},
-			&api.Container{
+			{
 				Name:                "test3",
 				Image:               test2Image3Name,
 				Essential:           false,

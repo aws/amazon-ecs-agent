@@ -630,7 +630,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		Family:  "myFamily",
 		Version: "1",
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name: "c1",
 				DockerConfig: api.DockerConfig{
 					Config: aws.String(`{"Labels":{"key":"value"}}`),

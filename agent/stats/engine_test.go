@@ -176,8 +176,8 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.addContainer("c1")
 	containerStats := []*ContainerStats{
-		&ContainerStats{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		&ContainerStats{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {
