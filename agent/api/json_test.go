@@ -147,8 +147,8 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
 		Volumes: []TaskVolume{
-			TaskVolume{Name: "1", Volume: &EmptyHostVolume{}},
-			TaskVolume{Name: "2", Volume: &FSHostVolume{FSSourcePath: "/path"}},
+			{Name: "1", Volume: &EmptyHostVolume{}},
+			{Name: "2", Volume: &FSHostVolume{FSSourcePath: "/path"}},
 		},
 	}
 

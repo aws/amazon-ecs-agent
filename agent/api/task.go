@@ -399,7 +399,7 @@ func (task *Task) dockerPortMap(container *Container) map[docker.Port][]docker.P
 		if existing {
 			dockerPortMap[dockerPort] = append(currentMappings, docker.PortBinding{HostIP: portBindingHostIP, HostPort: strconv.Itoa(int(portBinding.HostPort))})
 		} else {
-			dockerPortMap[dockerPort] = []docker.PortBinding{docker.PortBinding{HostIP: portBindingHostIP, HostPort: strconv.Itoa(int(portBinding.HostPort))}}
+			dockerPortMap[dockerPort] = []docker.PortBinding{{HostIP: portBindingHostIP, HostPort: strconv.Itoa(int(portBinding.HostPort))}}
 		}
 	}
 	return dockerPortMap

@@ -67,7 +67,7 @@ func (authProvider *dockerAuthProvider) GetAuthconfig(image string) (docker.Auth
 		longestKey = authConfigKey
 	}
 
-	for registry, _ := range authDataMap {
+	for registry := range authDataMap {
 		nameParts := strings.SplitN(registry, "/", 2)
 		hostname := nameParts[0]
 

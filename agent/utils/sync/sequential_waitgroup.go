@@ -73,7 +73,7 @@ func (s *SequentialWaitGroup) Wait(sequence int64) {
 	waitOver := func() bool {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-		for storedSequence, _ := range s.semaphores {
+		for storedSequence := range s.semaphores {
 			if storedSequence <= sequence {
 				// At least one non-empty seqnum greater than ours; wait more
 				return false

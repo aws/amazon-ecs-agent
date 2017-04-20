@@ -19,5 +19,5 @@ func RemoveFromTaskArray(arr []*Task, ndx int) []*Task {
 	if ndx < 0 || ndx >= len(arr) {
 		return arr
 	}
-	return append(arr[0:ndx], arr[ndx+1:len(arr)]...)
+	return append(arr[0:ndx], arr[ndx+1:]...)
 }
