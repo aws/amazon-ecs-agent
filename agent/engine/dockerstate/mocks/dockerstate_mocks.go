@@ -87,6 +87,16 @@ func (_mr *_MockTaskEngineStateRecorder) AllTasks() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AllTasks")
 }
 
+func (_m *MockTaskEngineState) GetAllContainerIDs() []string {
+	ret := _m.ctrl.Call(_m, "GetAllContainerIDs")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+func (_mr *_MockTaskEngineStateRecorder) GetAllContainerIDs() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllContainerIDs")
+}
+
 func (_m *MockTaskEngineState) ContainerByID(_param0 string) (*api.DockerContainer, bool) {
 	ret := _m.ctrl.Call(_m, "ContainerByID", _param0)
 	ret0, _ := ret[0].(*api.DockerContainer)
@@ -156,6 +166,17 @@ func (_m *MockTaskEngineState) TaskByID(_param0 string) (*api.Task, bool) {
 
 func (_mr *_MockTaskEngineStateRecorder) TaskByID(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByID", arg0)
+}
+
+func (_mr *_MockTaskEngineStateRecorder) TaskByShortID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByShortID", arg0)
+}
+
+func (_m *MockTaskEngineState) TaskByShortID(_param0 string) ([]*api.Task, bool) {
+	ret := _m.ctrl.Call(_m, "TaskByShortID", _param0)
+	ret0, _ := ret[0].([]*api.Task)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
 }
 
 func (_m *MockTaskEngineState) UnmarshalJSON(_param0 []byte) error {
