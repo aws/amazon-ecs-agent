@@ -15,6 +15,7 @@ package dockerstate
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -35,6 +36,8 @@ type TaskEngineState interface {
 	ContainerByID(id string) (*api.DockerContainer, bool)
 	// ContainerMapByArn returns a map of containers belonging to a particular task ARN
 	ContainerMapByArn(arn string) (map[string]*api.DockerContainer, bool)
+	// TaskByShortID retrieves the task of a given docker short container id
+	TaskByShortID(cid string) (*api.Task, bool)
 	// TaskByID returns an api.Task for a given container ID
 	TaskByID(cid string) (*api.Task, bool)
 	// TaskByArn returns a task for a given ARN
@@ -141,6 +144,19 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 
 	ret, ok := state.taskToID[arn]
 	return ret, ok
+}
+
+// TaskByShortID retrieves the task of a given docker short container id
+func (state *DockerTaskEngineState) TaskByShortID(cid string) (*api.Task, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	for id := range state.idToTask {
+		if strings.HasPrefix(id, cid) {
+			return state.TaskByID(id)
+		}
+	}
+	return nil, false
 }
 
 // TaskByID retrieves the task of a given docker container id

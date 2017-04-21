@@ -35,6 +35,7 @@ var log = logger.ForModule("Handlers")
 const (
 	dockerIdQueryField = "dockerid"
 	taskArnQueryField  = "taskarn"
+	dockerShortIdLen   = 12
 )
 
 type rootResponse struct {
@@ -134,7 +135,13 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 		}
 		if dockerIdExists {
 			// Create TaskResponse for the docker id in the query.
-			task, found := dockerTaskEngineState.TaskByID(dockerId)
+			var task *api.Task
+			var found bool
+			if len(dockerId) > dockerShortIdLen {
+				task, found = dockerTaskEngineState.TaskByID(dockerId)
+			} else {
+				task, found = dockerTaskEngineState.TaskByShortID(dockerId)
+			}
 			responseJSON, status = createTaskJSONResponse(task, found, dockerId, dockerTaskEngineState)
 			w.WriteHeader(status)
 		} else if taskArnExists {
