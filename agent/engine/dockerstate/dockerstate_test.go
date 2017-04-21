@@ -32,6 +32,10 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should not have a test task")
 	}
 
+	if _, ok := state.TaskByShortID("test"); ok {
+		t.Error("Empty state should not have a test taskid")
+	}
+
 	if _, ok := state.TaskByID("test"); ok {
 		t.Error("Empty state should not have a test taskid")
 	}
