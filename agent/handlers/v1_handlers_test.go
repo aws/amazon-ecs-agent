@@ -78,6 +78,20 @@ func TestGetTaskByDockerID(t *testing.T) {
 	taskDiffHelper(t, []*api.Task{testTasks[1]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
 }
 
+func TestGetTaskByShortDockerID(t *testing.T) {
+	// stateSetupHelper uses the convention of dockerid-$arn-$containerName; the
+	// first task has a container name prefix of dockerid-tas
+	recorder := performMockRequest(t, "/v1/tasks?dockerid=dockerid-tas")
+
+	var taskResponse TaskResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	taskDiffHelper(t, []*api.Task{testTasks[0]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+}
+
 func TestGetTaskByDockerID404(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks?dockerid=does-not-exist")
 
