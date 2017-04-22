@@ -28,12 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const dockerIDPrefix = "dockerid-"
+
 func strptr(s string) *string { return &s }
 
 func dockerMap(task *Task) map[string]*DockerContainer {
 	m := make(map[string]*DockerContainer)
 	for _, c := range task.Containers {
-		m[c.Name] = &DockerContainer{DockerID: "dockerid-" + c.Name, DockerName: "dockername-" + c.Name, Container: c}
+		m[c.Name] = &DockerContainer{DockerID: dockerIDPrefix + c.Name, DockerName: "dockername-" + c.Name, Container: c}
 	}
 	return m
 }
@@ -150,9 +152,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	bindings, ok := config.PortBindings["10/tcp"]
 	assert.True(t, ok, "Could not get port bindings")
@@ -181,9 +181,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
-	if err != nil {
-		t.Fatal("Error creating config: ", err)
-	}
+	assert.Nil(t, err)
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -224,12 +222,9 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	}
 
 	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expectedOutput := rawHostConfigInput
-
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
 
@@ -271,9 +266,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	}
 
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
 		Privileged:  true,
@@ -282,6 +275,40 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	}
 
 	assertSetStructFieldsEqual(t, expected, *hostConfig)
+}
+
+func TestDockerHostConfigPauseContainer(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+			},
+			&Container{
+				Name: emptyHostVolumeName,
+			},
+			&Container{
+				Name: pauseContainerName,
+			},
+		},
+	}
+
+	// Verify that the network mode is set to "container:<pause-container-docker-id>"
+	// for a non empty volume, non pause container
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, config.NetworkMode, "container:"+dockerIDPrefix+pauseContainerName)
+
+	// Verify that the network mode is not set to "container:<pause-container-docker-id>
+	// for the empty volume container and that it remains unchanged
+	config, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.NotEqual(t, config.NetworkMode, "container:"+dockerIDPrefix+pauseContainerName)
+	assert.Equal(t, config.NetworkMode, "")
+
+	// Verify that the network mode is set to "none" for the pause container
+	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, config.NetworkMode, networkModeNone)
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
@@ -300,9 +327,7 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 			},
 		}
 		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
-		if err == nil {
-			t.Fatal("Expected error, was none for: " + badHostConfig)
-		}
+		assert.Error(t, err)
 	}
 }
 
