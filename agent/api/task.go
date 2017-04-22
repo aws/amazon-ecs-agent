@@ -39,6 +39,13 @@ const (
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+	// pauseContainerName is the internal name for the pause container
+	pauseContainerName = "~internal~ecs~pause"
+	// pauseContainerImage is container image used to create the pause container
+	// TODO: Modify this to amazon/amazon-ecs-pause or something similar
+	pauseContainerImage = "gcr.io/google_containers/pause:latest"
+	// networkModeNone specifies the string used to define the `none` docker networking mode
+	networkModeNone = "none"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -198,6 +205,26 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
 	}
 
+}
+
+func (task *Task) addNetworkResourceProvisioningDependency() {
+	// TODO check networking mode for the task before doing this
+	for _, container := range task.Containers {
+		if container.Name == emptyHostVolumeName && container.IsInternal {
+			continue
+		}
+		if container.RunDependencies == nil {
+			container.RunDependencies = make([]string, 1)
+		}
+		container.RunDependencies = append(container.RunDependencies, pauseContainerName)
+	}
+	pauseContainer := &Container{
+		Name:       pauseContainerName,
+		Image:      pauseContainerImage,
+		Essential:  true,
+		IsInternal: true,
+	}
+	task.Containers = append(task.Containers, pauseContainer)
 }
 
 // ContainerByName returns the *Container for the given name
@@ -423,6 +450,27 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
+	// Set network mode in host config. Since we create internal containers for
+	// volumes and setting up networking for ENIs, we handle those special cases
+	// via a switch statement
+	switch container.Name {
+	// emptyHostVolumeName inidicates that this is an internal container
+	// and is used for setting up empty host volume mounts. Do not change
+	// its network mode
+	case emptyHostVolumeName:
+	// pauseContainerName indicates this is an internal container and is
+	// used for setting up the network namespace of the pause container.
+	// Such a container must be created with the "none" network mode
+	case pauseContainerName:
+		hostConfig.NetworkMode = networkModeNone
+	// default case for all other containers is to set their network mode
+	// to "container:<pause-container-id>" if the pause container is a
+	// part of the task's container list
+	default:
+		if pauseContainer, ok := dockerContainerMap[pauseContainerName]; ok {
+			hostConfig.NetworkMode = "container:" + pauseContainer.DockerID
+		}
+	}
 	return hostConfig, nil
 }
 
