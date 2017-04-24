@@ -497,7 +497,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	// wait for api.TaskStopped to be sent
 	ok := mtask.waitForStopReported()
-	if !ok{
+	if !ok {
 		seelog.Errorf("Aborting cleanup for task %v as it is not reported stopped.  SentStatus: %v", mtask, mtask.GetSentStatus())
 		return
 	}

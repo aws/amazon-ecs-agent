@@ -35,21 +35,21 @@ var dockerhubAuth string = base64.StdEncoding.EncodeToString([]byte("dockerhub:p
 
 func TestDockerCfgAuth(t *testing.T) {
 	var expectedPairs = []authTestPair{
-		authTestPair{"example.tld/my/image", "user", "swordfish"},
-		authTestPair{"example.tld/user2/image", "test", "dragon"},
-		authTestPair{"registry.tld/image", "", ""},
-		authTestPair{"nginx", "dockerhub", "password"},
-		authTestPair{"busybox", "dockerhub", "password"},
-		authTestPair{"library/busybox", "dockerhub", "password"},
-		authTestPair{"amazon/amazon-ecs-agent", "dockerhub", "password"},
-		authTestPair{"aregistry.tld/foo/bar", "user", "swordfish"},
-		authTestPair{"aregistry.tld/foo", "user", "swordfish"},
-		authTestPair{"aregistry.tld2/foo", "", ""},
-		authTestPair{"foo.aregistry.tld/foo", "", ""},
-		authTestPair{"anotherregistry.tld/foo/bar", "user", "swordfish"},
-		authTestPair{"anotherregistry.tld/foo", "user", "swordfish"},
-		authTestPair{"anotherregistry.tld2/foo", "", ""},
-		authTestPair{"foo.anotherregistry.tld/foo", "", ""},
+		{"example.tld/my/image", "user", "swordfish"},
+		{"example.tld/user2/image", "test", "dragon"},
+		{"registry.tld/image", "", ""},
+		{"nginx", "dockerhub", "password"},
+		{"busybox", "dockerhub", "password"},
+		{"library/busybox", "dockerhub", "password"},
+		{"amazon/amazon-ecs-agent", "dockerhub", "password"},
+		{"aregistry.tld/foo/bar", "user", "swordfish"},
+		{"aregistry.tld/foo", "user", "swordfish"},
+		{"aregistry.tld2/foo", "", ""},
+		{"foo.aregistry.tld/foo", "", ""},
+		{"anotherregistry.tld/foo/bar", "user", "swordfish"},
+		{"anotherregistry.tld/foo", "user", "swordfish"},
+		{"anotherregistry.tld2/foo", "", ""},
+		{"foo.anotherregistry.tld/foo", "", ""},
 	}
 	authData := []byte(strings.Join(append([]string{`{`},
 		`"example.tld/user2":{"auth":"`+dragonAuth+`","email":"test@test.test"},`,
@@ -89,9 +89,9 @@ func TestAuthAppliesToOnlyRegistry(t *testing.T) {
 
 	var expectedPairs = []authTestPair{
 		// '/user2' should apply here because of matching hostname
-		authTestPair{"example.tld/foo", "user", "swordfish"},
-		authTestPair{"registry.tld", "", ""},
-		authTestPair{"nginx", "", ""},
+		{"example.tld/foo", "user", "swordfish"},
+		{"registry.tld", "", ""},
+		{"nginx", "", ""},
 	}
 
 	provider := NewDockerAuthProvider("dockercfg", authData)

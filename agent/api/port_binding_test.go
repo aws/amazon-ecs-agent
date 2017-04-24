@@ -27,10 +27,10 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 	}{
 		{
 			map[docker.Port][]docker.PortBinding{
-				"53/udp": []docker.PortBinding{docker.PortBinding{HostIP: "1.2.3.4", HostPort: "55"}},
+				"53/udp": {{HostIP: "1.2.3.4", HostPort: "55"}},
 			},
 			[]PortBinding{
-				PortBinding{
+				{
 					BindIP:        "1.2.3.4",
 					HostPort:      55,
 					ContainerPort: 53,
@@ -40,19 +40,19 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 		},
 		{
 			map[docker.Port][]docker.PortBinding{
-				"80/tcp": []docker.PortBinding{
-					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
-					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
+				"80/tcp": {
+					{HostIP: "2.3.4.5", HostPort: "8080"},
+					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			[]PortBinding{
-				PortBinding{
+				{
 					BindIP:        "2.3.4.5",
 					HostPort:      8080,
 					ContainerPort: 80,
 					Protocol:      TransportProtocolTCP,
 				},
-				PortBinding{
+				{
 					BindIP:        "5.6.7.8",
 					HostPort:      80,
 					ContainerPort: 80,
@@ -80,27 +80,27 @@ func TestPortBindingErrors(t *testing.T) {
 	}{
 		{
 			map[docker.Port][]docker.PortBinding{
-				"woof/tcp": []docker.PortBinding{
-					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
-					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
+				"woof/tcp": {
+					{HostIP: "2.3.4.5", HostPort: "8080"},
+					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			UnparseablePortErrorName,
 		},
 		{
 			map[docker.Port][]docker.PortBinding{
-				"80/tcp": []docker.PortBinding{
-					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
-					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "bark"},
+				"80/tcp": {
+					{HostIP: "2.3.4.5", HostPort: "8080"},
+					{HostIP: "5.6.7.8", HostPort: "bark"},
 				},
 			},
 			UnparseablePortErrorName,
 		},
 		{
 			map[docker.Port][]docker.PortBinding{
-				"80/bark": []docker.PortBinding{
-					docker.PortBinding{HostIP: "2.3.4.5", HostPort: "8080"},
-					docker.PortBinding{HostIP: "5.6.7.8", HostPort: "80"},
+				"80/bark": {
+					{HostIP: "2.3.4.5", HostPort: "8080"},
+					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
 			},
 			UnrecognizedTransportProtocolErrorName,

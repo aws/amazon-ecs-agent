@@ -66,7 +66,7 @@ func TestAddTask(t *testing.T) {
 
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*api.Container{&api.Container{
+	testTask := &api.Task{Arn: "test", Containers: []*api.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)

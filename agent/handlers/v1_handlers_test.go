@@ -122,7 +122,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
 
 	containers := []*api.Container{
-		&api.Container{
+		{
 			Name: "c1",
 		},
 	}

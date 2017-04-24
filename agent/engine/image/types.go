@@ -87,7 +87,7 @@ func (imageState *ImageState) RemoveContainerReference(container *api.Container)
 	// Get the image state write lock for updating container reference
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
-	for i, _ := range imageState.Containers {
+	for i := range imageState.Containers {
 		if imageState.Containers[i].Name == container.Name {
 			// Container reference found; hence remove it
 			seelog.Infof("Removing Container Reference: %v from Image State- %v", container.Name, imageState.Image.ImageID)

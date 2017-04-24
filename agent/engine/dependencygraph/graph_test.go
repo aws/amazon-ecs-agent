@@ -55,7 +55,7 @@ func TestValidDependencies(t *testing.T) {
 
 	task = &api.Task{
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:          "redis",
 				DesiredStatus: api.ContainerRunning,
 			},
@@ -111,7 +111,7 @@ func TestValidDependencies(t *testing.T) {
 func TestDependenciesAreResolved(t *testing.T) {
 	task := &api.Task{
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:          "redis",
 				DesiredStatus: api.ContainerRunning,
 			},
