@@ -245,7 +245,10 @@ func _main() int {
 	}
 
 	// Setup ENI Watcher
-	initializeENIWatcher(ctx)
+	_, err = initializeENIWatcher(ctx)
+	if err != nil {
+		log.Errorf("Error setting up ENI Watcher: %v", err)
+	}
 
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetSaver(stateManager)
@@ -326,14 +329,16 @@ func initializeStateManager(cfg *config.Config, taskEngine engine.TaskEngine, cl
 }
 
 // initializeENIWatcher wraps up the setup for creating the ENI Watcher
-func initializeENIWatcher(ctx context.Context) {
+func initializeENIWatcher(ctx context.Context) (*eniWatcher.UdevWatcher, error) {
 	log.Debug("Setting up ENI Watcher")
+
 	// Create UDev Monitor
 	udevMonitor, err := udev.NewMonitor()
 	if err != nil {
 		log.Errorf("Error creating udev monitor: %v", err)
-		return
+		return nil, err
 	}
+
 	// Create Watcher
 	watcher := eniWatcher.New(ctx, netlinkWrapper.NetLinkClient{}, udevMonitor)
 
@@ -341,7 +346,9 @@ func initializeENIWatcher(ctx context.Context) {
 	if err != nil {
 		log.Errorf("Error initializing ENI Watcher: %v", err)
 		watcher.Stop()
-		return
+		return watcher, err
+
 	}
 	go watcher.Start()
+	return watcher, nil
 }
