@@ -302,6 +302,8 @@ func environmentConfig() (Config, error) {
 		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
 
+	cniPluginPath := os.Getenv("ECS_CNI_PLUGIN_PATH")
+
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
 	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
 	var instanceAttributes map[string]string
@@ -352,6 +354,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
+		CniPluginPath:                    cniPluginPath,
 	}, err
 }
 

@@ -151,8 +151,8 @@ type Config struct {
 	// CniVersion denotes the cni spec version
 	CniVersion string
 
-	// PluginPath is the path for the cni plugins
-	PluginPath string
+	// CniPluginPath is the path for the cni plugins
+	CniPluginPath string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged
