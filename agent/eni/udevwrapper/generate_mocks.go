@@ -11,12 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package udevWrapper
+package udevwrapper
 
-import "github.com/deniswernert/udev"
-
-// Udev Wrapper methods used from the deniswernert/udev package
-type Udev interface {
-	Monitor(notify chan *udev.UEvent) (shutdown chan bool)
-	Close() error
-}
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper Udev mocks/mock_udevwrapper_linux.go

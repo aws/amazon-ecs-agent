@@ -1,3 +1,5 @@
+// +build linux
+
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,17 +13,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package utils
+package networkutils
 
 import (
 	"errors"
 	"net"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkWrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+
+	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
 )
 
 const (
@@ -37,7 +40,7 @@ const (
 func TestGetMACAddress(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	pm, _ := net.ParseMAC(validMAC)
 	mockNetlink.EXPECT().LinkByName(randomDevice).Return(
 		&netlink.Device{
@@ -56,7 +59,7 @@ func TestGetMACAddress(t *testing.T) {
 func TestGetMACAddressWithNetlinkError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	mockNetlink.EXPECT().LinkByName(randomDevice).Return(
 		&netlink.Device{},
 		errors.New("Dummy Netlink Error"))

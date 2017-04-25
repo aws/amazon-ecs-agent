@@ -1,3 +1,5 @@
+// +build linux
+
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,6 +13,17 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package udevWrapper
+package udevwrapper
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/eni/udevWrapper Udev mocks/mock_udevWrapper.go
+import "github.com/deniswernert/udev"
+
+// Udev Wrapper methods used from the deniswernert/udev package
+type Udev interface {
+	Monitor(notify chan *udev.UEvent) (shutdown chan bool)
+	Close() error
+}
+
+// New returns an UDev Monitor
+func New() (*udev.UDevMonitor, error) {
+	return udev.NewMonitor()
+}

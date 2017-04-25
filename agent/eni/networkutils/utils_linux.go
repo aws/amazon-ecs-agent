@@ -1,3 +1,5 @@
+// +build linux
+
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,19 +13,20 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package utils
+// Package networkutils is a collection of helpers for eni/watcher
+package networkutils
 
 import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkWrapper"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 
 	log "github.com/cihub/seelog"
 )
 
 // GetMACAddress retrieves the MAC address of a device using netlink
-func GetMACAddress(dev string, netlinkClient netlinkWrapper.NetLink) (string, error) {
+func GetMACAddress(dev string, netlinkClient netlinkwrapper.NetLink) (string, error) {
 	dev = filepath.Base(dev)
 	link, err := netlinkClient.LinkByName(dev)
 	if err != nil {

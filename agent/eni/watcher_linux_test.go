@@ -1,3 +1,5 @@
+// +build linux
+
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -21,12 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkWrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/eni/udevWrapper/mocks"
 	"github.com/deniswernert/udev"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+
+	"github.com/aws/amazon-ecs-agent/agent/eni/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
 )
 
 const (
@@ -36,13 +40,27 @@ const (
 	invalidMAC       = "0a:1b:3c:4d:5e:6ff"
 	invalidDevice    = "xyz"
 	incorrectDevPath = "../../devices/totally/wrong/net/path"
+	numRetries       = 3
 )
 
 // TestEmptyWatcherStruct checks initialization of a new watcher
 func TestEmptyWatcherStruct(t *testing.T) {
 	ctx := context.Background()
-	watcher := New(ctx, nil, nil)
+	stateManager := NewStateManager()
+	watcher := _new(ctx, nil, nil, stateManager)
 	enis := watcher.getAllENIs()
+	assert.Empty(t, enis)
+}
+
+// TestEmptyWatcherStruct checks initialization of a new watcher
+func TestEmptyWatcherRootWrapper(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx := context.Background()
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
+	watcher := New(ctx, mockUdev)
+	enis := watcher.getAllENIs()
+	watcher.Stop()
 	assert.Empty(t, enis)
 }
 
@@ -52,7 +70,9 @@ func setupBasicWatcher(t *testing.T) *UdevWatcher {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	watcher := New(ctx, nil, nil)
+	stateManager := NewStateManager()
+
+	watcher := _new(ctx, nil, nil, stateManager)
 
 	// Add valid (device, MAC)
 	watcher.addDeviceWithMACAddressUnsafe(randomDevice, randomMAC)
@@ -103,12 +123,12 @@ func TestWatcherInit(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	pm, _ := net.ParseMAC(randomMAC)
+	stateManager := NewStateManager()
 
 	// Create Watcher
-	watcher := New(ctx, mockNetlink, mockUdev)
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
 
 	// Init() uses netlink.LinkList() to build initial state
 	// eventHandler() upon receiving an add device event uses netlink.LinkByName
@@ -122,22 +142,9 @@ func TestWatcherInit(t *testing.T) {
 				},
 			},
 		}, nil),
-		mockUdev.EXPECT().Monitor(watcher.events).Return(
-			nil,
-		),
-		mockNetlink.EXPECT().LinkByName(randomDevice).Return(
-			&netlink.Device{
-				LinkAttrs: netlink.LinkAttrs{
-					HardwareAddr: pm,
-					Name:         randomDevice,
-				},
-			}, nil),
 	)
 
 	watcher.Init()
-
-	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
-	watcher.events <- &event
 
 	enis := watcher.getAllENIs()
 
@@ -189,10 +196,13 @@ func TestInitWithNetlinkError(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{},
 		errors.New("Dummy Netlink LinkList error"))
-	watcher := New(ctx, mockNetlink, nil)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
 	err := watcher.Init()
 	assert.Error(t, err)
 }
@@ -203,21 +213,16 @@ func TestReconcileENIs(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
-	pm, _ := net.ParseMAC(randomMAC)
-	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
-		&netlink.Device{
-			LinkAttrs: netlink.LinkAttrs{
-				HardwareAddr: pm,
-				Name:         randomDevice,
-			},
-		},
-	}, nil)
-	watcher := New(ctx, mockNetlink, nil)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
 	watcher.reconcileOnce()
 	enis := watcher.getAllENIs()
-	assert.Len(t, enis, 1)
-	assert.True(t, watcher.IsMACAddressPresent(randomMAC))
+	assert.Len(t, enis, 0)
+	assert.False(t, watcher.IsMACAddressPresent(randomMAC))
 }
 
 // TestReconcileENIsWithNetlinkErr tests reconciliation with netlink error
@@ -226,10 +231,13 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{},
 		errors.New("Dummy Netlink LinkList error"))
-	watcher := New(ctx, mockNetlink, nil)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
 	watcher.reconcileOnce()
 	enis := watcher.getAllENIs()
 	assert.Empty(t, enis)
@@ -242,7 +250,7 @@ func TestReconcileENIsWithRemoval(t *testing.T) {
 
 	ctx := context.Background()
 
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	pm, _ := net.ParseMAC(randomMAC)
 	gomock.InOrder(
 		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
@@ -262,8 +270,11 @@ func TestReconcileENIsWithRemoval(t *testing.T) {
 			},
 		}, nil),
 	)
+	stateManager := NewStateManager()
 
-	watcher := New(ctx, mockNetlink, nil)
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
+
 	watcher.reconcileOnce()
 	watcher.reconcileOnce()
 	enis := watcher.getAllENIs()
@@ -310,15 +321,15 @@ func TestUdevAddEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	done := make(chan bool)
 	ctx := context.TODO()
-	// Setup Mock Netlink
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
-	// Setup Mock Udev
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 	pm, _ := net.ParseMAC(randomMAC)
+	mockStateManager := mock_eni.NewMockStateManagerInterface(mockCtrl)
 
 	// Create Watcher
-	watcher := New(ctx, mockNetlink, mockUdev)
+	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager)
 
 	gomock.InOrder(
 		mockUdev.EXPECT().Monitor(watcher.events).Return(
@@ -331,6 +342,12 @@ func TestUdevAddEvent(t *testing.T) {
 					Name:         randomDevice,
 				},
 			}, nil),
+		mockStateManager.EXPECT().Lock().Return(),
+		mockStateManager.EXPECT().AddDeviceWithMACAddressUnsafe(randomDevice, randomMAC).Return(),
+		mockStateManager.EXPECT().Unlock().Do(
+			func() {
+				done <- true
+			}),
 	)
 
 	// Spin off event handler
@@ -340,14 +357,10 @@ func TestUdevAddEvent(t *testing.T) {
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
 
-	// Fetch All ENIs
-	enis := watcher.getAllENIs()
+	invokeStatus := <-done
 
-	// Stop Watcher
 	watcher.Stop()
-
-	assert.Len(t, enis, 1)
-	assert.True(t, watcher.IsMACAddressPresent(randomMAC))
+	assert.True(t, invokeStatus)
 }
 
 // TestUdevRemoveEvent removes a device based on udev event
@@ -356,21 +369,28 @@ func TestUdevRemoveEvent(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
+	done := make(chan bool)
 
 	// Setup Mock Udev
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
+
+	// Setup State Change
+	mockStateManager := mock_eni.NewMockStateManagerInterface(mockCtrl)
 
 	// Create Watcher
-	watcher := New(ctx, nil, mockUdev)
+	watcher := _new(ctx, nil, mockUdev, mockStateManager)
 
-	mockUdev.EXPECT().Monitor(watcher.events).Return(
-		nil,
+	gomock.InOrder(
+		mockUdev.EXPECT().Monitor(watcher.events).Return(
+			nil,
+		),
+		mockStateManager.EXPECT().Lock().Return(),
+		mockStateManager.EXPECT().RemoveDeviceUnsafe(randomDevice).Return(),
+		mockStateManager.EXPECT().Unlock().Do(
+			func() {
+				done <- true
+			}),
 	)
-
-	// Add Device
-	watcher.addDeviceWithMACAddressUnsafe(randomDevice, randomMAC)
-	enis := watcher.getAllENIs()
-	assert.Len(t, enis, 1)
 
 	// Spin off event handler
 	go watcher.eventHandler(ctx)
@@ -379,14 +399,12 @@ func TestUdevRemoveEvent(t *testing.T) {
 	event := getUdevEventDummy(udevRemoveEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
 
-	// Fetch All ENIs
-	enis = watcher.getAllENIs()
+	invokeStatus := <-done
 
 	// Stop Watcher
 	watcher.Stop()
 
-	assert.Empty(t, enis)
-	assert.False(t, watcher.IsMACAddressPresent(randomMAC))
+	assert.True(t, invokeStatus)
 }
 
 // TestUdevSubsystemFilter checks the subsystem filter in the event handler
@@ -396,10 +414,11 @@ func TestUdevSubsystemFilter(t *testing.T) {
 
 	ctx := context.TODO()
 	// Setup Mock Udev
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
+	stateManager := NewStateManager()
 
 	// Create Watcher
-	watcher := New(ctx, nil, mockUdev)
+	watcher := _new(ctx, nil, mockUdev, stateManager)
 
 	mockUdev.EXPECT().Monitor(watcher.events).Return(
 		nil,
@@ -429,14 +448,20 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
+
 	// Setup Mock Udev
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
+
+	// Setup State Change
+	stateManager := NewStateManager()
 
 	// Create Watcher
-	watcher := New(ctx, nil, mockUdev)
+	watcher := _new(ctx, nil, mockUdev, stateManager)
 
-	mockUdev.EXPECT().Monitor(watcher.events).Return(
-		nil,
+	gomock.InOrder(
+		mockUdev.EXPECT().Monitor(watcher.events).Return(
+			nil,
+		),
 	)
 
 	// Spin off event handler
@@ -453,7 +478,6 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 	watcher.Stop()
 
 	assert.Empty(t, enis)
-	assert.False(t, watcher.IsMACAddressPresent(randomMAC))
 }
 
 // TestUdevAddEventWithoutMACAdress attempts to add a device without
@@ -464,12 +488,15 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 
 	ctx := context.TODO()
 	// Setup Mock Netlink
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	// Setup Mock Udev
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
 	// Create Watcher
-	watcher := New(ctx, mockNetlink, mockUdev)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, mockUdev, stateManager)
 
 	gomock.InOrder(
 		mockUdev.EXPECT().Monitor(watcher.events).Return(
@@ -503,11 +530,15 @@ func TestUdevContext(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
-	mockUdev := mock_udevWrapper.NewMockUdev(mockCtrl)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 	pm, _ := net.ParseMAC(randomMAC)
+	done := make(chan bool)
 
-	watcher := New(ctx, mockNetlink, mockUdev)
+	mockStateManager := mock_eni.NewMockStateManagerInterface(mockCtrl)
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager)
 
 	gomock.InOrder(
 		mockUdev.EXPECT().Monitor(watcher.events).Return(
@@ -520,6 +551,12 @@ func TestUdevContext(t *testing.T) {
 					Name:         randomDevice,
 				},
 			}, nil),
+		mockStateManager.EXPECT().Lock().Return(),
+		mockStateManager.EXPECT().AddDeviceWithMACAddressUnsafe(randomDevice, randomMAC).Return(),
+		mockStateManager.EXPECT().Unlock().Do(
+			func() {
+				done <- true
+			}),
 	)
 
 	// Spin off event handler
@@ -529,14 +566,12 @@ func TestUdevContext(t *testing.T) {
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
 
-	// Fetch All ENIs
-	enis := watcher.getAllENIs()
+	invokeStatus := <-done
 
 	// Send cancellation
 	cancel()
 
-	assert.Len(t, enis, 1)
-	assert.True(t, watcher.IsMACAddressPresent(randomMAC))
+	assert.True(t, invokeStatus)
 }
 
 // TestStartStop checks the Start and Stop methods of the watcher
@@ -545,8 +580,27 @@ func TestStartStop(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	watcher := New(ctx, nil, nil)
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
+	pm, _ := net.ParseMAC(randomMAC)
+	stateManager := NewStateManager()
 
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, mockUdev, stateManager)
+
+	gomock.InOrder(
+		mockUdev.EXPECT().Monitor(watcher.events).Return(
+			nil,
+		).AnyTimes(),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
+			&netlink.Device{
+				LinkAttrs: netlink.LinkAttrs{
+					HardwareAddr: pm,
+					Name:         randomDevice,
+				},
+			},
+		}, nil).AnyTimes(),
+	)
 	go watcher.Start()
 
 	enis := watcher.getAllENIs()
@@ -563,7 +617,10 @@ func TestPerformPeriodicReconciliationContext(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	watcher := New(ctx, nil, nil)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, nil, nil, stateManager)
 
 	go watcher.performPeriodicReconciliation(ctx, defaultReconciliationInterval)
 
@@ -580,11 +637,15 @@ func TestPerformPeriodicReconciliationTicker(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	mockNetlink := mock_netlinkWrapper.NewMockNetLink(mockCtrl)
-	pm, _ := net.ParseMAC(randomMAC)
+	done := make(chan bool)
 
-	watcher := New(ctx, mockNetlink, nil)
+	ctx := context.TODO()
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	pm, _ := net.ParseMAC(randomMAC)
+	stateManager := NewStateManager()
+
+	// Create Watcher
+	watcher := _new(ctx, mockNetlink, nil, stateManager)
 
 	gomock.InOrder(
 		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
@@ -594,21 +655,20 @@ func TestPerformPeriodicReconciliationTicker(t *testing.T) {
 					Name:         randomDevice,
 				},
 			},
-		}, nil).Times(2),
-		mockNetlink.EXPECT().LinkList().Do(func() {
-			cancel()
-		}),
+		}, nil),
+		mockNetlink.EXPECT().LinkList().Do(
+			func() {
+				done <- true
+			}),
 	)
 
 	reconInterval := time.Microsecond * 1
 	go watcher.performPeriodicReconciliation(ctx, reconInterval)
 
-	select {
-	case <-ctx.Done():
-	}
+	invokeStatus := <-done
 
-	enis := watcher.getAllENIs()
+	// Stop Watcher
+	watcher.Stop()
 
-	assert.Len(t, enis, 1)
-	assert.True(t, watcher.IsMACAddressPresent(randomMAC))
+	assert.True(t, invokeStatus)
 }

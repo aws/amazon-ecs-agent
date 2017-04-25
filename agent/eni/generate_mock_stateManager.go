@@ -11,28 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package netlinkWrapper
+package eni
 
-import "github.com/vishvananda/netlink"
-
-// NetLink Wrapper methods used from the vishvananda/netlink package
-type NetLink interface {
-	LinkByName(name string) (netlink.Link, error)
-	LinkList() ([]netlink.Link, error)
-}
-
-type NetLinkClient struct {
-}
-
-// NewNetLink creates a new NetLink object
-func NewNetLink() NetLink {
-	return NetLinkClient{}
-}
-
-func (NetLinkClient) LinkByName(name string) (netlink.Link, error) {
-	return netlink.LinkByName(name)
-}
-
-func (NetLinkClient) LinkList() ([]netlink.Link, error) {
-	return netlink.LinkList()
-}
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/eni StateManagerInterface mocks/mock_stateManager.go
