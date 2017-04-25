@@ -98,7 +98,7 @@ func (c *Client) IsAgentImageLoaded() (bool, error) {
 
 // LoadImage loads an io.Reader into Docker
 func (c *Client) LoadImage(image io.Reader) error {
-	return c.docker.LoadImage(godocker.LoadImageOptions{image, context.TODO()})
+	return c.docker.LoadImage(godocker.LoadImageOptions{InputStream: image})
 }
 
 // RemoveExistingAgentContainer remvoes any existing container named
