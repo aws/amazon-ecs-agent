@@ -123,7 +123,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
 		CNIClient: ecs_cni.NewClient(&ecs_cni.Config{
-			PluginPath: cfg.PluginPath,
+			PluginPath: cfg.CniPluginPath,
 			CniVersion: cfg.CniVersion,
 		}),
 	}
@@ -769,7 +769,6 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
-//    com.amazonaws.ecs.capability.task-network
 //    com.amazonaws.ecs.capability.cni-plugin-eni-0.1.0
 //    com.amazonaws.ecs.capability.cni-plugin-ipam-0.1.0
 //    com.amazonaws.ecs.capability.cni-plugin-bridge-0.1.0

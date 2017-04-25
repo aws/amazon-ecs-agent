@@ -17,6 +17,7 @@
 package mock_ecs_cni
 
 import (
+	ecs_cni "github.com/aws/amazon-ecs-agent/agent/ecs_cni"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -39,6 +40,26 @@ func NewMockCNIClient(ctrl *gomock.Controller) *MockCNIClient {
 
 func (_m *MockCNIClient) EXPECT() *_MockCNIClientRecorder {
 	return _m.recorder
+}
+
+func (_m *MockCNIClient) CleanupNS(_param0 *ecs_cni.Config) error {
+	ret := _m.ctrl.Call(_m, "CleanupNS", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockCNIClientRecorder) CleanupNS(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0)
+}
+
+func (_m *MockCNIClient) SetupNS(_param0 *ecs_cni.Config) error {
+	ret := _m.ctrl.Call(_m, "SetupNS", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockCNIClientRecorder) SetupNS(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetupNS", arg0)
 }
 
 func (_m *MockCNIClient) Version(_param0 string) (string, error) {

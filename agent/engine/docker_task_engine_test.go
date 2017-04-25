@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_cni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -1102,12 +1103,19 @@ func TestCapabilities(t *testing.T) {
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	cniClient := mock_ecs_cni.NewMockCNIClient(ctrl)
 	defer ctrl.Finish()
+
+	taskEngine.(*DockerTaskEngine).CNIClient = cniClient
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 		dockerclient.Version_1_18,
 	})
+
+	cniClient.EXPECT().Version("bridge").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("eni").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ipam").Return("1.0.0", nil)
 
 	capabilities := taskEngine.Capabilities()
 
@@ -1119,6 +1127,10 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
+		"ecs.cni-plugin-bridge-1.0.0",
+		"ecs.cni-plugin-eni-1.0.0",
+		"ecs.cni-plugin-ipam-1.0.0",
+		"ecs.task-eni",
 	}
 
 	if !reflect.DeepEqual(capabilities, expectedCapabilities) {
