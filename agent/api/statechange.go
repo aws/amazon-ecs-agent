@@ -56,6 +56,15 @@ type TaskStateChange struct {
 	Task *Task
 }
 
+// ENIAttachmentStateChange represents a state change that needs to be sent to
+// SubmitTaskStateChange API to report the ENI attachment/detachment
+type ENIAttachmentStateChange struct {
+	TaskArn       string
+	AttachmentArn string
+	Status        string
+	Reason        string
+}
+
 // String returns a human readable string representation of this object
 func (c *ContainerStateChange) String() string {
 	res := fmt.Sprintf("%s %s -> %s", c.TaskArn, c.ContainerName, c.Status.String())

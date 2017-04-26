@@ -45,6 +45,12 @@ type TaskEngineState interface {
 	AddContainer(container *api.DockerContainer, task *api.Task)
 	// AddImageState adds an image.ImageState to be stored
 	AddImageState(imageState *image.ImageState)
+	// AddENIAttachment adds an eni attachment from acs to be stored
+	AddENIAttachment(eni *api.ENIAttachment)
+	// RemoveENIAttachment removes an eni attachment to stop tracking
+	RemoveENIAttachment(eni *api.ENIAttachment)
+	// ENIByMac returns the specific ENIAttachment of the given mac address
+	ENIByMac(mac string) (*api.ENIAttachment, bool)
 	// RemoveTask removes a task from the state
 	RemoveTask(task *api.Task)
 	// RemoveImageState removes an image.ImageState
@@ -69,11 +75,12 @@ type TaskEngineState interface {
 type DockerTaskEngineState struct {
 	lock sync.RWMutex
 
-	tasks         map[string]*api.Task                       // taskarn -> api.Task
-	idToTask      map[string]string                          // DockerId -> taskarn
-	taskToID      map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
-	idToContainer map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
-	imageStates   map[string]*image.ImageState
+	tasks          map[string]*api.Task                       // taskarn -> api.Task
+	idToTask       map[string]string                          // DockerId -> taskarn
+	taskToID       map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
+	idToContainer  map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
+	eniAttachments map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
+	imageStates    map[string]*image.ImageState
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -88,6 +95,7 @@ func newDockerTaskEngineState() *DockerTaskEngineState {
 		taskToID:      make(map[string]map[string]*api.DockerContainer),
 		idToContainer: make(map[string]*api.DockerContainer),
 		imageStates:   make(map[string]*image.ImageState),
+		enis:          make(map[string]*api.ENIAttachment),
 	}
 }
 
@@ -123,6 +131,30 @@ func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
 		allImageStates = append(allImageStates, imageState)
 	}
 	return allImageStates
+}
+
+func (state *DockerTaskEngineState) AllENIAttachments() []*api.ENIAttachment {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allENIAttachments()
+}
+
+func (state *DockerTaskEngineState) allENIAttachments() []*api.ENIAttachment {
+	var allENIAttachments []*api.ENIAttachment
+	for _, v := range state.eniAttachments {
+		allENIAttachments = append(allENIAttachments, v)
+	}
+
+	return allENIAttachments
+}
+
+func (state *DockerTaskEngineState) ENIByMac(mac string) (*api.ENIAttachment, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	eni, ok := state.eniAttachments[mac]
+	return eni, ok
 }
 
 // ContainerByID returns an api.DockerContainer for a given container ID
