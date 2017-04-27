@@ -807,8 +807,187 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "task status should be updated when essential containers are stopped while not all the other containers are running")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should be updated when essential containers are stopped while not all the other containers are running")
+	assert.Equal(t, TaskCreated, newStatus)
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+}
+
+// TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned
+// tests when there is one essential container is stopped while other container status are prior to
+// ResourcesProvisioned, the task status should be updated.
+func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerStopped,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
+				steadyState:       &resourcesProvisioned,
+			},
+		},
+	}
+
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus)
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+}
+
+// TestGetEarliestTaskStatusForContainersEmptyTask verifies that
+// `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
+// a task with no contianers
+func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
+	testTask := &Task{}
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+}
+
+// TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
+// `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
+// a task with contianers that do not have the `KnownStatusUnsafe` field set
+func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{},
+			&Container{},
+		},
+	}
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+}
+
+func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+		},
+	}
+
+	// Since a container is still in CREATED state, the earliest known status
+	// for the task based on its container statuses must be `TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// Ensure that both containers are RUNNING, which means that the earliest known status
+	// for the task based on its container statuses must be `TaskRunning`
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+}
+
+func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+				steadyState:       &resourcesProvisioned,
+			},
+		},
+	}
+
+	// Since a container is still in CREATED state, the earliest known status
+	// for the task based on its container statuses must be `TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	// Even if all containers transition to RUNNING, the earliest known status
+	// for the task based on its container statuses would still be `TaskCreated`
+	// as one of the containers has RESOURCES_PROVISIONED as its steady state
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// All of the containers in the task have reached their steady state. Ensure
+	// that the earliest known status for the task based on its container states
+	// is now `TaskRunning`
+	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+}
+
+func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+		},
+	}
+
+	// One of the containers is in CREATED state, expect task to be updated
+	// to TaskCreated
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers are in RUNNING state, expect task to be updated
+	// to TaskRunning
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+}
+
+func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+				Essential:         true,
+				steadyState:       &resourcesProvisioned,
+			},
+		},
+	}
+
+	// One of the containers is in CREATED state, expect task to be updated
+	// to TaskCreated
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers are in RUNNING state, but one of the containers
+	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
+	// updated to TaskRunning
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers have reached their steady states, expect the task
+	// to be updated to `TaskRunning`
+	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
 }
 
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {

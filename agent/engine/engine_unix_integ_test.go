@@ -61,7 +61,7 @@ func createTestContainer() *api.Container {
 		Image:               testRegistryImage,
 		Command:             []string{},
 		Essential:           true,
-		DesiredStatusUnsafe: api.GetContainerSteadyStateStatus(),
+		DesiredStatusUnsafe: api.ContainerRunning,
 		CPU:                 100,
 		Memory:              80,
 	}

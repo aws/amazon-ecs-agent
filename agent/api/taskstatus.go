@@ -24,6 +24,8 @@ const (
 	TaskRunning
 	// TaskStopped represents a task in which all containers are stopped
 	TaskStopped
+	// TaskZombie is an "impossible" state that is used as the maximum
+	TaskZombie
 )
 
 // TaskStatus is an enumeration of valid states in the task lifecycle
@@ -65,14 +67,14 @@ func (ts *TaskStatus) BackendRecognized() bool {
 }
 
 // ContainerStatus maps the task status to the corresponding container status
-func (ts *TaskStatus) ContainerStatus() ContainerStatus {
+func (ts *TaskStatus) ContainerStatus(steadyState ContainerStatus) ContainerStatus {
 	switch *ts {
 	case TaskStatusNone:
 		return ContainerStatusNone
 	case TaskCreated:
 		return ContainerCreated
 	case TaskRunning:
-		return ContainerResourcesProvisioned
+		return steadyState
 	case TaskStopped:
 		return ContainerStopped
 	}

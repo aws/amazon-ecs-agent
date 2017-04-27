@@ -139,10 +139,10 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.RunDependencies == nil {
-					container.RunDependencies = make([]string, 0)
+				if container.SteadyStateDependencies == nil {
+					container.SteadyStateDependencies = make([]string, 0)
 				}
-				container.RunDependencies = append(container.RunDependencies, emptyHostVolumeName)
+				container.SteadyStateDependencies = append(container.SteadyStateDependencies, emptyHostVolumeName)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -170,7 +170,7 @@ func (task *Task) initializeEmptyVolumes() {
 			MountPoints:         mountPoints,
 			Essential:           false,
 			IsInternal:          true,
-			DesiredStatusUnsafe: GetContainerSteadyStateStatus(),
+			DesiredStatusUnsafe: ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -213,10 +213,10 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		if container.Name == emptyHostVolumeName && container.IsInternal {
 			continue
 		}
-		if container.RunDependencies == nil {
-			container.RunDependencies = make([]string, 1)
+		if container.SteadyStateDependencies == nil {
+			container.SteadyStateDependencies = make([]string, 1)
 		}
-		container.RunDependencies = append(container.RunDependencies, pauseContainerName)
+		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
 	}
 	pauseContainer := &Container{
 		Name:       pauseContainerName,
@@ -274,11 +274,10 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 // It returns a TaskStatus indicating what change occured or TaskStatusNone if
 // there was no change
 func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
-	llog := log.New("task", task)
-	llog.Debug("Updating task")
-
+	seelog.Debugf("Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := ContainerZombie
+	var earliestKnownStatusContainer *Container
 	essentialContainerStopped := false
 	for _, cont := range task.Containers {
 		contKnownStatus := cont.GetKnownStatus()
@@ -287,21 +286,57 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		}
 		if contKnownStatus < containerEarliestKnownStatus {
 			containerEarliestKnownStatus = contKnownStatus
+			earliestKnownStatusContainer = cont
 		}
 	}
-
-	// If the essential container is stopped while other containers may be running
-	// don't update the task status until the other containers are stopped.
-	if containerEarliestKnownStatus == GetContainerSteadyStateStatus() && essentialContainerStopped {
-		llog.Debug("Essential container is stopped while other containers are running, not update task status")
+	if earliestKnownStatusContainer == nil {
+		seelog.Criticalf(
+			"Impossible state found while updating tasks's known status, earliest state recorded as %s for task [%v]",
+			containerEarliestKnownStatus.String(), task)
 		return TaskStatusNone
 	}
-	llog.Debug("Earliest known container status is " + containerEarliestKnownStatus.String())
-	if task.GetKnownStatus() < containerEarliestKnownStatus.TaskStatus() {
-		task.SetKnownStatus(containerEarliestKnownStatus.TaskStatus())
+	seelog.Debugf("Container with earliest known container is [%s] for task: %s",
+		earliestKnownStatusContainer.String(), task.String())
+	// If the essential container is stopped while other containers may be running
+	// don't update the task status until the other containers are stopped.
+	if earliestKnownStatusContainer.IsKnownSteadyState() && essentialContainerStopped {
+		seelog.Debugf(
+			"Essential container is stopped while other containers are running, not updating task status for task: %s",
+			task.String())
+		return TaskStatusNone
+	}
+	// We can't rely on earliest container known status alone for determining if the
+	// task state needs to be updated as containers can have different steady states
+	// defined. Instead we should get the task status for all containers' known
+	// statuses and compute the min of this
+	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
+	if task.GetKnownStatus() < earliestKnownTaskStatus {
+		seelog.Debugf("Updating task's known status to: %s, task: %s",
+			earliestKnownTaskStatus.String(), task.String())
+		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
 	}
 	return TaskStatusNone
+}
+
+// getEarliestKnownTaskStatusForContainers gets the lowest (earliest) task status
+// based on the known statuses of all containers in the task
+func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
+	if len(task.Containers) == 0 {
+		seelog.Criticalf("No containers in the task: %s", task.String())
+		return TaskStatusNone
+	}
+	// Set earliest container status to an impossible to reach 'high' task status
+	earliest := TaskZombie
+	for _, container := range task.Containers {
+		containerKnownStatus := container.GetKnownStatus()
+		containerTaskStatus := containerKnownStatus.TaskStatus(container.GetSteadyStateStatus())
+		if containerTaskStatus < earliest {
+			earliest = containerTaskStatus
+		}
+	}
+
+	return earliest
 }
 
 // Overridden returns a copy of the task with all container's overridden and
@@ -618,8 +653,9 @@ func (task *Task) updateTaskDesiredStatus() {
 func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
 		taskDesiredStatus := task.GetDesiredStatus()
-		if c.GetDesiredStatus() < taskDesiredStatus.ContainerStatus() {
-			c.SetDesiredStatus(taskDesiredStatus.ContainerStatus())
+		taskDesiredStatusToContainerStatus := taskDesiredStatus.ContainerStatus(c.GetSteadyStateStatus())
+		if c.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
+			c.SetDesiredStatus(taskDesiredStatusToContainerStatus)
 		}
 	}
 }

@@ -353,7 +353,7 @@ func (engine *DockerTaskEngine) time() ttime.Time {
 // It will omit events the backend would not process and will perform best-effort deduplication of events.
 func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
 	contKnownStatus := cont.GetKnownStatus()
-	if !contKnownStatus.ShouldReportToBackend() {
+	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
 		return
 	}
 	if cont.IsInternal {
@@ -370,7 +370,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 	event := api.ContainerStateChange{
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
-		Status:        contKnownStatus.BackendStatus(),
+		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.KnownExitCode,
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,

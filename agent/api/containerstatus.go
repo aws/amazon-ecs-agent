@@ -58,38 +58,41 @@ func (cs ContainerStatus) String() string {
 }
 
 // TaskStatus maps the container status to the corresponding task status. The
-// transition map is illustreated below.
+// transition map is illustrated below.
 //
-// Container: None -> Created -> Running -> Provisioned -> Stopped -> Zombie
+// Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
 //
-// Task     : None ->     Created        -> Running     -> Stopped
-func (cs *ContainerStatus) TaskStatus() TaskStatus {
+// Task     : None ->     Created       ->         Running        -> Stopped
+func (cs *ContainerStatus) TaskStatus(steadyStateStatus ContainerStatus) TaskStatus {
 	switch *cs {
 	case ContainerStatusNone:
 		return TaskStatusNone
+	case steadyStateStatus:
+		return TaskRunning
 	case ContainerCreated:
 		return TaskCreated
-	case ContainerRunning:
-		return TaskCreated
-	case ContainerResourcesProvisioned:
-		return TaskRunning
 	case ContainerStopped:
 		return TaskStopped
 	}
+
+	if *cs == ContainerRunning && steadyStateStatus == ContainerResourcesProvisioned {
+		return TaskCreated
+	}
+
 	return TaskStatusNone
 }
 
 // ShouldReportToBackend returns true if the container status is recognized as a
 // valid state by ECS. Note that not all container statuses are recognized by ECS
 // or map to ECS states
-func (cs *ContainerStatus) ShouldReportToBackend() bool {
-	return *cs == ContainerResourcesProvisioned || *cs == ContainerStopped
+func (cs *ContainerStatus) ShouldReportToBackend(steadyStateStatus ContainerStatus) bool {
+	return *cs == steadyStateStatus || *cs == ContainerStopped
 }
 
 // BackendStatus maps the internal container status in the agent to that in the
 // backend
-func (cs *ContainerStatus) BackendStatus() ContainerStatus {
-	if *cs == ContainerResourcesProvisioned {
+func (cs *ContainerStatus) BackendStatus(steadyStateStatus ContainerStatus) ContainerStatus {
+	if *cs == steadyStateStatus {
 		return ContainerRunning
 	}
 
@@ -103,12 +106,4 @@ func (cs *ContainerStatus) BackendStatus() ContainerStatus {
 // Terminal returns true if the container status is STOPPED
 func (cs ContainerStatus) Terminal() bool {
 	return cs == ContainerStopped
-}
-
-// GetContainerSteadyStateStatus returns the "steady state" for a container. This
-// used to be ContainerRunning prior to the addition of the
-// ContainerResourcesProvisioned state. Now, we expect all containers to reach
-// the new ContainerResourcesProvisioned state
-func GetContainerSteadyStateStatus() ContainerStatus {
-	return ContainerResourcesProvisioned
 }

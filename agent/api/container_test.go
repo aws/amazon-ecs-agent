@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOverridden(t *testing.T) {
@@ -38,17 +39,10 @@ func TestOverridden(t *testing.T) {
 
 	overridden := container.Overridden()
 	// No overrides, should be identity
-	if !reflect.DeepEqual(container, overridden) {
-		t.Error("Were not equal")
-	}
-	if container == overridden {
-		t.Error("Were pointer equal")
-	}
+	assert.True(t, reflect.DeepEqual(container, overridden))
+	assert.Equal(t, container, overridden)
 	overridden.Name = "mutated"
-
-	if container.Name != "name" {
-		t.Error("Should make a copy")
-	}
+	assert.Equal(t, container.Name, "name", "Should make a copy")
 }
 
 type configPair struct {
@@ -81,4 +75,40 @@ func (pair configPair) Equal() bool {
 	// TODO, Volumes, VolumesFrom, ExposedPorts
 
 	return true
+}
+
+func TestGetSteadyStateStatusReturnsRunningByDefault(t *testing.T) {
+	container := &Container{}
+	assert.Equal(t, container.GetSteadyStateStatus(), ContainerRunning)
+}
+
+func TestIsKnownSteadyState(t *testing.T) {
+	container := &Container{}
+	assert.False(t, container.IsKnownSteadyState())
+	container.SetKnownStatus(ContainerCreated)
+	assert.False(t, container.IsKnownSteadyState())
+	container.SetKnownStatus(ContainerRunning)
+	assert.True(t, container.IsKnownSteadyState())
+	resourcesProvisioned := ContainerResourcesProvisioned
+	container.steadyState = &resourcesProvisioned
+	assert.False(t, container.IsKnownSteadyState())
+	container.SetKnownStatus(ContainerResourcesProvisioned)
+	assert.True(t, container.IsKnownSteadyState())
+}
+
+func TestGetNextStateProgression(t *testing.T) {
+	container := &Container{}
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerPulled)
+	container.SetKnownStatus(ContainerPulled)
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerCreated)
+	container.SetKnownStatus(ContainerCreated)
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerRunning)
+	container.SetKnownStatus(ContainerRunning)
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
+
+	resourcesProvisioned := ContainerResourcesProvisioned
+	container.steadyState = &resourcesProvisioned
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerResourcesProvisioned)
+	container.SetKnownStatus(ContainerResourcesProvisioned)
+	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
 }
