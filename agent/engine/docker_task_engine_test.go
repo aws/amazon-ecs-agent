@@ -146,16 +146,19 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	err := taskEngine.Init()
 	assert.NoError(t, err)
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
 	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
 
-	assert.Equal(t, (<-contEvents).Status, api.ContainerRunning, "Expected container to run first")
-	assert.Equal(t, (<-taskEvents).Status, api.TaskRunning, "Expected task to be RUNNING")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
+
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -181,11 +184,14 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		},
 	}
 
-	if cont := <-contEvents; cont.Status != api.ContainerStopped {
+	event = <-stateChangeEvents
+	if cont := event.ContainerEvent; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
 	}
-	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
 	// This ensures that managedTask.waitForStopReported makes progress
 	sleepTask.SetSentStatus(api.TaskStopped)
 
@@ -280,16 +286,18 @@ func TestRemoveEvents(t *testing.T) {
 	err := taskEngine.Init()
 	assert.NoError(t, err)
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
 
-	assert.Equal(t, (<-contEvents).Status, api.ContainerRunning, "Expected container to run first")
-	assert.Equal(t, (<-taskEvents).Status, api.TaskRunning, "Expected task to be RUNNING")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
+
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -315,11 +323,14 @@ func TestRemoveEvents(t *testing.T) {
 		},
 	}
 
-	if cont := <-contEvents; cont.Status != api.ContainerStopped {
+	event = <-stateChangeEvents
+	if cont := event.ContainerEvent; cont.Status != api.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
 	}
-	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
 
 	sleepTaskStop := testdata.LoadTask("sleep5")
 	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
@@ -397,19 +408,18 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	err := taskEngine.Init()
 	assert.NoError(t, err)
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 	taskEngine.AddTask(sleepTask)
 
 	// Expect it to go to stopped
-	contEvent := <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerStopped, "Expected container to timeout on start and stop")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerStopped, "Expected container to timeout on start and stop")
 
-	taskEvent := <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskStopped, "Expect task to be STOPPED")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
+
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -426,10 +436,8 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	eventStream <- createDockerEvent(api.ContainerRunning)
 
 	select {
-	case <-taskEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
-	case ev := <-contEvents:
-		t.Fatal("Should be out of events", ev)
 	default:
 	}
 }
@@ -485,17 +493,20 @@ func TestSteadyStatePoll(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	err := taskEngine.Init() // start the task engine
 	assert.Nil(t, err)
-	taskEvents, contEvents := taskEngine.TaskEvents()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	taskEngine.AddTask(sleepTask) // actually add the task we created
 
 	// verify that we get events for the container and task starting, but no other events
-	assert.Equal(t, api.ContainerRunning, (<-contEvents).Status, "Expected container to run first")
-	assert.Equal(t, api.TaskRunning, (<-taskEvents).Status, "And then task")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
+
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -521,13 +532,14 @@ func TestSteadyStatePoll(t *testing.T) {
 	}
 	close(steadyStateVerify)
 
-	contEvent := <-contEvents
-	assert.Equal(t, api.ContainerStopped, contEvent.Status, "Expected container to be stopped")
-	assert.Equal(t, api.TaskStopped, (<-taskEvents).Status, "And then task")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
+
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -554,15 +566,10 @@ func TestStopWithPendingStops(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	err := taskEngine.Init()
 	assert.NoError(t, err)
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 	go func() {
 		for {
-			<-taskEvents
-		}
-	}()
-	go func() {
-		for {
-			<-contEvents
+			<-stateChangeEvents
 		}
 	}()
 
@@ -724,15 +731,15 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 	err := taskEngine.Init()
 	assert.NoError(t, err)
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
-	contEvent := <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerRunning, "Expected container to be running")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	taskEvent := <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskRunning, "Expected task to be running")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := *sleepTask
@@ -742,10 +749,8 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	// StopContainer timeout error shouldn't cause cantainer/task status change
 	// until receive stop event from docker event stream
 	select {
-	case <-taskEvents:
+	case <-stateChangeEvents:
 		t.Error("Should not get task events")
-	case <-contEvents:
-		t.Error("Should not get container events")
 	case <-dockerEventSent:
 		t.Logf("Send docker stop event")
 		go func() {
@@ -757,15 +762,14 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
-	contEvent = <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerStopped, "Expected container to timeout on start and stop")
-	taskEvent = <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskStopped, "Expected task to be stopped")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerStopped, "Expected container to timeout on start and stop")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
 
 	select {
-	case <-taskEvents:
-		t.Error("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Error("Should be out of events")
 	default:
 	}
@@ -825,20 +829,18 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 
 	err := taskEngine.Init()
 	assert.NoError(t, err, "Error getting event streams from engine")
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
-	contEvent := <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerRunning, "Expected container to be running")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	taskEvent := <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskRunning, "Expected task to be running")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -851,15 +853,14 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
-	contEvent = <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerStopped, "Expected container to be stopped")
-	taskEvent = <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskStopped, "Expected task to be stopped")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
 
 	select {
-	case <-taskEvents:
-		t.Error("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Error("Should be out of events")
 	default:
 	}
@@ -905,20 +906,19 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 
 	err := taskEngine.Init()
 	assert.NoError(t, err, "Error getting event streams from engine")
-	taskEvents, contEvents := taskEngine.TaskEvents()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
-	contEvent := <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerRunning, "Expected container to be running")
 
-	taskEvent := <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskRunning, "Expected task to be running")
+	event := <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	select {
-	case <-taskEvents:
-		t.Fatal("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
 	}
@@ -929,15 +929,14 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	go taskEngine.AddTask(&updateSleepTask)
 
 	// StopContainer invocation should have caused it to stop eventually.
-	contEvent = <-contEvents
-	assert.Equal(t, contEvent.Status, api.ContainerStopped, "Expected container to be stopped")
-	taskEvent = <-taskEvents
-	assert.Equal(t, taskEvent.Status, api.TaskStopped, "Expected task to be stopped")
+	event = <-stateChangeEvents
+	assert.Equal(t, event.ContainerEvent.Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.TaskEvent.Status, api.TaskStopped, "Expected task to be STOPPED")
 
 	select {
-	case <-taskEvents:
-		t.Error("Should be out of events")
-	case <-contEvents:
+	case <-stateChangeEvents:
 		t.Error("Should be out of events")
 	default:
 	}

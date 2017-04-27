@@ -30,27 +30,17 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 	statesaver = saver
 
 	for {
-		taskEvents, containerEvents := taskEngine.TaskEvents()
+		stateChangeEvents := taskEngine.StateChangeEvents()
 
-		for taskEvents != nil && containerEvents != nil {
+		for stateChangeEvents != nil {
 			select {
-			case event, open := <-containerEvents:
-				if !open {
-					containerEvents = nil
-					log.Error("Container events closed")
+			case ev, ok := <-stateChangeEvents:
+				if !ok {
+					stateChangeEvents = nil
+					log.Error("stateChangeEvents closed")
 					break
 				}
-
-				eventhandler.AddContainerEvent(event, client)
-
-			case event, open := <-taskEvents:
-				if !open {
-					taskEvents = nil
-					log.Crit("Task events closed")
-					break
-				}
-
-				eventhandler.AddTaskEvent(event, client)
+				eventhandler.AddStateChangeEvent(ev, client)
 			}
 		}
 	}

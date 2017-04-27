@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -55,14 +56,15 @@ func NewTaskHandler() *TaskHandler {
 	}
 }
 
-// AddTaskEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddTaskEvent(change api.TaskStateChange, client api.ECSClient) {
-	handler.addEvent(newSendableTaskEvent(change), client)
-}
+// AddStateChangeEvent queues up a state change for sending using the given client.
+func (handler *TaskHandler) AddStateChangeEvent(change statechange.StateChangeEvent, client api.ECSClient) {
+	if change.TaskEvent != nil {
+		handler.addEvent(newSendableTaskEvent(*change.TaskEvent), client)
+	}
 
-// AddContainerEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddContainerEvent(change api.ContainerStateChange, client api.ECSClient) {
-	handler.addEvent(newSendableContainerEvent(change), client)
+	if change.ContainerEvent != nil {
+		handler.addEvent(newSendableContainerEvent(*change.ContainerEvent), client)
+	}
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate

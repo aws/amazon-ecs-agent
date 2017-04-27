@@ -23,6 +23,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -186,8 +187,8 @@ func (engine *MockTaskEngine) Init() error {
 func (engine *MockTaskEngine) MustInit() {
 }
 
-func (engine *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
-	return make(chan api.TaskStateChange), make(chan api.ContainerStateChange)
+func (engine *MockTaskEngine) StateChangeEvents() <-chan statechange.StateChangeEvent {
+	return make(chan statechange.StateChangeEvent)
 }
 
 func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {

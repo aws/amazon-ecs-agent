@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/stretchr/testify/assert"
@@ -217,8 +218,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, context.Background())
 	containerChangeEventStream.StartListening()
 
-	containerEvents := make(chan api.ContainerStateChange)
-	taskEvents := make(chan api.TaskStateChange)
+	stateChangeEvents := make(chan statechange.StateChangeEvent)
 
 	task := &managedTask{
 		Task: &api.Task{
@@ -229,8 +229,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		},
 		engine: &DockerTaskEngine{
 			containerChangeEventStream: containerChangeEventStream,
-			containerEvents:            containerEvents,
-			taskEvents:                 taskEvents,
+			stateChangeEvents:          stateChangeEvents,
 		},
 	}
 
@@ -249,12 +248,12 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	defer containerChangeEventStream.Unsubscribe(eventStreamName)
 
 	go func() {
-		<-containerEvents
+		<-stateChangeEvents
 		eventsGenerated.Done()
 	}()
 
 	go func() {
-		<-taskEvents
+		<-stateChangeEvents
 		eventsGenerated.Done()
 	}()
 
@@ -342,22 +341,22 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
-	taskEvents := make(chan api.TaskStateChange)
+	stateChangeEvents := make(chan statechange.StateChangeEvent)
 	task := &managedTask{
 		Task: &api.Task{
 			Containers:          []*api.Container{},
 			DesiredStatusUnsafe: api.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
-			taskEvents: taskEvents,
+			stateChangeEvents: stateChangeEvents,
 		},
 	}
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(1)
 
 	go func() {
-		event := <-taskEvents
-		assert.Equal(t, event.Reason, taskUnableToTransitionToStoppedReason)
+		event := <-stateChangeEvents
+		assert.Equal(t, event.TaskEvent.Reason, taskUnableToTransitionToStoppedReason)
 		eventsGenerated.Done()
 	}()
 

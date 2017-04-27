@@ -65,9 +65,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 		cleanupImagesHappy(imageManager)
 	}()
 
-	taskEvents, containerEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(containerEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Create test Task
 	taskName := "imgClean"
@@ -76,7 +74,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	// Verify that Task is running
-	err := verifyTaskIsRunning(taskEvents, testTask)
+	err := verifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +109,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	imageState3.LastUsedAt = imageState3.LastUsedAt.Add(-99993 * time.Hour)
 
 	// Verify Task is stopped.
-	verifyTaskIsStopped(taskEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 	testTask.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
@@ -179,8 +177,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 		cleanupImagesThreshold(imageManager)
 	}()
 
-	taskEvents, containerEvents := taskEngine.TaskEvents()
-	defer discardEvents(containerEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Create test Task
 	taskName := "imgClean"
@@ -190,7 +187,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	// Verify that Task is running
-	err := verifyTaskIsRunning(taskEvents, testTask)
+	err := verifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +227,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	imageState3.PulledAt = imageState3.PulledAt.Add(-25 * time.Minute)
 
 	// Verify Task is stopped
-	verifyTaskIsStopped(taskEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 	testTask.SetSentStatus(api.TaskStopped)
 
 	// Allow Task cleanup to occur
@@ -295,8 +292,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	taskEvents, containerEvents := taskEngine.TaskEvents()
-	defer discardEvents(containerEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test3Image1Name); err == docker.ErrNoSuchImage {
@@ -327,7 +323,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
-	err = verifyTaskIsRunning(taskEvents, task1)
+	err = verifyTaskIsRunning(stateChangeEvents, task1)
 	require.NoError(t, err, "task1")
 
 	// Verify image state is updated correctly
@@ -342,7 +338,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
-	err = verifyTaskIsRunning(taskEvents, task2)
+	err = verifyTaskIsRunning(stateChangeEvents, task2)
 	require.NoError(t, err, "task2")
 
 	// Verify image state is updated correctly
@@ -358,7 +354,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Start and wiat for task3 to be running
 	go taskEngine.AddTask(task3)
-	err = verifyTaskIsRunning(taskEvents, task3)
+	err = verifyTaskIsRunning(stateChangeEvents, task3)
 	require.NoError(t, err, "task3")
 
 	// Verify image state is updated correctly
@@ -434,8 +430,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	taskEvents, containerEvents := taskEngine.TaskEvents()
-	defer discardEvents(containerEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Start three tasks which using the image with same ID and different Name
 	task1 := createTestTask("task1")
@@ -457,7 +452,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
-	err = verifyTaskIsRunning(taskEvents, task1)
+	err = verifyTaskIsRunning(stateChangeEvents, task1)
 	require.NoError(t, err)
 
 	imageState1 := imageManager.GetImageStateFromImageName(task1.Containers[0].Image)
@@ -475,7 +470,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
-	err = verifyTaskIsRunning(taskEvents, task2)
+	err = verifyTaskIsRunning(stateChangeEvents, task2)
 	require.NoError(t, err)
 
 	imageState2 := imageManager.GetImageStateFromImageName(task2.Containers[0].Image)
@@ -494,7 +489,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
-	err = verifyTaskIsRunning(taskEvents, task3)
+	err = verifyTaskIsRunning(stateChangeEvents, task3)
 	assert.NoError(t, err)
 
 	imageState3 := imageManager.GetImageStateFromImageName(task3.Containers[0].Image)

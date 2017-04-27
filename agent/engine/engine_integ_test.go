@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -118,9 +119,7 @@ func TestHostVolumeMount(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
 	defer os.RemoveAll(tmpPath)
@@ -130,7 +129,7 @@ func TestHostVolumeMount(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsStopped(taskEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotNil(t, testTask.Containers[0].KnownExitCode, "No exit code found")
 	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code")
@@ -144,14 +143,13 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testTask := createTestEmptyHostVolumeMountTask()
+
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsStopped(taskEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotNil(t, testTask.Containers[0].KnownExitCode, "No exit code found")
 	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code, file probably wasn't present")
@@ -163,9 +161,7 @@ func TestSweepContainer(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testTask := createTestTask("testSweepContainer")
 
@@ -173,19 +169,20 @@ func TestSweepContainer(t *testing.T) {
 
 	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
-	for taskEvent := range taskEvents {
-		if taskEvent.TaskArn != testTask.Arn {
-			continue
-		}
-		expectedEvent := expectedEvents[0]
-		expectedEvents = expectedEvents[1:]
-		assert.Equal(t, expectedEvent, taskEvent.Status, "Got incorrect event")
-		if len(expectedEvents) == 0 {
-			break
+	for event := range stateChangeEvents {
+		taskEvent := event.TaskEvent
+		if taskEvent != nil {
+			if taskEvent.TaskArn != testTask.Arn {
+				continue
+			}
+			expectedEvent := expectedEvents[0]
+			expectedEvents = expectedEvents[1:]
+			assert.Equal(t, expectedEvent, taskEvent.Status, "Got incorrect event")
+			if len(expectedEvents) == 0 {
+				break
+			}
 		}
 	}
-
-	defer discardEvents(taskEvents)()
 
 	// Should be stopped, let's verify it's still listed...
 	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
@@ -215,13 +212,11 @@ func TestStartStopWithCredentials(t *testing.T) {
 	credentialsManager.SetTaskCredentials(taskCredentials)
 	testTask.SetCredentialsID(credentialsIDIntegTest)
 
-	taskEvents, contEvents := taskEngine.TaskEvents()
-
-	defer discardEvents(contEvents)()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsStopped(taskEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task
@@ -229,37 +224,43 @@ func TestStartStopWithCredentials(t *testing.T) {
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
 }
 
-func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
+func verifyTaskIsRunning(stateChangeEvents <-chan statechange.StateChangeEvent, testTasks ...*api.Task) error {
 	for {
 		select {
-		case taskEvent := <-taskEvents:
-			for i, task := range testTasks {
-				if taskEvent.TaskArn != task.Arn {
-					continue
-				}
-				if taskEvent.Status == api.TaskRunning {
-					if len(testTasks) == 1 {
-						return nil
+		case event := <-stateChangeEvents:
+			taskEvent := event.TaskEvent
+			if taskEvent != nil {
+				for i, task := range testTasks {
+					if taskEvent.TaskArn != task.Arn {
+						continue
 					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
-				} else if taskEvent.Status > api.TaskRunning {
-					return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
+					if taskEvent.Status == api.TaskRunning {
+						if len(testTasks) == 1 {
+							return nil
+						}
+						testTasks = append(testTasks[:i], testTasks[i+1:]...)
+					} else if taskEvent.Status > api.TaskRunning {
+						return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
+					}
 				}
 			}
 		}
 	}
 }
 
-func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) {
+func verifyTaskIsStopped(stateChangeEvents <-chan statechange.StateChangeEvent, testTasks ...*api.Task) {
 	for {
 		select {
-		case taskEvent := <-taskEvents:
-			for i, task := range testTasks {
-				if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
-					if len(testTasks) == 1 {
-						return
+		case event := <-stateChangeEvents:
+			taskEvent := event.TaskEvent
+			if taskEvent != nil {
+				for i, task := range testTasks {
+					if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
+						if len(testTasks) == 1 {
+							return
+						}
+						testTasks = append(testTasks[:i], testTasks[i+1:]...)
 					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
 				}
 			}
 		}
