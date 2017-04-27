@@ -370,12 +370,12 @@ func (mtask *managedTask) containerNextState(container *api.Container) (api.Cont
 	var nextState api.ContainerStatus
 	if container.DesiredTerminal() {
 		nextState = api.ContainerStopped
-		if containerKnownStatus != api.GetContainerSteadyStateStatus() {
+		if !container.IsKnownSteadyState() {
 			// If it's not currently running we do not need to do anything to make it become stopped.
 			return nextState, false, true
 		}
 	} else {
-		nextState = containerKnownStatus + 1
+		nextState = container.GetNextKnownStateProgression()
 	}
 	return nextState, true, true
 }

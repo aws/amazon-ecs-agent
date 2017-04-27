@@ -23,6 +23,10 @@ const (
 	// DockerContainerMinimumMemoryInBytes is the minimum amount of
 	// memory to be allocated to a docker container
 	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
+	// defaultContainerSteadyStateStatus defines the container status at
+	// which the container is assumed to be in steady state. It is set
+	// to 'ContainerRunning' unless overridden
+	defaultContainerSteadyStateStatus = ContainerRunning
 )
 
 // ContainerOverrides are overrides applied to the container
@@ -85,9 +89,9 @@ type Container struct {
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 	knownStatusLock   sync.RWMutex
 
-	// RunDependencies is a list of containers that must be in "steady state" before
+	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
-	RunDependencies []string
+	SteadyStateDependencies []string `json:"RunDependencies"`
 	// 'Internal' containers are ones that are not directly specified by
 	// task definitions, but created by the agent
 	IsInternal bool
@@ -110,6 +114,8 @@ type Container struct {
 
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding
+
+	steadyState *ContainerStatus
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -129,6 +135,13 @@ func (dc *DockerContainer) String() string {
 		return "nil"
 	}
 	return fmt.Sprintf("Id: %s, Name: %s, Container: %s", dc.DockerID, dc.DockerName, dc.Container.String())
+}
+
+func NewContainerWithSteadyState(steadyState ContainerStatus) *Container {
+	steadyStateStatus := steadyState
+	return &Container{
+		steadyState: &steadyStateStatus,
+	}
 }
 
 // Overriden applies the overridden command and returns the resulting
@@ -209,4 +222,50 @@ func (c *Container) String() string {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}
 	return ret
+}
+
+// GetSteadyStateStatus returns the steady state status for the container. If
+// Container.steadyState is not initialized, the default steady state status
+// defined by `defaultContainerSteadyStateStatus` is returned. The 'pause'
+// container's steady state differs from that of other containers, as the
+// 'pause' container can reach its teady state once networking resources
+// have been provisioned for it, which is done in the `ContainerResourcesProvisioned`
+// state
+func (c *Container) GetSteadyStateStatus() ContainerStatus {
+	if c.steadyState == nil {
+		return defaultContainerSteadyStateStatus
+	}
+	return *c.steadyState
+}
+
+// IsKnownSteadyState returns true if the `KnownState` of the container equals
+// the `steadyState` defined for the container
+func (c *Container) IsKnownSteadyState() bool {
+	knownStatus := c.GetKnownStatus()
+	return knownStatus == c.GetSteadyStateStatus()
+}
+
+// GetNextKnownStateProgression returns the state that the container should
+// progress to based on its `KnownState`. The progression is
+// incremental until the container reaches its steady state. From then on,
+// it transitions to `ContainerStopped`.
+//
+// For example:
+// a. if the steady state of the container is defined as `ContainerRunning`,
+// the progression is:
+// Container: None -> Pulled -> Created -> Running* -> Stopped -> Zombie
+//
+// b. if the steady state of the container is defined as `ContainerResourcesProvisioned`,
+// the progression is:
+// Container: None -> Pulled -> Created -> Running -> Provisioned* -> Stopped -> Zombie
+//
+// c. if the steady state of the container is defined as `ContainerCreated`,
+// the progression is:
+// Container: None -> Pulled -> Created* -> Stopped -> Zombie
+func (c *Container) GetNextKnownStateProgression() ContainerStatus {
+	if c.IsKnownSteadyState() {
+		return ContainerStopped
+	}
+
+	return c.GetKnownStatus() + 1
 }
