@@ -95,7 +95,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")
 	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")
 	os.Setenv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")
-	os.Setenv("ECS_TASK_NETWORK", "true")
+	os.Setenv("ECS_ENABLE_TASK_ENI", "true")
 
 	conf, err := environmentConfig()
 	assert.Nil(t, err)
@@ -116,7 +116,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
-	assert.True(t, conf.TaskNetworkEnabled, "Wrong value for TaskNetwork")
+	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)

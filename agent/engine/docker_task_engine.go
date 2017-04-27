@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_cni"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -80,7 +80,7 @@ type DockerTaskEngine struct {
 
 	client     DockerClient
 	clientLock sync.Mutex
-	CNIClient  ecs_cni.CNIClient
+	cniClient  ecscni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -122,9 +122,9 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
-		CNIClient: ecs_cni.NewClient(&ecs_cni.Config{
-			PluginPath: cfg.CniPluginPath,
-			CniVersion: cfg.CniVersion,
+		cniClient: ecscni.NewClient(&ecscni.Config{
+			PluginPath:             cfg.CNIPluginsPath,
+			MinSupportedCNIVersion: cfg.MinSupportedCNIVersion,
 		}),
 	}
 
@@ -863,12 +863,12 @@ func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
 	plugins := []string{"bridge", "eni", "ipam"}
 
 	var attributes []string
-	if engine.cfg.TaskNetworkEnabled {
+	if engine.cfg.TaskENIEnabled {
 		// Check if all the plugin existed in the specific directory
 		for _, plugin := range plugins {
-			version, err := engine.CNIClient.Version(plugin)
+			version, err := engine.cniClient.Version(plugin)
 			if err != nil {
-				log.Error("taskNetworkCapable engine: Check version of plugin %s failed", plugin)
+				log.Error("engine: Check version of plugin %s failed", plugin)
 				return nil, false
 			}
 			attributes = append(attributes, fmt.Sprintf("%s%s-%s-%s", attributePrefix, capabilityPlugin, plugin, version))

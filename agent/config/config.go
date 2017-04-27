@@ -286,7 +286,7 @@ func environmentConfig() (Config, error) {
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
-	taskNetworkEnabled := utils.ParseBool(os.Getenv("ECS_TASK_NETWORK"), false)
+	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 
@@ -302,7 +302,7 @@ func environmentConfig() (Config, error) {
 		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
 
-	cniPluginPath := os.Getenv("ECS_CNI_PLUGIN_PATH")
+	cniPluginPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
 
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
 	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
@@ -343,7 +343,7 @@ func environmentConfig() (Config, error) {
 		SELinuxCapable:                   seLinuxCapable,
 		AppArmorCapable:                  appArmorCapable,
 		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
-		TaskNetworkEnabled:               taskNetworkEnabled,
+		TaskENIEnabled:                   taskENIEnabled,
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
 		CredentialsAuditLogFile:          credentialsAuditLogFile,
@@ -354,7 +354,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
-		CniPluginPath:                    cniPluginPath,
+		CNIPluginsPath:                   cniPluginPath,
 	}, err
 }
 

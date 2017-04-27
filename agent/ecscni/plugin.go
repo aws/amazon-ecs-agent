@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ecs_cni
+package ecscni
 
 import (
 	"encoding/json"
@@ -27,22 +27,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NewClient creates a client of ecs_cni which is used to invoke the plugin
+// NewClient creates a client of ecscni which is used to invoke the plugin
 func NewClient(cfg *Config) CNIClient {
-	pluginPath := CNI_PATH
+	pluginsPath := CNIPluginsPath
 	if cfg.PluginPath != "" {
-		pluginPath = cfg.PluginPath
+		pluginsPath = cfg.PluginPath
 	}
 
 	cniVersion := CNIVersion
-	if cfg.CniVersion != "" {
-		cniVersion = cfg.CniVersion
+	if cfg.MinSupportedCNIVersion != "" {
+		cniVersion = cfg.MinSupportedCNIVersion
 	}
 
 	return &cniClient{
-		PluginPath: pluginPath,
-		CNIVersion: cniVersion,
-		Subnet:     ECSSubnet,
+		pluginsPath: pluginsPath,
+		cniVersion:  cniVersion,
+		subnet:      ECSSubnet,
 	}
 }
 
@@ -62,21 +62,20 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 
 	netConfigList, err := client.constructNetworkConfig(cfg)
 	if err != nil {
-		return errors.Wrap(err, "setupNS ecs_cni: Construct network configuration failed")
+		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for confirguring namespace")
 	}
 
 	cniConfig := libcni.CNIConfig{
-		Path: []string{client.PluginPath},
+		Path: []string{client.pluginsPath},
 	}
 
-	seelog.Debugf("Starting setup the container namespace: %s", cfg.ContainerID)
+	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
 	result, err := cniConfig.AddNetworkList(netConfigList, cns)
 	if err != nil {
 		return err
 	}
 
 	seelog.Debugf("Set up container namespace done: %v", result)
-
 	return nil
 }
 
@@ -96,29 +95,28 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 
 	netConfigList, err := client.constructNetworkConfig(cfg)
 	if err != nil {
-		return errors.Wrap(err, "cleanupNS ecs_cni: Construct network configuration failed")
+		return errors.Wrap(err, "cni invocation: Failed to construct network configuration to clean up namespace")
 	}
 
 	cniConfig := libcni.CNIConfig{
-		Path: []string{client.PluginPath},
+		Path: []string{client.pluginsPath},
 	}
 
 	seelog.Debugf("Starting clean up the container namespace: %s", cfg.ContainerID)
-	err = cniConfig.DelNetworkList(netConfigList, cns)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cniConfig.DelNetworkList(netConfigList, cns)
 }
 
 // constructNetworkConfig creates configuration for eni, ipam and bridge plugin
 func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkConfigList, error) {
-	_, dst, _ := net.ParseCIDR(TaskIAMRoleEndpoint)
-	ipamConf := IpamConfig{
+	_, dst, err := net.ParseCIDR(TaskIAMRoleEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	ipamConf := IPAMConfig{
 		Type:        "ipam",
-		CNIVersion:  client.CNIVersion,
-		IPV4Subnet:  client.Subnet,
+		CNIVersion:  client.cniVersion,
+		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
 		IPV4Routes: []*types.Route{
 			{
@@ -127,21 +125,21 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		},
 	}
 
-	brName := defaultBridgeName
+	BridgeName := defaultBridgeName
 	if cfg.BridgeName != "" {
-		brName = cfg.BridgeName
+		BridgeName = cfg.BridgeName
 	}
 	bridgeConf := BridgeConfig{
 		Type:       "bridge",
-		CNIVersion: client.CNIVersion,
-		BrName:     brName,
+		CNIVersion: client.cniVersion,
+		BridgeName: BridgeName,
 		IsGW:       true,
 		IPAM:       ipamConf,
 	}
 
-	eniConf := EniConfig{
+	eniConf := ENIConfig{
 		Type:        "eni",
-		CNIVersion:  client.CNIVersion,
+		CNIVersion:  client.cniVersion,
 		ENIID:       cfg.ENIID,
 		IPV4Address: cfg.ENIIPV4Address,
 		MACAddress:  cfg.ENIMACAddress,
@@ -176,7 +174,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 
 	netconf := &libcni.NetworkConfigList{
 		Name:       NetworkName,
-		CNIVersion: client.CNIVersion,
+		CNIVersion: client.cniVersion,
 		Plugins:    plugins,
 	}
 	return netconf, nil
@@ -184,7 +182,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 
 // Version returns the version of the plugin
 func (client *cniClient) Version(name string) (string, error) {
-	file := filepath.Join(client.PluginPath, name)
+	file := filepath.Join(client.pluginsPath, name)
 
 	// Check if the plugin execute file exists
 	_, err := os.Stat(file)
@@ -203,7 +201,7 @@ func (client *cniClient) Version(name string) (string, error) {
 	}{}
 	err = json.Unmarshal(versionInfo, version)
 	if err != nil {
-		return "", errors.Wrapf(err, "Version ecs_cni: Unmarshal version from string: %s", versionInfo)
+		return "", errors.Wrapf(err, "ecscni: Unmarshal version from string: %s", versionInfo)
 	}
 
 	return version.Version, nil

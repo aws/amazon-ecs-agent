@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_cni/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -1100,13 +1100,14 @@ func TestCapabilities(t *testing.T) {
 		PrivilegedDisabled:      false,
 		SELinuxCapable:          true,
 		AppArmorCapable:         true,
+		TaskENIEnabled:          true,
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
-	cniClient := mock_ecs_cni.NewMockCNIClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	defer ctrl.Finish()
 
-	taskEngine.(*DockerTaskEngine).CNIClient = cniClient
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,

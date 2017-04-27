@@ -119,9 +119,9 @@ type Config struct {
 	// tasks with IAM Roles when networkMode is set to 'host'
 	TaskIAMRoleEnabledForNetworkHost bool
 
-	// TaskNetwork specifies if the Agent is capable of launching task within
+	// TaskENIEnabled specifies if the Agent is capable of launching task within
 	// defined EC2 networks
-	TaskNetworkEnabled bool
+	TaskENIEnabled bool
 
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
@@ -148,11 +148,11 @@ type Config struct {
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
 
-	// CniVersion denotes the cni spec version
-	CniVersion string
+	// MinSupportedCNIVersion denotes the minimum version of cni spec required
+	MinSupportedCNIVersion string
 
-	// CniPluginPath is the path for the cni plugins
-	CniPluginPath string
+	// CNIPluginsPath is the path for the cni plugins
+	CNIPluginsPath string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged
