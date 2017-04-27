@@ -255,3 +255,16 @@ func (err CannotListContainersError) Error() string {
 func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
 }
+
+// ENIInformationError indicates the any error related to eni information
+type ENIInformationError struct {
+	fromError error
+}
+
+func (err ENIInformationError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err ENIInformationError) ErrorName() string {
+	return "ENIInformationError"
+}

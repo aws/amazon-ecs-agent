@@ -15,12 +15,10 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -34,6 +32,8 @@ import (
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -625,25 +625,71 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{
-			Error: CannotStartContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+			Error: CannotStartContainerError{errors.Errorf("Container belongs to unrecognized task %s", task.Arn)},
 		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return DockerContainerMetadata{
-			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
+			Error: CannotStartContainerError{errors.Errorf("Container not recorded as created")},
 		}
 	}
 	return client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 }
 
 func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Infof("Task [%v]: Setting up container resources for container [%v]", task.String(), container.String())
+	seelog.Infof("Task [%s]: Setting up container resources for container [%s]", task.String(), container.String())
 
-	// TODO: Invoke libcni here
+	// Invoke the libcni to config the network namespace for the container
+	eni, err := task.GetTaskEni()
+	if err != nil {
+		return DockerContainerMetadata{
+			Error: ENIInformationError{errors.Wrapf(err, "engine: failed to get eni inforamtion, task: %s", task.String())},
+		}
+	}
 
-	return DockerContainerMetadata{}
+	cfg := &ecscni.Config{}
+	client := ecscni.NewClient(cfg)
+	cfg.ENIID = eni.ID
+
+	// Get the pid of container
+	containerInspectOutput, err := engine.client.InspectContainer(container.Name, inspectContainerTimeout)
+	if err != nil {
+		return DockerContainerMetadata{
+			Error: CannotInspectContainerError{errors.Wrapf(err, "Inspect the pasue container failed, task: %s", task.String())},
+		}
+	}
+
+	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
+	cfg.ContainerID = containerInspectOutput.ID
+	cfg.ENIMACAddress = eni.MacAddress
+
+	// Get the primary ip of the eni
+	for _, ipv4 := range eni.IPV4Addresses {
+		if ipv4.Primary {
+			cfg.ENIIPV4Address = ipv4.Address
+			break
+		}
+	}
+	if cfg.ENIIPV4Address == "" {
+		return DockerContainerMetadata{
+			Error: ENIInformationError{errors.Errorf("engine: No primary ipv4 address found for this eni: %v", eni)},
+		}
+	}
+
+	if len(eni.IPV6Addresses) != 1 {
+		return DockerContainerMetadata{
+			Error: ENIInformationError{errors.Errorf("engine: IPV6Addresses associated with eni isn't expected, eni:%v", eni)},
+		}
+	}
+	cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
+	err = client.SetupNS(cfg)
+	if err != nil {
+		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
+	}
+
+	return metadataFromContainer(containerInspectOutput)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -651,14 +697,14 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{
-			Error: CannotStopContainerError{fmt.Errorf("Container belongs to unrecognized task %s", task.Arn)},
+			Error: CannotStopContainerError{errors.Errorf("Container belongs to unrecognized task %s", task.Arn)},
 		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return DockerContainerMetadata{
-			Error: CannotStopContainerError{fmt.Errorf("Container not recorded as created")},
+			Error: CannotStopContainerError{errors.Errorf("Container not recorded as created")},
 		}
 	}
 

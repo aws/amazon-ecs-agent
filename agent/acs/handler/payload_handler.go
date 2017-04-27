@@ -205,6 +205,11 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
 		}
+
+		// Adding the eni information to the task struct
+		if task.ElasticNetworkInterfaces != nil {
+			apiTask.SetTaskEnis(api.ENIFromACS(task.ElasticNetworkInterfaces))
+		}
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out

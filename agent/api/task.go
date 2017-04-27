@@ -15,7 +15,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -30,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -113,6 +113,10 @@ type Task struct {
 	// used to look up the credentials for task in the credentials manager
 	credentialsID     string
 	credentialsIDLock sync.RWMutex
+
+	// Enis is the elastic network interface specified by this task
+	enis     []*ENI
+	enisLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -764,6 +768,25 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 	defer task.sentStatusLock.Unlock()
 
 	task.SentStatusUnsafe = status
+}
+
+func (task *Task) SetTaskEnis(enis []*ENI) {
+	task.enisLock.Lock()
+	defer task.enisLock.RLock()
+
+	task.enis = enis
+}
+
+// GetTaskEni returns the eni of task, for now task can only have one enis
+func (task *Task) GetTaskEni() (*ENI, error) {
+	task.enisLock.RLock()
+	defer task.enisLock.RUnlock()
+
+	if len(task.enis) != 1 {
+		return nil, errors.Errorf("getTaskEni api: task has %d enis associated", len(task.enis))
+	}
+
+	return task.enis[0], nil
 }
 
 // String returns a human readable string representation of this object
