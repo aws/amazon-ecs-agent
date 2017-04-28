@@ -1,8 +1,9 @@
-// This file is derived from the Kubernetes Project, Copyright 2016 The Kubernetes Authors.
-//
-// The original code may be found at:
-// https://github.com/kubernetes/kubernetes/blob/c25c186ec544cf3501a31e77e8fbabce7b138b49/build/pause/pause.c
 /*
+This file is derived from the Kubernetes Project, Copyright 2016 The Kubernetes Authors.
+
+The original code may be found at:
+ https://github.com/kubernetes/kubernetes/blob/c25c186ec544cf3501a31e77e8fbabce7b138b49/build/pause/pause.c
+
 Copyright 2016 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +15,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-// Modifications are Copyright 2017 Amazon.com, Inc. or its affiliates. Licensed under the Apache License 2.0
-
 
 #include <signal.h>
 #include <stdio.h>
@@ -30,15 +29,14 @@ static void sigdown(int signo) {
 }
 
 static void sigreap(int signo) {
-  // NOTE: Moved semi-colon for semantic consistency
-  while (waitpid(-1, NULL, WNOHANG) > 0);
+  while (waitpid(-1, NULL, WNOHANG) > 0)
+    ;
 }
 
 int main() {
   if (getpid() != 1)
     /* Not an error because pause sees use outside of infra containers. */
-    // NOTE: Removal of the word pod from the warning on Line 42
-    fprintf(stderr, "Warning: pause should be the first process\n");
+    fprintf(stderr, "Warning: pause should be the first process in a pod\n");
 
   if (sigaction(SIGINT, &(struct sigaction){.sa_handler = sigdown}, NULL) < 0)
     return 1;
