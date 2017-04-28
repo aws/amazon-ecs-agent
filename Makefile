@@ -85,7 +85,7 @@ testnnp:
 
 pause-container:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
-	@docker run --net=none -e TARGET_OS="${TARGET_OS}" \
+	@docker run --net=none \
 		-v "$(shell pwd)/misc/pause-container:/out" \
 		-v "$(shell pwd)/misc/pause-container/buildPause:/usr/src/buildPause" \
 		"amazon/amazon-ecs-build-pause-bin:make"
