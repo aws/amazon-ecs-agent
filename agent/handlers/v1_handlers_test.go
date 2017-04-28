@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 )
 
 const testContainerInstanceArn = "test_container_instance_arn"
@@ -85,9 +86,7 @@ func TestGetTaskByShortDockerID(t *testing.T) {
 
 	var taskResponse TaskResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "unmarshal failed for get task by short docker id")
 
 	taskDiffHelper(t, []*api.Task{testTasks[0]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
 }
