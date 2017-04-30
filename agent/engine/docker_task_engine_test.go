@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -160,16 +161,16 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	default:
 	}
 
+	// Wait for all events to be consumed prior to moving it towards stopped; we
+	// don't want to race the below with these or we'll end up with the "going
+	// backwards in state" stop and we haven't 'expect'd for that
+
 	// Wait for container create and start events to be processed
 	createStartEventsReported.Wait()
 	// Wait for steady state check to be invoked
 	steadyStateCheckWait.Wait()
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-
-	// Wait for all events to be consumed prior to moving it towards stopped; we
-	// don't want to race the below with these or we'll end up with the "going
-	// backwards in state" stop and we haven't 'expect'd for that
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
@@ -221,6 +222,150 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+}
+
+// TestTaskWithSteadyStateResourcesProvisioned tests container and task transitions
+// when the steady state for the pause container is set to RESOURCES_PROVISIONED and
+// the steady state for the normal container is set to RUNNING
+func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
+	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.Containers[0].SteadyStateDependencies = []string{"pause"}
+	sleepContainer := sleepTask.Containers[0]
+
+	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
+	// steadyState == RESOURCES_PROVISIONED
+	pauseContainer := api.NewContainerWithSteadyState(api.ContainerResourcesProvisioned)
+	pauseContainer.Name = "pause"
+	pauseContainer.Image = "pause"
+	pauseContainer.CPU = 10
+	pauseContainer.Memory = 10
+	pauseContainer.Essential = true
+	pauseContainer.IsInternal = true
+	pauseContainer.InternalContainerType = api.InternalContainerPause
+	pauseContainer.DesiredStatusUnsafe = api.ContainerRunning
+
+	sleepTask.Containers = append(sleepTask.Containers, pauseContainer)
+
+	eventStream := make(chan DockerContainerChangeEvent)
+	// createStartEventsReported is used to force the test to wait until the container created and started
+	// events are processed
+	createStartEventsReported := sync.WaitGroup{}
+
+	client.EXPECT().Version()
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+
+	// We cannot rely on the order of pulls between images as they can still be downloaded in
+	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
+	// Hence, do not enforce the order of invocation of these calls
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	client.EXPECT().PullImage(sleepContainer.Image, nil).Return(DockerContainerMetadata{})
+	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil)
+	client.EXPECT().PullImage(pauseContainer.Image, nil).Return(DockerContainerMetadata{})
+	imageManager.EXPECT().RecordContainerReference(pauseContainer).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(pauseContainer.Image).Return(nil)
+
+	gomock.InOrder(
+		// Ensure that the pause container is created first
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+				assert.Equal(t, "none", hostConfig.NetworkMode)
+				assert.True(t, strings.Contains(containerName, pauseContainer.Name))
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerCreated)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId:" + pauseContainer.Name}),
+		// Ensure that the pause container is started after it's created
+		client.EXPECT().StartContainer("containerId:"+pauseContainer.Name, startContainerTimeout).Do(
+			func(id string, timeout time.Duration) {
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerRunning)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId:" + pauseContainer.Name}),
+		// Once the pause container is started, sleep container will be created
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
+				assert.Equal(t, "container:"+"containerId:"+pauseContainer.Name, hostConfig.NetworkMode)
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerCreated)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId:" + sleepContainer.Name}),
+		// Next, the sleep container is started
+		client.EXPECT().StartContainer("containerId:"+sleepContainer.Name, startContainerTimeout).Do(
+			func(id string, timeout time.Duration) {
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerRunning)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId:" + sleepContainer.Name}),
+	)
+
+	// steadyStateCheckWait is used to force the test to wait until the steady-state check
+	// has been invoked at least once
+	steadyStateCheckWait := sync.WaitGroup{}
+	steadyStateVerify := make(chan time.Time, 1)
+
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+			steadyStateCheckWait.Done()
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
+	err := taskEngine.Init()
+	assert.NoError(t, err)
+
+	taskEvents, contEvents := taskEngine.TaskEvents()
+	steadyStateCheckWait.Add(1)
+	taskEngine.AddTask(sleepTask)
+
+	assert.Equal(t, (<-contEvents).Status, api.ContainerRunning, "Expected container to run first")
+	assert.Equal(t, (<-taskEvents).Status, api.TaskRunning, "Expected task to be RUNNING")
+	select {
+	case <-taskEvents:
+		t.Fatal("Should be out of events")
+	case <-contEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
+
+	// Wait for container create and start events to be processed
+	createStartEventsReported.Wait()
+	// Wait for steady state check to be invoked
+	steadyStateCheckWait.Wait()
+
+	cleanup := make(chan time.Time, 1)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+	client.EXPECT().StopContainer("containerId:"+pauseContainer.Name, gomock.Any()).MinTimes(1)
+
+	exitCode := 0
+	// And then docker reports that sleep died, as sleep is wont to do
+	eventStream <- DockerContainerChangeEvent{
+		Status: api.ContainerStopped,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: "containerId:" + sleepContainer.Name,
+			ExitCode: &exitCode,
+		},
+	}
+
+	if cont := <-contEvents; cont.Status != api.ContainerStopped {
+		t.Fatal("Expected container to stop first")
+		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
+	}
+	assert.Equal(t, (<-taskEvents).Status, api.TaskStopped, "Task is not in STOPPED state")
 }
 
 // TestRemoveEvents tests if the task engine can handle task events while the task is being

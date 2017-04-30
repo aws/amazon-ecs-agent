@@ -20,6 +20,15 @@ import (
 )
 
 const (
+	// InternalContainerVolme represents the internal container type
+	// for the empty volumes container
+	InternalContainerVolume InternalContainer = iota
+	// InternalContainerPause represents the internal container type
+	// for the pause container
+	InternalContainerPause
+)
+
+const (
 	// DockerContainerMinimumMemoryInBytes is the minimum amount of
 	// memory to be allocated to a docker container
 	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
@@ -28,6 +37,9 @@ const (
 	// to 'ContainerRunning' unless overridden
 	defaultContainerSteadyStateStatus = ContainerRunning
 )
+
+// InternalContainer represents the type of the internal container created
+type InternalContainer int32
 
 // ContainerOverrides are overrides applied to the container
 type ContainerOverrides struct {
@@ -95,6 +107,9 @@ type Container struct {
 	// 'Internal' containers are ones that are not directly specified by
 	// task definitions, but created by the agent
 	IsInternal bool
+	// InternalContainerType represents the internal container type when
+	// IsInternal is set to true
+	InternalContainerType InternalContainer
 
 	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull,
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
@@ -137,6 +152,9 @@ func (dc *DockerContainer) String() string {
 	return fmt.Sprintf("Id: %s, Name: %s, Container: %s", dc.DockerID, dc.DockerName, dc.Container.String())
 }
 
+// NewContainerWithSteadyState creates a new Container object with the specified
+// steady state. Containers that need the non default steady state set will
+// use this method instead of setting it directly
 func NewContainerWithSteadyState(steadyState ContainerStatus) *Container {
 	steadyStateStatus := steadyState
 	return &Container{
@@ -217,7 +235,8 @@ func (c *Container) SetSentStatus(status ContainerStatus) {
 
 // String returns a human readable string representation of this object
 func (c *Container) String() string {
-	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
+	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image,
+		c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	if c.KnownExitCode != nil {
 		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
 	}
