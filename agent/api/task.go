@@ -46,6 +46,9 @@ const (
 	pauseContainerImage = "gcr.io/google_containers/pause:latest"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
+	// networkModeContainerPrefix specifies the prefix string used for setting the
+	// container's network mode to be mapped to that of another existing container
+	networkModeContainerPrefix = "container:"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -164,13 +167,14 @@ func (task *Task) initializeEmptyVolumes() {
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
-			Name:                emptyHostVolumeName,
-			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
-			MountPoints:         mountPoints,
-			Essential:           false,
-			IsInternal:          true,
-			DesiredStatusUnsafe: ContainerRunning,
+			Name:                  emptyHostVolumeName,
+			Image:                 emptyvolume.Image + ":" + emptyvolume.Tag,
+			Command:               []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
+			MountPoints:           mountPoints,
+			Essential:             false,
+			IsInternal:            true,
+			InternalContainerType: InternalContainerVolume,
+			DesiredStatusUnsafe:   ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -210,7 +214,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 func (task *Task) addNetworkResourceProvisioningDependency() {
 	// TODO check networking mode for the task before doing this
 	for _, container := range task.Containers {
-		if container.Name == emptyHostVolumeName && container.IsInternal {
+		if container.IsInternal {
 			continue
 		}
 		if container.SteadyStateDependencies == nil {
@@ -219,10 +223,11 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
 	}
 	pauseContainer := &Container{
-		Name:       pauseContainerName,
-		Image:      pauseContainerImage,
-		Essential:  true,
-		IsInternal: true,
+		Name:                  pauseContainerName,
+		Image:                 pauseContainerImage,
+		Essential:             true,
+		IsInternal:            true,
+		InternalContainerType: InternalContainerPause,
 	}
 	task.Containers = append(task.Containers, pauseContainer)
 }
@@ -485,28 +490,48 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	// Set network mode in host config. Since we create internal containers for
-	// volumes and setting up networking for ENIs, we handle those special cases
-	// via a switch statement
-	switch container.Name {
-	// emptyHostVolumeName inidicates that this is an internal container
-	// and is used for setting up empty host volume mounts. Do not change
-	// its network mode
-	case emptyHostVolumeName:
-	// pauseContainerName indicates this is an internal container and is
-	// used for setting up the network namespace of the pause container.
-	// Such a container must be created with the "none" network mode
-	case pauseContainerName:
-		hostConfig.NetworkMode = networkModeNone
-	// default case for all other containers is to set their network mode
-	// to "container:<pause-container-id>" if the pause container is a
-	// part of the task's container list
-	default:
-		if pauseContainer, ok := dockerContainerMap[pauseContainerName]; ok {
-			hostConfig.NetworkMode = "container:" + pauseContainer.DockerID
+	// Determine if network mode should be overridden and override it if needed
+	ok, networkMode := task.shouldOverrideNetworkMode(container, dockerContainerMap)
+	if !ok {
+		return hostConfig, nil
+	}
+	hostConfig.NetworkMode = networkMode
+	return hostConfig, nil
+}
+
+// shouldOverrideNetworkMode returns true if the network mode of the container needs
+// to be overridden. It also returns the override string in this case. It returns
+// false otherwise
+func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContainerMap map[string]*DockerContainer) (bool, string) {
+	if container.IsInternal {
+		// If it's an internal container, set the network mode to none.
+		// Currently, internal containers are either for creating empty host
+		// volumes or for creating the 'pause' container. Both of these
+		// only need the network mode to be set to "none"
+		return true, networkModeNone
+	}
+
+	// For other types of containers, determine if the container map contains
+	override := false
+	pauseContName := ""
+	for _, cont := range task.Containers {
+		if cont.IsInternal && cont.InternalContainerType == InternalContainerPause {
+			override = true
+			pauseContName = cont.Name
+			break
 		}
 	}
-	return hostConfig, nil
+	if !override {
+		return false, ""
+	}
+	pauseContainer, ok := dockerContainerMap[pauseContName]
+	if !ok || pauseContainer == nil {
+		// This should never be the case and implies a code-bug.
+		seelog.Criticalf("Pause container required, but not found in container map for container: [%s] in task: %s",
+			container.String(), task.String())
+		return false, ""
+	}
+	return true, networkModeContainerPrefix + pauseContainer.DockerID
 }
 
 func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {

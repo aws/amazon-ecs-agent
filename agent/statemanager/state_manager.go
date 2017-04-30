@@ -42,6 +42,7 @@ import (
 // 3) Add 'Protocol' field to 'portMappings' and 'KnownPortBindings'
 // 4) Add 'DockerConfig' struct
 // 5) Add 'ImageStates' struct as part of ImageManager
+// TODO: Increment this to 6 and modify the load logic
 const EcsDataVersion = 5
 
 // Filename in the ECS_DATADIR

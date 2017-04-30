@@ -83,31 +83,48 @@ func TestGetSteadyStateStatusReturnsRunningByDefault(t *testing.T) {
 }
 
 func TestIsKnownSteadyState(t *testing.T) {
+	// This creates a container with `iota` ContainerStatus (NONE)
 	container := &Container{}
 	assert.False(t, container.IsKnownSteadyState())
+	// Transition container to PULLED, still not in steady state
+	container.SetKnownStatus(ContainerPulled)
+	assert.False(t, container.IsKnownSteadyState())
+	// Transition container to CREATED, still not in steady state
 	container.SetKnownStatus(ContainerCreated)
 	assert.False(t, container.IsKnownSteadyState())
+	// Transition container to RUNNING, now we're in steady state
 	container.SetKnownStatus(ContainerRunning)
 	assert.True(t, container.IsKnownSteadyState())
+	// Now, set steady state to RESOURCES_PROVISIONED
 	resourcesProvisioned := ContainerResourcesProvisioned
 	container.steadyState = &resourcesProvisioned
+	// Container is not in steady state anymore
 	assert.False(t, container.IsKnownSteadyState())
+	// Transition container to RESOURCES_PROVISIONED, we're in
+	// steady state again
 	container.SetKnownStatus(ContainerResourcesProvisioned)
 	assert.True(t, container.IsKnownSteadyState())
 }
 
 func TestGetNextStateProgression(t *testing.T) {
+	// This creates a container with `iota` ContainerStatus (NONE)
 	container := &Container{}
+	// NONE should transition to PULLED
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerPulled)
 	container.SetKnownStatus(ContainerPulled)
+	// PULLED should transition to CREATED
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerCreated)
 	container.SetKnownStatus(ContainerCreated)
+	// CREATED should transition to RUNNING
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerRunning)
 	container.SetKnownStatus(ContainerRunning)
+	// RUNNING should transition to STOPPED
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
 
 	resourcesProvisioned := ContainerResourcesProvisioned
 	container.steadyState = &resourcesProvisioned
+	// Set steady state to RESOURCES_PROVISIONED
+	// RUNNING should transition to RESOURCES_PROVISIONED based on steady state
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerResourcesProvisioned)
 	container.SetKnownStatus(ContainerResourcesProvisioned)
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
