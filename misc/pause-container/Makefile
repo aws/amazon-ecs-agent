@@ -15,7 +15,7 @@
 
 
 IMAGE = "amazon/amazon-ecs-pause"
-TAG = 1.0
+TAG = 0.1.0
 
 all: container
 
