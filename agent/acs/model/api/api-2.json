@@ -8,7 +8,8 @@
     "serviceAbbreviation":"Amazon ECS ACS",
     "serviceFullName":"Amazon EC2 Container Service Agent Communication Service",
     "signatureVersion":"v4",
-    "targetPrefix":"AmazonEC2ContainerAgentServiceV20141113"
+    "targetPrefix":"AmazonEC2ContainerAgentServiceV20141113",
+    "uid":"ecsacs-2014-11-13"
   },
   "operations":{
     "AttachTaskNetworkInterfaces":{
