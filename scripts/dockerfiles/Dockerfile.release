@@ -18,6 +18,8 @@ FROM amazon/amazon-ecs-scratch:make
 COPY out/amazon-ecs-agent /agent
 COPY ["LICENSE", "NOTICE", "/"]
 
+COPY out/amazon-ecs-pause.tar /images/amazon-ecs-pause.tar
+
 # Copy our bundled certs to the first place go will check: see
 # https://golang.org/src/pkg/crypto/x509/root_unix.go
 COPY misc/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
