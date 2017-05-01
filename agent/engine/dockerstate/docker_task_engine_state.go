@@ -37,7 +37,7 @@ type TaskEngineState interface {
 	// ContainerMapByArn returns a map of containers belonging to a particular task ARN
 	ContainerMapByArn(arn string) (map[string]*api.DockerContainer, bool)
 	// TaskByShortID retrieves the task of a given docker short container id
-	TaskByShortID(cid string) (*api.Task, bool)
+	TaskByShortID(cid string) ([]*api.Task, bool)
 	// TaskByID returns an api.Task for a given container ID
 	TaskByID(cid string) (*api.Task, bool)
 	// TaskByArn returns a task for a given ARN
@@ -147,16 +147,19 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 }
 
 // TaskByShortID retrieves the task of a given docker short container id
-func (state *DockerTaskEngineState) TaskByShortID(cid string) (*api.Task, bool) {
+func (state *DockerTaskEngineState) TaskByShortID(cid string) ([]*api.Task, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
+	var tasks []*api.Task
 	for id := range state.idToTask {
 		if strings.HasPrefix(id, cid) {
-			return state.TaskByID(id)
+			task, _ := state.TaskByID(id)
+			tasks = append(tasks, task)
 		}
 	}
-	return nil, false
+
+	return tasks, len(tasks) > 0
 }
 
 // TaskByID retrieves the task of a given docker container id

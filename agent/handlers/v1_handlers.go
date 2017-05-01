@@ -140,7 +140,19 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 			if len(dockerId) > dockerShortIdLen {
 				task, found = dockerTaskEngineState.TaskByID(dockerId)
 			} else {
-				task, found = dockerTaskEngineState.TaskByShortID(dockerId)
+				tasks, _ := dockerTaskEngineState.TaskByShortID(dockerId)
+				if len(tasks) == 0 {
+					task = nil
+					found = false
+				} else if len(tasks) == 1 {
+					task = tasks[0]
+					found = true
+				} else {
+					log.Info("Multiple tasks found for requsted dockerId: " + dockerId)
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write(responseJSON)
+					return
+				}
 			}
 			responseJSON, status = createTaskJSONResponse(task, found, dockerId, dockerTaskEngineState)
 			w.WriteHeader(status)

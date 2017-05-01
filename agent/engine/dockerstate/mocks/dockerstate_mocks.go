@@ -162,9 +162,9 @@ func (_mr *_MockTaskEngineStateRecorder) TaskByShortID(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByShortID", arg0)
 }
 
-func (_m *MockTaskEngineState) TaskByShortID(_param0 string) (*api.Task, bool) {
+func (_m *MockTaskEngineState) TaskByShortID(_param0 string) ([]*api.Task, bool) {
 	ret := _m.ctrl.Call(_m, "TaskByShortID", _param0)
-	ret0, _ := ret[0].(*api.Task)
+	ret0, _ := ret[0].([]*api.Task)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
