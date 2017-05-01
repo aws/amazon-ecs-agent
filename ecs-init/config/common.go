@@ -93,8 +93,8 @@ func AgentTarball() string {
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
 // by region and the agent filename is appended.
 func AgentRemoteTarball() string {
-	regionName := ec2MetadataRegion()
-	baseURI := getS3BucketMapByRegion(regionName)
+	regionName := getRegion()
+	baseURI := getBaseLocationForRegion(regionName)
 	return baseURI + AgentFilename
 }
 
@@ -118,14 +118,13 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
-// ec2MetadataRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
+// getRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
 // is returned.
-func ec2MetadataRegion () string {
+func getRegion() string {
 	// Find Region name from Metadata. If error return a blank result
 	sessionInstance := session.Must(session.NewSession())
 	metadata := ec2metadata.New(sessionInstance)
 	regionName, err := metadata.Region()
-
 	if err != nil {
 		return DefaultRegionName
 	}
@@ -133,8 +132,8 @@ func ec2MetadataRegion () string {
 	return regionName
 }
 
-// getS3BucketMapByRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
-func getS3BucketMapByRegion(regionName string) string {
+// getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
+func getBaseLocationForRegion(regionName string) string {
 	val, ok := s3BucketMap[regionName]
 	if !ok {
 		return s3BucketMap[DefaultRegionName]
