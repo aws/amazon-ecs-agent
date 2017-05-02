@@ -14,6 +14,7 @@
 package api
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -97,7 +98,7 @@ func TestIsKnownSteadyState(t *testing.T) {
 	assert.True(t, container.IsKnownSteadyState())
 	// Now, set steady state to RESOURCES_PROVISIONED
 	resourcesProvisioned := ContainerResourcesProvisioned
-	container.steadyState = &resourcesProvisioned
+	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Container is not in steady state anymore
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RESOURCES_PROVISIONED, we're in
@@ -122,10 +123,29 @@ func TestGetNextStateProgression(t *testing.T) {
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
 
 	resourcesProvisioned := ContainerResourcesProvisioned
-	container.steadyState = &resourcesProvisioned
+	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Set steady state to RESOURCES_PROVISIONED
 	// RUNNING should transition to RESOURCES_PROVISIONED based on steady state
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerResourcesProvisioned)
 	container.SetKnownStatus(ContainerResourcesProvisioned)
 	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
+}
+
+func TestIsInternal(t *testing.T) {
+	testCases := []struct {
+		container *Container
+		internal  bool
+	}{
+		{&Container{}, false},
+		{&Container{Type: ContainerNormal}, false},
+		{&Container{Type: ContainerCNIPause}, true},
+		{&Container{Type: ContainerEmptyHostVolume}, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("IsInternal shoukd return %t for %s", tc.internal, tc.container.String()),
+			func(t *testing.T) {
+				assert.Equal(t, tc.internal, tc.container.IsInternal())
+			})
+	}
 }

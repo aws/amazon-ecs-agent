@@ -54,13 +54,6 @@ const (
 // TaskOverrides are the overrides applied to a task
 type TaskOverrides struct{}
 
-// TaskVolume is a definition of all the volumes available for containers to
-// reference within a task. It must be named.
-type TaskVolume struct {
-	Name   string `json:"name"`
-	Volume HostVolume
-}
-
 // Task is the internal representation of a task in the ECS agent
 type Task struct {
 	// Arn is the unique identifer for the task
@@ -167,18 +160,16 @@ func (task *Task) initializeEmptyVolumes() {
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
 		sourceContainer := &Container{
-			Name:                  emptyHostVolumeName,
-			Image:                 emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:               []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
-			MountPoints:           mountPoints,
-			Essential:             false,
-			IsInternal:            true,
-			InternalContainerType: InternalContainerVolume,
-			DesiredStatusUnsafe:   ContainerRunning,
+			Name:                emptyHostVolumeName,
+			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
+			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
+			MountPoints:         mountPoints,
+			Essential:           false,
+			Type:                ContainerEmptyHostVolume,
+			DesiredStatusUnsafe: ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
-
 }
 
 // initializeCredentialsEndpoint sets the credentials endpoint for all containers in a task if needed.
@@ -214,7 +205,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 func (task *Task) addNetworkResourceProvisioningDependency() {
 	// TODO check networking mode for the task before doing this
 	for _, container := range task.Containers {
-		if container.IsInternal {
+		if container.IsInternal() {
 			continue
 		}
 		if container.SteadyStateDependencies == nil {
@@ -223,11 +214,10 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
 	}
 	pauseContainer := &Container{
-		Name:                  pauseContainerName,
-		Image:                 pauseContainerImage,
-		Essential:             true,
-		IsInternal:            true,
-		InternalContainerType: InternalContainerPause,
+		Name:      pauseContainerName,
+		Image:     pauseContainerImage,
+		Essential: true,
+		Type:      ContainerCNIPause,
 	}
 	task.Containers = append(task.Containers, pauseContainer)
 }
@@ -442,7 +432,8 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 		// you can handle most volume mount types in the HostConfig at run-time;
 		// empty mounts are created by docker at create-time (Config) so set
 		// them here.
-		if container.Name == emptyHostVolumeName && container.IsInternal {
+		if container.Type == ContainerEmptyHostVolume {
+			// if container.Name == emptyHostVolumeName && container.Type {
 			_, ok := vol.(*EmptyHostVolume)
 			if !ok {
 				return nil, &badVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
@@ -503,7 +494,9 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 // to be overridden. It also returns the override string in this case. It returns
 // false otherwise
 func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContainerMap map[string]*DockerContainer) (bool, string) {
-	if container.IsInternal {
+	// TODO. We can do an early return here by determining which kind of task it is
+	// Example: Does this task have ENIs in its payload, what is its networking mode etc
+	if container.IsInternal() {
 		// If it's an internal container, set the network mode to none.
 		// Currently, internal containers are either for creating empty host
 		// volumes or for creating the 'pause' container. Both of these
@@ -512,10 +505,14 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 	}
 
 	// For other types of containers, determine if the container map contains
+	// a pause container. Since a pause container is only added to the task
+	// when using non docker daemon supported network modes, its existence
+	// indicates the need to configure the network mode outside of supported
+	// network drivers
 	override := false
 	pauseContName := ""
 	for _, cont := range task.Containers {
-		if cont.IsInternal && cont.InternalContainerType == InternalContainerPause {
+		if cont.Type == ContainerCNIPause {
 			override = true
 			pauseContName = cont.Name
 			break

@@ -284,14 +284,12 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				Name: "c1",
 			},
 			&Container{
-				Name:                  emptyHostVolumeName,
-				IsInternal:            true,
-				InternalContainerType: InternalContainerVolume,
+				Name: emptyHostVolumeName,
+				Type: ContainerEmptyHostVolume,
 			},
 			&Container{
-				Name:                  pauseContainerName,
-				IsInternal:            true,
-				InternalContainerType: InternalContainerPause,
+				Name: pauseContainerName,
+				Type: ContainerCNIPause,
 			},
 		},
 	}
@@ -831,9 +829,9 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 				Essential:         true,
 			},
 			&Container{
-				KnownStatusUnsafe: ContainerCreated,
-				Essential:         true,
-				steadyState:       &resourcesProvisioned,
+				KnownStatusUnsafe:       ContainerCreated,
+				Essential:               true,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
 	}
@@ -899,8 +897,8 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 				KnownStatusUnsafe: ContainerRunning,
 			},
 			&Container{
-				KnownStatusUnsafe: ContainerRunning,
-				steadyState:       &resourcesProvisioned,
+				KnownStatusUnsafe:       ContainerRunning,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
 	}
@@ -964,9 +962,9 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 				Essential:         true,
 			},
 			&Container{
-				KnownStatusUnsafe: ContainerRunning,
-				Essential:         true,
-				steadyState:       &resourcesProvisioned,
+				KnownStatusUnsafe:       ContainerRunning,
+				Essential:               true,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
 	}

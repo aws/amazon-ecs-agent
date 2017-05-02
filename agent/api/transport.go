@@ -13,7 +13,10 @@
 
 package api
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 const (
 	// TransportProtocolTCP represents TCP
@@ -40,6 +43,7 @@ func NewTransportProtocol(protocol string) (TransportProtocol, error) {
 	}
 }
 
+// String converts TransportProtocol to a string
 func (tp *TransportProtocol) String() string {
 	if tp == nil {
 		return tcp
@@ -53,4 +57,33 @@ func (tp *TransportProtocol) String() string {
 		log.Crit("Unknown TransportProtocol type!")
 		return tcp
 	}
+}
+
+// UnmarshalJSON for TransportProtocol determines whether to use TCP or UDP,
+// setting TCP as the zero-value but treating other unrecognized values as
+// errors
+func (tp *TransportProtocol) UnmarshalJSON(b []byte) error {
+	if strings.ToLower(string(b)) == "null" {
+		*tp = TransportProtocolTCP
+		log.Warn("Unmarshalled nil TransportProtocol as TCP")
+		return nil
+	}
+	switch string(b) {
+	case `"tcp"`:
+		*tp = TransportProtocolTCP
+	case `"udp"`:
+		*tp = TransportProtocolUDP
+	default:
+		*tp = TransportProtocolTCP
+		return errors.New("TransportProtocol must be \"tcp\" or \"udp\"; Got " + string(b))
+	}
+	return nil
+}
+
+// MarshalJSON overrides the logic for JSON-encoding the TransportProtocol type
+func (tp *TransportProtocol) MarshalJSON() ([]byte, error) {
+	if tp == nil {
+		return []byte("null"), nil
+	}
+	return []byte(`"` + tp.String() + `"`), nil
 }
