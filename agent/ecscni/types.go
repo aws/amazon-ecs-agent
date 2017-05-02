@@ -13,7 +13,10 @@
 
 package ecscni
 
-import "github.com/containernetworking/cni/pkg/types"
+import (
+	"github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/types"
+)
 
 const (
 	// CNIPluginsPath is the default path where cni binaries are located
@@ -87,6 +90,10 @@ type cniClient struct {
 	pluginsPath string
 	cniVersion  string
 	subnet      string
+	pluginPath  string
+	cniVersion  string
+	subnet      string
+	libcni      libcni.CNI
 }
 
 type CNIClient interface {

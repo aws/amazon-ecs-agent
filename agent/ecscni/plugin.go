@@ -39,10 +39,15 @@ func NewClient(cfg *Config) CNIClient {
 		cniVersion = cfg.MinSupportedCNIVersion
 	}
 
+	libcniConfig := &libcni.CNIConfig{
+		Path: []string{pluginPath},
+	}
+
 	return &cniClient{
 		pluginsPath: pluginsPath,
 		cniVersion:  cniVersion,
 		subnet:      ECSSubnet,
+		libcni:      libcniConfig,
 	}
 }
 
@@ -65,12 +70,8 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for confirguring namespace")
 	}
 
-	cniConfig := libcni.CNIConfig{
-		Path: []string{client.pluginsPath},
-	}
-
 	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
-	result, err := cniConfig.AddNetworkList(netConfigList, cns)
+	result, err := client.libcni.AddNetworkList(netConfigList, cns)
 	if err != nil {
 		return err
 	}
@@ -98,12 +99,8 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 		return errors.Wrap(err, "cni invocation: Failed to construct network configuration to clean up namespace")
 	}
 
-	cniConfig := libcni.CNIConfig{
-		Path: []string{client.pluginsPath},
-	}
-
 	seelog.Debugf("Starting clean up the container namespace: %s", cfg.ContainerID)
-	return cniConfig.DelNetworkList(netConfigList, cns)
+	return client.libcni.DelNetworkList(netConfigList, cns)
 }
 
 // constructNetworkConfig creates configuration for eni, ipam and bridge plugin
@@ -143,7 +140,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		ENIID:       cfg.ENIID,
 		IPV4Address: cfg.ENIIPV4Address,
 		MACAddress:  cfg.ENIMACAddress,
-		IPV6Address: cfg.ENIMACAddress,
+		IPV6Address: cfg.ENIIPV6Address,
 	}
 
 	bridgeConfBytes, err := json.Marshal(bridgeConf)

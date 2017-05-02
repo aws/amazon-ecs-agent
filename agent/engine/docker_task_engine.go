@@ -769,9 +769,10 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
-//    com.amazonaws.ecs.capability.cni-plugin-eni-0.1.0
-//    com.amazonaws.ecs.capability.cni-plugin-ipam-0.1.0
-//    com.amazonaws.ecs.capability.cni-plugin-bridge-0.1.0
+// TODO these names need to be finally confirmed
+//    ecs.capability.cni-plugin-eni
+//    ecs.capability.cni-plugin-ipam
+//    ecs.capability.cni-plugin-bridge
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
