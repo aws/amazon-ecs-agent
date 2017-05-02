@@ -26,8 +26,8 @@ type NetLink interface {
 // NetLinkClient helps invoke the actual netlink methods
 type NetLinkClient struct{}
 
-// NewNetLink creates a new NetLink object
-func NewNetLink() NetLink {
+// New creates a new NetLink object
+func New() NetLink {
 	return NetLinkClient{}
 }
 

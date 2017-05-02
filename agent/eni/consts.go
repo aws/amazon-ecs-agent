@@ -25,5 +25,5 @@ const (
 	udevDevPath                   = "DEVPATH"
 	udevInterface                 = "INTERFACE"
 	defaultReconciliationInterval = time.Second * 30
-	mapCapacityHint               = 10 // Nominal Hint for Map Capacity
+	mapCapacityHint               = 10 // mapCapacityHint is a nominal hint for map capacity
 )

@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	eniUtils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
+	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 )
 
@@ -45,16 +46,16 @@ type UdevWatcher struct {
 	netlinkClient        netlinkwrapper.NetLink
 	udevMonitor          udevwrapper.Udev
 	events               chan *udev.UEvent
-	state                StateManagerInterface
+	state                eniStateManager.StateManager
 }
 
 // New is used to return an instance of the UdevWatcher struct
 func New(ctx context.Context, udevwrap udevwrapper.Udev) *UdevWatcher {
-	return _new(ctx, netlinkwrapper.NetLinkClient{}, udevwrap, NewStateManager())
+	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New())
 }
 
 // _new is used to nest the return of the UdevWatcher struct
-func _new(ctx context.Context, nlWrap netlinkwrapper.NetLink, udevWrap udevwrapper.Udev, eniState StateManagerInterface) *UdevWatcher {
+func _new(ctx context.Context, nlWrap netlinkwrapper.NetLink, udevWrap udevwrapper.Udev, eniState eniStateManager.StateManager) *UdevWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	return &UdevWatcher{
 		ctx:           derivedContext,
@@ -73,15 +74,13 @@ func (udevWatcher *UdevWatcher) Init() error {
 		return errors.Wrapf(err, "udev watcher init: error retrieving network interfaces")
 	}
 
-	udevWatcher.state.Lock()
-	for _, link := range links {
-		deviceName := link.Attrs().Name
-		macAddress := link.Attrs().HardwareAddr.String()
-		if macAddress != "" {
-			udevWatcher.addDeviceWithMACAddressUnsafe(deviceName, macAddress)
-		}
+	// Return on empty list
+	if len(links) == 0 {
+		return errors.New("udev watcher init: no network interfaces discovered for initialization")
 	}
-	udevWatcher.state.Unlock()
+
+	// Pass state to Init
+	udevWatcher.state.Init(links)
 	return nil
 }
 
@@ -133,59 +132,18 @@ func (udevWatcher *UdevWatcher) reconcileOnce() {
 	// As we postulate the netlinkClient.LinkList() call to be expensive, we allow
 	// the race here. The state would be corrected during the next reconciliation loop.
 
-	udevWatcher.state.Lock()
-	defer udevWatcher.state.Unlock()
-
-	// Remove non-existent interfaces first
-	enis := udevWatcher.state.GetAll()
-	for managedMACAddress, managedDeviceName := range enis {
-		if currentDeviceName, ok := currentState[managedMACAddress]; !ok || managedDeviceName != currentDeviceName {
-			udevWatcher.state.RemoveDeviceWithMACAddressUnsafe(managedMACAddress)
-		}
-	}
-
-	// Add new interfaces next
-	for mac, dev := range currentState {
-		if _, ok := enis[mac]; !ok && mac != "" {
-			udevWatcher.state.AddDeviceWithMACAddressUnsafe(dev, mac)
-		}
-	}
+	udevWatcher.state.Reconcile(currentState)
 	log.Debugf("Udev watcher reconciliation: end")
+}
+
+// IsMACAddressPresent checks if the MACAddress belongs to the maintained state
+func (udevWatcher *UdevWatcher) IsMACAddressPresent(macAddress string) bool {
+	return udevWatcher.state.IsMACAddressPresent(macAddress)
 }
 
 // getAllENIs is used to retrieve the state observed by the Watcher
 func (udevWatcher *UdevWatcher) getAllENIs() map[string]string {
 	return udevWatcher.state.GetAll()
-}
-
-// IsMACAddressPresent checks if the MACAddress belongs to the maintained state
-func (udevWatcher *UdevWatcher) IsMACAddressPresent(macAddress string) bool {
-	udevWatcher.state.Lock()
-	defer udevWatcher.state.Unlock()
-	enis := udevWatcher.getAllENIs()
-	_, ok := enis[macAddress]
-	return ok
-}
-
-// addDeviceWithMACAddressUnsafe adds new devices upon initialization
-// NOTE: Expects lock to be held prior to update for correct semantics
-func (udevWatcher *UdevWatcher) addDeviceWithMACAddressUnsafe(deviceName, macAddress string) {
-	log.Debugf("Udev watcher: adding device %s with MAC %s", deviceName, macAddress)
-	udevWatcher.state.AddDeviceWithMACAddressUnsafe(deviceName, macAddress)
-}
-
-// removeDeviceWithMACAddressUnsafe is used to remove new devices from maintained state
-// NOTE: Expects lock to be held prior to update for correct semantics
-func (udevWatcher *UdevWatcher) removeDeviceWithMACAddressUnsafe(mac string) {
-	log.Debugf("Udev watcher: removing device with MACAddress: %s", mac)
-	udevWatcher.state.RemoveDeviceWithMACAddressUnsafe(mac)
-}
-
-// removeDeviceUnsafe is used to remove new devices from uDev events
-// NOTE: removeDeviceUnsafe expects lock to be held prior to update for correct semantics
-func (udevWatcher *UdevWatcher) removeDeviceUnsafe(deviceName string) {
-	log.Debugf("Udev watcher: removing device: %s", deviceName)
-	udevWatcher.state.RemoveDeviceUnsafe(deviceName)
 }
 
 // buildState is used to build a state of the system for reconciliation
@@ -223,15 +181,11 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 					log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
 					continue
 				}
-				udevWatcher.state.Lock()
-				udevWatcher.state.AddDeviceWithMACAddressUnsafe(netInterface, macAddress)
-				udevWatcher.state.Unlock()
+				udevWatcher.state.AddDeviceWithMACAddress(netInterface, macAddress)
 			case udevRemoveEvent:
 				netInterface := event.Env[udevInterface]
 				log.Debugf("Udev watcher event-handler: remove interface: %s", netInterface)
-				udevWatcher.state.Lock()
-				udevWatcher.state.RemoveDeviceUnsafe(netInterface)
-				udevWatcher.state.Unlock()
+				udevWatcher.state.RemoveDevice(netInterface)
 			}
 		case <-ctx.Done():
 			return

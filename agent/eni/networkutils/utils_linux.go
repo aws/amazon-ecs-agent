@@ -43,7 +43,7 @@ func IsValidNetworkDevice(devicePath string) bool {
 	* eth1 -> /devices/pci0000:00/0000:00:05.0/net/eth1
 	* eth0 -> ../../devices/pci0000:00/0000:00:03.0/net/eth0
 	* lo   -> ../../devices/virtual/net/lo
-	 */
+	*/
 	splitDevLink := strings.SplitN(devicePath, "devices/", 2)
 	if len(splitDevLink) != 2 {
 		log.Warnf("Cannot determine device validity: %s", devicePath)
@@ -52,7 +52,7 @@ func IsValidNetworkDevice(devicePath string) bool {
 	/*
 	* CoreOS typically employs the vif style for physical net interfaces
 	* Amazon Linux, Ubuntu, RHEL, Fedora, Suse use the traditional pci convention
-	 */
+	*/
 	if strings.HasPrefix(splitDevLink[1], "pci") || strings.HasPrefix(splitDevLink[1], "vif") {
 		return true
 	}

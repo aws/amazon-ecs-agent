@@ -35,8 +35,8 @@ type NetLink interface {
 	LinkList() ([]LinkUnsupported, error)
 }
 
-// NewNetLink creates a new NetLink object
-func NewNetLink() NetLink {
+// New creates a new NetLink object
+func New() NetLink {
 	return NetLinkClient{}
 }
 
