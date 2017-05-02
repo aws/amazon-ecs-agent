@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,13 +16,36 @@ package ecr
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 const opGetAuthorizationToken = "GetAuthorizationToken"
 
-// GetAuthorizationTokenRequest generates a request for the GetAuthorizationToken operation.
+// GetAuthorizationTokenRequest generates a "aws/request.Request" representing the
+// client's request for the GetAuthorizationToken operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See GetAuthorizationToken for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the GetAuthorizationToken method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the GetAuthorizationTokenRequest method.
+//    req, resp := client.GetAuthorizationTokenRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECR) GetAuthorizationTokenRequest(input *GetAuthorizationTokenInput) (req *request.Request, output *GetAuthorizationTokenOutput) {
 	op := &request.Operation{
 		Name:       opGetAuthorizationToken,
@@ -34,16 +57,44 @@ func (c *ECR) GetAuthorizationTokenRequest(input *GetAuthorizationTokenInput) (r
 		input = &GetAuthorizationTokenInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetAuthorizationTokenOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// GetAuthorizationToken API operation for Amazon EC2 Container Registry.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Registry's
+// API operation GetAuthorizationToken for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//
 func (c *ECR) GetAuthorizationToken(input *GetAuthorizationTokenInput) (*GetAuthorizationTokenOutput, error) {
 	req, out := c.GetAuthorizationTokenRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// GetAuthorizationTokenWithContext is the same as GetAuthorizationToken with the addition of
+// the ability to pass a context and additional request options.
+//
+// See GetAuthorizationToken for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECR) GetAuthorizationTokenWithContext(ctx aws.Context, input *GetAuthorizationTokenInput, opts ...request.Option) (*GetAuthorizationTokenOutput, error) {
+	req, out := c.GetAuthorizationTokenRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 type AuthorizationData struct {
@@ -66,6 +117,24 @@ func (s AuthorizationData) GoString() string {
 	return s.String()
 }
 
+// SetAuthorizationToken sets the AuthorizationToken field's value.
+func (s *AuthorizationData) SetAuthorizationToken(v string) *AuthorizationData {
+	s.AuthorizationToken = &v
+	return s
+}
+
+// SetExpiresAt sets the ExpiresAt field's value.
+func (s *AuthorizationData) SetExpiresAt(v time.Time) *AuthorizationData {
+	s.ExpiresAt = &v
+	return s
+}
+
+// SetProxyEndpoint sets the ProxyEndpoint field's value.
+func (s *AuthorizationData) SetProxyEndpoint(v string) *AuthorizationData {
+	s.ProxyEndpoint = &v
+	return s
+}
+
 type GetAuthorizationTokenInput struct {
 	_ struct{} `type:"structure"`
 
@@ -82,6 +151,12 @@ func (s GetAuthorizationTokenInput) GoString() string {
 	return s.String()
 }
 
+// SetRegistryIds sets the RegistryIds field's value.
+func (s *GetAuthorizationTokenInput) SetRegistryIds(v []*string) *GetAuthorizationTokenInput {
+	s.RegistryIds = v
+	return s
+}
+
 type GetAuthorizationTokenOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -96,4 +171,10 @@ func (s GetAuthorizationTokenOutput) String() string {
 // GoString returns the string representation
 func (s GetAuthorizationTokenOutput) GoString() string {
 	return s.String()
+}
+
+// SetAuthorizationData sets the AuthorizationData field's value.
+func (s *GetAuthorizationTokenOutput) SetAuthorizationData(v []*AuthorizationData) *GetAuthorizationTokenOutput {
+	s.AuthorizationData = v
+	return s
 }
