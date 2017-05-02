@@ -15,8 +15,6 @@ package updater
 
 import (
 	"errors"
-	"net/url"
-	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 )
@@ -30,27 +28,6 @@ func validateUpdateInfo(updateInfo *ecsacs.UpdateInfo) error {
 	}
 	if updateInfo.Signature == nil {
 		return errors.New("no signature given")
-	}
-
-	return locationValidation(*updateInfo.Location)
-}
-
-const validUpdateHost = "s3.amazonaws.com"
-const validUpdateBucket = "amazon-ecs-agent"
-
-// locationValidation validates that the update location points to the
-// amazon-ecs-agent update bucket
-func locationValidation(location string) error {
-	parsed, err := url.Parse(location)
-	if err != nil {
-		return err
-	}
-
-	if parsed.Host != validUpdateHost {
-		return errors.New("invalid update host")
-	}
-	if !strings.HasPrefix(parsed.Path, "/"+validUpdateBucket+"/") {
-		return errors.New("invalid update bucket")
 	}
 
 	return nil
