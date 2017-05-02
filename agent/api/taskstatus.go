@@ -13,6 +13,11 @@
 
 package api
 
+import (
+	"errors"
+	"strings"
+)
+
 const (
 	// TaskStatusNone is the zero state of a task; this task has been received but no further progress has completed
 	TaskStatusNone TaskStatus = iota
@@ -84,4 +89,42 @@ func (ts *TaskStatus) ContainerStatus(steadyState ContainerStatus) ContainerStat
 // Terminal returns true if the Task status is STOPPED
 func (ts TaskStatus) Terminal() bool {
 	return ts == TaskStopped
+}
+
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded TaskStatus data
+func (ts *TaskStatus) UnmarshalJSON(b []byte) error {
+	if strings.ToLower(string(b)) == "null" {
+		*ts = TaskStatusNone
+		return nil
+	}
+	if b[0] != '"' || b[len(b)-1] != '"' {
+		*ts = TaskStatusNone
+		return errors.New("TaskStatus must be a string or null")
+	}
+	strStatus := string(b[1 : len(b)-1])
+	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
+	if strStatus == "UNKNOWN" {
+		*ts = TaskStatusNone
+		return nil
+	}
+	if strStatus == "DEAD" {
+		*ts = TaskStopped
+		return nil
+	}
+
+	stat, ok := taskStatusMap[strStatus]
+	if !ok {
+		*ts = TaskStatusNone
+		return errors.New("Unrecognized TaskStatus")
+	}
+	*ts = stat
+	return nil
+}
+
+// MarshalJSON overrides the logic for JSON-encoding the TaskStatus type
+func (ts *TaskStatus) MarshalJSON() ([]byte, error) {
+	if ts == nil {
+		return nil, nil
+	}
+	return []byte(`"` + ts.String() + `"`), nil
 }

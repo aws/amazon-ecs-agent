@@ -20,15 +20,6 @@ import (
 )
 
 const (
-	// InternalContainerVolme represents the internal container type
-	// for the empty volumes container
-	InternalContainerVolume InternalContainer = iota
-	// InternalContainerPause represents the internal container type
-	// for the pause container
-	InternalContainerPause
-)
-
-const (
 	// DockerContainerMinimumMemoryInBytes is the minimum amount of
 	// memory to be allocated to a docker container
 	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
@@ -37,14 +28,6 @@ const (
 	// to 'ContainerRunning' unless overridden
 	defaultContainerSteadyStateStatus = ContainerRunning
 )
-
-// InternalContainer represents the type of the internal container created
-type InternalContainer int32
-
-// ContainerOverrides are overrides applied to the container
-type ContainerOverrides struct {
-	Command *[]string `json:"command"`
-}
 
 // DockerConfig represents additional metadata about a container to run. It's
 // remodeled from the `ecsacs` api model file. Eventually it should not exist
@@ -104,12 +87,12 @@ type Container struct {
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
 	SteadyStateDependencies []string `json:"RunDependencies"`
-	// 'Internal' containers are ones that are not directly specified by
-	// task definitions, but created by the agent
-	IsInternal bool
-	// InternalContainerType represents the internal container type when
-	// IsInternal is set to true
-	InternalContainerType InternalContainer
+	// Type specifies the container type. Except the 'Normal' type, all other types
+	// are not directly specified by task definitions, but created by the agent. The
+	// JSON tag is retained as this field's previous name 'IsInternal' for maintaining
+	// backwards compatibility. Please see JSON parsing hooks for this type for more
+	// details
+	Type ContainerType `json:"IsInternal"`
 
 	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull,
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
@@ -130,7 +113,12 @@ type Container struct {
 	KnownExitCode     *int
 	KnownPortBindings []PortBinding
 
-	steadyState *ContainerStatus
+	// SteadyStateStatusUnsafe specifies the steady state status for the container
+	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
+	// it's not only supposed to be set when the container is being created, it's
+	// exposed outside of the package so that it's marshalled/unmarshalled in the
+	// the JSON body while saving the state
+	SteadyStateStatusUnsafe *ContainerStatus `json:"SteadyStateStatus,omitempty"`
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -158,7 +146,7 @@ func (dc *DockerContainer) String() string {
 func NewContainerWithSteadyState(steadyState ContainerStatus) *Container {
 	steadyStateStatus := steadyState
 	return &Container{
-		steadyState: &steadyStateStatus,
+		SteadyStateStatusUnsafe: &steadyStateStatus,
 	}
 }
 
@@ -251,10 +239,10 @@ func (c *Container) String() string {
 // have been provisioned for it, which is done in the `ContainerResourcesProvisioned`
 // state
 func (c *Container) GetSteadyStateStatus() ContainerStatus {
-	if c.steadyState == nil {
+	if c.SteadyStateStatusUnsafe == nil {
 		return defaultContainerSteadyStateStatus
 	}
-	return *c.steadyState
+	return *c.SteadyStateStatusUnsafe
 }
 
 // IsKnownSteadyState returns true if the `KnownState` of the container equals
@@ -287,4 +275,14 @@ func (c *Container) GetNextKnownStateProgression() ContainerStatus {
 	}
 
 	return c.GetKnownStatus() + 1
+}
+
+// IsInternal returns true if the container type is either `ContainerEmptyHostVolume`
+// or `ContainerCNIPause`. It returns false otherwise
+func (c *Container) IsInternal() bool {
+	if c.Type == ContainerNormal {
+		return false
+	}
+
+	return true
 }

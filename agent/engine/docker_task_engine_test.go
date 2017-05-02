@@ -244,8 +244,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	pauseContainer.CPU = 10
 	pauseContainer.Memory = 10
 	pauseContainer.Essential = true
-	pauseContainer.IsInternal = true
-	pauseContainer.InternalContainerType = api.InternalContainerPause
+	pauseContainer.Type = api.ContainerCNIPause
 	pauseContainer.DesiredStatusUnsafe = api.ContainerRunning
 
 	sleepTask.Containers = append(sleepTask.Containers, pauseContainer)

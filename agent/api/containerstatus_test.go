@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,6 +14,7 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -121,4 +122,29 @@ func TestBackendStatus(t *testing.T) {
 	containerStatus = ContainerStopped
 	assert.Equal(t, containerStatus.BackendStatus(ContainerRunning), ContainerStopped)
 	assert.Equal(t, containerStatus.BackendStatus(ContainerResourcesProvisioned), ContainerStopped)
+}
+
+type testContainerStatus struct {
+	SomeStatus ContainerStatus `json:"status"`
+}
+
+func TestUnmarshalContainerStatus(t *testing.T) {
+	status := ContainerStatusNone
+
+	err := json.Unmarshal([]byte(`"RUNNING"`), &status)
+	if err != nil {
+		t.Error(err)
+	}
+	if status != ContainerRunning {
+		t.Error("RUNNING should unmarshal to RUNNING, not " + status.String())
+	}
+
+	var test testContainerStatus
+	err = json.Unmarshal([]byte(`{"status":"STOPPED"}`), &test)
+	if err != nil {
+		t.Error(err)
+	}
+	if test.SomeStatus != ContainerStopped {
+		t.Error("STOPPED should unmarshal to STOPPED, not " + test.SomeStatus.String())
+	}
 }

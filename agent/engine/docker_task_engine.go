@@ -356,7 +356,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
 		return
 	}
-	if cont.IsInternal {
+	if cont.IsInternal() {
 		return
 	}
 	if cont.GetSentStatus() >= contKnownStatus {

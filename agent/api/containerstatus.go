@@ -13,6 +13,11 @@
 
 package api
 
+import (
+	"errors"
+	"strings"
+)
+
 const (
 	// ContainerStatusNone is the zero state of a container; this container has not completed pull
 	ContainerStatusNone ContainerStatus = iota
@@ -106,4 +111,42 @@ func (cs *ContainerStatus) BackendStatus(steadyStateStatus ContainerStatus) Cont
 // Terminal returns true if the container status is STOPPED
 func (cs ContainerStatus) Terminal() bool {
 	return cs == ContainerStopped
+}
+
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded TaskStatus data
+func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
+	if strings.ToLower(string(b)) == "null" {
+		*cs = ContainerStatusNone
+		return nil
+	}
+	if b[0] != '"' || b[len(b)-1] != '"' {
+		*cs = ContainerStatusNone
+		return errors.New("ContainerStatus must be a string or null; Got " + string(b))
+	}
+	strStatus := string(b[1 : len(b)-1])
+	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
+	if strStatus == "UNKNOWN" {
+		*cs = ContainerStatusNone
+		return nil
+	}
+	if strStatus == "DEAD" {
+		*cs = ContainerStopped
+		return nil
+	}
+
+	stat, ok := containerStatusMap[strStatus]
+	if !ok {
+		*cs = ContainerStatusNone
+		return errors.New("Unrecognized ContainerStatus")
+	}
+	*cs = stat
+	return nil
+}
+
+// MarshalJSON overrides the logic for JSON-encoding the ContainerStatus type
+func (cs *ContainerStatus) MarshalJSON() ([]byte, error) {
+	if cs == nil {
+		return nil, nil
+	}
+	return []byte(`"` + cs.String() + `"`), nil
 }
