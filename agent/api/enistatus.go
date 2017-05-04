@@ -31,7 +31,7 @@ var eniAttachmentStatusMap = map[string]ENIAttachmentStatus{
 }
 
 // String return the string value of the eniattachment status
-func (eni *ENIAttachmentStatus) String() {
+func (eni *ENIAttachmentStatus) String() string {
 	for k, v := range eniAttachmentStatusMap {
 		if v == *eni {
 			return k

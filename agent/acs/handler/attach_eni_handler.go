@@ -15,6 +15,7 @@ package handler
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -32,10 +33,11 @@ type attachENIHandler struct {
 	cluster           *string
 	containerInstance *string
 	acsClient         wsclient.ClientServer
+	taskEngine        engine.TaskEngine
 }
 
 // newAttachENIHandler returns an instance of the attachENIHandler struct
-func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer) attachENIHandler {
+func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine) attachENIHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return attachENIHandler{
@@ -45,6 +47,7 @@ func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceA
 		cluster:           aws.String(cluster),
 		containerInstance: aws.String(containerInstanceArn),
 		acsClient:         acsClient,
+		taskEngine:        taskEngine,
 	}
 }
 
@@ -93,7 +96,20 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 	if err != nil {
 		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(message.MessageId), err)
 	}
+	attachENIHandler.addENIAttachmentToState(message)
 	return err
+}
+
+// addENIAttachmentToState adds the eni info to the state
+func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
+	attachmentArn := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
+	seelog.Info("Adding eni info to state, eni: %s", attachmentArn)
+	handler.taskEngine.AddENIAttachment(
+		&api.ENIAttachment{
+			AttachmentArn:    attachmentArn,
+			AttachStatusSent: false,
+			MacAddress:       aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress),
+		})
 }
 
 // validateAttachTaskNetworkInterfacesMessage performs validation checks on the

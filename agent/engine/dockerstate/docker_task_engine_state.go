@@ -90,12 +90,12 @@ func NewTaskEngineState() TaskEngineState {
 
 func newDockerTaskEngineState() *DockerTaskEngineState {
 	return &DockerTaskEngineState{
-		tasks:         make(map[string]*api.Task),
-		idToTask:      make(map[string]string),
-		taskToID:      make(map[string]map[string]*api.DockerContainer),
-		idToContainer: make(map[string]*api.DockerContainer),
-		imageStates:   make(map[string]*image.ImageState),
-		enis:          make(map[string]*api.ENIAttachment),
+		tasks:          make(map[string]*api.Task),
+		idToTask:       make(map[string]string),
+		taskToID:       make(map[string]map[string]*api.DockerContainer),
+		idToContainer:  make(map[string]*api.DockerContainer),
+		imageStates:    make(map[string]*image.ImageState),
+		eniAttachments: make(map[string]*api.ENIAttachment),
 	}
 }
 
@@ -155,6 +155,28 @@ func (state *DockerTaskEngineState) ENIByMac(mac string) (*api.ENIAttachment, bo
 
 	eni, ok := state.eniAttachments[mac]
 	return eni, ok
+}
+
+func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttachment) {
+	if eniAttachment == nil {
+		log.Debug("Cannot add empty eni attachment information")
+		return
+	}
+
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	state.eniAttachments[eniAttachment.MacAddress] = eniAttachment
+}
+func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
+	if mac == "" {
+		log.Debug("Cannot remove empty eni attachment information")
+		return
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	delete(state.eniAttachments, mac)
+
 }
 
 // ContainerByID returns an api.DockerContainer for a given container ID

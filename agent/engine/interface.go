@@ -39,6 +39,9 @@ type TaskEngine interface {
 	// lifecycle. If it returns an error, the task was not added.
 	AddTask(*api.Task) error
 
+	// AddENIAttachment adds a new eni information to the state
+	AddENIAttachment(*api.ENIAttachment) error
+
 	// ListTasks lists all the tasks being managed by the TaskEngine.
 	ListTasks() ([]*api.Task, error)
 
