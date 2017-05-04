@@ -232,10 +232,30 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTask.Containers[0].SteadyStateDependencies = []string{"pause"}
 	sleepContainer := sleepTask.Containers[0]
+	sleepTask.SetTaskEnis([]*api.ENI{
+		{
+			ID: "TestTaskWithSteadyStateResourcesProvisioned",
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Primary: true,
+					Address: "10.0.0.1",
+				},
+			},
+			MacAddress: "1.2.3.4",
+			IPV6Addresses: []*api.ENIIPV6Address{
+				{
+					Address: "f0:234:23",
+				},
+			},
+		},
+	})
 
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
@@ -290,6 +310,13 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId:" + pauseContainer.Name}),
+		client.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
+			ID:    "containerId",
+			State: docker.State{Pid: 23},
+		}, nil),
+		// Then setting up the pause container network namespace
+		mockCNIClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {

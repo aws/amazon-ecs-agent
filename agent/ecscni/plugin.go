@@ -115,6 +115,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		CNIVersion:  client.cniVersion,
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
+		ID:          cfg.ID,
 		IPV4Routes: []*types.Route{
 			{
 				Dst: *dst,

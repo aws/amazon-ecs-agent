@@ -641,30 +641,61 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {
 	seelog.Infof("Task [%s]: Setting up container resources for container [%s]", task.String(), container.String())
 
-	// Invoke the libcni to config the network namespace for the container
-	eni, err := task.GetTaskEni()
+	cniConfig, err := engine.BuildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return DockerContainerMetadata{
-			Error: ENIInformationError{errors.Wrapf(err, "engine: failed to get eni inforamtion, task: %s", task.String())},
+			DockerID: cniConfig.ContainerID,
+			Error:    NetworkNamespaceError{errors.Wrap(err, "provisionContainerResources: build cni configuration error")},
+		}
+	}
+	// Invoke the libcni to config the network namespace for the container
+	err = engine.cniClient.SetupNS(cniConfig)
+	if err != nil {
+		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
+		return DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error:    NetworkNamespaceError{errors.Wrap(err, "provisionContainerResources: setup network namespace error")},
 		}
 	}
 
+	return DockerContainerMetadata{
+		DockerID: cniConfig.ContainerID,
+	}
+}
+
+// cleanupPauseContainer will clean up the network namespace of pause container
+func (engine *DockerTaskEngine) cleanupPauseContainer(task *api.Task, container *api.Container) error {
+	seelog.Infof("Task [%s]: Cleaning up the network namespace", task.String())
+
+	cniConfig, err := engine.BuildCNIConfigFromTaskContainer(task, container)
+	if err != nil {
+		return errors.Wrapf(err, "engine: failed cleanup task network namespace, task: %s", task.String())
+	}
+
+	return engine.cniClient.CleanupNS(cniConfig)
+}
+
+func (engine *DockerTaskEngine) BuildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
 	cfg := &ecscni.Config{}
-	client := ecscni.NewClient(cfg)
+
+	eni, err := task.GetTaskEni()
+	if err != nil {
+		return nil, err
+	}
 	cfg.ENIID = eni.ID
 
 	// Get the pid of container
 	containerInspectOutput, err := engine.client.InspectContainer(container.Name, inspectContainerTimeout)
 	if err != nil {
-		return DockerContainerMetadata{
-			Error: CannotInspectContainerError{errors.Wrapf(err, "Inspect the pasue container failed, task: %s", task.String())},
-		}
+		return nil, err
 	}
 
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
-	cfg.ENIMACAddress = eni.MacAddress
 
+	// TODO Confirm if there is better option instead of task arn
+	cfg.ID = task.Arn
+	cfg.ENIMACAddress = eni.MacAddress
 	// Get the primary ip of the eni
 	for _, ipv4 := range eni.IPV4Addresses {
 		if ipv4.Primary {
@@ -673,27 +704,19 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		}
 	}
 	if cfg.ENIIPV4Address == "" {
-		return DockerContainerMetadata{
-			Error: ENIInformationError{errors.Errorf("engine: No primary ipv4 address found for this eni: %v", eni)},
-		}
+		return nil, errors.Errorf("engine: No primary ipv4 address found for this eni: %v", eni)
 	}
 
 	if len(eni.IPV6Addresses) != 1 {
-		return DockerContainerMetadata{
-			Error: ENIInformationError{errors.Errorf("engine: IPV6Addresses associated with eni isn't expected, eni:%v", eni)},
-		}
+		return nil, errors.Errorf("engine: IPV6Addresses associated with eni isn't expected, eni:%v", eni)
 	}
 	cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
-	err = client.SetupNS(cfg)
-	if err != nil {
-		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
-	}
 
-	return metadataFromContainer(containerInspectOutput)
+	return cfg, nil
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Stopping container", "task", task, "container", container)
+	seelog.Info("Stopping container, container: %v, task: %v", container, task)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{
@@ -706,6 +729,15 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		return DockerContainerMetadata{
 			Error: CannotStopContainerError{errors.Errorf("Container not recorded as created")},
 		}
+	}
+
+	// Cleanup the pause container network namespace before stop the container
+	if container.IsInternal() && container.Name == api.PauseContainerName {
+		err := engine.cleanupPauseContainer(task, container)
+		if err != nil {
+			seelog.Errorf("engine: cleanup pause container network namespace error, task: %s", task.String())
+		}
+		seelog.Infof("Cleaned pause container network namespace, task: %s", task.String())
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)

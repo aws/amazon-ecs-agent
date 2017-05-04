@@ -39,8 +39,8 @@ const (
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-	// pauseContainerName is the internal name for the pause container
-	pauseContainerName = "~internal~ecs~pause"
+	// PauseContainerName is the internal name for the pause container
+	PauseContainerName = "~internal~ecs~pause"
 	// pauseContainerImage is container image used to create the pause container
 	// TODO: Modify this to amazon/amazon-ecs-pause or something similar
 	pauseContainerImage = "gcr.io/google_containers/pause:latest"
@@ -215,10 +215,10 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		if container.SteadyStateDependencies == nil {
 			container.SteadyStateDependencies = make([]string, 1)
 		}
-		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
+		container.SteadyStateDependencies = append(container.SteadyStateDependencies, PauseContainerName)
 	}
 	pauseContainer := &Container{
-		Name:      pauseContainerName,
+		Name:      PauseContainerName,
 		Image:     pauseContainerImage,
 		Essential: true,
 		Type:      ContainerCNIPause,
@@ -772,7 +772,7 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 
 func (task *Task) SetTaskEnis(enis []*ENI) {
 	task.enisLock.Lock()
-	defer task.enisLock.RLock()
+	defer task.enisLock.Unlock()
 
 	task.enis = enis
 }

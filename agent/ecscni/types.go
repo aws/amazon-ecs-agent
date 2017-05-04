@@ -43,6 +43,7 @@ const (
 
 type IPAMConfig struct {
 	Type        string         `json:"type,omitempty"`
+	ID          string         `json:"id,omitempty"`
 	CNIVersion  string         `json:"cniVersion,omitempty"`
 	IPV4Subnet  string         `json:"ipv4-subnet,omitempty"`
 	IPV4Address string         `json:"ipv4-address,omitempty"`
@@ -84,6 +85,7 @@ type Config struct {
 	BridgeName             string
 	IPAMV4Address          string
 	VethName               string
+	ID                     string
 }
 
 type cniClient struct {

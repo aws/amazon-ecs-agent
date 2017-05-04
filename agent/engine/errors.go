@@ -256,7 +256,7 @@ func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
 }
 
-// ENIInformationError indicates the any error related to eni information
+// ENIInformationError indicates any error related to eni information
 type ENIInformationError struct {
 	fromError error
 }
@@ -267,4 +267,18 @@ func (err ENIInformationError) Error() string {
 
 func (err ENIInformationError) ErrorName() string {
 	return "ENIInformationError"
+}
+
+// NetworkNamespaceError indicates any error when dealing with the network
+// namespace of container
+type NetworkNamespaceError struct {
+	fromError error
+}
+
+func (err NetworkNamespaceError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err NetworkNamespaceError) ErrorName() string {
+	return "NetworkNamespaceError"
 }
