@@ -265,3 +265,13 @@ func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTasks ...*ap
 		}
 	}
 }
+
+// waitForTaskStoppedByCheckStatus verify the task is in stopped status by checking the KnownStatusUnsafe field of the task
+func waitForTaskStoppedByCheckStatus(task *api.Task) {
+	for {
+		if task.GetKnownStatus() == api.TaskStopped {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
