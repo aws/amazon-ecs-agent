@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
@@ -155,9 +157,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				},
 			})
 
-			if writtenFile.String() != "update-tar-data" {
-				t.Error("Incorrect data written")
-			}
+			require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
 			u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
 				ClusterArn:           ptr("cluster").(*string),
@@ -280,9 +280,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		},
 	})
 
-	if writtenFile.String() != "update-tar-data" {
-		t.Error("Incorrect data written")
-	}
+	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
@@ -347,9 +345,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		},
 	})
 
-	if writtenFile.String() != "update-tar-data" {
-		t.Error("Incorrect data written")
-	}
+	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
@@ -408,9 +404,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		},
 	})
 
-	if writtenFile.String() != "update-tar-data" {
-		t.Error("Incorrect data written")
-	}
+	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 	writtenFile.Reset()
 
 	// Never perform, make sure a new hash results in a new stage
@@ -424,9 +418,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		},
 	})
 
-	if writtenFile.String() != "newer-update-tar-data" {
-		t.Error("Incorrect data written")
-	}
+	require.Equal(t, "newer-update-tar-data", writtenFile.String(), "incorrect data written")
 
 	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
@@ -465,7 +457,5 @@ func TestValidationError(t *testing.T) {
 		},
 	})
 
-	if writtenFile.String() != "update-tar-data" {
-		t.Error("Incorrect data written")
-	}
+	assert.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 }
