@@ -378,8 +378,12 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	imageState2.PulledAt = imageState2.PulledAt.Add(-19 * time.Minute)
 	imageState3.PulledAt = imageState3.PulledAt.Add(-18 * time.Minute)
 
-	// Verify Task is stopped
-	verifyTaskIsStopped(taskEvents, task1, task2, task3)
+	go discardEvents(taskEvents)
+	// Wait for task to be stopped
+	waitForTaskStoppedByCheckStatus(task1)
+	waitForTaskStoppedByCheckStatus(task2)
+	waitForTaskStoppedByCheckStatus(task3)
+
 	task1.SetSentStatus(api.TaskStopped)
 	task2.SetSentStatus(api.TaskStopped)
 	task3.SetSentStatus(api.TaskStopped)
@@ -504,8 +508,12 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	imageState1.LastUsedAt = imageState1.LastUsedAt.Add(-99995 * time.Hour)
 	imageState1.PulledAt = imageState1.PulledAt.Add(-20 * time.Minute)
 
-	// Verify Task is stopped
-	verifyTaskIsStopped(taskEvents, task1, task2, task3)
+	go discardEvents(taskEvents)
+	// Wait for the Task to be stopped
+	waitForTaskStoppedByCheckStatus(task1)
+	waitForTaskStoppedByCheckStatus(task2)
+	waitForTaskStoppedByCheckStatus(task3)
+
 	task1.SetSentStatus(api.TaskStopped)
 	task2.SetSentStatus(api.TaskStopped)
 	task3.SetSentStatus(api.TaskStopped)
