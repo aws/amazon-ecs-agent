@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -446,11 +447,24 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 
 	existingTask, exists := engine.state.TaskByArn(task.Arn)
 	if !exists {
+		// This will update the container desired status
+		task.UpdateDesiredStatus()
+
 		engine.state.AddTask(task)
-		engine.startTask(task)
-	} else {
-		engine.updateTask(existingTask, task)
+		if dependencygraph.ValidDependencies(task) {
+			engine.startTask(task)
+		} else {
+			seelog.Errorf("Task cannot move forward due to the dependencies of containers cannot be resolved, task: %s", task.String())
+			task.SetKnownStatus(api.TaskStopped)
+			task.SetDesiredStatus(api.TaskStopped)
+			err := TaskDependencyError{task.Arn}
+			engine.emitTaskEvent(task, err.Error())
+		}
+		return nil
 	}
+
+	// Update task
+	engine.updateTask(existingTask, task)
 
 	return nil
 }

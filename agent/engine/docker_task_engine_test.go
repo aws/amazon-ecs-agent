@@ -1146,3 +1146,28 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 	assert.False(t, dockerTaskEngine.enableConcurrentPull,
 		"Task engine should not be able to perform concurrent pulling for version < 1.11.1")
 }
+
+// TestTaskWithCircularDependency tests the task with containers of which the
+// dependencies can't be resolved
+func TestTaskWithCircularDependency(t *testing.T) {
+	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().Version().Return("1.12.6", nil)
+	client.EXPECT().ContainerEvents(gomock.Any())
+
+	task := testdata.LoadTask("circular_dependency")
+
+	taskEngine.Init()
+	events := taskEngine.StateChangeEvents()
+
+	go taskEngine.AddTask(task)
+
+	event := <-events
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to move to stopped directly")
+	_, ok := taskEngine.(*DockerTaskEngine).state.TaskByArn(task.Arn)
+	assert.True(t, ok, "Task state should be added to the agent state")
+
+	_, ok = taskEngine.(*DockerTaskEngine).managedTasks[task.Arn]
+	assert.False(t, ok, "Task should not be added to task manager for processing")
+}
