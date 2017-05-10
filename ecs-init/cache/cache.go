@@ -70,8 +70,9 @@ func (d *Downloader) fileNotEmpty(filename string) bool {
 // getRegion finds region from metadata and caches for the life of downloader
 func (d *Downloader) getRegion() string {
 	if d.region == "" {
-		region, ok := d.metadata.Region()
-		if ok != nil {
+		region, err := d.metadata.Region()
+		if err != nil {
+			log.Debug("Could not retrieve EC2 Metadata. %s", err)
 			region = config.DefaultRegionName
 		}
 		d.region = region;
@@ -123,8 +124,7 @@ func (d *Downloader) DownloadAgent() error {
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
-	region := d.getRegion()
-	agentRemoteTarball := config.AgentRemoteTarball(region)
+	agentRemoteTarball := config.AgentRemoteTarball(d.getRegion())
 	if publishedMd5Sum != calculatedMd5SumString {
 		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
 		return err

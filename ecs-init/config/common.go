@@ -117,10 +117,10 @@ func DockerUnixSocket() (string, bool) {
 
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getBaseLocationForRegion(regionName string) string {
-	val, ok := s3BucketMap[regionName]
+	s3BucketURL, ok := s3BucketMap[regionName]
 	if !ok {
 		return s3BucketMap[DefaultRegionName]
 	}
 
-	return val
+	return s3BucketURL
 }
