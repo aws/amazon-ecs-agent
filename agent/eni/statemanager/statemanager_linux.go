@@ -59,57 +59,57 @@ func New() StateManager {
 }
 
 // Init populates the initial state of the map
-func (e *stateManager) Init(state []netlink.Link) {
-	e.updateLock.Lock()
-	defer e.updateLock.Unlock()
+func (statemanager *stateManager) Init(state []netlink.Link) {
+	statemanager.updateLock.Lock()
+	defer statemanager.updateLock.Unlock()
 	for _, link := range state {
 		deviceName := link.Attrs().Name
 		macAddress := link.Attrs().HardwareAddr.String()
 		if macAddress != "" {
-			e.AddDeviceWithMACAddressUnsafe(deviceName, macAddress)
+			statemanager.AddDeviceWithMACAddressUnsafe(deviceName, macAddress)
 		}
 	}
 }
 
 // Reconcile performs a 2 phase reconciliation of managed state
-func (e *stateManager) Reconcile(currentState map[string]string) {
-	e.updateLock.Lock()
-	defer e.updateLock.Unlock()
+func (statemanager *stateManager) Reconcile(currentState map[string]string) {
+	statemanager.updateLock.Lock()
+	defer statemanager.updateLock.Unlock()
 
 	// Remove non-existent interfaces first
-	for managedMACAddress, managedDeviceName := range e.enis {
+	for managedMACAddress, managedDeviceName := range statemanager.enis {
 		if currentDeviceName, ok := currentState[managedMACAddress]; !ok || managedDeviceName != currentDeviceName {
-			e.RemoveDeviceWithMACAddressUnsafe(managedMACAddress)
+			statemanager.RemoveDeviceWithMACAddressUnsafe(managedMACAddress)
 		}
 	}
 
 	// Add new interfaces next
 	for mac, dev := range currentState {
-		if _, ok := e.enis[mac]; !ok && mac != "" {
-			e.AddDeviceWithMACAddressUnsafe(dev, mac)
+		if _, ok := statemanager.enis[mac]; !ok && mac != "" {
+			statemanager.AddDeviceWithMACAddressUnsafe(dev, mac)
 		}
 	}
 }
 
 // GetAll is used to retrieve the state observed by the StateManager
-func (e *stateManager) GetAll() map[string]string {
-	return e.enis
+func (statemanager *stateManager) GetAll() map[string]string {
+	return statemanager.enis
 }
 
 // AddDeviceWithMACAddressUnsafe adds new devices upon initialization
 // NOTE: Expects lock to be held prior to update for correct semantics
-func (e *stateManager) AddDeviceWithMACAddressUnsafe(deviceName, macAddress string) {
+func (statemanager *stateManager) AddDeviceWithMACAddressUnsafe(deviceName, macAddress string) {
 	log.Debugf("ENI state manager: adding device %s with MAC %s (unsafe)", deviceName, macAddress)
 	// Update State
-	e.enis[macAddress] = deviceName
+	statemanager.enis[macAddress] = deviceName
 }
 
 // RemoveDeviceWithMACAddressUnsafe is used to remove new devices from maintained state
 // NOTE: Expects lock to be held prior to update for correct semantics
-func (e *stateManager) RemoveDeviceWithMACAddressUnsafe(mac string) {
+func (statemanager *stateManager) RemoveDeviceWithMACAddressUnsafe(mac string) {
 	log.Debugf("ENI state manager: removing device with MACAddress: %s (unsafe)", mac)
 
-	enis := e.GetAll()
+	enis := statemanager.GetAll()
 	if _, ok := enis[mac]; !ok {
 		log.Warnf("ENI state manager: device with MACAddress: %s missing from managed state", mac)
 		return
@@ -120,54 +120,55 @@ func (e *stateManager) RemoveDeviceWithMACAddressUnsafe(mac string) {
 
 // RemoveDeviceUnsafe is used to remove new devices from uDev events
 // NOTE: removeDeviceUnsafe expects lock to be held prior to update for correct semantics
-func (e *stateManager) RemoveDeviceUnsafe(deviceName string) {
+func (statemanager *stateManager) RemoveDeviceUnsafe(deviceName string) {
 	log.Debugf("ENI state manager: removing device: %s (unsafe)", deviceName)
 
-	enis := e.GetAll()
+	enis := statemanager.GetAll()
 	for mac, dev := range enis {
 		if dev == deviceName {
-			e.RemoveDeviceWithMACAddressUnsafe(mac)
+			statemanager.RemoveDeviceWithMACAddressUnsafe(mac)
 			return
 		}
 	}
+	log.Debug("ENI state manager: no device was removed from the map")
 }
 
 // AddDeviceWithMACAddress adds new devices upon initialization
-func (e *stateManager) AddDeviceWithMACAddress(deviceName, macAddress string) {
+func (statemanager *stateManager) AddDeviceWithMACAddress(deviceName, macAddress string) {
 	log.Debugf("ENI state manager: adding device %s with MAC %s", deviceName, macAddress)
 
-	e.updateLock.Lock()
-	defer e.updateLock.Unlock()
+	statemanager.updateLock.Lock()
+	defer statemanager.updateLock.Unlock()
 
-	e.AddDeviceWithMACAddressUnsafe(deviceName, macAddress)
+	statemanager.AddDeviceWithMACAddressUnsafe(deviceName, macAddress)
 }
 
 // RemoveDeviceWithMACAddress is used to remove new devices from maintained state
-func (e *stateManager) RemoveDeviceWithMACAddress(mac string) {
+func (statemanager *stateManager) RemoveDeviceWithMACAddress(mac string) {
 	log.Debugf("ENI state manager: removing device with MACAddress: %s", mac)
 
-	e.updateLock.Lock()
-	defer e.updateLock.Unlock()
+	statemanager.updateLock.Lock()
+	defer statemanager.updateLock.Unlock()
 
-	e.RemoveDeviceWithMACAddressUnsafe(mac)
+	statemanager.RemoveDeviceWithMACAddressUnsafe(mac)
 }
 
 // RemoveDevice is used to remove new devices from uDev events
-func (e *stateManager) RemoveDevice(deviceName string) {
+func (statemanager *stateManager) RemoveDevice(deviceName string) {
 	log.Debugf("ENI state manager: removing device: %s", deviceName)
 
-	e.updateLock.Lock()
-	defer e.updateLock.Unlock()
+	statemanager.updateLock.Lock()
+	defer statemanager.updateLock.Unlock()
 
-	e.RemoveDeviceUnsafe(deviceName)
+	statemanager.RemoveDeviceUnsafe(deviceName)
 }
 
-func (e *stateManager) IsMACAddressPresent(macAddress string) bool {
+func (statemanager *stateManager) IsMACAddressPresent(macAddress string) bool {
 	log.Debugf("ENI state manager: checking state for MACAddress: %s", macAddress)
 
-	e.updateLock.RLock()
-	defer e.updateLock.RUnlock()
+	statemanager.updateLock.RLock()
+	defer statemanager.updateLock.RUnlock()
 
-	_, ok := e.enis[macAddress]
+	_, ok := statemanager.enis[macAddress]
 	return ok
 }

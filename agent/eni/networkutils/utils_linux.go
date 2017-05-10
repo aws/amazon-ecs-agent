@@ -53,10 +53,10 @@ func IsValidNetworkDevice(devicePath string) bool {
 	* CoreOS typically employs the vif style for physical net interfaces
 	* Amazon Linux, Ubuntu, RHEL, Fedora, Suse use the traditional pci convention
 	*/
-	if strings.HasPrefix(splitDevLink[1], "pci") || strings.HasPrefix(splitDevLink[1], "vif") {
+	if strings.HasPrefix(splitDevLink[1], pciDevicePrefix) || strings.HasPrefix(splitDevLink[1], vifDevicePrefix) {
 		return true
 	}
-	if strings.HasPrefix(splitDevLink[1], "virtual") {
+	if strings.HasPrefix(splitDevLink[1], virtualDevicePrefix) {
 		return false
 	}
 	// NOTE: Should never reach here

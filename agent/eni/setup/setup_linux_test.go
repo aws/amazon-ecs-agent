@@ -1,4 +1,4 @@
-// +build !linux
+// +build linux
 
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -13,5 +13,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package networkutils is a placeholder for builds on unsupported platforms
-package networkutils
+package setup
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSetupNew(t *testing.T) {
+	ctx := context.TODO()
+	watcher, err := New(ctx)
+	assert.NoError(t, err)
+	watcher.Stop()
+}

@@ -68,26 +68,20 @@ func TestGetMACAddressWithNetlinkError(t *testing.T) {
 	assert.Empty(t, mac)
 }
 
-// TestIsValidDevicePathWithPCIDevice checks for valid PCI device path
-func TestIsValidDevicePathWithPCIDevice(t *testing.T) {
-	devStatus := IsValidNetworkDevice(pciDevPath)
-	assert.True(t, devStatus)
-}
+// TestIsValidDevicePathTableTest does a table test for device path validity
+func TestIsValidDevicePathTableTest(t *testing.T) {
+	var table = []struct {
+		input  string
+		output bool
+	}{
+		{pciDevPath, true},
+		{virtualDevPath, false},
+		{invalidDevPath, false},
+		{incorrectDevPath, false},
+	}
 
-// TestIsValidDevicePathWithVirtualDevice checks for virtual devices
-func TestIsValidDevicePathWithVirtualDevice(t *testing.T) {
-	devStatus := IsValidNetworkDevice(virtualDevPath)
-	assert.False(t, devStatus)
-}
-
-// TestIsValidDevicePathWithInvalidDevPath checks for invalid device path
-func TestIsValidDevicePathWithInvalidDevPath(t *testing.T) {
-	devStatus := IsValidNetworkDevice(invalidDevPath)
-	assert.False(t, devStatus)
-}
-
-// TestIsValidDevicePathWithIncorrectDevPath tests for incorrect device path
-func TestIsValidDevicePathWithIncorrectDevPath(t *testing.T) {
-	devStatus := IsValidNetworkDevice(incorrectDevPath)
-	assert.False(t, devStatus)
+	for _, entry := range table {
+		status := IsValidNetworkDevice(entry.input)
+		assert.Equal(t, status, entry.output)
+	}
 }

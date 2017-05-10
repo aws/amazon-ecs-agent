@@ -13,4 +13,19 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package statemanager
+package setup
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"runtime"
+)
+
+// udevWatcher is a local construct to mimic the eniwatcher on unsupported platforms
+type udevWatcher struct{}
+
+// New is used to return an error for unsupported platforms
+func New(ctx context.Context) (*udevWatcher, error) {
+	return nil, errors.New(fmt.Sprintf("eni watcher new: unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH))
+}

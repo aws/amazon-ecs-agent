@@ -113,7 +113,7 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Contex
 
 // reconcileOnce is used to reconcile the state of ENIs attached to the instance
 func (udevWatcher *UdevWatcher) reconcileOnce() {
-	log.Debugf("Udev watcher reconciliation: begin")
+	log.Debug("Udev watcher reconciliation: begin")
 	links, err := udevWatcher.netlinkClient.LinkList()
 	if err != nil {
 		log.Warnf("Udev watcher reconciliation: error retrieving network interfaces: %v", err)
@@ -133,7 +133,7 @@ func (udevWatcher *UdevWatcher) reconcileOnce() {
 	// the race here. The state would be corrected during the next reconciliation loop.
 
 	udevWatcher.state.Reconcile(currentState)
-	log.Debugf("Udev watcher reconciliation: end")
+	log.Debug("Udev watcher reconciliation: end")
 }
 
 // IsMACAddressPresent checks if the MACAddress belongs to the maintained state
