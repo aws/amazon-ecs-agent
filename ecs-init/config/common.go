@@ -16,8 +16,6 @@ package config
 import (
 	"os"
 	"strings"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
@@ -92,15 +90,14 @@ func AgentTarball() string {
 
 // AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
 // by region and the agent filename is appended.
-func AgentRemoteTarball() string {
-	regionName := getRegion()
-	baseURI := getBaseLocationForRegion(regionName)
+func AgentRemoteTarball(region string) string {
+	baseURI := getBaseLocationForRegion(region)
 	return baseURI + AgentFilename
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
-func AgentRemoteTarballMD5() string {
-	return AgentRemoteTarball() + ".md5"
+func AgentRemoteTarballMD5(region string) string {
+	return AgentRemoteTarball(region) + ".md5"
 }
 
 // DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
@@ -116,20 +113,6 @@ func DockerUnixSocket() (string, bool) {
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
 	// eg: Docker daemon restart
 	return "/var/run", false
-}
-
-// getRegion finds the Region name from Metadata. If an error occurs fetching the region the default region name
-// is returned.
-func getRegion() string {
-	// Find Region name from Metadata. If error return a blank result
-	sessionInstance := session.Must(session.NewSession())
-	metadata := ec2metadata.New(sessionInstance)
-	regionName, err := metadata.Region()
-	if err != nil {
-		return DefaultRegionName
-	}
-
-	return regionName
 }
 
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found

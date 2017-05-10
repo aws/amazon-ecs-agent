@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 	log "github.com/cihub/seelog"
 )
 
@@ -32,17 +34,21 @@ const (
 	orwPerm = 0700
 )
 
-// Downloader is resposible for cache operations relating to downloading the agent
 type Downloader struct {
-	getter httpGetter
-	fs     fileSystem
+	getter   httpGetter
+	fs       fileSystem
+	metadata instanceMetadata
+
+	region string
 }
 
 // NewDownloader returns a Downloader with default dependencies
 func NewDownloader() *Downloader {
+	sessionInstance := session.Must(session.NewSession())
 	return &Downloader{
 		getter: customGetter,
 		fs:     &standardFS{},
+		metadata : ec2metadata.New(sessionInstance),
 	}
 }
 
@@ -59,6 +65,19 @@ func (d *Downloader) fileNotEmpty(filename string) bool {
 		return false
 	}
 	return fileinfo.Size() > 0
+}
+
+// getRegion finds region from metadata and caches for the life of downloader
+func (d *Downloader) getRegion() string {
+	if d.region == "" {
+		region, ok := d.metadata.Region()
+		if ok != nil {
+			region = config.DefaultRegionName
+		}
+		d.region = region;
+	}
+
+	return d.region
 }
 
 // DownloadAgent downloads a fresh copy of the Agent and performs an
@@ -104,8 +123,10 @@ func (d *Downloader) DownloadAgent() error {
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
+	region := d.getRegion()
+	agentRemoteTarball := config.AgentRemoteTarball(region)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = fmt.Errorf("mismatched md5sum while downloading %s", config.AgentRemoteTarball())
+		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
 		return err
 	}
 
@@ -114,8 +135,10 @@ func (d *Downloader) DownloadAgent() error {
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	log.Debugf("Downloading published md5sum from %s", config.AgentRemoteTarballMD5())
-	resp, err := d.getter.Get(config.AgentRemoteTarballMD5())
+	region := d.getRegion()
+	agentRemoteTarballMD5 := config.AgentRemoteTarballMD5(region);
+	log.Debugf("Downloading published md5sum from %s", agentRemoteTarballMD5)
+	resp, err := d.getter.Get(agentRemoteTarballMD5)
 	if err != nil {
 		return "", err
 	}
@@ -132,8 +155,10 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 }
 
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
-	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", config.AgentRemoteTarball())
-	resp, err := d.getter.Get(config.AgentRemoteTarball())
+	region := d.getRegion()
+	agentRemoteTarball := config.AgentRemoteTarball(region);
+	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
+	resp, err := d.getter.Get(agentRemoteTarball)
 	if err != nil {
 		return nil, err
 	}

@@ -46,15 +46,6 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
-func TestEC2MetadataRegion(t *testing.T) {
-	//Test if region
-	regionName := getRegion()
-	if regionName == "" {
-		t.Errorf("Result is not proper Region Name. Region Name returned: " + regionName)
-	}
-
-}
-
 func TestGetS3BucketMapByRegion(t *testing.T) {
 	s3Bucket := getBaseLocationForRegion(DefaultRegionName)
 	if s3Bucket != s3BucketMap[DefaultRegionName]{
