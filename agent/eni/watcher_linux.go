@@ -165,6 +165,7 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 	for {
 		select {
 		case event := <-udevWatcher.events:
+			log.Debugf("Udev watcher event handler: received event: %s", event.String())
 			subsystem, ok := event.Env[udevSubsystem]
 			if !ok || subsystem != udevNetSubsystem {
 				continue
