@@ -39,8 +39,8 @@ const (
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-	// PauseContainerName is the internal name for the pause container
-	PauseContainerName = "~internal~ecs~pause"
+	// pauseContainerName is the internal name for the pause container
+	pauseContainerName = "~internal~ecs~pause"
 	// pauseContainerImage is container image used to create the pause container
 	// TODO: Modify this to amazon/amazon-ecs-pause or something similar
 	pauseContainerImage = "gcr.io/google_containers/pause:latest"
@@ -215,10 +215,10 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		if container.SteadyStateDependencies == nil {
 			container.SteadyStateDependencies = make([]string, 1)
 		}
-		container.SteadyStateDependencies = append(container.SteadyStateDependencies, PauseContainerName)
+		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
 	}
 	pauseContainer := &Container{
-		Name:      PauseContainerName,
+		Name:      pauseContainerName,
 		Image:     pauseContainerImage,
 		Essential: true,
 		Type:      ContainerCNIPause,
@@ -770,15 +770,15 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 	task.SentStatusUnsafe = status
 }
 
-func (task *Task) SetTaskEnis(enis []*ENI) {
+func (task *Task) SetTaskENIs(enis []*ENI) {
 	task.enisLock.Lock()
 	defer task.enisLock.Unlock()
 
 	task.enis = enis
 }
 
-// GetTaskEni returns the eni of task, for now task can only have one enis
-func (task *Task) GetTaskEni() (*ENI, error) {
+// GetTaskENI returns the eni of task, for now task can only have one enis
+func (task *Task) GetTaskENI() (*ENI, error) {
 	task.enisLock.RLock()
 	defer task.enisLock.RUnlock()
 

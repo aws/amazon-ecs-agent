@@ -288,7 +288,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				Type: ContainerEmptyHostVolume,
 			},
 			&Container{
-				Name: PauseContainerName,
+				Name: pauseContainerName,
 				Type: ContainerCNIPause,
 			},
 		},
@@ -298,7 +298,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	// for a non empty volume, non pause container
 	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
 	assert.Nil(t, err)
-	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, config.NetworkMode)
+	assert.Equal(t, "container:"+dockerIDPrefix+pauseContainerName, config.NetworkMode)
 
 	// Verify that the network mode is not set to "none"  for the
 	// empty volume container

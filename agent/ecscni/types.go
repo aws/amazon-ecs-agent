@@ -19,14 +19,10 @@ import (
 )
 
 const (
-	// CNIPluginsPath is the default path where cni binaries are located
-	CNIPluginsPath = "/ecs/cni"
-	// CNIVersion is the default CNI spec version to use when invoke the plugins
-	CNIVersion = "0.3.0"
 	// VersionCommand is the command used to get the version of plugin
 	VersionCommand = "--version"
 	// defaultEthName is the name of veth pair name in the container namespace
-	defaultEthName = "eth0"
+	defaultEthName = "ecs-eth0"
 	// defaultBridgeName is the default name of bridge created for container to
 	// communicate with ecs-agent
 	defaultBridgeName = "ecs-bridge"
@@ -74,7 +70,7 @@ type ENIConfig struct {
 }
 
 type Config struct {
-	PluginPath             string
+	PluginsPath            string
 	MinSupportedCNIVersion string
 	ENIID                  string
 	ContainerID            string
@@ -90,9 +86,6 @@ type Config struct {
 
 type cniClient struct {
 	pluginsPath string
-	cniVersion  string
-	subnet      string
-	pluginPath  string
 	cniVersion  string
 	subnet      string
 	libcni      libcni.CNI

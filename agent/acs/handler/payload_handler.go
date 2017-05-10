@@ -208,7 +208,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 		// Adding the eni information to the task struct
 		if task.ElasticNetworkInterfaces != nil {
-			apiTask.SetTaskEnis(api.ENIFromACS(task.ElasticNetworkInterfaces))
+			apiTask.SetTaskENIs(api.ENIFromACS(task.ElasticNetworkInterfaces))
 		}
 		validTasks = append(validTasks, apiTask)
 	}

@@ -29,23 +29,13 @@ import (
 
 // NewClient creates a client of ecscni which is used to invoke the plugin
 func NewClient(cfg *Config) CNIClient {
-	pluginsPath := CNIPluginsPath
-	if cfg.PluginPath != "" {
-		pluginsPath = cfg.PluginPath
-	}
-
-	cniVersion := CNIVersion
-	if cfg.MinSupportedCNIVersion != "" {
-		cniVersion = cfg.MinSupportedCNIVersion
-	}
-
 	libcniConfig := &libcni.CNIConfig{
-		Path: []string{pluginPath},
+		Path: []string{cfg.PluginsPath},
 	}
 
 	return &cniClient{
-		pluginsPath: pluginsPath,
-		cniVersion:  cniVersion,
+		pluginsPath: cfg.PluginsPath,
+		cniVersion:  cfg.MinSupportedCNIVersion,
 		subnet:      ECSSubnet,
 		libcni:      libcniConfig,
 	}

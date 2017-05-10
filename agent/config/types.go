@@ -148,9 +148,6 @@ type Config struct {
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
 
-	// MinSupportedCNIVersion denotes the minimum version of cni spec required
-	MinSupportedCNIVersion string
-
 	// CNIPluginsPath is the path for the cni plugins
 	CNIPluginsPath string
 }

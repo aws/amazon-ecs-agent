@@ -239,7 +239,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTask.Containers[0].SteadyStateDependencies = []string{"pause"}
 	sleepContainer := sleepTask.Containers[0]
-	sleepTask.SetTaskEnis([]*api.ENI{
+	sleepTask.SetTaskENIs([]*api.ENI{
 		{
 			ID: "TestTaskWithSteadyStateResourcesProvisioned",
 			IPV4Addresses: []*api.ENIIPV4Address{
@@ -375,7 +375,11 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
-	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
+		ID:    "containerId",
+		State: docker.State{Pid: 23},
+	}, nil)
+	mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer("containerId:"+pauseContainer.Name, gomock.Any()).MinTimes(1)
 
 	exitCode := 0

@@ -123,8 +123,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
 		cniClient: ecscni.NewClient(&ecscni.Config{
-			PluginPath:             cfg.CNIPluginsPath,
-			MinSupportedCNIVersion: cfg.MinSupportedCNIVersion,
+			PluginsPath:            cfg.CNIPluginsPath,
+			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
 	}
 
@@ -663,8 +663,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	}
 }
 
-// cleanupPauseContainer will clean up the network namespace of pause container
-func (engine *DockerTaskEngine) cleanupPauseContainer(task *api.Task, container *api.Container) error {
+// cleanupPauseContainerNetwork will clean up the network namespace of pause container
+func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, container *api.Container) error {
 	seelog.Infof("Task [%s]: Cleaning up the network namespace", task.String())
 
 	cniConfig, err := engine.BuildCNIConfigFromTaskContainer(task, container)
@@ -678,7 +678,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainer(task *api.Task, container 
 func (engine *DockerTaskEngine) BuildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
 	cfg := &ecscni.Config{}
 
-	eni, err := task.GetTaskEni()
+	eni, err := task.GetTaskENI()
 	if err != nil {
 		return nil, err
 	}
@@ -732,8 +732,8 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	}
 
 	// Cleanup the pause container network namespace before stop the container
-	if container.IsInternal() && container.Name == api.PauseContainerName {
-		err := engine.cleanupPauseContainer(task, container)
+	if container.Type == api.ContainerCNIPause {
+		err := engine.cleanupPauseContainerNetwork(task, container)
 		if err != nil {
 			seelog.Errorf("engine: cleanup pause container network namespace error, task: %s", task.String())
 		}
