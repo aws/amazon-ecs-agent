@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,15 +14,39 @@
 package ecs
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 const opCreateCluster = "CreateCluster"
 
-// CreateClusterRequest generates a request for the CreateCluster operation.
+// CreateClusterRequest generates a "aws/request.Request" representing the
+// client's request for the CreateCluster operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See CreateCluster for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the CreateCluster method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the CreateClusterRequest method.
+//    req, resp := client.CreateClusterRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) CreateClusterRequest(input *CreateClusterInput) (req *request.Request, output *CreateClusterOutput) {
 	op := &request.Operation{
 		Name:       opCreateCluster,
@@ -34,24 +58,83 @@ func (c *ECS) CreateClusterRequest(input *CreateClusterInput) (req *request.Requ
 		input = &CreateClusterInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateClusterOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// CreateCluster API operation for Amazon EC2 Container Service.
+//
 // Creates a new Amazon ECS cluster. By default, your account will receive a
 // default cluster when you launch your first container instance. However, you
 // can create your own cluster with a unique name with the CreateCluster action.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation CreateCluster for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) CreateCluster(input *CreateClusterInput) (*CreateClusterOutput, error) {
 	req, out := c.CreateClusterRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// CreateClusterWithContext is the same as CreateCluster with the addition of
+// the ability to pass a context and additional request options.
+//
+// See CreateCluster for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) CreateClusterWithContext(ctx aws.Context, input *CreateClusterInput, opts ...request.Option) (*CreateClusterOutput, error) {
+	req, out := c.CreateClusterRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opCreateService = "CreateService"
 
-// CreateServiceRequest generates a request for the CreateService operation.
+// CreateServiceRequest generates a "aws/request.Request" representing the
+// client's request for the CreateService operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See CreateService for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the CreateService method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the CreateServiceRequest method.
+//    req, resp := client.CreateServiceRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) CreateServiceRequest(input *CreateServiceInput) (req *request.Request, output *CreateServiceOutput) {
 	op := &request.Operation{
 		Name:       opCreateService,
@@ -63,24 +146,87 @@ func (c *ECS) CreateServiceRequest(input *CreateServiceInput) (req *request.Requ
 		input = &CreateServiceInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateServiceOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// CreateService API operation for Amazon EC2 Container Service.
+//
 // Runs and maintains a desired number of tasks from a specified task definition.
 // If the number of tasks running in a service drops below desiredCount, Amazon
 // ECS will spawn another instantiation of the task in the specified cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation CreateService for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) CreateService(input *CreateServiceInput) (*CreateServiceOutput, error) {
 	req, out := c.CreateServiceRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// CreateServiceWithContext is the same as CreateService with the addition of
+// the ability to pass a context and additional request options.
+//
+// See CreateService for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) CreateServiceWithContext(ctx aws.Context, input *CreateServiceInput, opts ...request.Option) (*CreateServiceOutput, error) {
+	req, out := c.CreateServiceRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDeleteCluster = "DeleteCluster"
 
-// DeleteClusterRequest generates a request for the DeleteCluster operation.
+// DeleteClusterRequest generates a "aws/request.Request" representing the
+// client's request for the DeleteCluster operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeleteCluster for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeleteCluster method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeleteClusterRequest method.
+//    req, resp := client.DeleteClusterRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DeleteClusterRequest(input *DeleteClusterInput) (req *request.Request, output *DeleteClusterOutput) {
 	op := &request.Operation{
 		Name:       opDeleteCluster,
@@ -92,24 +238,97 @@ func (c *ECS) DeleteClusterRequest(input *DeleteClusterInput) (req *request.Requ
 		input = &DeleteClusterInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteClusterOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DeleteCluster API operation for Amazon EC2 Container Service.
+//
 // Deletes the specified cluster. You must deregister all container instances
 // from this cluster before you may delete it. You can list the container instances
 // in a cluster with ListContainerInstances and deregister them with DeregisterContainerInstance.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DeleteCluster for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeClusterContainsContainerInstancesException "ClusterContainsContainerInstancesException"
+//   You cannot delete a cluster that has registered container instances. You
+//   must first deregister the container instances before you can delete the cluster.
+//   For more information, see DeregisterContainerInstance.
+//
+//   * ErrCodeClusterContainsServicesException "ClusterContainsServicesException"
+//   You cannot delete a cluster that contains services. You must first update
+//   the service to reduce its desired task count to 0 and then delete the service.
+//   For more information, see UpdateService and DeleteService.
+//
 func (c *ECS) DeleteCluster(input *DeleteClusterInput) (*DeleteClusterOutput, error) {
 	req, out := c.DeleteClusterRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DeleteClusterWithContext is the same as DeleteCluster with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeleteCluster for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DeleteClusterWithContext(ctx aws.Context, input *DeleteClusterInput, opts ...request.Option) (*DeleteClusterOutput, error) {
+	req, out := c.DeleteClusterRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDeleteService = "DeleteService"
 
-// DeleteServiceRequest generates a request for the DeleteService operation.
+// DeleteServiceRequest generates a "aws/request.Request" representing the
+// client's request for the DeleteService operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeleteService for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeleteService method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeleteServiceRequest method.
+//    req, resp := client.DeleteServiceRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DeleteServiceRequest(input *DeleteServiceInput) (req *request.Request, output *DeleteServiceOutput) {
 	op := &request.Operation{
 		Name:       opDeleteService,
@@ -121,22 +340,89 @@ func (c *ECS) DeleteServiceRequest(input *DeleteServiceInput) (req *request.Requ
 		input = &DeleteServiceInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteServiceOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DeleteService API operation for Amazon EC2 Container Service.
+//
 // Deletes a specified service within a cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DeleteService for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeServiceNotFoundException "ServiceNotFoundException"
+//   The specified service could not be found. You can view your available services
+//   with ListServices. Amazon ECS services are cluster-specific and region-specific.
+//
 func (c *ECS) DeleteService(input *DeleteServiceInput) (*DeleteServiceOutput, error) {
 	req, out := c.DeleteServiceRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DeleteServiceWithContext is the same as DeleteService with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeleteService for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DeleteServiceWithContext(ctx aws.Context, input *DeleteServiceInput, opts ...request.Option) (*DeleteServiceOutput, error) {
+	req, out := c.DeleteServiceRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDeregisterContainerInstance = "DeregisterContainerInstance"
 
-// DeregisterContainerInstanceRequest generates a request for the DeregisterContainerInstance operation.
+// DeregisterContainerInstanceRequest generates a "aws/request.Request" representing the
+// client's request for the DeregisterContainerInstance operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeregisterContainerInstance for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeregisterContainerInstance method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeregisterContainerInstanceRequest method.
+//    req, resp := client.DeregisterContainerInstanceRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInstanceInput) (req *request.Request, output *DeregisterContainerInstanceOutput) {
 	op := &request.Operation{
 		Name:       opDeregisterContainerInstance,
@@ -148,12 +434,13 @@ func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInsta
 		input = &DeregisterContainerInstanceInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeregisterContainerInstanceOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DeregisterContainerInstance API operation for Amazon EC2 Container Service.
+//
 // Deregisters an Amazon ECS container instance from the specified cluster.
 // This instance will no longer be available to run tasks.
 //
@@ -162,21 +449,83 @@ func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInsta
 // instance before deregistration to avoid any orphaned tasks from consuming
 // resources.
 //
-// Deregistering a container instance removes the instance from a cluster,
-// but it does not terminate the EC2 instance; if you are finished using the
-// instance, be sure to terminate it in the Amazon EC2 console to stop billing.
+// Deregistering a container instance removes the instance from a cluster, but
+// it does not terminate the EC2 instance; if you are finished using the instance,
+// be sure to terminate it in the Amazon EC2 console to stop billing.
 //
 // When you terminate a container instance, it is automatically deregistered
 // from your cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DeregisterContainerInstance for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) DeregisterContainerInstance(input *DeregisterContainerInstanceInput) (*DeregisterContainerInstanceOutput, error) {
 	req, out := c.DeregisterContainerInstanceRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DeregisterContainerInstanceWithContext is the same as DeregisterContainerInstance with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeregisterContainerInstance for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DeregisterContainerInstanceWithContext(ctx aws.Context, input *DeregisterContainerInstanceInput, opts ...request.Option) (*DeregisterContainerInstanceOutput, error) {
+	req, out := c.DeregisterContainerInstanceRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDeregisterTaskDefinition = "DeregisterTaskDefinition"
 
-// DeregisterTaskDefinitionRequest generates a request for the DeregisterTaskDefinition operation.
+// DeregisterTaskDefinitionRequest generates a "aws/request.Request" representing the
+// client's request for the DeregisterTaskDefinition operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeregisterTaskDefinition for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeregisterTaskDefinition method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeregisterTaskDefinitionRequest method.
+//    req, resp := client.DeregisterTaskDefinitionRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInput) (req *request.Request, output *DeregisterTaskDefinitionOutput) {
 	op := &request.Operation{
 		Name:       opDeregisterTaskDefinition,
@@ -188,12 +537,13 @@ func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInp
 		input = &DeregisterTaskDefinitionInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeregisterTaskDefinitionOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DeregisterTaskDefinition API operation for Amazon EC2 Container Service.
+//
 // Deregisters the specified task definition by family and revision. Upon deregistration,
 // the task definition is marked as INACTIVE. Existing tasks and services that
 // reference an INACTIVE task definition continue to run without disruption.
@@ -204,15 +554,73 @@ func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInp
 // services, and you cannot update an existing service to reference an INACTIVE
 // task definition (although there may be up to a 10 minute window following
 // deregistration where these restrictions have not yet taken effect).
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DeregisterTaskDefinition for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) DeregisterTaskDefinition(input *DeregisterTaskDefinitionInput) (*DeregisterTaskDefinitionOutput, error) {
 	req, out := c.DeregisterTaskDefinitionRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DeregisterTaskDefinitionWithContext is the same as DeregisterTaskDefinition with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeregisterTaskDefinition for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DeregisterTaskDefinitionWithContext(ctx aws.Context, input *DeregisterTaskDefinitionInput, opts ...request.Option) (*DeregisterTaskDefinitionOutput, error) {
+	req, out := c.DeregisterTaskDefinitionRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDescribeClusters = "DescribeClusters"
 
-// DescribeClustersRequest generates a request for the DescribeClusters operation.
+// DescribeClustersRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeClusters operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DescribeClusters for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DescribeClusters method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DescribeClustersRequest method.
+//    req, resp := client.DescribeClustersRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DescribeClustersRequest(input *DescribeClustersInput) (req *request.Request, output *DescribeClustersOutput) {
 	op := &request.Operation{
 		Name:       opDescribeClusters,
@@ -224,22 +632,81 @@ func (c *ECS) DescribeClustersRequest(input *DescribeClustersInput) (req *reques
 		input = &DescribeClustersInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeClustersOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DescribeClusters API operation for Amazon EC2 Container Service.
+//
 // Describes one or more of your clusters.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DescribeClusters for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) DescribeClusters(input *DescribeClustersInput) (*DescribeClustersOutput, error) {
 	req, out := c.DescribeClustersRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DescribeClustersWithContext is the same as DescribeClusters with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeClusters for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DescribeClustersWithContext(ctx aws.Context, input *DescribeClustersInput, opts ...request.Option) (*DescribeClustersOutput, error) {
+	req, out := c.DescribeClustersRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDescribeContainerInstances = "DescribeContainerInstances"
 
-// DescribeContainerInstancesRequest generates a request for the DescribeContainerInstances operation.
+// DescribeContainerInstancesRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeContainerInstances operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DescribeContainerInstances for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DescribeContainerInstances method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DescribeContainerInstancesRequest method.
+//    req, resp := client.DescribeContainerInstancesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DescribeContainerInstancesRequest(input *DescribeContainerInstancesInput) (req *request.Request, output *DescribeContainerInstancesOutput) {
 	op := &request.Operation{
 		Name:       opDescribeContainerInstances,
@@ -251,23 +718,86 @@ func (c *ECS) DescribeContainerInstancesRequest(input *DescribeContainerInstance
 		input = &DescribeContainerInstancesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeContainerInstancesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DescribeContainerInstances API operation for Amazon EC2 Container Service.
+//
 // Describes Amazon EC2 Container Service container instances. Returns metadata
 // about registered and remaining resources on each container instance requested.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DescribeContainerInstances for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) DescribeContainerInstances(input *DescribeContainerInstancesInput) (*DescribeContainerInstancesOutput, error) {
 	req, out := c.DescribeContainerInstancesRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DescribeContainerInstancesWithContext is the same as DescribeContainerInstances with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeContainerInstances for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DescribeContainerInstancesWithContext(ctx aws.Context, input *DescribeContainerInstancesInput, opts ...request.Option) (*DescribeContainerInstancesOutput, error) {
+	req, out := c.DescribeContainerInstancesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDescribeServices = "DescribeServices"
 
-// DescribeServicesRequest generates a request for the DescribeServices operation.
+// DescribeServicesRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeServices operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DescribeServices for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DescribeServices method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DescribeServicesRequest method.
+//    req, resp := client.DescribeServicesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DescribeServicesRequest(input *DescribeServicesInput) (req *request.Request, output *DescribeServicesOutput) {
 	op := &request.Operation{
 		Name:       opDescribeServices,
@@ -279,22 +809,85 @@ func (c *ECS) DescribeServicesRequest(input *DescribeServicesInput) (req *reques
 		input = &DescribeServicesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeServicesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DescribeServices API operation for Amazon EC2 Container Service.
+//
 // Describes the specified services running in your cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DescribeServices for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) DescribeServices(input *DescribeServicesInput) (*DescribeServicesOutput, error) {
 	req, out := c.DescribeServicesRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DescribeServicesWithContext is the same as DescribeServices with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeServices for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DescribeServicesWithContext(ctx aws.Context, input *DescribeServicesInput, opts ...request.Option) (*DescribeServicesOutput, error) {
+	req, out := c.DescribeServicesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDescribeTaskDefinition = "DescribeTaskDefinition"
 
-// DescribeTaskDefinitionRequest generates a request for the DescribeTaskDefinition operation.
+// DescribeTaskDefinitionRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeTaskDefinition operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DescribeTaskDefinition for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DescribeTaskDefinition method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DescribeTaskDefinitionRequest method.
+//    req, resp := client.DescribeTaskDefinitionRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DescribeTaskDefinitionRequest(input *DescribeTaskDefinitionInput) (req *request.Request, output *DescribeTaskDefinitionOutput) {
 	op := &request.Operation{
 		Name:       opDescribeTaskDefinition,
@@ -306,27 +899,86 @@ func (c *ECS) DescribeTaskDefinitionRequest(input *DescribeTaskDefinitionInput) 
 		input = &DescribeTaskDefinitionInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeTaskDefinitionOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DescribeTaskDefinition API operation for Amazon EC2 Container Service.
+//
 // Describes a task definition. You can specify a family and revision to find
 // information on a specific task definition, or you can simply specify the
 // family to find the latest ACTIVE revision in that family.
 //
-//  You can only describe INACTIVE task definitions while an active task or
-// service references them.
+// You can only describe INACTIVE task definitions while an active task or service
+// references them.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DescribeTaskDefinition for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) DescribeTaskDefinition(input *DescribeTaskDefinitionInput) (*DescribeTaskDefinitionOutput, error) {
 	req, out := c.DescribeTaskDefinitionRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DescribeTaskDefinitionWithContext is the same as DescribeTaskDefinition with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeTaskDefinition for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DescribeTaskDefinitionWithContext(ctx aws.Context, input *DescribeTaskDefinitionInput, opts ...request.Option) (*DescribeTaskDefinitionOutput, error) {
+	req, out := c.DescribeTaskDefinitionRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDescribeTasks = "DescribeTasks"
 
-// DescribeTasksRequest generates a request for the DescribeTasks operation.
+// DescribeTasksRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeTasks operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DescribeTasks for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DescribeTasks method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DescribeTasksRequest method.
+//    req, resp := client.DescribeTasksRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DescribeTasksRequest(input *DescribeTasksInput) (req *request.Request, output *DescribeTasksOutput) {
 	op := &request.Operation{
 		Name:       opDescribeTasks,
@@ -338,22 +990,85 @@ func (c *ECS) DescribeTasksRequest(input *DescribeTasksInput) (req *request.Requ
 		input = &DescribeTasksInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeTasksOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DescribeTasks API operation for Amazon EC2 Container Service.
+//
 // Describes a specified task or tasks.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DescribeTasks for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) DescribeTasks(input *DescribeTasksInput) (*DescribeTasksOutput, error) {
 	req, out := c.DescribeTasksRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DescribeTasksWithContext is the same as DescribeTasks with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeTasks for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DescribeTasksWithContext(ctx aws.Context, input *DescribeTasksInput, opts ...request.Option) (*DescribeTasksOutput, error) {
+	req, out := c.DescribeTasksRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opDiscoverPollEndpoint = "DiscoverPollEndpoint"
 
-// DiscoverPollEndpointRequest generates a request for the DiscoverPollEndpoint operation.
+// DiscoverPollEndpointRequest generates a "aws/request.Request" representing the
+// client's request for the DiscoverPollEndpoint operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DiscoverPollEndpoint for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DiscoverPollEndpoint method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DiscoverPollEndpointRequest method.
+//    req, resp := client.DiscoverPollEndpointRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) DiscoverPollEndpointRequest(input *DiscoverPollEndpointInput) (req *request.Request, output *DiscoverPollEndpointOutput) {
 	op := &request.Operation{
 		Name:       opDiscoverPollEndpoint,
@@ -365,26 +1080,81 @@ func (c *ECS) DiscoverPollEndpointRequest(input *DiscoverPollEndpointInput) (req
 		input = &DiscoverPollEndpointInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DiscoverPollEndpointOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// DiscoverPollEndpoint API operation for Amazon EC2 Container Service.
+//
 // This action is only used by the Amazon EC2 Container Service agent, and it
 // is not intended for use outside of the agent.
 //
 // Returns an endpoint for the Amazon EC2 Container Service agent to poll for
 // updates.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DiscoverPollEndpoint for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
 func (c *ECS) DiscoverPollEndpoint(input *DiscoverPollEndpointInput) (*DiscoverPollEndpointOutput, error) {
 	req, out := c.DiscoverPollEndpointRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// DiscoverPollEndpointWithContext is the same as DiscoverPollEndpoint with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DiscoverPollEndpoint for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DiscoverPollEndpointWithContext(ctx aws.Context, input *DiscoverPollEndpointInput, opts ...request.Option) (*DiscoverPollEndpointOutput, error) {
+	req, out := c.DiscoverPollEndpointRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opListClusters = "ListClusters"
 
-// ListClustersRequest generates a request for the ListClusters operation.
+// ListClustersRequest generates a "aws/request.Request" representing the
+// client's request for the ListClusters operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListClusters for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListClusters method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListClustersRequest method.
+//    req, resp := client.ListClustersRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListClustersRequest(input *ListClustersInput) (req *request.Request, output *ListClustersOutput) {
 	op := &request.Operation{
 		Name:       opListClusters,
@@ -402,30 +1172,131 @@ func (c *ECS) ListClustersRequest(input *ListClustersInput) (req *request.Reques
 		input = &ListClustersInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListClustersOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListClusters API operation for Amazon EC2 Container Service.
+//
 // Returns a list of existing clusters.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListClusters for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) ListClusters(input *ListClustersInput) (*ListClustersOutput, error) {
 	req, out := c.ListClustersRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListClustersPages(input *ListClustersInput, fn func(p *ListClustersOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListClustersRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListClustersOutput), lastPage)
-	})
+// ListClustersWithContext is the same as ListClusters with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListClusters for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListClustersWithContext(ctx aws.Context, input *ListClustersInput, opts ...request.Option) (*ListClustersOutput, error) {
+	req, out := c.ListClustersRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListClustersPages iterates over the pages of a ListClusters operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListClusters method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListClusters operation.
+//    pageNum := 0
+//    err := client.ListClustersPages(params,
+//        func(page *ListClustersOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListClustersPages(input *ListClustersInput, fn func(*ListClustersOutput, bool) bool) error {
+	return c.ListClustersPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListClustersPagesWithContext same as ListClustersPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListClustersPagesWithContext(ctx aws.Context, input *ListClustersInput, fn func(*ListClustersOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListClustersInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListClustersRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListClustersOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opListContainerInstances = "ListContainerInstances"
 
-// ListContainerInstancesRequest generates a request for the ListContainerInstances operation.
+// ListContainerInstancesRequest generates a "aws/request.Request" representing the
+// client's request for the ListContainerInstances operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListContainerInstances for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListContainerInstances method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListContainerInstancesRequest method.
+//    req, resp := client.ListContainerInstancesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListContainerInstancesRequest(input *ListContainerInstancesInput) (req *request.Request, output *ListContainerInstancesOutput) {
 	op := &request.Operation{
 		Name:       opListContainerInstances,
@@ -443,30 +1314,135 @@ func (c *ECS) ListContainerInstancesRequest(input *ListContainerInstancesInput) 
 		input = &ListContainerInstancesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListContainerInstancesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListContainerInstances API operation for Amazon EC2 Container Service.
+//
 // Returns a list of container instances in a specified cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListContainerInstances for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) ListContainerInstances(input *ListContainerInstancesInput) (*ListContainerInstancesOutput, error) {
 	req, out := c.ListContainerInstancesRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListContainerInstancesPages(input *ListContainerInstancesInput, fn func(p *ListContainerInstancesOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListContainerInstancesRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListContainerInstancesOutput), lastPage)
-	})
+// ListContainerInstancesWithContext is the same as ListContainerInstances with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListContainerInstances for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListContainerInstancesWithContext(ctx aws.Context, input *ListContainerInstancesInput, opts ...request.Option) (*ListContainerInstancesOutput, error) {
+	req, out := c.ListContainerInstancesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListContainerInstancesPages iterates over the pages of a ListContainerInstances operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListContainerInstances method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListContainerInstances operation.
+//    pageNum := 0
+//    err := client.ListContainerInstancesPages(params,
+//        func(page *ListContainerInstancesOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListContainerInstancesPages(input *ListContainerInstancesInput, fn func(*ListContainerInstancesOutput, bool) bool) error {
+	return c.ListContainerInstancesPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListContainerInstancesPagesWithContext same as ListContainerInstancesPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListContainerInstancesPagesWithContext(ctx aws.Context, input *ListContainerInstancesInput, fn func(*ListContainerInstancesOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListContainerInstancesInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListContainerInstancesRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListContainerInstancesOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opListServices = "ListServices"
 
-// ListServicesRequest generates a request for the ListServices operation.
+// ListServicesRequest generates a "aws/request.Request" representing the
+// client's request for the ListServices operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListServices for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListServices method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListServicesRequest method.
+//    req, resp := client.ListServicesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListServicesRequest(input *ListServicesInput) (req *request.Request, output *ListServicesOutput) {
 	op := &request.Operation{
 		Name:       opListServices,
@@ -484,30 +1460,135 @@ func (c *ECS) ListServicesRequest(input *ListServicesInput) (req *request.Reques
 		input = &ListServicesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListServicesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListServices API operation for Amazon EC2 Container Service.
+//
 // Lists the services that are running in a specified cluster.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListServices for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) ListServices(input *ListServicesInput) (*ListServicesOutput, error) {
 	req, out := c.ListServicesRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListServicesPages(input *ListServicesInput, fn func(p *ListServicesOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListServicesRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListServicesOutput), lastPage)
-	})
+// ListServicesWithContext is the same as ListServices with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListServices for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListServicesWithContext(ctx aws.Context, input *ListServicesInput, opts ...request.Option) (*ListServicesOutput, error) {
+	req, out := c.ListServicesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListServicesPages iterates over the pages of a ListServices operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListServices method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListServices operation.
+//    pageNum := 0
+//    err := client.ListServicesPages(params,
+//        func(page *ListServicesOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListServicesPages(input *ListServicesInput, fn func(*ListServicesOutput, bool) bool) error {
+	return c.ListServicesPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListServicesPagesWithContext same as ListServicesPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListServicesPagesWithContext(ctx aws.Context, input *ListServicesInput, fn func(*ListServicesOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListServicesInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListServicesRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListServicesOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opListTaskDefinitionFamilies = "ListTaskDefinitionFamilies"
 
-// ListTaskDefinitionFamiliesRequest generates a request for the ListTaskDefinitionFamilies operation.
+// ListTaskDefinitionFamiliesRequest generates a "aws/request.Request" representing the
+// client's request for the ListTaskDefinitionFamilies operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListTaskDefinitionFamilies for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListTaskDefinitionFamilies method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListTaskDefinitionFamiliesRequest method.
+//    req, resp := client.ListTaskDefinitionFamiliesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamiliesInput) (req *request.Request, output *ListTaskDefinitionFamiliesOutput) {
 	op := &request.Operation{
 		Name:       opListTaskDefinitionFamilies,
@@ -525,32 +1606,133 @@ func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamilie
 		input = &ListTaskDefinitionFamiliesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListTaskDefinitionFamiliesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListTaskDefinitionFamilies API operation for Amazon EC2 Container Service.
+//
 // Returns a list of task definition families that are registered to your account
 // (which may include task definition families that no longer have any ACTIVE
 // task definitions). You can filter the results with the familyPrefix parameter.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListTaskDefinitionFamilies for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) ListTaskDefinitionFamilies(input *ListTaskDefinitionFamiliesInput) (*ListTaskDefinitionFamiliesOutput, error) {
 	req, out := c.ListTaskDefinitionFamiliesRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListTaskDefinitionFamiliesPages(input *ListTaskDefinitionFamiliesInput, fn func(p *ListTaskDefinitionFamiliesOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListTaskDefinitionFamiliesRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListTaskDefinitionFamiliesOutput), lastPage)
-	})
+// ListTaskDefinitionFamiliesWithContext is the same as ListTaskDefinitionFamilies with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListTaskDefinitionFamilies for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTaskDefinitionFamiliesWithContext(ctx aws.Context, input *ListTaskDefinitionFamiliesInput, opts ...request.Option) (*ListTaskDefinitionFamiliesOutput, error) {
+	req, out := c.ListTaskDefinitionFamiliesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListTaskDefinitionFamiliesPages iterates over the pages of a ListTaskDefinitionFamilies operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListTaskDefinitionFamilies method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListTaskDefinitionFamilies operation.
+//    pageNum := 0
+//    err := client.ListTaskDefinitionFamiliesPages(params,
+//        func(page *ListTaskDefinitionFamiliesOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListTaskDefinitionFamiliesPages(input *ListTaskDefinitionFamiliesInput, fn func(*ListTaskDefinitionFamiliesOutput, bool) bool) error {
+	return c.ListTaskDefinitionFamiliesPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListTaskDefinitionFamiliesPagesWithContext same as ListTaskDefinitionFamiliesPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTaskDefinitionFamiliesPagesWithContext(ctx aws.Context, input *ListTaskDefinitionFamiliesInput, fn func(*ListTaskDefinitionFamiliesOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListTaskDefinitionFamiliesInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListTaskDefinitionFamiliesRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTaskDefinitionFamiliesOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opListTaskDefinitions = "ListTaskDefinitions"
 
-// ListTaskDefinitionsRequest generates a request for the ListTaskDefinitions operation.
+// ListTaskDefinitionsRequest generates a "aws/request.Request" representing the
+// client's request for the ListTaskDefinitions operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListTaskDefinitions for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListTaskDefinitions method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListTaskDefinitionsRequest method.
+//    req, resp := client.ListTaskDefinitionsRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListTaskDefinitionsRequest(input *ListTaskDefinitionsInput) (req *request.Request, output *ListTaskDefinitionsOutput) {
 	op := &request.Operation{
 		Name:       opListTaskDefinitions,
@@ -568,32 +1750,133 @@ func (c *ECS) ListTaskDefinitionsRequest(input *ListTaskDefinitionsInput) (req *
 		input = &ListTaskDefinitionsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListTaskDefinitionsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListTaskDefinitions API operation for Amazon EC2 Container Service.
+//
 // Returns a list of task definitions that are registered to your account. You
 // can filter the results by family name with the familyPrefix parameter or
 // by status with the status parameter.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListTaskDefinitions for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) ListTaskDefinitions(input *ListTaskDefinitionsInput) (*ListTaskDefinitionsOutput, error) {
 	req, out := c.ListTaskDefinitionsRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListTaskDefinitionsPages(input *ListTaskDefinitionsInput, fn func(p *ListTaskDefinitionsOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListTaskDefinitionsRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListTaskDefinitionsOutput), lastPage)
-	})
+// ListTaskDefinitionsWithContext is the same as ListTaskDefinitions with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListTaskDefinitions for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTaskDefinitionsWithContext(ctx aws.Context, input *ListTaskDefinitionsInput, opts ...request.Option) (*ListTaskDefinitionsOutput, error) {
+	req, out := c.ListTaskDefinitionsRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListTaskDefinitionsPages iterates over the pages of a ListTaskDefinitions operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListTaskDefinitions method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListTaskDefinitions operation.
+//    pageNum := 0
+//    err := client.ListTaskDefinitionsPages(params,
+//        func(page *ListTaskDefinitionsOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListTaskDefinitionsPages(input *ListTaskDefinitionsInput, fn func(*ListTaskDefinitionsOutput, bool) bool) error {
+	return c.ListTaskDefinitionsPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListTaskDefinitionsPagesWithContext same as ListTaskDefinitionsPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTaskDefinitionsPagesWithContext(ctx aws.Context, input *ListTaskDefinitionsInput, fn func(*ListTaskDefinitionsOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListTaskDefinitionsInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListTaskDefinitionsRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTaskDefinitionsOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opListTasks = "ListTasks"
 
-// ListTasksRequest generates a request for the ListTasks operation.
+// ListTasksRequest generates a "aws/request.Request" representing the
+// client's request for the ListTasks operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListTasks for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListTasks method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListTasksRequest method.
+//    req, resp := client.ListTasksRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *request.Request, output *ListTasksOutput) {
 	op := &request.Operation{
 		Name:       opListTasks,
@@ -611,32 +1894,141 @@ func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *request.Request, out
 		input = &ListTasksInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListTasksOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// ListTasks API operation for Amazon EC2 Container Service.
+//
 // Returns a list of tasks for a specified cluster. You can filter the results
 // by family name, by a particular container instance, or by the desired status
 // of the task with the family, containerInstance, and desiredStatus parameters.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListTasks for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeServiceNotFoundException "ServiceNotFoundException"
+//   The specified service could not be found. You can view your available services
+//   with ListServices. Amazon ECS services are cluster-specific and region-specific.
+//
 func (c *ECS) ListTasks(input *ListTasksInput) (*ListTasksOutput, error) {
 	req, out := c.ListTasksRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
 }
 
-func (c *ECS) ListTasksPages(input *ListTasksInput, fn func(p *ListTasksOutput, lastPage bool) (shouldContinue bool)) error {
-	page, _ := c.ListTasksRequest(input)
-	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
-	return page.EachPage(func(p interface{}, lastPage bool) bool {
-		return fn(p.(*ListTasksOutput), lastPage)
-	})
+// ListTasksWithContext is the same as ListTasks with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListTasks for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTasksWithContext(ctx aws.Context, input *ListTasksInput, opts ...request.Option) (*ListTasksOutput, error) {
+	req, out := c.ListTasksRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// ListTasksPages iterates over the pages of a ListTasks operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See ListTasks method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a ListTasks operation.
+//    pageNum := 0
+//    err := client.ListTasksPages(params,
+//        func(page *ListTasksOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *ECS) ListTasksPages(input *ListTasksInput, fn func(*ListTasksOutput, bool) bool) error {
+	return c.ListTasksPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// ListTasksPagesWithContext same as ListTasksPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListTasksPagesWithContext(ctx aws.Context, input *ListTasksInput, fn func(*ListTasksOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *ListTasksInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.ListTasksRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTasksOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opRegisterContainerInstance = "RegisterContainerInstance"
 
-// RegisterContainerInstanceRequest generates a request for the RegisterContainerInstance operation.
+// RegisterContainerInstanceRequest generates a "aws/request.Request" representing the
+// client's request for the RegisterContainerInstance operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See RegisterContainerInstance for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the RegisterContainerInstance method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the RegisterContainerInstanceRequest method.
+//    req, resp := client.RegisterContainerInstanceRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) RegisterContainerInstanceRequest(input *RegisterContainerInstanceInput) (req *request.Request, output *RegisterContainerInstanceOutput) {
 	op := &request.Operation{
 		Name:       opRegisterContainerInstance,
@@ -648,26 +2040,81 @@ func (c *ECS) RegisterContainerInstanceRequest(input *RegisterContainerInstanceI
 		input = &RegisterContainerInstanceInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &RegisterContainerInstanceOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// RegisterContainerInstance API operation for Amazon EC2 Container Service.
+//
 // This action is only used by the Amazon EC2 Container Service agent, and it
 // is not intended for use outside of the agent.
 //
 // Registers an Amazon EC2 instance into the specified cluster. This instance
 // will become available to place containers on.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation RegisterContainerInstance for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
 func (c *ECS) RegisterContainerInstance(input *RegisterContainerInstanceInput) (*RegisterContainerInstanceOutput, error) {
 	req, out := c.RegisterContainerInstanceRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// RegisterContainerInstanceWithContext is the same as RegisterContainerInstance with the addition of
+// the ability to pass a context and additional request options.
+//
+// See RegisterContainerInstance for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) RegisterContainerInstanceWithContext(ctx aws.Context, input *RegisterContainerInstanceInput, opts ...request.Option) (*RegisterContainerInstanceOutput, error) {
+	req, out := c.RegisterContainerInstanceRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opRegisterTaskDefinition = "RegisterTaskDefinition"
 
-// RegisterTaskDefinitionRequest generates a request for the RegisterTaskDefinition operation.
+// RegisterTaskDefinitionRequest generates a "aws/request.Request" representing the
+// client's request for the RegisterTaskDefinition operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See RegisterTaskDefinition for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the RegisterTaskDefinition method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the RegisterTaskDefinitionRequest method.
+//    req, resp := client.RegisterTaskDefinitionRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) RegisterTaskDefinitionRequest(input *RegisterTaskDefinitionInput) (req *request.Request, output *RegisterTaskDefinitionOutput) {
 	op := &request.Operation{
 		Name:       opRegisterTaskDefinition,
@@ -679,26 +2126,85 @@ func (c *ECS) RegisterTaskDefinitionRequest(input *RegisterTaskDefinitionInput) 
 		input = &RegisterTaskDefinitionInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &RegisterTaskDefinitionOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// RegisterTaskDefinition API operation for Amazon EC2 Container Service.
+//
 // Registers a new task definition from the supplied family and containerDefinitions.
 // Optionally, you can add data volumes to your containers with the volumes
 // parameter. For more information on task definition parameters and defaults,
 // see Amazon ECS Task Definitions (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html)
 // in the Amazon EC2 Container Service Developer Guide.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation RegisterTaskDefinition for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) RegisterTaskDefinition(input *RegisterTaskDefinitionInput) (*RegisterTaskDefinitionOutput, error) {
 	req, out := c.RegisterTaskDefinitionRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// RegisterTaskDefinitionWithContext is the same as RegisterTaskDefinition with the addition of
+// the ability to pass a context and additional request options.
+//
+// See RegisterTaskDefinition for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) RegisterTaskDefinitionWithContext(ctx aws.Context, input *RegisterTaskDefinitionInput, opts ...request.Option) (*RegisterTaskDefinitionOutput, error) {
+	req, out := c.RegisterTaskDefinitionRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opRunTask = "RunTask"
 
-// RunTaskRequest generates a request for the RunTask operation.
+// RunTaskRequest generates a "aws/request.Request" representing the
+// client's request for the RunTask operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See RunTask for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the RunTask method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the RunTaskRequest method.
+//    req, resp := client.RunTaskRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) RunTaskRequest(input *RunTaskInput) (req *request.Request, output *RunTaskOutput) {
 	op := &request.Operation{
 		Name:       opRunTask,
@@ -710,26 +2216,89 @@ func (c *ECS) RunTaskRequest(input *RunTaskInput) (req *request.Request, output 
 		input = &RunTaskInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &RunTaskOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// RunTask API operation for Amazon EC2 Container Service.
+//
 // Start a task using random placement and the default Amazon ECS scheduler.
 // If you want to use your own scheduler or place a task on a specific container
 // instance, use StartTask instead.
 //
-//  The count parameter is limited to 10 tasks per call.
+// The count parameter is limited to 10 tasks per call.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation RunTask for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) RunTask(input *RunTaskInput) (*RunTaskOutput, error) {
 	req, out := c.RunTaskRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// RunTaskWithContext is the same as RunTask with the addition of
+// the ability to pass a context and additional request options.
+//
+// See RunTask for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) RunTaskWithContext(ctx aws.Context, input *RunTaskInput, opts ...request.Option) (*RunTaskOutput, error) {
+	req, out := c.RunTaskRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opStartTask = "StartTask"
 
-// StartTaskRequest generates a request for the StartTask operation.
+// StartTaskRequest generates a "aws/request.Request" representing the
+// client's request for the StartTask operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See StartTask for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the StartTask method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the StartTaskRequest method.
+//    req, resp := client.StartTaskRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) StartTaskRequest(input *StartTaskInput) (req *request.Request, output *StartTaskOutput) {
 	op := &request.Operation{
 		Name:       opStartTask,
@@ -741,26 +2310,89 @@ func (c *ECS) StartTaskRequest(input *StartTaskInput) (req *request.Request, out
 		input = &StartTaskInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &StartTaskOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// StartTask API operation for Amazon EC2 Container Service.
+//
 // Starts a new task from the specified task definition on the specified container
 // instance or instances. If you want to use the default Amazon ECS scheduler
 // to place your task, use RunTask instead.
 //
-//  The list of container instances to start tasks on is limited to 10.
+// The list of container instances to start tasks on is limited to 10.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation StartTask for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) StartTask(input *StartTaskInput) (*StartTaskOutput, error) {
 	req, out := c.StartTaskRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// StartTaskWithContext is the same as StartTask with the addition of
+// the ability to pass a context and additional request options.
+//
+// See StartTask for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) StartTaskWithContext(ctx aws.Context, input *StartTaskInput, opts ...request.Option) (*StartTaskOutput, error) {
+	req, out := c.StartTaskRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opStopTask = "StopTask"
 
-// StopTaskRequest generates a request for the StopTask operation.
+// StopTaskRequest generates a "aws/request.Request" representing the
+// client's request for the StopTask operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See StopTask for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the StopTask method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the StopTaskRequest method.
+//    req, resp := client.StopTaskRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *request.Request, output *StopTaskOutput) {
 	op := &request.Operation{
 		Name:       opStopTask,
@@ -772,12 +2404,13 @@ func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *request.Request, outpu
 		input = &StopTaskInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &StopTaskOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// StopTask API operation for Amazon EC2 Container Service.
+//
 // Stops a running task.
 //
 // When StopTask is called on a task, the equivalent of docker stop is issued
@@ -785,15 +2418,77 @@ func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *request.Request, outpu
 // timeout, after which SIGKILL is sent and the containers are forcibly stopped.
 // If the container handles the SIGTERM gracefully and exits within 30 seconds
 // from receiving it, no SIGKILL is sent.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation StopTask for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
 func (c *ECS) StopTask(input *StopTaskInput) (*StopTaskOutput, error) {
 	req, out := c.StopTaskRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// StopTaskWithContext is the same as StopTask with the addition of
+// the ability to pass a context and additional request options.
+//
+// See StopTask for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) StopTaskWithContext(ctx aws.Context, input *StopTaskInput, opts ...request.Option) (*StopTaskOutput, error) {
+	req, out := c.StopTaskRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opSubmitContainerStateChange = "SubmitContainerStateChange"
 
-// SubmitContainerStateChangeRequest generates a request for the SubmitContainerStateChange operation.
+// SubmitContainerStateChangeRequest generates a "aws/request.Request" representing the
+// client's request for the SubmitContainerStateChange operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See SubmitContainerStateChange for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the SubmitContainerStateChange method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the SubmitContainerStateChangeRequest method.
+//    req, resp := client.SubmitContainerStateChangeRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) SubmitContainerStateChangeRequest(input *SubmitContainerStateChangeInput) (req *request.Request, output *SubmitContainerStateChangeOutput) {
 	op := &request.Operation{
 		Name:       opSubmitContainerStateChange,
@@ -805,25 +2500,80 @@ func (c *ECS) SubmitContainerStateChangeRequest(input *SubmitContainerStateChang
 		input = &SubmitContainerStateChangeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &SubmitContainerStateChangeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// SubmitContainerStateChange API operation for Amazon EC2 Container Service.
+//
 // This action is only used by the Amazon EC2 Container Service agent, and it
 // is not intended for use outside of the agent.
 //
 // Sent to acknowledge that a container changed states.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation SubmitContainerStateChange for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
 func (c *ECS) SubmitContainerStateChange(input *SubmitContainerStateChangeInput) (*SubmitContainerStateChangeOutput, error) {
 	req, out := c.SubmitContainerStateChangeRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// SubmitContainerStateChangeWithContext is the same as SubmitContainerStateChange with the addition of
+// the ability to pass a context and additional request options.
+//
+// See SubmitContainerStateChange for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) SubmitContainerStateChangeWithContext(ctx aws.Context, input *SubmitContainerStateChangeInput, opts ...request.Option) (*SubmitContainerStateChangeOutput, error) {
+	req, out := c.SubmitContainerStateChangeRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opSubmitTaskStateChange = "SubmitTaskStateChange"
 
-// SubmitTaskStateChangeRequest generates a request for the SubmitTaskStateChange operation.
+// SubmitTaskStateChangeRequest generates a "aws/request.Request" representing the
+// client's request for the SubmitTaskStateChange operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See SubmitTaskStateChange for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the SubmitTaskStateChange method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the SubmitTaskStateChangeRequest method.
+//    req, resp := client.SubmitTaskStateChangeRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (req *request.Request, output *SubmitTaskStateChangeOutput) {
 	op := &request.Operation{
 		Name:       opSubmitTaskStateChange,
@@ -835,25 +2585,80 @@ func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (r
 		input = &SubmitTaskStateChangeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &SubmitTaskStateChangeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// SubmitTaskStateChange API operation for Amazon EC2 Container Service.
+//
 // This action is only used by the Amazon EC2 Container Service agent, and it
 // is not intended for use outside of the agent.
 //
 // Sent to acknowledge that a task changed states.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation SubmitTaskStateChange for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
 func (c *ECS) SubmitTaskStateChange(input *SubmitTaskStateChangeInput) (*SubmitTaskStateChangeOutput, error) {
 	req, out := c.SubmitTaskStateChangeRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// SubmitTaskStateChangeWithContext is the same as SubmitTaskStateChange with the addition of
+// the ability to pass a context and additional request options.
+//
+// See SubmitTaskStateChange for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) SubmitTaskStateChangeWithContext(ctx aws.Context, input *SubmitTaskStateChangeInput, opts ...request.Option) (*SubmitTaskStateChangeOutput, error) {
+	req, out := c.SubmitTaskStateChangeRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opUpdateContainerAgent = "UpdateContainerAgent"
 
-// UpdateContainerAgentRequest generates a request for the UpdateContainerAgent operation.
+// UpdateContainerAgentRequest generates a "aws/request.Request" representing the
+// client's request for the UpdateContainerAgent operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See UpdateContainerAgent for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the UpdateContainerAgent method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the UpdateContainerAgentRequest method.
+//    req, resp := client.UpdateContainerAgentRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req *request.Request, output *UpdateContainerAgentOutput) {
 	op := &request.Operation{
 		Name:       opUpdateContainerAgent,
@@ -865,12 +2670,13 @@ func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req
 		input = &UpdateContainerAgentInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &UpdateContainerAgentOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// UpdateContainerAgent API operation for Amazon EC2 Container Service.
+//
 // Updates the Amazon ECS container agent on a specified container instance.
 // Updating the Amazon ECS container agent does not interrupt running tasks
 // or services on the container instance. The process for updating the agent
@@ -882,15 +2688,95 @@ func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req
 // ECS container agent on other operating systems, see Manually Updating the
 // Amazon ECS Container Agent (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html#manually_update_agent)
 // in the Amazon EC2 Container Service Developer Guide.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation UpdateContainerAgent for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeUpdateInProgressException "UpdateInProgressException"
+//   There is already a current Amazon ECS container agent update in progress
+//   on the specified container instance. If the container agent becomes disconnected
+//   while it is in a transitional stage, such as PENDING or STAGING, the update
+//   process can get stuck in that state. However, when the agent reconnects,
+//   it will resume where it stopped previously.
+//
+//   * ErrCodeNoUpdateAvailableException "NoUpdateAvailableException"
+//   There is no update available for this Amazon ECS container agent. This could
+//   be because the agent is already running the latest version, or it is so old
+//   that there is no update path to the current version.
+//
+//   * ErrCodeMissingVersionException "MissingVersionException"
+//   Amazon ECS is unable to determine the current version of the Amazon ECS container
+//   agent on the container instance and does not have enough information to proceed
+//   with an update. This could be because the agent running on the container
+//   instance is an older or custom version that does not use our version information.
+//
 func (c *ECS) UpdateContainerAgent(input *UpdateContainerAgentInput) (*UpdateContainerAgentOutput, error) {
 	req, out := c.UpdateContainerAgentRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// UpdateContainerAgentWithContext is the same as UpdateContainerAgent with the addition of
+// the ability to pass a context and additional request options.
+//
+// See UpdateContainerAgent for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) UpdateContainerAgentWithContext(ctx aws.Context, input *UpdateContainerAgentInput, opts ...request.Option) (*UpdateContainerAgentOutput, error) {
+	req, out := c.UpdateContainerAgentRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opUpdateService = "UpdateService"
 
-// UpdateServiceRequest generates a request for the UpdateService operation.
+// UpdateServiceRequest generates a "aws/request.Request" representing the
+// client's request for the UpdateService operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See UpdateService for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the UpdateService method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the UpdateServiceRequest method.
+//    req, resp := client.UpdateServiceRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
 func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Request, output *UpdateServiceOutput) {
 	op := &request.Operation{
 		Name:       opUpdateService,
@@ -902,12 +2788,13 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Requ
 		input = &UpdateServiceInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &UpdateServiceOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
+// UpdateService API operation for Amazon EC2 Container Service.
+//
 // Modify the desired count or task definition used in a service.
 //
 // You can add to or subtract from the number of instantiations of a task definition
@@ -929,10 +2816,59 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Requ
 // and a 30-second timeout, after which SIGKILL is sent and the containers are
 // forcibly stopped. If the container handles the SIGTERM gracefully and exits
 // within 30 seconds from receiving it, no SIGKILL is sent.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation UpdateService for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeServiceNotFoundException "ServiceNotFoundException"
+//   The specified service could not be found. You can view your available services
+//   with ListServices. Amazon ECS services are cluster-specific and region-specific.
+//
+//   * ErrCodeServiceNotActiveException "ServiceNotActiveException"
+//   The specified service is not active. You cannot update a service that is
+//   not active. If you have previously deleted a service, you can recreate it
+//   with CreateService.
+//
 func (c *ECS) UpdateService(input *UpdateServiceInput) (*UpdateServiceOutput, error) {
 	req, out := c.UpdateServiceRequest(input)
-	err := req.Send()
-	return out, err
+	return out, req.Send()
+}
+
+// UpdateServiceWithContext is the same as UpdateService with the addition of
+// the ability to pass a context and additional request options.
+//
+// See UpdateService for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) UpdateServiceWithContext(ctx aws.Context, input *UpdateServiceInput, opts ...request.Option) (*UpdateServiceOutput, error) {
+	req, out := c.UpdateServiceRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 // The attributes applicable to a container instance when it is registered.
@@ -940,6 +2876,8 @@ type Attribute struct {
 	_ struct{} `type:"structure"`
 
 	// The name of the container instance attribute.
+	//
+	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true"`
 
 	// The value of the container instance attribute.
@@ -954,6 +2892,31 @@ func (s Attribute) String() string {
 // GoString returns the string representation
 func (s Attribute) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Attribute) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Attribute"}
+	if s.Name == nil {
+		invalidParams.Add(request.NewErrParamRequired("Name"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetName sets the Name field's value.
+func (s *Attribute) SetName(v string) *Attribute {
+	s.Name = &v
+	return s
+}
+
+// SetValue sets the Value field's value.
+func (s *Attribute) SetValue(v string) *Attribute {
+	s.Value = &v
+	return s
 }
 
 // A regional grouping of one or more container instances on which you can run
@@ -1001,6 +2964,48 @@ func (s Cluster) GoString() string {
 	return s.String()
 }
 
+// SetActiveServicesCount sets the ActiveServicesCount field's value.
+func (s *Cluster) SetActiveServicesCount(v int64) *Cluster {
+	s.ActiveServicesCount = &v
+	return s
+}
+
+// SetClusterArn sets the ClusterArn field's value.
+func (s *Cluster) SetClusterArn(v string) *Cluster {
+	s.ClusterArn = &v
+	return s
+}
+
+// SetClusterName sets the ClusterName field's value.
+func (s *Cluster) SetClusterName(v string) *Cluster {
+	s.ClusterName = &v
+	return s
+}
+
+// SetPendingTasksCount sets the PendingTasksCount field's value.
+func (s *Cluster) SetPendingTasksCount(v int64) *Cluster {
+	s.PendingTasksCount = &v
+	return s
+}
+
+// SetRegisteredContainerInstancesCount sets the RegisteredContainerInstancesCount field's value.
+func (s *Cluster) SetRegisteredContainerInstancesCount(v int64) *Cluster {
+	s.RegisteredContainerInstancesCount = &v
+	return s
+}
+
+// SetRunningTasksCount sets the RunningTasksCount field's value.
+func (s *Cluster) SetRunningTasksCount(v int64) *Cluster {
+	s.RunningTasksCount = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *Cluster) SetStatus(v string) *Cluster {
+	s.Status = &v
+	return s
+}
+
 // A docker container that is part of a task.
 type Container struct {
 	_ struct{} `type:"structure"`
@@ -1038,6 +3043,48 @@ func (s Container) GoString() string {
 	return s.String()
 }
 
+// SetContainerArn sets the ContainerArn field's value.
+func (s *Container) SetContainerArn(v string) *Container {
+	s.ContainerArn = &v
+	return s
+}
+
+// SetExitCode sets the ExitCode field's value.
+func (s *Container) SetExitCode(v int64) *Container {
+	s.ExitCode = &v
+	return s
+}
+
+// SetLastStatus sets the LastStatus field's value.
+func (s *Container) SetLastStatus(v string) *Container {
+	s.LastStatus = &v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *Container) SetName(v string) *Container {
+	s.Name = &v
+	return s
+}
+
+// SetNetworkBindings sets the NetworkBindings field's value.
+func (s *Container) SetNetworkBindings(v []*NetworkBinding) *Container {
+	s.NetworkBindings = v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *Container) SetReason(v string) *Container {
+	s.Reason = &v
+	return s
+}
+
+// SetTaskArn sets the TaskArn field's value.
+func (s *Container) SetTaskArn(v string) *Container {
+	s.TaskArn = &v
+	return s
+}
+
 // Container definitions are used in task definitions to describe the different
 // containers that are launched as part of a task.
 type ContainerDefinition struct {
@@ -1059,12 +3106,12 @@ type ContainerDefinition struct {
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
 	// and the --cpu-shares option to docker run.
 	//
-	//  You can determine the number of CPU units that are available per Amazon
-	// EC2 instance type by multiplying the vCPUs listed for that instance type
-	// on the Amazon EC2 Instances (http://aws.amazon.com/ec2/instance-types/) detail
-	// page by 1,024.
+	// You can determine the number of CPU units that are available per Amazon EC2
+	// instance type by multiplying the vCPUs listed for that instance type on the
+	// Amazon EC2 Instances (http://aws.amazon.com/ec2/instance-types/) detail page
+	// by 1,024.
 	//
-	//  For example, if you run a single-container task on a single-core instance
+	// For example, if you run a single-container task on a single-core instance
 	// type with 512 CPU units specified for that container, and that is the only
 	// task running on the container instance, that container could use the full
 	// 1,024 CPU unit share at any given time. However, if you launched another
@@ -1082,11 +3129,12 @@ type ContainerDefinition struct {
 	// below 2 (including null), the behavior varies based on your Amazon ECS container
 	// agent version:
 	//
-	//   Agent versions less than or equal to 1.1.0: Null and zero CPU values are
-	// passed to Docker as 0, which Docker then converts to 1,024 CPU shares. CPU
-	// values of 1 are passed to Docker as 1, which the Linux kernel converts to
-	// 2 CPU shares.  Agent versions greater than or equal to 1.2.0: Null, zero,
-	// and CPU values of 1 are passed to Docker as 2.
+	//    * Agent versions less than or equal to 1.1.0: Null and zero CPU values
+	//    are passed to Docker as 0, which Docker then converts to 1,024 CPU shares.
+	//    CPU values of 1 are passed to Docker as 1, which the Linux kernel converts
+	//    to 2 CPU shares.
+	//    * Agent versions greater than or equal to 1.2.0: Null, zero, and CPU values
+	//    of 1 are passed to Docker as 2.
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
 	// When this parameter is true, networking is disabled within the container.
@@ -1122,7 +3170,7 @@ type ContainerDefinition struct {
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
 	// and the --security-opt option to docker run.
 	//
-	//  The Amazon ECS container agent running on a container instance must register
+	// The Amazon ECS container agent running on a container instance must register
 	// with the ECS_SELINUX_CAPABLE=true or ECS_APPARMOR_CAPABLE=true environment
 	// variables before containers placed on that instance can use these security
 	// options. For more information, see Amazon ECS Container Agent Configuration
@@ -1134,8 +3182,8 @@ type ContainerDefinition struct {
 	// parameters. If you have problems using entryPoint, update your container
 	// agent or enter your commands and arguments as command array items instead.
 	//
-	//  The entry point that is passed to the container. This parameter maps to
-	// Entrypoint in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
+	// The entry point that is passed to the container. This parameter maps to Entrypoint
+	// in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
 	// and the --entrypoint option to docker run. For more information, see https://docs.docker.com/reference/builder/#entrypoint
 	// (https://docs.docker.com/reference/builder/#entrypoint).
@@ -1152,7 +3200,7 @@ type ContainerDefinition struct {
 	// is marked as false, then its failure will not affect the rest of the containers
 	// in a task. If this parameter is omitted, a container is assumed to be essential.
 	//
-	//  All tasks must have at least one essential container.
+	// All tasks must have at least one essential container.
 	Essential *bool `locationName:"essential" type:"boolean"`
 
 	// A list of hostnames and IP address mappings to append to the /etc/hosts file
@@ -1188,7 +3236,7 @@ type ContainerDefinition struct {
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
 	// and the --link option to docker run.
 	//
-	//  Containers that are collocated on a single container instance may be able
+	// Containers that are collocated on a single container instance may be able
 	// to communicate with each other without requiring links or host port mappings.
 	// Network isolation is achieved on the container instance using security groups
 	// and VPC settings.
@@ -1203,7 +3251,7 @@ type ContainerDefinition struct {
 	// instance and run the following command: sudo docker version | grep "Server
 	// API version"
 	//
-	//  The Amazon ECS container agent running on a container instance must register
+	// The Amazon ECS container agent running on a container instance must register
 	// the logging drivers available on that instance with the ECS_AVAILABLE_LOGGING_DRIVERS
 	// environment variable before containers placed on that instance can use these
 	// log configuration options. For more information, see Amazon ECS Container
@@ -1295,6 +3343,197 @@ func (s ContainerDefinition) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ContainerDefinition) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ContainerDefinition"}
+	if s.ExtraHosts != nil {
+		for i, v := range s.ExtraHosts {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ExtraHosts", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+	if s.LogConfiguration != nil {
+		if err := s.LogConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("LogConfiguration", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.Ulimits != nil {
+		for i, v := range s.Ulimits {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Ulimits", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCommand sets the Command field's value.
+func (s *ContainerDefinition) SetCommand(v []*string) *ContainerDefinition {
+	s.Command = v
+	return s
+}
+
+// SetCpu sets the Cpu field's value.
+func (s *ContainerDefinition) SetCpu(v int64) *ContainerDefinition {
+	s.Cpu = &v
+	return s
+}
+
+// SetDisableNetworking sets the DisableNetworking field's value.
+func (s *ContainerDefinition) SetDisableNetworking(v bool) *ContainerDefinition {
+	s.DisableNetworking = &v
+	return s
+}
+
+// SetDnsSearchDomains sets the DnsSearchDomains field's value.
+func (s *ContainerDefinition) SetDnsSearchDomains(v []*string) *ContainerDefinition {
+	s.DnsSearchDomains = v
+	return s
+}
+
+// SetDnsServers sets the DnsServers field's value.
+func (s *ContainerDefinition) SetDnsServers(v []*string) *ContainerDefinition {
+	s.DnsServers = v
+	return s
+}
+
+// SetDockerLabels sets the DockerLabels field's value.
+func (s *ContainerDefinition) SetDockerLabels(v map[string]*string) *ContainerDefinition {
+	s.DockerLabels = v
+	return s
+}
+
+// SetDockerSecurityOptions sets the DockerSecurityOptions field's value.
+func (s *ContainerDefinition) SetDockerSecurityOptions(v []*string) *ContainerDefinition {
+	s.DockerSecurityOptions = v
+	return s
+}
+
+// SetEntryPoint sets the EntryPoint field's value.
+func (s *ContainerDefinition) SetEntryPoint(v []*string) *ContainerDefinition {
+	s.EntryPoint = v
+	return s
+}
+
+// SetEnvironment sets the Environment field's value.
+func (s *ContainerDefinition) SetEnvironment(v []*KeyValuePair) *ContainerDefinition {
+	s.Environment = v
+	return s
+}
+
+// SetEssential sets the Essential field's value.
+func (s *ContainerDefinition) SetEssential(v bool) *ContainerDefinition {
+	s.Essential = &v
+	return s
+}
+
+// SetExtraHosts sets the ExtraHosts field's value.
+func (s *ContainerDefinition) SetExtraHosts(v []*HostEntry) *ContainerDefinition {
+	s.ExtraHosts = v
+	return s
+}
+
+// SetHostname sets the Hostname field's value.
+func (s *ContainerDefinition) SetHostname(v string) *ContainerDefinition {
+	s.Hostname = &v
+	return s
+}
+
+// SetImage sets the Image field's value.
+func (s *ContainerDefinition) SetImage(v string) *ContainerDefinition {
+	s.Image = &v
+	return s
+}
+
+// SetLinks sets the Links field's value.
+func (s *ContainerDefinition) SetLinks(v []*string) *ContainerDefinition {
+	s.Links = v
+	return s
+}
+
+// SetLogConfiguration sets the LogConfiguration field's value.
+func (s *ContainerDefinition) SetLogConfiguration(v *LogConfiguration) *ContainerDefinition {
+	s.LogConfiguration = v
+	return s
+}
+
+// SetMemory sets the Memory field's value.
+func (s *ContainerDefinition) SetMemory(v int64) *ContainerDefinition {
+	s.Memory = &v
+	return s
+}
+
+// SetMemoryReservation sets the MemoryReservation field's value.
+func (s *ContainerDefinition) SetMemoryReservation(v int64) *ContainerDefinition {
+	s.MemoryReservation = &v
+	return s
+}
+
+// SetMountPoints sets the MountPoints field's value.
+func (s *ContainerDefinition) SetMountPoints(v []*MountPoint) *ContainerDefinition {
+	s.MountPoints = v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *ContainerDefinition) SetName(v string) *ContainerDefinition {
+	s.Name = &v
+	return s
+}
+
+// SetPortMappings sets the PortMappings field's value.
+func (s *ContainerDefinition) SetPortMappings(v []*PortMapping) *ContainerDefinition {
+	s.PortMappings = v
+	return s
+}
+
+// SetPrivileged sets the Privileged field's value.
+func (s *ContainerDefinition) SetPrivileged(v bool) *ContainerDefinition {
+	s.Privileged = &v
+	return s
+}
+
+// SetReadonlyRootFilesystem sets the ReadonlyRootFilesystem field's value.
+func (s *ContainerDefinition) SetReadonlyRootFilesystem(v bool) *ContainerDefinition {
+	s.ReadonlyRootFilesystem = &v
+	return s
+}
+
+// SetUlimits sets the Ulimits field's value.
+func (s *ContainerDefinition) SetUlimits(v []*Ulimit) *ContainerDefinition {
+	s.Ulimits = v
+	return s
+}
+
+// SetUser sets the User field's value.
+func (s *ContainerDefinition) SetUser(v string) *ContainerDefinition {
+	s.User = &v
+	return s
+}
+
+// SetVolumesFrom sets the VolumesFrom field's value.
+func (s *ContainerDefinition) SetVolumesFrom(v []*VolumeFrom) *ContainerDefinition {
+	s.VolumesFrom = v
+	return s
+}
+
+// SetWorkingDirectory sets the WorkingDirectory field's value.
+func (s *ContainerDefinition) SetWorkingDirectory(v string) *ContainerDefinition {
+	s.WorkingDirectory = &v
+	return s
+}
+
 // An Amazon EC2 instance that is running the Amazon ECS agent and has been
 // registered with a cluster.
 type ContainerInstance struct {
@@ -1356,6 +3595,72 @@ func (s ContainerInstance) GoString() string {
 	return s.String()
 }
 
+// SetAgentConnected sets the AgentConnected field's value.
+func (s *ContainerInstance) SetAgentConnected(v bool) *ContainerInstance {
+	s.AgentConnected = &v
+	return s
+}
+
+// SetAgentUpdateStatus sets the AgentUpdateStatus field's value.
+func (s *ContainerInstance) SetAgentUpdateStatus(v string) *ContainerInstance {
+	s.AgentUpdateStatus = &v
+	return s
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *ContainerInstance) SetAttributes(v []*Attribute) *ContainerInstance {
+	s.Attributes = v
+	return s
+}
+
+// SetContainerInstanceArn sets the ContainerInstanceArn field's value.
+func (s *ContainerInstance) SetContainerInstanceArn(v string) *ContainerInstance {
+	s.ContainerInstanceArn = &v
+	return s
+}
+
+// SetEc2InstanceId sets the Ec2InstanceId field's value.
+func (s *ContainerInstance) SetEc2InstanceId(v string) *ContainerInstance {
+	s.Ec2InstanceId = &v
+	return s
+}
+
+// SetPendingTasksCount sets the PendingTasksCount field's value.
+func (s *ContainerInstance) SetPendingTasksCount(v int64) *ContainerInstance {
+	s.PendingTasksCount = &v
+	return s
+}
+
+// SetRegisteredResources sets the RegisteredResources field's value.
+func (s *ContainerInstance) SetRegisteredResources(v []*Resource) *ContainerInstance {
+	s.RegisteredResources = v
+	return s
+}
+
+// SetRemainingResources sets the RemainingResources field's value.
+func (s *ContainerInstance) SetRemainingResources(v []*Resource) *ContainerInstance {
+	s.RemainingResources = v
+	return s
+}
+
+// SetRunningTasksCount sets the RunningTasksCount field's value.
+func (s *ContainerInstance) SetRunningTasksCount(v int64) *ContainerInstance {
+	s.RunningTasksCount = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ContainerInstance) SetStatus(v string) *ContainerInstance {
+	s.Status = &v
+	return s
+}
+
+// SetVersionInfo sets the VersionInfo field's value.
+func (s *ContainerInstance) SetVersionInfo(v *VersionInfo) *ContainerInstance {
+	s.VersionInfo = v
+	return s
+}
+
 // The overrides that should be sent to a container.
 type ContainerOverride struct {
 	_ struct{} `type:"structure"`
@@ -1383,6 +3688,24 @@ func (s ContainerOverride) GoString() string {
 	return s.String()
 }
 
+// SetCommand sets the Command field's value.
+func (s *ContainerOverride) SetCommand(v []*string) *ContainerOverride {
+	s.Command = v
+	return s
+}
+
+// SetEnvironment sets the Environment field's value.
+func (s *ContainerOverride) SetEnvironment(v []*KeyValuePair) *ContainerOverride {
+	s.Environment = v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *ContainerOverride) SetName(v string) *ContainerOverride {
+	s.Name = &v
+	return s
+}
+
 type CreateClusterInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1402,6 +3725,12 @@ func (s CreateClusterInput) GoString() string {
 	return s.String()
 }
 
+// SetClusterName sets the ClusterName field's value.
+func (s *CreateClusterInput) SetClusterName(v string) *CreateClusterInput {
+	s.ClusterName = &v
+	return s
+}
+
 type CreateClusterOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -1419,6 +3748,12 @@ func (s CreateClusterOutput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *CreateClusterOutput) SetCluster(v *Cluster) *CreateClusterOutput {
+	s.Cluster = v
+	return s
+}
+
 type CreateServiceInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1434,6 +3769,8 @@ type CreateServiceInput struct {
 
 	// The number of instantiations of the specified task definition that you would
 	// like to place and keep running on your cluster.
+	//
+	// DesiredCount is a required field
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer" required:"true"`
 
 	// A list of load balancer objects, containing the load balancer name, the container
@@ -1451,11 +3788,15 @@ type CreateServiceInput struct {
 	// hyphens, and underscores are allowed. Service names must be unique within
 	// a cluster, but you can have similarly named services in multiple clusters
 	// within a region or across multiple regions.
+	//
+	// ServiceName is a required field
 	ServiceName *string `locationName:"serviceName" type:"string" required:"true"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition that you want to run in your service. If a revision
 	// is not specified, the latest ACTIVE revision is used.
+	//
+	// TaskDefinition is a required field
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 }
 
@@ -1467,6 +3808,73 @@ func (s CreateServiceInput) String() string {
 // GoString returns the string representation
 func (s CreateServiceInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateServiceInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "CreateServiceInput"}
+	if s.DesiredCount == nil {
+		invalidParams.Add(request.NewErrParamRequired("DesiredCount"))
+	}
+	if s.ServiceName == nil {
+		invalidParams.Add(request.NewErrParamRequired("ServiceName"))
+	}
+	if s.TaskDefinition == nil {
+		invalidParams.Add(request.NewErrParamRequired("TaskDefinition"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *CreateServiceInput) SetClientToken(v string) *CreateServiceInput {
+	s.ClientToken = &v
+	return s
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *CreateServiceInput) SetCluster(v string) *CreateServiceInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetDeploymentConfiguration sets the DeploymentConfiguration field's value.
+func (s *CreateServiceInput) SetDeploymentConfiguration(v *DeploymentConfiguration) *CreateServiceInput {
+	s.DeploymentConfiguration = v
+	return s
+}
+
+// SetDesiredCount sets the DesiredCount field's value.
+func (s *CreateServiceInput) SetDesiredCount(v int64) *CreateServiceInput {
+	s.DesiredCount = &v
+	return s
+}
+
+// SetLoadBalancers sets the LoadBalancers field's value.
+func (s *CreateServiceInput) SetLoadBalancers(v []*LoadBalancer) *CreateServiceInput {
+	s.LoadBalancers = v
+	return s
+}
+
+// SetRole sets the Role field's value.
+func (s *CreateServiceInput) SetRole(v string) *CreateServiceInput {
+	s.Role = &v
+	return s
+}
+
+// SetServiceName sets the ServiceName field's value.
+func (s *CreateServiceInput) SetServiceName(v string) *CreateServiceInput {
+	s.ServiceName = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *CreateServiceInput) SetTaskDefinition(v string) *CreateServiceInput {
+	s.TaskDefinition = &v
+	return s
 }
 
 type CreateServiceOutput struct {
@@ -1486,11 +3894,19 @@ func (s CreateServiceOutput) GoString() string {
 	return s.String()
 }
 
+// SetService sets the Service field's value.
+func (s *CreateServiceOutput) SetService(v *Service) *CreateServiceOutput {
+	s.Service = v
+	return s
+}
+
 type DeleteClusterInput struct {
 	_ struct{} `type:"structure"`
 
 	// The short name or full Amazon Resource Name (ARN) of the cluster that you
 	// want to delete.
+	//
+	// Cluster is a required field
 	Cluster *string `locationName:"cluster" type:"string" required:"true"`
 }
 
@@ -1502,6 +3918,25 @@ func (s DeleteClusterInput) String() string {
 // GoString returns the string representation
 func (s DeleteClusterInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteClusterInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeleteClusterInput"}
+	if s.Cluster == nil {
+		invalidParams.Add(request.NewErrParamRequired("Cluster"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DeleteClusterInput) SetCluster(v string) *DeleteClusterInput {
+	s.Cluster = &v
+	return s
 }
 
 type DeleteClusterOutput struct {
@@ -1521,6 +3956,12 @@ func (s DeleteClusterOutput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *DeleteClusterOutput) SetCluster(v *Cluster) *DeleteClusterOutput {
+	s.Cluster = v
+	return s
+}
+
 type DeleteServiceInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1529,6 +3970,8 @@ type DeleteServiceInput struct {
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// The name of the service you want to delete.
+	//
+	// Service is a required field
 	Service *string `locationName:"service" type:"string" required:"true"`
 }
 
@@ -1540,6 +3983,31 @@ func (s DeleteServiceInput) String() string {
 // GoString returns the string representation
 func (s DeleteServiceInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteServiceInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeleteServiceInput"}
+	if s.Service == nil {
+		invalidParams.Add(request.NewErrParamRequired("Service"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DeleteServiceInput) SetCluster(v string) *DeleteServiceInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetService sets the Service field's value.
+func (s *DeleteServiceInput) SetService(v string) *DeleteServiceInput {
+	s.Service = &v
+	return s
 }
 
 type DeleteServiceOutput struct {
@@ -1557,6 +4025,12 @@ func (s DeleteServiceOutput) String() string {
 // GoString returns the string representation
 func (s DeleteServiceOutput) GoString() string {
 	return s.String()
+}
+
+// SetService sets the Service field's value.
+func (s *DeleteServiceOutput) SetService(v *Service) *DeleteServiceOutput {
+	s.Service = v
+	return s
 }
 
 // The details of an Amazon ECS service deployment.
@@ -1602,6 +4076,54 @@ func (s Deployment) GoString() string {
 	return s.String()
 }
 
+// SetCreatedAt sets the CreatedAt field's value.
+func (s *Deployment) SetCreatedAt(v time.Time) *Deployment {
+	s.CreatedAt = &v
+	return s
+}
+
+// SetDesiredCount sets the DesiredCount field's value.
+func (s *Deployment) SetDesiredCount(v int64) *Deployment {
+	s.DesiredCount = &v
+	return s
+}
+
+// SetId sets the Id field's value.
+func (s *Deployment) SetId(v string) *Deployment {
+	s.Id = &v
+	return s
+}
+
+// SetPendingCount sets the PendingCount field's value.
+func (s *Deployment) SetPendingCount(v int64) *Deployment {
+	s.PendingCount = &v
+	return s
+}
+
+// SetRunningCount sets the RunningCount field's value.
+func (s *Deployment) SetRunningCount(v int64) *Deployment {
+	s.RunningCount = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *Deployment) SetStatus(v string) *Deployment {
+	s.Status = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *Deployment) SetTaskDefinition(v string) *Deployment {
+	s.TaskDefinition = &v
+	return s
+}
+
+// SetUpdatedAt sets the UpdatedAt field's value.
+func (s *Deployment) SetUpdatedAt(v time.Time) *Deployment {
+	s.UpdatedAt = &v
+	return s
+}
+
 type DeploymentConfiguration struct {
 	_ struct{} `type:"structure"`
 
@@ -1620,6 +4142,18 @@ func (s DeploymentConfiguration) GoString() string {
 	return s.String()
 }
 
+// SetMaximumPercent sets the MaximumPercent field's value.
+func (s *DeploymentConfiguration) SetMaximumPercent(v int64) *DeploymentConfiguration {
+	s.MaximumPercent = &v
+	return s
+}
+
+// SetMinimumHealthyPercent sets the MinimumHealthyPercent field's value.
+func (s *DeploymentConfiguration) SetMinimumHealthyPercent(v int64) *DeploymentConfiguration {
+	s.MinimumHealthyPercent = &v
+	return s
+}
+
 type DeregisterContainerInstanceInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1633,6 +4167,8 @@ type DeregisterContainerInstanceInput struct {
 	// followed by the region of the container instance, the AWS account ID of the
 	// container instance owner, the container-instance namespace, and then the
 	// container instance ID. For example, arn:aws:ecs:region:aws_account_id:container-instance/container_instance_ID.
+	//
+	// ContainerInstance is a required field
 	ContainerInstance *string `locationName:"containerInstance" type:"string" required:"true"`
 
 	// Force the deregistration of the container instance. If you have tasks running
@@ -1656,6 +4192,37 @@ func (s DeregisterContainerInstanceInput) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeregisterContainerInstanceInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeregisterContainerInstanceInput"}
+	if s.ContainerInstance == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerInstance"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DeregisterContainerInstanceInput) SetCluster(v string) *DeregisterContainerInstanceInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *DeregisterContainerInstanceInput) SetContainerInstance(v string) *DeregisterContainerInstanceInput {
+	s.ContainerInstance = &v
+	return s
+}
+
+// SetForce sets the Force field's value.
+func (s *DeregisterContainerInstanceInput) SetForce(v bool) *DeregisterContainerInstanceInput {
+	s.Force = &v
+	return s
+}
+
 type DeregisterContainerInstanceOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -1674,11 +4241,19 @@ func (s DeregisterContainerInstanceOutput) GoString() string {
 	return s.String()
 }
 
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *DeregisterContainerInstanceOutput) SetContainerInstance(v *ContainerInstance) *DeregisterContainerInstanceOutput {
+	s.ContainerInstance = v
+	return s
+}
+
 type DeregisterTaskDefinitionInput struct {
 	_ struct{} `type:"structure"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition that you want to deregister. You must specify a revision.
+	//
+	// TaskDefinition is a required field
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 }
 
@@ -1690,6 +4265,25 @@ func (s DeregisterTaskDefinitionInput) String() string {
 // GoString returns the string representation
 func (s DeregisterTaskDefinitionInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeregisterTaskDefinitionInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeregisterTaskDefinitionInput"}
+	if s.TaskDefinition == nil {
+		invalidParams.Add(request.NewErrParamRequired("TaskDefinition"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *DeregisterTaskDefinitionInput) SetTaskDefinition(v string) *DeregisterTaskDefinitionInput {
+	s.TaskDefinition = &v
+	return s
 }
 
 type DeregisterTaskDefinitionOutput struct {
@@ -1709,6 +4303,12 @@ func (s DeregisterTaskDefinitionOutput) GoString() string {
 	return s.String()
 }
 
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *DeregisterTaskDefinitionOutput) SetTaskDefinition(v *TaskDefinition) *DeregisterTaskDefinitionOutput {
+	s.TaskDefinition = v
+	return s
+}
+
 type DescribeClustersInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1725,6 +4325,12 @@ func (s DescribeClustersInput) String() string {
 // GoString returns the string representation
 func (s DescribeClustersInput) GoString() string {
 	return s.String()
+}
+
+// SetClusters sets the Clusters field's value.
+func (s *DescribeClustersInput) SetClusters(v []*string) *DescribeClustersInput {
+	s.Clusters = v
+	return s
 }
 
 type DescribeClustersOutput struct {
@@ -1747,6 +4353,18 @@ func (s DescribeClustersOutput) GoString() string {
 	return s.String()
 }
 
+// SetClusters sets the Clusters field's value.
+func (s *DescribeClustersOutput) SetClusters(v []*Cluster) *DescribeClustersOutput {
+	s.Clusters = v
+	return s
+}
+
+// SetFailures sets the Failures field's value.
+func (s *DescribeClustersOutput) SetFailures(v []*Failure) *DescribeClustersOutput {
+	s.Failures = v
+	return s
+}
+
 type DescribeContainerInstancesInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1757,6 +4375,8 @@ type DescribeContainerInstancesInput struct {
 
 	// A space-separated list of container instance IDs or full Amazon Resource
 	// Name (ARN) entries.
+	//
+	// ContainerInstances is a required field
 	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
 }
 
@@ -1768,6 +4388,31 @@ func (s DescribeContainerInstancesInput) String() string {
 // GoString returns the string representation
 func (s DescribeContainerInstancesInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeContainerInstancesInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DescribeContainerInstancesInput"}
+	if s.ContainerInstances == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerInstances"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DescribeContainerInstancesInput) SetCluster(v string) *DescribeContainerInstancesInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstances sets the ContainerInstances field's value.
+func (s *DescribeContainerInstancesInput) SetContainerInstances(v []*string) *DescribeContainerInstancesInput {
+	s.ContainerInstances = v
+	return s
 }
 
 type DescribeContainerInstancesOutput struct {
@@ -1790,6 +4435,18 @@ func (s DescribeContainerInstancesOutput) GoString() string {
 	return s.String()
 }
 
+// SetContainerInstances sets the ContainerInstances field's value.
+func (s *DescribeContainerInstancesOutput) SetContainerInstances(v []*ContainerInstance) *DescribeContainerInstancesOutput {
+	s.ContainerInstances = v
+	return s
+}
+
+// SetFailures sets the Failures field's value.
+func (s *DescribeContainerInstancesOutput) SetFailures(v []*Failure) *DescribeContainerInstancesOutput {
+	s.Failures = v
+	return s
+}
+
 type DescribeServicesInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1798,6 +4455,8 @@ type DescribeServicesInput struct {
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// A list of services you want to describe.
+	//
+	// Services is a required field
 	Services []*string `locationName:"services" type:"list" required:"true"`
 }
 
@@ -1809,6 +4468,31 @@ func (s DescribeServicesInput) String() string {
 // GoString returns the string representation
 func (s DescribeServicesInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeServicesInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DescribeServicesInput"}
+	if s.Services == nil {
+		invalidParams.Add(request.NewErrParamRequired("Services"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DescribeServicesInput) SetCluster(v string) *DescribeServicesInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetServices sets the Services field's value.
+func (s *DescribeServicesInput) SetServices(v []*string) *DescribeServicesInput {
+	s.Services = v
+	return s
 }
 
 type DescribeServicesOutput struct {
@@ -1831,12 +4515,26 @@ func (s DescribeServicesOutput) GoString() string {
 	return s.String()
 }
 
+// SetFailures sets the Failures field's value.
+func (s *DescribeServicesOutput) SetFailures(v []*Failure) *DescribeServicesOutput {
+	s.Failures = v
+	return s
+}
+
+// SetServices sets the Services field's value.
+func (s *DescribeServicesOutput) SetServices(v []*Service) *DescribeServicesOutput {
+	s.Services = v
+	return s
+}
+
 type DescribeTaskDefinitionInput struct {
 	_ struct{} `type:"structure"`
 
 	// The family for the latest ACTIVE revision, family and revision (family:revision)
 	// for a specific revision in the family, or full Amazon Resource Name (ARN)
 	// of the task definition that you want to describe.
+	//
+	// TaskDefinition is a required field
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 }
 
@@ -1848,6 +4546,25 @@ func (s DescribeTaskDefinitionInput) String() string {
 // GoString returns the string representation
 func (s DescribeTaskDefinitionInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTaskDefinitionInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DescribeTaskDefinitionInput"}
+	if s.TaskDefinition == nil {
+		invalidParams.Add(request.NewErrParamRequired("TaskDefinition"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *DescribeTaskDefinitionInput) SetTaskDefinition(v string) *DescribeTaskDefinitionInput {
+	s.TaskDefinition = &v
+	return s
 }
 
 type DescribeTaskDefinitionOutput struct {
@@ -1867,6 +4584,12 @@ func (s DescribeTaskDefinitionOutput) GoString() string {
 	return s.String()
 }
 
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *DescribeTaskDefinitionOutput) SetTaskDefinition(v *TaskDefinition) *DescribeTaskDefinitionOutput {
+	s.TaskDefinition = v
+	return s
+}
+
 type DescribeTasksInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1876,6 +4599,8 @@ type DescribeTasksInput struct {
 	Cluster *string `locationName:"cluster" type:"string"`
 
 	// A space-separated list of task IDs or full Amazon Resource Name (ARN) entries.
+	//
+	// Tasks is a required field
 	Tasks []*string `locationName:"tasks" type:"list" required:"true"`
 }
 
@@ -1887,6 +4612,31 @@ func (s DescribeTasksInput) String() string {
 // GoString returns the string representation
 func (s DescribeTasksInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTasksInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DescribeTasksInput"}
+	if s.Tasks == nil {
+		invalidParams.Add(request.NewErrParamRequired("Tasks"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DescribeTasksInput) SetCluster(v string) *DescribeTasksInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetTasks sets the Tasks field's value.
+func (s *DescribeTasksInput) SetTasks(v []*string) *DescribeTasksInput {
+	s.Tasks = v
+	return s
 }
 
 type DescribeTasksOutput struct {
@@ -1907,6 +4657,18 @@ func (s DescribeTasksOutput) String() string {
 // GoString returns the string representation
 func (s DescribeTasksOutput) GoString() string {
 	return s.String()
+}
+
+// SetFailures sets the Failures field's value.
+func (s *DescribeTasksOutput) SetFailures(v []*Failure) *DescribeTasksOutput {
+	s.Failures = v
+	return s
+}
+
+// SetTasks sets the Tasks field's value.
+func (s *DescribeTasksOutput) SetTasks(v []*Task) *DescribeTasksOutput {
+	s.Tasks = v
+	return s
 }
 
 type DiscoverPollEndpointInput struct {
@@ -1933,6 +4695,18 @@ func (s DiscoverPollEndpointInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *DiscoverPollEndpointInput) SetCluster(v string) *DiscoverPollEndpointInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *DiscoverPollEndpointInput) SetContainerInstance(v string) *DiscoverPollEndpointInput {
+	s.ContainerInstance = &v
+	return s
+}
+
 type DiscoverPollEndpointOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -1951,6 +4725,18 @@ func (s DiscoverPollEndpointOutput) String() string {
 // GoString returns the string representation
 func (s DiscoverPollEndpointOutput) GoString() string {
 	return s.String()
+}
+
+// SetEndpoint sets the Endpoint field's value.
+func (s *DiscoverPollEndpointOutput) SetEndpoint(v string) *DiscoverPollEndpointOutput {
+	s.Endpoint = &v
+	return s
+}
+
+// SetTelemetryEndpoint sets the TelemetryEndpoint field's value.
+func (s *DiscoverPollEndpointOutput) SetTelemetryEndpoint(v string) *DiscoverPollEndpointOutput {
+	s.TelemetryEndpoint = &v
+	return s
 }
 
 // A failed resource.
@@ -1974,15 +4760,31 @@ func (s Failure) GoString() string {
 	return s.String()
 }
 
+// SetArn sets the Arn field's value.
+func (s *Failure) SetArn(v string) *Failure {
+	s.Arn = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *Failure) SetReason(v string) *Failure {
+	s.Reason = &v
+	return s
+}
+
 // Hostnames and IP address entries that are added to the /etc/hosts file of
 // a container via the extraHosts parameter of its ContainerDefinition.
 type HostEntry struct {
 	_ struct{} `type:"structure"`
 
 	// The hostname to use in the /etc/hosts entry.
+	//
+	// Hostname is a required field
 	Hostname *string `locationName:"hostname" type:"string" required:"true"`
 
 	// The IP address to use in the /etc/hosts entry.
+	//
+	// IpAddress is a required field
 	IpAddress *string `locationName:"ipAddress" type:"string" required:"true"`
 }
 
@@ -1994,6 +4796,34 @@ func (s HostEntry) String() string {
 // GoString returns the string representation
 func (s HostEntry) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *HostEntry) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "HostEntry"}
+	if s.Hostname == nil {
+		invalidParams.Add(request.NewErrParamRequired("Hostname"))
+	}
+	if s.IpAddress == nil {
+		invalidParams.Add(request.NewErrParamRequired("IpAddress"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetHostname sets the Hostname field's value.
+func (s *HostEntry) SetHostname(v string) *HostEntry {
+	s.Hostname = &v
+	return s
+}
+
+// SetIpAddress sets the IpAddress field's value.
+func (s *HostEntry) SetIpAddress(v string) *HostEntry {
+	s.IpAddress = &v
+	return s
 }
 
 // Details on a container instance host volume.
@@ -2014,6 +4844,12 @@ func (s HostVolumeProperties) String() string {
 // GoString returns the string representation
 func (s HostVolumeProperties) GoString() string {
 	return s.String()
+}
+
+// SetSourcePath sets the SourcePath field's value.
+func (s *HostVolumeProperties) SetSourcePath(v string) *HostVolumeProperties {
+	s.SourcePath = &v
+	return s
 }
 
 // A key and value pair object.
@@ -2037,6 +4873,18 @@ func (s KeyValuePair) String() string {
 // GoString returns the string representation
 func (s KeyValuePair) GoString() string {
 	return s.String()
+}
+
+// SetName sets the Name field's value.
+func (s *KeyValuePair) SetName(v string) *KeyValuePair {
+	s.Name = &v
+	return s
+}
+
+// SetValue sets the Value field's value.
+func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
+	s.Value = &v
+	return s
 }
 
 type ListClustersInput struct {
@@ -2068,6 +4916,18 @@ func (s ListClustersInput) GoString() string {
 	return s.String()
 }
 
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListClustersInput) SetMaxResults(v int64) *ListClustersInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListClustersInput) SetNextToken(v string) *ListClustersInput {
+	s.NextToken = &v
+	return s
+}
+
 type ListClustersOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2090,6 +4950,18 @@ func (s ListClustersOutput) String() string {
 // GoString returns the string representation
 func (s ListClustersOutput) GoString() string {
 	return s.String()
+}
+
+// SetClusterArns sets the ClusterArns field's value.
+func (s *ListClustersOutput) SetClusterArns(v []*string) *ListClustersOutput {
+	s.ClusterArns = v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListClustersOutput) SetNextToken(v string) *ListClustersOutput {
+	s.NextToken = &v
+	return s
 }
 
 type ListContainerInstancesInput struct {
@@ -2128,6 +5000,24 @@ func (s ListContainerInstancesInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *ListContainerInstancesInput) SetCluster(v string) *ListContainerInstancesInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListContainerInstancesInput) SetMaxResults(v int64) *ListContainerInstancesInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListContainerInstancesInput) SetNextToken(v string) *ListContainerInstancesInput {
+	s.NextToken = &v
+	return s
+}
+
 type ListContainerInstancesOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2150,6 +5040,18 @@ func (s ListContainerInstancesOutput) String() string {
 // GoString returns the string representation
 func (s ListContainerInstancesOutput) GoString() string {
 	return s.String()
+}
+
+// SetContainerInstanceArns sets the ContainerInstanceArns field's value.
+func (s *ListContainerInstancesOutput) SetContainerInstanceArns(v []*string) *ListContainerInstancesOutput {
+	s.ContainerInstanceArns = v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListContainerInstancesOutput) SetNextToken(v string) *ListContainerInstancesOutput {
+	s.NextToken = &v
+	return s
 }
 
 type ListServicesInput struct {
@@ -2186,6 +5088,24 @@ func (s ListServicesInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *ListServicesInput) SetCluster(v string) *ListServicesInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListServicesInput) SetMaxResults(v int64) *ListServicesInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListServicesInput) SetNextToken(v string) *ListServicesInput {
+	s.NextToken = &v
+	return s
+}
+
 type ListServicesOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2208,6 +5128,18 @@ func (s ListServicesOutput) String() string {
 // GoString returns the string representation
 func (s ListServicesOutput) GoString() string {
 	return s.String()
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListServicesOutput) SetNextToken(v string) *ListServicesOutput {
+	s.NextToken = &v
+	return s
+}
+
+// SetServiceArns sets the ServiceArns field's value.
+func (s *ListServicesOutput) SetServiceArns(v []*string) *ListServicesOutput {
+	s.ServiceArns = v
+	return s
 }
 
 type ListTaskDefinitionFamiliesInput struct {
@@ -2248,6 +5180,30 @@ func (s ListTaskDefinitionFamiliesInput) GoString() string {
 	return s.String()
 }
 
+// SetFamilyPrefix sets the FamilyPrefix field's value.
+func (s *ListTaskDefinitionFamiliesInput) SetFamilyPrefix(v string) *ListTaskDefinitionFamiliesInput {
+	s.FamilyPrefix = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListTaskDefinitionFamiliesInput) SetMaxResults(v int64) *ListTaskDefinitionFamiliesInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTaskDefinitionFamiliesInput) SetNextToken(v string) *ListTaskDefinitionFamiliesInput {
+	s.NextToken = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ListTaskDefinitionFamiliesInput) SetStatus(v string) *ListTaskDefinitionFamiliesInput {
+	s.Status = &v
+	return s
+}
+
 type ListTaskDefinitionFamiliesOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2270,6 +5226,18 @@ func (s ListTaskDefinitionFamiliesOutput) String() string {
 // GoString returns the string representation
 func (s ListTaskDefinitionFamiliesOutput) GoString() string {
 	return s.String()
+}
+
+// SetFamilies sets the Families field's value.
+func (s *ListTaskDefinitionFamiliesOutput) SetFamilies(v []*string) *ListTaskDefinitionFamiliesOutput {
+	s.Families = v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTaskDefinitionFamiliesOutput) SetNextToken(v string) *ListTaskDefinitionFamiliesOutput {
+	s.NextToken = &v
+	return s
 }
 
 type ListTaskDefinitionsInput struct {
@@ -2323,6 +5291,36 @@ func (s ListTaskDefinitionsInput) GoString() string {
 	return s.String()
 }
 
+// SetFamilyPrefix sets the FamilyPrefix field's value.
+func (s *ListTaskDefinitionsInput) SetFamilyPrefix(v string) *ListTaskDefinitionsInput {
+	s.FamilyPrefix = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListTaskDefinitionsInput) SetMaxResults(v int64) *ListTaskDefinitionsInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTaskDefinitionsInput) SetNextToken(v string) *ListTaskDefinitionsInput {
+	s.NextToken = &v
+	return s
+}
+
+// SetSort sets the Sort field's value.
+func (s *ListTaskDefinitionsInput) SetSort(v string) *ListTaskDefinitionsInput {
+	s.Sort = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ListTaskDefinitionsInput) SetStatus(v string) *ListTaskDefinitionsInput {
+	s.Status = &v
+	return s
+}
+
 type ListTaskDefinitionsOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2345,6 +5343,18 @@ func (s ListTaskDefinitionsOutput) String() string {
 // GoString returns the string representation
 func (s ListTaskDefinitionsOutput) GoString() string {
 	return s.String()
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTaskDefinitionsOutput) SetNextToken(v string) *ListTaskDefinitionsOutput {
+	s.NextToken = &v
+	return s
+}
+
+// SetTaskDefinitionArns sets the TaskDefinitionArns field's value.
+func (s *ListTaskDefinitionsOutput) SetTaskDefinitionArns(v []*string) *ListTaskDefinitionsOutput {
+	s.TaskDefinitionArns = v
+	return s
 }
 
 type ListTasksInput struct {
@@ -2407,6 +5417,54 @@ func (s ListTasksInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *ListTasksInput) SetCluster(v string) *ListTasksInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *ListTasksInput) SetContainerInstance(v string) *ListTasksInput {
+	s.ContainerInstance = &v
+	return s
+}
+
+// SetDesiredStatus sets the DesiredStatus field's value.
+func (s *ListTasksInput) SetDesiredStatus(v string) *ListTasksInput {
+	s.DesiredStatus = &v
+	return s
+}
+
+// SetFamily sets the Family field's value.
+func (s *ListTasksInput) SetFamily(v string) *ListTasksInput {
+	s.Family = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListTasksInput) SetMaxResults(v int64) *ListTasksInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTasksInput) SetNextToken(v string) *ListTasksInput {
+	s.NextToken = &v
+	return s
+}
+
+// SetServiceName sets the ServiceName field's value.
+func (s *ListTasksInput) SetServiceName(v string) *ListTasksInput {
+	s.ServiceName = &v
+	return s
+}
+
+// SetStartedBy sets the StartedBy field's value.
+func (s *ListTasksInput) SetStartedBy(v string) *ListTasksInput {
+	s.StartedBy = &v
+	return s
+}
+
 type ListTasksOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2428,6 +5486,18 @@ func (s ListTasksOutput) String() string {
 // GoString returns the string representation
 func (s ListTasksOutput) GoString() string {
 	return s.String()
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListTasksOutput) SetNextToken(v string) *ListTasksOutput {
+	s.NextToken = &v
+	return s
+}
+
+// SetTaskArns sets the TaskArns field's value.
+func (s *ListTasksOutput) SetTaskArns(v []*string) *ListTasksOutput {
+	s.TaskArns = v
+	return s
 }
 
 // Details on a load balancer that is used with a service.
@@ -2457,6 +5527,24 @@ func (s LoadBalancer) GoString() string {
 	return s.String()
 }
 
+// SetContainerName sets the ContainerName field's value.
+func (s *LoadBalancer) SetContainerName(v string) *LoadBalancer {
+	s.ContainerName = &v
+	return s
+}
+
+// SetContainerPort sets the ContainerPort field's value.
+func (s *LoadBalancer) SetContainerPort(v int64) *LoadBalancer {
+	s.ContainerPort = &v
+	return s
+}
+
+// SetLoadBalancerName sets the LoadBalancerName field's value.
+func (s *LoadBalancer) SetLoadBalancerName(v string) *LoadBalancer {
+	s.LoadBalancerName = &v
+	return s
+}
+
 // Log configuration options to send to a custom log driver for the container.
 type LogConfiguration struct {
 	_ struct{} `type:"structure"`
@@ -2466,6 +5554,8 @@ type LogConfiguration struct {
 	// the Docker Remote API version on your container instance, log into your container
 	// instance and run the following command: sudo docker version | grep "Server
 	// API version"
+	//
+	// LogDriver is a required field
 	LogDriver *string `locationName:"logDriver" type:"string" required:"true" enum:"LogDriver"`
 
 	// The configuration options to send to the log driver. This parameter requires
@@ -2484,6 +5574,31 @@ func (s LogConfiguration) String() string {
 // GoString returns the string representation
 func (s LogConfiguration) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *LogConfiguration) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "LogConfiguration"}
+	if s.LogDriver == nil {
+		invalidParams.Add(request.NewErrParamRequired("LogDriver"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetLogDriver sets the LogDriver field's value.
+func (s *LogConfiguration) SetLogDriver(v string) *LogConfiguration {
+	s.LogDriver = &v
+	return s
+}
+
+// SetOptions sets the Options field's value.
+func (s *LogConfiguration) SetOptions(v map[string]*string) *LogConfiguration {
+	s.Options = v
+	return s
 }
 
 // Details on a volume mount point that is used in a container definition.
@@ -2510,6 +5625,24 @@ func (s MountPoint) String() string {
 // GoString returns the string representation
 func (s MountPoint) GoString() string {
 	return s.String()
+}
+
+// SetContainerPath sets the ContainerPath field's value.
+func (s *MountPoint) SetContainerPath(v string) *MountPoint {
+	s.ContainerPath = &v
+	return s
+}
+
+// SetReadOnly sets the ReadOnly field's value.
+func (s *MountPoint) SetReadOnly(v bool) *MountPoint {
+	s.ReadOnly = &v
+	return s
+}
+
+// SetSourceVolume sets the SourceVolume field's value.
+func (s *MountPoint) SetSourceVolume(v string) *MountPoint {
+	s.SourceVolume = &v
+	return s
 }
 
 // Details on the network bindings between a container and its host container
@@ -2540,6 +5673,30 @@ func (s NetworkBinding) String() string {
 // GoString returns the string representation
 func (s NetworkBinding) GoString() string {
 	return s.String()
+}
+
+// SetBindIP sets the BindIP field's value.
+func (s *NetworkBinding) SetBindIP(v string) *NetworkBinding {
+	s.BindIP = &v
+	return s
+}
+
+// SetContainerPort sets the ContainerPort field's value.
+func (s *NetworkBinding) SetContainerPort(v int64) *NetworkBinding {
+	s.ContainerPort = &v
+	return s
+}
+
+// SetHostPort sets the HostPort field's value.
+func (s *NetworkBinding) SetHostPort(v int64) *NetworkBinding {
+	s.HostPort = &v
+	return s
+}
+
+// SetProtocol sets the Protocol field's value.
+func (s *NetworkBinding) SetProtocol(v string) *NetworkBinding {
+	s.Protocol = &v
+	return s
 }
 
 // Port mappings allow containers to access ports on the host container instance
@@ -2594,6 +5751,24 @@ func (s PortMapping) GoString() string {
 	return s.String()
 }
 
+// SetContainerPort sets the ContainerPort field's value.
+func (s *PortMapping) SetContainerPort(v int64) *PortMapping {
+	s.ContainerPort = &v
+	return s
+}
+
+// SetHostPort sets the HostPort field's value.
+func (s *PortMapping) SetHostPort(v int64) *PortMapping {
+	s.HostPort = &v
+	return s
+}
+
+// SetProtocol sets the Protocol field's value.
+func (s *PortMapping) SetProtocol(v string) *PortMapping {
+	s.Protocol = &v
+	return s
+}
+
 type RegisterContainerInstanceInput struct {
 	_ struct{} `type:"structure"`
 
@@ -2637,6 +5812,68 @@ func (s RegisterContainerInstanceInput) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RegisterContainerInstanceInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "RegisterContainerInstanceInput"}
+	if s.Attributes != nil {
+		for i, v := range s.Attributes {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Attributes", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *RegisterContainerInstanceInput) SetAttributes(v []*Attribute) *RegisterContainerInstanceInput {
+	s.Attributes = v
+	return s
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *RegisterContainerInstanceInput) SetCluster(v string) *RegisterContainerInstanceInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstanceArn sets the ContainerInstanceArn field's value.
+func (s *RegisterContainerInstanceInput) SetContainerInstanceArn(v string) *RegisterContainerInstanceInput {
+	s.ContainerInstanceArn = &v
+	return s
+}
+
+// SetInstanceIdentityDocument sets the InstanceIdentityDocument field's value.
+func (s *RegisterContainerInstanceInput) SetInstanceIdentityDocument(v string) *RegisterContainerInstanceInput {
+	s.InstanceIdentityDocument = &v
+	return s
+}
+
+// SetInstanceIdentityDocumentSignature sets the InstanceIdentityDocumentSignature field's value.
+func (s *RegisterContainerInstanceInput) SetInstanceIdentityDocumentSignature(v string) *RegisterContainerInstanceInput {
+	s.InstanceIdentityDocumentSignature = &v
+	return s
+}
+
+// SetTotalResources sets the TotalResources field's value.
+func (s *RegisterContainerInstanceInput) SetTotalResources(v []*Resource) *RegisterContainerInstanceInput {
+	s.TotalResources = v
+	return s
+}
+
+// SetVersionInfo sets the VersionInfo field's value.
+func (s *RegisterContainerInstanceInput) SetVersionInfo(v *VersionInfo) *RegisterContainerInstanceInput {
+	s.VersionInfo = v
+	return s
+}
+
 type RegisterContainerInstanceOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2655,17 +5892,27 @@ func (s RegisterContainerInstanceOutput) GoString() string {
 	return s.String()
 }
 
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *RegisterContainerInstanceOutput) SetContainerInstance(v *ContainerInstance) *RegisterContainerInstanceOutput {
+	s.ContainerInstance = v
+	return s
+}
+
 type RegisterTaskDefinitionInput struct {
 	_ struct{} `type:"structure"`
 
 	// A list of container definitions in JSON format that describe the different
 	// containers that make up your task.
+	//
+	// ContainerDefinitions is a required field
 	ContainerDefinitions []*ContainerDefinition `locationName:"containerDefinitions" type:"list" required:"true"`
 
 	// You must specify a family for a task definition, which allows you to track
 	// multiple versions of the same task definition. You can think of the family
 	// as a name for your task definition. Up to 255 letters (uppercase and lowercase),
 	// numbers, hyphens, and underscores are allowed.
+	//
+	// Family is a required field
 	Family *string `locationName:"family" type:"string" required:"true"`
 
 	NetworkMode *string `locationName:"networkMode" type:"string"`
@@ -2687,6 +5934,62 @@ func (s RegisterTaskDefinitionInput) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RegisterTaskDefinitionInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "RegisterTaskDefinitionInput"}
+	if s.ContainerDefinitions == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerDefinitions"))
+	}
+	if s.Family == nil {
+		invalidParams.Add(request.NewErrParamRequired("Family"))
+	}
+	if s.ContainerDefinitions != nil {
+		for i, v := range s.ContainerDefinitions {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ContainerDefinitions", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetContainerDefinitions sets the ContainerDefinitions field's value.
+func (s *RegisterTaskDefinitionInput) SetContainerDefinitions(v []*ContainerDefinition) *RegisterTaskDefinitionInput {
+	s.ContainerDefinitions = v
+	return s
+}
+
+// SetFamily sets the Family field's value.
+func (s *RegisterTaskDefinitionInput) SetFamily(v string) *RegisterTaskDefinitionInput {
+	s.Family = &v
+	return s
+}
+
+// SetNetworkMode sets the NetworkMode field's value.
+func (s *RegisterTaskDefinitionInput) SetNetworkMode(v string) *RegisterTaskDefinitionInput {
+	s.NetworkMode = &v
+	return s
+}
+
+// SetTaskRoleArn sets the TaskRoleArn field's value.
+func (s *RegisterTaskDefinitionInput) SetTaskRoleArn(v string) *RegisterTaskDefinitionInput {
+	s.TaskRoleArn = &v
+	return s
+}
+
+// SetVolumes sets the Volumes field's value.
+func (s *RegisterTaskDefinitionInput) SetVolumes(v []*Volume) *RegisterTaskDefinitionInput {
+	s.Volumes = v
+	return s
+}
+
 type RegisterTaskDefinitionOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -2702,6 +6005,12 @@ func (s RegisterTaskDefinitionOutput) String() string {
 // GoString returns the string representation
 func (s RegisterTaskDefinitionOutput) GoString() string {
 	return s.String()
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *RegisterTaskDefinitionOutput) SetTaskDefinition(v *TaskDefinition) *RegisterTaskDefinitionOutput {
+	s.TaskDefinition = v
+	return s
 }
 
 // Describes the resources available for a container instance.
@@ -2740,6 +6049,42 @@ func (s Resource) GoString() string {
 	return s.String()
 }
 
+// SetDoubleValue sets the DoubleValue field's value.
+func (s *Resource) SetDoubleValue(v float64) *Resource {
+	s.DoubleValue = &v
+	return s
+}
+
+// SetIntegerValue sets the IntegerValue field's value.
+func (s *Resource) SetIntegerValue(v int64) *Resource {
+	s.IntegerValue = &v
+	return s
+}
+
+// SetLongValue sets the LongValue field's value.
+func (s *Resource) SetLongValue(v int64) *Resource {
+	s.LongValue = &v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *Resource) SetName(v string) *Resource {
+	s.Name = &v
+	return s
+}
+
+// SetStringSetValue sets the StringSetValue field's value.
+func (s *Resource) SetStringSetValue(v []*string) *Resource {
+	s.StringSetValue = v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *Resource) SetType(v string) *Resource {
+	s.Type = &v
+	return s
+}
+
 type RunTaskInput struct {
 	_ struct{} `type:"structure"`
 
@@ -2751,7 +6096,7 @@ type RunTaskInput struct {
 	// The number of instantiations of the specified task that you would like to
 	// place on your cluster.
 	//
-	//  The count parameter is limited to 10 tasks per call.
+	// The count parameter is limited to 10 tasks per call.
 	Count *int64 `locationName:"count" type:"integer"`
 
 	// A list of container overrides in JSON format that specify the name of a container
@@ -2762,7 +6107,7 @@ type RunTaskInput struct {
 	// or Docker image) on a container or add new environment variables to it with
 	// an environment override.
 	//
-	//  A total of 8192 characters are allowed for overrides. This limit includes
+	// A total of 8192 characters are allowed for overrides. This limit includes
 	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
@@ -2779,6 +6124,8 @@ type RunTaskInput struct {
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition that you want to run. If a revision is not specified,
 	// the latest ACTIVE revision is used.
+	//
+	// TaskDefinition is a required field
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 }
 
@@ -2790,6 +6137,49 @@ func (s RunTaskInput) String() string {
 // GoString returns the string representation
 func (s RunTaskInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RunTaskInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "RunTaskInput"}
+	if s.TaskDefinition == nil {
+		invalidParams.Add(request.NewErrParamRequired("TaskDefinition"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *RunTaskInput) SetCluster(v string) *RunTaskInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetCount sets the Count field's value.
+func (s *RunTaskInput) SetCount(v int64) *RunTaskInput {
+	s.Count = &v
+	return s
+}
+
+// SetOverrides sets the Overrides field's value.
+func (s *RunTaskInput) SetOverrides(v *TaskOverride) *RunTaskInput {
+	s.Overrides = v
+	return s
+}
+
+// SetStartedBy sets the StartedBy field's value.
+func (s *RunTaskInput) SetStartedBy(v string) *RunTaskInput {
+	s.StartedBy = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *RunTaskInput) SetTaskDefinition(v string) *RunTaskInput {
+	s.TaskDefinition = &v
+	return s
 }
 
 type RunTaskOutput struct {
@@ -2811,6 +6201,18 @@ func (s RunTaskOutput) String() string {
 // GoString returns the string representation
 func (s RunTaskOutput) GoString() string {
 	return s.String()
+}
+
+// SetFailures sets the Failures field's value.
+func (s *RunTaskOutput) SetFailures(v []*Failure) *RunTaskOutput {
+	s.Failures = v
+	return s
+}
+
+// SetTasks sets the Tasks field's value.
+func (s *RunTaskOutput) SetTasks(v []*Task) *RunTaskOutput {
+	s.Tasks = v
+	return s
 }
 
 // Details on a service within a cluster
@@ -2880,6 +6282,90 @@ func (s Service) GoString() string {
 	return s.String()
 }
 
+// SetClusterArn sets the ClusterArn field's value.
+func (s *Service) SetClusterArn(v string) *Service {
+	s.ClusterArn = &v
+	return s
+}
+
+// SetCreatedAt sets the CreatedAt field's value.
+func (s *Service) SetCreatedAt(v time.Time) *Service {
+	s.CreatedAt = &v
+	return s
+}
+
+// SetDeploymentConfiguration sets the DeploymentConfiguration field's value.
+func (s *Service) SetDeploymentConfiguration(v *DeploymentConfiguration) *Service {
+	s.DeploymentConfiguration = v
+	return s
+}
+
+// SetDeployments sets the Deployments field's value.
+func (s *Service) SetDeployments(v []*Deployment) *Service {
+	s.Deployments = v
+	return s
+}
+
+// SetDesiredCount sets the DesiredCount field's value.
+func (s *Service) SetDesiredCount(v int64) *Service {
+	s.DesiredCount = &v
+	return s
+}
+
+// SetEvents sets the Events field's value.
+func (s *Service) SetEvents(v []*ServiceEvent) *Service {
+	s.Events = v
+	return s
+}
+
+// SetLoadBalancers sets the LoadBalancers field's value.
+func (s *Service) SetLoadBalancers(v []*LoadBalancer) *Service {
+	s.LoadBalancers = v
+	return s
+}
+
+// SetPendingCount sets the PendingCount field's value.
+func (s *Service) SetPendingCount(v int64) *Service {
+	s.PendingCount = &v
+	return s
+}
+
+// SetRoleArn sets the RoleArn field's value.
+func (s *Service) SetRoleArn(v string) *Service {
+	s.RoleArn = &v
+	return s
+}
+
+// SetRunningCount sets the RunningCount field's value.
+func (s *Service) SetRunningCount(v int64) *Service {
+	s.RunningCount = &v
+	return s
+}
+
+// SetServiceArn sets the ServiceArn field's value.
+func (s *Service) SetServiceArn(v string) *Service {
+	s.ServiceArn = &v
+	return s
+}
+
+// SetServiceName sets the ServiceName field's value.
+func (s *Service) SetServiceName(v string) *Service {
+	s.ServiceName = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *Service) SetStatus(v string) *Service {
+	s.Status = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *Service) SetTaskDefinition(v string) *Service {
+	s.TaskDefinition = &v
+	return s
+}
+
 // Details on an event associated with a service.
 type ServiceEvent struct {
 	_ struct{} `type:"structure"`
@@ -2904,6 +6390,24 @@ func (s ServiceEvent) GoString() string {
 	return s.String()
 }
 
+// SetCreatedAt sets the CreatedAt field's value.
+func (s *ServiceEvent) SetCreatedAt(v time.Time) *ServiceEvent {
+	s.CreatedAt = &v
+	return s
+}
+
+// SetId sets the Id field's value.
+func (s *ServiceEvent) SetId(v string) *ServiceEvent {
+	s.Id = &v
+	return s
+}
+
+// SetMessage sets the Message field's value.
+func (s *ServiceEvent) SetMessage(v string) *ServiceEvent {
+	s.Message = &v
+	return s
+}
+
 type StartTaskInput struct {
 	_ struct{} `type:"structure"`
 
@@ -2915,7 +6419,9 @@ type StartTaskInput struct {
 	// The container instance IDs or full Amazon Resource Name (ARN) entries for
 	// the container instances on which you would like to place your task.
 	//
-	//  The list of container instances to start tasks on is limited to 10.
+	// The list of container instances to start tasks on is limited to 10.
+	//
+	// ContainerInstances is a required field
 	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
 
 	// A list of container overrides in JSON format that specify the name of a container
@@ -2926,7 +6432,7 @@ type StartTaskInput struct {
 	// or Docker image) on a container or add new environment variables to it with
 	// an environment override.
 	//
-	//  A total of 8192 characters are allowed for overrides. This limit includes
+	// A total of 8192 characters are allowed for overrides. This limit includes
 	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
@@ -2943,6 +6449,8 @@ type StartTaskInput struct {
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition that you want to start. If a revision is not specified,
 	// the latest ACTIVE revision is used.
+	//
+	// TaskDefinition is a required field
 	TaskDefinition *string `locationName:"taskDefinition" type:"string" required:"true"`
 }
 
@@ -2954,6 +6462,52 @@ func (s StartTaskInput) String() string {
 // GoString returns the string representation
 func (s StartTaskInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *StartTaskInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "StartTaskInput"}
+	if s.ContainerInstances == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerInstances"))
+	}
+	if s.TaskDefinition == nil {
+		invalidParams.Add(request.NewErrParamRequired("TaskDefinition"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *StartTaskInput) SetCluster(v string) *StartTaskInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstances sets the ContainerInstances field's value.
+func (s *StartTaskInput) SetContainerInstances(v []*string) *StartTaskInput {
+	s.ContainerInstances = v
+	return s
+}
+
+// SetOverrides sets the Overrides field's value.
+func (s *StartTaskInput) SetOverrides(v *TaskOverride) *StartTaskInput {
+	s.Overrides = v
+	return s
+}
+
+// SetStartedBy sets the StartedBy field's value.
+func (s *StartTaskInput) SetStartedBy(v string) *StartTaskInput {
+	s.StartedBy = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *StartTaskInput) SetTaskDefinition(v string) *StartTaskInput {
+	s.TaskDefinition = &v
+	return s
 }
 
 type StartTaskOutput struct {
@@ -2977,6 +6531,18 @@ func (s StartTaskOutput) GoString() string {
 	return s.String()
 }
 
+// SetFailures sets the Failures field's value.
+func (s *StartTaskOutput) SetFailures(v []*Failure) *StartTaskOutput {
+	s.Failures = v
+	return s
+}
+
+// SetTasks sets the Tasks field's value.
+func (s *StartTaskOutput) SetTasks(v []*Task) *StartTaskOutput {
+	s.Tasks = v
+	return s
+}
+
 type StopTaskInput struct {
 	_ struct{} `type:"structure"`
 
@@ -2989,6 +6555,8 @@ type StopTaskInput struct {
 
 	// The task ID or full Amazon Resource Name (ARN) entry of the task you would
 	// like to stop.
+	//
+	// Task is a required field
 	Task *string `locationName:"task" type:"string" required:"true"`
 }
 
@@ -3000,6 +6568,37 @@ func (s StopTaskInput) String() string {
 // GoString returns the string representation
 func (s StopTaskInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *StopTaskInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "StopTaskInput"}
+	if s.Task == nil {
+		invalidParams.Add(request.NewErrParamRequired("Task"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *StopTaskInput) SetCluster(v string) *StopTaskInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *StopTaskInput) SetReason(v string) *StopTaskInput {
+	s.Reason = &v
+	return s
+}
+
+// SetTask sets the Task field's value.
+func (s *StopTaskInput) SetTask(v string) *StopTaskInput {
+	s.Task = &v
+	return s
 }
 
 type StopTaskOutput struct {
@@ -3017,6 +6616,12 @@ func (s StopTaskOutput) String() string {
 // GoString returns the string representation
 func (s StopTaskOutput) GoString() string {
 	return s.String()
+}
+
+// SetTask sets the Task field's value.
+func (s *StopTaskOutput) SetTask(v *Task) *StopTaskOutput {
+	s.Task = v
+	return s
 }
 
 type SubmitContainerStateChangeInput struct {
@@ -3056,6 +6661,48 @@ func (s SubmitContainerStateChangeInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *SubmitContainerStateChangeInput) SetCluster(v string) *SubmitContainerStateChangeInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *SubmitContainerStateChangeInput) SetContainerName(v string) *SubmitContainerStateChangeInput {
+	s.ContainerName = &v
+	return s
+}
+
+// SetExitCode sets the ExitCode field's value.
+func (s *SubmitContainerStateChangeInput) SetExitCode(v int64) *SubmitContainerStateChangeInput {
+	s.ExitCode = &v
+	return s
+}
+
+// SetNetworkBindings sets the NetworkBindings field's value.
+func (s *SubmitContainerStateChangeInput) SetNetworkBindings(v []*NetworkBinding) *SubmitContainerStateChangeInput {
+	s.NetworkBindings = v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *SubmitContainerStateChangeInput) SetReason(v string) *SubmitContainerStateChangeInput {
+	s.Reason = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *SubmitContainerStateChangeInput) SetStatus(v string) *SubmitContainerStateChangeInput {
+	s.Status = &v
+	return s
+}
+
+// SetTask sets the Task field's value.
+func (s *SubmitContainerStateChangeInput) SetTask(v string) *SubmitContainerStateChangeInput {
+	s.Task = &v
+	return s
+}
+
 type SubmitContainerStateChangeOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -3071,6 +6718,12 @@ func (s SubmitContainerStateChangeOutput) String() string {
 // GoString returns the string representation
 func (s SubmitContainerStateChangeOutput) GoString() string {
 	return s.String()
+}
+
+// SetAcknowledgment sets the Acknowledgment field's value.
+func (s *SubmitContainerStateChangeOutput) SetAcknowledgment(v string) *SubmitContainerStateChangeOutput {
+	s.Acknowledgment = &v
+	return s
 }
 
 type SubmitTaskStateChangeInput struct {
@@ -3101,6 +6754,30 @@ func (s SubmitTaskStateChangeInput) GoString() string {
 	return s.String()
 }
 
+// SetCluster sets the Cluster field's value.
+func (s *SubmitTaskStateChangeInput) SetCluster(v string) *SubmitTaskStateChangeInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *SubmitTaskStateChangeInput) SetReason(v string) *SubmitTaskStateChangeInput {
+	s.Reason = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *SubmitTaskStateChangeInput) SetStatus(v string) *SubmitTaskStateChangeInput {
+	s.Status = &v
+	return s
+}
+
+// SetTask sets the Task field's value.
+func (s *SubmitTaskStateChangeInput) SetTask(v string) *SubmitTaskStateChangeInput {
+	s.Task = &v
+	return s
+}
+
 type SubmitTaskStateChangeOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -3116,6 +6793,12 @@ func (s SubmitTaskStateChangeOutput) String() string {
 // GoString returns the string representation
 func (s SubmitTaskStateChangeOutput) GoString() string {
 	return s.String()
+}
+
+// SetAcknowledgment sets the Acknowledgment field's value.
+func (s *SubmitTaskStateChangeOutput) SetAcknowledgment(v string) *SubmitTaskStateChangeOutput {
+	s.Acknowledgment = &v
+	return s
 }
 
 // Details on a task in a cluster.
@@ -3171,6 +6854,84 @@ func (s Task) GoString() string {
 	return s.String()
 }
 
+// SetClusterArn sets the ClusterArn field's value.
+func (s *Task) SetClusterArn(v string) *Task {
+	s.ClusterArn = &v
+	return s
+}
+
+// SetContainerInstanceArn sets the ContainerInstanceArn field's value.
+func (s *Task) SetContainerInstanceArn(v string) *Task {
+	s.ContainerInstanceArn = &v
+	return s
+}
+
+// SetContainers sets the Containers field's value.
+func (s *Task) SetContainers(v []*Container) *Task {
+	s.Containers = v
+	return s
+}
+
+// SetCreatedAt sets the CreatedAt field's value.
+func (s *Task) SetCreatedAt(v time.Time) *Task {
+	s.CreatedAt = &v
+	return s
+}
+
+// SetDesiredStatus sets the DesiredStatus field's value.
+func (s *Task) SetDesiredStatus(v string) *Task {
+	s.DesiredStatus = &v
+	return s
+}
+
+// SetLastStatus sets the LastStatus field's value.
+func (s *Task) SetLastStatus(v string) *Task {
+	s.LastStatus = &v
+	return s
+}
+
+// SetOverrides sets the Overrides field's value.
+func (s *Task) SetOverrides(v *TaskOverride) *Task {
+	s.Overrides = v
+	return s
+}
+
+// SetStartedAt sets the StartedAt field's value.
+func (s *Task) SetStartedAt(v time.Time) *Task {
+	s.StartedAt = &v
+	return s
+}
+
+// SetStartedBy sets the StartedBy field's value.
+func (s *Task) SetStartedBy(v string) *Task {
+	s.StartedBy = &v
+	return s
+}
+
+// SetStoppedAt sets the StoppedAt field's value.
+func (s *Task) SetStoppedAt(v time.Time) *Task {
+	s.StoppedAt = &v
+	return s
+}
+
+// SetStoppedReason sets the StoppedReason field's value.
+func (s *Task) SetStoppedReason(v string) *Task {
+	s.StoppedReason = &v
+	return s
+}
+
+// SetTaskArn sets the TaskArn field's value.
+func (s *Task) SetTaskArn(v string) *Task {
+	s.TaskArn = &v
+	return s
+}
+
+// SetTaskDefinitionArn sets the TaskDefinitionArn field's value.
+func (s *Task) SetTaskDefinitionArn(v string) *Task {
+	s.TaskDefinitionArn = &v
+	return s
+}
+
 // Details of a task definition.
 type TaskDefinition struct {
 	_ struct{} `type:"structure"`
@@ -3222,6 +6983,60 @@ func (s TaskDefinition) GoString() string {
 	return s.String()
 }
 
+// SetContainerDefinitions sets the ContainerDefinitions field's value.
+func (s *TaskDefinition) SetContainerDefinitions(v []*ContainerDefinition) *TaskDefinition {
+	s.ContainerDefinitions = v
+	return s
+}
+
+// SetFamily sets the Family field's value.
+func (s *TaskDefinition) SetFamily(v string) *TaskDefinition {
+	s.Family = &v
+	return s
+}
+
+// SetNetworkMode sets the NetworkMode field's value.
+func (s *TaskDefinition) SetNetworkMode(v string) *TaskDefinition {
+	s.NetworkMode = &v
+	return s
+}
+
+// SetRequiresAttributes sets the RequiresAttributes field's value.
+func (s *TaskDefinition) SetRequiresAttributes(v []*Attribute) *TaskDefinition {
+	s.RequiresAttributes = v
+	return s
+}
+
+// SetRevision sets the Revision field's value.
+func (s *TaskDefinition) SetRevision(v int64) *TaskDefinition {
+	s.Revision = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *TaskDefinition) SetStatus(v string) *TaskDefinition {
+	s.Status = &v
+	return s
+}
+
+// SetTaskDefinitionArn sets the TaskDefinitionArn field's value.
+func (s *TaskDefinition) SetTaskDefinitionArn(v string) *TaskDefinition {
+	s.TaskDefinitionArn = &v
+	return s
+}
+
+// SetTaskRoleArn sets the TaskRoleArn field's value.
+func (s *TaskDefinition) SetTaskRoleArn(v string) *TaskDefinition {
+	s.TaskRoleArn = &v
+	return s
+}
+
+// SetVolumes sets the Volumes field's value.
+func (s *TaskDefinition) SetVolumes(v []*Volume) *TaskDefinition {
+	s.Volumes = v
+	return s
+}
+
 // The overrides associated with a task.
 type TaskOverride struct {
 	_ struct{} `type:"structure"`
@@ -3242,17 +7057,35 @@ func (s TaskOverride) GoString() string {
 	return s.String()
 }
 
+// SetContainerOverrides sets the ContainerOverrides field's value.
+func (s *TaskOverride) SetContainerOverrides(v []*ContainerOverride) *TaskOverride {
+	s.ContainerOverrides = v
+	return s
+}
+
+// SetTaskRoleArn sets the TaskRoleArn field's value.
+func (s *TaskOverride) SetTaskRoleArn(v string) *TaskOverride {
+	s.TaskRoleArn = &v
+	return s
+}
+
 // The ulimit settings to pass to the container.
 type Ulimit struct {
 	_ struct{} `type:"structure"`
 
 	// The hard limit for the ulimit type.
+	//
+	// HardLimit is a required field
 	HardLimit *int64 `locationName:"hardLimit" type:"integer" required:"true"`
 
 	// The type of the ulimit.
+	//
+	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true" enum:"UlimitName"`
 
 	// The soft limit for the ulimit type.
+	//
+	// SoftLimit is a required field
 	SoftLimit *int64 `locationName:"softLimit" type:"integer" required:"true"`
 }
 
@@ -3266,6 +7099,43 @@ func (s Ulimit) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Ulimit) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Ulimit"}
+	if s.HardLimit == nil {
+		invalidParams.Add(request.NewErrParamRequired("HardLimit"))
+	}
+	if s.Name == nil {
+		invalidParams.Add(request.NewErrParamRequired("Name"))
+	}
+	if s.SoftLimit == nil {
+		invalidParams.Add(request.NewErrParamRequired("SoftLimit"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetHardLimit sets the HardLimit field's value.
+func (s *Ulimit) SetHardLimit(v int64) *Ulimit {
+	s.HardLimit = &v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *Ulimit) SetName(v string) *Ulimit {
+	s.Name = &v
+	return s
+}
+
+// SetSoftLimit sets the SoftLimit field's value.
+func (s *Ulimit) SetSoftLimit(v int64) *Ulimit {
+	s.SoftLimit = &v
+	return s
+}
+
 type UpdateContainerAgentInput struct {
 	_ struct{} `type:"structure"`
 
@@ -3277,6 +7147,8 @@ type UpdateContainerAgentInput struct {
 	// The container instance ID or full Amazon Resource Name (ARN) entries for
 	// the container instance on which you would like to update the Amazon ECS container
 	// agent.
+	//
+	// ContainerInstance is a required field
 	ContainerInstance *string `locationName:"containerInstance" type:"string" required:"true"`
 }
 
@@ -3288,6 +7160,31 @@ func (s UpdateContainerAgentInput) String() string {
 // GoString returns the string representation
 func (s UpdateContainerAgentInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *UpdateContainerAgentInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "UpdateContainerAgentInput"}
+	if s.ContainerInstance == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerInstance"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *UpdateContainerAgentInput) SetCluster(v string) *UpdateContainerAgentInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *UpdateContainerAgentInput) SetContainerInstance(v string) *UpdateContainerAgentInput {
+	s.ContainerInstance = &v
+	return s
 }
 
 type UpdateContainerAgentOutput struct {
@@ -3308,6 +7205,12 @@ func (s UpdateContainerAgentOutput) GoString() string {
 	return s.String()
 }
 
+// SetContainerInstance sets the ContainerInstance field's value.
+func (s *UpdateContainerAgentOutput) SetContainerInstance(v *ContainerInstance) *UpdateContainerAgentOutput {
+	s.ContainerInstance = v
+	return s
+}
+
 type UpdateServiceInput struct {
 	_ struct{} `type:"structure"`
 
@@ -3323,6 +7226,8 @@ type UpdateServiceInput struct {
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer"`
 
 	// The name of the service that you want to update.
+	//
+	// Service is a required field
 	Service *string `locationName:"service" type:"string" required:"true"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
@@ -3344,6 +7249,49 @@ func (s UpdateServiceInput) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *UpdateServiceInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "UpdateServiceInput"}
+	if s.Service == nil {
+		invalidParams.Add(request.NewErrParamRequired("Service"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *UpdateServiceInput) SetCluster(v string) *UpdateServiceInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetDeploymentConfiguration sets the DeploymentConfiguration field's value.
+func (s *UpdateServiceInput) SetDeploymentConfiguration(v *DeploymentConfiguration) *UpdateServiceInput {
+	s.DeploymentConfiguration = v
+	return s
+}
+
+// SetDesiredCount sets the DesiredCount field's value.
+func (s *UpdateServiceInput) SetDesiredCount(v int64) *UpdateServiceInput {
+	s.DesiredCount = &v
+	return s
+}
+
+// SetService sets the Service field's value.
+func (s *UpdateServiceInput) SetService(v string) *UpdateServiceInput {
+	s.Service = &v
+	return s
+}
+
+// SetTaskDefinition sets the TaskDefinition field's value.
+func (s *UpdateServiceInput) SetTaskDefinition(v string) *UpdateServiceInput {
+	s.TaskDefinition = &v
+	return s
+}
+
 type UpdateServiceOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -3359,6 +7307,12 @@ func (s UpdateServiceOutput) String() string {
 // GoString returns the string representation
 func (s UpdateServiceOutput) GoString() string {
 	return s.String()
+}
+
+// SetService sets the Service field's value.
+func (s *UpdateServiceOutput) SetService(v *Service) *UpdateServiceOutput {
+	s.Service = v
+	return s
 }
 
 // The Docker and Amazon ECS container agent version information on a container
@@ -3387,6 +7341,24 @@ func (s VersionInfo) GoString() string {
 	return s.String()
 }
 
+// SetAgentHash sets the AgentHash field's value.
+func (s *VersionInfo) SetAgentHash(v string) *VersionInfo {
+	s.AgentHash = &v
+	return s
+}
+
+// SetAgentVersion sets the AgentVersion field's value.
+func (s *VersionInfo) SetAgentVersion(v string) *VersionInfo {
+	s.AgentVersion = &v
+	return s
+}
+
+// SetDockerVersion sets the DockerVersion field's value.
+func (s *VersionInfo) SetDockerVersion(v string) *VersionInfo {
+	s.DockerVersion = &v
+	return s
+}
+
 // A data volume used in a task definition.
 type Volume struct {
 	_ struct{} `type:"structure"`
@@ -3409,6 +7381,18 @@ func (s Volume) String() string {
 // GoString returns the string representation
 func (s Volume) GoString() string {
 	return s.String()
+}
+
+// SetHost sets the Host field's value.
+func (s *Volume) SetHost(v *HostVolumeProperties) *Volume {
+	s.Host = v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *Volume) SetName(v string) *Volume {
+	s.Name = &v
+	return s
 }
 
 // Details on a data volume from another container.
@@ -3434,104 +7418,147 @@ func (s VolumeFrom) GoString() string {
 	return s.String()
 }
 
+// SetReadOnly sets the ReadOnly field's value.
+func (s *VolumeFrom) SetReadOnly(v bool) *VolumeFrom {
+	s.ReadOnly = &v
+	return s
+}
+
+// SetSourceContainer sets the SourceContainer field's value.
+func (s *VolumeFrom) SetSourceContainer(v string) *VolumeFrom {
+	s.SourceContainer = &v
+	return s
+}
+
 const (
-	// @enum AgentUpdateStatus
+	// AgentUpdateStatusPending is a AgentUpdateStatus enum value
 	AgentUpdateStatusPending = "PENDING"
-	// @enum AgentUpdateStatus
+
+	// AgentUpdateStatusStaging is a AgentUpdateStatus enum value
 	AgentUpdateStatusStaging = "STAGING"
-	// @enum AgentUpdateStatus
+
+	// AgentUpdateStatusStaged is a AgentUpdateStatus enum value
 	AgentUpdateStatusStaged = "STAGED"
-	// @enum AgentUpdateStatus
+
+	// AgentUpdateStatusUpdating is a AgentUpdateStatus enum value
 	AgentUpdateStatusUpdating = "UPDATING"
-	// @enum AgentUpdateStatus
+
+	// AgentUpdateStatusUpdated is a AgentUpdateStatus enum value
 	AgentUpdateStatusUpdated = "UPDATED"
-	// @enum AgentUpdateStatus
+
+	// AgentUpdateStatusFailed is a AgentUpdateStatus enum value
 	AgentUpdateStatusFailed = "FAILED"
 )
 
 const (
-	// @enum DesiredStatus
+	// DesiredStatusRunning is a DesiredStatus enum value
 	DesiredStatusRunning = "RUNNING"
-	// @enum DesiredStatus
+
+	// DesiredStatusPending is a DesiredStatus enum value
 	DesiredStatusPending = "PENDING"
-	// @enum DesiredStatus
+
+	// DesiredStatusStopped is a DesiredStatus enum value
 	DesiredStatusStopped = "STOPPED"
 )
 
 const (
-	// @enum LogDriver
+	// LogDriverJsonFile is a LogDriver enum value
 	LogDriverJsonFile = "json-file"
-	// @enum LogDriver
+
+	// LogDriverSyslog is a LogDriver enum value
 	LogDriverSyslog = "syslog"
-	// @enum LogDriver
+
+	// LogDriverJournald is a LogDriver enum value
 	LogDriverJournald = "journald"
-	// @enum LogDriver
+
+	// LogDriverGelf is a LogDriver enum value
 	LogDriverGelf = "gelf"
-	// @enum LogDriver
+
+	// LogDriverFluentd is a LogDriver enum value
 	LogDriverFluentd = "fluentd"
-	// @enum LogDriver
+
+	// LogDriverAwslogs is a LogDriver enum value
 	LogDriverAwslogs = "awslogs"
 )
 
 const (
-	// @enum SortOrder
+	// SortOrderAsc is a SortOrder enum value
 	SortOrderAsc = "ASC"
-	// @enum SortOrder
+
+	// SortOrderDesc is a SortOrder enum value
 	SortOrderDesc = "DESC"
 )
 
 const (
-	// @enum TaskDefinitionFamilyStatus
+	// TaskDefinitionFamilyStatusActive is a TaskDefinitionFamilyStatus enum value
 	TaskDefinitionFamilyStatusActive = "ACTIVE"
-	// @enum TaskDefinitionFamilyStatus
+
+	// TaskDefinitionFamilyStatusInactive is a TaskDefinitionFamilyStatus enum value
 	TaskDefinitionFamilyStatusInactive = "INACTIVE"
-	// @enum TaskDefinitionFamilyStatus
+
+	// TaskDefinitionFamilyStatusAll is a TaskDefinitionFamilyStatus enum value
 	TaskDefinitionFamilyStatusAll = "ALL"
 )
 
 const (
-	// @enum TaskDefinitionStatus
+	// TaskDefinitionStatusActive is a TaskDefinitionStatus enum value
 	TaskDefinitionStatusActive = "ACTIVE"
-	// @enum TaskDefinitionStatus
+
+	// TaskDefinitionStatusInactive is a TaskDefinitionStatus enum value
 	TaskDefinitionStatusInactive = "INACTIVE"
 )
 
 const (
-	// @enum TransportProtocol
+	// TransportProtocolTcp is a TransportProtocol enum value
 	TransportProtocolTcp = "tcp"
-	// @enum TransportProtocol
+
+	// TransportProtocolUdp is a TransportProtocol enum value
 	TransportProtocolUdp = "udp"
 )
 
 const (
-	// @enum UlimitName
+	// UlimitNameCore is a UlimitName enum value
 	UlimitNameCore = "core"
-	// @enum UlimitName
+
+	// UlimitNameCpu is a UlimitName enum value
 	UlimitNameCpu = "cpu"
-	// @enum UlimitName
+
+	// UlimitNameData is a UlimitName enum value
 	UlimitNameData = "data"
-	// @enum UlimitName
+
+	// UlimitNameFsize is a UlimitName enum value
 	UlimitNameFsize = "fsize"
-	// @enum UlimitName
+
+	// UlimitNameLocks is a UlimitName enum value
 	UlimitNameLocks = "locks"
-	// @enum UlimitName
+
+	// UlimitNameMemlock is a UlimitName enum value
 	UlimitNameMemlock = "memlock"
-	// @enum UlimitName
+
+	// UlimitNameMsgqueue is a UlimitName enum value
 	UlimitNameMsgqueue = "msgqueue"
-	// @enum UlimitName
+
+	// UlimitNameNice is a UlimitName enum value
 	UlimitNameNice = "nice"
-	// @enum UlimitName
+
+	// UlimitNameNofile is a UlimitName enum value
 	UlimitNameNofile = "nofile"
-	// @enum UlimitName
+
+	// UlimitNameNproc is a UlimitName enum value
 	UlimitNameNproc = "nproc"
-	// @enum UlimitName
+
+	// UlimitNameRss is a UlimitName enum value
 	UlimitNameRss = "rss"
-	// @enum UlimitName
+
+	// UlimitNameRtprio is a UlimitName enum value
 	UlimitNameRtprio = "rtprio"
-	// @enum UlimitName
+
+	// UlimitNameRttime is a UlimitName enum value
 	UlimitNameRttime = "rttime"
-	// @enum UlimitName
+
+	// UlimitNameSigpending is a UlimitName enum value
 	UlimitNameSigpending = "sigpending"
-	// @enum UlimitName
+
+	// UlimitNameStack is a UlimitName enum value
 	UlimitNameStack = "stack"
 )

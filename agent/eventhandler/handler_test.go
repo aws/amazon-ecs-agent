@@ -39,30 +39,34 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
+	handler := NewTaskHandler()
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
 	// Trivial: one container, no errors
-	contCalled := make(chan struct{})
-	taskCalled := make(chan struct{})
 	contEvent1 := contEvent("1")
 	contEvent2 := contEvent("2")
 	taskEvent2 := taskEvent("2")
 
-	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { contCalled <- struct{}{} })
-	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { contCalled <- struct{}{} })
-	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { taskCalled <- struct{}{} })
+	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { wg.Done() })
 
-	AddContainerEvent(contEvent1, client)
-	AddContainerEvent(contEvent2, client)
-	AddTaskEvent(taskEvent2, client)
+	handler.AddContainerEvent(contEvent1, client)
+	handler.AddContainerEvent(contEvent2, client)
+	handler.AddTaskEvent(taskEvent2, client)
 
-	<-contCalled
-	<-contCalled
-	<-taskCalled
+	wg.Wait()
+
 }
 
 func TestSendsEventsOneEventRetries(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+
+	handler := NewTaskHandler()
 
 	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
 	contCalled := make(chan struct{})
@@ -73,7 +77,7 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 		client.EXPECT().SubmitContainerStateChange(contEvent1).Return(nil).Do(func(interface{}) { contCalled <- struct{}{} }),
 	)
 
-	AddContainerEvent(contEvent1, client)
+	handler.AddContainerEvent(contEvent1, client)
 
 	<-contCalled
 	<-contCalled
@@ -83,6 +87,8 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+
+	handler := NewTaskHandler()
 
 	contCalled := make(chan struct{}, concurrentEventCalls+1)
 	completeStateChange := make(chan bool, concurrentEventCalls+1)
@@ -99,7 +105,7 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	// concurrentEventCalls at once
 	// Put on N+1 events
 	for i := 0; i < concurrentEventCalls+1; i++ {
-		AddContainerEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
+		handler.AddContainerEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
 	time.Sleep(10 * time.Millisecond)
 
@@ -126,6 +132,8 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
+	handler := NewTaskHandler()
+
 	// Test container event replacement doesn't happen
 	notReplaced := contEvent("notreplaced1")
 	sortaRedundant := contEvent("notreplaced1")
@@ -134,8 +142,8 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	client.EXPECT().SubmitContainerStateChange(notReplaced).Do(func(interface{}) { contCalled <- struct{}{} })
 	client.EXPECT().SubmitContainerStateChange(sortaRedundant).Do(func(interface{}) { contCalled <- struct{}{} })
 
-	AddContainerEvent(notReplaced, client)
-	AddContainerEvent(sortaRedundant, client)
+	handler.AddContainerEvent(notReplaced, client)
+	handler.AddContainerEvent(sortaRedundant, client)
 	<-contCalled
 	<-contCalled
 }
@@ -144,6 +152,8 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+
+	handler := NewTaskHandler()
 
 	// Test task event replacement doesn't happen
 	notReplacedCont := contEvent("notreplaced2")
@@ -160,10 +170,10 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(notReplacedTask).Do(func(interface{}) { wait.Done() })
 	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask).Do(func(interface{}) { wait.Done() })
 
-	AddContainerEvent(notReplacedCont, client)
-	AddTaskEvent(notReplacedTask, client)
-	AddContainerEvent(sortaRedundantCont, client)
-	AddTaskEvent(sortaRedundantTask, client)
+	handler.AddContainerEvent(notReplacedCont, client)
+	handler.AddTaskEvent(notReplacedTask, client)
+	handler.AddContainerEvent(sortaRedundantCont, client)
+	handler.AddTaskEvent(sortaRedundantTask, client)
 
 	wait.Wait()
 }
@@ -173,14 +183,16 @@ func TestSendsEventsDedupe(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
+	handler := NewTaskHandler()
+
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent("alreadySent")
 	task1.Task.SetSentStatus(api.TaskRunning)
 	cont1 := contEvent("alreadySent")
 	cont1.Container.SetSentStatus(api.ContainerRunning)
 
-	AddContainerEvent(cont1, client)
-	AddTaskEvent(task1, client)
+	handler.AddContainerEvent(cont1, client)
+	handler.AddTaskEvent(task1, client)
 
 	task2 := taskEvent("containerSent")
 	task2.Task.SetSentStatus(api.TaskStatusNone)
@@ -191,8 +203,8 @@ func TestSendsEventsDedupe(t *testing.T) {
 	called := make(chan struct{})
 	client.EXPECT().SubmitTaskStateChange(task2).Do(func(interface{}) { called <- struct{}{} })
 
-	AddContainerEvent(cont2, client)
-	AddTaskEvent(task2, client)
+	handler.AddContainerEvent(cont2, client)
+	handler.AddTaskEvent(task2, client)
 
 	<-called
 	time.Sleep(5 * time.Millisecond)
