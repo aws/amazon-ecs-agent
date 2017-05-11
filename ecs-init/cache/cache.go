@@ -72,7 +72,7 @@ func (d *Downloader) getRegion() string {
 	if d.region == "" {
 		region, err := d.metadata.Region()
 		if err != nil {
-			log.Debug("Could not retrieve EC2 Metadata. %s", err)
+			log.Warn("Could not retrieve the region from EC2 Instance Metadata. %s", err)
 			region = config.DefaultRegionName
 		}
 		d.region = region;
