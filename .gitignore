@@ -5,3 +5,11 @@
 /ecs-init-*
 *.swp
 /ecs.conf
+/.rpm-done
+/.srpm-done
+/BUILD
+/RPMS
+/SOURCES
+/SRPMS
+/ecs-init.spec
+/sources.tgz
