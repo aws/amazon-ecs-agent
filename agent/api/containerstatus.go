@@ -150,3 +150,8 @@ func (cs *ContainerStatus) MarshalJSON() ([]byte, error) {
 	}
 	return []byte(`"` + cs.String() + `"`), nil
 }
+
+// IsRunning returns true if the container status is either RUNNING or RESOURCES_PROVISIONED
+func (cs ContainerStatus) IsRunning() bool {
+	return cs == ContainerRunning || cs == ContainerResourcesProvisioned
+}

@@ -46,6 +46,8 @@ const (
 	labelPrefix                  = "com.amazonaws.ecs."
 )
 
+type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
+
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
 // it does not have to know about tasks, only containers
 // The DockerTaskEngine interacts with docker to implement a task
@@ -85,11 +87,12 @@ type DockerTaskEngine struct {
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
 
-	enableConcurrentPull bool
-	credentialsManager   credentials.Manager
-	_time                ttime.Time
-	_timeOnce            sync.Once
-	imageManager         ImageManager
+	enableConcurrentPull                bool
+	credentialsManager                  credentials.Manager
+	_time                               ttime.Time
+	_timeOnce                           sync.Once
+	imageManager                        ImageManager
+	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -116,7 +119,20 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		imageManager:               imageManager,
 	}
 
+	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
+
 	return dockerTaskEngine
+}
+
+func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
+	containerStatusToTransitionFunction := map[api.ContainerStatus]transitionApplyFunc{
+		api.ContainerPulled:               engine.pullContainer,
+		api.ContainerCreated:              engine.createContainer,
+		api.ContainerRunning:              engine.startContainer,
+		api.ContainerResourcesProvisioned: engine.provisionContainerResources,
+		api.ContainerStopped:              engine.stopContainer,
+	}
+	engine.containerStatusToTransitionFunction = containerStatusToTransitionFunction
 }
 
 // ImagePullDeleteLock ensures that pulls and deletes do not run at the same time and pulls can be run at the same time for docker >= 1.11.1
@@ -456,8 +472,6 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	return nil
 }
 
-type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
-
 func tryApplyTransition(task *api.Task, container *api.Container, to api.ContainerStatus, f transitionApplyFunc) DockerContainerMetadata {
 	return f(task, container)
 }
@@ -680,13 +694,7 @@ func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
 }
 
 func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
-	return map[api.ContainerStatus]transitionApplyFunc{
-		api.ContainerPulled:               engine.pullContainer,
-		api.ContainerCreated:              engine.createContainer,
-		api.ContainerRunning:              engine.startContainer,
-		api.ContainerResourcesProvisioned: engine.provisionContainerResources,
-		api.ContainerStopped:              engine.stopContainer,
-	}
+	return engine.containerStatusToTransitionFunction
 }
 
 // applyContainerState moves the container to the given state
