@@ -16,19 +16,22 @@ DEB_SIGN ?= 1
 
 .PHONY: dev generate lint static test build-mock-images sources rpm srpm
 
-dev:
+dev: ecs-init/version/version.go
 	./scripts/gobuild.sh dev
 
 generate:
 	PATH=$(PATH):$(shell pwd)/scripts go generate -v ./...
 
+ecs-init/version/version.go:
+	./scripts/update-version.sh
+
 lint:
 	./scripts/lint.sh
 
-static:
+static: ecs-init/version/version.go
 	./scripts/gobuild.sh
 
-gotest:
+gotest: ecs-init/version/version.go
 	GOPATH="$(shell pwd)/ecs-init/Godeps/_workspace:$(GOPATH)" go test -short -v -cover ./...
 
 test: generate lint gotest
@@ -42,7 +45,7 @@ build-mock-images:
 	docker build -t "test.localhost/amazon/wants-update" -f "scripts/dockerfiles/wants-update.dockerfile" .
 	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
-sources.tgz:
+sources.tgz: ecs-init/version/version.go
 	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
@@ -93,3 +96,4 @@ clean:
 	-rm ./x86_64 -r
 	-rm ./amazon-ecs-init_${VERSION}*
 	-rm .srpm-done .rpm-done
+	-rm ecs-init/version/version.go
