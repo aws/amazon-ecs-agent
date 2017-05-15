@@ -13,15 +13,15 @@
 
 // Package version contains constants to indicate the current version of the
 // ecs-init. The values of the symbols defined here are expected to be
-// provided at build time via ldflags, e.g. "-ldflags '-X version.Version 1.2.3'"
+// provided at build time via ldflags, e.g. "-ldflags '-X version.Version=1.2.3'"
 
 package version
 
 // Version is the version of the ecs-init
-const Version string
+var Version string = "unknown"
 
 // GitDirty indicates the cleanliness of the git repo when this ecs-init was built
-const GitDirty string
+var GitDirty string = "true"
 
 // GitShortHash is the short hash of this ecs-init build
-const GitShortHash string
+var GitShortHash = "unknown"
