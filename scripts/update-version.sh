@@ -16,6 +16,11 @@
 # This script will update the information of the ecs-init during building
 set -e -x
 
+# DO NOT COMMIT:
+# This script is now a no-op. Clean the build up, commit a static file,
+# and remove the script completely.
+exit 0
+
 CURRENTDIR=$(dirname "${0}")
 version=$(cat "${CURRENTDIR}"/../ecs-init/VERSION)
 git_hash=$(git rev-parse --short HEAD)
@@ -46,11 +51,11 @@ cat << EOF > "${CURRENTDIR}"/../ecs-init/version/version.go
 package version
 
 // Version is the version of the ecs-init
-const Version = "${version}"
+const Version string
 
 // GitDirty indicates the cleanliness of the git repo when this ecs-init was built
-const GitDirty = ${git_dirty}
+const GitDirty string
 
 // GitShortHash is the short hash of this ecs-init build
-const GitShortHash = "${git_hash}"
+const GitShortHash string
 EOF
