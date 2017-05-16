@@ -459,7 +459,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 // TaskEvents returns channels to read task and container state changes. These
 // changes should be read as soon as possible as them not being read will block
 // processing the task referenced by the event.
-func (engine *DockerTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
+func (engine *DockerTaskEngine) TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange) {
 	return engine.taskEvents, engine.containerEvents
 }
 

@@ -44,6 +44,7 @@ type ContainerStateChange struct {
 // TaskStateChange represents a state change that needs to be sent to the
 // SubmitTaskStateChange API
 type TaskStateChange struct {
+	Attachments []*ENIAttachmentStateChange
 	// TaskArn is the unique identifier for the task
 	TaskArn string
 	// Status is the status to send
@@ -59,10 +60,10 @@ type TaskStateChange struct {
 // ENIAttachmentStateChange represents a state change that needs to be sent to
 // SubmitTaskStateChange API to report the ENI attachment/detachment
 type ENIAttachmentStateChange struct {
-	TaskArn       string
+	// AttachmentArn is the unique identifier for the attach operation
 	AttachmentArn string
-	Status        string
-	Reason        string
+	// Status  is the status of the eni
+	Status string
 }
 
 // String returns a human readable string representation of this object

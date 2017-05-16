@@ -15,7 +15,9 @@ package handler
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -30,6 +32,7 @@ type attachENIHandler struct {
 	messageBuffer     chan *ecsacs.AttachTaskNetworkInterfacesMessage
 	ctx               context.Context
 	cancel            context.CancelFunc
+	saver             statemanager.Saver
 	cluster           *string
 	containerInstance *string
 	acsClient         wsclient.ClientServer
@@ -37,7 +40,7 @@ type attachENIHandler struct {
 }
 
 // newAttachENIHandler returns an instance of the attachENIHandler struct
-func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine) attachENIHandler {
+func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine, saver statemanager.Saver) attachENIHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return attachENIHandler{
@@ -48,6 +51,7 @@ func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceA
 		containerInstance: aws.String(containerInstanceArn),
 		acsClient:         acsClient,
 		taskEngine:        taskEngine,
+		saver:             saver,
 	}
 }
 
@@ -86,7 +90,7 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 	// Validate fields in the message
 	err := validateAttachTaskNetworkInterfacesMessage(message)
 	if err != nil {
-		return errors.Wrapf(err, "attach eni message handler: error validating AttachTaskNetworkInterfac message received from ECS: %v", err)
+		return errors.Wrapf(err, "attach eni message handler: error validating AttachTaskNetworkInterfac message received from ECS")
 	}
 	err = attachENIHandler.acsClient.MakeRequest(&ecsacs.AckRequest{
 		Cluster:           message.ClusterArn,
@@ -97,6 +101,10 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(message.MessageId), err)
 	}
 	attachENIHandler.addENIAttachmentToState(message)
+	err = attachENIHandler.saver.Save()
+	if err != nil {
+		return errors.Wrapf(err, "attach eni message handler: error save agent state")
+	}
 	return err
 }
 

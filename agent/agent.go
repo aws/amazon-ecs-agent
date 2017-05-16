@@ -243,7 +243,7 @@ func _main() int {
 	}
 
 	// Setup ENI Watcher
-	_, err = eniwatchersetup.New(ctx)
+	_, err = eniwatchersetup.New(ctx, state, taskEngine)
 	// TODO: Add capability/alternatives to determine task networking availability
 	if err != nil {
 		log.Errorf("Error setting up ENI Watcher: %v", err)

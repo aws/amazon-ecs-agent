@@ -18,6 +18,8 @@ package setup
 import (
 	"context"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	eniWatcher "github.com/aws/amazon-ecs-agent/agent/eni"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 
@@ -25,7 +27,7 @@ import (
 )
 
 // New returns an udev watcher
-func New(ctx context.Context) (*eniWatcher.UdevWatcher, error) {
+func New(ctx context.Context, state dockerstate.TaskEngineState, engine engine.TaskEngine) (*eniWatcher.UdevWatcher, error) {
 	log.Debug("Setting up ENI Watcher")
 
 	// Create UDev Monitor
@@ -34,13 +36,13 @@ func New(ctx context.Context) (*eniWatcher.UdevWatcher, error) {
 		log.Errorf("Error creating udev monitor: %v", err)
 		return nil, err
 	}
-	return initializeENIWatcher(ctx, udevMonitor)
+	return initializeENIWatcher(ctx, udevMonitor, state, engine)
 }
 
 // initializeENIWatcher wraps up the setup for creating the ENI Watcher
-func initializeENIWatcher(ctx context.Context, udevMonitor udevwrapper.Udev) (*eniWatcher.UdevWatcher, error) {
+func initializeENIWatcher(ctx context.Context, udevMonitor udevwrapper.Udev, state dockerstate.TaskEngineState, engine engine.TaskEngine) (*eniWatcher.UdevWatcher, error) {
 	// Create Watcher
-	watcher := eniWatcher.New(ctx, udevMonitor)
+	watcher := eniWatcher.New(ctx, udevMonitor, state, engine)
 	err := watcher.Init()
 	if err != nil {
 		log.Errorf("Error initializing ENI Watcher: %v", err)

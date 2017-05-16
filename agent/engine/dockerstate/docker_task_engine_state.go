@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/cihub/seelog"
 )
 
 var log = logger.ForModule("dockerstate")
@@ -48,7 +49,7 @@ type TaskEngineState interface {
 	// AddENIAttachment adds an eni attachment from acs to be stored
 	AddENIAttachment(eni *api.ENIAttachment)
 	// RemoveENIAttachment removes an eni attachment to stop tracking
-	RemoveENIAttachment(eni *api.ENIAttachment)
+	RemoveENIAttachment(mac string)
 	// ENIByMac returns the specific ENIAttachment of the given mac address
 	ENIByMac(mac string) (*api.ENIAttachment, bool)
 	// RemoveTask removes a task from the state
@@ -165,7 +166,13 @@ func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttac
 
 	state.lock.Lock()
 	defer state.lock.Unlock()
-	state.eniAttachments[eniAttachment.MacAddress] = eniAttachment
+
+	if _, ok := state.eniAttachments[eniAttachment.MacAddress]; !ok {
+		state.eniAttachments[eniAttachment.MacAddress] = eniAttachment
+	} else {
+		seelog.Debugf("Duplicate eni attachment information: %v", eniAttachment)
+	}
+
 }
 func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
 	if mac == "" {
@@ -175,8 +182,11 @@ func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	delete(state.eniAttachments, mac)
-
+	if _, ok := state.eniAttachments[mac]; ok {
+		delete(state.eniAttachments, mac)
+	} else {
+		seelog.Debugf("Delete non-existed eni attachment: %v", mac)
+	}
 }
 
 // ContainerByID returns an api.DockerContainer for a given container ID

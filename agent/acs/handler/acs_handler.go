@@ -265,7 +265,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
 	// Add handler to ack ENI attach message
-	eniAttachHandler := newAttachENIHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN, client)
+	eniAttachHandler := newAttachENIHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN, client, acsSession.taskEngine, acsSession.stateManager)
 	eniAttachHandler.start()
 	defer eniAttachHandler.stop()
 

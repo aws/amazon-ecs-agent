@@ -24,17 +24,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	eniUtils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 )
-
-// Watcher exposes a method to check if MACAddress is present in observed state
-type Watcher interface {
-	// IsMACAddressPresent returns a boolean to determine if MACAddress is present in observed state
-	IsMACAddressPresent(mac string) bool
-}
 
 // UdevWatcher maintains the state of attached ENIs
 // to the instance. It also has supporting elements to
@@ -50,8 +46,9 @@ type UdevWatcher struct {
 }
 
 // New is used to return an instance of the UdevWatcher struct
-func New(ctx context.Context, udevwrap udevwrapper.Udev) *UdevWatcher {
-	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New())
+func New(ctx context.Context, udevwrap udevwrapper.Udev, state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) *UdevWatcher {
+	taskEventChanel, _ := taskEngine.TaskEvents()
+	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New(state, taskEventChanel))
 }
 
 // _new is used to nest the return of the UdevWatcher struct
@@ -136,19 +133,9 @@ func (udevWatcher *UdevWatcher) reconcileOnce() {
 	log.Debug("Udev watcher reconciliation: end")
 }
 
-// IsMACAddressPresent checks if the MACAddress belongs to the maintained state
-func (udevWatcher *UdevWatcher) IsMACAddressPresent(macAddress string) bool {
-	return udevWatcher.state.IsMACAddressPresent(macAddress)
-}
-
-// getAllENIs is used to retrieve the state observed by the Watcher
-func (udevWatcher *UdevWatcher) getAllENIs() map[string]string {
-	return udevWatcher.state.GetAll()
-}
-
 // buildState is used to build a state of the system for reconciliation
 func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]string {
-	state := make(map[string]string, mapCapacityHint)
+	state := make(map[string]string)
 
 	for _, link := range links {
 		macAddress := link.Attrs().HardwareAddr.String()
@@ -182,11 +169,10 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 					log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
 					continue
 				}
-				udevWatcher.state.AddDeviceWithMACAddress(netInterface, macAddress)
+				udevWatcher.state.HandleENIEvent(macAddress)
 			case udevRemoveEvent:
 				netInterface := event.Env[udevInterface]
 				log.Debugf("Udev watcher event-handler: remove interface: %s", netInterface)
-				udevWatcher.state.RemoveDevice(netInterface)
 			}
 		case <-ctx.Done():
 			return

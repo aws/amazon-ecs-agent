@@ -32,7 +32,7 @@ type TaskEngine interface {
 	// TaskEvents will provide information about tasks that have been previously
 	// executed. Specifically, it will provide information when they reach
 	// running or stopped, as well as providing portbinding and other metadata
-	TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange)
+	TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange)
 	SetSaver(statemanager.Saver)
 
 	// AddTask adds a new task to the task engine and manages its container's
@@ -40,7 +40,7 @@ type TaskEngine interface {
 	AddTask(*api.Task) error
 
 	// AddENIAttachment adds a new eni information to the state
-	AddENIAttachment(*api.ENIAttachment) error
+	AddENIAttachment(*api.ENIAttachment)
 
 	// ListTasks lists all the tasks being managed by the TaskEngine.
 	ListTasks() ([]*api.Task, error)

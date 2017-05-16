@@ -557,6 +557,15 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()
 	mtask.engine.state.RemoveTask(mtask.Task)
+	eni, err := mtask.Task.GetTaskENI()
+	if err != nil {
+		seelog.Errorf("Acquire task eni failed, task: [%s], err: %v", mtask.Task.String(), err)
+	} else if eni == nil {
+		seelog.Debug("No eni associated with task: [%s]", mtask.Task.String())
+	} else {
+		seelog.Debug("Removing the eni from agent state, task: [%s]", mtask.Task.String())
+		mtask.engine.state.RemoveENIAttachment(eni.MacAddress)
+	}
 	seelog.Debug("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
 	delete(mtask.engine.managedTasks, mtask.Arn)
 	handleCleanupDone <- struct{}{}
