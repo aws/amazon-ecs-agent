@@ -15,6 +15,7 @@ package eventhandler
 
 import (
 	"container/list"
+	"errors"
 	"sync"
 	"time"
 
@@ -57,15 +58,26 @@ func NewTaskHandler() *TaskHandler {
 }
 
 // AddStateChangeEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddStateChangeEvent(change statechange.StateChangeEvent, client api.ECSClient) {
+func (handler *TaskHandler) AddStateChangeEvent(change statechange.StateChangeEvent, client api.ECSClient) error {
 	switch change.GetEventType() {
 	case statechange.TaskEvent:
-		se := newSendableTaskEvent(change.(api.TaskStateChange))
-		handler.addEvent(se, client)
+		event, ok := change.(api.TaskStateChange)
+		if !ok {
+			return errors.New("eventhandler: unable to get task event from state change event")
+		}
+		handler.addEvent(newSendableTaskEvent(event), client)
+		return nil
 
 	case statechange.ContainerEvent:
-		se := newSendableContainerEvent(change.(api.ContainerStateChange))
-		handler.addEvent(se, client)
+		event, ok := change.(api.ContainerStateChange)
+		if !ok {
+			return errors.New("eventhandler: unable to get container event from state change event")
+		}
+		handler.addEvent(newSendableContainerEvent(event), client)
+		return nil
+
+	default:
+		return errors.New("eventhandler: unable to determine event type from state change event")
 	}
 }
 

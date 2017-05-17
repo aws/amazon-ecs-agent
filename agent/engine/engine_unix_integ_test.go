@@ -104,24 +104,18 @@ func TestStartStopUnpulledImage(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			expectedEvent := expectedEvents[0]
-			expectedEvents = expectedEvents[1:]
-			if taskEvent.Status != expectedEvent {
-				t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
-			}
-			if len(expectedEvents) == 0 {
-				break
-			}
-		}
-	}
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+
 }
 
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
@@ -140,24 +134,17 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			expectedEvent := expectedEvents[0]
-			expectedEvents = expectedEvents[1:]
-			if taskEvent.Status != expectedEvent {
-				t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
-			}
-			if len(expectedEvents) == 0 {
-				break
-			}
-		}
-	}
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port
@@ -385,7 +372,6 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	var portBindings []api.PortBinding
-	// for contEvent := range contEvents {
 	for event := range stateChangeEvents {
 		if event.GetEventType() == statechange.ContainerEvent {
 			contEvent := event.(api.ContainerStateChange)
@@ -529,39 +515,21 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expectedEvents := []api.TaskStatus{api.TaskRunning}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			expectedEvent := expectedEvents[0]
-			expectedEvents = expectedEvents[1:]
-			if taskEvent.Status != expectedEvent {
-				t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
-			}
-			if len(expectedEvents) == 0 {
-				break
-			}
-		}
-	}
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn == testTask.Arn {
-				if !(taskEvent.Status >= api.TaskStopped) {
-					t.Error("Expected only terminal events; got " + taskEvent.Status.String())
-				}
-				break
-			}
-		}
-	}
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }
 
 func TestDockerAuth(t *testing.T) {
@@ -584,39 +552,21 @@ func TestDockerAuth(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	expectedEvents := []api.TaskStatus{api.TaskRunning}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			expectedEvent := expectedEvents[0]
-			expectedEvents = expectedEvents[1:]
-			if taskEvent.Status != expectedEvent {
-				t.Error("Got event " + taskEvent.Status.String() + " but expected " + expectedEvent.String())
-			}
-			if len(expectedEvents) == 0 {
-				break
-			}
-		}
-	}
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn == testTask.Arn {
-				if !(taskEvent.Status >= api.TaskStopped) {
-					t.Error("Expected only terminal events; got " + taskEvent.Status.String())
-				}
-				break
-			}
-		}
-	}
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }
 
 func TestVolumesFrom(t *testing.T) {
@@ -906,21 +856,19 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be running")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	// Kill the existing container now
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			if taskEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			if taskEvent.Status == api.TaskStopped {
-				break
-			}
-		}
-	}
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }

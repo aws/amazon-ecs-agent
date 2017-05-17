@@ -34,13 +34,16 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 
 		for stateChangeEvents != nil {
 			select {
-			case ev, ok := <-stateChangeEvents:
+			case event, ok := <-stateChangeEvents:
 				if !ok {
 					stateChangeEvents = nil
 					log.Error("stateChangeEvents closed")
 					break
 				}
-				eventhandler.AddStateChangeEvent(ev, client)
+				err := eventhandler.AddStateChangeEvent(event, client)
+				if err != nil {
+					log.Error("Handler unable to add state change event", "err", err, "event", event)
+				}
 			}
 		}
 	}
