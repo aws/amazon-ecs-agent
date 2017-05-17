@@ -13,11 +13,11 @@
 
 package statechange
 
-import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
+const (
+	ContainerEvent = iota
+	TaskEvent
 )
 
-type StateChangeEvent struct {
-	TaskEvent      *api.TaskStateChange
-	ContainerEvent *api.ContainerStateChange
+type StateChangeEvent interface {
+	GetEventType() int
 }

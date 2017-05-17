@@ -29,13 +29,19 @@ import (
 )
 
 func contEvent(arn string) statechange.StateChangeEvent {
-	ce := &api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
-	return statechange.StateChangeEvent{ContainerEvent: ce}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
+}
+
+func contEventStopped(arn string) statechange.StateChangeEvent {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
 }
 
 func taskEvent(arn string) statechange.StateChangeEvent {
-	te := &api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
-	return statechange.StateChangeEvent{TaskEvent: te}
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
+}
+
+func taskEventStopped(arn string) statechange.StateChangeEvent {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
 
 func TestSendsEventsOneContainer(t *testing.T) {
@@ -53,9 +59,9 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	contEvent2 := contEvent("2")
 	taskEvent2 := taskEvent("2")
 
-	client.EXPECT().SubmitContainerStateChange(*contEvent1.ContainerEvent).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitContainerStateChange(*contEvent2.ContainerEvent).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitTaskStateChange(*taskEvent2.TaskEvent).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent2.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(taskEvent2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
 
 	handler.AddStateChangeEvent(contEvent1, client)
 	handler.AddStateChangeEvent(contEvent2, client)
@@ -78,8 +84,8 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	contEvent1 := contEvent("1")
 
 	gomock.InOrder(
-		client.EXPECT().SubmitContainerStateChange(*contEvent1.ContainerEvent).Return(retriable).Do(func(interface{}) { wg.Done() }),
-		client.EXPECT().SubmitContainerStateChange(*contEvent1.ContainerEvent).Return(nil).Do(func(interface{}) { wg.Done() }),
+		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(retriable).Do(func(interface{}) { wg.Done() }),
+		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(nil).Do(func(interface{}) { wg.Done() }),
 	)
 
 	handler.AddStateChangeEvent(contEvent1, client)
@@ -143,11 +149,10 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 
 	// Test container event replacement doesn't happen
 	contEventNotReplaced := contEvent("notreplaced1")
-	contEventSortaRedundant := contEvent("notreplaced1")
-	contEventSortaRedundant.ContainerEvent.Status = api.ContainerStopped
+	contEventSortaRedundant := contEventStopped("notreplaced1")
 
-	client.EXPECT().SubmitContainerStateChange(*contEventNotReplaced.ContainerEvent).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitContainerStateChange(*contEventSortaRedundant.ContainerEvent).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEventNotReplaced.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEventSortaRedundant.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
 
 	handler.AddStateChangeEvent(contEventNotReplaced, client)
 	handler.AddStateChangeEvent(contEventSortaRedundant, client)
@@ -167,16 +172,15 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 
 	// Test task event replacement doesn't happen
 	notReplacedCont := contEvent("notreplaced2")
-	sortaRedundantCont := contEvent("notreplaced2")
-	sortaRedundantCont.ContainerEvent.Status = api.ContainerStopped
-	notReplacedTask := taskEvent("notreplaced")
-	sortaRedundantTask := taskEvent("notreplaced2")
-	sortaRedundantTask.TaskEvent.Status = api.TaskStopped
+	sortaRedundantCont := contEventStopped("notreplaced2")
 
-	client.EXPECT().SubmitContainerStateChange(*notReplacedCont.ContainerEvent).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitContainerStateChange(*sortaRedundantCont.ContainerEvent).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(*notReplacedTask.TaskEvent).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(*sortaRedundantTask.TaskEvent).Do(func(interface{}) { wait.Done() })
+	notReplacedTask := taskEvent("notreplaced")
+	sortaRedundantTask := taskEventStopped("notreplaced2")
+
+	client.EXPECT().SubmitContainerStateChange(notReplacedCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(notReplacedTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
 
 	handler.AddStateChangeEvent(notReplacedCont, client)
 	handler.AddStateChangeEvent(notReplacedTask, client)
@@ -198,20 +202,20 @@ func TestSendsEventsDedupe(t *testing.T) {
 
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent("alreadySent")
-	task1.TaskEvent.Task.SetSentStatus(api.TaskRunning)
+	task1.(api.TaskStateChange).Task.SetSentStatus(api.TaskRunning)
 	cont1 := contEvent("alreadySent")
-	cont1.ContainerEvent.Container.SetSentStatus(api.ContainerRunning)
+	cont1.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
 	handler.AddStateChangeEvent(task1, client)
 
 	task2 := taskEvent("containerSent")
-	task2.TaskEvent.Task.SetSentStatus(api.TaskStatusNone)
+	task2.(api.TaskStateChange).Task.SetSentStatus(api.TaskStatusNone)
 	cont2 := contEvent("containerSent")
-	cont2.ContainerEvent.Container.SetSentStatus(api.ContainerRunning)
+	cont2.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	// Expect to send a task status but not a container status
-	client.EXPECT().SubmitTaskStateChange(*task2.TaskEvent).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(task2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
 
 	handler.AddStateChangeEvent(cont2, client)
 	handler.AddStateChangeEvent(task2, client)

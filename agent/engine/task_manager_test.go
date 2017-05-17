@@ -356,7 +356,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 
 	go func() {
 		event := <-stateChangeEvents
-		assert.Equal(t, event.TaskEvent.Reason, taskUnableToTransitionToStoppedReason)
+		assert.Equal(t, event.(api.TaskStateChange).Reason, taskUnableToTransitionToStoppedReason)
 		eventsGenerated.Done()
 	}()
 

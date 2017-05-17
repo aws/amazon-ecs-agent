@@ -314,14 +314,14 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", taskKnownStatus.String())
 		return
 	}
-	event := &api.TaskStateChange{
+	event := api.TaskStateChange{
 		TaskArn: task.Arn,
 		Status:  taskKnownStatus,
 		Reason:  reason,
 		Task:    task,
 	}
 	log.Info("Task change event", "event", event)
-	engine.stateChangeEvents <- statechange.StateChangeEvent{TaskEvent: event}
+	engine.stateChangeEvents <- event
 }
 
 // startTask creates a managedTask construct to track the task and then begins
@@ -366,7 +366,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
-	event := &api.ContainerStateChange{
+	event := api.ContainerStateChange{
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
 		Status:        contKnownStatus,
@@ -376,7 +376,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 		Container:     cont,
 	}
 	log.Debug("Container change event", "event", event)
-	engine.stateChangeEvents <- statechange.StateChangeEvent{ContainerEvent: event}
+	engine.stateChangeEvents <- event
 	log.Debug("Container change event passed on", "event", event)
 }
 

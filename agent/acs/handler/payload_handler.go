@@ -20,7 +20,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
-	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -287,15 +286,13 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 	}
 
 	// Only need to stop the task; it brings down the containers too.
-	te := &api.TaskStateChange{
+	te := api.TaskStateChange{
 		TaskArn: *task.Arn,
 		Status:  api.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
 	}
 
-	payloadHandler.taskHandler.AddStateChangeEvent(statechange.StateChangeEvent{
-		TaskEvent: te,
-	}, payloadHandler.ecsClient)
+	payloadHandler.taskHandler.AddStateChangeEvent(te, payloadHandler.ecsClient)
 }
 
 // clearAcks drains the ack request channel

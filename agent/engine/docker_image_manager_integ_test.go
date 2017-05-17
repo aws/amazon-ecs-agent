@@ -374,7 +374,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	imageState2.PulledAt = imageState2.PulledAt.Add(-19 * time.Minute)
 	imageState3.PulledAt = imageState3.PulledAt.Add(-18 * time.Minute)
 
-	go discardEvents(taskEvents)
+	go discardEvents(stateChangeEvents)
 	// Wait for task to be stopped
 	waitForTaskStoppedByCheckStatus(task1)
 	waitForTaskStoppedByCheckStatus(task2)
@@ -503,7 +503,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	imageState1.LastUsedAt = imageState1.LastUsedAt.Add(-99995 * time.Hour)
 	imageState1.PulledAt = imageState1.PulledAt.Add(-20 * time.Minute)
 
-	go discardEvents(taskEvents)
+	go discardEvents(stateChangeEvents)
 	// Wait for the Task to be stopped
 	waitForTaskStoppedByCheckStatus(task1)
 	waitForTaskStoppedByCheckStatus(task2)

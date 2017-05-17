@@ -170,8 +170,8 @@ func TestSweepContainer(t *testing.T) {
 	expectedEvents := []api.TaskStatus{api.TaskRunning, api.TaskStopped}
 
 	for event := range stateChangeEvents {
-		taskEvent := event.TaskEvent
-		if taskEvent != nil {
+		if event.GetEventType() == statechange.TaskEvent {
+			taskEvent := event.(api.TaskStateChange)
 			if taskEvent.TaskArn != testTask.Arn {
 				continue
 			}
@@ -228,8 +228,8 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.StateChangeEvent, 
 	for {
 		select {
 		case event := <-stateChangeEvents:
-			taskEvent := event.TaskEvent
-			if taskEvent != nil {
+			if event.GetEventType() == statechange.TaskEvent {
+				taskEvent := event.(api.TaskStateChange)
 				for i, task := range testTasks {
 					if taskEvent.TaskArn != task.Arn {
 						continue
@@ -252,8 +252,8 @@ func verifyTaskIsStopped(stateChangeEvents <-chan statechange.StateChangeEvent, 
 	for {
 		select {
 		case event := <-stateChangeEvents:
-			taskEvent := event.TaskEvent
-			if taskEvent != nil {
+			if event.GetEventType() == statechange.TaskEvent {
+				taskEvent := event.(api.TaskStateChange)
 				for i, task := range testTasks {
 					if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
 						if len(testTasks) == 1 {

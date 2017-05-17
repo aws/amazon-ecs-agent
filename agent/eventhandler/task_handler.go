@@ -58,12 +58,14 @@ func NewTaskHandler() *TaskHandler {
 
 // AddStateChangeEvent queues up a state change for sending using the given client.
 func (handler *TaskHandler) AddStateChangeEvent(change statechange.StateChangeEvent, client api.ECSClient) {
-	if change.TaskEvent != nil {
-		handler.addEvent(newSendableTaskEvent(*change.TaskEvent), client)
-	}
+	switch change.GetEventType() {
+	case statechange.TaskEvent:
+		se := newSendableTaskEvent(change.(api.TaskStateChange))
+		handler.addEvent(se, client)
 
-	if change.ContainerEvent != nil {
-		handler.addEvent(newSendableContainerEvent(*change.ContainerEvent), client)
+	case statechange.ContainerEvent:
+		se := newSendableContainerEvent(change.(api.ContainerStateChange))
+		handler.addEvent(se, client)
 	}
 }
 
