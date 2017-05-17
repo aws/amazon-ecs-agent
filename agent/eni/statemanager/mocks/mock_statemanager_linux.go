@@ -18,7 +18,7 @@ package mock_statemanager
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	"github.com/vishvananda/netlink"
+	netlink "github.com/vishvananda/netlink"
 )
 
 // Mock of StateManager interface
@@ -42,30 +42,12 @@ func (_m *MockStateManager) EXPECT() *_MockStateManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockStateManager) AddDeviceWithMACAddress(_param0 string, _param1 string) {
-	_m.ctrl.Call(_m, "AddDeviceWithMACAddress", _param0, _param1)
+func (_m *MockStateManager) HandleENIEvent(_param0 string) {
+	_m.ctrl.Call(_m, "HandleENIEvent", _param0)
 }
 
-func (_mr *_MockStateManagerRecorder) AddDeviceWithMACAddress(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddDeviceWithMACAddress", arg0, arg1)
-}
-
-func (_m *MockStateManager) AddDeviceWithMACAddressUnsafe(_param0 string, _param1 string) {
-	_m.ctrl.Call(_m, "AddDeviceWithMACAddressUnsafe", _param0, _param1)
-}
-
-func (_mr *_MockStateManagerRecorder) AddDeviceWithMACAddressUnsafe(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddDeviceWithMACAddressUnsafe", arg0, arg1)
-}
-
-func (_m *MockStateManager) GetAll() map[string]string {
-	ret := _m.ctrl.Call(_m, "GetAll")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-func (_mr *_MockStateManagerRecorder) GetAll() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAll")
+func (_mr *_MockStateManagerRecorder) HandleENIEvent(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HandleENIEvent", arg0)
 }
 
 func (_m *MockStateManager) Init(_param0 []netlink.Link) {
@@ -76,52 +58,10 @@ func (_mr *_MockStateManagerRecorder) Init(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Init", arg0)
 }
 
-func (_m *MockStateManager) IsMACAddressPresent(_param0 string) bool {
-	ret := _m.ctrl.Call(_m, "IsMACAddressPresent", _param0)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-func (_mr *_MockStateManagerRecorder) IsMACAddressPresent(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsMACAddressPresent", arg0)
-}
-
 func (_m *MockStateManager) Reconcile(_param0 map[string]string) {
 	_m.ctrl.Call(_m, "Reconcile", _param0)
 }
 
 func (_mr *_MockStateManagerRecorder) Reconcile(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reconcile", arg0)
-}
-
-func (_m *MockStateManager) RemoveDevice(_param0 string) {
-	_m.ctrl.Call(_m, "RemoveDevice", _param0)
-}
-
-func (_mr *_MockStateManagerRecorder) RemoveDevice(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveDevice", arg0)
-}
-
-func (_m *MockStateManager) RemoveDeviceUnsafe(_param0 string) {
-	_m.ctrl.Call(_m, "RemoveDeviceUnsafe", _param0)
-}
-
-func (_mr *_MockStateManagerRecorder) RemoveDeviceUnsafe(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveDeviceUnsafe", arg0)
-}
-
-func (_m *MockStateManager) RemoveDeviceWithMACAddress(_param0 string) {
-	_m.ctrl.Call(_m, "RemoveDeviceWithMACAddress", _param0)
-}
-
-func (_mr *_MockStateManagerRecorder) RemoveDeviceWithMACAddress(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveDeviceWithMACAddress", arg0)
-}
-
-func (_m *MockStateManager) RemoveDeviceWithMACAddressUnsafe(_param0 string) {
-	_m.ctrl.Call(_m, "RemoveDeviceWithMACAddressUnsafe", _param0)
-}
-
-func (_mr *_MockStateManagerRecorder) RemoveDeviceWithMACAddressUnsafe(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveDeviceWithMACAddressUnsafe", arg0)
 }

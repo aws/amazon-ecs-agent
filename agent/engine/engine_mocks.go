@@ -49,6 +49,14 @@ func (_m *MockTaskEngine) EXPECT() *_MockTaskEngineRecorder {
 	return _m.recorder
 }
 
+func (_m *MockTaskEngine) AddENIAttachment(_param0 *api.ENIAttachment) {
+	_m.ctrl.Call(_m, "AddENIAttachment", _param0)
+}
+
+func (_mr *_MockTaskEngineRecorder) AddENIAttachment(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddENIAttachment", arg0)
+}
+
 func (_m *MockTaskEngine) AddTask(_param0 *api.Task) error {
 	ret := _m.ctrl.Call(_m, "AddTask", _param0)
 	ret0, _ := ret[0].(error)
@@ -136,10 +144,10 @@ func (_mr *_MockTaskEngineRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
+func (_m *MockTaskEngine) TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange) {
 	ret := _m.ctrl.Call(_m, "TaskEvents")
-	ret0, _ := ret[0].(<-chan api.TaskStateChange)
-	ret1, _ := ret[1].(<-chan api.ContainerStateChange)
+	ret0, _ := ret[0].(chan api.TaskStateChange)
+	ret1, _ := ret[1].(chan api.ContainerStateChange)
 	return ret0, ret1
 }
 
