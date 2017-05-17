@@ -682,6 +682,11 @@ func (engine *DockerTaskEngine) BuildCNIConfigFromTaskContainer(task *api.Task, 
 	if err != nil {
 		return nil, err
 	}
+
+	if eni == nil {
+		return nil, errors.New("engine: no eni acquired from the task")
+	}
+
 	cfg.ENIID = eni.ID
 
 	// Get the pid of container

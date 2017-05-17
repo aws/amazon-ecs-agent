@@ -782,11 +782,14 @@ func (task *Task) GetTaskENI() (*ENI, error) {
 	task.enisLock.RLock()
 	defer task.enisLock.RUnlock()
 
-	if len(task.enis) != 1 {
-		return nil, errors.Errorf("getTaskEni api: task has %d enis associated", len(task.enis))
+	if len(task.enis) == 0 {
+		return nil, nil
+	}
+	if len(task.enis) == 1 {
+		return task.enis[0], nil
 	}
 
-	return task.enis[0], nil
+	return nil, errors.Errorf("getTaskEni api: task has %d enis associated", len(task.enis))
 }
 
 // String returns a human readable string representation of this object
