@@ -32,6 +32,8 @@ type TaskEngineState interface {
 	AllTasks() []*api.Task
 	// AllImageStates returns all of the image.ImageStates
 	AllImageStates() []*image.ImageState
+	// GetAllContainerIDs returns all of the Container Ids
+	GetAllContainerIDs() []string
 	// ContainerByID returns an api.DockerContainer for a given container ID
 	ContainerByID(id string) (*api.DockerContainer, bool)
 	// ContainerMapByArn returns a map of containers belonging to a particular task ARN
@@ -128,6 +130,19 @@ func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
 	return allImageStates
 }
 
+// GetAllContainerIDs returns all of the Container Ids
+func (state *DockerTaskEngineState) GetAllContainerIDs() []string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	var ids []string
+	for id := range state.idToTask {
+		ids = append(ids, id)
+	}
+
+	return ids
+}
+
 // ContainerByID returns an api.DockerContainer for a given container ID
 func (state *DockerTaskEngineState) ContainerByID(id string) (*api.DockerContainer, bool) {
 	state.lock.RLock()
@@ -148,17 +163,15 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 
 // TaskByShortID retrieves the task of a given docker short container id
 func (state *DockerTaskEngineState) TaskByShortID(cid string) ([]*api.Task, bool) {
-	state.lock.RLock()
-	defer state.lock.RUnlock()
-
+	containerIDs := state.GetAllContainerIDs()
 	var tasks []*api.Task
-	for id := range state.idToTask {
+	for _, id := range containerIDs {
 		if strings.HasPrefix(id, cid) {
-			task, _ := state.TaskByID(id)
-			tasks = append(tasks, task)
+			if task, ok := state.TaskByID(id); ok {
+				tasks = append(tasks, task)
+			}
 		}
 	}
-
 	return tasks, len(tasks) > 0
 }
 

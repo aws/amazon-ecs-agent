@@ -87,6 +87,16 @@ func (_mr *_MockTaskEngineStateRecorder) AllTasks() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AllTasks")
 }
 
+func (_m *MockTaskEngineState) GetAllContainerIDs() []string {
+	ret := _m.ctrl.Call(_m, "GetAllContainerIDs")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+func (_mr *_MockTaskEngineStateRecorder) GetAllContainerIDs() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllContainerIDs")
+}
+
 func (_m *MockTaskEngineState) ContainerByID(_param0 string) (*api.DockerContainer, bool) {
 	ret := _m.ctrl.Call(_m, "ContainerByID", _param0)
 	ret0, _ := ret[0].(*api.DockerContainer)
