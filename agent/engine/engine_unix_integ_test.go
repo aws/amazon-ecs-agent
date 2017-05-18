@@ -300,31 +300,13 @@ func TestDynamicPortForward(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	var portBindings []api.PortBinding
-PortsBound:
-	for {
-		select {
-		case event := <-stateChangeEvents:
-			if event.GetEventType() == statechange.ContainerEvent {
-				contEvent := event.(api.ContainerStateChange)
-				if contEvent.TaskArn != testTask.Arn {
-					continue
-				}
-				if contEvent.Status == api.ContainerRunning {
-					portBindings = contEvent.PortBindings
-					break PortsBound
-				} else if contEvent.Status > api.ContainerRunning {
-					t.Fatal("Container went straight to " + contEvent.Status.String() + " without running")
-				}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
-			} else if event.GetEventType() == statechange.TaskEvent {
-				taskEvent := event.(api.TaskStateChange)
-				if taskEvent.Status == api.TaskStopped {
-					t.Fatal("Task stopped")
-				}
-			}
-		}
-	}
+	portBindings := event.(api.ContainerStateChange).PortBindings
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	if len(portBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
@@ -354,7 +336,12 @@ PortsBound:
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -371,21 +358,13 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	var portBindings []api.PortBinding
-	for event := range stateChangeEvents {
-		if event.GetEventType() == statechange.ContainerEvent {
-			contEvent := event.(api.ContainerStateChange)
-			if contEvent.TaskArn != testTask.Arn {
-				continue
-			}
-			if contEvent.Status == api.ContainerRunning {
-				portBindings = contEvent.PortBindings
-				break
-			} else if contEvent.Status > api.ContainerRunning {
-				t.Fatal("Task went straight to " + contEvent.Status.String() + " without running")
-			}
-		}
-	}
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	portBindings := event.(api.ContainerStateChange).PortBindings
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	if len(portBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
@@ -434,7 +413,11 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 }
 
 // TestLinking ensures that container linking does allow networking to go
