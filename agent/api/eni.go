@@ -43,6 +43,17 @@ type ENIIPV6Address struct {
 // ENIFromACS read the information from acs message and create the ENI object
 func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) []*ENI {
 	var enis []*ENI
+	// Only one eni should be associated with the task
+	// Only one ipv4 should be associated with the eni
+	// ONly one ipv6 should be associated with the eni
+	if len(acsenis) != 1 {
+		return nil
+	} else if len(acsenis[0].Ipv4Addresses) != 1 {
+		return nil
+	} else if len(acsenis[0].Ipv6Addresses) != 1 {
+		return nil
+	}
+
 	for _, acseni := range acsenis {
 		var ipv4 []*ENIIPV4Address
 		var ipv6 []*ENIIPV6Address

@@ -640,12 +640,11 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {
 	seelog.Infof("Task [%s]: Setting up container resources for container [%s]", task.String(), container.String())
-
-	cniConfig, err := engine.BuildCNIConfigFromTaskContainer(task, container)
+	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
-			Error:    NetworkNamespaceError{errors.Wrap(err, "provisionContainerResources: build cni configuration error")},
+			Error:    ContainerNetworkingError{errors.Wrap(err, "provisionContainerResources: build cni configuration error")},
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
@@ -654,10 +653,11 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
-			Error:    NetworkNamespaceError{errors.Wrap(err, "provisionContainerResources: setup network namespace error")},
+			Error:    ContainerNetworkingError{errors.Wrap(err, "provisionContainerResources: setup network namespace error")},
 		}
 	}
 
+	fmt.Println("nil? ", engine.cniClient)
 	return DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -667,7 +667,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, container *api.Container) error {
 	seelog.Infof("Task [%s]: Cleaning up the network namespace", task.String())
 
-	cniConfig, err := engine.BuildCNIConfigFromTaskContainer(task, container)
+	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return errors.Wrapf(err, "engine: failed cleanup task network namespace, task: %s", task.String())
 	}
@@ -675,13 +675,9 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 	return engine.cniClient.CleanupNS(cniConfig)
 }
 
-func (engine *DockerTaskEngine) BuildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
+func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
 	cfg := &ecscni.Config{}
-
-	eni, err := task.GetTaskENI()
-	if err != nil {
-		return nil, err
-	}
+	eni := task.GetTaskENI()
 
 	if eni == nil {
 		return nil, errors.New("engine: no eni acquired from the task")
@@ -740,7 +736,7 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	if container.Type == api.ContainerCNIPause {
 		err := engine.cleanupPauseContainerNetwork(task, container)
 		if err != nil {
-			seelog.Errorf("engine: cleanup pause container network namespace error, task: %s", task.String())
+			seelog.Errorf("Engine: cleanup pause container network namespace error, task: %s", task.String())
 		}
 		seelog.Infof("Cleaned pause container network namespace, task: %s", task.String())
 	}
@@ -957,7 +953,7 @@ func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
 		for _, plugin := range plugins {
 			version, err := engine.cniClient.Version(plugin)
 			if err != nil {
-				log.Error("engine: Check version of plugin %s failed", plugin)
+				log.Error("Engine: Check version of plugin %s failed", plugin)
 				return nil, false
 			}
 			attributes = append(attributes, fmt.Sprintf("%s%s-%s-%s", attributePrefix, capabilityPlugin, plugin, version))

@@ -778,18 +778,15 @@ func (task *Task) SetTaskENIs(enis []*ENI) {
 }
 
 // GetTaskENI returns the eni of task, for now task can only have one enis
-func (task *Task) GetTaskENI() (*ENI, error) {
+func (task *Task) GetTaskENI() *ENI {
 	task.enisLock.RLock()
 	defer task.enisLock.RUnlock()
 
 	if len(task.enis) == 0 {
-		return nil, nil
-	}
-	if len(task.enis) == 1 {
-		return task.enis[0], nil
+		return nil
 	}
 
-	return nil, errors.Errorf("getTaskEni api: task has %d enis associated", len(task.enis))
+	return task.enis[0]
 }
 
 // String returns a human readable string representation of this object

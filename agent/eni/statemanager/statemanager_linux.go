@@ -78,8 +78,6 @@ func (statemanager *stateManager) HandleENIEvent(mac string) {
 	eni, ok := statemanager.ENIStateChangeShouldBeSent(mac)
 	if ok {
 		statemanager.emitENIAttachmentEvent(api.TaskStateChange{
-			//TODO confirm whether the task arn is required?
-			//TaskArn: eni.TaskArn,
 			Attachments: []*api.ENIAttachmentStateChange{
 				&api.ENIAttachmentStateChange{
 					AttachmentArn: eni.AttachmentArn,

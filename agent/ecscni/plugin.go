@@ -44,15 +44,10 @@ func NewClient(cfg *Config) CNIClient {
 // SetupNS will set up the namespace of container, including create the bridge
 // and the veth pair, move the eni to container namespace, setup the routes
 func (client *cniClient) SetupNS(cfg *Config) error {
-	vethName := defaultEthName
-	if cfg.VethName != "" {
-		vethName = cfg.VethName
-	}
-
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
-		IfName:      vethName,
+		IfName:      defaultEthName,
 	}
 
 	netConfigList, err := client.constructNetworkConfig(cfg)
@@ -73,15 +68,10 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 // CleanupNS will clean up the container namespace, including remove the veth
 // pair, release the ip address in ipam
 func (client *cniClient) CleanupNS(cfg *Config) error {
-	vethName := defaultEthName
-	if cfg.VethName != "" {
-		vethName = cfg.VethName
-	}
-
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
-		IfName:      vethName,
+		IfName:      defaultEthName,
 	}
 
 	netConfigList, err := client.constructNetworkConfig(cfg)
@@ -113,14 +103,14 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		},
 	}
 
-	BridgeName := defaultBridgeName
+	bridgeName := defaultBridgeName
 	if cfg.BridgeName != "" {
-		BridgeName = cfg.BridgeName
+		bridgeName = cfg.BridgeName
 	}
 	bridgeConf := BridgeConfig{
 		Type:       "bridge",
 		CNIVersion: client.cniVersion,
-		BridgeName: BridgeName,
+		BridgeName: bridgeName,
 		IsGW:       true,
 		IPAM:       ipamConf,
 	}

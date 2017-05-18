@@ -38,52 +38,89 @@ const (
 )
 
 type IPAMConfig struct {
-	Type        string         `json:"type,omitempty"`
-	ID          string         `json:"id,omitempty"`
-	CNIVersion  string         `json:"cniVersion,omitempty"`
-	IPV4Subnet  string         `json:"ipv4-subnet,omitempty"`
-	IPV4Address string         `json:"ipv4-address,omitempty"`
-	IPV4Gateway string         `json:"ipv4-gateway,omitempty"`
-	IPV4Routes  []*types.Route `json:"ipv4-routes,omitempty"`
+	// Type is the cni plugin name
+	Type string `json:"type,omitempty"`
+	// ID is the information stored in the ipam along with ip as key-value pair
+	ID string `json:"id,omitempty"`
+	// CNIVersion is the cni spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// IPV4Subnet is the ip address range managed by ipam
+	IPV4Subnet string `json:"ipv4-subnet,omitempty"`
+	// IPV4Address is the ip address to deal with(assign or release) in ipam
+	IPV4Address string `json:"ipv4-address,omitempty"`
+	// IPV4Gateway is the gateway returned by ipam, defalut the '.1' in the subnet
+	IPV4Gateway string `json:"ipv4-gateway,omitempty"`
+	// IPV4Routes is the route to added in the containerr namespace
+	IPV4Routes []*types.Route `json:"ipv4-routes,omitempty"`
 }
 
 type BridgeConfig struct {
-	Type         string     `json:"type,omitempty"`
-	CNIVersion   string     `json:"cniVersion,omitempty"`
-	BridgeName   string     `json:"bridge"`
-	IsGW         bool       `json:"isGateway"`
-	IsDefaultGW  bool       `json:"isDefaultGateway"`
-	ForceAddress bool       `json:"forceAddress"`
-	IPMasq       bool       `json:"ipMasq"`
-	MTU          int        `json:"mtu"`
-	HairpinMode  bool       `json:"hairpinMode"`
-	IPAM         IPAMConfig `json:"ipam,omitempty"`
+	// Type is the cni plugin name
+	Type string `json:"type,omitempty"`
+	// CNIVersion is the cni spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// BridgeName is the name of bridge
+	BridgeName string `json:"bridge"`
+	// IsGw indicates whether the bridge act as a gateway, it determines whether
+	// an ip address needs to assign to the bridge
+	IsGW bool `json:"isGateway"`
+	// IsDefaultGW indicates whether the bridge is the gateway of the container
+	IsDefaultGW bool `json:"isDefaultGateway"`
+	// ForceAddress indicates whether a new ip should be assigned if the bridge
+	// has already a different ip
+	ForceAddress bool `json:"forceAddress"`
+	// IPMasq indicates whether to setup the IP Masquerade for traffic originating
+	// from this network
+	IPMasq bool `json:"ipMasq"`
+	// MTU sets MTU of the bridge interface
+	MTU int `json:"mtu"`
+	// HairpinMode sets the hairpin mode of interface on the bridge
+	HairpinMode bool `json:"hairpinMode"`
+	// IPAM is the configuration to acquire ip/route from ipam plugin
+	IPAM IPAMConfig `json:"ipam,omitempty"`
 }
 
 type ENIConfig struct {
-	Type        string `json:"type,omitempty"`
-	CNIVersion  string `json:"cniVersion,omitempty"`
-	ENIID       string `json:"eni"`
+	// Type is the cni plugin name
+	Type string `json:"type,omitempty"`
+	// CNIVersion is the cni spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// ENIID is the id of ec2 eni
+	ENIID string `json:"eni"`
+	// IPV4Address is the ipv4 of eni
 	IPV4Address string `json:"ipv4-address"`
+	// IPV6Address is the ipv6 of eni
 	IPV6Address string `json:"ipv6-address, omitempty"`
-	MACAddress  string `json:"mac"`
+	// MacAddress is the mac address of eni
+	MACAddress string `json:"mac"`
 }
 
 type Config struct {
-	PluginsPath            string
+	// PluginsPath indicates the path where cni plugins are located
+	PluginsPath string
+	// MinSupportedCNIVersion is the minimum cni spec version supported
 	MinSupportedCNIVersion string
-	ENIID                  string
-	ContainerID            string
-	ContainerPID           string
-	ENIIPV4Address         string
-	ENIIPV6Address         string
-	ENIMACAddress          string
-	BridgeName             string
-	IPAMV4Address          string
-	VethName               string
-	ID                     string
+	//  ENIID is the id of ec2 eni
+	ENIID string
+	// ContainerID is the id of container of which to set up the network namespace
+	ContainerID string
+	// ContainerPID is the pid of the container
+	ContainerPID string
+	// ENIIPV4Address is the ipv4 assigned to the eni
+	ENIIPV4Address string
+	//ENIIPV6Address is the ipv6 assigned to the eni
+	ENIIPV6Address string
+	// ENIMACAddress is the mac address of the eni
+	ENIMACAddress string
+	// BridgeName is the name used to create the bridge
+	BridgeName string
+	// IPAMV4Address is the ipv4 used to assign from ipam
+	IPAMV4Address string
+	// ID is the information associate with ip in ipam
+	ID string
 }
 
+// cniClient is the client to call plugin and setup the network
 type cniClient struct {
 	pluginsPath string
 	cniVersion  string
