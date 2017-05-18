@@ -186,7 +186,7 @@ func (engine *MockTaskEngine) Init() error {
 func (engine *MockTaskEngine) MustInit() {
 }
 
-func (engine *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
+func (engine *MockTaskEngine) TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange) {
 	return make(chan api.TaskStateChange), make(chan api.ContainerStateChange)
 }
 
@@ -195,6 +195,9 @@ func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {
 
 func (engine *MockTaskEngine) AddTask(*api.Task) error {
 	return nil
+}
+
+func (engine *MockTaskEngine) AddENIAttachment(*api.ENIAttachment) {
 }
 
 func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {

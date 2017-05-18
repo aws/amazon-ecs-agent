@@ -45,6 +45,7 @@ func init() {
 		ecsacs.AccessDeniedException{},
 		ecsacs.InactiveInstanceException{},
 		ecsacs.ErrorMessage{},
+		ecsacs.AttachTaskNetworkInterfacesMessage{},
 	}
 }
 
