@@ -2,7 +2,7 @@
 This file is derived from the Kubernetes Project, Copyright 2016 The Kubernetes Authors.
 
 The original code may be found at:
- https://github.com/kubernetes/kubernetes/blob/c25c186ec544cf3501a31e77e8fbabce7b138b49/build/pause/pause.c
+ https://github.com/kubernetes/kubernetes/blob/17b22cb01c647d50ed186c8a94f9c7aa2d9bcd2e/build/pause/pause.c
 
 Copyright 2016 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,14 +29,13 @@ static void sigdown(int signo) {
 }
 
 static void sigreap(int signo) {
-  while (waitpid(-1, NULL, WNOHANG) > 0)
-    ;
+  while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
 int main() {
   if (getpid() != 1)
     /* Not an error because pause sees use outside of infra containers. */
-    fprintf(stderr, "Warning: pause should be the first process in a pod\n");
+    fprintf(stderr, "Warning: pause should be the first process\n");
 
   if (sigaction(SIGINT, &(struct sigaction){.sa_handler = sigdown}, NULL) < 0)
     return 1;
