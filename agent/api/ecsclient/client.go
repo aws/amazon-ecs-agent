@@ -291,12 +291,25 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return nil
 	}
 
-	status := change.Status.String()
+	var attachments []*ecs.AttachmentStateChange
+
+	if change.Attachments != nil {
+		eniStatus := change.Attachments.Status.String()
+		attachments = []*ecs.AttachmentStateChange{
+			{
+				AttachmentArn: &change.Attachments.AttachmentArn,
+				Status:        &eniStatus,
+			},
+		}
+	}
+
+	taskStatus := change.Status.String()
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-		Cluster: &client.config.Cluster,
-		Task:    &change.TaskArn,
-		Status:  &status,
-		Reason:  &change.Reason,
+		Cluster:     &client.config.Cluster,
+		Task:        &change.TaskArn,
+		Status:      &taskStatus,
+		Reason:      &change.Reason,
+		Attachments: attachments,
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)

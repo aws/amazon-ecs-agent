@@ -14,14 +14,19 @@
 package api
 
 import (
+	"sync"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ENIAttachment struct {
-	AttachmentArn    string `json:"attachmentArn"`
-	AttachStatusSent bool   `json:"attachSent"`
-	MacAddress       string `json:"macAddress"`
+	TaskArn          string              `json:"taskarn"`
+	AttachmentArn    string              `json:"attachmentArn"`
+	AttachStatusSent bool                `json:"attachSent"`
+	MacAddress       string              `json:"macAddress"`
+	Status           ENIAttachmentStatus `json:"status"`
+	sentStatusLock   sync.RWMutex
 }
 
 type ENI struct {
@@ -82,4 +87,18 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) []*ENI {
 	}
 
 	return enis
+}
+
+func (eni *ENIAttachment) GetStatusSent() bool {
+	eni.sentStatusLock.RLock()
+	defer eni.sentStatusLock.RLock()
+
+	return eni.AttachStatusSent
+}
+
+func (eni *ENIAttachment) SetStatusSent() {
+	eni.sentStatusLock.Lock()
+	defer eni.sentStatusLock.RLock()
+
+	eni.AttachStatusSent = true
 }

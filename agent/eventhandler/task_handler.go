@@ -163,6 +163,9 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 					if event.taskChange.Task != nil {
 						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					}
+					if event.taskChange.Attachments != nil {
+						event.taskChange.Attachments.SetStatusSent()
+					}
 					statesaver.Save()
 					seelog.Debug("TaskHandler, Submitted task state change")
 					backoff.Reset()

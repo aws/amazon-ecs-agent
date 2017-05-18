@@ -61,7 +61,7 @@ func (statemanager *stateManager) ENIStateChangeShouldBeSent(macAddress string) 
 			return nil, false
 		}
 
-		if eni.AttachStatusSent {
+		if eni.GetStatusSent() {
 			log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
 			return eni, false
 		}
@@ -77,13 +77,10 @@ func (statemanager *stateManager) ENIStateChangeShouldBeSent(macAddress string) 
 func (statemanager *stateManager) HandleENIEvent(mac string) {
 	eni, ok := statemanager.ENIStateChangeShouldBeSent(mac)
 	if ok {
+		eni.Status = api.ENIAttached
 		statemanager.emitENIAttachmentEvent(api.TaskStateChange{
-			Attachments: []*api.ENIAttachmentStateChange{
-				&api.ENIAttachmentStateChange{
-					AttachmentArn: eni.AttachmentArn,
-					Status:        "Attached",
-				},
-			},
+			TaskArn:     eni.TaskArn,
+			Attachments: eni,
 		})
 	}
 }

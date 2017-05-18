@@ -115,6 +115,7 @@ func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachT
 	seelog.Info("Adding eni info to state, eni: %s", attachmentArn)
 	handler.taskEngine.AddENIAttachment(
 		&api.ENIAttachment{
+			TaskArn:          aws.StringValue(message.TaskArn),
 			AttachmentArn:    attachmentArn,
 			AttachStatusSent: false,
 			MacAddress:       aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress),

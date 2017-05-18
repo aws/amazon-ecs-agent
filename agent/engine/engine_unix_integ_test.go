@@ -938,6 +938,8 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	cancel := discardEvents(taskEvents)
+
 	for contEvent := range contEvents {
 		if contEvent.TaskArn != testTask.Arn {
 			continue
@@ -950,9 +952,8 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 		}
 	}
 
+	cancel()
 	defer discardEvents(contEvents)()
-	defer discardEvents(taskEvents)()
-
 	// Kill the existing container now
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
