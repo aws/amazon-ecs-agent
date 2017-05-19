@@ -18,16 +18,32 @@ export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
 export GOPATH="${TOPWD}/ecs-init/Godeps/_workspace:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
+
+version=$(cat "${TOPWD}/ecs-init/VERSION")
+git_hash=$(git rev-parse --short HEAD)
+git_dirty=false
+
+if [[ "$(git status --porcelain)" != "" ]]; then
+	git_dirty=true
+fi
+
+VERSION_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.Version=${version}"
+GIT_HASH_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitShortHash=${git_hash}"
+GIT_DIRTY_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitDirty=${git_dirty}"
+
 mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"
 cd "${SRCPATH}/ecs-init"
 if [[ "$1" == "dev" ]]; then
-	go build -tags 'development' -o "${TOPWD}/amazon-ecs-init"
+	go build -tags 'development' -ldflags "${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+	   -o "${TOPWD}/amazon-ecs-init"
 else
 	tags=""
 	if [[ "$1" != "" ]]; then
 		tags="-tags '$1'"
 	fi
-	CGO_ENABLED=0 go build -a ${tags} -x -ldflags '-s' -o "${TOPWD}/amazon-ecs-init"
+	CGO_ENABLED=0 go build -a ${tags} -x -ldflags '-s' \
+		   -ldflags "${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+		   -o "${TOPWD}/amazon-ecs-init"
 fi
 rm -r "${BUILDDIR}"

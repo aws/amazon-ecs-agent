@@ -14,7 +14,7 @@
 VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
 DEB_SIGN ?= 1
 
-.PHONY: dev generate lint static test build-mock-images sources rpm
+.PHONY: dev generate lint static test build-mock-images sources rpm srpm
 
 dev:
 	./scripts/gobuild.sh dev
@@ -42,17 +42,28 @@ build-mock-images:
 	docker build -t "test.localhost/amazon/wants-update" -f "scripts/dockerfiles/wants-update.dockerfile" .
 	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
-sources:
-	./scripts/update-version.sh
+sources.tgz:
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
 	tar -czf ./sources.tgz ecs-init scripts
 
-srpm: sources
-	rpmbuild -bs ecs-init.spec
+sources: sources.tgz
 
-rpm: sources
-	rpmbuild -bb ecs-init.spec
+.srpm-done: sources.tgz
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bs ecs-init.spec
+	find SRPMS/ -type f -exec cp {} . \;
+	touch .srpm-done
+
+srpm: .srpm-done
+
+.rpm-done: sources.tgz
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .rpm-done
+
+rpm: .rpm-done
 
 ubuntu-trusty:
 	cp packaging/ubuntu-trusty/ecs.conf ecs.conf
@@ -78,6 +89,7 @@ clean:
 	-rm ./amazon-ecs-init
 	-rm ./ecs-init-*.src.rpm
 	-rm ./ecs-init-* -r
-	-rm ./BUILDROOT -r
+	-rm -r ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
 	-rm ./x86_64 -r
 	-rm ./amazon-ecs-init_${VERSION}*
+	-rm .srpm-done .rpm-done
