@@ -84,10 +84,12 @@ func (t *TaskStateChange) String() string {
 	return res
 }
 
+// GetEventType() returns an enum identifying the event type
 func (c ContainerStateChange) GetEventType() int {
 	return statechange.ContainerEvent
 }
 
+// GetEventType() returns an enum identifying the event type
 func (t TaskStateChange) GetEventType() int {
 	return statechange.TaskEvent
 }

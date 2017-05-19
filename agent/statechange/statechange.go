@@ -18,6 +18,11 @@ const (
 	TaskEvent
 )
 
+// StateChangeEvent is used to abstract away the two transition event types
+// passed up through a single channel from the the engine
 type StateChangeEvent interface {
+
+	// GetEventType implementations should return one the enums defined above to
+	// identify the type of event being emitted
 	GetEventType() int
 }
