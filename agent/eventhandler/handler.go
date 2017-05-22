@@ -37,7 +37,7 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 			case event, ok := <-stateChangeEvents:
 				if !ok {
 					stateChangeEvents = nil
-					log.Error("stateChangeEvents closed")
+					log.Error("Unable to handle state change event. The events channel is closed")
 					break
 				}
 				err := eventhandler.AddStateChangeEvent(event, client)

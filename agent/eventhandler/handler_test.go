@@ -28,11 +28,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func contEvent(arn string) statechange.StateChangeEvent {
+func containerEvent(arn string) statechange.StateChangeEvent {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
 }
 
-func contEventStopped(arn string) statechange.StateChangeEvent {
+func containerEventStopped(arn string) statechange.StateChangeEvent {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
 }
 
@@ -55,8 +55,8 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	wg.Add(3)
 
 	// Trivial: one container, no errors
-	contEvent1 := contEvent("1")
-	contEvent2 := contEvent("2")
+	contEvent1 := containerEvent("1")
+	contEvent2 := containerEvent("2")
 	taskEvent2 := taskEvent("2")
 
 	client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
@@ -81,7 +81,7 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	wg.Add(2)
 
 	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
-	contEvent1 := contEvent("1")
+	contEvent1 := containerEvent("1")
 
 	gomock.InOrder(
 		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(retriable).Do(func(interface{}) { wg.Done() }),
@@ -115,7 +115,7 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	// concurrentEventCalls at once
 	// Put on N+1 events
 	for i := 0; i < concurrentEventCalls+1; i++ {
-		handler.AddStateChangeEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
+		handler.AddStateChangeEvent(containerEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
 	time.Sleep(10 * time.Millisecond)
 
@@ -148,8 +148,8 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	wg.Add(2)
 
 	// Test container event replacement doesn't happen
-	contEventNotReplaced := contEvent("notreplaced1")
-	contEventSortaRedundant := contEventStopped("notreplaced1")
+	contEventNotReplaced := containerEvent("notreplaced1")
+	contEventSortaRedundant := containerEventStopped("notreplaced1")
 
 	client.EXPECT().SubmitContainerStateChange(contEventNotReplaced.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
 	client.EXPECT().SubmitContainerStateChange(contEventSortaRedundant.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
@@ -171,8 +171,8 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	wait.Add(4)
 
 	// Test task event replacement doesn't happen
-	notReplacedCont := contEvent("notreplaced2")
-	sortaRedundantCont := contEventStopped("notreplaced2")
+	notReplacedCont := containerEvent("notreplaced2")
+	sortaRedundantCont := containerEventStopped("notreplaced2")
 
 	notReplacedTask := taskEvent("notreplaced")
 	sortaRedundantTask := taskEventStopped("notreplaced2")
@@ -203,7 +203,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent("alreadySent")
 	task1.(api.TaskStateChange).Task.SetSentStatus(api.TaskRunning)
-	cont1 := contEvent("alreadySent")
+	cont1 := containerEvent("alreadySent")
 	cont1.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
@@ -211,7 +211,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 
 	task2 := taskEvent("containerSent")
 	task2.(api.TaskStateChange).Task.SetSentStatus(api.TaskStatusNone)
-	cont2 := contEvent("containerSent")
+	cont2 := containerEvent("containerSent")
 	cont2.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	// Expect to send a task status but not a container status

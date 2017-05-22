@@ -234,7 +234,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	}
 
 	eventsGenerated := sync.WaitGroup{}
-	eventsGenerated.Add(3)
+	eventsGenerated.Add(2)
 	containerChangeEventStream.Subscribe(eventStreamName, func(events ...interface{}) error {
 		assert.NotNil(t, events)
 		assert.Len(t, events, 1)
@@ -247,12 +247,9 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	})
 	defer containerChangeEventStream.Unsubscribe(eventStreamName)
 
+	// account for container and task state change events for Submit* API
 	go func() {
 		<-stateChangeEvents
-		eventsGenerated.Done()
-	}()
-
-	go func() {
 		<-stateChangeEvents
 		eventsGenerated.Done()
 	}()

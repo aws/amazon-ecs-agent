@@ -185,10 +185,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	}
 
 	event = <-stateChangeEvents
-	if cont := event.(api.ContainerStateChange); cont.Status != api.ContainerStopped {
-		t.Fatal("Expected container to stop first")
-		assert.Equal(t, *cont.ExitCode, 0, "Exit code should be present")
-	}
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	// hold on to container event to verify exit code
+	contEvent := event.(api.ContainerStateChange)
+	assert.Equal(t, *contEvent.ExitCode, 0, "Exit code should be present")
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
