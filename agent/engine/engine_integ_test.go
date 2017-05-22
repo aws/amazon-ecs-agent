@@ -256,7 +256,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
 }
 
-func verifyTaskIsRunning(stateChangeEvents <-chan statechange.StateChangeEvent, testTasks ...*api.Task) error {
+func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, testTasks ...*api.Task) error {
 	for {
 		select {
 		case event := <-stateChangeEvents:
@@ -280,7 +280,7 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.StateChangeEvent, 
 	}
 }
 
-func verifyTaskIsStopped(stateChangeEvents <-chan statechange.StateChangeEvent, testTasks ...*api.Task) {
+func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, testTasks ...*api.Task) {
 	for {
 		select {
 		case event := <-stateChangeEvents:

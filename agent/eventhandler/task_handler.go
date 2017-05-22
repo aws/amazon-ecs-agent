@@ -58,7 +58,7 @@ func NewTaskHandler() *TaskHandler {
 }
 
 // AddStateChangeEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddStateChangeEvent(change statechange.StateChangeEvent, client api.ECSClient) error {
+func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client api.ECSClient) error {
 	switch change.GetEventType() {
 	case statechange.TaskEvent:
 		event, ok := change.(api.TaskStateChange)

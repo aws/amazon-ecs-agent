@@ -218,7 +218,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, context.Background())
 	containerChangeEventStream.StartListening()
 
-	stateChangeEvents := make(chan statechange.StateChangeEvent)
+	stateChangeEvents := make(chan statechange.Event)
 
 	task := &managedTask{
 		Task: &api.Task{
@@ -338,7 +338,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
-	stateChangeEvents := make(chan statechange.StateChangeEvent)
+	stateChangeEvents := make(chan statechange.Event)
 	task := &managedTask{
 		Task: &api.Task{
 			Containers:          []*api.Container{},

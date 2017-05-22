@@ -16,7 +16,7 @@ package statechange
 const (
 	// ContainerEvent is used to define the container state transition events
 	// emitted by the engine
-	ContainerEvent Event = iota
+	ContainerEvent EventType = iota
 
 	// TaskEvent is used to define the task state transition events emitted by
 	// the engine
@@ -24,13 +24,13 @@ const (
 )
 
 // Event defines the type of state change event
-type Event int32
+type EventType int32
 
-// StateChangeEvent is used to abstract away the two transition event types
+// Event is used to abstract away the two transition event types
 // passed up through a single channel from the the engine
-type StateChangeEvent interface {
+type Event interface {
 
 	// GetEventType implementations should return one the enums defined above to
 	// identify the type of event being emitted
-	GetEventType() Event
+	GetEventType() EventType
 }

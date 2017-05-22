@@ -187,8 +187,8 @@ func (engine *MockTaskEngine) Init() error {
 func (engine *MockTaskEngine) MustInit() {
 }
 
-func (engine *MockTaskEngine) StateChangeEvents() <-chan statechange.StateChangeEvent {
-	return make(chan statechange.StateChangeEvent)
+func (engine *MockTaskEngine) StateChangeEvents() <-chan statechange.Event {
+	return make(chan statechange.Event)
 }
 
 func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {

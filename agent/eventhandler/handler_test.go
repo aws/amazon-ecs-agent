@@ -28,19 +28,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func containerEvent(arn string) statechange.StateChangeEvent {
+func containerEvent(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
 }
 
-func containerEventStopped(arn string) statechange.StateChangeEvent {
+func containerEventStopped(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
 }
 
-func taskEvent(arn string) statechange.StateChangeEvent {
+func taskEvent(arn string) statechange.Event {
 	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
 }
 
-func taskEventStopped(arn string) statechange.StateChangeEvent {
+func taskEventStopped(arn string) statechange.Event {
 	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
 
@@ -221,8 +221,6 @@ func TestSendsEventsDedupe(t *testing.T) {
 	handler.AddStateChangeEvent(task2, client)
 
 	wg.Wait()
-
-	time.Sleep(5 * time.Millisecond)
 }
 
 func TestShouldBeSent(t *testing.T) {

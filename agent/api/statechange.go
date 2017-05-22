@@ -85,11 +85,11 @@ func (t *TaskStateChange) String() string {
 }
 
 // GetEventType() returns an enum identifying the event type
-func (c ContainerStateChange) GetEventType() statechange.Event {
+func (c ContainerStateChange) GetEventType() statechange.EventType {
 	return statechange.ContainerEvent
 }
 
 // GetEventType() returns an enum identifying the event type
-func (t TaskStateChange) GetEventType() statechange.Event {
+func (t TaskStateChange) GetEventType() statechange.EventType {
 	return statechange.TaskEvent
 }

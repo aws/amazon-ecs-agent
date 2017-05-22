@@ -137,9 +137,9 @@ func (_mr *_MockTaskEngineRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockTaskEngine) StateChangeEvents() <-chan statechange.StateChangeEvent {
+func (_m *MockTaskEngine) StateChangeEvents() <-chan statechange.Event {
 	ret := _m.ctrl.Call(_m, "StateChangeEvents")
-	ret0, _ := ret[0].(<-chan statechange.StateChangeEvent)
+	ret0, _ := ret[0].(<-chan statechange.Event)
 	return ret0
 }
 

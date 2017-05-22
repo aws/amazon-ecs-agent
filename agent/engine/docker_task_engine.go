@@ -69,7 +69,7 @@ type DockerTaskEngine struct {
 	taskStopGroup *utilsync.SequentialWaitGroup
 
 	events            <-chan DockerContainerChangeEvent
-	stateChangeEvents chan statechange.StateChangeEvent
+	stateChangeEvents chan statechange.Event
 	saver             statemanager.Saver
 
 	client     DockerClient
@@ -106,7 +106,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		managedTasks:  make(map[string]*managedTask),
 		taskStopGroup: utilsync.NewSequentialWaitGroup(),
 
-		stateChangeEvents: make(chan statechange.StateChangeEvent),
+		stateChangeEvents: make(chan statechange.Event),
 
 		enableConcurrentPull: false,
 		credentialsManager:   credentialsManager,
@@ -433,7 +433,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 // StateChangeEvents returns channels to read task and container state changes. These
 // changes should be read as soon as possible as them not being read will block
 // processing the task referenced by the event.
-func (engine *DockerTaskEngine) StateChangeEvents() <-chan statechange.StateChangeEvent {
+func (engine *DockerTaskEngine) StateChangeEvents() <-chan statechange.Event {
 	return engine.stateChangeEvents
 }
 
