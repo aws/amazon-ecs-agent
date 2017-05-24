@@ -146,7 +146,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	plugins := []*libcni.NetworkConfig{
 		&libcni.NetworkConfig{
 			Network: &types.NetConf{
-				Type: "bridge",
+				Type: BridgePluginName,
 			},
 			Bytes: bridgeConfBytes,
 		},
@@ -159,7 +159,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 	plugins = append(plugins, &libcni.NetworkConfig{
 		Network: &types.NetConf{
-			Type: "eni",
+			Type: ENIPluginName,
 		},
 		Bytes: eniConfBytes,
 	})

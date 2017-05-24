@@ -104,12 +104,12 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) ([]*ENI, error) {
 func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	// Only one eni should be associated with the task
 	// Only one ipv4 should be associated with the eni
-	// ONly one ipv6 should be associated with the eni
+	// No more than one ipv6 should be associated with the eni
 	if len(acsenis) != 1 {
 		return errors.Errorf("eni message validation: more than one ENIs in the message(%d)", len(acsenis))
 	} else if len(acsenis[0].Ipv4Addresses) != 1 {
 		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)", len(acsenis[0].Ipv4Addresses))
-	} else if len(acsenis[0].Ipv6Addresses) != 1 {
+	} else if len(acsenis[0].Ipv6Addresses) > 1 {
 		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
 	}
 
@@ -118,14 +118,14 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 
 func (eni *ENIAttachment) GetStatusSent() bool {
 	eni.sentStatusLock.RLock()
-	defer eni.sentStatusLock.RLock()
+	defer eni.sentStatusLock.RUnlock()
 
 	return eni.AttachStatusSent
 }
 
 func (eni *ENIAttachment) SetStatusSent() {
 	eni.sentStatusLock.Lock()
-	defer eni.sentStatusLock.RLock()
+	defer eni.sentStatusLock.Unlock()
 
 	eni.AttachStatusSent = true
 }

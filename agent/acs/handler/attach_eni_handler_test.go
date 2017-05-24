@@ -209,7 +209,9 @@ func TestENIAckSingleMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	taskEngineState := dockerstate.NewTaskEngineState()
+
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, taskEngineState)
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	ctx := context.TODO()
@@ -226,8 +228,9 @@ func TestENIAckSingleMessage(t *testing.T) {
 	go eniAttachHandler.start()
 
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
-		Ec2Id:      aws.String("1"),
-		MacAddress: aws.String(randomMAC),
+		Ec2Id:         aws.String("1"),
+		MacAddress:    aws.String(randomMAC),
+		AttachmentArn: aws.String("attachmentarn"),
 	}
 	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
 		MessageId:            aws.String(eniMessageId),
@@ -241,6 +244,10 @@ func TestENIAckSingleMessage(t *testing.T) {
 	}
 
 	eniAttachHandler.handleSingleMessage(message)
+	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
+	eniattachment, ok := taskEngineState.ENIByMac(randomMAC)
+	assert.True(t, ok)
+	assert.Equal(t, taskArn, eniattachment.TaskArn)
 
 	select {
 	case <-eniAttachHandler.ctx.Done():
@@ -314,7 +321,7 @@ func TestENIAckHappyPath(t *testing.T) {
 		eniAckRequested = ackRequest
 		eniAttachHandler.stop()
 	})
-	manager.EXPECT().Save().Return(nil)
+	manager.EXPECT().Save().Return(nil).AnyTimes()
 
 	go eniAttachHandler.start()
 

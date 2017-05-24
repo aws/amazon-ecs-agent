@@ -15,11 +15,9 @@
 package engine
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -87,31 +85,6 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
-}
-
-func discardEvents(from interface{}) func() {
-	done := make(chan bool)
-
-	go func() {
-		for {
-			ndx, _, _ := reflect.Select([]reflect.SelectCase{
-				reflect.SelectCase{
-					Dir:  reflect.SelectRecv,
-					Chan: reflect.ValueOf(from),
-				},
-				reflect.SelectCase{
-					Dir:  reflect.SelectRecv,
-					Chan: reflect.ValueOf(done),
-				},
-			})
-			if ndx == 1 {
-				break
-			}
-		}
-	}()
-	return func() {
-		done <- true
-	}
 }
 
 func TestHostVolumeMount(t *testing.T) {
@@ -227,41 +200,4 @@ func TestStartStopWithCredentials(t *testing.T) {
 	// credentials id set in the task
 	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
-}
-
-func verifyTaskIsRunning(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) error {
-	for {
-		select {
-		case taskEvent := <-taskEvents:
-			for i, task := range testTasks {
-				if taskEvent.TaskArn != task.Arn {
-					continue
-				}
-				if taskEvent.Status == api.TaskRunning {
-					if len(testTasks) == 1 {
-						return nil
-					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
-				} else if taskEvent.Status > api.TaskRunning {
-					return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
-				}
-			}
-		}
-	}
-}
-
-func verifyTaskIsStopped(taskEvents <-chan api.TaskStateChange, testTasks ...*api.Task) {
-	for {
-		select {
-		case taskEvent := <-taskEvents:
-			for i, task := range testTasks {
-				if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
-					if len(testTasks) == 1 {
-						return
-					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
-				}
-			}
-		}
-	}
 }

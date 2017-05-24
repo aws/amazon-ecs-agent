@@ -14,7 +14,7 @@
 package eventhandler
 
 import (
-	"errors"
+	"container/list"
 	"strconv"
 	"sync"
 	"testing"
@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -222,4 +223,38 @@ func TestShouldBeSent(t *testing.T) {
 	if !sendableEvent.containerShouldBeSent() {
 		t.Error("Container should be sent if it's the first try")
 	}
+}
+
+func TestENISentStatusChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+
+	task := &api.Task{
+		Arn: "taskarn",
+	}
+
+	eniAttachment := &api.ENIAttachment{
+		TaskArn:          "taskarn",
+		AttachStatusSent: false,
+	}
+
+	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
+		Attachments: eniAttachment,
+		TaskArn:     "taskarn",
+		Status:      api.TaskRunning,
+		Task:        task,
+	})
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(nil)
+
+	events := list.New()
+	events.PushBack(sendableTaskEvent)
+	handler := NewTaskHandler()
+	handler.SubmitTaskEvents(&eventList{
+		events: events,
+	}, client)
+
+	assert.True(t, eniAttachment.AttachStatusSent)
+	assert.Equal(t, api.TaskRunning, task.GetSentStatus())
 }

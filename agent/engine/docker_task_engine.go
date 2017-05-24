@@ -706,16 +706,16 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 		return nil, errors.Errorf("engine: No primary ipv4 address found for this eni: %v", eni)
 	}
 
-	if len(eni.IPV6Addresses) != 1 {
-		return nil, errors.Errorf("engine: IPV6Addresses associated with eni isn't expected, eni:%v", eni)
+	if len(eni.IPV6Addresses) == 1 {
+		seelog.Warnf("engine: Found IPV6Addresses associated with the eni, task: %s", task.String())
+		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
 	}
-	cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
 
 	return cfg, nil
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Info("Stopping container, container: %v, task: %v", container, task)
+	seelog.Infof("Stopping container, container: %s, task: %s", container.String(), task.String())
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -42,7 +43,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-const credentialsID = "credsid"
+const (
+	credentialsID = "credsid"
+	ipv4          = "10.0.0.1"
+	mac           = "1.2.3.4"
+	ipv6          = "f0:234:23"
+	containerID   = "containerID"
+	containerPid  = 123
+)
 
 var defaultConfig = config.DefaultConfig()
 
@@ -62,7 +70,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 
 func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
 	meta := DockerContainerMetadata{
-		DockerID: "containerId",
+		DockerID: containerID,
 	}
 	return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 }
@@ -72,7 +80,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	roleCredentials := &credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsID},
 	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
 	credentialsManager.EXPECT().RemoveCredentials(credentialsID)
@@ -120,16 +128,16 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -178,7 +186,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: DockerContainerMetadata{
-			DockerID: "containerId",
+			DockerID: containerID,
 			ExitCode: &exitCode,
 		},
 	}
@@ -239,23 +247,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTask.Containers[0].SteadyStateDependencies = []string{"pause"}
 	sleepContainer := sleepTask.Containers[0]
-	sleepTask.SetTaskENIs([]*api.ENI{
-		{
-			ID: "TestTaskWithSteadyStateResourcesProvisioned",
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Primary: true,
-					Address: "10.0.0.1",
-				},
-			},
-			MacAddress: "1.2.3.4",
-			IPV6Addresses: []*api.ENIIPV6Address{
-				{
-					Address: "f0:234:23",
-				},
-			},
-		},
-	})
 
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
@@ -293,6 +284,23 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Ensure that the pause container is created first
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+				sleepTask.SetTaskENIs([]*api.ENI{
+					{
+						ID: "TestTaskWithSteadyStateResourcesProvisioned",
+						IPV4Addresses: []*api.ENIIPV4Address{
+							{
+								Primary: true,
+								Address: ipv4,
+							},
+						},
+						MacAddress: mac,
+						IPV6Addresses: []*api.ENIIPV6Address{
+							{
+								Address: ipv6,
+							},
+						},
+					},
+				})
 				assert.Equal(t, "none", hostConfig.NetworkMode)
 				assert.True(t, strings.Contains(containerName, pauseContainer.Name))
 				createStartEventsReported.Add(1)
@@ -300,18 +308,18 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId:" + pauseContainer.Name}),
+			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
 		// Ensure that the pause container is started after it's created
-		client.EXPECT().StartContainer("containerId:"+pauseContainer.Name, startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID+":"+pauseContainer.Name, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId:" + pauseContainer.Name}),
+			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
 		client.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
-			ID:    "containerId",
+			ID:    containerID,
 			State: docker.State{Pid: 23},
 		}, nil),
 		// Then setting up the pause container network namespace
@@ -321,22 +329,22 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
-				assert.Equal(t, "container:"+"containerId:"+pauseContainer.Name, hostConfig.NetworkMode)
+				assert.Equal(t, "container:"+containerID+":"+pauseContainer.Name, hostConfig.NetworkMode)
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId:" + sleepContainer.Name}),
+			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 		// Next, the sleep container is started
-		client.EXPECT().StartContainer("containerId:"+sleepContainer.Name, startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID+":"+sleepContainer.Name, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId:" + sleepContainer.Name}),
+			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 	)
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -376,18 +384,18 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
 	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
-		ID:    "containerId",
+		ID:    containerID,
 		State: docker.State{Pid: 23},
 	}, nil)
 	mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
-	client.EXPECT().StopContainer("containerId:"+pauseContainer.Name, gomock.Any()).MinTimes(1)
+	client.EXPECT().StopContainer(containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: DockerContainerMetadata{
-			DockerID: "containerId:" + sleepContainer.Name,
+			DockerID: containerID + ":" + sleepContainer.Name,
 			ExitCode: &exitCode,
 		},
 	}
@@ -428,16 +436,16 @@ func TestRemoveEvents(t *testing.T) {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -486,7 +494,7 @@ func TestRemoveEvents(t *testing.T) {
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: DockerContainerMetadata{
-			DockerID: "containerId",
+			DockerID: containerID,
 			ExitCode: &exitCode,
 		},
 	}
@@ -563,9 +571,9 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(DockerContainerMetadata{
+		client.EXPECT().StartContainer(containerID, startContainerTimeout).Return(DockerContainerMetadata{
 			Error: &DockerTimeoutError{},
 		})
 	}
@@ -591,7 +599,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	}
 
 	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{
+	client.EXPECT().StopContainer(containerID, gomock.Any()).Return(DockerContainerMetadata{
 		Error: CannotStartContainerError{fmt.Errorf("cannot start container")},
 	}).AnyTimes()
 	// Now surprise surprise, it actually did start!
@@ -644,16 +652,16 @@ func TestSteadyStatePoll(t *testing.T) {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					wait.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				go func() {
 					wait.Add(1)
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					wait.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 	}
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
@@ -678,18 +686,18 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	// Two steady state oks, one stop
 	gomock.InOrder(
-		client.EXPECT().DescribeContainer("containerId").Return(
+		client.EXPECT().DescribeContainer(containerID).Return(
 			api.ContainerRunning,
 			DockerContainerMetadata{
-				DockerID: "containerId",
+				DockerID: containerID,
 			}).Times(2),
-		client.EXPECT().DescribeContainer("containerId").Return(
+		client.EXPECT().DescribeContainer(containerID).Return(
 			api.ContainerStopped,
 			DockerContainerMetadata{
-				DockerID: "containerId",
+				DockerID: containerID,
 			}).MinTimes(1),
 		// the engine *may* call StopContainer even though it's already stopped
-		client.EXPECT().StopContainer("containerId", stopContainerTimeout).AnyTimes(),
+		client.EXPECT().StopContainer(containerID, stopContainerTimeout).AnyTimes(),
 	)
 	// trigger steady state verification
 	for i := 0; i < 10; i++ {
@@ -870,22 +878,22 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
 		gomock.InOrder(
-			client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+			client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 				func(id string, timeout time.Duration) {
 					go func() {
 						eventStream <- createDockerEvent(api.ContainerRunning)
 					}()
-				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
+				}).Return(DockerContainerMetadata{DockerID: containerID}),
 
 			// StopContainer times out
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError),
+			client.EXPECT().StopContainer(containerID, gomock.Any()).Return(containerStopTimeoutError),
 			// Since task is not in steady state, progressContainers causes
 			// another invocation of StopContainer. Return a timeout error
 			// for that as well.
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Do(
+			client.EXPECT().StopContainer(containerID, gomock.Any()).Do(
 				func(id string, timeout time.Duration) {
 					go func() {
 						dockerEventSent <- 1
@@ -975,16 +983,16 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 						eventStream <- createDockerEvent(api.ContainerCreated)
 						eventsReported.Done()
 					}()
-				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
+				}).Return(DockerContainerMetadata{DockerID: containerID}),
 			// Simulate successful start container
-			client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+			client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 				func(id string, timeout time.Duration) {
 					eventsReported.Add(1)
 					go func() {
 						eventStream <- createDockerEvent(api.ContainerRunning)
 						eventsReported.Done()
 					}()
-				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
+				}).Return(DockerContainerMetadata{DockerID: containerID}),
 			// StopContainer errors out. However, since this is a known unretriable error,
 			// the task engine should not retry stopping the container and move on.
 			// If there's a delay in task engine's processing of the ContainerRunning
@@ -993,7 +1001,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			// StopContainer is invoked at least once and in protecting agasint a test
 			// failure when there's a delay in task engine processing the ContainerRunning
 			// event.
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{
+			client.EXPECT().StopContainer(containerID, gomock.Any()).Return(DockerContainerMetadata{
 				Error: CannotStopContainerError{&docker.ContainerNotRunning{}},
 			}).MinTimes(1),
 		)
@@ -1065,17 +1073,17 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil),
 			// Simulate successful create container
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
-				DockerContainerMetadata{DockerID: "containerId"}),
+				DockerContainerMetadata{DockerID: containerID}),
 			// Simulate successful start container
-			client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(
-				DockerContainerMetadata{DockerID: "containerId"}),
+			client.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
+				DockerContainerMetadata{DockerID: containerID}),
 			// StopContainer errors out a couple of times
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStoppingError).Times(2),
+			client.EXPECT().StopContainer(containerID, gomock.Any()).Return(containerStoppingError).Times(2),
 			// Since task is not in steady state, progressContainers causes
 			// another invocation of StopContainer. Return the 'succeed' response,
 			// which should cause the task engine to stop invoking this again and
 			// transition the task to stopped.
-			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(DockerContainerMetadata{}),
+			client.EXPECT().StopContainer(containerID, gomock.Any()).Return(DockerContainerMetadata{}),
 		)
 	}
 
@@ -1333,4 +1341,219 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
 	assert.False(t, dockerTaskEngine.enableConcurrentPull,
 		"Task engine should not be able to perform concurrent pulling for version < 1.11.1")
+}
+
+func TestPauseContaienrHappyPath(t *testing.T) {
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+
+	eventStream := make(chan DockerContainerChangeEvent)
+	sleepTask := testdata.LoadTask("sleep5")
+
+	// Add eni information to the task so the task can add dependency of pause container
+	sleepTask.SetTaskENIs([]*api.ENI{
+		{
+			ID:         "id",
+			MacAddress: "mac",
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Primary: true,
+					Address: "ipv4",
+				},
+			},
+		},
+	})
+
+	dockerClient.EXPECT().Version()
+	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+
+	const (
+		// These should match exactly the pause container we configured in task.go
+		pauseContainerName  = "~internal~ecs~pause"
+		pauseContainerID    = "pauseContainerID"
+		pauseContainerImage = "gcr.io/google_containers/pause:latest"
+	)
+	// Pause container will be launched first
+	gomock.InOrder(
+		dockerClient.EXPECT().PullImage(pauseContainerImage, nil).Return(DockerContainerMetadata{}),
+		imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil),
+		imageManager.EXPECT().GetImageStateFromImageName(pauseContainerImage).Return(nil),
+		dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().InspectContainer(pauseContainerName, gomock.Any()).Return(&docker.Container{
+			ID:    pauseContainerID,
+			State: docker.State{Pid: 123},
+		}, nil),
+		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+	)
+
+	// For the other container
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().PullImage(gomock.Any(), nil).Return(DockerContainerMetadata{})
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
+	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: containerID})
+
+	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: containerID})
+
+	steadyStateVerify := make(chan time.Time, 1)
+	cleanup := make(chan time.Time, 1)
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
+
+	err := taskEngine.Init()
+	assert.NoError(t, err)
+
+	taskEngine.AddTask(sleepTask)
+	taskEvent, containerEvent := taskEngine.TaskEvents()
+
+	defer discardEvents(containerEvent)()
+	verifyTaskIsRunning(taskEvent, sleepTask)
+
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	dockerClient.EXPECT().InspectContainer(pauseContainerName, gomock.Any()).Return(&docker.Container{
+		ID:    pauseContainerID,
+		State: docker.State{Pid: 123},
+	}, nil)
+	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
+	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(DockerContainerMetadata{DockerID: pauseContainerID})
+	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).Times(2)
+
+	exitCode := 0
+	eventStream <- DockerContainerChangeEvent{
+		Status: api.ContainerStopped,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: containerID,
+			ExitCode: &exitCode,
+		},
+	}
+
+	verifyTaskIsStopped(taskEvent, sleepTask)
+	sleepTask.SetSentStatus(api.TaskStopped)
+	go func() { cleanup <- time.Now() }()
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
+	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	testTask.SetTaskENIs([]*api.ENI{
+		{
+			ID: "TestBuildCNIConfigFromTaskContainer",
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Primary: true,
+					Address: ipv4,
+				},
+			},
+			MacAddress: mac,
+			IPV6Addresses: []*api.ENIIPV6Address{
+				{
+					Address: ipv6,
+				},
+			},
+		},
+	})
+	container := &api.Container{
+		Name: "container",
+	}
+
+	dockerClient.EXPECT().InspectContainer(container.Name, gomock.Any()).Return(&docker.Container{
+		ID:    containerID,
+		State: docker.State{Pid: containerPid},
+	}, nil)
+
+	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+	assert.NoError(t, err)
+
+	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+	assert.Equal(t, mac, cniConfig.ENIMACAddress)
+	assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
+	assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
+}
+
+func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
+	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	testTask.SetTaskENIs([]*api.ENI{{}})
+	container := &api.Container{
+		Name: "container",
+	}
+
+	dockerClient.EXPECT().InspectContainer(container.Name, gomock.Any()).Return(nil, errors.New("error"))
+
+	_, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+	assert.Error(t, err)
+}
+
+// TestStopPauseContainerCleanupCalled tests when stopping the pause container
+// its network namespace should be cleaned up first
+func TestStopPauseContainerCleanupCalled(t *testing.T) {
+	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+
+	testTask := testdata.LoadTask("sleep5")
+
+	pauseContainer := &api.Container{
+		Name: "pausecontainer",
+		Type: api.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+
+	testTask.SetTaskENIs([]*api.ENI{
+		{
+			ID: "TestTaskWithSteadyStateResourcesProvisioned",
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Primary: true,
+					Address: ipv4,
+				},
+			},
+			MacAddress: mac,
+			IPV6Addresses: []*api.ENIIPV6Address{
+				{
+					Address: ipv6,
+				},
+			},
+		},
+	})
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&api.DockerContainer{
+		DockerID:  containerID,
+		Container: pauseContainer,
+	}, testTask)
+
+	gomock.InOrder(
+		dockerClient.EXPECT().InspectContainer(pauseContainer.Name, gomock.Any()).Return(&docker.Container{
+			ID:    containerID,
+			State: docker.State{Pid: containerPid},
+		}, nil),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil),
+		dockerClient.EXPECT().StopContainer(containerID, stopContainerTimeout).Return(DockerContainerMetadata{}),
+	)
+
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
 }

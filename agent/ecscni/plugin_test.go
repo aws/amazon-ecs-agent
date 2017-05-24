@@ -2,51 +2,47 @@ package ecscni
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
-	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-// mock_libcni is intended to mock the libcni from containernetworking/cni package
-// it's only used to test
-type mock_libcni struct {
-	cniConfigList *libcni.NetworkConfigList
-	runtimeConfig *libcni.RuntimeConf
-}
+func TestSetupNS(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (cni *mock_libcni) AddNetworkList(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) (types.Result, error) {
-	cni.cniConfigList = net
-	cni.runtimeConfig = rt
-
-	return nil, nil
-}
-
-func (cni *mock_libcni) DelNetworkList(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) error {
-	cni.cniConfigList = net
-	cni.runtimeConfig = rt
-
-	return nil
-}
-
-func (mock_libcni) AddNetwork(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) (types.Result, error) {
-	return nil, nil
-}
-
-func (mock_libcni) DelNetwork(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) error {
-	return nil
-}
-
-// TestSetupConfig tests the ecscni has create correct configuration for
-// bridge/eni/ipam plugin to set up the contaienr namespace
-func TestSetupConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
-	mockLibcni := &mock_libcni{}
-	ecscniClient.(*cniClient).libcni = mockLibcni
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
 
-	setupConfig := &Config{
+	libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	err := ecscniClient.SetupNS(&Config{})
+	assert.NoError(t, err)
+}
+
+func TestCleanupNS(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	libcniClient.EXPECT().DelNetworkList(gomock.Any(), gomock.Any()).Return(nil)
+
+	err := ecscniClient.CleanupNS(&Config{})
+	assert.NoError(t, err)
+}
+
+// TestConstructNetworkConfig tests constructNetworkConfig creates the correct
+// configuration for bridge/eni/ipam plugin
+func TestConstructNetworkConfig(t *testing.T) {
+	ecscniClient := NewClient(&Config{})
+
+	config := &Config{
 		ENIID:          "eni-12345678",
 		ContainerID:    "containerid12",
 		ContainerPID:   "pid",
@@ -56,87 +52,26 @@ func TestSetupConfig(t *testing.T) {
 		BridgeName:     "bridge-test1",
 	}
 
-	ecscniClient.SetupNS(setupConfig)
-	networkConfigList := mockLibcni.cniConfigList
-	runtimeConfig := mockLibcni.runtimeConfig
-
-	assert.Equal(t, 2, len(networkConfigList.Plugins), "setupNS should call bridge plugin and eni plugin")
-	assert.Equal(t, NetworkName, networkConfigList.Name)
-	assert.Equal(t, ecscniClient.(*cniClient).cniVersion, networkConfigList.CNIVersion)
-
-	assert.Equal(t, setupConfig.ContainerID, runtimeConfig.ContainerID)
-	assert.Equal(t, fmt.Sprintf(netnsFormat, setupConfig.ContainerPID), runtimeConfig.NetNS)
+	networkConfigList, err := ecscniClient.(*cniClient).constructNetworkConfig(config)
+	assert.NoError(t, err, "construct cni plugins configuration failed")
 
 	bridgeConfig := &BridgeConfig{}
 	eniConfig := &ENIConfig{}
-
 	for _, plugin := range networkConfigList.Plugins {
 		var err error
-		if plugin.Network.Type == "bridge" {
+		if plugin.Network.Type == BridgePluginName {
 			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == "eni" {
+		} else if plugin.Network.Type == ENIPluginName {
 			err = json.Unmarshal(plugin.Bytes, eniConfig)
 		}
 		assert.NoError(t, err, "unmarshal config from bytes failed")
 	}
 
-	assert.Equal(t, setupConfig.BridgeName, bridgeConfig.BridgeName)
+	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
 	assert.Equal(t, ECSSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
-
-	assert.Equal(t, setupConfig.ENIID, eniConfig.ENIID)
-	assert.Equal(t, setupConfig.ENIIPV4Address, eniConfig.IPV4Address)
-	assert.Equal(t, setupConfig.ENIIPV6Address, eniConfig.IPV6Address)
-	assert.Equal(t, setupConfig.ENIMACAddress, eniConfig.MACAddress)
-}
-
-// TestSetupConfig tests the ecscni has create correct configuration for
-// bridge/eni/ipam plugin to clean up the contaienr namespace
-func TestCleanupConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-	mockLibcni := &mock_libcni{}
-	ecscniClient.(*cniClient).libcni = mockLibcni
-
-	setupConfig := &Config{
-		ENIID:         "eni-12345678",
-		ContainerID:   "containerid12",
-		ContainerPID:  "pid",
-		IPAMV4Address: "169.254.170.20",
-		ENIMACAddress: "02:7b:64:49:b1:40",
-		BridgeName:    "bridge-test1",
-	}
-
-	ecscniClient.SetupNS(setupConfig)
-	networkConfigList := mockLibcni.cniConfigList
-	runtimeConfig := mockLibcni.runtimeConfig
-
-	assert.Equal(t, 2, len(networkConfigList.Plugins), "setupNS should call bridge plugin and eni plugin")
-	assert.Equal(t, NetworkName, networkConfigList.Name)
-	assert.Equal(t, ecscniClient.(*cniClient).cniVersion, networkConfigList.CNIVersion)
-
-	assert.Equal(t, setupConfig.ContainerID, runtimeConfig.ContainerID)
-	assert.Equal(t, fmt.Sprintf(netnsFormat, setupConfig.ContainerPID), runtimeConfig.NetNS)
-
-	bridgeConfig := &BridgeConfig{}
-	eniConfig := &ENIConfig{}
-
-	for _, plugin := range networkConfigList.Plugins {
-		var err error
-		if plugin.Network.Type == "bridge" {
-			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == "eni" {
-			err = json.Unmarshal(plugin.Bytes, eniConfig)
-		}
-		assert.NoError(t, err, "unmarshal config from bytes failed")
-	}
-
-	assert.Equal(t, setupConfig.BridgeName, bridgeConfig.BridgeName)
-	assert.Equal(t, ECSSubnet, bridgeConfig.IPAM.IPV4Subnet)
-	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
-	assert.Equal(t, setupConfig.IPAMV4Address, bridgeConfig.IPAM.IPV4Address)
-
-	assert.Equal(t, setupConfig.ENIID, eniConfig.ENIID)
-	assert.Equal(t, setupConfig.ENIIPV4Address, eniConfig.IPV4Address)
-	assert.Equal(t, setupConfig.ENIIPV6Address, eniConfig.IPV6Address)
-	assert.Equal(t, setupConfig.ENIMACAddress, eniConfig.MACAddress)
+	assert.Equal(t, config.ENIID, eniConfig.ENIID)
+	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
+	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
+	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
 }

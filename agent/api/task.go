@@ -128,6 +128,7 @@ func (task *Task) PostUnmarshalTask(credentialsManager credentials.Manager) {
 	task.adjustForPlatform()
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
+	task.addNetworkResourceProvisioningDependency()
 }
 
 func (task *Task) initializeEmptyVolumes() {
@@ -208,21 +209,23 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 
 func (task *Task) addNetworkResourceProvisioningDependency() {
 	// TODO check networking mode for the task before doing this
+	if task.GetTaskENI() == nil {
+		return
+	}
 	for _, container := range task.Containers {
 		if container.IsInternal() {
 			continue
 		}
 		if container.SteadyStateDependencies == nil {
-			container.SteadyStateDependencies = make([]string, 1)
+			container.SteadyStateDependencies = make([]string, 0)
 		}
 		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
 	}
-	pauseContainer := &Container{
-		Name:      pauseContainerName,
-		Image:     pauseContainerImage,
-		Essential: true,
-		Type:      ContainerCNIPause,
-	}
+	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
+	pauseContainer.Name = pauseContainerName
+	pauseContainer.Image = pauseContainerImage
+	pauseContainer.Essential = true
+	pauseContainer.Type = ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)
 }
 
@@ -513,16 +516,19 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 	// when using non docker daemon supported network modes, its existence
 	// indicates the need to configure the network mode outside of supported
 	// network drivers
-	override := false
+	if task.GetTaskENI() == nil {
+		return false, ""
+	}
+
 	pauseContName := ""
 	for _, cont := range task.Containers {
 		if cont.Type == ContainerCNIPause {
-			override = true
 			pauseContName = cont.Name
 			break
 		}
 	}
-	if !override {
+	if pauseContName == "" {
+		seelog.Critical("pause container required, but not found in the task: %s", task.String())
 		return false, ""
 	}
 	pauseContainer, ok := dockerContainerMap[pauseContName]

@@ -564,7 +564,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		seelog.Debug("Removing the eni from agent state, task: [%s]", mtask.Task.String())
 		mtask.engine.state.RemoveENIAttachment(eni.MacAddress)
 	}
-	seelog.Debug("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
+	seelog.Debugf("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
 	delete(mtask.engine.managedTasks, mtask.Arn)
 	handleCleanupDone <- struct{}{}
 	mtask.engine.processTasks.Unlock()
