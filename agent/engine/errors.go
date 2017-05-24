@@ -119,7 +119,7 @@ type TaskDependencyError struct {
 }
 
 func (err TaskDependencyError) Error() string {
-	return "Task dependencies cannot be resolved" + err.taskArn
+	return "Task dependencies cannot be resolved, taskArn: " + err.taskArn
 }
 
 // ErrorName is the name of the error

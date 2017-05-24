@@ -454,7 +454,7 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 		if dependencygraph.ValidDependencies(task) {
 			engine.startTask(task)
 		} else {
-			seelog.Errorf("Task cannot move forward due to the dependencies of containers cannot be resolved, task: %s", task.String())
+			seelog.Errorf("Unable to progerss task with circular dependencies, task: %s", task.String())
 			task.SetKnownStatus(api.TaskStopped)
 			task.SetDesiredStatus(api.TaskStopped)
 			err := TaskDependencyError{task.Arn}
