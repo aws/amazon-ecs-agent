@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -16,7 +16,7 @@ set -x
 set -e
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
-export GOPATH="${TOPWD}/ecs-init/Godeps/_workspace:${BUILDDIR}"
+export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
 
 if [ -d "${TOPWD}/.git" ]; then
