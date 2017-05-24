@@ -81,7 +81,6 @@ func TestSetupConfig(t *testing.T) {
 	}
 
 	assert.Equal(t, setupConfig.BridgeName, bridgeConfig.BridgeName)
-	assert.True(t, bridgeConfig.IsGW)
 	assert.Equal(t, ECSSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
 
@@ -132,7 +131,6 @@ func TestCleanupConfig(t *testing.T) {
 	}
 
 	assert.Equal(t, setupConfig.BridgeName, bridgeConfig.BridgeName)
-	assert.True(t, bridgeConfig.IsGW)
 	assert.Equal(t, ECSSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
 	assert.Equal(t, setupConfig.IPAMV4Address, bridgeConfig.IPAM.IPV4Address)

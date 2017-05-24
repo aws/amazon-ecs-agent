@@ -206,7 +206,6 @@ func TestAttachENIMessageWithMissingTimeout(t *testing.T) {
 
 // TestENIAckSingleMessage checks the ack for a single message
 func TestENIAckSingleMessage(t *testing.T) {
-	t.Skip("nothing")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

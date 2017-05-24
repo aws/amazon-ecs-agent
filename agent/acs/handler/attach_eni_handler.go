@@ -106,7 +106,7 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 	if err != nil {
 		return errors.Wrapf(err, "attach eni message handler: error save agent state")
 	}
-	return err
+	return nil
 }
 
 // addENIAttachmentToState adds the eni info to the state

@@ -157,8 +157,7 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 			if !ok || subsystem != udevNetSubsystem {
 				continue
 			}
-			switch event.Env[udevEventAction] {
-			case udevAddEvent:
+			if event.Env[udevEventAction] == udevAddEvent {
 				if !eniUtils.IsValidNetworkDevice(event.Env[udevDevPath]) {
 					continue
 				}
@@ -170,9 +169,6 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 					continue
 				}
 				udevWatcher.state.HandleENIEvent(macAddress)
-			case udevRemoveEvent:
-				netInterface := event.Env[udevInterface]
-				log.Debugf("Udev watcher event-handler: remove interface: %s", netInterface)
 			}
 		case <-ctx.Done():
 			return

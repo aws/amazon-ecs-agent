@@ -18,46 +18,58 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 )
 
+// ENIAttachment contains the information of the eni attachment
 type ENIAttachment struct {
-	TaskArn          string              `json:"taskarn"`
-	AttachmentArn    string              `json:"attachmentArn"`
-	AttachStatusSent bool                `json:"attachSent"`
-	MacAddress       string              `json:"macAddress"`
-	Status           ENIAttachmentStatus `json:"status"`
-	sentStatusLock   sync.RWMutex
+	// TaskArn is the task identifier from ecs
+	TaskArn string `json:"taskarn"`
+	// AttachmentArn is the identifier for the eni attachment
+	AttachmentArn string `json:"attachmentArn"`
+	// AttachStatusSent indicates whether the attached status has been sent to backend
+	AttachStatusSent bool `json:"attachSent"`
+	// MacAddress is the mac address of eni
+	MacAddress string `json:"macAddress"`
+	// Status is the status of the eni: none/attached/detached
+	Status         ENIAttachmentStatus `json:"status"`
+	sentStatusLock sync.RWMutex
 }
 
+// ENI contains information of the eni
 type ENI struct {
-	ID            string `json:"ec2Id"`
+	// ID is the id of eni
+	ID string `json:"ec2Id"`
+	// IPV4Addresses is the ipv4 address associated with the eni
 	IPV4Addresses []*ENIIPV4Address
+	// IPV6Addresses is the ipv6 address associated with the eni
 	IPV6Addresses []*ENIIPV6Address
-	MacAddress    string
+	// MacAddress is the mac address of the eni
+	MacAddress string
 }
 
+// ENIIPV4Address is the ipv4 information of the eni
 type ENIIPV4Address struct {
+	// Primary indicates whether the ip address is primary
 	Primary bool
+	// Address is the ipv4 address associated with eni
 	Address string
 }
 
+// ENIIPV6Address is the ipv6 information of the eni
 type ENIIPV6Address struct {
+	// Address is the ipv6 address associated with eni
 	Address string
 }
 
 // ENIFromACS read the information from acs message and create the ENI object
-func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) []*ENI {
-	var enis []*ENI
-	// Only one eni should be associated with the task
-	// Only one ipv4 should be associated with the eni
-	// ONly one ipv6 should be associated with the eni
-	if len(acsenis) != 1 {
-		return nil
-	} else if len(acsenis[0].Ipv4Addresses) != 1 {
-		return nil
-	} else if len(acsenis[0].Ipv6Addresses) != 1 {
-		return nil
+func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) ([]*ENI, error) {
+	err := ValidateTaskENI(acsenis)
+	if err != nil {
+		return nil, err
 	}
+
+	var enis []*ENI
 
 	for _, acseni := range acsenis {
 		var ipv4 []*ENIIPV4Address
@@ -86,7 +98,22 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) []*ENI {
 		})
 	}
 
-	return enis
+	return enis, nil
+}
+
+func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
+	// Only one eni should be associated with the task
+	// Only one ipv4 should be associated with the eni
+	// ONly one ipv6 should be associated with the eni
+	if len(acsenis) != 1 {
+		return errors.Errorf("eni message validation: more than one ENIs in the message(%d)", len(acsenis))
+	} else if len(acsenis[0].Ipv4Addresses) != 1 {
+		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)", len(acsenis[0].Ipv4Addresses))
+	} else if len(acsenis[0].Ipv6Addresses) != 1 {
+		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
+	}
+
+	return nil
 }
 
 func (eni *ENIAttachment) GetStatusSent() bool {

@@ -47,6 +47,7 @@ const (
 	//   a) Refactor 'Internal' field in 'api.Container' to 'Type' enum
 	//   b) Add 'ContainerResourcesProvisioned' as a new 'ContainerStatus' enum
 	//   c) Add 'SteadyStateStatus' field to 'Container' struct
+	//   d) Add 'ENIAttachments' struct
 	ECSDataVersion = 6
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR

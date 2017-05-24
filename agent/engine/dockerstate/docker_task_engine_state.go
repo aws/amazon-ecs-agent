@@ -134,14 +134,15 @@ func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
 	return allImageStates
 }
 
+// AllENIAttachments returns all the enis managed by ecs on the instance
 func (state *DockerTaskEngineState) AllENIAttachments() []*api.ENIAttachment {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allENIAttachments()
+	return state.allENIAttachmentsUnsafe()
 }
 
-func (state *DockerTaskEngineState) allENIAttachments() []*api.ENIAttachment {
+func (state *DockerTaskEngineState) allENIAttachmentsUnsafe() []*api.ENIAttachment {
 	var allENIAttachments []*api.ENIAttachment
 	for _, v := range state.eniAttachments {
 		allENIAttachments = append(allENIAttachments, v)
@@ -150,6 +151,7 @@ func (state *DockerTaskEngineState) allENIAttachments() []*api.ENIAttachment {
 	return allENIAttachments
 }
 
+// ENIByMac returns the eni object that match the give mac address
 func (state *DockerTaskEngineState) ENIByMac(mac string) (*api.ENIAttachment, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -158,6 +160,7 @@ func (state *DockerTaskEngineState) ENIByMac(mac string) (*api.ENIAttachment, bo
 	return eni, ok
 }
 
+// AddENIAttachment adds the eni into the state
 func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttachment) {
 	if eniAttachment == nil {
 		log.Debug("Cannot add empty eni attachment information")
@@ -174,6 +177,8 @@ func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttac
 	}
 
 }
+
+// RemoveENIAttachment removes the eni from state and stop managing
 func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
 	if mac == "" {
 		log.Debug("Cannot remove empty eni attachment information")

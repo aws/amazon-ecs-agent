@@ -14,7 +14,6 @@
 package ecscni
 
 import (
-	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
 )
 
@@ -35,8 +34,15 @@ const (
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
 	// NetworkName is the name of the network set by the cni plugins
 	NetworkName = "ecs-task-network"
+	// IPAMPluginName is the binary of the ipam plugin
+	IPAMPluginName = "ecs-ipam"
+	// BridgePluginName is the binary of the bridge plugin
+	BridgePluginName = "ecs-bridge"
+	// ENIPluginName is the binary of the eni plugin
+	ENIPluginName = "ecs-eni"
 )
 
+// IPAMConfig contains all the information needed to invoke the ipam plugin
 type IPAMConfig struct {
 	// Type is the cni plugin name
 	Type string `json:"type,omitempty"`
@@ -54,6 +60,7 @@ type IPAMConfig struct {
 	IPV4Routes []*types.Route `json:"ipv4-routes,omitempty"`
 }
 
+// BridgeConfig contains all the information needed to invoke the bridge plugin
 type BridgeConfig struct {
 	// Type is the cni plugin name
 	Type string `json:"type,omitempty"`
@@ -80,6 +87,7 @@ type BridgeConfig struct {
 	IPAM IPAMConfig `json:"ipam,omitempty"`
 }
 
+// ENIConfig contains all the information needed to invoke the eni plugin
 type ENIConfig struct {
 	// Type is the cni plugin name
 	Type string `json:"type,omitempty"`
@@ -95,6 +103,8 @@ type ENIConfig struct {
 	MACAddress string `json:"mac"`
 }
 
+// Config contains all the information to set up the container namespace using
+// the plugins
 type Config struct {
 	// PluginsPath indicates the path where cni plugins are located
 	PluginsPath string
@@ -118,18 +128,4 @@ type Config struct {
 	IPAMV4Address string
 	// ID is the information associate with ip in ipam
 	ID string
-}
-
-// cniClient is the client to call plugin and setup the network
-type cniClient struct {
-	pluginsPath string
-	cniVersion  string
-	subnet      string
-	libcni      libcni.CNI
-}
-
-type CNIClient interface {
-	Version(string) (string, error)
-	SetupNS(*Config) error
-	CleanupNS(*Config) error
 }

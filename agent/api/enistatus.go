@@ -22,6 +22,7 @@ const (
 	ENIDetached
 )
 
+// ENIAttachmentStatus is an enumeration type for eni attachment state
 type ENIAttachmentStatus int32
 
 var eniAttachmentStatusMap = map[string]ENIAttachmentStatus{

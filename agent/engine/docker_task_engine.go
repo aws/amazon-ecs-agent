@@ -644,7 +644,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	if err != nil {
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
-			Error:    ContainerNetworkingError{errors.Wrap(err, "provisionContainerResources: build cni configuration error")},
+			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: unable to build cni configuration")},
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
@@ -653,11 +653,10 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
-			Error:    ContainerNetworkingError{errors.Wrap(err, "provisionContainerResources: setup network namespace error")},
+			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: failed to setup network namespace")},
 		}
 	}
 
-	fmt.Println("nil? ", engine.cniClient)
 	return DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -680,7 +679,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	eni := task.GetTaskENI()
 
 	if eni == nil {
-		return nil, errors.New("engine: no eni acquired from the task")
+		return nil, errors.New("engine: no eni acquired for the task")
 	}
 
 	cfg.ENIID = eni.ID
@@ -694,8 +693,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
 
-	// TODO Confirm if there is better option instead of task arn
-	cfg.ID = task.Arn
+	cfg.ID = eni.MacAddress
 	cfg.ENIMACAddress = eni.MacAddress
 	// Get the primary ip of the eni
 	for _, ipv4 := range eni.IPV4Addresses {

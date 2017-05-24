@@ -770,6 +770,7 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 	task.SentStatusUnsafe = status
 }
 
+// SetTaskENIs sets the eni information of the task
 func (task *Task) SetTaskENIs(enis []*ENI) {
 	task.enisLock.Lock()
 	defer task.enisLock.Unlock()

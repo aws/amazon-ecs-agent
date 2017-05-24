@@ -40,7 +40,7 @@ func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
 		IdToContainer:  state.idToContainer,
 		IdToTask:       state.idToTask,
 		ImageStates:    state.allImageStates(),
-		ENIAttachments: state.allENIAttachments(),
+		ENIAttachments: state.allENIAttachmentsUnsafe(),
 	}
 	return json.Marshal(toSave)
 }

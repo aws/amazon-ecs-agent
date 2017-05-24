@@ -27,6 +27,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+// cniClient is the client to call plugin and setup the network
+type cniClient struct {
+	pluginsPath string
+	cniVersion  string
+	subnet      string
+	libcni      libcni.CNI
+}
+
+// CNIClient defines the method of setting/cleaning up container namespace
+type CNIClient interface {
+	Version(string) (string, error)
+	SetupNS(*Config) error
+	CleanupNS(*Config) error
+}
+
 // NewClient creates a client of ecscni which is used to invoke the plugin
 func NewClient(cfg *Config) CNIClient {
 	libcniConfig := &libcni.CNIConfig{
@@ -91,7 +106,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 
 	ipamConf := IPAMConfig{
-		Type:        "ipam",
+		Type:        IPAMPluginName,
 		CNIVersion:  client.cniVersion,
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
@@ -108,15 +123,14 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		bridgeName = cfg.BridgeName
 	}
 	bridgeConf := BridgeConfig{
-		Type:       "bridge",
+		Type:       BridgePluginName,
 		CNIVersion: client.cniVersion,
 		BridgeName: bridgeName,
-		IsGW:       true,
 		IPAM:       ipamConf,
 	}
 
 	eniConf := ENIConfig{
-		Type:        "eni",
+		Type:        ENIPluginName,
 		CNIVersion:  client.cniVersion,
 		ENIID:       cfg.ENIID,
 		IPV4Address: cfg.ENIIPV4Address,

@@ -21,7 +21,6 @@ const (
 	udevPCISubsystem              = "pci"
 	udevEventAction               = "ACTION"
 	udevAddEvent                  = "add"
-	udevRemoveEvent               = "remove"
 	udevDevPath                   = "DEVPATH"
 	udevInterface                 = "INTERFACE"
 	defaultReconciliationInterval = time.Second * 30

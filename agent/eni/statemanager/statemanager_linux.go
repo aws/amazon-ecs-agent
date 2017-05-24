@@ -22,6 +22,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+// StateManager defines the method to manage the state of eni
 type StateManager interface {
 	Init(state []netlink.Link)
 	Reconcile(currentState map[string]string)
@@ -53,24 +54,23 @@ func (statemanager *stateManager) Init(state []netlink.Link) {
 // ENIStateChangeShouldBeSent checks whether this eni is managed by ecs
 // and if its status should be sent to backend
 func (statemanager *stateManager) ENIStateChangeShouldBeSent(macAddress string) (*api.ENIAttachment, bool) {
-	if macAddress != "" {
-		// check if this is an eni required by a task
-		eni, ok := statemanager.agentState.ENIByMac(macAddress)
-		if !ok {
-			log.Infof("ENI state manager: eni not managed by ecs: %s", macAddress)
-			return nil, false
-		}
-
-		if eni.GetStatusSent() {
-			log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
-			return eni, false
-		}
-
-		return eni, true
+	if macAddress == "" {
+		log.Warn("ENI state manager: device with empty mac address")
+		return nil, false
+	}
+	// check if this is an eni required by a task
+	eni, ok := statemanager.agentState.ENIByMac(macAddress)
+	if !ok {
+		log.Infof("ENI state manager: eni not managed by ecs: %s", macAddress)
+		return nil, false
 	}
 
-	log.Error("ENI state manager: device with empty mac address")
-	return nil, false
+	if eni.GetStatusSent() {
+		log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
+		return eni, false
+	}
+
+	return eni, true
 }
 
 // HandleENIEvent handles the eni event from udev or reconcil phase
