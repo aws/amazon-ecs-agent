@@ -158,6 +158,17 @@ func (_mr *_MockTaskEngineStateRecorder) TaskByID(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByID", arg0)
 }
 
+func (_mr *_MockTaskEngineStateRecorder) TaskByShortID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByShortID", arg0)
+}
+
+func (_m *MockTaskEngineState) TaskByShortID(_param0 string) (*api.Task, bool) {
+	ret := _m.ctrl.Call(_m, "TaskByShortID", _param0)
+	ret0, _ := ret[0].(*api.Task)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
 func (_m *MockTaskEngineState) UnmarshalJSON(_param0 []byte) error {
 	ret := _m.ctrl.Call(_m, "UnmarshalJSON", _param0)
 	ret0, _ := ret[0].(error)
