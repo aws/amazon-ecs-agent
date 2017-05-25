@@ -86,6 +86,16 @@ run-functional-tests: testnnp test-registry
 testnnp:
 	cd misc/testnnp; $(MAKE) $(MFLAGS)
 
+pause-container:
+	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
+	@docker run --net=none \
+		-v "$(shell pwd)/misc/pause-container:/out" \
+		-v "$(shell pwd)/misc/pause-container/buildPause:/usr/src/buildPause" \
+		"amazon/amazon-ecs-build-pause-bin:make"
+
+	cd misc/pause-container; $(MAKE) $(MFLAGS)
+	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
+
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
 
@@ -121,7 +131,7 @@ get-deps:
 
 
 clean:
-        # ensure docker is running and we can talk to it, abort if not:
+	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -f out/amazon-ecs-agent out/amazon-ecs-agent.exe &> /dev/null
