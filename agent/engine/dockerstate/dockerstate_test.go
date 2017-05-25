@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateDockerTaskEngineState(t *testing.T) {
@@ -32,6 +33,10 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should not have a test task")
 	}
 
+	if _, ok := state.TaskByShortID("test"); ok {
+		t.Error("Empty state should not have a test taskid")
+	}
+
 	if _, ok := state.TaskByID("test"); ok {
 		t.Error("Empty state should not have a test taskid")
 	}
@@ -43,6 +48,13 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 	if len(state.AllImageStates()) != 0 {
 		t.Error("Empty state should have no image states")
 	}
+
+	task, ok := state.TaskByShortID("test")
+	if assert.Empty(t, ok, "Empty state should have no tasks") {
+		assert.Empty(t, task, "Empty state should have no tasks")
+	}
+
+	assert.Empty(t, state.GetAllContainerIDs(), "Empty state should have no containers")
 }
 
 func TestAddTask(t *testing.T) {
