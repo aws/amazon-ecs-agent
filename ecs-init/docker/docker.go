@@ -53,6 +53,10 @@ const (
 	// maxRetries specifies the maximum number of retries for ping to return
 	// a successful response from the docker socket
 	maxRetries = 5
+	// CAP_NET_ADMIN to start agent
+	// For more information on capabilities, please read this manpage:
+	// http://man7.org/linux/man-pages/man7/capabilities.7.html
+	CAP_NET_ADMIN = "NET_ADMIN"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -228,6 +232,7 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		Binds:       binds,
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
+		CapAdd:      []string{CAP_NET_ADMIN},
 	}
 }
 
