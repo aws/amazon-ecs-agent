@@ -1,0 +1,11 @@
+{
+  "family": "ecsftest-nginx",
+  "containerDefinitions": [{
+    "image": "nginx:latest",
+    "name": "nginx",
+    "portBindings": [{
+      "containerPort": 80
+    }],
+    "memory": 50
+  }]
+}
