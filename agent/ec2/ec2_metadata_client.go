@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,11 +18,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
+	net_http "net/http"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ec2/http"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -31,7 +33,12 @@ const (
 	InstanceIdentityDocumentResource          = "/2014-02-25/dynamic/instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "/2014-02-25/dynamic/instance-identity/signature"
 	SignedInstanceIdentityDocumentResource    = "/2014-02-25/dynamic/instance-identity/pkcs7"
-	EC2MetadataRequestTimeout                 = time.Duration(1 * time.Second)
+
+	macResource            = "/2014-02-25/meta-data/mac"
+	vpcIDResourceFormat    = "/2014-02-25/meta-data/network/interfaces/macs/%s/vpc-id"
+	subnetIDResourceFormat = "/2014-02-25/meta-data/network/interfaces/macs/%s/subnet-id"
+
+	EC2MetadataRequestTimeout = time.Duration(1 * time.Second)
 )
 
 const (
@@ -51,12 +58,6 @@ type InstanceIdentityDocument struct {
 	AvailabilityZone string  `json:"availabilityZone"`
 }
 
-// HTTPClient wraps the HTTP Get method used by the metadata client to
-// read various resource values from the instance metadata service
-type HTTPClient interface {
-	Get(string) (*http.Response, error)
-}
-
 // EC2MetadataClient is the EC2 Metadata Service Client used by the
 // ECS Agent
 type EC2MetadataClient interface {
@@ -66,36 +67,45 @@ type EC2MetadataClient interface {
 	// InstanceIdentityDocument retrieves the instance identity
 	// document from the instance metadata service
 	InstanceIdentityDocument() (*InstanceIdentityDocument, error)
+	// VPCID returns the VPC id for the network interface, given
+	// its mac address
+	VPCID(mac string) (string, error)
+	// SubnetID returns the subnet id for the network interface,
+	// given its mac address
+	SubnetID(mac string) (string, error)
+	// PrimaryENIMAC returns the MAC address for the primary
+	// network interface of the instance
+	PrimaryENIMAC() (string, error)
 }
 
 type ec2MetadataClient struct {
-	client HTTPClient
+	httpClient http.Client
 }
 
 // NewEC2MetadataClient creates a new ec2MetadataClient object
-func NewEC2MetadataClient(httpClient HTTPClient) EC2MetadataClient {
+func NewEC2MetadataClient(httpClient http.Client) EC2MetadataClient {
 	if httpClient == nil {
-		var lowTimeoutDial http.RoundTripper = &http.Transport{
+		var lowTimeoutDial net_http.RoundTripper = &net_http.Transport{
 			Dial: (&net.Dialer{
 				Timeout: EC2MetadataRequestTimeout,
 			}).Dial,
 		}
 
-		httpClient = &http.Client{Transport: lowTimeoutDial}
+		httpClient = &net_http.Client{Transport: lowTimeoutDial}
 	}
 
-	return &ec2MetadataClient{client: httpClient}
+	return &ec2MetadataClient{httpClient: httpClient}
 }
 
 func (c *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	rawIidResp, err := c.ReadResource(InstanceIdentityDocumentResource)
+	rawIIDResponse, err := c.ReadResource(InstanceIdentityDocumentResource)
 	if err != nil {
 		return nil, err
 	}
 
 	var iid InstanceIdentityDocument
 
-	err = json.Unmarshal(rawIidResp, &iid)
+	err = json.Unmarshal(rawIIDResponse, &iid)
 	if err != nil {
 		return nil, err
 	}
@@ -106,23 +116,26 @@ func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 	endpoint := c.resourceServiceURL(path)
 
 	var err error
-	var resp *http.Response
-	utils.RetryNWithBackoff(utils.NewSimpleBackoff(metadataRetryStartDelay, metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2), metadataRetries, func() error {
-		resp, err = c.client.Get(endpoint)
-		if err == nil && resp.StatusCode == 200 {
-			return nil
-		}
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-		if err == nil {
-			seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-			return fmt.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
-		} else {
+	var resp *net_http.Response
+	utils.RetryNWithBackoff(
+		utils.NewSimpleBackoff(metadataRetryStartDelay,
+			metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2),
+		metadataRetries,
+		func() error {
+			resp, err = c.httpClient.Get(endpoint)
+			if err == nil && resp.StatusCode == 200 {
+				return nil
+			}
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
+			if err == nil {
+				seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
+				return fmt.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
+			}
 			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
 			return err
-		}
-	})
+		})
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 	}
@@ -136,4 +149,28 @@ func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 func (c *ec2MetadataClient) resourceServiceURL(path string) string {
 	// TODO, override EC2MetadataServiceURL based on the environment
 	return EC2MetadataServiceURL + path
+}
+
+func (c *ec2MetadataClient) PrimaryENIMAC() (string, error) {
+	return c.readResourceString(macResource, "MAC address of primary network interface")
+}
+
+func (c *ec2MetadataClient) readResourceString(path string, resourceName string) (string, error) {
+	response, err := c.ReadResource(path)
+	if err != nil {
+		return "", errors.Wrapf(err,
+			"ec2 metadata client: unable to determine %s", resourceName)
+	}
+
+	return string(response), nil
+}
+
+func (c *ec2MetadataClient) VPCID(mac string) (string, error) {
+	return c.readResourceString(fmt.Sprintf(vpcIDResourceFormat, mac),
+		fmt.Sprintf("VPC ID for MAC address: %s", mac))
+}
+
+func (c *ec2MetadataClient) SubnetID(mac string) (string, error) {
+	return c.readResourceString(fmt.Sprintf(subnetIDResourceFormat, mac),
+		fmt.Sprintf("Subnet ID for MAC address: %s", mac))
 }
