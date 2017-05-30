@@ -87,7 +87,7 @@ func (d *Downloader) getRegion() string {
 		log.Warn("Could not retrieve the region from EC2 Instance Metadata. Setting region to default value %s. Error: %s", config.DefaultRegionName, err.Error())
 		region = config.DefaultRegionName
 	}
-	d.region = region;
+	d.region = region
 
 	return d.region
 }
@@ -147,7 +147,7 @@ func (d *Downloader) DownloadAgent() error {
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
 	region := d.getRegion()
-	agentRemoteTarballMD5 := config.AgentRemoteTarballMD5(region);
+	agentRemoteTarballMD5 := config.AgentRemoteTarballMD5(region)
 	log.Debugf("Downloading published md5sum from %s", agentRemoteTarballMD5)
 	resp, err := d.getter.Get(agentRemoteTarballMD5)
 	if err != nil {
@@ -167,7 +167,7 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
 	region := d.getRegion()
-	agentRemoteTarball := config.AgentRemoteTarball(region);
+	agentRemoteTarball := config.AgentRemoteTarball(region)
 	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
 	resp, err := d.getter.Get(agentRemoteTarball)
 	if err != nil {

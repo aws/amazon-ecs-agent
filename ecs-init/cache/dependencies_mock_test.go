@@ -17,9 +17,10 @@
 package cache
 
 import (
+	io "io"
 	http "net/http"
 	os "os"
-	io "io"
+
 	gomock "github.com/golang/mock/gomock"
 )
 

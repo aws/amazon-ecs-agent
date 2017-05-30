@@ -31,7 +31,6 @@ import (
 func TestIsAgentCachedFalseMissingState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
 	mockFS := NewMockfileSystem(mockCtrl)
 
 	mockFS.EXPECT().Stat(config.CacheState()).Return(nil, errors.New("test error"))
@@ -131,8 +130,8 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -159,8 +158,8 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -187,8 +186,8 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -218,8 +217,8 @@ func TestDownloadAgentDownloadTarballNon200(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -251,8 +250,8 @@ func TestDownloadAgentTempFile(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -335,8 +334,8 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -383,8 +382,8 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
@@ -415,7 +414,7 @@ func TestDownloadAgentSuccessWithRegionFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return("", errors.New("Test Error")),
+		mockMetadata.EXPECT().Region().Return("", errors.New("test error")),
 		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
 		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
@@ -431,8 +430,8 @@ func TestDownloadAgentSuccessWithRegionFailure(t *testing.T) {
 	)
 
 	d := &Downloader{
-		getter: mockGetter,
-		fs:     mockFS,
+		getter:   mockGetter,
+		fs:       mockFS,
 		metadata: mockMetadata,
 	}
 
