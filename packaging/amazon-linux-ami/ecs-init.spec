@@ -157,7 +157,7 @@ fi
 - Cache Agent version 1.14.0
 * Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
 - Update Requires to indicate support for docker <= 1.12.6
-* Tue Nov 14 2016 Peng Yin <penyin@amazon.com> - 1.13.1-1
+* Mon Nov 14 2016 Peng Yin <penyin@amazon.com> - 1.13.1-1
 - Cache Agent version 1.13.1
 * Tue Sep 27 2016 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.0-1
 - Cache Agent version 1.13.0
