@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,26 +11,27 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ec2_test
+package ec2
 
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ec2/http/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
-
-func ignoreError(v interface{}, _ error) interface{} {
-	return v
-}
 
 const (
 	testRoleName = "test-role"
+	mac          = "01:23:45:67:89:ab"
+	vpcID        = "vpc-1234"
+	subnetID     = "subnet-1234"
+	iidRegion    = "us-east-1"
 )
 
 var testInstanceIdentityDoc = `{
@@ -71,53 +72,118 @@ func TestGetInstanceIdentityDoc(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
-	testClient := ec2.NewEC2MetadataClient(mockGetter)
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc))
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL + InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc))
 
 	doc, err := testClient.InstanceIdentityDocument()
-	if err != nil {
-		t.Fatal("Expected to be able to get doc")
-	}
-	if doc.Region != "us-east-1" {
-		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, iidRegion, doc.Region)
 }
 
 func TestRetriesOnError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
-	testClient := ec2.NewEC2MetadataClient(mockGetter)
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
 
 	gomock.InOrder(
-		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")),
-		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(testErrorResponse()),
-		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc)),
+		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")),
+		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(testErrorResponse()),
+		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc)),
 	)
 
 	doc, err := testClient.InstanceIdentityDocument()
-	if err != nil {
-		t.Fatal("Expected to be able to get doc")
-	}
-	if doc.Region != "us-east-1" {
-		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, iidRegion, doc.Region)
 }
 
 func TestErrorPropogatesUp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
-	testClient := ec2.NewEC2MetadataClient(mockGetter)
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")).AnyTimes()
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")).MinTimes(1)
 
 	_, err := testClient.InstanceIdentityDocument()
-	if err == nil {
-		t.Fatal("Expected error to result")
-	}
+	assert.Error(t, err)
+}
+
+func TestReadResourceStringReadResourceError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := &ec2MetadataClient{httpClient: mockGetter}
+
+	path := "/some/path"
+	resourceName := "some resource"
+
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL+path).Return(
+		nil, errors.New("Something broke")).MinTimes(1)
+
+	_, err := testClient.readResourceString(path, resourceName)
+	assert.Error(t, err)
+}
+
+func TestReadResourceStringReadResourceSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := &ec2MetadataClient{httpClient: mockGetter}
+
+	path := "/some/path"
+	resourceName := "some resource"
+	response := "some response"
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL + path).Return(testSuccessResponse(response))
+
+	clientResponse, err := testClient.readResourceString(path, resourceName)
+	assert.NoError(t, err)
+	assert.Equal(t, response, clientResponse)
+}
+
+func TestPrimaryMAC(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL + macResource).Return(testSuccessResponse(mac))
+	macResponse, err := testClient.PrimaryENIMAC()
+	assert.NoError(t, err)
+	assert.Equal(t, mac, macResponse)
+}
+
+func TestVPCID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL +
+		fmt.Sprintf(vpcIDResourceFormat, mac)).Return(testSuccessResponse(vpcID))
+	vpcIDResponse, err := testClient.VPCID(mac)
+	assert.NoError(t, err)
+	assert.Equal(t, vpcID, vpcIDResponse)
+}
+
+func TestSubnetID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_http.NewMockClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().Get(EC2MetadataServiceURL +
+		fmt.Sprintf(subnetIDResourceFormat, mac)).Return(testSuccessResponse(subnetID))
+	subnetIDResponse, err := testClient.SubnetID(mac)
+	assert.NoError(t, err)
+	assert.Equal(t, subnetID, subnetIDResponse)
 }
