@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -207,9 +208,48 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 
 }
 
+// BuildCNIConfig constructs the cni configuration from eni
+func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
+	if !task.isNetworkModeVPC() {
+		return nil, errors.New("task isnot enabled with vpc networkmode")
+	}
+
+	cfg := &ecscni.Config{}
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return nil, errors.New("task has no eni associated")
+	}
+
+	cfg.ENIID = eni.ID
+	cfg.ID = eni.MacAddress
+	cfg.ENIMACAddress = eni.MacAddress
+	for _, ipv4 := range eni.IPV4Addresses {
+		if ipv4.Primary {
+			cfg.ENIIPV4Address = ipv4.Address
+			break
+		}
+	}
+
+	// If there is ipv6 assigned to eni then set it
+	if len(eni.IPV6Addresses) == 1 {
+		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
+	}
+
+	return cfg, nil
+}
+
+// isNetworkModeVPC checks if the task is configured to use task-networking feature
+func (task *Task) isNetworkModeVPC() bool {
+	if task.GetTaskENI() == nil {
+		return false
+	}
+
+	return true
+}
+
 func (task *Task) addNetworkResourceProvisioningDependency() {
 	// TODO check networking mode for the task before doing this
-	if task.GetTaskENI() == nil {
+	if !task.isNetworkModeVPC() {
 		return
 	}
 	for _, container := range task.Containers {
@@ -528,7 +568,7 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 		}
 	}
 	if pauseContName == "" {
-		seelog.Critical("pause container required, but not found in the task: %s", task.String())
+		seelog.Critical("Pause container required, but not found in the task: %s", task.String())
 		return false, ""
 	}
 	pauseContainer, ok := dockerContainerMap[pauseContName]

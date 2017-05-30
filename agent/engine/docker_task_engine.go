@@ -675,15 +675,10 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 }
 
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
-	cfg := &ecscni.Config{}
-	eni := task.GetTaskENI()
-
-	if eni == nil {
-		return nil, errors.New("engine: no eni acquired for the task")
+	cfg, err := task.BuildCNIConfig()
+	if err != nil {
+		return nil, errors.Wrapf(err, "engine: build cni configuration from taskfailed")
 	}
-
-	cfg.ENIID = eni.ID
-
 	// Get the pid of container
 	containerInspectOutput, err := engine.client.InspectContainer(container.Name, inspectContainerTimeout)
 	if err != nil {
@@ -692,24 +687,6 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
-
-	cfg.ID = eni.MacAddress
-	cfg.ENIMACAddress = eni.MacAddress
-	// Get the primary ip of the eni
-	for _, ipv4 := range eni.IPV4Addresses {
-		if ipv4.Primary {
-			cfg.ENIIPV4Address = ipv4.Address
-			break
-		}
-	}
-	if cfg.ENIIPV4Address == "" {
-		return nil, errors.Errorf("engine: No primary ipv4 address found for this eni: %v", eni)
-	}
-
-	if len(eni.IPV6Addresses) == 1 {
-		seelog.Warnf("engine: Found IPV6Addresses associated with the eni, task: %s", task.String())
-		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
-	}
 
 	return cfg, nil
 }

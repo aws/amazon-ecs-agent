@@ -62,7 +62,7 @@ type ENIIPV6Address struct {
 	Address string
 }
 
-// ENIFromACS read the information from acs message and create the ENI object
+// ENIFromACS validates the information from acs message and create the ENI object
 func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) ([]*ENI, error) {
 	err := ValidateTaskENI(acsenis)
 	if err != nil {
@@ -101,6 +101,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) ([]*ENI, error) {
 	return enis, nil
 }
 
+// ValidateTaskENI validates the eni informaiton sent from acs
 func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	// Only one eni should be associated with the task
 	// Only one ipv4 should be associated with the eni
@@ -116,13 +117,15 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	return nil
 }
 
-func (eni *ENIAttachment) GetStatusSent() bool {
+// GetSentStatus checks if the eni attached status has been sent
+func (eni *ENIAttachment) GetSentStatus() bool {
 	eni.sentStatusLock.RLock()
 	defer eni.sentStatusLock.RUnlock()
 
 	return eni.AttachStatusSent
 }
 
+// SetStatusSent marks the eni attached status has been sent
 func (eni *ENIAttachment) SetStatusSent() {
 	eni.sentStatusLock.Lock()
 	defer eni.sentStatusLock.Unlock()
