@@ -28,12 +28,12 @@ import (
 )
 
 const (
-	EC2_METADATA_SERVICE_URL                      = "http://169.254.169.254"
-	SECURITY_CREDENTIALS_RESOURCE                 = "/2014-02-25/meta-data/iam/security-credentials/"
-	INSTANCE_IDENTITY_DOCUMENT_RESOURCE           = "/2014-02-25/dynamic/instance-identity/document"
-	INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE = "/2014-02-25/dynamic/instance-identity/signature"
-	SIGNED_INSTANCE_IDENTITY_DOCUMENT_RESOURCE    = "/2014-02-25/dynamic/instance-identity/pkcs7"
-	EC2_METADATA_REQUEST_TIMEOUT                  = time.Duration(1 * time.Second)
+	EC2MetadataServiceURL                     = "http://169.254.169.254"
+	SecurityCrednetialsResource               = "/2014-02-25/meta-data/iam/security-credentials/"
+	InstanceIdentityDocumentResource          = "/2014-02-25/dynamic/instance-identity/document"
+	InstanceIdentityDocumentSignatureResource = "/2014-02-25/dynamic/instance-identity/signature"
+	SignedInstanceIdentityDocumentResource    = "/2014-02-25/dynamic/instance-identity/pkcs7"
+	EC2MetadataRequestTimeout                 = time.Duration(1 * time.Second)
 )
 
 const (
@@ -79,7 +79,7 @@ func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
 	if httpClient == nil {
 		var lowTimeoutDial http.RoundTripper = &http.Transport{
 			Dial: (&net.Dialer{
-				Timeout: EC2_METADATA_REQUEST_TIMEOUT,
+				Timeout: EC2MetadataRequestTimeout,
 			}).Dial,
 		}
 
@@ -90,7 +90,7 @@ func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
 }
 
 func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	securityCredentialResp, err := c.ReadResource(SECURITY_CREDENTIALS_RESOURCE)
+	securityCredentialResp, err := c.ReadResource(SecurityCrednetialsResource)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 
 	defaultCredentialName := securityCredentialList[0]
 
-	rawResp, err := c.ReadResource(SECURITY_CREDENTIALS_RESOURCE + defaultCredentialName)
+	rawResp, err := c.ReadResource(SecurityCrednetialsResource + defaultCredentialName)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 }
 
 func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	rawIidResp, err := c.ReadResource(INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	rawIidResp, err := c.ReadResource(InstanceIdentityDocumentResource)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDoc
 
 func (c *ec2MetadataClientImpl) ResourceServiceUrl(path string) string {
 	// TODO, override EC2_METADATA_SERVICE_URL based on the environment
-	return EC2_METADATA_SERVICE_URL + path
+	return EC2MetadataServiceURL + path
 }
 
 func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
