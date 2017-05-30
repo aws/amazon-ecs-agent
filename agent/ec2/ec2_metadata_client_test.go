@@ -88,8 +88,8 @@ func TestDefaultCredentials(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.SECURITY_CREDENTIALS_RESOURCE).Return(testSuccessResponse(testRoleName))
-	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.SECURITY_CREDENTIALS_RESOURCE + testRoleName).Return(testSuccessResponse(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte))))
+	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.SecurityCrednetialsResource).Return(testSuccessResponse(testRoleName))
+	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.SecurityCrednetialsResource + testRoleName).Return(testSuccessResponse(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte))))
 
 	credentials, err := testClient.DefaultCredentials()
 	if err != nil {
@@ -108,7 +108,7 @@ func TestGetInstanceIdentityDoc(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL + ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testSuccessResponse(testInstanceIdentityDoc))
+	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc))
 
 	doc, err := testClient.InstanceIdentityDocument()
 	if err != nil {
@@ -127,9 +127,9 @@ func TestRetriesOnError(t *testing.T) {
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	gomock.InOrder(
-		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")),
-		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testErrorResponse()),
-		mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(testSuccessResponse(testInstanceIdentityDoc)),
+		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")),
+		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(testErrorResponse()),
+		mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc)),
 	)
 
 	doc, err := testClient.InstanceIdentityDocument()
@@ -148,7 +148,7 @@ func TestErrorPropogatesUp(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(ec2.EC2_METADATA_SERVICE_URL+ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return(nil, errors.New("Something broke")).AnyTimes()
+	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")).AnyTimes()
 
 	_, err := testClient.InstanceIdentityDocument()
 	if err == nil {

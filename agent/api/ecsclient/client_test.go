@@ -264,8 +264,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 		expectedAttributes[capabilities[i]] = ""
 	}
 
-	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
-	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return([]byte("instanceIdentityDocument"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 		assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
 		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
@@ -319,8 +319,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_other_custom_attribute": "Custom_Value2",
 	}
 
-	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil)
-	mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return([]byte("instanceIdentityDocument"), nil)
+	mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return([]byte("signature"), nil)
 	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 		assert.Nil(t, req.ContainerInstanceArn)
 		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
@@ -390,12 +390,12 @@ func TestRegisterBlankCluster(t *testing.T) {
 	}
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
-		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return([]byte("instanceIdentityDocument"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return([]byte("signature"), nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "No such cluster", errors.New("No such cluster"))),
 		mc.EXPECT().CreateCluster(&ecs.CreateClusterInput{ClusterName: &defaultCluster}).Return(&ecs.CreateClusterOutput{Cluster: &ecs.Cluster{ClusterName: &defaultCluster}}, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE).Return([]byte("instanceIdentityDocument"), nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE).Return([]byte("signature"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return([]byte("instanceIdentityDocument"), nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return([]byte("signature"), nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			if *req.Cluster != config.DefaultClusterName {
 				t.Errorf("Wrong cluster: %v", *req.Cluster)
