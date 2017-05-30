@@ -15,12 +15,10 @@ package ec2
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -43,16 +41,8 @@ const (
 	metadataRetryDelayMultiple = 2
 )
 
-type RoleCredentials struct {
-	Code            string    `json:"Code"`
-	LastUpdated     time.Time `json:"LastUpdated"`
-	Type            string    `json:"Type"`
-	AccessKeyId     string    `json:"AccessKeyId"`
-	SecretAccessKey string    `json:"SecretAccessKey"`
-	Token           string    `json:"Token"`
-	Expiration      time.Time `json:"Expiration"`
-}
-
+// InstanceIdentityDocument stores the fields that constitute the identity
+// of the EC2 Instance where the agent is running
 type InstanceIdentityDocument struct {
 	InstanceId       string  `json:"instanceId"`
 	InstanceType     string  `json:"instanceType"`
@@ -61,21 +51,29 @@ type InstanceIdentityDocument struct {
 	AvailabilityZone string  `json:"availabilityZone"`
 }
 
-type HttpClient interface {
+// HTTPClient wraps the HTTP Get method used by the metadata client to
+// read various resource values from the instance metadata service
+type HTTPClient interface {
 	Get(string) (*http.Response, error)
 }
 
+// EC2MetadataClient is the EC2 Metadata Service Client used by the
+// ECS Agent
 type EC2MetadataClient interface {
-	DefaultCredentials() (*RoleCredentials, error)
-	ReadResource(string) ([]byte, error)
+	// ReadResource reads the metadata associated with a resource
+	// path from the instance metadata service
+	ReadResource(path string) ([]byte, error)
+	// InstanceIdentityDocument retrieves the instance identity
+	// document from the instance metadata service
 	InstanceIdentityDocument() (*InstanceIdentityDocument, error)
 }
 
-type ec2MetadataClientImpl struct {
-	client HttpClient
+type ec2MetadataClient struct {
+	client HTTPClient
 }
 
-func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
+// NewEC2MetadataClient creates a new ec2MetadataClient object
+func NewEC2MetadataClient(httpClient HTTPClient) EC2MetadataClient {
 	if httpClient == nil {
 		var lowTimeoutDial http.RoundTripper = &http.Transport{
 			Dial: (&net.Dialer{
@@ -86,35 +84,10 @@ func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
 		httpClient = &http.Client{Transport: lowTimeoutDial}
 	}
 
-	return &ec2MetadataClientImpl{client: httpClient}
+	return &ec2MetadataClient{client: httpClient}
 }
 
-func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	securityCredentialResp, err := c.ReadResource(SecurityCrednetialsResource)
-	if err != nil {
-		return nil, err
-	}
-
-	securityCredentialList := strings.Split(strings.TrimSpace(string(securityCredentialResp)), "\n")
-	if len(securityCredentialList) == 0 {
-		return nil, errors.New("No security credentials in response")
-	}
-
-	defaultCredentialName := securityCredentialList[0]
-
-	rawResp, err := c.ReadResource(SecurityCrednetialsResource + defaultCredentialName)
-	if err != nil {
-		return nil, err
-	}
-	var credential RoleCredentials
-	err = json.Unmarshal(rawResp, &credential)
-	if err != nil {
-		return nil, err
-	}
-	return &credential, nil
-}
-
-func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+func (c *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
 	rawIidResp, err := c.ReadResource(InstanceIdentityDocumentResource)
 	if err != nil {
 		return nil, err
@@ -129,13 +102,8 @@ func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDoc
 	return &iid, nil
 }
 
-func (c *ec2MetadataClientImpl) ResourceServiceUrl(path string) string {
-	// TODO, override EC2_METADATA_SERVICE_URL based on the environment
-	return EC2MetadataServiceURL + path
-}
-
-func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
-	endpoint := c.ResourceServiceUrl(path)
+func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
+	endpoint := c.resourceServiceURL(path)
 
 	var err error
 	var resp *http.Response
@@ -149,7 +117,7 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 		}
 		if err == nil {
 			seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-			return fmt.Errorf("Error contacting EC2 Metadata service; non-200 response: %v", resp.StatusCode)
+			return fmt.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
 		} else {
 			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
 			return err
@@ -165,23 +133,7 @@ func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// DefaultClient is the client used for package level methods.
-var DefaultClient = NewEC2MetadataClient(nil)
-
-// ReadResource reads a given path from the EC2 metadata service using the
-// default client
-func ReadResource(path string) ([]byte, error) {
-	return DefaultClient.ReadResource(path)
-}
-
-// GetInstanceIdentityDocument returns an InstanceIdentityDocument read using
-// the default client
-func GetInstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	return DefaultClient.InstanceIdentityDocument()
-}
-
-// DefaultCredentials returns the instance's default role read using the default
-// client
-func DefaultCredentials() (*RoleCredentials, error) {
-	return DefaultClient.DefaultCredentials()
+func (c *ec2MetadataClient) resourceServiceURL(path string) string {
+	// TODO, override EC2MetadataServiceURL based on the environment
+	return EC2MetadataServiceURL + path
 }
