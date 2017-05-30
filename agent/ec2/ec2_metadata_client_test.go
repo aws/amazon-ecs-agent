@@ -15,29 +15,15 @@ package ec2_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/golang/mock/gomock"
 )
-
-func makeTestRoleCredentials() ec2.RoleCredentials {
-	return ec2.RoleCredentials{
-		Code:            "Success",
-		LastUpdated:     time.Now(),
-		Type:            "AWS-HMAC",
-		AccessKeyId:     "ACCESSKEY",
-		SecretAccessKey: "SECREKEY",
-		Token:           "TOKEN",
-		Expiration:      time.Now().Add(time.Duration(2 * time.Hour)),
-	}
-}
 
 func ignoreError(v interface{}, _ error) interface{} {
 	return v
@@ -81,31 +67,11 @@ func testErrorResponse() (*http.Response, error) {
 	}, nil
 }
 
-func TestDefaultCredentials(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
-	testClient := ec2.NewEC2MetadataClient(mockGetter)
-
-	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.SecurityCrednetialsResource).Return(testSuccessResponse(testRoleName))
-	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.SecurityCrednetialsResource + testRoleName).Return(testSuccessResponse(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte))))
-
-	credentials, err := testClient.DefaultCredentials()
-	if err != nil {
-		t.Fail()
-	}
-	testCredentials := makeTestRoleCredentials()
-	if credentials.AccessKeyId != testCredentials.AccessKeyId {
-		t.Fail()
-	}
-}
-
 func TestGetInstanceIdentityDoc(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL + ec2.InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc))
@@ -123,7 +89,7 @@ func TestRetriesOnError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	gomock.InOrder(
@@ -145,7 +111,7 @@ func TestErrorPropogatesUp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	mockGetter := mock_ec2.NewMockHTTPClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	mockGetter.EXPECT().Get(ec2.EC2MetadataServiceURL+ec2.InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")).AnyTimes()
