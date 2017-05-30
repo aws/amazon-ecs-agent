@@ -34,6 +34,7 @@ const (
 	orwPerm = 0700
 )
 
+// Downloader is resposible for cache operations relating to downloading the agent
 type Downloader struct {
 	getter   httpGetter
 	fs       fileSystem
@@ -43,13 +44,21 @@ type Downloader struct {
 }
 
 // NewDownloader returns a Downloader with default dependencies
-func NewDownloader() *Downloader {
-	sessionInstance := session.Must(session.NewSession())
-	return &Downloader{
+func NewDownloader() (downloader *Downloader) {
+	downloader = &Downloader{
 		getter: customGetter,
 		fs:     &standardFS{},
-		metadata : ec2metadata.New(sessionInstance),
 	}
+
+	// NewSession can fail. If metadata cannot be initialized the region string is populated with the default value
+	// to prevent future calls to retrieve the region from metadata
+	sessionInstance, err := session.NewSession()
+	if err != nil {
+		downloader.region = config.DefaultRegionName
+	} else {
+		downloader.metadata = ec2metadata.New(sessionInstance)
+	}
+	return
 }
 
 // IsAgentCached returns true if there is a cached copy of the Agent present
@@ -69,14 +78,16 @@ func (d *Downloader) fileNotEmpty(filename string) bool {
 
 // getRegion finds region from metadata and caches for the life of downloader
 func (d *Downloader) getRegion() string {
-	if d.region == "" {
-		region, err := d.metadata.Region()
-		if err != nil {
-			log.Warn("Could not retrieve the region from EC2 Instance Metadata. %s", err)
-			region = config.DefaultRegionName
-		}
-		d.region = region;
+	if d.region != "" {
+		return d.region
 	}
+
+	region, err := d.metadata.Region()
+	if err != nil {
+		log.Warn("Could not retrieve the region from EC2 Instance Metadata. Setting region to default value %s. Error: %s", config.DefaultRegionName, err.Error())
+		region = config.DefaultRegionName
+	}
+	d.region = region;
 
 	return d.region
 }

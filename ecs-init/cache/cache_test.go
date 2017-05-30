@@ -111,7 +111,6 @@ func TestDownloadAgentMkdirFailure(t *testing.T) {
 
 	d := &Downloader{
 		fs: mockFS,
-
 	}
 
 	d.DownloadAgent()
@@ -369,6 +368,54 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
 		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
+		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()).Do(func(reader io.Reader, writer io.Writer) {
+			_, err = io.Copy(writer, reader)
+			if err != nil {
+				t.Fail()
+			}
+		}),
+		mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), nil),
+		mockFS.EXPECT().Rename(tempfile.Name(), config.AgentTarball()),
+	)
+
+	d := &Downloader{
+		getter: mockGetter,
+		fs:     mockFS,
+		metadata: mockMetadata,
+	}
+
+	d.DownloadAgent()
+}
+
+func TestDownloadAgentSuccessWithRegionFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	tarballContents := "tarball contents"
+	tarballResponse := &http.Response{
+		StatusCode: 200,
+		Body:       ioutil.NopCloser(bytes.NewBufferString(tarballContents)),
+	}
+	expectedMd5Sum := fmt.Sprintf("%x\n", md5.Sum([]byte(tarballContents)))
+	md5response := &http.Response{}
+
+	tempfile, err := ioutil.TempFile("", "test")
+	if err != nil {
+		t.Fail()
+	}
+	defer tempfile.Close()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockGetter := NewMockhttpGetter(mockCtrl)
+	mockMetadata := NewMockinstanceMetadata(mockCtrl)
+
+	gomock.InOrder(
+		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
+		mockMetadata.EXPECT().Region().Return("", errors.New("Test Error")),
 		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
 		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
