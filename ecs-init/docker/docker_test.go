@@ -258,8 +258,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 		t.Error("Mismatch detected in added host config capabilities")
 	}
 
-	if hostCfg.CapAdd[0] != CAP_NET_ADMIN {
-		t.Errorf("Missing %s from host config capabilities", CAP_NET_ADMIN)
+	if hostCfg.CapAdd[0] != CapNetAdmin {
+		t.Errorf("Missing %s from host config capabilities", CapNetAdmin)
 	}
 }
 
