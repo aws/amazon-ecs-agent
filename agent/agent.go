@@ -87,7 +87,7 @@ func _main() int {
 	}
 
 	logger.SetLevel(*logLevel)
-	ec2MetadataClient := ec2.DefaultClient
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
 	if *blackholeEc2Metadata {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 	}

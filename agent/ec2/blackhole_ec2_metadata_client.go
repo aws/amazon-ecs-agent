@@ -21,10 +21,6 @@ func NewBlackholeEC2MetadataClient() EC2MetadataClient {
 	return blackholeMetadataClientImpl{}
 }
 
-func (blackholeMetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	return nil, errors.New("blackholed")
-}
-
 func (blackholeMetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
 	return nil, errors.New("blackholed")
 }
