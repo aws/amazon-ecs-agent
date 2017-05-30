@@ -25,7 +25,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source0:        sources.tgz
 Source1:        ecs.conf
 
-BuildRequires:  golang
+BuildRequires:  golang >= 1.7
 
 Requires:       docker >= 1.6.0, docker <= 1.12.6
 Requires:       upstart
