@@ -39,6 +39,8 @@ func DefaultConfig() Config {
 		MinimumImageDeletionAge:     DefaultImageDeletionAge,
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
+		PauseContainerTarballPath:   pauseContainerTarballPath,
+		PauseContainerTag:           pauseContainerTag,
 	}
 }
 
