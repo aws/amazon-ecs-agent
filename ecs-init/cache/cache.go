@@ -39,8 +39,7 @@ type Downloader struct {
 	getter   httpGetter
 	fs       fileSystem
 	metadata instanceMetadata
-
-	region string
+	region   string
 }
 
 // NewDownloader returns a Downloader with default dependencies
@@ -55,9 +54,9 @@ func NewDownloader() (downloader *Downloader) {
 	sessionInstance, err := session.NewSession()
 	if err != nil {
 		downloader.region = config.DefaultRegionName
-	} else {
-		downloader.metadata = ec2metadata.New(sessionInstance)
+		return
 	}
+	downloader.metadata = ec2metadata.New(sessionInstance)
 	return
 }
 
