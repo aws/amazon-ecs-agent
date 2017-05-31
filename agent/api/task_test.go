@@ -279,10 +279,8 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 
 func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask := &Task{
-		enis: []*ENI{
-			{
-				ID: "eniID",
-			},
+		ENI: &ENI{
+			ID: "eniID",
 		},
 		Containers: []*Container{
 			&Container{
@@ -1013,20 +1011,18 @@ func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 
 // TestTaskGetENI tests the eni can be correctly acquired by calling GetTaskENI
 func TestTaskGetENI(t *testing.T) {
-	enisOfTask := []*ENI{
-		{
-			ID: "id",
-		},
+	enisOfTask := &ENI{
+		ID: "id",
 	}
 	testTask := &Task{
-		enis: enisOfTask,
+		ENI: enisOfTask,
 	}
 
 	eni := testTask.GetTaskENI()
 	assert.NotNil(t, eni)
 	assert.Equal(t, "id", eni.ID)
 
-	testTask.enis = nil
+	testTask.ENI = nil
 	eni = testTask.GetTaskENI()
 	assert.Nil(t, eni)
 }

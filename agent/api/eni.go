@@ -63,42 +63,38 @@ type ENIIPV6Address struct {
 }
 
 // ENIFromACS validates the information from acs message and create the ENI object
-func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) ([]*ENI, error) {
+func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	err := ValidateTaskENI(acsenis)
 	if err != nil {
 		return nil, err
 	}
 
-	var enis []*ENI
+	var ipv4 []*ENIIPV4Address
+	var ipv6 []*ENIIPV6Address
 
-	for _, acseni := range acsenis {
-		var ipv4 []*ENIIPV4Address
-		var ipv6 []*ENIIPV6Address
-
-		// Read ipv4 address information of the eni
-		for _, ec2Ipv4 := range acseni.Ipv4Addresses {
-			ipv4 = append(ipv4, &ENIIPV4Address{
-				Primary: aws.BoolValue(ec2Ipv4.Primary),
-				Address: aws.StringValue(ec2Ipv4.PrivateAddress),
-			})
-		}
-
-		// Read ipv6 address information of the eni
-		for _, ec2Ipv6 := range acseni.Ipv6Addresses {
-			ipv6 = append(ipv6, &ENIIPV6Address{
-				Address: aws.StringValue(ec2Ipv6.Address),
-			})
-		}
-
-		enis = append(enis, &ENI{
-			ID:            aws.StringValue(acseni.Ec2Id),
-			IPV4Addresses: ipv4,
-			IPV6Addresses: ipv6,
-			MacAddress:    aws.StringValue(acseni.MacAddress),
+	// Read ipv4 address information of the eni
+	for _, ec2Ipv4 := range acsenis[0].Ipv4Addresses {
+		ipv4 = append(ipv4, &ENIIPV4Address{
+			Primary: aws.BoolValue(ec2Ipv4.Primary),
+			Address: aws.StringValue(ec2Ipv4.PrivateAddress),
 		})
 	}
 
-	return enis, nil
+	// Read ipv6 address information of the eni
+	for _, ec2Ipv6 := range acsenis[0].Ipv6Addresses {
+		ipv6 = append(ipv6, &ENIIPV6Address{
+			Address: aws.StringValue(ec2Ipv6.Address),
+		})
+	}
+
+	eni := &ENI{
+		ID:            aws.StringValue(acsenis[0].Ec2Id),
+		IPV4Addresses: ipv4,
+		IPV6Addresses: ipv6,
+		MacAddress:    aws.StringValue(acsenis[0].MacAddress),
+	}
+
+	return eni, nil
 }
 
 // ValidateTaskENI validates the eni informaiton sent from acs

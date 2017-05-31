@@ -41,16 +41,16 @@ func TestENIFromACS(t *testing.T) {
 		},
 	}
 
-	enis, err := ENIFromACS(acsenis)
+	eni, err := ENIFromACS(acsenis)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(enis))
-	assert.Equal(t, aws.StringValue(acsenis[0].Ec2Id), enis[0].ID)
+	assert.NotNil(t, eni)
+	assert.Equal(t, aws.StringValue(acsenis[0].Ec2Id), eni.ID)
 	assert.Equal(t, 1, len(acsenis[0].Ipv4Addresses))
-	assert.Equal(t, aws.StringValue(acsenis[0].Ipv4Addresses[0].PrivateAddress), enis[0].IPV4Addresses[0].Address)
-	assert.Equal(t, aws.BoolValue(acsenis[0].Ipv4Addresses[0].Primary), enis[0].IPV4Addresses[0].Primary)
-	assert.Equal(t, aws.StringValue(acsenis[0].MacAddress), enis[0].MacAddress)
+	assert.Equal(t, aws.StringValue(acsenis[0].Ipv4Addresses[0].PrivateAddress), eni.IPV4Addresses[0].Address)
+	assert.Equal(t, aws.BoolValue(acsenis[0].Ipv4Addresses[0].Primary), eni.IPV4Addresses[0].Primary)
+	assert.Equal(t, aws.StringValue(acsenis[0].MacAddress), eni.MacAddress)
 	assert.Equal(t, 1, len(acsenis[0].Ipv6Addresses))
-	assert.Equal(t, aws.StringValue(acsenis[0].Ipv6Addresses[0].Address), enis[0].IPV6Addresses[0].Address)
+	assert.Equal(t, aws.StringValue(acsenis[0].Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
 }
 
 // TestValidateENIFromACS tests the validation of enis from acs
@@ -88,5 +88,3 @@ func TestValidateENIFromACS(t *testing.T) {
 	err = ValidateTaskENI(acsenis)
 	assert.Error(t, err)
 }
-
-// TestPayloadHandlerAddedENIToTask tests the correct eni information was added to the task

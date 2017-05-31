@@ -115,9 +115,9 @@ type Task struct {
 	credentialsID     string
 	credentialsIDLock sync.RWMutex
 
-	// Enis is the elastic network interface specified by this task
-	enis     []*ENI
-	enisLock sync.RWMutex
+	// ENI is the elastic network interface specified by this task
+	ENI     *ENI
+	eniLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -816,24 +816,20 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 	task.SentStatusUnsafe = status
 }
 
-// SetTaskENIs sets the eni information of the task
-func (task *Task) SetTaskENIs(enis []*ENI) {
-	task.enisLock.Lock()
-	defer task.enisLock.Unlock()
+// SetTaskENI sets the eni information of the task
+func (task *Task) SetTaskENI(eni *ENI) {
+	task.eniLock.Lock()
+	defer task.eniLock.Unlock()
 
-	task.enis = enis
+	task.ENI = eni
 }
 
 // GetTaskENI returns the eni of task, for now task can only have one enis
 func (task *Task) GetTaskENI() *ENI {
-	task.enisLock.RLock()
-	defer task.enisLock.RUnlock()
+	task.eniLock.RLock()
+	defer task.eniLock.RUnlock()
 
-	if len(task.enis) == 0 {
-		return nil
-	}
-
-	return task.enis[0]
+	return task.ENI
 }
 
 // String returns a human readable string representation of this object

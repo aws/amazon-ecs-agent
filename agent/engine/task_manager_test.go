@@ -722,20 +722,18 @@ func TestCleanupTaskENIs(t *testing.T) {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 	}
-	mTask.SetTaskENIs([]*api.ENI{
-		{
-			ID: "TestCleanupTaskENIs",
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Primary: true,
-					Address: ipv4,
-				},
+	mTask.SetTaskENI(&api.ENI{
+		ID: "TestCleanupTaskENIs",
+		IPV4Addresses: []*api.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
 			},
-			MacAddress: mac,
-			IPV6Addresses: []*api.ENIIPV6Address{
-				{
-					Address: ipv6,
-				},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*api.ENIIPV6Address{
+			{
+				Address: ipv6,
 			},
 		},
 	})

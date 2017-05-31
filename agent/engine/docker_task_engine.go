@@ -643,8 +643,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return DockerContainerMetadata{
-			DockerID: cniConfig.ContainerID,
-			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: unable to build cni configuration")},
+			Error: ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: unable to build cni configuration")},
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container

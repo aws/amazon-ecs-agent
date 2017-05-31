@@ -284,20 +284,18 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Ensure that the pause container is created first
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
-				sleepTask.SetTaskENIs([]*api.ENI{
-					{
-						ID: "TestTaskWithSteadyStateResourcesProvisioned",
-						IPV4Addresses: []*api.ENIIPV4Address{
-							{
-								Primary: true,
-								Address: ipv4,
-							},
+				sleepTask.SetTaskENI(&api.ENI{
+					ID: "TestTaskWithSteadyStateResourcesProvisioned",
+					IPV4Addresses: []*api.ENIIPV4Address{
+						{
+							Primary: true,
+							Address: ipv4,
 						},
-						MacAddress: mac,
-						IPV6Addresses: []*api.ENIIPV6Address{
-							{
-								Address: ipv6,
-							},
+					},
+					MacAddress: mac,
+					IPV6Addresses: []*api.ENIIPV6Address{
+						{
+							Address: ipv6,
 						},
 					},
 				})
@@ -1354,15 +1352,13 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 
 	// Add eni information to the task so the task can add dependency of pause container
-	sleepTask.SetTaskENIs([]*api.ENI{
-		{
-			ID:         "id",
-			MacAddress: "mac",
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Primary: true,
-					Address: "ipv4",
-				},
+	sleepTask.SetTaskENI(&api.ENI{
+		ID:         "id",
+		MacAddress: "mac",
+		IPV4Addresses: []*api.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: "ipv4",
 			},
 		},
 	})
@@ -1453,20 +1449,18 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
-	testTask.SetTaskENIs([]*api.ENI{
-		{
-			ID: "TestBuildCNIConfigFromTaskContainer",
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Primary: true,
-					Address: ipv4,
-				},
+	testTask.SetTaskENI(&api.ENI{
+		ID: "TestBuildCNIConfigFromTaskContainer",
+		IPV4Addresses: []*api.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
 			},
-			MacAddress: mac,
-			IPV6Addresses: []*api.ENIIPV6Address{
-				{
-					Address: ipv6,
-				},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*api.ENIIPV6Address{
+			{
+				Address: ipv6,
 			},
 		},
 	})
@@ -1495,7 +1489,7 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
-	testTask.SetTaskENIs([]*api.ENI{{}})
+	testTask.SetTaskENI(&api.ENI{})
 	container := &api.Container{
 		Name: "container",
 	}
@@ -1523,20 +1517,18 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 
-	testTask.SetTaskENIs([]*api.ENI{
-		{
-			ID: "TestTaskWithSteadyStateResourcesProvisioned",
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Primary: true,
-					Address: ipv4,
-				},
+	testTask.SetTaskENI(&api.ENI{
+		ID: "TestTaskWithSteadyStateResourcesProvisioned",
+		IPV4Addresses: []*api.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
 			},
-			MacAddress: mac,
-			IPV6Addresses: []*api.ENIIPV6Address{
-				{
-					Address: ipv6,
-				},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*api.ENIIPV6Address{
+			{
+				Address: ipv6,
 			},
 		},
 	})
