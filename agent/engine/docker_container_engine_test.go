@@ -947,3 +947,13 @@ func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
 	metadata := client.containerMetadata("id")
 	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
 }
+
+func TestLoadImage(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
+
+	err := client.LoadImage(docker.LoadImageOptions{})
+	assert.NoError(t, err)
+}
