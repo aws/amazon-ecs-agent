@@ -124,3 +124,4 @@ func getBaseLocationForRegion(regionName string) string {
 
 	return s3BucketURL
 }
+
