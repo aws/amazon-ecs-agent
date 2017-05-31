@@ -86,6 +86,12 @@ const (
 
 	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
 	DefaultMinSupportedCNIVersion = "0.3.0"
+
+	// Path to pause container tarball
+	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+
+	// Tag for pause container
+	pauseContainerTag = "0.1.0"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -361,6 +367,8 @@ func environmentConfig() (Config, error) {
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   cniPluginsPath,
+		PauseContainerTarballPath:        pauseContainerTarballPath,
+		PauseContainerTag:                pauseContainerTag,
 	}, err
 }
 

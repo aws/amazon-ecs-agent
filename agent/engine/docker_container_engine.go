@@ -91,6 +91,7 @@ type DockerClient interface {
 	Version() (string, error)
 	InspectImage(string) (*docker.Image, error)
 	RemoveImage(string, time.Duration) error
+	LoadImage(opts docker.LoadImageOptions) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -847,4 +848,12 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
+}
+
+func (dg *dockerGoClient) LoadImage(opts docker.LoadImageOptions) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+	return client.LoadImage(opts)
 }

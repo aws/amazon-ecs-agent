@@ -150,6 +150,12 @@ type Config struct {
 
 	// CNIPluginsPath is the path for the cni plugins
 	CNIPluginsPath string
+
+	// Path to pause container tarball
+	PauseContainerTarballPath string
+
+	// Tag for pause container
+	PauseContainerTag string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

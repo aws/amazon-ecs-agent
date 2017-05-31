@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	eniwatchersetup "github.com/aws/amazon-ecs-agent/agent/eni/setup"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -188,6 +189,13 @@ func _main() int {
 	} else {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream, imageManager, state)
+	}
+
+	// Load Pause Container Image
+	err = pause.Load(cfg, dockerClient)
+	if err != nil {
+		log.Criticalf("Error loading pause container image: %v", err)
+		return exitcodes.ExitError
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
