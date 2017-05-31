@@ -43,8 +43,8 @@ const (
 	RegionNameNotFound = "not found"
 )
 
-// s3BucketMap provides a mapping of region names to specific URI's for the region.
-var s3BucketMap = map[string]string{
+// regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
+var regionToS3BucketURL = map[string]string{
 	"cn-north-1":      "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
 	DefaultRegionName: "https://s3.amazonaws.com/amazon-ecs-agent/",
 }
@@ -126,9 +126,9 @@ func getBaseLocationForRegion(regionName string) string {
 		log.Warn("Region name not found. Falling back to default region.")
 	}
 
-	s3BucketURL, ok := s3BucketMap[regionName]
+	s3BucketURL, ok := regionToS3BucketURL[regionName]
 	if !ok {
-		return s3BucketMap[DefaultRegionName]
+		return regionToS3BucketURL[DefaultRegionName]
 	}
 
 	return s3BucketURL
