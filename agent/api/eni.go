@@ -110,6 +110,14 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
 	}
 
+	if acsenis[0].MacAddress == nil {
+		return errors.Errorf("eni message validation: empty eni mac address in the message")
+	}
+
+	if acsenis[0].Ec2Id == nil {
+		return errors.Errorf("eni message validation: empty eni id in the message")
+	}
+
 	return nil
 }
 
@@ -121,8 +129,8 @@ func (eni *ENIAttachment) GetSentStatus() bool {
 	return eni.AttachStatusSent
 }
 
-// SetStatusSent marks the eni attached status has been sent
-func (eni *ENIAttachment) SetStatusSent() {
+// SetSentStatus marks the eni attached status has been sent
+func (eni *ENIAttachment) SetSentStatus() {
 	eni.sentStatusLock.Lock()
 	defer eni.sentStatusLock.Unlock()
 

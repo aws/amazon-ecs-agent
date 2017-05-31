@@ -1151,9 +1151,9 @@ func TestCapabilities(t *testing.T) {
 		dockerclient.Version_1_18,
 	})
 
-	cniClient.EXPECT().Version("bridge").Return("1.0.0", nil)
-	cniClient.EXPECT().Version("eni").Return("1.0.0", nil)
-	cniClient.EXPECT().Version("ipam").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ecs-bridge").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ecs-eni").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ecs-ipam").Return("1.0.0", nil)
 
 	capabilities := taskEngine.Capabilities()
 
@@ -1165,10 +1165,7 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
-		"ecs.cni-plugin-bridge-1.0.0",
-		"ecs.cni-plugin-eni-1.0.0",
-		"ecs.cni-plugin-ipam-1.0.0",
-		"ecs.task-eni",
+		"ecs.task-eni.1.0",
 	}
 
 	if !reflect.DeepEqual(capabilities, expectedCapabilities) {

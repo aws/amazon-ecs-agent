@@ -51,7 +51,7 @@ func NewClient(cfg *Config) CNIClient {
 	return &cniClient{
 		pluginsPath: cfg.PluginsPath,
 		cniVersion:  cfg.MinSupportedCNIVersion,
-		subnet:      ECSSubnet,
+		subnet:      ecsSubnet,
 		libcni:      libcniConfig,
 	}
 }
@@ -106,7 +106,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 
 	ipamConf := IPAMConfig{
-		Type:        IPAMPluginName,
+		Type:        ipamPluginName,
 		CNIVersion:  client.cniVersion,
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
@@ -123,14 +123,14 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		bridgeName = cfg.BridgeName
 	}
 	bridgeConf := BridgeConfig{
-		Type:       BridgePluginName,
+		Type:       bridgePluginName,
 		CNIVersion: client.cniVersion,
 		BridgeName: bridgeName,
 		IPAM:       ipamConf,
 	}
 
 	eniConf := ENIConfig{
-		Type:        ENIPluginName,
+		Type:        eniPluginName,
 		CNIVersion:  client.cniVersion,
 		ENIID:       cfg.ENIID,
 		IPV4Address: cfg.ENIIPV4Address,
@@ -146,7 +146,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	plugins := []*libcni.NetworkConfig{
 		&libcni.NetworkConfig{
 			Network: &types.NetConf{
-				Type: BridgePluginName,
+				Type: bridgePluginName,
 			},
 			Bytes: bridgeConfBytes,
 		},
@@ -159,13 +159,13 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 	plugins = append(plugins, &libcni.NetworkConfig{
 		Network: &types.NetConf{
-			Type: ENIPluginName,
+			Type: eniPluginName,
 		},
 		Bytes: eniConfBytes,
 	})
 
 	netconf := &libcni.NetworkConfigList{
-		Name:       NetworkName,
+		Name:       networkName,
 		CNIVersion: client.cniVersion,
 		Plugins:    plugins,
 	}
@@ -182,14 +182,14 @@ func (client *cniClient) Version(name string) (string, error) {
 		return "", err
 	}
 
-	cmd := exec.Command(file, VersionCommand)
+	cmd := exec.Command(file, versionCommand)
 	versionInfo, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
 
 	version := &struct {
-		Version string `json::"version"`
+		Version string `json:"version"`
 	}{}
 	err = json.Unmarshal(versionInfo, version)
 	if err != nil {

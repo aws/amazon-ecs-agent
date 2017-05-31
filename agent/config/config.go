@@ -82,7 +82,7 @@ const (
 	minimumNumImagesToDeletePerCycle = 1
 
 	// defaultCNIPluginsPath is the default path where cni binaries are located
-	defaultCNIPluginsPath = "/ecs/cni"
+	defaultCNIPluginsPath = "/amazon-ecs-cni-plugins"
 
 	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
 	DefaultMinSupportedCNIVersion = "0.3.0"

@@ -59,16 +59,16 @@ func TestConstructNetworkConfig(t *testing.T) {
 	eniConfig := &ENIConfig{}
 	for _, plugin := range networkConfigList.Plugins {
 		var err error
-		if plugin.Network.Type == BridgePluginName {
+		if plugin.Network.Type == bridgePluginName {
 			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == ENIPluginName {
+		} else if plugin.Network.Type == eniPluginName {
 			err = json.Unmarshal(plugin.Bytes, eniConfig)
 		}
 		assert.NoError(t, err, "unmarshal config from bytes failed")
 	}
 
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
-	assert.Equal(t, ECSSubnet, bridgeConfig.IPAM.IPV4Subnet)
+	assert.Equal(t, ecsSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
 	assert.Equal(t, config.ENIID, eniConfig.ENIID)
 	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)

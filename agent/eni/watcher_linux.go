@@ -157,19 +157,20 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 			if !ok || subsystem != udevNetSubsystem {
 				continue
 			}
-			if event.Env[udevEventAction] == udevAddEvent {
-				if !eniUtils.IsValidNetworkDevice(event.Env[udevDevPath]) {
-					continue
-				}
-				netInterface := event.Env[udevInterface]
-				log.Debugf("Udev watcher event-handler: add interface: %s", netInterface)
-				macAddress, err := eniUtils.GetMACAddress(netInterface, udevWatcher.netlinkClient)
-				if err != nil {
-					log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
-					continue
-				}
-				udevWatcher.state.HandleENIEvent(macAddress)
+			if event.Env[udevEventAction] != udevAddEvent {
+				continue
 			}
+			if !eniUtils.IsValidNetworkDevice(event.Env[udevDevPath]) {
+				continue
+			}
+			netInterface := event.Env[udevInterface]
+			log.Debugf("Udev watcher event-handler: add interface: %s", netInterface)
+			macAddress, err := eniUtils.GetMACAddress(netInterface, udevWatcher.netlinkClient)
+			if err != nil {
+				log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
+				continue
+			}
+			udevWatcher.state.HandleENIEvent(macAddress)
 		case <-ctx.Done():
 			return
 		}

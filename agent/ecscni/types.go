@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	// VersionCommand is the command used to get the version of plugin
-	VersionCommand = "--version"
+	// versionCommand is the command used to get the version of plugin
+	versionCommand = "--version"
 	// defaultEthName is the name of veth pair name in the container namespace
 	defaultEthName = "ecs-eth0"
 	// defaultBridgeName is the default name of bridge created for container to
@@ -27,19 +27,19 @@ const (
 	defaultBridgeName = "ecs-bridge"
 	// netnsFormat is used to construct the path to cotainer network namespace
 	netnsFormat = "/proc/%s/ns/net"
-	// ECSSubnet is the available ip addresses to use for task networking
-	ECSSubnet = "169.254.172.0/22"
+	// ecsSubnet is the available ip addresses to use for task networking
+	ecsSubnet = "169.254.172.0/22"
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
-	// NetworkName is the name of the network set by the cni plugins
-	NetworkName = "ecs-task-network"
-	// IPAMPluginName is the binary of the ipam plugin
-	IPAMPluginName = "ecs-ipam"
-	// BridgePluginName is the binary of the bridge plugin
-	BridgePluginName = "ecs-bridge"
-	// ENIPluginName is the binary of the eni plugin
-	ENIPluginName = "ecs-eni"
+	// networkName is the name of the network set by the cni plugins
+	networkName = "ecs-task-network"
+	// ipamPluginName is the binary of the ipam plugin
+	ipamPluginName = "ecs-ipam"
+	// bridgePluginName is the binary of the bridge plugin
+	bridgePluginName = "ecs-bridge"
+	// eniPluginName is the binary of the eni plugin
+	eniPluginName = "ecs-eni"
 )
 
 // IPAMConfig contains all the information needed to invoke the ipam plugin

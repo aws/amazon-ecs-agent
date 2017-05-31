@@ -211,14 +211,11 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 // BuildCNIConfig constructs the cni configuration from eni
 func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 	if !task.isNetworkModeVPC() {
-		return nil, errors.New("task isnot enabled with vpc networkmode")
+		return nil, errors.New("task config: task has no ENIs associated with it, unable to generate cni config")
 	}
 
 	cfg := &ecscni.Config{}
 	eni := task.GetTaskENI()
-	if eni == nil {
-		return nil, errors.New("task has no eni associated")
-	}
 
 	cfg.ENIID = eni.ID
 	cfg.ID = eni.MacAddress
@@ -231,7 +228,7 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 	}
 
 	// If there is ipv6 assigned to eni then set it
-	if len(eni.IPV6Addresses) == 1 {
+	if len(eni.IPV6Addresses) > 0 {
 		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
 	}
 

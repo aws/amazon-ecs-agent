@@ -41,7 +41,7 @@ func (eni *ENIAttachmentStatus) String() string {
 	return "NONE"
 }
 
-// ShouldSent returns whether the status should be sent to backend
-func (eni *ENIAttachmentStatus) ShouldSent() bool {
+// ShouldSend returns whether the status should be sent to backend
+func (eni *ENIAttachmentStatus) ShouldSend() bool {
 	return *eni == ENIAttached
 }

@@ -45,7 +45,7 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	attributePrefix              = "ecs."
-	capabilityTaskNetwork        = "task-eni"
+	capabilityTaskNetwork        = "task-eni.1.0"
 	capabilityPlugin             = "cni-plugin"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
@@ -649,7 +649,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	// Invoke the libcni to config the network namespace for the container
 	err = engine.cniClient.SetupNS(cniConfig)
 	if err != nil {
-		log.Error("engine: Set up pause container namespace failed, err: %v, task: %s", err, task.String())
+		log.Error("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
 			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: failed to setup network namespace")},
@@ -827,10 +827,7 @@ func (engine *DockerTaskEngine) AddENIAttachment(eniAttachment *api.ENIAttachmen
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
-// TODO these names need to be finally confirmed
-//    ecs.capability.cni-plugin-eni
-//    ecs.capability.cni-plugin-ipam
-//    ecs.capability.cni-plugin-bridge
+//    ecs.cap
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -919,21 +916,21 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 
 // taskNetworkAttributes checks if the task network was enabled and whether the plugin are existed
 func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
-	plugins := []string{"bridge", "eni", "ipam"}
+	plugins := []string{"ecs-bridge", "ecs-eni", "ecs-ipam"}
 
-	var attributes []string
 	if engine.cfg.TaskENIEnabled {
 		// Check if all the plugin existed in the specific directory
 		for _, plugin := range plugins {
-			version, err := engine.cniClient.Version(plugin)
+			_, err := engine.cniClient.Version(plugin)
 			if err != nil {
 				log.Error("Engine: Check version of plugin %s failed", plugin)
 				return nil, false
 			}
-			attributes = append(attributes, fmt.Sprintf("%s%s-%s-%s", attributePrefix, capabilityPlugin, plugin, version))
 		}
-		attributes = append(attributes, fmt.Sprintf("%s%s", attributePrefix, capabilityTaskNetwork))
-		return attributes, true
+		// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
+		// together with the agent
+		attribute := []string{fmt.Sprintf("%s%s", attributePrefix, capabilityTaskNetwork)}
+		return attribute, true
 	}
 	return nil, false
 }

@@ -91,7 +91,7 @@ func (statemanager *stateManager) emitENIAttachmentEvent(event api.TaskStateChan
 	statemanager.taskEvent <- event
 }
 
-// Reconcile performs a 2 phase reconciliation of managed state
+// Reconcile performs a reconciliation of the eni on the instance
 func (statemanager *stateManager) Reconcile(currentState map[string]string) {
 	// Add new interfaces next
 	for mac, _ := range currentState {
