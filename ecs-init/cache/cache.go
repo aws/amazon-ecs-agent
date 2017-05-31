@@ -43,8 +43,8 @@ type Downloader struct {
 }
 
 // NewDownloader returns a Downloader with default dependencies
-func NewDownloader() (downloader *Downloader) {
-	downloader = &Downloader{
+func NewDownloader() *Downloader {
+	downloader := &Downloader{
 		getter: customGetter,
 		fs:     &standardFS{},
 	}
@@ -54,10 +54,10 @@ func NewDownloader() (downloader *Downloader) {
 	sessionInstance, err := session.NewSession()
 	if err != nil {
 		downloader.region = config.DefaultRegionName
-		return
+		return downloader
 	}
 	downloader.metadata = ec2metadata.New(sessionInstance)
-	return
+	return downloader
 }
 
 // IsAgentCached returns true if there is a cached copy of the Agent present
