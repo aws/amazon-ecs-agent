@@ -253,6 +253,14 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	if hostCfg.NetworkMode != networkMode {
 		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)
 	}
+
+	if len(hostCfg.CapAdd) != 1 {
+		t.Error("Mismatch detected in added host config capabilities")
+	}
+
+	if hostCfg.CapAdd[0] != CapNetAdmin {
+		t.Errorf("Missing %s from host config capabilities", CapNetAdmin)
+	}
 }
 
 func expectKey(key string, input map[string]struct{}, t *testing.T) {
