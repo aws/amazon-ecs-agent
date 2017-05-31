@@ -125,8 +125,8 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(nil, errors.New("test error")),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(nil, errors.New("test error")),
 	)
 
 	d := &Downloader{
@@ -152,8 +152,8 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return(nil, errors.New("test error")),
 	)
 
@@ -179,10 +179,10 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(nil, errors.New("test error")),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(nil, errors.New("test error")),
 	)
 
 	d := &Downloader{
@@ -210,10 +210,10 @@ func TestDownloadAgentDownloadTarballNon200(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(tarballResponse, nil),
 	)
 
 	d := &Downloader{
@@ -242,10 +242,10 @@ func TestDownloadAgentTempFile(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(nil, errors.New("test error")),
 	)
 
@@ -281,10 +281,10 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
 		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()),
 		mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), errors.New("test error")),
@@ -323,10 +323,10 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(md5sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
 		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()),
 		mockFS.EXPECT().Copy(tempfile, gomock.Any()).Return(int64(0), nil),
@@ -366,10 +366,10 @@ func TestDownloadAgentSuccess(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockMetadata.EXPECT().Region().Return(config.DefaultRegionName, nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockMetadata.EXPECT().Region().Return("us-east-1", nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5("us-east-1")).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball("us-east-1")).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
 		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()).Do(func(reader io.Reader, writer io.Writer) {
 			_, err = io.Copy(writer, reader)
@@ -415,9 +415,9 @@ func TestDownloadAgentSuccessWithRegionFailure(t *testing.T) {
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
 		mockMetadata.EXPECT().Region().Return("", errors.New("test error")),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.RegionNameNotFound)).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.RegionNameNotFound)).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
 		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()).Do(func(reader io.Reader, writer io.Writer) {
 			_, err = io.Copy(writer, reader)

@@ -16,6 +16,8 @@ package config
 import (
 	"os"
 	"strings"
+
+	log "github.com/cihub/seelog"
 )
 
 const (
@@ -36,12 +38,15 @@ const (
 	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
 	// S3BucketMap.
 	DefaultRegionName = "default"
+
+	// RegionNameNotFound is the name returned when region name cannot be retrieved from metadata due to an error
+	RegionNameNotFound = "not found"
 )
 
 // s3BucketMap provides a mapping of region names to specific URI's for the region.
 var s3BucketMap = map[string]string{
-	"cn-north-1" : "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
-	"default" : "https://s3.amazonaws.com/amazon-ecs-agent/",
+	"cn-north-1":      "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
+	DefaultRegionName: "https://s3.amazonaws.com/amazon-ecs-agent/",
 }
 
 // AgentConfigDirectory returns the location on disk for configuration
@@ -117,6 +122,10 @@ func DockerUnixSocket() (string, bool) {
 
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getBaseLocationForRegion(regionName string) string {
+	if regionName == RegionNameNotFound {
+		log.Warn("Region name not found. Falling back to default region.")
+	}
+
 	s3BucketURL, ok := s3BucketMap[regionName]
 	if !ok {
 		return s3BucketMap[DefaultRegionName]
@@ -124,4 +133,3 @@ func getBaseLocationForRegion(regionName string) string {
 
 	return s3BucketURL
 }
-
