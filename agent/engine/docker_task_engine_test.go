@@ -44,12 +44,13 @@ import (
 )
 
 const (
-	credentialsID = "credsid"
-	ipv4          = "10.0.0.1"
-	mac           = "1.2.3.4"
-	ipv6          = "f0:234:23"
-	containerID   = "containerID"
-	containerPid  = 123
+	credentialsID       = "credsid"
+	ipv4                = "10.0.0.1"
+	mac                 = "1.2.3.4"
+	ipv6                = "f0:234:23"
+	containerID         = "containerID"
+	dockerContainerName = "docker-container-name"
+	containerPid        = 123
 )
 
 var defaultConfig = config.DefaultConfig()
@@ -1376,7 +1377,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 		imageManager.EXPECT().GetImageStateFromImageName(pauseContainerImage).Return(nil),
 		dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().InspectContainer(pauseContainerName, gomock.Any()).Return(&docker.Container{
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
 			ID:    pauseContainerID,
 			State: docker.State{Pid: 123},
 		}, nil),
@@ -1411,7 +1412,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	verifyTaskIsRunning(taskEvent, sleepTask)
 
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
-	dockerClient.EXPECT().InspectContainer(pauseContainerName, gomock.Any()).Return(&docker.Container{
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
 		ID:    pauseContainerID,
 		State: docker.State{Pid: 123},
 	}, nil)
@@ -1464,8 +1465,12 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	container := &api.Container{
 		Name: "container",
 	}
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&api.DockerContainer{
+		Container:  container,
+		DockerName: dockerContainerName,
+	}, testTask)
 
-	dockerClient.EXPECT().InspectContainer(container.Name, gomock.Any()).Return(&docker.Container{
+	dockerClient.EXPECT().InspectContainer(dockerContainerName, gomock.Any()).Return(&docker.Container{
 		ID:    containerID,
 		State: docker.State{Pid: containerPid},
 	}, nil)
@@ -1490,8 +1495,12 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 	container := &api.Container{
 		Name: "container",
 	}
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&api.DockerContainer{
+		Container:  container,
+		DockerName: dockerContainerName,
+	}, testTask)
 
-	dockerClient.EXPECT().InspectContainer(container.Name, gomock.Any()).Return(nil, errors.New("error"))
+	dockerClient.EXPECT().InspectContainer(dockerContainerName, gomock.Any()).Return(nil, errors.New("error"))
 
 	_, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
 	assert.Error(t, err)
@@ -1531,12 +1540,13 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	})
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&api.DockerContainer{
-		DockerID:  containerID,
-		Container: pauseContainer,
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(pauseContainer.Name, gomock.Any()).Return(&docker.Container{
+		dockerClient.EXPECT().InspectContainer(dockerContainerName, gomock.Any()).Return(&docker.Container{
 			ID:    containerID,
 			State: docker.State{Pid: containerPid},
 		}, nil),

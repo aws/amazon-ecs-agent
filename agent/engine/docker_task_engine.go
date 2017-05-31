@@ -679,7 +679,16 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 		return nil, errors.Wrapf(err, "engine: build cni configuration from taskfailed")
 	}
 	// Get the pid of container
-	containerInspectOutput, err := engine.client.InspectContainer(container.Name, inspectContainerTimeout)
+	containers, ok := engine.state.ContainerMapByArn(task.Arn)
+	if !ok {
+		return nil, errors.New("engine: failed to find the pause container, no containers in the task")
+	}
+
+	pauseContainer, ok := containers[container.Name]
+	if !ok {
+		return nil, errors.New("engine: failed to find the pause container")
+	}
+	containerInspectOutput, err := engine.client.InspectContainer(pauseContainer.DockerName, inspectContainerTimeout)
 	if err != nil {
 		return nil, err
 	}
