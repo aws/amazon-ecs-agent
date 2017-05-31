@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -51,9 +52,15 @@ type APIECSClient struct {
 	submitStateChangeClient api.ECSSubmitStateSDK
 	ec2metadata             ec2.EC2MetadataClient
 	pollEndpoinCache        async.Cache
+	taskEngine              engine.TaskEngine
 }
 
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+func NewECSClient(
+	credentialProvider *credentials.Credentials,
+	config *config.Config,
+	ec2MetadataClient ec2.EC2MetadataClient,
+	engine engine.TaskEngine) api.ECSClient {
+
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
@@ -71,6 +78,7 @@ func NewECSClient(credentialProvider *credentials.Credentials, config *config.Co
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,
 		pollEndpoinCache:        pollEndpoinCache,
+		taskEngine:              engine,
 	}
 }
 
@@ -145,6 +153,12 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			Name: aws.String(attribute),
 		})
 	}
+
+	// Additional attribute of task engine
+	for _, attribute := range client.taskEngine.GetAdditionalAttributes() {
+		registrationAttributes = append(registrationAttributes, attribute)
+	}
+
 	for _, attribute := range client.getAdditionalAttributes() {
 		registrationAttributes = append(registrationAttributes, attribute)
 	}

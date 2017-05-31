@@ -15,7 +15,6 @@
 package engine
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -45,7 +46,8 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	attributePrefix              = "ecs."
-	capabilityTaskNetwork        = "task-eni.1.0"
+	taskENIAttribute             = "task-eni"
+	taskENIVersion               = "1.0"
 	capabilityPlugin             = "cni-plugin"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
@@ -886,13 +888,6 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 		}
 	}
 
-	taskNetworkCapabilities, ok := engine.taskNetworkAttributes()
-	if ok {
-		for _, capability := range taskNetworkCapabilities {
-			capabilities = append(capabilities, capability)
-		}
-	}
-
 	return capabilities
 }
 
@@ -923,8 +918,28 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	return false
 }
 
+// GetAdditionalAttributes returns back attributes of the instance when register
+// the instance into cluster
+func (engine *DockerTaskEngine) GetAdditionalAttributes() []*ecs.Attribute {
+	var attributes []*ecs.Attribute
+
+	attribute, ok := engine.taskNetworkAttributes()
+	if !ok {
+		return nil
+	}
+
+	for key, value := range attribute {
+		attributes = append(attributes, &ecs.Attribute{
+			Name:  aws.String(key),
+			Value: aws.String(value),
+		})
+	}
+
+	return attributes
+}
+
 // taskNetworkAttributes checks if the task network was enabled and whether the plugin are existed
-func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
+func (engine *DockerTaskEngine) taskNetworkAttributes() (map[string]string, bool) {
 	plugins := []string{"ecs-bridge", "ecs-eni", "ecs-ipam"}
 
 	if engine.cfg.TaskENIEnabled {
@@ -938,7 +953,8 @@ func (engine *DockerTaskEngine) taskNetworkAttributes() ([]string, bool) {
 		}
 		// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
 		// together with the agent
-		attribute := []string{fmt.Sprintf("%s%s", attributePrefix, capabilityTaskNetwork)}
+		attribute := make(map[string]string)
+		attribute[taskENIAttribute] = taskENIVersion
 		return attribute, true
 	}
 	return nil, false

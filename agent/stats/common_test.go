@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -178,6 +179,10 @@ func createFakeContainerStats() []*ContainerStats {
 }
 
 type MockTaskEngine struct {
+}
+
+func (engine *MockTaskEngine) GetAdditionalAttributes() []*ecs.Attribute {
+	return nil
 }
 
 func (engine *MockTaskEngine) Init() error {

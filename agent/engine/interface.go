@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
@@ -52,6 +53,9 @@ type TaskEngine interface {
 	// Capabilities returns an array of capabilities this task engine has, which
 	// should model what it can execute.
 	Capabilities() []string
+	// GetAdditionalAttributes returns the attributes of the task engine, it's
+	// an alternative of the Capabilities
+	GetAdditionalAttributes() []*ecs.Attribute
 
 	json.Marshaler
 	json.Unmarshaler

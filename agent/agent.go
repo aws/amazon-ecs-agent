@@ -206,7 +206,7 @@ func _main() int {
 	if preflightCreds, err := credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
-	client := ecsclient.NewECSClient(credentialProvider, cfg, ec2MetadataClient)
+	client := ecsclient.NewECSClient(credentialProvider, cfg, ec2MetadataClient, taskEngine)
 
 	if containerInstanceArn == "" {
 		log.Info("Registering Instance with ECS")

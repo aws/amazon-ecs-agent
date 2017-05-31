@@ -1126,6 +1126,38 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	}
 }
 
+// TestAddAttributes tests the attributes was correctly acquried in task engine
+func TestAddAttributes(t *testing.T) {
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JsonFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+		PrivilegedDisabled:      false,
+		SELinuxCapable:          true,
+		AppArmorCapable:         true,
+		TaskENIEnabled:          true,
+		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
+	}
+
+	ctrl, _, _, taskEngine, _, _ := mocks(t, conf)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+	cniClient.EXPECT().Version("ecs-bridge").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ecs-eni").Return("1.0.0", nil)
+	cniClient.EXPECT().Version("ecs-ipam").Return("1.0.0", nil)
+
+	attributes := taskEngine.GetAdditionalAttributes()
+	assert.Len(t, attributes, 1)
+	assert.Equal(t, taskENIAttribute, aws.StringValue(attributes[0].Name))
+	assert.Equal(t, taskENIVersion, aws.StringValue(attributes[0].Value))
+}
+
 func TestCapabilities(t *testing.T) {
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
@@ -1142,19 +1174,12 @@ func TestCapabilities(t *testing.T) {
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
-	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	defer ctrl.Finish()
-
-	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 		dockerclient.Version_1_18,
 	})
-
-	cniClient.EXPECT().Version("ecs-bridge").Return("1.0.0", nil)
-	cniClient.EXPECT().Version("ecs-eni").Return("1.0.0", nil)
-	cniClient.EXPECT().Version("ecs-ipam").Return("1.0.0", nil)
 
 	capabilities := taskEngine.Capabilities()
 
@@ -1166,7 +1191,6 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
-		"ecs.task-eni.1.0",
 	}
 
 	if !reflect.DeepEqual(capabilities, expectedCapabilities) {
