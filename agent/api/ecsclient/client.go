@@ -264,10 +264,37 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{{
+	attributes := []*ecs.Attribute{&ecs.Attribute{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
+	mac, err := client.ec2metadata.PrimaryENIMAC()
+	if err != nil {
+		seelog.Warnf("Unable to get the MAC address of the primary network interface: %v", err)
+		return attributes
+	}
+
+	vpcID, err := client.ec2metadata.VPCID(mac)
+	if err != nil {
+		seelog.Warnf("Unable to get the VPC ID of the primary network interface: %v", err)
+		return attributes
+	}
+
+	subnetID, err := client.ec2metadata.SubnetID(mac)
+	if err != nil {
+		seelog.Warnf("Unable to get the Subnet ID of the primary network interface: %v", err)
+		return attributes
+	}
+
+	return append(attributes,
+		&ecs.Attribute{
+			Name:  aws.String("ecs.vpc-id"),
+			Value: aws.String(vpcID),
+		},
+		&ecs.Attribute{
+			Name:  aws.String("ecs.subnet-id"),
+			Value: aws.String(subnetID),
+		})
 }
 
 func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
