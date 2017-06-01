@@ -220,3 +220,35 @@ func (_m *MockfileSizeInfo) Size() int64 {
 func (_mr *_MockfileSizeInfoRecorder) Size() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Size")
 }
+
+// Mock of instanceMetadata interface
+type MockinstanceMetadata struct {
+	ctrl     *gomock.Controller
+	recorder *_MockinstanceMetadataRecorder
+}
+
+// Recorder for MockinstanceMetadata (not exported)
+type _MockinstanceMetadataRecorder struct {
+	mock *MockinstanceMetadata
+}
+
+func NewMockinstanceMetadata(ctrl *gomock.Controller) *MockinstanceMetadata {
+	mock := &MockinstanceMetadata{ctrl: ctrl}
+	mock.recorder = &_MockinstanceMetadataRecorder{mock}
+	return mock
+}
+
+func (_m *MockinstanceMetadata) EXPECT() *_MockinstanceMetadataRecorder {
+	return _m.recorder
+}
+
+func (_m *MockinstanceMetadata) Region() (string, error) {
+	ret := _m.ctrl.Call(_m, "Region")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockinstanceMetadataRecorder) Region() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Region")
+}
