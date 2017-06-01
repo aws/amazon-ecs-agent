@@ -49,8 +49,8 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 func TestGetS3BucketMapByRegion(t *testing.T) {
 
 	var cases = []struct {
-		region         String
-		expectedBucket String
+		region         string
+		expectedBucket string
 	}{
 		{DefaultRegionName, regionToS3BucketURL[DefaultRegionName]},
 		{"cn-north-1", regionToS3BucketURL["cn-north-1"]},

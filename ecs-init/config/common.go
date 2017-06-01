@@ -16,8 +16,6 @@ package config
 import (
 	"os"
 	"strings"
-
-	log "github.com/cihub/seelog"
 )
 
 const (
@@ -38,9 +36,6 @@ const (
 	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
 	// S3BucketMap.
 	DefaultRegionName = "default"
-
-	// RegionNameNotFound is the name returned when region name cannot be retrieved from metadata due to an error
-	RegionNameNotFound = "not found"
 )
 
 // regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
@@ -122,10 +117,6 @@ func DockerUnixSocket() (string, bool) {
 
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getBaseLocationForRegion(regionName string) string {
-	if regionName == RegionNameNotFound {
-		log.Warn("Region name not found. Falling back to default region.")
-	}
-
 	s3BucketURL, ok := regionToS3BucketURL[regionName]
 	if !ok {
 		return regionToS3BucketURL[DefaultRegionName]

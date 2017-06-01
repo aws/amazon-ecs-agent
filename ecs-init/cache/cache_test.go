@@ -415,9 +415,9 @@ func TestDownloadAgentSuccessWithRegionFailure(t *testing.T) {
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
 		mockMetadata.EXPECT().Region().Return("", errors.New("test error")),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.RegionNameNotFound)).Return(md5response, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarballMD5(config.DefaultRegionName)).Return(md5response, nil),
 		mockFS.EXPECT().ReadAll(md5response.Body).Return([]byte(expectedMd5Sum), nil),
-		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.RegionNameNotFound)).Return(tarballResponse, nil),
+		mockGetter.EXPECT().Get(config.AgentRemoteTarball(config.DefaultRegionName)).Return(tarballResponse, nil),
 		mockFS.EXPECT().TempFile(config.CacheDirectory(), "ecs-agent.tar").Return(tempfile, nil),
 		mockFS.EXPECT().TeeReader(tarballResponse.Body, gomock.Any()).Do(func(reader io.Reader, writer io.Writer) {
 			_, err = io.Copy(writer, reader)
