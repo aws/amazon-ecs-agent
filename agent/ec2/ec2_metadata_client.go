@@ -38,7 +38,7 @@ const (
 	vpcIDResourceFormat    = "/2014-02-25/meta-data/network/interfaces/macs/%s/vpc-id"
 	subnetIDResourceFormat = "/2014-02-25/meta-data/network/interfaces/macs/%s/subnet-id"
 
-	EC2MetadataRequestTimeout = time.Duration(1 * time.Second)
+	EC2MetadataRequestTimeout = 1 * time.Second
 )
 
 const (
@@ -97,8 +97,8 @@ func NewEC2MetadataClient(httpClient http.Client) EC2MetadataClient {
 	return &ec2MetadataClient{httpClient: httpClient}
 }
 
-func (c *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	rawIIDResponse, err := c.ReadResource(InstanceIdentityDocumentResource)
+func (client *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+	rawIIDResponse, err := client.ReadResource(InstanceIdentityDocumentResource)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +112,8 @@ func (c *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocumen
 	return &iid, nil
 }
 
-func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
-	endpoint := c.resourceServiceURL(path)
+func (client *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
+	endpoint := client.resourceServiceURL(path)
 
 	var err error
 	var resp *net_http.Response
@@ -122,7 +122,7 @@ func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 			metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2),
 		metadataRetries,
 		func() error {
-			resp, err = c.httpClient.Get(endpoint)
+			resp, err = client.httpClient.Get(endpoint)
 			if err == nil && resp.StatusCode == 200 {
 				return nil
 			}
@@ -131,7 +131,7 @@ func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 			}
 			if err == nil {
 				seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-				return fmt.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
+				return errors.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
 			}
 			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
 			return err
@@ -146,17 +146,17 @@ func (c *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (c *ec2MetadataClient) resourceServiceURL(path string) string {
+func (client *ec2MetadataClient) resourceServiceURL(path string) string {
 	// TODO, override EC2MetadataServiceURL based on the environment
 	return EC2MetadataServiceURL + path
 }
 
-func (c *ec2MetadataClient) PrimaryENIMAC() (string, error) {
-	return c.readResourceString(macResource, "MAC address of primary network interface")
+func (client *ec2MetadataClient) PrimaryENIMAC() (string, error) {
+	return client.readResourceString(macResource, "MAC address of primary network interface")
 }
 
-func (c *ec2MetadataClient) readResourceString(path string, resourceName string) (string, error) {
-	response, err := c.ReadResource(path)
+func (client *ec2MetadataClient) readResourceString(path string, resourceName string) (string, error) {
+	response, err := client.ReadResource(path)
 	if err != nil {
 		return "", errors.Wrapf(err,
 			"ec2 metadata client: unable to determine %s", resourceName)
@@ -165,12 +165,12 @@ func (c *ec2MetadataClient) readResourceString(path string, resourceName string)
 	return string(response), nil
 }
 
-func (c *ec2MetadataClient) VPCID(mac string) (string, error) {
-	return c.readResourceString(fmt.Sprintf(vpcIDResourceFormat, mac),
+func (client *ec2MetadataClient) VPCID(mac string) (string, error) {
+	return client.readResourceString(fmt.Sprintf(vpcIDResourceFormat, mac),
 		fmt.Sprintf("VPC ID for MAC address: %s", mac))
 }
 
-func (c *ec2MetadataClient) SubnetID(mac string) (string, error) {
-	return c.readResourceString(fmt.Sprintf(subnetIDResourceFormat, mac),
+func (client *ec2MetadataClient) SubnetID(mac string) (string, error) {
+	return client.readResourceString(fmt.Sprintf(subnetIDResourceFormat, mac),
 		fmt.Sprintf("Subnet ID for MAC address: %s", mac))
 }
