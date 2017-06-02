@@ -87,7 +87,7 @@ func (client *APIECSClient) SetSubmitStateChangeSDK(sdk api.ECSSubmitStateSDK) {
 func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 	resp, err := client.standardClient.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
-		seelog.Criticalf("Could not create cluster, error: %v", err)
+		seelog.Criticalf("Could not create cluster: %v", err)
 		return "", err
 	}
 	seelog.Infof("Created a cluster named: %s", clusterName)
@@ -149,7 +149,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentResource)
 	iidRetrieved := true
 	if err != nil {
-		seelog.Errorf("Unable to get instance identity document, error: %v", err)
+		seelog.Errorf("Unable to get instance identity document: %v", err)
 		iidRetrieved = false
 		instanceIdentityDoc = []byte{}
 	}
@@ -160,7 +160,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	if iidRetrieved {
 		instanceIdentitySignature, err = client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentSignatureResource)
 		if err != nil {
-			seelog.Errorf("Unable to get instance identity signature, error: %v", err)
+			seelog.Errorf("Unable to get instance identity signature: %v", err)
 		}
 	}
 
@@ -323,7 +323,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		Reason:  &change.Reason,
 	})
 	if err != nil {
-		seelog.Warnf("Could not submit task state change: [%s]; error: [%v]", change.String(), err)
+		seelog.Warnf("Could not submit task state change: [%s]: %v", change.String(), err)
 		return err
 	}
 	return nil
@@ -373,7 +373,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 
 	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&req)
 	if err != nil {
-		seelog.Warnf("Could not submit container state change: [%s]; error: [%v]", change.String(), err)
+		seelog.Warnf("Could not submit container state change: [%s]: %v", change.String(), err)
 		return err
 	}
 	return nil
