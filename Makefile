@@ -11,7 +11,11 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images
+PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
+PAUSE_CONTAINER_TAG = "0.1.0"
+PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
+
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container
 
 all: docker
 
@@ -42,7 +46,7 @@ docker: certs build-in-docker
 
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
-docker-release:
+docker-release: pause-container-release
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run --net=none -e TARGET_OS="${TARGET_OS}" -v "$(shell pwd)/out:/out" \
 	  -v "$(shell pwd):/src/amazon-ecs-agent" "amazon/amazon-ecs-agent-cleanbuild:make"
@@ -95,6 +99,9 @@ pause-container:
 
 	cd misc/pause-container; $(MAKE) $(MFLAGS)
 	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
+
+pause-container-release: pause-container
+	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > out/${PAUSE_CONTAINER_TARBALL}
 
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
