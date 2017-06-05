@@ -536,3 +536,46 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	mTask.cleanupTask(taskStoppedDuration)
 	assert.Equal(t, api.TaskRunning, mTask.GetSentStatus())
 }
+
+// TestCleanupNoneStatusContainer tests clean up a container that moved directly
+// from none to stopped
+func TestCleanupNoneStatusContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockTime := mock_ttime.NewMockTime(ctrl)
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockClient := NewMockDockerClient(ctrl)
+	mockImageManager := NewMockImageManager(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine := &DockerTaskEngine{
+		saver:        statemanager.NewNoopStateManager(),
+		state:        mockState,
+		client:       mockClient,
+		imageManager: mockImageManager,
+	}
+	mTask := &managedTask{
+		Task:           testdata.LoadTask("sleep5"),
+		_time:          mockTime,
+		engine:         taskEngine,
+		acsMessages:    make(chan acsTransition),
+		dockerMessages: make(chan dockerContainerChange),
+	}
+	mTask.Task.Containers[0].ImageID = ""
+	mTask.SetKnownStatus(api.TaskStopped)
+	mTask.SetSentStatus(api.TaskStopped)
+
+	// Expectations for triggering cleanup
+	now := mTask.GetKnownStatusTime()
+	taskStoppedDuration := 1 * time.Minute
+	mockTime.EXPECT().Now().Return(now).AnyTimes()
+	cleanupTimeTrigger := make(chan time.Time)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanupTimeTrigger)
+	go func() {
+		cleanupTimeTrigger <- now
+	}()
+
+	// Only expect remove the container from state, not call docker remove
+	// for not pulled container
+	mockState.EXPECT().RemoveTask(mTask.Task)
+	mTask.cleanupTask(taskStoppedDuration)
+}

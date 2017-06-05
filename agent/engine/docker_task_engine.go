@@ -294,6 +294,9 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 // sweepTask deletes all the containers associated with a task
 func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	for _, cont := range task.Containers {
+		if cont.ImageID == "" {
+			continue
+		}
 		err := engine.removeContainer(task, cont)
 		if err != nil {
 			log.Debug("Unable to remove old container", "err", err, "task", task, "cont", cont)
