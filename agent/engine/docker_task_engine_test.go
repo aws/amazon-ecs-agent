@@ -1154,7 +1154,7 @@ func TestAddAttributes(t *testing.T) {
 
 	attributes := taskEngine.GetAdditionalAttributes()
 	assert.Len(t, attributes, 1)
-	assert.Equal(t, taskENIAttribute, aws.StringValue(attributes[0].Name))
+	assert.Equal(t, attributePrefix+taskENIAttribute, aws.StringValue(attributes[0].Name))
 	assert.Equal(t, taskENIVersion, aws.StringValue(attributes[0].Value))
 }
 

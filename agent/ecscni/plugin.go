@@ -165,7 +165,6 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	})
 
 	netconf := &libcni.NetworkConfigList{
-		Name:       networkName,
 		CNIVersion: client.cniVersion,
 		Plugins:    plugins,
 	}

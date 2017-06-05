@@ -32,8 +32,6 @@ const (
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
-	// networkName is the name of the network set by the cni plugins
-	networkName = "ecs-task-network"
 	// ipamPluginName is the binary of the ipam plugin
 	ipamPluginName = "ecs-ipam"
 	// bridgePluginName is the binary of the bridge plugin

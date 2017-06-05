@@ -71,6 +71,18 @@ const (
             "volumesFrom": []
           }
         ],
+        "elasticNetworkInterfaces":[{
+                "attachmentArn": "eni_attach_arn",
+                "ec2Id": "eni_id",
+                "ipv4Addresses":[{
+                    "primary": true,
+                    "privateAddress": "ipv4"
+                }],
+                "ipv6Addresses": [{
+                    "address": "ipv6"
+                }],
+                "macAddress": "mac"
+        }],
         "roleCredentials": {
           "credentialsId": "credsId",
           "accessKeyId": "accessKeyId",

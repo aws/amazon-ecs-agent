@@ -45,9 +45,9 @@ const (
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
-	attributePrefix              = "ecs."
+	attributePrefix              = "ecs.capability."
 	taskENIAttribute             = "task-eni"
-	taskENIVersion               = "1.0"
+	taskENIVersion               = "0.1.0"
 	capabilityPlugin             = "cni-plugin"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
@@ -651,7 +651,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	// Invoke the libcni to config the network namespace for the container
 	err = engine.cniClient.SetupNS(cniConfig)
 	if err != nil {
-		log.Error("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
+		seelog.Errorf("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
 			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: failed to setup network namespace")},
@@ -838,7 +838,7 @@ func (engine *DockerTaskEngine) AddENIAttachment(eniAttachment *api.ENIAttachmen
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
-//    ecs.cap
+//    ecs.capability.task-eni.0.1.0
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -954,7 +954,7 @@ func (engine *DockerTaskEngine) taskNetworkAttributes() (map[string]string, bool
 		// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
 		// together with the agent
 		attribute := make(map[string]string)
-		attribute[taskENIAttribute] = taskENIVersion
+		attribute[attributePrefix+taskENIAttribute] = taskENIVersion
 		return attribute, true
 	}
 	return nil, false
