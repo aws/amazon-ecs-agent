@@ -17,7 +17,7 @@
 package mock_udevwrapper
 
 import (
-	udev "github.com/deniswernert/udev"
+	"github.com/deniswernert/udev"
 	gomock "github.com/golang/mock/gomock"
 )
 
