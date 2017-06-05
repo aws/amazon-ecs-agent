@@ -143,6 +143,12 @@ type Config struct {
 
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
+
+	// Path to pause container tarball
+	PauseContainerTarballPath string
+
+	// Tag for pause container
+	PauseContainerTag string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

@@ -80,6 +80,12 @@ const (
 	// minimumNumImagesToDeletePerCycle specifies the minimum number of images that to be deleted when
 	// performing image cleanup.
 	minimumNumImagesToDeletePerCycle = 1
+
+	// Path to pause container tarball
+	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+
+	// Tag for pause container
+	pauseContainerTag = "0.1.0"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -350,6 +356,8 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
+		PauseContainerTarballPath:        pauseContainerTarballPath,
+		PauseContainerTag:                pauseContainerTag,
 	}, err
 }
 
