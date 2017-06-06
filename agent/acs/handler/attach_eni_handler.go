@@ -14,6 +14,8 @@
 package handler
 
 import (
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -107,6 +109,13 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 	if err != nil {
 		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(message.MessageId), err)
 	}
+
+	// Check if this is a duplicate message
+	if _, ok := attachENIHandler.state.ENIByMac(aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)); ok {
+		seelog.Info("Duplicate ENIAttachment message, ENIAttachment is already managed by agent, mac: %s", aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress))
+		return nil
+	}
+
 	attachENIHandler.addENIAttachmentToState(message)
 	err = attachENIHandler.saver.Save()
 	if err != nil {
@@ -119,13 +128,24 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
 	attachmentArn := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
 	seelog.Info("Adding eni info to state, eni: %s", attachmentArn)
-	handler.state.AddENIAttachment(
-		&api.ENIAttachment{
-			TaskArn:          aws.StringValue(message.TaskArn),
-			AttachmentArn:    attachmentArn,
-			AttachStatusSent: false,
-			MacAddress:       aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress),
-		})
+	eniAttachment := &api.ENIAttachment{
+		TaskArn:          aws.StringValue(message.TaskArn),
+		AttachmentArn:    attachmentArn,
+		AttachStatusSent: false,
+		MacAddress:       aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress),
+	}
+	handler.state.AddENIAttachment(eniAttachment)
+
+	// Stop tracking the eni attachment after timeout
+	eniAckTimeout := time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond
+	timeoutHandler := func() {
+		if !eniAttachment.GetSentStatus() {
+			handler.state.RemoveENIAttachment(aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress))
+		}
+	}
+	go func() {
+		time.AfterFunc(eniAckTimeout, timeoutHandler)
+	}()
 }
 
 // validateAttachTaskNetworkInterfacesMessage performs validation checks on the
