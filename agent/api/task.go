@@ -450,7 +450,9 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 // reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
 func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	if containerCPU <= 1 {
-		log.Debug("Converting CPU shares to allowed minimum of 2", "task", task.Arn, "cpuShares", containerCPU)
+		seelog.Debugf(
+			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
+			task.Arn, containerCPU)
 		return 2
 	}
 	return int64(containerCPU)
@@ -591,7 +593,8 @@ func (task *Task) dockerLinks(container *Container, dockerContainerMap map[strin
 		if len(linkParts) == 2 {
 			linkAlias = linkParts[1]
 		} else {
-			log.Warn("Warning, link with no linkalias", "linkName", linkName, "task", task, "container", container)
+			seelog.Warnf("Link name [%s] found with no linkalias for container: [%s] in task: [%s]",
+				linkName, container.String(), task.String())
 			linkAlias = linkName
 		}
 
@@ -650,7 +653,9 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 		}
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
-			log.Error("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+			seelog.Errorf(
+				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s] in task: [%s]",
+				container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath, task.String())
 			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
 		}
 
@@ -704,14 +709,14 @@ func (task *Task) UpdateDesiredStatus() {
 
 // updateTaskDesiredStatus determines what status the task should properly be at based on its container's statuses
 func (task *Task) updateTaskDesiredStatus() {
-	llog := log.New("task", task)
-	llog.Debug("Updating task")
+	seelog.Debugf("Updating task: [%s]", task.String())
 
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
-			llog.Debug("Updating task desired status to stopped", "container", cont.Name)
+			seelog.Debugf("Updating task desired status to stopped because of container: [%s]; task: [%s]",
+				cont.Name, task.String())
 			task.SetDesiredStatus(TaskStopped)
 		}
 	}

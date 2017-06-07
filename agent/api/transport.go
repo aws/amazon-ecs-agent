@@ -16,6 +16,8 @@ package api
 import (
 	"errors"
 	"strings"
+
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -54,7 +56,7 @@ func (tp *TransportProtocol) String() string {
 	case TransportProtocolTCP:
 		return tcp
 	default:
-		log.Crit("Unknown TransportProtocol type!")
+		seelog.Critical("Unknown TransportProtocol type!")
 		return tcp
 	}
 }
@@ -65,7 +67,7 @@ func (tp *TransportProtocol) String() string {
 func (tp *TransportProtocol) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
 		*tp = TransportProtocolTCP
-		log.Warn("Unmarshalled nil TransportProtocol as TCP")
+		seelog.Warn("Unmarshalled nil TransportProtocol as TCP")
 		return nil
 	}
 	switch string(b) {

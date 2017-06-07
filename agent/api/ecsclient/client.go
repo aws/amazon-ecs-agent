@@ -50,6 +50,7 @@ type APIECSClient struct {
 	pollEndpoinCache        async.Cache
 }
 
+// NewECSClient creates a new ECSClient interface object
 func NewECSClient(
 	credentialProvider *credentials.Credentials,
 	config *config.Config,
@@ -98,7 +99,12 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 	return *resp.Cluster.ClusterName, nil
 }
 
-func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []string) (string, error) {
+// RegisterContainerInstance calculates the appropriate resources, creates
+// the default cluster if necessary, and returns the registered
+// ContainerInstanceARN if successful. Supplying a non-empty container
+// instance ARN allows a container instance to update its registered
+// resources.
+func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -123,7 +129,7 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes)
 }
 
-func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
+func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -141,11 +147,8 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		}
 	}
 	// Standard attributes are included with all registrations.
-	for _, attribute := range attributes {
-		registrationAttributes = append(registrationAttributes, &ecs.Attribute{
-			Name: aws.String(attribute),
-		})
-	}
+	registrationAttributes = append(registrationAttributes, attributes...)
+
 	vpcAttributes, err := client.getVPCAttributes()
 	if err != nil {
 		// This error is processed only if the instance is launched with a VPC

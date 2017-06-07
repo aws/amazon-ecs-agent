@@ -62,9 +62,9 @@ func (_mr *_MockTaskEngineRecorder) AddTask(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTask", arg0)
 }
 
-func (_m *MockTaskEngine) Capabilities() []string {
+func (_m *MockTaskEngine) Capabilities() []*ecs.Attribute {
 	ret := _m.ctrl.Call(_m, "Capabilities")
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]*ecs.Attribute)
 	return ret0
 }
 
@@ -78,16 +78,6 @@ func (_m *MockTaskEngine) Disable() {
 
 func (_mr *_MockTaskEngineRecorder) Disable() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Disable")
-}
-
-func (_m *MockTaskEngine) GetAdditionalAttributes() []*ecs.Attribute {
-	ret := _m.ctrl.Call(_m, "GetAdditionalAttributes")
-	ret0, _ := ret[0].([]*ecs.Attribute)
-	return ret0
-}
-
-func (_mr *_MockTaskEngineRecorder) GetAdditionalAttributes() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAdditionalAttributes")
 }
 
 func (_m *MockTaskEngine) GetTaskByArn(_param0 string) (*api.Task, bool) {

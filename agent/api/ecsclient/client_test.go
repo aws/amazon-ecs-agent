@@ -300,15 +300,16 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
-	capabilities := []string{"capability1", "capability2"}
+	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.vpc-id":    vpcID,
 		"ecs.subnet-id": subnetID,
 		"ecs.os-type":   api.OSType,
 	}
-	for i := range capabilities {
-		expectedAttributes[capabilities[i]] = ""
+	for i := range fakeCapabilities {
+		expectedAttributes[fakeCapabilities[i]] = ""
 	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
 
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -340,7 +341,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
 				ContainerInstanceArn: aws.String("registerArn"),
-				Attributes:           buildAttributeList(capabilities, expectedAttributes),
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes),
 			}},
 			nil),
 	)
@@ -363,7 +364,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 	}
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
-	capabilities := []string{"capability1", "capability2"}
+	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               api.OSType,
 		"ecs.vpc-id":                vpcID,
@@ -371,6 +372,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
 
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -390,7 +392,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			assert.Equal(t, 7, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
-					assert.Contains(t, capabilities, *req.Attributes[i].Name)
+					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
 				} else {
 					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
 				}
@@ -398,7 +400,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
 				ContainerInstanceArn: aws.String("registerArn"),
-				Attributes:           buildAttributeList(capabilities, expectedAttributes)}},
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
 			nil),
 	)
 
@@ -416,12 +418,13 @@ func TestRegisterContainerInstanceInClassicEC2(t *testing.T) {
 	}
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
-	capabilities := []string{"capability1", "capability2"}
+	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               api.OSType,
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
 
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -440,7 +443,7 @@ func TestRegisterContainerInstanceInClassicEC2(t *testing.T) {
 			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
-					assert.Contains(t, capabilities, *req.Attributes[i].Name)
+					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
 				} else {
 					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
 				}
@@ -448,7 +451,7 @@ func TestRegisterContainerInstanceInClassicEC2(t *testing.T) {
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
 				ContainerInstanceArn: aws.String("registerArn"),
-				Attributes:           buildAttributeList(capabilities, expectedAttributes)}},
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
 			nil),
 	)
 
@@ -461,7 +464,7 @@ func TestRegisterContainerInstanceGetVPCIDError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	capabilities := []string{"capability1", "capability2"}
+	capabilities := buildAttributeList([]string{"capability1", "capability2"}, nil)
 	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
