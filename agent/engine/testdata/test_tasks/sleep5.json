@@ -8,6 +8,7 @@
       "Name":"sleep5",
       "Image":"busybox",
       "Command":["sleep","5"],
+      "ImageID": "dockerImageID",
       "Cpu":10,
       "Memory":10,
       "Links":null,
