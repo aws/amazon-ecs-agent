@@ -25,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -40,8 +39,6 @@ const (
 	pollEndpointCacheTTL  = 20 * time.Minute
 	RoundtripTimeout      = 5 * time.Second
 )
-
-var log = logger.ForModule("api client")
 
 // APIECSClient implements ECSClient
 type APIECSClient struct {
@@ -90,10 +87,10 @@ func (client *APIECSClient) SetSubmitStateChangeSDK(sdk api.ECSSubmitStateSDK) {
 func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 	resp, err := client.standardClient.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		seelog.Criticalf("Could not create cluster: %v", err)
 		return "", err
 	}
-	log.Info("Created a cluster!", "clusterName", clusterName)
+	seelog.Infof("Created a cluster named: %s", clusterName)
 	return *resp.Cluster.ClusterName, nil
 }
 
@@ -145,14 +142,29 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			Name: aws.String(attribute),
 		})
 	}
+	vpcAttributes, err := client.getVPCAttributes()
+	if err != nil {
+		// This error is processed only if the instance is launched with a VPC
+		if !launchedWithoutVPC(err) {
+			return "", err
+		}
+		// Not a VPC. Remove task networking capability
+		// TODO Set task networking capability to be false
+		seelog.Infof("Setting Task ENI Enabled to false as the VPC and Subnet IDs are not set for the instance in Instance Metadata")
+	}
+	// Add VPC ID and Subnet ID attributes if any
+	for _, attribute := range vpcAttributes {
+		registrationAttributes = append(registrationAttributes, attribute)
+	}
+	// Add additional attributes such as the os type
 	for _, attribute := range client.getAdditionalAttributes() {
 		registrationAttributes = append(registrationAttributes, attribute)
 	}
 	registerRequest.Attributes = registrationAttributes
-	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
+	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentResource)
 	iidRetrieved := true
 	if err != nil {
-		log.Error("Unable to get instance identity document", "err", err)
+		seelog.Errorf("Unable to get instance identity document: %v", err)
 		iidRetrieved = false
 		instanceIdentityDoc = []byte{}
 	}
@@ -161,9 +173,9 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 
 	instanceIdentitySignature := []byte{}
 	if iidRetrieved {
-		instanceIdentitySignature, err = client.ec2metadata.ReadResource(ec2.INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE)
+		instanceIdentitySignature, err = client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentSignatureResource)
 		if err != nil {
-			log.Error("Unable to get instance identity signature", "err", err)
+			seelog.Errorf("Unable to get instance identity signature: %v", err)
 		}
 	}
 
@@ -205,7 +217,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		seelog.Errorf("Could not register: %v", err)
 		return "", err
 	}
-	log.Info("Registered!")
+	seelog.Info("Registered container instance with cluster!")
 	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
 	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
 }
@@ -253,7 +265,7 @@ func getCpuAndMemory() (int64, int64) {
 	if err == nil {
 		mem = memInfo.MemTotal / 1024 / 1024 // MiB
 	} else {
-		log.Error("Unable to get memory info", "err", err)
+		seelog.Errorf("Error getting memory info: %v", err)
 	}
 
 	cpu := runtime.NumCPU() * 1024
@@ -266,6 +278,46 @@ func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
+}
+
+func (client *APIECSClient) getVPCAttributes() ([]*ecs.Attribute, error) {
+	mac, err := client.ec2metadata.PrimaryENIMAC()
+	if err != nil {
+		seelog.Warnf("Unable to get the MAC address of the primary network interface: %v", err)
+		return nil, err
+	}
+
+	vpcID, err := client.ec2metadata.VPCID(mac)
+	if err != nil {
+		seelog.Warnf("Unable to get the VPC ID of the primary network interface: %v", err)
+		return nil, err
+	}
+
+	subnetID, err := client.ec2metadata.SubnetID(mac)
+	if err != nil {
+		seelog.Warnf("Unable to get the Subnet ID of the primary network interface: %v", err)
+		return nil, err
+	}
+
+	return []*ecs.Attribute{
+		{
+			Name:  aws.String("ecs.vpc-id"),
+			Value: aws.String(vpcID),
+		},
+		{
+			Name:  aws.String("ecs.subnet-id"),
+			Value: aws.String(subnetID),
+		},
+	}, nil
+}
+
+func launchedWithoutVPC(err error) bool {
+	metadataError, ok := err.(*ec2.MetadataError)
+	if !ok {
+		return false
+	}
+
+	return metadataError.LaunchedWithoutVPC()
 }
 
 func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
@@ -281,12 +333,12 @@ func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
 	if change.Status == api.TaskStatusNone {
-		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return errors.New("SubmitTaskStateChange called with an invalid change")
+		seelog.Warnf("SubmitTaskStateChange called with an invalid change: %s", change.String())
+		return errors.New("ecs api client: SubmitTaskStateChange called with an invalid change")
 	}
 
 	if change.Status != api.TaskRunning && change.Status != api.TaskStopped {
-		log.Debug("Not submitting unsupported upstream task state", "state", change.Status.String())
+		seelog.Debugf("Not submitting unsupported upstream task state: %s", change.Status.String())
 		// Not really an error
 		return nil
 	}
@@ -299,7 +351,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		Reason:  &change.Reason,
 	})
 	if err != nil {
-		log.Warn("Could not submit a task state change", "err", err)
+		seelog.Warnf("Could not submit task state change: [%s]: %v", change.String(), err)
 		return err
 	}
 	return nil
@@ -324,7 +376,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 		stat = "STOPPED"
 	}
 	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Info("Not submitting not supported upstream container state", "state", stat)
+		seelog.Infof("Not submitting unsupported upstream container state: %s", stat)
 		return nil
 	}
 	req.Status = &stat
@@ -349,7 +401,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 
 	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&req)
 	if err != nil {
-		log.Warn("Could not submit a container state change", "change", change, "err", err)
+		seelog.Warnf("Could not submit container state change: [%s]: %v", change.String(), err)
 		return err
 	}
 	return nil

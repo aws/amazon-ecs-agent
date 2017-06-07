@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,20 +15,28 @@ package ec2
 
 import "errors"
 
-type blackholeMetadataClientImpl struct{}
+type blackHoleMetadataClient struct{}
 
 func NewBlackholeEC2MetadataClient() EC2MetadataClient {
-	return blackholeMetadataClientImpl{}
+	return blackHoleMetadataClient{}
 }
 
-func (blackholeMetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
+func (blackHoleMetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
 	return nil, errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+func (blackHoleMetadataClient) ReadResource(path string) ([]byte, error) {
 	return nil, errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) ReadResource(path string) ([]byte, error) {
-	return nil, errors.New("blackholed")
+func (blackHoleMetadataClient) PrimaryENIMAC() (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackHoleMetadataClient) VPCID(mac string) (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackHoleMetadataClient) SubnetID(mac string) (string, error) {
+	return "", errors.New("blackholed")
 }

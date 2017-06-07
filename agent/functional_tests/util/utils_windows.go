@@ -44,7 +44,8 @@ func init() {
 		ecsconfig.Region = &region
 	}
 	if ecsconfig.Region == nil {
-		if iid, err := ec2.GetInstanceIdentityDocument(); err == nil {
+		ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+		if iid, err := ec2MetadataClient.InstanceIdentityDocument(); err == nil {
 			ecsconfig.Region = &iid.Region
 		}
 	}
@@ -63,7 +64,6 @@ func init() {
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
-
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
 
