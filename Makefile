@@ -101,7 +101,8 @@ pause-container:
 	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
-	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > out/${PAUSE_CONTAINER_TARBALL}
+	mkdir -p "$(shell pwd)/out"
+	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(shell pwd)/out/${PAUSE_CONTAINER_TARBALL}"
 
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
