@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -1195,16 +1196,21 @@ func TestCapabilities(t *testing.T) {
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	defer ctrl.Finish()
 
-	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-		dockerclient.Version_1_17,
-		dockerclient.Version_1_18,
-	})
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		cniClient.EXPECT().Version("ecs-bridge").Return(taskENIVersion, nil),
+		cniClient.EXPECT().Version("ecs-eni").Return(taskENIVersion, nil),
+		cniClient.EXPECT().Version("ecs-ipam").Return(taskENIVersion, nil),
+	)
 
-	capabilities := taskEngine.Capabilities()
-
-	expectedCapabilities := []string{
+	expectedCapabilityNames := []string{
 		"com.amazonaws.ecs.capability.privileged-container",
 		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
 		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
@@ -1214,8 +1220,21 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.apparmor",
 	}
 
-	if !reflect.DeepEqual(capabilities, expectedCapabilities) {
-		t.Errorf("Expected capabilities %v, but got capabilities %v", expectedCapabilities, capabilities)
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedCapabilityNames {
+		expectedCapabilities = append(expectedCapabilities, &ecs.Attribute{Name: aws.String(name)})
+	}
+	expectedCapabilities = append(expectedCapabilities,
+		&ecs.Attribute{
+			Name:  aws.String(attributePrefix + taskENIAttributeSuffix),
+			Value: aws.String(taskENIVersion),
+		})
+
+	capabilities := taskEngine.Capabilities()
+
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
 	}
 }
 
@@ -1232,7 +1251,7 @@ func TestCapabilitiesECR(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[capability] = true
+		capMap[aws.StringValue(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.ecr-auth"]
@@ -1254,7 +1273,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[capability] = true
+		capMap[aws.StringValue(capability.Name)] = true
 	}
 
 	ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]
@@ -1275,7 +1294,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[capability] = true
+		capMap[aws.StringValue(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]
@@ -1296,7 +1315,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[capability] = true
+		capMap[aws.StringValue(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]
@@ -1317,7 +1336,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[capability] = true
+		capMap[aws.StringValue(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]

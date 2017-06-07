@@ -48,7 +48,7 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	attributePrefix              = "ecs.capability."
-	taskENIAttribute             = "task-eni"
+	taskENIAttributeSuffix       = "task-eni"
 	taskENIVersion               = "0.1.0"
 	capabilityPlugin             = "cni-plugin"
 	labelPrefix                  = "com.amazonaws.ecs."
@@ -857,33 +857,34 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
 //    ecs.capability.task-eni.0.1.0
-func (engine *DockerTaskEngine) Capabilities() []string {
-	capabilities := []string{}
+func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
+	var capabilities []*ecs.Attribute
+
 	if !engine.cfg.PrivilegedDisabled {
-		capabilities = append(capabilities, capabilityPrefix+"privileged-container")
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"privileged-container")
 	}
 	versions := make(map[dockerclient.DockerVersion]bool)
 	for _, version := range engine.client.SupportedVersions() {
-		capabilities = append(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
 		versions[version] = true
 	}
 
 	for _, loggingDriver := range engine.cfg.AvailableLoggingDrivers {
 		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
 		if _, ok := versions[requiredVersion]; ok {
-			capabilities = append(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
+			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
 		}
 	}
 
 	if engine.cfg.SELinuxCapable {
-		capabilities = append(capabilities, capabilityPrefix+"selinux")
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
 	}
 	if engine.cfg.AppArmorCapable {
-		capabilities = append(capabilities, capabilityPrefix+"apparmor")
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
 	}
 
 	if _, ok := versions[dockerclient.Version_1_19]; ok {
-		capabilities = append(capabilities, capabilityPrefix+"ecr-auth")
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 	}
 
 	if engine.cfg.TaskIAMRoleEnabled {
@@ -891,7 +892,7 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
 		// to lookup the table of docker versions to API versions
 		if _, ok := versions[dockerclient.Version_1_19]; ok {
-			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRole)
+			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityTaskIAMRole)
 		} else {
 			seelog.Warn("Task IAM Role not enabled due to unsuppported Docker version")
 		}
@@ -900,13 +901,21 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 	if engine.cfg.TaskIAMRoleEnabledForNetworkHost {
 		// The "task-iam-role-network-host" capability is supported for docker v1.7.x onwards
 		if _, ok := versions[dockerclient.Version_1_19]; ok {
-			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRoleNetHost)
+			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityTaskIAMRoleNetHost)
 		} else {
 			seelog.Warn("Task IAM Role for Host Network not enabled due to unsuppported Docker version")
 		}
 	}
 
+	if taskENIAttribute := engine.getTaskENIAttribute(); taskENIAttribute != nil {
+		capabilities = append(capabilities, taskENIAttribute)
+	}
+
 	return capabilities
+}
+
+func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
+	return append(attributes, &ecs.Attribute{Name: aws.String(name)})
 }
 
 // Version returns the underlying docker version.
@@ -936,44 +945,31 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	return false
 }
 
-// GetAdditionalAttributes returns back attributes of the instance when register
-// the instance into cluster
-func (engine *DockerTaskEngine) GetAdditionalAttributes() []*ecs.Attribute {
-	var attributes []*ecs.Attribute
-
-	attribute, ok := engine.taskNetworkAttributes()
-	if !ok {
+// getTaskENIAttribute checks if the task network was enabled and whether the plugin are existed
+func (engine *DockerTaskEngine) getTaskENIAttribute() *ecs.Attribute {
+	if !engine.cfg.TaskENIEnabled {
 		return nil
 	}
 
-	for key, value := range attribute {
-		attributes = append(attributes, &ecs.Attribute{
-			Name:  aws.String(key),
-			Value: aws.String(value),
-		})
-	}
-
-	return attributes
-}
-
-// taskNetworkAttributes checks if the task network was enabled and whether the plugin are existed
-func (engine *DockerTaskEngine) taskNetworkAttributes() (map[string]string, bool) {
+	// ECS Agent requires all of these plugins to configure the ENI for a task
 	plugins := []string{"ecs-bridge", "ecs-eni", "ecs-ipam"}
 
-	if engine.cfg.TaskENIEnabled {
-		// Check if all the plugin existed in the specific directory
-		for _, plugin := range plugins {
-			_, err := engine.cniClient.Version(plugin)
-			if err != nil {
-				log.Error("Engine: Check version of plugin %s failed", plugin)
-				return nil, false
-			}
+	for _, plugin := range plugins {
+		// Check if we can get version information from each plugin
+		version, err := engine.cniClient.Version(plugin)
+		if err != nil {
+			seelog.Warnf("Engine: Unable to get the version of plugin %s: %v", plugin, err)
+			return nil
 		}
-		// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
-		// together with the agent
-		attribute := make(map[string]string)
-		attribute[attributePrefix+taskENIAttribute] = taskENIVersion
-		return attribute, true
+		if version != taskENIVersion {
+			seelog.Warnf("Engine: Incorrect version of the plugin %s found: %s", plugin, version)
+			return nil
+		}
 	}
-	return nil, false
+	// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
+	// together with the agent
+	return &ecs.Attribute{
+		Name:  aws.String(attributePrefix + taskENIAttributeSuffix),
+		Value: aws.String(taskENIVersion),
+	}
 }

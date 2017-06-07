@@ -51,10 +51,7 @@ type TaskEngine interface {
 	Version() (string, error)
 	// Capabilities returns an array of capabilities this task engine has, which
 	// should model what it can execute.
-	Capabilities() []string
-	// GetAdditionalAttributes returns the attributes of the task engine, it's
-	// an alternative of the Capabilities
-	GetAdditionalAttributes() []*ecs.Attribute
+	Capabilities() []*ecs.Attribute
 
 	json.Marshaler
 	json.Unmarshaler

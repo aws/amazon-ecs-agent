@@ -16,6 +16,8 @@ package api
 import (
 	"encoding/json"
 	"errors"
+
+	"github.com/cihub/seelog"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -76,7 +78,7 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	case *EmptyHostVolume:
 		result["host"] = v
 	default:
-		log.Crit("Unknown task volume type in marshal")
+		seelog.Critical("Unknown task volume type in marshal")
 	}
 	return json.Marshal(result)
 }

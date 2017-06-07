@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -13,12 +13,7 @@
 
 package api
 
-import (
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-)
-
-var log = logger.ForModule("api client")
+import "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
 // details around constructing the request and reading the response down to the
@@ -31,7 +26,7 @@ type ECSClient interface {
 	// ContainerInstanceARN if successful. Supplying a non-empty container
 	// instance ARN allows a container instance to update its registered
 	// resources.
-	RegisterContainerInstance(existingContainerInstanceArn string, attributes []string) (string, error)
+	RegisterContainerInstance(existingContainerInstanceArn string, attributes []*ecs.Attribute) (string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitTaskStateChange(change TaskStateChange) error

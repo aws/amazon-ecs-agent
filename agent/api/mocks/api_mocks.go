@@ -162,7 +162,7 @@ func (_mr *_MockECSClientRecorder) DiscoverTelemetryEndpoint(arg0 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoverTelemetryEndpoint", arg0)
 }
 
-func (_m *MockECSClient) RegisterContainerInstance(_param0 string, _param1 []string) (string, error) {
+func (_m *MockECSClient) RegisterContainerInstance(_param0 string, _param1 []*ecs.Attribute) (string, error) {
 	ret := _m.ctrl.Call(_m, "RegisterContainerInstance", _param0, _param1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
