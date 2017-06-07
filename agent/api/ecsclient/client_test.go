@@ -16,6 +16,7 @@ package ecsclient
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -406,6 +407,75 @@ func TestRegisterContainerInstance(t *testing.T) {
 	assert.Equal(t, "registerArn", arn)
 }
 
+func TestRegisterContainerInstanceInClassicEC2(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
+
+	capabilities := []string{"capability1", "capability2"}
+	expectedAttributes := map[string]string{
+		"ecs.os-type":               api.OSType,
+		"my_custom_attribute":       "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, ec2.NewMetadataError(http.StatusNotFound)),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			assert.Nil(t, req.ContainerInstanceArn)
+			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
+			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			for i := range req.Attributes {
+				if strings.Contains(*req.Attributes[i].Name, "capability") {
+					assert.Contains(t, capabilities, *req.Attributes[i].Name)
+				} else {
+					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
+				}
+			}
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(capabilities, expectedAttributes)}},
+			nil),
+	)
+
+	arn, err := client.RegisterContainerInstance("", capabilities)
+	assert.NoError(t, err)
+	assert.Equal(t, "registerArn", arn)
+}
+
+func TestRegisterContainerInstanceGetVPCIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	capabilities := []string{"capability1", "capability2"}
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	client, _, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, errors.New("error")),
+	)
+
+	_, err := client.RegisterContainerInstance("", capabilities)
+	assert.Error(t, err)
+}
+
 func TestValidateRegisteredAttributes(t *testing.T) {
 	origAttributes := []*ecs.Attribute{
 		{Name: aws.String("foo"), Value: aws.String("bar")},
@@ -687,4 +757,91 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 		Status:  api.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
+}
+
+func TestGetVPCAttributesHappyPath(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockMetadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := &APIECSClient{
+		ec2metadata: mockMetadata,
+	}
+
+	gomock.InOrder(
+		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
+		mockMetadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
+	)
+
+	expectedAttributes := []struct {
+		name  string
+		value string
+	}{
+		{"ecs.vpc-id", vpcID},
+		{"ecs.subnet-id", subnetID},
+	}
+	attributes, err := client.getVPCAttributes()
+	assert.NoError(t, err)
+	assert.Len(t, attributes, 2)
+
+	for i, attribute := range attributes {
+		assert.Equal(t, expectedAttributes[i].name, aws.StringValue(attribute.Name))
+		assert.Equal(t, expectedAttributes[i].value, aws.StringValue(attribute.Value))
+	}
+}
+
+func TestGetVPCAttributesPrimaryENIMACError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockMetadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := &APIECSClient{
+		ec2metadata: mockMetadata,
+	}
+
+	mockMetadata.EXPECT().PrimaryENIMAC().Return("", errors.New("error"))
+
+	attributes, err := client.getVPCAttributes()
+	assert.Empty(t, attributes)
+	assert.Error(t, err)
+}
+
+func TestGetVPCAttributesVPCIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockMetadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := &APIECSClient{
+		ec2metadata: mockMetadata,
+	}
+
+	gomock.InOrder(
+		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockMetadata.EXPECT().VPCID(mac).Return("", errors.New("error")),
+	)
+
+	attributes, err := client.getVPCAttributes()
+	assert.Empty(t, attributes)
+	assert.Error(t, err)
+}
+
+func TestVPCAttributesSubnetIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockMetadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := &APIECSClient{
+		ec2metadata: mockMetadata,
+	}
+
+	gomock.InOrder(
+		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
+		mockMetadata.EXPECT().SubnetID(mac).Return("", errors.New("error")),
+	)
+
+	attributes, err := client.getVPCAttributes()
+	assert.Empty(t, attributes)
+	assert.Error(t, err)
 }

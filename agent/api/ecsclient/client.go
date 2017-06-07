@@ -146,7 +146,21 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			Name: aws.String(attribute),
 		})
 	}
-
+	vpcAttributes, err := client.getVPCAttributes()
+	if err != nil {
+		// This error is processed only if the instance is launched with a VPC
+		if !launchedWithoutVPC(err) {
+			return "", err
+		}
+		// Not a VPC. Remove task networking capability
+		// TODO Set task networking capability to be false
+		seelog.Infof("VPC and Subnet IDs are not set for instance in Instance Metadata; Disabling Task ENI capability")
+	}
+	// Add VPC ID and Subnet ID attributes if any
+	for _, attribute := range vpcAttributes {
+		registrationAttributes = append(registrationAttributes, attribute)
+	}
+	// Add additional attributes such as the os type
 	for _, attribute := range client.getAdditionalAttributes() {
 		registrationAttributes = append(registrationAttributes, attribute)
 	}
@@ -255,7 +269,7 @@ func getCpuAndMemory() (int64, int64) {
 	if err == nil {
 		mem = memInfo.MemTotal / 1024 / 1024 // MiB
 	} else {
-		seelog.Errorf("Error getting memory info: %v", err)
+		seelog.Errorf("Unable getting memory info: %v", err)
 	}
 
 	cpu := runtime.NumCPU() * 1024
@@ -264,37 +278,50 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	attributes := []*ecs.Attribute{&ecs.Attribute{
+	return []*ecs.Attribute{&ecs.Attribute{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
+}
+
+func (client *APIECSClient) getVPCAttributes() ([]*ecs.Attribute, error) {
 	mac, err := client.ec2metadata.PrimaryENIMAC()
 	if err != nil {
 		seelog.Warnf("Unable to get the MAC address of the primary network interface: %v", err)
-		return attributes
+		return nil, err
 	}
 
 	vpcID, err := client.ec2metadata.VPCID(mac)
 	if err != nil {
 		seelog.Warnf("Unable to get the VPC ID of the primary network interface: %v", err)
-		return attributes
+		return nil, err
 	}
 
 	subnetID, err := client.ec2metadata.SubnetID(mac)
 	if err != nil {
 		seelog.Warnf("Unable to get the Subnet ID of the primary network interface: %v", err)
-		return attributes
+		return nil, err
 	}
 
-	return append(attributes,
-		&ecs.Attribute{
+	return []*ecs.Attribute{
+		{
 			Name:  aws.String("ecs.vpc-id"),
 			Value: aws.String(vpcID),
 		},
-		&ecs.Attribute{
+		{
 			Name:  aws.String("ecs.subnet-id"),
 			Value: aws.String(subnetID),
-		})
+		},
+	}, nil
+}
+
+func launchedWithoutVPC(err error) bool {
+	metadataError, ok := err.(*ec2.MetadataError)
+	if !ok {
+		return false
+	}
+
+	return metadataError.LaunchedWithoutVPC()
 }
 
 func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
