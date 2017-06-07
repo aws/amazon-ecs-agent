@@ -123,7 +123,7 @@ func (client *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 		metadataRetries,
 		func() error {
 			resp, err = client.httpClient.Get(endpoint)
-			if err == nil && resp.StatusCode == 200 {
+			if err == nil && resp.StatusCode == net_http.StatusOK {
 				return nil
 			}
 			if resp != nil && resp.Body != nil {
@@ -131,7 +131,7 @@ func (client *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
 			}
 			if err == nil {
 				seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-				return errors.Errorf("ec2 metadata client: unsuccessful response from Metadata service: %v", resp.StatusCode)
+				return NewMetadataError(resp.StatusCode)
 			}
 			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
 			return err
