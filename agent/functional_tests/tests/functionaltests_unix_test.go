@@ -105,7 +105,7 @@ func TestCommandOverrides(t *testing.T) {
 	defer agent.Cleanup()
 
 	task, err := agent.StartTaskWithOverrides(t, "simple-exit", []*ecsapi.ContainerOverride{
-		&ecsapi.ContainerOverride{
+		{
 			Name:    strptr("exit"),
 			Command: []*string{strptr("sh"), strptr("-c"), strptr("exit 21")},
 		},
@@ -436,7 +436,7 @@ func TestTaskIamRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
 		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": map[string]string{
+			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
 			},
@@ -459,7 +459,7 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
 		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": map[string]string{
+			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
 			},

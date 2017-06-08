@@ -257,9 +257,9 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 			MessageId:         &messageId,
 		},
 		TaskMetrics: []*ecstcs.TaskMetric{
-			&ecstcs.TaskMetric{
+			{
 				ContainerMetrics: []*ecstcs.ContainerMetric{
-					&ecstcs.ContainerMetric{
+					{
 						CpuStatsSet: &ecstcs.CWStatsSet{
 							Max:         &fval,
 							Min:         &fval,

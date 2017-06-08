@@ -65,7 +65,7 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	// test adding a payload message without the MessageId field
 	payloadMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String("t1"),
 			},
 		},
@@ -115,7 +115,7 @@ func TestHandlePayloadMessageAddTaskError(t *testing.T) {
 	// Test AddTask error with RUNNING task
 	payloadMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn:           aws.String("t1"),
 				DesiredStatus: aws.String("RUNNING"),
 			},
@@ -129,7 +129,7 @@ func TestHandlePayloadMessageAddTaskError(t *testing.T) {
 
 	payloadMessage = &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn:           aws.String("t1"),
 				DesiredStatus: aws.String("STOPPED"),
 			},
@@ -179,7 +179,7 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	// Check if handleSingleMessage returns an error when state manager returns error on Save()
 	err := buffer.handleSingleMessage(&ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String("t1"),
 			},
 		},
@@ -238,7 +238,7 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 	// Send a payload message
 	payloadMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String("t1"),
 			},
 		},
@@ -331,7 +331,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	// Send a payload message
 	payloadMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String(taskArn),
 				RoleCredentials: &ecsacs.IAMRoleCredentials{
 					AccessKeyId:     aws.String(credentialsAccessKey),
@@ -402,11 +402,11 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	runningTaskArn := "runningTask"
 	payloadMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn:           aws.String(runningTaskArn),
 				DesiredStatus: aws.String("RUNNING"),
 			},
-			&ecsacs.Task{
+			{
 				Arn:           aws.String(stoppedTaskArn),
 				DesiredStatus: aws.String("STOPPED"),
 			},
@@ -483,7 +483,7 @@ func TestPayloadBufferHandler(t *testing.T) {
 	taskArn := "t1"
 	buffer.messageBuffer <- &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String(taskArn),
 			},
 		},
@@ -590,7 +590,7 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 	// Send a payload message to the payloadBufferChannel
 	payloadHandler.messageBuffer <- &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
-			&ecsacs.Task{
+			{
 				Arn: aws.String(firstTaskArn),
 				RoleCredentials: &ecsacs.IAMRoleCredentials{
 					AccessKeyId:     aws.String(firstTaskCredentialsAccessKey),
@@ -601,7 +601,7 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 					CredentialsId:   aws.String(firstTaskCredentialsId),
 				},
 			},
-			&ecsacs.Task{
+			{
 				Arn: aws.String(secondTaskArn),
 				RoleCredentials: &ecsacs.IAMRoleCredentials{
 					AccessKeyId:     aws.String(secondTaskCredentialsAccessKey),

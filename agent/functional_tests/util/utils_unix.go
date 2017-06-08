@@ -134,7 +134,7 @@ func (agent *TestAgent) StartAgent() error {
 	dockerConfig := &docker.Config{
 		Image: agent.Image,
 		ExposedPorts: map[docker.Port]struct{}{
-			"51678/tcp": struct{}{},
+			"51678/tcp": {},
 		},
 		Env: []string{
 			"ECS_CLUSTER=" + Cluster,
@@ -160,7 +160,7 @@ func (agent *TestAgent) StartAgent() error {
 	hostConfig := &docker.HostConfig{
 		Binds: binds,
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
+			"51678/tcp": {{HostIP: "0.0.0.0"}},
 		},
 		Links: agent.Options.ContainerLinks,
 	}
@@ -182,7 +182,7 @@ func (agent *TestAgent) StartAgent() error {
 		}
 
 		for key, value := range agent.Options.PortBindings {
-			hostConfig.PortBindings[key] = []docker.PortBinding{docker.PortBinding{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
+			hostConfig.PortBindings[key] = []docker.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
 			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
 	}

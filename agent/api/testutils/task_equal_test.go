@@ -21,21 +21,21 @@ import (
 
 func TestTaskEqual(t *testing.T) {
 	equalPairs := []Task{
-		Task{Arn: "a"}, Task{Arn: "a"},
-		Task{Family: "a"}, Task{Family: "a"},
-		Task{Version: "a"}, Task{Version: "a"},
-		Task{Containers: []*Container{&Container{Name: "a"}}}, Task{Containers: []*Container{&Container{Name: "a"}}},
-		Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskRunning},
-		Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskRunning},
+		{Arn: "a"}, {Arn: "a"},
+		{Family: "a"}, {Family: "a"},
+		{Version: "a"}, {Version: "a"},
+		{Containers: []*Container{{Name: "a"}}}, {Containers: []*Container{{Name: "a"}}},
+		{DesiredStatusUnsafe: TaskRunning}, {DesiredStatusUnsafe: TaskRunning},
+		{KnownStatusUnsafe: TaskRunning}, {KnownStatusUnsafe: TaskRunning},
 	}
 
 	unequalPairs := []Task{
-		Task{Arn: "a"}, Task{Arn: "あ"},
-		Task{Family: "a"}, Task{Family: "あ"},
-		Task{Version: "a"}, Task{Version: "あ"},
-		Task{Containers: []*Container{&Container{Name: "a"}}}, Task{Containers: []*Container{&Container{Name: "あ"}}},
-		Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskStopped},
-		Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskStopped},
+		{Arn: "a"}, {Arn: "あ"},
+		{Family: "a"}, {Family: "あ"},
+		{Version: "a"}, {Version: "あ"},
+		{Containers: []*Container{{Name: "a"}}}, {Containers: []*Container{{Name: "あ"}}},
+		{DesiredStatusUnsafe: TaskRunning}, {DesiredStatusUnsafe: TaskStopped},
+		{KnownStatusUnsafe: TaskRunning}, {KnownStatusUnsafe: TaskStopped},
 	}
 
 	for i := 0; i < len(equalPairs); i += 2 {

@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/eni/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
@@ -56,7 +57,7 @@ func TestWatcherInit(t *testing.T) {
 		MacAddress:       randomMAC,
 		AttachStatusSent: false,
 	})
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
@@ -74,12 +75,12 @@ func TestWatcherInit(t *testing.T) {
 		}, nil),
 	)
 
-	var event api.TaskStateChange
+	var event statechange.Event
 	go func() { event = <-eventChannel }()
 	watcher.Init()
 
-	assert.NotNil(t, event.Attachments)
-	assert.Equal(t, randomMAC, event.Attachments.MacAddress)
+	assert.NotNil(t, event.(api.TaskStateChange).Attachments)
+	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
 
 	select {
 	case <-eventChannel:
@@ -99,7 +100,7 @@ func TestInitWithNetlinkError(t *testing.T) {
 		errors.New("Dummy Netlink LinkList error"))
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
@@ -116,7 +117,7 @@ func TestWatcherInitWithEmptyList(t *testing.T) {
 	ctx := context.Background()
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
@@ -141,7 +142,7 @@ func TestReconcileENIs(t *testing.T) {
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
@@ -160,7 +161,7 @@ func TestReconcileENIs(t *testing.T) {
 		}, nil),
 	)
 
-	var event api.TaskStateChange
+	var event statechange.Event
 	done := make(chan struct{})
 	go func() {
 		event = <-eventChannel
@@ -172,8 +173,8 @@ func TestReconcileENIs(t *testing.T) {
 	watcher.reconcileOnce()
 
 	<-done
-	assert.NotNil(t, event.Attachments)
-	assert.Equal(t, randomMAC, event.Attachments.MacAddress)
+	assert.NotNil(t, event.(api.TaskStateChange).Attachments)
+	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
 
 	select {
 	case <-eventChannel:
@@ -193,7 +194,7 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 		errors.New("Dummy Netlink LinkList error"))
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
@@ -216,7 +217,7 @@ func TestReconcileENIsWithEmptyList(t *testing.T) {
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	gomock.InOrder(

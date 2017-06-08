@@ -21,13 +21,14 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestHandleENIEvent tests HandleENIEvent code path
 func TestHandleENIEvent(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	stateManager := New(taskEngineState, eventChannel)
 
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
@@ -35,19 +36,19 @@ func TestHandleENIEvent(t *testing.T) {
 		AttachStatusSent: false,
 	})
 
-	var event api.TaskStateChange
+	var event statechange.Event
 	go func() {
 		event = <-eventChannel
 	}()
 
 	stateManager.HandleENIEvent("mac1")
-	assert.Equal(t, "mac1", event.Attachments.MacAddress)
+	assert.Equal(t, "mac1", event.(api.TaskStateChange).Attachments.MacAddress)
 }
 
 // TestENIStateShouldBeSent tests the state change of ENI should be sent
 func TestENIStateShouldBeSent(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	statemanager := New(taskEngineState, eventChannel)
 
 	eniOfECS := &api.ENIAttachment{
@@ -65,7 +66,7 @@ func TestENIStateShouldBeSent(t *testing.T) {
 // by ecs shouldn't be sent
 func TestENINotManagedByECSShouldNotSent(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	statemanager := New(taskEngineState, eventChannel)
 
 	eni, ok := statemanager.(*stateManager).ENIStateChangeShouldBeSent("mac_not_existed")
@@ -76,7 +77,7 @@ func TestENINotManagedByECSShouldNotSent(t *testing.T) {
 // TestENIHasSentShouldNotSent tests duplicate eni attachment status shouldn't be sent
 func TestENIHasSentShouldNotSent(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	statemanager := New(taskEngineState, eventChannel)
 
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
@@ -101,7 +102,7 @@ func TestReconcile(t *testing.T) {
 		AttachStatusSent: false,
 	})
 
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 
 	// Expect two events of statechange
 	var waitStateChangeEvent sync.WaitGroup
@@ -133,7 +134,7 @@ func TestReconcile(t *testing.T) {
 // TestEmitAttachmentEvent tests the statechange event was correctly sent
 func TestEmitAttachmentEvent(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
-	eventChannel := make(chan api.TaskStateChange)
+	eventChannel := make(chan statechange.Event)
 	statemanager := New(taskEngineState, eventChannel)
 
 	event := api.TaskStateChange{
@@ -142,7 +143,7 @@ func TestEmitAttachmentEvent(t *testing.T) {
 		},
 	}
 	invoked := make(chan struct{})
-	var eventReceived api.TaskStateChange
+	var eventReceived statechange.Event
 	go func() {
 		eventReceived = <-eventChannel
 		invoked <- struct{}{}
@@ -151,6 +152,6 @@ func TestEmitAttachmentEvent(t *testing.T) {
 	statemanager.(*stateManager).emitENIAttachmentEvent(event)
 	<-invoked
 
-	assert.NotNil(t, eventReceived.Attachments)
-	assert.Equal(t, "mac", eventReceived.Attachments.MacAddress)
+	assert.NotNil(t, eventReceived.(api.TaskStateChange).Attachments)
+	assert.Equal(t, "mac", eventReceived.(api.TaskStateChange).Attachments.MacAddress)
 }

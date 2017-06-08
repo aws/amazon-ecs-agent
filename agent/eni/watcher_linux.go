@@ -47,8 +47,8 @@ type UdevWatcher struct {
 
 // New is used to return an instance of the UdevWatcher struct
 func New(ctx context.Context, udevwrap udevwrapper.Udev, state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) *UdevWatcher {
-	taskEventChanel, _ := taskEngine.TaskEvents()
-	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New(state, taskEventChanel))
+	stateChangeChannel := taskEngine.StateChangeEvents()
+	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New(state, stateChangeChannel))
 }
 
 // _new is used to nest the return of the UdevWatcher struct

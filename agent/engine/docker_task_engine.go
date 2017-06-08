@@ -24,9 +24,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
@@ -75,10 +77,9 @@ type DockerTaskEngine struct {
 
 	taskStopGroup *utilsync.SequentialWaitGroup
 
-	events          <-chan DockerContainerChangeEvent
-	containerEvents chan api.ContainerStateChange
-	taskEvents      chan api.TaskStateChange
-	saver           statemanager.Saver
+	events            <-chan DockerContainerChangeEvent
+	stateChangeEvents chan statechange.Event
+	saver             statemanager.Saver
 
 	client     DockerClient
 	clientLock sync.Mutex
@@ -116,8 +117,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 		managedTasks:  make(map[string]*managedTask),
 		taskStopGroup: utilsync.NewSequentialWaitGroup(),
 
-		containerEvents: make(chan api.ContainerStateChange),
-		taskEvents:      make(chan api.TaskStateChange),
+		stateChangeEvents: make(chan statechange.Event),
 
 		enableConcurrentPull: false,
 		credentialsManager:   credentialsManager,
@@ -349,7 +349,7 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 		Task:    task,
 	}
 	log.Info("Task change event", "event", event)
-	engine.taskEvents <- event
+	engine.stateChangeEvents <- event
 }
 
 // startTask creates a managedTask construct to track the task and then begins
@@ -404,7 +404,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 		Container:     cont,
 	}
 	log.Debug("Container change event", "event", event)
-	engine.containerEvents <- event
+	engine.stateChangeEvents <- event
 	log.Debug("Container change event passed on", "event", event)
 }
 
@@ -458,11 +458,11 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	return true
 }
 
-// TaskEvents returns channels to read task and container state changes. These
+// StateChangeEvents returns channels to read task and container state changes. These
 // changes should be read as soon as possible as them not being read will block
 // processing the task referenced by the event.
-func (engine *DockerTaskEngine) TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange) {
-	return engine.taskEvents, engine.containerEvents
+func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
+	return engine.stateChangeEvents
 }
 
 // AddTask starts tracking a task
@@ -474,11 +474,24 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 
 	existingTask, exists := engine.state.TaskByArn(task.Arn)
 	if !exists {
+		// This will update the container desired status
+		task.UpdateDesiredStatus()
+
 		engine.state.AddTask(task)
-		engine.startTask(task)
-	} else {
-		engine.updateTask(existingTask, task)
+		if dependencygraph.ValidDependencies(task) {
+			engine.startTask(task)
+		} else {
+			seelog.Errorf("Unable to progerss task with circular dependencies, task: %s", task.String())
+			task.SetKnownStatus(api.TaskStopped)
+			task.SetDesiredStatus(api.TaskStopped)
+			err := TaskDependencyError{task.Arn}
+			engine.emitTaskEvent(task, err.Error())
+		}
+		return nil
 	}
+
+	// Update task
+	engine.updateTask(existingTask, task)
 
 	return nil
 }

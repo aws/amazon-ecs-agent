@@ -34,6 +34,10 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should not have a test task")
 	}
 
+	if _, ok := state.TaskByShortID("test"); ok {
+		t.Error("Empty state should not have a test taskid")
+	}
+
 	if _, ok := state.TaskByID("test"); ok {
 		t.Error("Empty state should not have a test taskid")
 	}
@@ -47,6 +51,12 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 	}
 
 	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 0)
+	task, ok := state.TaskByShortID("test")
+	if assert.Empty(t, ok, "Empty state should have no tasks") {
+		assert.Empty(t, task, "Empty state should have no tasks")
+	}
+
+	assert.Empty(t, state.GetAllContainerIDs(), "Empty state should have no containers")
 }
 
 func TestAddTask(t *testing.T) {
@@ -97,7 +107,7 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*api.Container{&api.Container{
+	testTask := &api.Task{Arn: "test", Containers: []*api.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)

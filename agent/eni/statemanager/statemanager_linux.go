@@ -18,6 +18,7 @@ package statemanager
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	log "github.com/cihub/seelog"
 	"github.com/vishvananda/netlink"
 )
@@ -31,15 +32,15 @@ type StateManager interface {
 
 // stateManager handles the state change of eni
 type stateManager struct {
-	agentState dockerstate.TaskEngineState
-	taskEvent  chan api.TaskStateChange
+	agentState     dockerstate.TaskEngineState
+	eniChangeEvent chan statechange.Event
 }
 
 // New returns a new StateManager
-func New(state dockerstate.TaskEngineState, event chan api.TaskStateChange) StateManager {
+func New(state dockerstate.TaskEngineState, event chan statechange.Event) StateManager {
 	return &stateManager{
-		agentState: state,
-		taskEvent:  event,
+		agentState:     state,
+		eniChangeEvent: event,
 	}
 }
 
@@ -86,9 +87,9 @@ func (statemanager *stateManager) HandleENIEvent(mac string) {
 }
 
 // emitENIAttachmentEvent send the eni statechange(attach) to event handler
-func (statemanager *stateManager) emitENIAttachmentEvent(event api.TaskStateChange) {
+func (statemanager *stateManager) emitENIAttachmentEvent(event statechange.Event) {
 	log.Infof("ENI state manager: sending eni state change to event handler: %v", event)
-	statemanager.taskEvent <- event
+	statemanager.eniChangeEvent <- event
 }
 
 // Reconcile performs a reconciliation of the eni on the instance

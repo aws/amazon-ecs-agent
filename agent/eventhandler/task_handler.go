@@ -15,10 +15,12 @@ package eventhandler
 
 import (
 	"container/list"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -55,14 +57,28 @@ func NewTaskHandler() *TaskHandler {
 	}
 }
 
-// AddTaskEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddTaskEvent(change api.TaskStateChange, client api.ECSClient) {
-	handler.addEvent(newSendableTaskEvent(change), client)
-}
+// AddStateChangeEvent queues up a state change for sending using the given client.
+func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client api.ECSClient) error {
+	switch change.GetEventType() {
+	case statechange.TaskEvent:
+		event, ok := change.(api.TaskStateChange)
+		if !ok {
+			return errors.New("eventhandler: unable to get task event from state change event")
+		}
+		handler.addEvent(newSendableTaskEvent(event), client)
+		return nil
 
-// AddContainerEvent queues up a state change for sending using the given client.
-func (handler *TaskHandler) AddContainerEvent(change api.ContainerStateChange, client api.ECSClient) {
-	handler.addEvent(newSendableContainerEvent(change), client)
+	case statechange.ContainerEvent:
+		event, ok := change.(api.ContainerStateChange)
+		if !ok {
+			return errors.New("eventhandler: unable to get container event from state change event")
+		}
+		handler.addEvent(newSendableContainerEvent(event), client)
+		return nil
+
+	default:
+		return errors.New("eventhandler: unable to determine event type from state change event")
+	}
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate

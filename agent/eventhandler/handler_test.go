@@ -22,17 +22,27 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
-func contEvent(arn string) api.ContainerStateChange {
+func containerEvent(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
 }
-func taskEvent(arn string) api.TaskStateChange {
+
+func containerEventStopped(arn string) statechange.Event {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
+}
+
+func taskEvent(arn string) statechange.Event {
 	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
+}
+
+func taskEventStopped(arn string) statechange.Event {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
 
 func TestSendsEventsOneContainer(t *testing.T) {
@@ -46,20 +56,19 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	wg.Add(3)
 
 	// Trivial: one container, no errors
-	contEvent1 := contEvent("1")
-	contEvent2 := contEvent("2")
+	contEvent1 := containerEvent("1")
+	contEvent2 := containerEvent("2")
 	taskEvent2 := taskEvent("2")
 
-	client.EXPECT().SubmitContainerStateChange(contEvent1).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitContainerStateChange(contEvent2).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitTaskStateChange(taskEvent2).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEvent2.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(taskEvent2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
 
-	handler.AddContainerEvent(contEvent1, client)
-	handler.AddContainerEvent(contEvent2, client)
-	handler.AddTaskEvent(taskEvent2, client)
+	handler.AddStateChangeEvent(contEvent1, client)
+	handler.AddStateChangeEvent(contEvent2, client)
+	handler.AddStateChangeEvent(taskEvent2, client)
 
 	wg.Wait()
-
 }
 
 func TestSendsEventsOneEventRetries(t *testing.T) {
@@ -69,19 +78,20 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 
 	handler := NewTaskHandler()
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
-	contCalled := make(chan struct{})
-	contEvent1 := contEvent("1")
+	contEvent1 := containerEvent("1")
 
 	gomock.InOrder(
-		client.EXPECT().SubmitContainerStateChange(contEvent1).Return(retriable).Do(func(interface{}) { contCalled <- struct{}{} }),
-		client.EXPECT().SubmitContainerStateChange(contEvent1).Return(nil).Do(func(interface{}) { contCalled <- struct{}{} }),
+		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(retriable).Do(func(interface{}) { wg.Done() }),
+		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(nil).Do(func(interface{}) { wg.Done() }),
 	)
 
-	handler.AddContainerEvent(contEvent1, client)
+	handler.AddStateChangeEvent(contEvent1, client)
 
-	<-contCalled
-	<-contCalled
+	wg.Wait()
 }
 
 func TestSendsEventsConcurrentLimit(t *testing.T) {
@@ -106,7 +116,7 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	// concurrentEventCalls at once
 	// Put on N+1 events
 	for i := 0; i < concurrentEventCalls+1; i++ {
-		handler.AddContainerEvent(contEvent("concurrent_"+strconv.Itoa(i)), client)
+		handler.AddStateChangeEvent(containerEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
 	time.Sleep(10 * time.Millisecond)
 
@@ -135,18 +145,20 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 
 	handler := NewTaskHandler()
 
-	// Test container event replacement doesn't happen
-	notReplaced := contEvent("notreplaced1")
-	sortaRedundant := contEvent("notreplaced1")
-	sortaRedundant.Status = api.ContainerStopped
-	contCalled := make(chan struct{})
-	client.EXPECT().SubmitContainerStateChange(notReplaced).Do(func(interface{}) { contCalled <- struct{}{} })
-	client.EXPECT().SubmitContainerStateChange(sortaRedundant).Do(func(interface{}) { contCalled <- struct{}{} })
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	handler.AddContainerEvent(notReplaced, client)
-	handler.AddContainerEvent(sortaRedundant, client)
-	<-contCalled
-	<-contCalled
+	// Test container event replacement doesn't happen
+	contEventNotReplaced := containerEvent("notreplaced1")
+	contEventSortaRedundant := containerEventStopped("notreplaced1")
+
+	client.EXPECT().SubmitContainerStateChange(contEventNotReplaced.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitContainerStateChange(contEventSortaRedundant.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
+
+	handler.AddStateChangeEvent(contEventNotReplaced, client)
+	handler.AddStateChangeEvent(contEventSortaRedundant, client)
+
+	wg.Wait()
 }
 
 func TestSendsEventsTaskDifferences(t *testing.T) {
@@ -156,25 +168,25 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 
 	handler := NewTaskHandler()
 
-	// Test task event replacement doesn't happen
-	notReplacedCont := contEvent("notreplaced2")
-	sortaRedundantCont := contEvent("notreplaced2")
-	sortaRedundantCont.Status = api.ContainerStopped
-	notReplacedTask := taskEvent("notreplaced")
-	sortaRedundantTask := taskEvent("notreplaced2")
-	sortaRedundantTask.Status = api.TaskStopped
-
 	wait := &sync.WaitGroup{}
 	wait.Add(4)
-	client.EXPECT().SubmitContainerStateChange(notReplacedCont).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(notReplacedTask).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask).Do(func(interface{}) { wait.Done() })
 
-	handler.AddContainerEvent(notReplacedCont, client)
-	handler.AddTaskEvent(notReplacedTask, client)
-	handler.AddContainerEvent(sortaRedundantCont, client)
-	handler.AddTaskEvent(sortaRedundantTask, client)
+	// Test task event replacement doesn't happen
+	notReplacedCont := containerEvent("notreplaced2")
+	sortaRedundantCont := containerEventStopped("notreplaced2")
+
+	notReplacedTask := taskEvent("notreplaced")
+	sortaRedundantTask := taskEventStopped("notreplaced2")
+
+	client.EXPECT().SubmitContainerStateChange(notReplacedCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(notReplacedTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
+
+	handler.AddStateChangeEvent(notReplacedCont, client)
+	handler.AddStateChangeEvent(notReplacedTask, client)
+	handler.AddStateChangeEvent(sortaRedundantCont, client)
+	handler.AddStateChangeEvent(sortaRedundantTask, client)
 
 	wait.Wait()
 }
@@ -186,29 +198,30 @@ func TestSendsEventsDedupe(t *testing.T) {
 
 	handler := NewTaskHandler()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent("alreadySent")
-	task1.Task.SetSentStatus(api.TaskRunning)
-	cont1 := contEvent("alreadySent")
-	cont1.Container.SetSentStatus(api.ContainerRunning)
+	task1.(api.TaskStateChange).Task.SetSentStatus(api.TaskRunning)
+	cont1 := containerEvent("alreadySent")
+	cont1.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
-	handler.AddContainerEvent(cont1, client)
-	handler.AddTaskEvent(task1, client)
+	handler.AddStateChangeEvent(cont1, client)
+	handler.AddStateChangeEvent(task1, client)
 
 	task2 := taskEvent("containerSent")
-	task2.Task.SetSentStatus(api.TaskStatusNone)
-	cont2 := contEvent("containerSent")
-	cont2.Container.SetSentStatus(api.ContainerRunning)
+	task2.(api.TaskStateChange).Task.SetSentStatus(api.TaskStatusNone)
+	cont2 := containerEvent("containerSent")
+	cont2.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	// Expect to send a task status but not a container status
-	called := make(chan struct{})
-	client.EXPECT().SubmitTaskStateChange(task2).Do(func(interface{}) { called <- struct{}{} })
+	client.EXPECT().SubmitTaskStateChange(task2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
 
-	handler.AddContainerEvent(cont2, client)
-	handler.AddTaskEvent(task2, client)
+	handler.AddStateChangeEvent(cont2, client)
+	handler.AddStateChangeEvent(task2, client)
 
-	<-called
-	time.Sleep(5 * time.Millisecond)
+	wg.Wait()
 }
 
 func TestShouldBeSent(t *testing.T) {

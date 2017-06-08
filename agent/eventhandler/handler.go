@@ -30,27 +30,20 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 	statesaver = saver
 
 	for {
-		taskEvents, containerEvents := taskEngine.TaskEvents()
+		stateChangeEvents := taskEngine.StateChangeEvents()
 
-		for taskEvents != nil && containerEvents != nil {
+		for stateChangeEvents != nil {
 			select {
-			case event, open := <-containerEvents:
-				if !open {
-					containerEvents = nil
-					log.Error("Container events closed")
+			case event, ok := <-stateChangeEvents:
+				if !ok {
+					stateChangeEvents = nil
+					log.Error("Unable to handle state change event. The events channel is closed")
 					break
 				}
-
-				eventhandler.AddContainerEvent(event, client)
-
-			case event, open := <-taskEvents:
-				if !open {
-					taskEvents = nil
-					log.Crit("Task events closed")
-					break
+				err := eventhandler.AddStateChangeEvent(event, client)
+				if err != nil {
+					log.Error("Handler unable to add state change event", "err", err, "event", event)
 				}
-
-				eventhandler.AddTaskEvent(event, client)
 			}
 		}
 	}

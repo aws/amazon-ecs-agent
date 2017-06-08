@@ -264,7 +264,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		Force: true,
 	})
 	containers := []*api.Container{
-		&api.Container{
+		{
 			Name: "gremlin",
 		},
 	}
@@ -387,7 +387,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		Force: true,
 	})
 	containers := []*api.Container{
-		&api.Container{
+		{
 			Name:              "gremlin",
 			KnownStatusUnsafe: api.ContainerStopped,
 		},

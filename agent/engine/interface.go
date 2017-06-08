@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
@@ -30,10 +31,10 @@ type TaskEngine interface {
 	// this task engine from processing new tasks
 	Disable()
 
-	// TaskEvents will provide information about tasks that have been previously
+	// StateChangeEvents will provide information about tasks that have been previously
 	// executed. Specifically, it will provide information when they reach
 	// running or stopped, as well as providing portbinding and other metadata
-	TaskEvents() (chan api.TaskStateChange, chan api.ContainerStateChange)
+	StateChangeEvents() chan statechange.Event
 	SetSaver(statemanager.Saver)
 
 	// AddTask adds a new task to the task engine and manages its container's

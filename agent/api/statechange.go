@@ -15,6 +15,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"strconv"
 )
 
@@ -82,4 +83,14 @@ func (t *TaskStateChange) String() string {
 		res += ", Known Sent: " + t.Task.GetSentStatus().String()
 	}
 	return res
+}
+
+// GetEventType() returns an enum identifying the event type
+func (c ContainerStateChange) GetEventType() statechange.EventType {
+	return statechange.ContainerEvent
+}
+
+// GetEventType() returns an enum identifying the event type
+func (t TaskStateChange) GetEventType() statechange.EventType {
+	return statechange.TaskEvent
 }

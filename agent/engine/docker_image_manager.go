@@ -193,8 +193,6 @@ func (imageManager *dockerImageManager) getImageState(containerImageID string) (
 
 // removeImageState removes the imageState from the list of imageState objects in ImageManager
 func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *image.ImageState) {
-	imageManager.updateLock.Lock()
-	defer imageManager.updateLock.Unlock()
 	for i, imageState := range imageManager.imageStates {
 		if imageState.Image.ImageID == imageStateToBeRemoved.Image.ImageID {
 			// Image State found; hence remove it
@@ -277,6 +275,9 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 }
 
 func (imageManager *dockerImageManager) removeUnusedImages() {
+	seelog.Infof("Begin building map of eligible unused images for deletion")
+	imageManager.updateLock.Lock()
+	defer imageManager.updateLock.Unlock()
 	imageManager.imageStatesConsideredForDeletion = make(map[string]*image.ImageState)
 	for _, imageState := range imageManager.getAllImageStates() {
 		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
@@ -305,8 +306,6 @@ func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
 }
 
 func (imageManager *dockerImageManager) getUnusedImageForDeletion() *image.ImageState {
-	imageManager.updateLock.RLock()
-	defer imageManager.updateLock.RUnlock()
 	candidateImageStatesForDeletion := imageManager.getCandidateImagesForDeletion()
 	if len(candidateImageStatesForDeletion) < 1 {
 		seelog.Infof("No eligible images for deletion for this cleanup cycle")
@@ -350,6 +349,7 @@ func (imageManager *dockerImageManager) deleteImage(imageID string, imageState *
 	seelog.Infof("Image removed: %v", imageID)
 	imageState.RemoveImageName(imageID)
 	if len(imageState.Image.Names) == 0 {
+		seelog.Infof("Cleaning up all tracking information for image %s as it has zero references", imageID)
 		delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
 		imageManager.removeImageState(imageState)
 		imageManager.state.RemoveImageState(imageState)

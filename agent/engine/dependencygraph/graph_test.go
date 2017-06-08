@@ -55,7 +55,7 @@ func TestValidDependencies(t *testing.T) {
 
 	task = &api.Task{
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:                "redis",
 				DesiredStatusUnsafe: api.ContainerRunning,
 			},
@@ -108,7 +108,7 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	task := &api.Task{
 		Containers: []*api.Container{
-			&api.Container{
+			{
 				Name:                "redis",
 				DesiredStatusUnsafe: api.ContainerRunning,
 			},

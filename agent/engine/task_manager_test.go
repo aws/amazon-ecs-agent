@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
@@ -286,8 +287,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, context.Background())
 	containerChangeEventStream.StartListening()
 
-	containerEvents := make(chan api.ContainerStateChange)
-	taskEvents := make(chan api.TaskStateChange)
+	stateChangeEvents := make(chan statechange.Event)
 
 	task := &managedTask{
 		Task: &api.Task{
@@ -298,13 +298,12 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		},
 		engine: &DockerTaskEngine{
 			containerChangeEventStream: containerChangeEventStream,
-			containerEvents:            containerEvents,
-			taskEvents:                 taskEvents,
+			stateChangeEvents:          stateChangeEvents,
 		},
 	}
 
 	eventsGenerated := sync.WaitGroup{}
-	eventsGenerated.Add(3)
+	eventsGenerated.Add(2)
 	containerChangeEventStream.Subscribe(eventStreamName, func(events ...interface{}) error {
 		assert.NotNil(t, events)
 		assert.Len(t, events, 1)
@@ -317,13 +316,10 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	})
 	defer containerChangeEventStream.Unsubscribe(eventStreamName)
 
+	// account for container and task state change events for Submit* API
 	go func() {
-		<-containerEvents
-		eventsGenerated.Done()
-	}()
-
-	go func() {
-		<-taskEvents
+		<-stateChangeEvents
+		<-stateChangeEvents
 		eventsGenerated.Done()
 	}()
 
@@ -411,22 +407,22 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
-	taskEvents := make(chan api.TaskStateChange)
+	stateChangeEvents := make(chan statechange.Event)
 	task := &managedTask{
 		Task: &api.Task{
 			Containers:          []*api.Container{},
 			DesiredStatusUnsafe: api.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
-			taskEvents: taskEvents,
+			stateChangeEvents: stateChangeEvents,
 		},
 	}
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(1)
 
 	go func() {
-		event := <-taskEvents
-		assert.Equal(t, event.Reason, taskUnableToTransitionToStoppedReason)
+		event := <-stateChangeEvents
+		assert.Equal(t, event.(api.TaskStateChange).Reason, taskUnableToTransitionToStoppedReason)
 		eventsGenerated.Done()
 	}()
 

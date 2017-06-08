@@ -31,7 +31,7 @@ func TestOverridden(t *testing.T) {
 		CPU:                 1,
 		Memory:              1,
 		Links:               []string{},
-		Ports:               []PortBinding{PortBinding{10, 10, "", TransportProtocolTCP}},
+		Ports:               []PortBinding{{10, 10, "", TransportProtocolTCP}},
 		Overrides:           ContainerOverrides{},
 		DesiredStatusUnsafe: ContainerRunning,
 		AppliedStatus:       ContainerRunning,
