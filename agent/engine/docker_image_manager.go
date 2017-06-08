@@ -275,6 +275,12 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 }
 
 func (imageManager *dockerImageManager) removeUnusedImages() {
+	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
+	ImagePullDeleteLock.Lock()
+	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
+	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
+	defer ImagePullDeleteLock.Unlock()
+
 	seelog.Infof("Begin building map of eligible unused images for deletion")
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
@@ -292,11 +298,6 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 }
 
 func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
-	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
-	ImagePullDeleteLock.Lock()
-	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
-	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
-	defer ImagePullDeleteLock.Unlock()
 	leastRecentlyUsedImage := imageManager.getUnusedImageForDeletion()
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")
