@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.14.2
-Release:        2%{?dist}
+Version:        1.14.3
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -149,6 +149,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Fri Jun 9 2017 Adnan Khan <adnkha@amazon.com> - 1.14.3-1
+- Cache Agent version 1.14.3
 * Thu Jun 1 2017 Adnan Khan <adnkha@amazon.com> - 1.14.2-2
 - Cache Agent version 1.14.2
 - Add functionality for running agent with userns=host when Docker has userns-remap enabled
