@@ -16,7 +16,7 @@ package handler
 import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -36,11 +36,17 @@ type attachENIHandler struct {
 	cluster           *string
 	containerInstance *string
 	acsClient         wsclient.ClientServer
-	taskEngine        engine.TaskEngine
+	state             dockerstate.TaskEngineState
 }
 
 // newAttachENIHandler returns an instance of the attachENIHandler struct
-func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine, saver statemanager.Saver) attachENIHandler {
+func newAttachENIHandler(ctx context.Context,
+	cluster string,
+	containerInstanceArn string,
+	acsClient wsclient.ClientServer,
+	taskEngineState dockerstate.TaskEngineState,
+	saver statemanager.Saver) attachENIHandler {
+
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return attachENIHandler{
@@ -50,7 +56,7 @@ func newAttachENIHandler(ctx context.Context, cluster string, containerInstanceA
 		cluster:           aws.String(cluster),
 		containerInstance: aws.String(containerInstanceArn),
 		acsClient:         acsClient,
-		taskEngine:        taskEngine,
+		state:             taskEngineState,
 		saver:             saver,
 	}
 }
@@ -113,7 +119,7 @@ func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.At
 func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
 	attachmentArn := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
 	seelog.Info("Adding eni info to state, eni: %s", attachmentArn)
-	handler.taskEngine.AddENIAttachment(
+	handler.state.AddENIAttachment(
 		&api.ENIAttachment{
 			TaskArn:          aws.StringValue(message.TaskArn),
 			AttachmentArn:    attachmentArn,

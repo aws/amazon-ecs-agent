@@ -298,6 +298,7 @@ func _main() int {
 		containerInstanceArn,
 		credentialProvider,
 		client,
+		state,
 		stateManager,
 		taskEngine,
 		credentialsManager,

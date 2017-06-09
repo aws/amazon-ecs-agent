@@ -828,11 +828,6 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 	return engine.state
 }
 
-// AddENIAttachment adds an eni struct to the agent state
-func (engine *DockerTaskEngine) AddENIAttachment(eniAttachment *api.ENIAttachment) {
-	engine.state.AddENIAttachment(eniAttachment)
-}
-
 // Capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
 //

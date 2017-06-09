@@ -203,9 +203,6 @@ func (engine *MockTaskEngine) AddTask(*api.Task) error {
 	return nil
 }
 
-func (engine *MockTaskEngine) AddENIAttachment(*api.ENIAttachment) {
-}
-
 func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {
 	return nil, nil
 }

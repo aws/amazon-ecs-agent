@@ -51,14 +51,6 @@ func (_m *MockTaskEngine) EXPECT() *_MockTaskEngineRecorder {
 	return _m.recorder
 }
 
-func (_m *MockTaskEngine) AddENIAttachment(_param0 *api.ENIAttachment) {
-	_m.ctrl.Call(_m, "AddENIAttachment", _param0)
-}
-
-func (_mr *_MockTaskEngineRecorder) AddENIAttachment(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddENIAttachment", arg0)
-}
-
 func (_m *MockTaskEngine) AddTask(_param0 *api.Task) error {
 	ret := _m.ctrl.Call(_m, "AddTask", _param0)
 	ret0, _ := ret[0].(error)

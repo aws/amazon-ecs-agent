@@ -18,8 +18,6 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -210,13 +208,11 @@ func TestENIAckSingleMessage(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, taskEngineState)
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	ctx := context.TODO()
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngine, manager)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
 	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
@@ -262,12 +258,12 @@ func TestENIAckForMessageIdMismatch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	taskEngineState := dockerstate.NewTaskEngineState()
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	ctx := context.TODO()
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngine, manager)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
 	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
@@ -310,11 +306,11 @@ func TestENIAckHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.TODO()
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	taskEngineState := dockerstate.NewTaskEngineState()
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngine, manager)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
 	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
