@@ -185,6 +185,7 @@ func (imageManager *dockerImageManager) getAllImageStates() []*image.ImageState 
 func (imageManager *dockerImageManager) getImageState(containerImageID string) (*image.ImageState, bool) {
 	for _, imageState := range imageManager.getAllImageStates() {
 		if imageState.Image.ImageID == containerImageID {
+			seelog.Debugf("Found image state: %s", imageState.String())
 			return imageState, true
 		}
 	}
@@ -214,6 +215,8 @@ func (imageManager *dockerImageManager) getCandidateImagesForDeletion() []*image
 		if imageManager.isImageOldEnough(imageState) && imageState.HasNoAssociatedContainers() {
 			seelog.Infof("Candidate image for deletion: [%s]", imageState.String())
 			imagesForDeletion = append(imagesForDeletion, imageState)
+		} else {
+			seelog.Infof("Not Candidate image for deletion: [%s]", imageState.String())
 		}
 	}
 	return imagesForDeletion
@@ -244,6 +247,11 @@ func (imageManager *dockerImageManager) getLeastRecentlyUsedImage(imagesForDelet
 	}
 	// sort images in the order of last used times
 	sort.Sort(candidateImages)
+	seelog.Debug("candidate images: --")
+	for _, imageState := range candidateImages {
+		seelog.Debugf(imageState.String())
+	}
+	seelog.Debug("-- candidate images: ")
 	// return only the top LRU image for deletion
 	return candidateImages[0]
 }
@@ -282,6 +290,10 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
 	defer ImagePullDeleteLock.Unlock()
 
+<<<<<<< Updated upstream
+	seelog.Infof("Begin building map of eligible unused images for deletion")
+=======
+>>>>>>> Stashed changes
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
 	imageManager.imageStatesConsideredForDeletion = make(map[string]*image.ImageState)
@@ -298,7 +310,10 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 }
 
 func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
+<<<<<<< Updated upstream
+=======
 	seelog.Infof("Begin building map of eligible unused images for deletion")
+>>>>>>> Stashed changes
 	leastRecentlyUsedImage := imageManager.getUnusedImageForDeletion()
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")
@@ -318,6 +333,7 @@ func (imageManager *dockerImageManager) getUnusedImageForDeletion() *image.Image
 }
 
 func (imageManager *dockerImageManager) removeImage(leastRecentlyUsedImage *image.ImageState) {
+	seelog.Debugf("removeImage: %s", leastRecentlyUsedImage.String())
 	// Handling deleting while traversing a slice
 	imageNames := make([]string, len(leastRecentlyUsedImage.Image.Names))
 	copy(imageNames, leastRecentlyUsedImage.Image.Names)

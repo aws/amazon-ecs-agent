@@ -34,6 +34,49 @@ import (
 	"golang.org/x/net/context"
 )
 
+// TestImagePullRemoveDeadlock tests if there's a deadlock when trying to
+// pull an image while image clean up is in progress
+func TestImagePullRemoveDeadlock(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := NewMockDockerClient(ctrl)
+
+	cfg := defaultTestConfig()
+	imageManager := NewImageManager(cfg, client, dockerstate.NewTaskEngineState())
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	sleepContainer := &api.Container{
+		Name:  "sleep",
+		Image: "busybox",
+	}
+	sleepContainerImageInspected := &docker.Image{
+		ID: "sha256:qwerty",
+	}
+
+	// Cause a fake delay when recording container reference so that the
+	// race condition between ImagePullLock and updateLock gets exercised
+	// If updateLock precedes ImagePullLock, it can cause a deadlock
+	client.EXPECT().InspectImage(sleepContainer.Image).Do(func(image string) {
+		time.Sleep(time.Second)
+	}).Return(sleepContainerImageInspected, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		ImagePullDeleteLock.Lock()
+		defer ImagePullDeleteLock.Unlock()
+		err := imageManager.RecordContainerReference(sleepContainer)
+		assert.NoError(t, err)
+		wg.Done()
+	}()
+
+	go func() {
+		imageManager.(*dockerImageManager).removeUnusedImages()
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
 func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
