@@ -284,7 +284,9 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
+
 	imageManager.imageStatesConsideredForDeletion = make(map[string]*image.ImageState)
+	seelog.Info("Begin building map of eligible unused images for deletion")
 	for _, imageState := range imageManager.getAllImageStates() {
 		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
 	}
@@ -298,7 +300,6 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 }
 
 func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
-	seelog.Infof("Begin building map of eligible unused images for deletion")
 	leastRecentlyUsedImage := imageManager.getUnusedImageForDeletion()
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")
