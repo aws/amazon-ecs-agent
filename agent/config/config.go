@@ -87,10 +87,10 @@ const (
 	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
 	DefaultMinSupportedCNIVersion = "0.3.0"
 
-	// Path to pause container tarball
+	// pauseContainerTarball is the path to the pause container tarball
 	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
 
-	// Tag for pause container
+	// pauseContainer is the Tag for the pause container image
 	pauseContainerTag = "0.1.0"
 )
 
