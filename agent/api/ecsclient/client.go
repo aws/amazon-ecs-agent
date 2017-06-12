@@ -285,6 +285,32 @@ func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
 }
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
+	// Submit attachment state change
+	if change.Attachments != nil {
+		var attachments []*ecs.AttachmentStateChange
+
+		eniStatus := change.Attachments.Status.String()
+		attachments = []*ecs.AttachmentStateChange{
+			{
+				AttachmentArn: &change.Attachments.AttachmentArn,
+				Status:        &eniStatus,
+			},
+		}
+
+		_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
+			Cluster:     &client.config.Cluster,
+			Task:        &change.TaskArn,
+			Attachments: attachments,
+		})
+		if err != nil {
+			log.Warn("Could not submit an attachment state change", "err", err)
+			return err
+		}
+
+		return nil
+	}
+
+	// Submit task state change
 	if change.Status == api.TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
 		return errors.New("SubmitTaskStateChange called with an invalid change")
@@ -296,25 +322,12 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return nil
 	}
 
-	var attachments []*ecs.AttachmentStateChange
-
-	if change.Attachments != nil {
-		eniStatus := change.Attachments.Status.String()
-		attachments = []*ecs.AttachmentStateChange{
-			{
-				AttachmentArn: &change.Attachments.AttachmentArn,
-				Status:        &eniStatus,
-			},
-		}
-	}
-
 	taskStatus := change.Status.String()
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-		Cluster:     &client.config.Cluster,
-		Task:        &change.TaskArn,
-		Status:      &taskStatus,
-		Reason:      &change.Reason,
-		Attachments: attachments,
+		Cluster: &client.config.Cluster,
+		Task:    &change.TaskArn,
+		Status:  &taskStatus,
+		Reason:  &change.Reason,
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
