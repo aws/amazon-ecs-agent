@@ -39,7 +39,7 @@ build-in-docker:
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
-docker: certs build-in-docker
+docker: certs build-in-docker pause-container-release
 	@cd scripts && ./create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
