@@ -192,10 +192,15 @@ func _main() int {
 	}
 
 	// Load Pause Container Image
-	err = pause.Load(cfg, dockerClient)
+	err = pause.LoadImage(cfg, dockerClient)
 	if err != nil {
-		log.Criticalf("Error loading pause container image: %v", err)
-		return exitcodes.ExitError
+		if !pause.UnsupportedPlatform(err) {
+			log.Criticalf("Error loading pause container image: %v", err)
+			return exitcodes.ExitError
+		}
+		log.Debugf("Ignoring error loading pause container image: %v", err)
+	} else {
+		log.Infof("Successfully loaded pause container image")
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)

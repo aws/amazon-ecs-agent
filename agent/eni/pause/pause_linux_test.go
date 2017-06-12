@@ -29,8 +29,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test _load with reader error
-func TestLoadWithReaderError(t *testing.T) {
+// TestLoadFromFileWithReaderError tests loadFromFile with reader error
+func TestLoadFromFileWithReaderError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -45,12 +45,12 @@ func TestLoadWithReaderError(t *testing.T) {
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(gomock.Any()).Return(nil, errors.New("Dummy Reader Error"))
 
-	err := _load(&conf, client, mockfs)
+	err := loadFromFile(&conf, client, mockfs)
 	assert.Error(t, err)
 }
 
-// Test _load against happy path
-func TestLoadHappyPath(t *testing.T) {
+// TestLoadFromFileHappyPath tests loadFromFile against happy path
+func TestLoadFromFileHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -66,12 +66,13 @@ func TestLoadHappyPath(t *testing.T) {
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(gomock.Any()).Return(nil, nil)
 
-	err := _load(&conf, client, mockfs)
+	err := loadFromFile(&conf, client, mockfs)
 	assert.NoError(t, err)
 }
 
-// Test _load against error
-func TestLoadError(t *testing.T) {
+// TestLoadFromFileDockerLoadImageError tests loadFromFile against error
+// from Docker clients LoadImage
+func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -82,11 +83,12 @@ func TestLoadError(t *testing.T) {
 	factory := mock_dockerclient.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	client, _ := engine.NewDockerGoClient(factory, &conf)
-	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(errors.New("Dummy Load Image Error"))
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(
+		errors.New("Dummy Load Image Error"))
 
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(gomock.Any()).Return(nil, nil)
 
-	err := _load(&conf, client, mockfs)
+	err := loadFromFile(&conf, client, mockfs)
 	assert.Error(t, err)
 }

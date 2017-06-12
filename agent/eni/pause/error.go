@@ -1,5 +1,3 @@
-// +build !linux
-
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,17 +13,15 @@
 
 package pause
 
-import (
-	"runtime"
+// UnsupportedPlatformError indicates an error when loading pause container
+// image on an unsupported OS platform
+type UnsupportedPlatformError struct {
+	error
+}
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/pkg/errors"
-)
-
-// LoadImage returns UnsupportedPlatformError on the unsupported platform
-func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) error {
-	return UnsupportedPlatformError{errors.Errorf(
-		"pause container load: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH)}
+// UnsupportedPlatform returns true if the error is of UnsupportedPlatformError
+// type
+func UnsupportedPlatform(err error) bool {
+	_, ok := err.(UnsupportedPlatformError)
+	return ok
 }

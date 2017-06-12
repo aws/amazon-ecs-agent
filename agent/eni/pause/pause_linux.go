@@ -25,21 +25,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Load helps load the pause container image for the agent
-func Load(cfg *config.Config, dockerClient engine.DockerClient) error {
+// LoadImage helps load the pause container image for the agent
+func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) error {
 	log.Debugf("Loading pause container tarball: %s:%s", cfg.PauseContainerTarballPath, cfg.PauseContainerTag)
-	return _load(cfg, dockerClient, os.Default)
+	return loadFromFile(cfg, dockerClient, os.Default)
 }
 
-func _load(cfg *config.Config, dockerClient engine.DockerClient, osi os.FileSystem) error {
-	pauseContainerReader, err := osi.Open(cfg.PauseContainerTarballPath)
+func loadFromFile(cfg *config.Config, dockerClient engine.DockerClient, fs os.FileSystem) error {
+	pauseContainerReader, err := fs.Open(cfg.PauseContainerTarballPath)
 	if err != nil {
-		return errors.Wrapf(err, "pause container load: reading pause container image %s failed with error %v", cfg.PauseContainerTarballPath, err)
+		return errors.Wrapf(err,
+			"pause container load: failed to read pause container image: %s",
+			cfg.PauseContainerTarballPath)
 	}
-	err = dockerClient.LoadImage(
+	return dockerClient.LoadImage(
 		docker.LoadImageOptions{
 			InputStream: pauseContainerReader,
 		},
-	)
-	return err
+		engine.LoadImageTimeout)
 }
