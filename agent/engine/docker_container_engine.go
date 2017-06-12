@@ -44,7 +44,13 @@ const (
 // Timelimits for docker operations enforced above docker
 const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
-	ListContainersTimeout   = 10 * time.Minute
+	ListContainersTimeout = 10 * time.Minute
+	// LoadImageTimeout is the timeout for the LoadImage API. It's set
+	// to much lower value than pullImageTimeout as it involves loading
+	// image from either a file or STDIN
+	// calls involved.
+	// TODO: Benchmark and re-evaluate this value
+	LoadImageTimeout        = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 4 * time.Minute
 	startContainerTimeout   = 3 * time.Minute
@@ -91,7 +97,7 @@ type DockerClient interface {
 	Version() (string, error)
 	InspectImage(string) (*docker.Image, error)
 	RemoveImage(string, time.Duration) error
-	LoadImage(opts docker.LoadImageOptions) error
+	LoadImage(docker.LoadImageOptions, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -828,6 +834,8 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	return stats, nil
 }
 
+// RemoveImage invokes github.com/fsouza/go-dockerclient.Client's
+// RemoveImage API with a timeout
 func (dg *dockerGoClient) RemoveImage(imageName string, imageRemovalTimeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), imageRemovalTimeout)
 	defer cancel()
@@ -850,7 +858,23 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 	return client.RemoveImage(imageName)
 }
 
-func (dg *dockerGoClient) LoadImage(opts docker.LoadImageOptions) error {
+// LoadImage invokes github.com/fsouza/go-dockerclient.Client's
+// LoadImage API with a timeout
+func (dg *dockerGoClient) LoadImage(opts docker.LoadImageOptions, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	response := make(chan error, 1)
+	go func() { response <- dg.loadImage(opts) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		return &DockerTimeoutError{timeout, "loading image"}
+	}
+}
+
+func (dg *dockerGoClient) loadImage(opts docker.LoadImageOptions) error {
 	client, err := dg.dockerClient()
 	if err != nil {
 		return err

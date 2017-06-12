@@ -264,14 +264,14 @@ func (_mr *_MockDockerClientRecorder) ListContainers(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0, arg1)
 }
 
-func (_m *MockDockerClient) LoadImage(_param0 go_dockerclient.LoadImageOptions) error {
-	ret := _m.ctrl.Call(_m, "LoadImage", _param0)
+func (_m *MockDockerClient) LoadImage(_param0 go_dockerclient.LoadImageOptions, _param1 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDockerClientRecorder) LoadImage(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0)
+func (_mr *_MockDockerClientRecorder) LoadImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0, arg1)
 }
 
 func (_m *MockDockerClient) PullImage(_param0 string, _param1 *api.RegistryAuthenticationData) DockerContainerMetadata {
