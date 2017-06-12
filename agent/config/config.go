@@ -367,8 +367,6 @@ func environmentConfig() (Config, error) {
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   cniPluginsPath,
-		PauseContainerTarballPath:        pauseContainerTarballPath,
-		PauseContainerTag:                pauseContainerTag,
 	}, err
 }
 
