@@ -151,10 +151,10 @@ type Config struct {
 	// CNIPluginsPath is the path for the cni plugins
 	CNIPluginsPath string
 
-	// Path to pause container tarball
+	// PauseContainerTarballPath is the path to the pause container tarball
 	PauseContainerTarballPath string
 
-	// Tag for pause container
+	// PauseContainer is the tag for the pause container image
 	PauseContainerTag string
 }
 
