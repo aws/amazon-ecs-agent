@@ -56,6 +56,10 @@ type containerSubmitInputMatcher struct {
 	ecs.SubmitContainerStateChangeInput
 }
 
+type taskSubmitInputMatcher struct {
+	ecs.SubmitTaskStateChangeInput
+}
+
 func strptr(s string) *string { return &s }
 func intptr(i int) *int       { return &i }
 func int64ptr(i *int) *int64 {
@@ -81,6 +85,33 @@ func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 }
 
 func (lhs *containerSubmitInputMatcher) String() string {
+	return fmt.Sprintf("%+v", *lhs)
+}
+
+func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
+	rhs := x.(*ecs.SubmitTaskStateChangeInput)
+
+	if !(equal(lhs.Cluster, rhs.Cluster) &&
+		equal(lhs.Task, rhs.Task) &&
+		equal(lhs.Status, rhs.Status) &&
+		equal(lhs.Reason, rhs.Reason) &&
+		equal(len(lhs.Attachments), len(rhs.Attachments))) {
+		return false
+	}
+
+	if len(lhs.Attachments) != 0 {
+		for i, _ := range lhs.Attachments {
+			if !(equal(lhs.Attachments[i].Status, rhs.Attachments[i].Status) &&
+				equal(lhs.Attachments[i].AttachmentArn, rhs.Attachments[i].AttachmentArn)) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (lhs *taskSubmitInputMatcher) String() string {
 	return fmt.Sprintf("%+v", *lhs)
 }
 
@@ -570,4 +601,56 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	if telemetryEndpoint != pollEndpoint {
 		t.Errorf("Mismatch in poll endpoint: %s", endpoint)
 	}
+}
+
+// TestSubmitTaskStateChangeWithAttachments tests the SubmitTaskStateChange API
+// also send the Attachment Status
+func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster: aws.String(configuredCluster),
+			Task:    aws.String("task_arn"),
+			Attachments: []*ecs.AttachmentStateChange{
+				{
+					AttachmentArn: aws.String("eni_arn"),
+					Status:        aws.String("ATTACHED"),
+				},
+			},
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskArn: "task_arn",
+		Attachments: &api.ENIAttachment{
+			AttachmentArn: "eni_arn",
+			Status:        api.ENIAttached,
+		},
+	})
+	assert.NoError(t, err, "Unable to submit task state change with attachments")
+}
+
+//
+func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster: aws.String(configuredCluster),
+			Task:    aws.String("task_arn"),
+			Reason:  aws.String(""),
+			Status:  aws.String("RUNNING"),
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskArn: "task_arn",
+		Status:  api.TaskRunning,
+	})
+	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }
