@@ -17,6 +17,7 @@
 package engine
 
 import (
+	io "io"
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
@@ -264,7 +265,7 @@ func (_mr *_MockDockerClientRecorder) ListContainers(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0, arg1)
 }
 
-func (_m *MockDockerClient) LoadImage(_param0 go_dockerclient.LoadImageOptions, _param1 time.Duration) error {
+func (_m *MockDockerClient) LoadImage(_param0 io.Reader, _param1 time.Duration) error {
 	ret := _m.ctrl.Call(_m, "LoadImage", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0

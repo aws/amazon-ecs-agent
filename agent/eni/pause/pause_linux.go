@@ -16,31 +16,51 @@
 package pause
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 
 	log "github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
 
 // LoadImage helps load the pause container image for the agent
 func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) error {
-	log.Debugf("Loading pause container tarball: %s:%s", cfg.PauseContainerTarballPath, cfg.PauseContainerTag)
-	return loadFromFile(cfg, dockerClient, os.Default)
+	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
+	if err := loadFromFile(cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
+		return err
+	}
+
+	return validatePauseContainerImage(
+		config.PauseContainerImageName, config.PauseContainerTag, dockerClient)
 }
 
-func loadFromFile(cfg *config.Config, dockerClient engine.DockerClient, fs os.FileSystem) error {
-	pauseContainerReader, err := fs.Open(cfg.PauseContainerTarballPath)
+func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSystem) error {
+	pauseContainerReader, err := fs.Open(path)
 	if err != nil {
 		return errors.Wrapf(err,
-			"pause container load: failed to read pause container image: %s",
-			cfg.PauseContainerTarballPath)
+			"pause container load: failed to read pause container image: %s", path)
 	}
-	return dockerClient.LoadImage(
-		docker.LoadImageOptions{
-			InputStream: pauseContainerReader,
-		},
-		engine.LoadImageTimeout)
+	if err := dockerClient.LoadImage(pauseContainerReader, engine.LoadImageTimeout); err != nil {
+		return errors.Wrapf(err,
+			"pause container load: failed to load pause container image: %s", path)
+	}
+
+	return nil
+
+}
+
+func validatePauseContainerImage(name string, tag string, dockerClient engine.DockerClient) error {
+	imageName := fmt.Sprintf("%s:%s", name, tag)
+	log.Debugf("Inspecting pause container image: %s", imageName)
+
+	_, err := dockerClient.InspectImage(imageName)
+	if err != nil {
+		return errors.Wrapf(err,
+			"pause container load: failed to inspect image: %s", imageName)
+	}
+
+	return nil
 }

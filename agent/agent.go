@@ -200,7 +200,7 @@ func _main() int {
 		}
 		log.Debugf("Ignoring error loading pause container image: %v", err)
 	} else {
-		log.Infof("Successfully loaded pause container image")
+		log.Info("Successfully loaded pause container image")
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)

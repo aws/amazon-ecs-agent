@@ -97,7 +97,7 @@ type DockerClient interface {
 	Version() (string, error)
 	InspectImage(string) (*docker.Image, error)
 	RemoveImage(string, time.Duration) error
-	LoadImage(docker.LoadImageOptions, time.Duration) error
+	LoadImage(io.Reader, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -858,14 +858,18 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 	return client.RemoveImage(imageName)
 }
 
-// LoadImage invokes github.com/fsouza/go-dockerclient.Client's
-// LoadImage API with a timeout
-func (dg *dockerGoClient) LoadImage(opts docker.LoadImageOptions, timeout time.Duration) error {
+// LoadImage invokes loads an image from an input stream, with a specified timeout
+func (dg *dockerGoClient) LoadImage(inputStream io.Reader, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	response := make(chan error, 1)
-	go func() { response <- dg.loadImage(opts) }()
+	go func() {
+		response <- dg.loadImage(docker.LoadImageOptions{
+			InputStream: inputStream,
+			Context:     ctx,
+		})
+	}()
 	select {
 	case resp := <-response:
 		return resp
