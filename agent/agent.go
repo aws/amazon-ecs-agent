@@ -18,6 +18,7 @@ import (
 	"fmt"
 	mathrand "math/rand"
 	"os"
+	"strings"
 	"time"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
@@ -192,7 +193,7 @@ func _main() int {
 	}
 
 	// Load Pause Container Image
-	_, err = pause.LoadImage(cfg, dockerClient)
+	pauseContainerImage, err := pause.LoadImage(cfg, dockerClient)
 	if err != nil {
 		if !pause.UnsupportedPlatform(err) {
 			log.Criticalf("Error loading pause container image: %v", err)
@@ -257,9 +258,12 @@ func _main() int {
 
 	// Setup ENI Watcher
 	_, err = eniwatchersetup.New(ctx, state, taskEngine)
-	// TODO: Add capability/alternatives to determine task networking availability
 	if err != nil {
 		log.Errorf("Error setting up ENI Watcher: %v", err)
+		if cfg.TaskENIEnabled {
+			log.Errorf("Cannot set up the ENI watcher for task eni feature, exit.")
+			return exitcodes.ExitTerminal
+		}
 	} else {
 		log.Debug("ENI watcher has been setup successfully")
 	}
@@ -271,6 +275,10 @@ func _main() int {
 
 	// start of the periodic image cleanup process
 	if !cfg.ImageCleanupDisabled {
+		if pauseContainerImage != nil {
+			imageManager.PreserveImageUnsafe(pauseContainerImage.ID)
+			imageManager.PreserveImageUnsafe(strings.Join(pauseContainerImage.RepoTags, ":"))
+		}
 		go imageManager.StartImageCleanupProcess(ctx)
 	}
 

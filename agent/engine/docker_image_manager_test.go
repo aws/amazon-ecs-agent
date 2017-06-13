@@ -1021,3 +1021,49 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 	waitGroup.Wait()
 	require.Equal(t, 0, len(imageManager.imageStates))
 }
+
+// TestPreservedImageNotBeRemoved tests the preserved image wouldnot be removed by agent
+func TestPreservedImageNotBeRemoved(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := NewMockDockerClient(ctrl)
+
+	imageManager := &dockerImageManager{
+		client: client,
+		state:  dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion: 1 * time.Millisecond,
+		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
+		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
+	}
+
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	imageManager.PreserveImageUnsafe("testContainerImage")
+	imageManager.PreserveImageUnsafe("sha256:qwerty")
+	container := &api.Container{
+		Name:  "testContainer",
+		Image: "testContainerImage",
+	}
+	imageInspected := &docker.Image{
+		ID: "sha256:qwerty",
+	}
+	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
+	err := imageManager.RecordContainerReference(container)
+	assert.NoError(t, err, "Error in adding container to an existing image state")
+
+	err = imageManager.RemoveContainerReferenceFromImageState(container)
+	assert.NoError(t, err, "Error removing container reference from image state")
+
+	imageState, _ := imageManager.getImageState(imageInspected.ID)
+	imageState.PulledAt = time.Now().AddDate(0, -2, 0)
+	imageState.LastUsedAt = time.Now().AddDate(0, -2, 0)
+
+	parent := context.Background()
+	ctx, cancel := context.WithCancel(parent)
+	go imageManager.performPeriodicImageCleanup(ctx, 2*time.Millisecond)
+	time.Sleep(1 * time.Second)
+	cancel()
+
+	// Only expect the state was removed from imagemanager but no RemoveImage API call
+	assert.Len(t, imageState.Image.Names, 0, "Error removing image name from state for preserved image")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state for preserved image")
+}

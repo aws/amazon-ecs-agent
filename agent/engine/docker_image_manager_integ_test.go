@@ -534,6 +534,93 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully")
 }
 
+// TestPreservedImageCleanup tests the image preserved in the task was not cleaned up
+func TestPreservedImageCleanup(t *testing.T) {
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCleanupWaitDuration = 5 * time.Second
+
+	// Set low values so this test can complete in a sane amout of time
+	cfg.MinimumImageDeletionAge = 1 * time.Second
+	cfg.NumImagesToDeletePerCycle = 5
+	// start agent
+	taskEngine, done, _ := setup(cfg, t)
+
+	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	defer func() {
+		done()
+		// Force cleanup all test images and containers
+		cleanupImagesHappy(imageManager)
+	}()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	// Create test Task
+	taskName := "imgClean"
+	testTask := createImageCleanupHappyTestTask(taskName)
+
+	go taskEngine.AddTask(testTask)
+
+	// Verify that Task is running
+	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	require.NoError(t, err)
+
+	imageState1 := imageManager.GetImageStateFromImageName(test1Image1Name)
+	require.NotNil(t, imageState1, "Could not find image state for %s", test1Image1Name)
+	t.Logf("Found image state for %s", test1Image1Name)
+
+	imageState2 := imageManager.GetImageStateFromImageName(test1Image2Name)
+	require.NotNil(t, imageState2, "Could not find image state for %s", test1Image2Name)
+	t.Logf("Found image state for %s", test1Image2Name)
+
+	imageState3 := imageManager.GetImageStateFromImageName(test1Image3Name)
+	require.NotNil(t, imageState3, "Could not find image state for %s", test1Image3Name)
+	t.Logf("Found image state for %s", test1Image3Name)
+
+	imageState1ImageID := imageState1.Image.ImageID
+	imageState2ImageID := imageState2.Image.ImageID
+	imageState3ImageID := imageState3.Image.ImageID
+
+	// Presrve the test1Image2Name
+	imageManager.PreserveImageUnsafe(test1Image2Name)
+	imageManager.PreserveImageUnsafe(imageState2ImageID)
+
+	// Set the ImageState.LastUsedAt to a value far in the past to ensure the test images are deleted.
+	// This will make these test images the LRU images.
+	imageState1.LastUsedAt = imageState1.LastUsedAt.Add(-99995 * time.Hour)
+	imageState2.LastUsedAt = imageState2.LastUsedAt.Add(-99994 * time.Hour)
+	imageState3.LastUsedAt = imageState3.LastUsedAt.Add(-99993 * time.Hour)
+
+	// Verify Task is stopped.
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	testTask.SetSentStatus(api.TaskStopped)
+
+	// Allow Task cleanup to occur
+	time.Sleep(5 * time.Second)
+
+	// Verify Task is cleaned up
+	err = verifyTaskIsCleanedUp(taskName, taskEngine)
+	require.NoError(t, err)
+
+	// Call Image removal
+	imageManager.removeUnusedImages()
+
+	// verify two images has been removed
+	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState2ImageID, imageState3ImageID)
+	assert.NoError(t, err)
+
+	// Verify 2 images are removed from docker
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully: %s", imageState1ImageID)
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
+	assert.Equal(t, docker.ErrNoSuchImage, err, "Image was not removed successfully: %s", imageState3ImageID)
+
+	// Verify the preserved image has not been removed from Docker
+	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
+	assert.NoError(t, err, "Preserved image should not have been removed from Docker")
+}
+
 // renameImage retag the image and delete the original tag
 func renameImage(original, repo, tag string, client *docker.Client) error {
 	err := client.TagImage(original, docker.TagImageOptions{
