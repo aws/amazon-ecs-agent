@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+//	"os" //TODO: DEBUG
 
 	"golang.org/x/net/context"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 
@@ -39,6 +41,7 @@ import (
 
 const (
 	dockerDefaultTag = "latest"
+	defaultMetadataMount = "/var/lib/ecs/data/metadata"
 )
 
 // Timelimits for docker operations enforced above docker
@@ -65,6 +68,9 @@ const (
 	// StatsInactivityTimeout controls the amount of time we hold open a
 	// connection to the Docker daemon waiting for stats data
 	StatsInactivityTimeout = 5 * time.Second
+
+	createVolumeTimeout = 4 * time.Minute
+	removeVolumeTimeout = 5 * time.Minute
 )
 
 // DockerClient interface to make testing it easier
@@ -126,6 +132,9 @@ type DockerClient interface {
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value should be provided for the request.
 	RemoveImage(string, time.Duration) error
+
+	CreateVolume(string) VolumeMetadata
+	RemoveVolume(string) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -423,7 +432,14 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
-	return dg.containerMetadata(dockerContainer.ID)
+	//TODO DEBUG Uncomment return dg.containerMetadata(dockerContainer.ID)
+	md := dg.containerMetadata(dockerContainer.ID)
+	if (md.Metadata == nil) {
+//		os.Stderr.WriteString("EDTEST metadata is nil at createContainer\n") //TODO DEBUG
+	} else {
+//		os.Stderr.WriteString("EDTEST metadata is not nil at createContainer\n") //TODO DEBUG
+	}
+	return md
 }
 
 func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) DockerContainerMetadata {
@@ -617,7 +633,14 @@ func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	if err != nil {
 		return DockerContainerMetadata{DockerID: id, Error: CannotInspectContainerError{err}}
 	}
-	return metadataFromContainer(dockerContainer)
+	//TODO DEBUG Uncomment return metadataFromContainer(dockerContainer)
+	md := metadataFromContainer(dockerContainer)
+	if md.Metadata == nil {
+//		os.Stderr.WriteString("EDTEST metadata is nil at containerMetadata\n") //TODO DEBUG
+	} else {
+//		os.Stderr.WriteString("EDTEST metadata is not nil at containerMetadata\n") //TODO DEBUG
+	}
+	return md
 }
 
 func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
@@ -631,8 +654,15 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 			return DockerContainerMetadata{Error: api.NamedError(err)}
 		}
 	}
+	md := metadataservice.AcquireDockerMetadata(dockerContainer)
+	if (md == nil) {
+//		os.Stderr.WriteString("EDTEST metadata is nil at metadataFromContainer\n") //TODO DEBUG
+	} else {
+//		os.Stderr.WriteString("EDTEST metadata is not nil at metadataFromContainer\n") //TODO DEBUG
+	}
 	metadata := DockerContainerMetadata{
 		DockerID:     dockerContainer.ID,
+		Metadata:     md,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
@@ -886,4 +916,67 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
+}
+
+//Probably should move this somewhere else later
+type VolumeMetadata struct {
+	Volume *docker.Volume
+	Error  error
+}
+
+//Create a volume with given name on local driver
+//Function signature should be changed later to allow other options and proper error handling
+func (dg *dockerGoClient) CreateVolume(name string) VolumeMetadata {
+	timeout := dg.time().After(createVolumeTimeout)
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	response := make(chan VolumeMetadata, 1)
+	go func() { response <- dg.createVolume(name, ctx) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <- timeout:
+		cancelFunc()
+		return VolumeMetadata{ Volume: nil, Error: nil } //Do proper error handling later
+	}
+}
+
+func (dg *dockerGoClient) createVolume(name string, ctx context.Context) VolumeMetadata {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return VolumeMetadata { Volume: nil, Error: nil }
+	}
+
+	volumeOptions := docker.CreateVolumeOptions {Name: name, Context: ctx}
+	dockerVolume, err := client.CreateVolume(volumeOptions)
+	select {
+	case <-ctx.Done():
+		return VolumeMetadata { Volume: nil, Error: nil }
+	default:
+	}
+	if err != nil {
+		return VolumeMetadata { Volume: nil, Error: nil }
+	}
+	return VolumeMetadata { Volume: dockerVolume, Error: nil }
+}
+
+//Remove volume by name
+func (dg *dockerGoClient) RemoveVolume(name string) error {
+	timeout := dg.time().After(removeVolumeTimeout)
+
+	response := make(chan error, 1)
+	go func() { response <- dg.removeVolume(name) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		return &DockerTimeoutError{} //Do proper error handling later
+	}
+}
+
+func (dg *dockerGoClient) removeVolume(name string) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+	return client.RemoveVolume(name)
 }

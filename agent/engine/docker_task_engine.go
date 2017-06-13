@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"os"
 
 	"golang.org/x/net/context"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
@@ -46,6 +48,7 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
+	ECSMetadataDir             = "/var/lib/ecs/data/metadata"
 )
 
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
@@ -597,9 +600,21 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
+	//Create volume to mount metadata
+	metadataPath := metadataservice.GetMetadataFilePath(task,  container)
+	os.MkdirAll(metadataPath, os.ModePerm)
+	vol_metadata := client.CreateVolume(metadataPath)
+	if (vol_metadata.Volume != nil) {
+		config.Volumes[metadataPath] = struct{}{} //Add mount path to configuration
+	}
+
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
+//		if metadata.Metadata != nil {
+			metadataservice.InitMetadataFile(task, container, metadataPath)
+//			metadataservice.InjectDockerMetadata(task, container, metadata.Metadata)
+//		} //TODO: Handle error case
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata
