@@ -52,8 +52,12 @@ type Config struct {
 	ReservedPortsUDP []uint16
 
 	// DataDir is the directory data is saved to in order to preserve state
-	// across agent restarts. It is only used if "Checkpoint" is true as well.
+	// across agent restarts.
+	// It is also used to keep the metadata of containers managed by the agent
 	DataDir string
+	// DataDirOnHost is the directory in the instance from which we mount
+	// DataDir to the ecs-agent container and to agent managed containers
+	DataDirOnHost string
 	// Checkpoint configures whether data should be periodically to a checkpoint
 	// file, in DataDir, such that on instance or agent restarts it will resume
 	// as the same ContainerInstance. It defaults to false.
@@ -180,6 +184,10 @@ type Config struct {
 	// entries that will be added in the task's network namespace via the
 	// instance bridge interface rather than via the ENI.
 	AWSVPCAdditionalLocalRoutes []cnitypes.IPNet
+
+	// ContainerMetadataEnabled specifies if the agent should provide a metadata
+	// file for containers.
+	ContainerMetadataEnabled bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

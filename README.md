@@ -175,10 +175,16 @@ configure them as something other than the defaults.
 | `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h | 1h |
 | `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 | 5 |
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
+<<<<<<< 6f11735d92bbf1ce7bbe099721a17384095fdff7
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | Not applicable |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | Not applicable |
 | `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | Not applicable |
 | `ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES` | `["10.0.15.0/24"]` | In `awsvpc` network mode, traffic to these prefixes will be routed via the host bridge instead of the task ENI | `[]` | Not applicable |
+| `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | `false` |
+| `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | `/amazon-ecs-cni-plugins` |
+| `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | `false`|
+| `ECS_ENABLE_CONTAINER_METADATA` | `<true|false>` | Whether to enable creation of a metadata file in the containers. If enabled the agent will inject a file with the container's various metadata and the user can access the container's metadata internally by accessing the environment variable $ECS_CONTAINER_METADATA_FILE. | `false` | `false` |
+| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the Agent is run in a container. We do not use this value in Windows because the Agent is not run on a container in Windows. | `/var/lib/ecs` | `Not used` |
 
 ### Persistence
 

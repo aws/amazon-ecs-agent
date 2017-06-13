@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
@@ -93,13 +94,14 @@ type DockerTaskEngine struct {
 	_timeOnce                           sync.Once
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
+	metadataManager                     containermetadata.Manager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -120,6 +122,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
+
+		metadataManager: metadataManager,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -325,6 +329,14 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		err = engine.imageManager.RemoveContainerReferenceFromImageState(cont)
 		if err != nil {
 			seelog.Errorf("Error removing container reference from image state: %v", err)
+		}
+	}
+
+	// Clean metadata directory for task
+	if engine.cfg.ContainerMetadataEnabled {
+		err := engine.metadataManager.Clean(task.Arn)
+		if err != nil {
+			seelog.Errorf("Clean task metadata failed for task %s: %v", task, err)
 		}
 	}
 	engine.saver.Save()
@@ -647,6 +659,15 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		engine.saver.ForceSave()
 	}
 
+	// Create metadata directory and file then populate it with common metadata of all containers of this task
+	// Afterwards add this directory to the container's mounts if file creation was successful
+	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
+		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
+		if mderr != nil {
+			seelog.Errorf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
+		}
+	}
+
 	metadata := client.CreateContainer(config, hostConfig, dockerContainerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
@@ -675,7 +696,23 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{errors.Errorf("Container not recorded as created")},
 		}
 	}
-	return client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+
+	// Get metadata through container inspection and available task information then write this to the metadata file
+	// Performs this in the background to avoid delaying container start
+	// TODO: Add a state to the api.Container for the status of the metadata file (Whether it needs update) and
+	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
+	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
+		go func() {
+			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
+			if err != nil {
+				seelog.Errorf("Update metadata file failed for container %s of task %s: %v", container, task, err)
+			} else {
+				seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
+			}
+		}()
+	}
+	return dockerContainerMD
 }
 
 func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {

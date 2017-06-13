@@ -189,6 +189,7 @@ var scratchCreateLock sync.Mutex
 // NewDockerGoClient creates a new DockerGoClient
 func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (DockerClient, error) {
 	client, err := clientFactory.GetDefaultClient()
+
 	if err != nil {
 		log.Error("Unable to connect to docker daemon. Ensure docker is running.", "err", err)
 		return nil, err
