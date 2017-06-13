@@ -192,7 +192,7 @@ func _main() int {
 	}
 
 	// Load Pause Container Image
-	err = pause.LoadImage(cfg, dockerClient)
+	_, err = pause.LoadImage(cfg, dockerClient)
 	if err != nil {
 		if !pause.UnsupportedPlatform(err) {
 			log.Criticalf("Error loading pause container image: %v", err)

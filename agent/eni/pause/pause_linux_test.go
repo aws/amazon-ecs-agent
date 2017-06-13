@@ -100,7 +100,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestValidatePauseContainerImageInspectImageError(t *testing.T) {
+func TestGetPauseContainerImageInspectImageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -114,11 +114,11 @@ func TestValidatePauseContainerImageInspectImageError(t *testing.T) {
 	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(
 		nil, errors.New("error"))
 
-	err = validatePauseContainerImage(pauseName, pauseTag, client)
+	_, err = getPauseContainerImage(pauseName, pauseTag, client)
 	assert.Error(t, err)
 }
 
-func TestValidatePauseContainerHappyPath(t *testing.T) {
+func TestGetPauseContainerHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -131,6 +131,6 @@ func TestValidatePauseContainerHappyPath(t *testing.T) {
 
 	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(nil, nil)
 
-	err = validatePauseContainerImage(pauseName, pauseTag, client)
+	_, err = getPauseContainerImage(pauseName, pauseTag, client)
 	assert.NoError(t, err)
 }

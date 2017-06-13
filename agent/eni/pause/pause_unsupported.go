@@ -20,12 +20,13 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
 
 // LoadImage returns UnsupportedPlatformError on the unsupported platform
-func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) error {
-	return UnsupportedPlatformError{errors.Errorf(
+func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
+	return nil, UnsupportedPlatformError{errors.Errorf(
 		"pause container load: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH)}
 }

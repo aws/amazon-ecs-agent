@@ -21,19 +21,20 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	docker "github.com/fsouza/go-dockerclient"
 
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
 // LoadImage helps load the pause container image for the agent
-func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) error {
+func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
 	if err := loadFromFile(cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
-		return err
+		return nil, err
 	}
 
-	return validatePauseContainerImage(
+	return getPauseContainerImage(
 		config.PauseContainerImageName, config.PauseContainerTag, dockerClient)
 }
 
@@ -52,15 +53,15 @@ func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSyste
 
 }
 
-func validatePauseContainerImage(name string, tag string, dockerClient engine.DockerClient) error {
+func getPauseContainerImage(name string, tag string, dockerClient engine.DockerClient) (*docker.Image, error) {
 	imageName := fmt.Sprintf("%s:%s", name, tag)
 	log.Debugf("Inspecting pause container image: %s", imageName)
 
-	_, err := dockerClient.InspectImage(imageName)
+	image, err := dockerClient.InspectImage(imageName)
 	if err != nil {
-		return errors.Wrapf(err,
+		return nil, errors.Wrapf(err,
 			"pause container load: failed to inspect image: %s", imageName)
 	}
 
-	return nil
+	return image, nil
 }
