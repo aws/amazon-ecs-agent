@@ -15,6 +15,7 @@ package engine
 
 import "fmt"
 import "github.com/aws/amazon-ecs-agent/agent/api"
+import "github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 
 // ContainerNotFound is a type for a missing container
 type ContainerNotFound struct {
@@ -36,6 +37,7 @@ type DockerContainerChangeEvent struct {
 // DockerContainerMetadata is a type for metadata about Docker containers
 type DockerContainerMetadata struct {
 	DockerID     string
+	Metadata     *metadataservice.DockerMetadata
 	ExitCode     *int
 	PortBindings []api.PortBinding
 	Error        engineError
