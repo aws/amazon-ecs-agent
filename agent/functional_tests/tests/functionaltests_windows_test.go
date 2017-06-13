@@ -27,6 +27,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -46,9 +48,7 @@ func TestAWSLogsDriver(t *testing.T) {
 	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
 		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
 	})
-	if err != nil {
-		t.Fatalf("CloudWatchLogs describe log groups error: %v", err)
-	}
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
 	logGroupExists := false
 	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
 		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
@@ -61,9 +61,7 @@ func TestAWSLogsDriver(t *testing.T) {
 		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 			LogGroupName: aws.String(awslogsLogGroupName),
 		})
-		if err != nil {
-			t.Fatalf("Failed to create log group %s : %v", awslogsLogGroupName, err)
-		}
+		require.NoError(t, err, "Failed to create log group %s", awslogsLogGroupName)
 	}
 
 	agentOptions := AgentOptions{
@@ -79,9 +77,7 @@ func TestAWSLogsDriver(t *testing.T) {
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "awslogs-windows", tdOverrides)
-	if err != nil {
-		t.Fatalf("Expected to start task using awslogs driver failed: %v", err)
-	}
+	require.NoError(t, err, "Expected to start task using awslogs driver failed")
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
@@ -102,14 +98,10 @@ func TestAWSLogsDriver(t *testing.T) {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
 	}
-	resp, err := cwlClient.GetLogEvents(params)
-	if err != nil {
-		t.Fatalf("CloudWatchLogs get log failed: %v", err)
-	}
 
-	if len(resp.Events) != 1 {
-		t.Errorf("Get number of log events: %d", len(resp.Events))
-	}
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 }
 
 func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {

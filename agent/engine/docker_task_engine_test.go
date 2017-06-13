@@ -491,7 +491,6 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	err := taskEngine.Init(context.TODO()) // start the task engine
 	assert.Nil(t, err)
 
@@ -512,6 +511,11 @@ func TestSteadyStatePoll(t *testing.T) {
 	default:
 	}
 
+	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
+	assert.True(t, ok)
+	dockerContainer, ok := containerMap[sleepTask.Containers[0].Name]
+	assert.True(t, ok)
+
 	// Two steady state oks, one stop
 	gomock.InOrder(
 		client.EXPECT().DescribeContainer("containerId").Return(
@@ -527,11 +531,17 @@ func TestSteadyStatePoll(t *testing.T) {
 		// the engine *may* call StopContainer even though it's already stopped
 		client.EXPECT().StopContainer("containerId", stopContainerTimeout).AnyTimes(),
 	)
+	wait.Wait()
+
+	cleanupChan := make(chan time.Time)
+	testTime.EXPECT().After(gomock.Any()).Return(cleanupChan).AnyTimes()
+	client.EXPECT().RemoveContainer(dockerContainer.DockerName, removeContainerTimeout).Return(nil)
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
+
 	// trigger steady state verification
 	for i := 0; i < 10; i++ {
 		steadyStateVerify <- time.Now()
 	}
-	close(steadyStateVerify)
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
@@ -544,10 +554,19 @@ func TestSteadyStatePoll(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
-	// cleanup expectations
-	testTime.EXPECT().Now().AnyTimes()
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	wait.Wait()
+
+	close(steadyStateVerify)
+	// trigger cleanup, this ensures all the goroutines were finished
+	sleepTask.SetSentStatus(api.TaskStopped)
+	cleanupChan <- time.Now()
+
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func TestStopWithPendingStops(t *testing.T) {

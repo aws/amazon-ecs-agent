@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -169,8 +170,11 @@ func TestPayloadHandlerCalled(t *testing.T) {
 func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	cs, ml := testCS()
 
+	wait := sync.WaitGroup{}
+	wait.Add(1)
 	var handledMessage *ecsacs.IAMRoleCredentialsMessage
 	reqHandler := func(message *ecsacs.IAMRoleCredentialsMessage) {
+		wait.Done()
 		handledMessage = message
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -185,10 +189,7 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Millisecond)
-	if handledMessage == nil {
-		t.Fatal("Handler was not called")
-	}
+	wait.Wait()
 
 	expectedMessage := &ecsacs.IAMRoleCredentialsMessage{
 		MessageId: aws.String("123"),

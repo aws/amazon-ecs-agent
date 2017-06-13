@@ -26,6 +26,7 @@ import (
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -316,4 +317,22 @@ func TestCustomAttributesWithMaxOptions(t *testing.T) {
 		v := "val" + strconv.Itoa(i)
 		assert.Equal(t, v, attribMap[k], "Values should match")
 	}
+}
+
+// waitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs
+func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
+	// The test could fail for timing issue, so retry for 30 seconds to make this test more stable
+	for i := 0; i < 30; i++ {
+		resp, err := client.GetLogEvents(params)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(resp.Events) > 0 {
+			return resp, nil
+		}
+		time.Sleep(time.Second)
+	}
+
+	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
 }
