@@ -954,7 +954,7 @@ func TestLoadImageHappyPath(t *testing.T) {
 
 	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
 
-	err := client.LoadImage(docker.LoadImageOptions{}, time.Second)
+	err := client.LoadImage(nil, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -968,7 +968,7 @@ func TestLoadImageTimeoutError(t *testing.T) {
 		wait.Wait()
 	})
 
-	err := client.LoadImage(docker.LoadImageOptions{}, time.Millisecond)
+	err := client.LoadImage(nil, time.Millisecond)
 	assert.Error(t, err)
 	_, ok := err.(*DockerTimeoutError)
 	assert.True(t, ok)

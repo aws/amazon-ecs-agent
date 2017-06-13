@@ -89,9 +89,16 @@ const (
 
 	// pauseContainerTarball is the path to the pause container tarball
 	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+)
 
-	// pauseContainer is the Tag for the pause container image
-	pauseContainerTag = "0.1.0"
+var (
+	// PauseContainerTag is the tag for the pause container image. The linker's load
+	// flags are used to populate this value from the Makefile
+	PauseContainerTag = ""
+
+	// PauseContainerImageName is the name of the pause container image. The linker's
+	// load flags are used to populate this value from the Makefile
+	PauseContainerImageName = ""
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
