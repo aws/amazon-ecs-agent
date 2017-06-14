@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+//	"github.com/cihub/seelog"
 	//docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -15,8 +16,33 @@ const (
 )
 
 func InitMetadataFile(task *api.Task, container *api.Container, path string) error {
-	test_msg := GetMetadataFilePath(task, container) + "/metadata.json" //TODO: Remove later
-	return ioutil.WriteFile(path, []byte(test_msg), os.FileMode(0600))
+/*	dir, err := os.Open(path)
+	defer dir.Close()
+	if err != nil {
+		return err
+	}
+	err = dir.Chmod(0644)
+	if err != nil {
+		return err
+	}*/
+	tmpfile, err := ioutil.TempFile(path, "tmp_metadata")
+	if err != nil {
+		return err
+	}
+	test_msg := GetMetadataFilePath(task, container) + "metadata.json" //TODO: Remove later
+	_, err = tmpfile.Write([]byte(test_msg))
+	if err != nil {
+		return err
+	}
+	err = os.Rename(tmpfile.Name(), path + "metadata.json")
+	return err
+/*	mdfile, err := os.Create(path + "meatdata.json")
+	if err != nil {
+		return err
+	}
+	defer mdfile.Close()
+	_, err = mdfile.Write([]byte(test_msg))
+	return err*/
 }
 
 func InjectDockerMetadata(task *api.Task, container *api.Container, dmd *DockerMetadata) error {
@@ -27,7 +53,6 @@ func InjectDockerMetadata(task *api.Task, container *api.Container, dmd *DockerM
 	mdfile, err := os.OpenFile(mdfile_path, os.O_WRONLY | os.O_APPEND, 0644)
 	defer mdfile.Close();
 	if  err == nil {
-		os.Stderr.WriteString("Unable to open file EDTEST")
 		return nil //TODO: Write proper error handling 
 	}
 	_, err = mdfile.WriteString(dockerMetadataToJSON(dmd))
@@ -35,7 +60,7 @@ func InjectDockerMetadata(task *api.Task, container *api.Container, dmd *DockerM
 }
 
 func GetMetadataFilePath(task *api.Task, container *api.Container) string {
-	return ecs_metadata_dir + getIDfromArn(task.Arn) + "/" + container.Name
+	return ecs_metadata_dir + getIDfromArn(task.Arn) + "/" + container.Name + "/"
 }
 
 func getIDfromArn(taskarn string) string {
@@ -45,7 +70,6 @@ func getIDfromArn(taskarn string) string {
 }
 
 func dockerMetadataToJSON(dmd *DockerMetadata) string {
-	os.Stderr.WriteString("HELLO EDTEST")
 	if dmd == nil {
 		return ""
 	}
@@ -56,7 +80,6 @@ func dockerMetadataToJSON(dmd *DockerMetadata) string {
 	json += dmd.ImageName + "\n"
 	json += dmd.ImageID + "\n"
 	json += networkMetadataToJSON(dmd.NetworkInfo) + "\n"
-	os.Stderr.WriteString(json + "EDTEST")
 	return json
 }
 

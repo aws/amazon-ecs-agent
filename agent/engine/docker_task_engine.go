@@ -48,7 +48,7 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
-	ECSMetadataDir             = "/var/lib/ecs/data/metadata"
+	ECSMetadataDir             = "/var/lib/ecs/data/metadata/"
 )
 
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
@@ -601,18 +601,29 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	engine.saver.ForceSave()
 
 	//Create volume to mount metadata
-	metadataPath := metadataservice.GetMetadataFilePath(task,  container)
-	os.MkdirAll(metadataPath, os.ModePerm)
-	vol_metadata := client.CreateVolume(metadataPath)
-	if (vol_metadata.Volume != nil) {
-		config.Volumes[metadataPath] = struct{}{} //Add mount path to configuration
+	metadataPath := metadataservice.GetMetadataFilePath(task, container)
+	ioerr := os.MkdirAll(metadataPath, os.ModePerm)
+	if ioerr == nil {
+		seelog.Infof("Created metadata directory at %s", metadataPath)
+	} else {
+		seelog.Errorf("Failed to create metadata directory at %s. Error: %s", metadataPath, ioerr.Error())
 	}
-
+	ioerr = metadataservice.InitMetadataFile(task, container, metadataPath)
+	if ioerr == nil {
+		seelog.Infof("Created metadata file at %s", metadataPath + "metadata.json")
+	} else {
+		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath + "metadata.json", ioerr.Error())
+	}
+	/*vol_metadata :=*/ client.CreateVolume(metadataPath)
+	seelog.Infof("Created volume at %s", metadataPath)
+	//config.Volumes[metadataPath] = struct{}{} //Add mount path to configuration
+	hostConfig.Binds = []string{ metadataPath + ":" + "/ecs/metadata/" + container.Name }
+	seelog.Infof("Mounted volume %s to container %s of task %s", metadataPath, container, task)
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
 //		if metadata.Metadata != nil {
-			metadataservice.InitMetadataFile(task, container, metadataPath)
+			//metadataservice.InitMetadataFile(task, container, metadataPath + "metadata.json")
 //			metadataservice.InjectDockerMetadata(task, container, metadata.Metadata)
 //		} //TODO: Handle error case
 	}
