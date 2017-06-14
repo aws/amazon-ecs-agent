@@ -1,4 +1,4 @@
-amazon-ecs-init (1.14.0-2) trusty; urgency=low
+amazon-ecs-init (1.14.3-1) trusty; urgency=low
 
   * Initial release
 
