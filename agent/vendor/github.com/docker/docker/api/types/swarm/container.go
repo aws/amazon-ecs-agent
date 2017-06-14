@@ -3,7 +3,7 @@ package swarm
 import (
 	"time"
 
-	"github.com/docker/engine-api/types/mount"
+	"github.com/docker/docker/api/types/mount"
 )
 
 // ContainerSpec represents the spec of a container.
