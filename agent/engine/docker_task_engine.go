@@ -48,7 +48,8 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
-	ECSMetadataDir             = "/var/lib/ecs/data/metadata/"
+	ECSDataDir                   = "/data/"
+	HostDataDir                  = "/var/lib/ecs/data/"
 )
 
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
@@ -601,7 +602,8 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	engine.saver.ForceSave()
 
 	//Create volume to mount metadata
-	metadataPath := metadataservice.GetMetadataFilePath(task, container)
+	metadataPath := ECSDataDir + metadataservice.GetMetadataFilePath(task, container)
+	hostMetadataPath := HostDataDir + metadataservice.GetMetadataFilePath(task, container)
 	ioerr := os.MkdirAll(metadataPath, os.ModePerm)
 	if ioerr == nil {
 		seelog.Infof("Created metadata directory at %s", metadataPath)
@@ -617,7 +619,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	/*vol_metadata :=*/ client.CreateVolume(metadataPath)
 	seelog.Infof("Created volume at %s", metadataPath)
 	//config.Volumes[metadataPath] = struct{}{} //Add mount path to configuration
-	hostConfig.Binds = []string{ metadataPath + ":" + "/ecs/metadata/" + container.Name }
+	hostConfig.Binds = []string{ hostMetadataPath + ":" + "/ecs/metadata/" + container.Name }
 	seelog.Infof("Mounted volume %s to container %s of task %s", metadataPath, container, task)
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
