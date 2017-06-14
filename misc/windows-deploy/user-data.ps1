@@ -1,5 +1,5 @@
 <powershell>
-## The string 'windows' shoud be replaced with your cluster name
+## The string 'windows' should be replaced with your cluster name
 
 # Set agent env variables for the Machine context (durable)
 [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "windows", "Machine")
