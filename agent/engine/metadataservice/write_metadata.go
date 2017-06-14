@@ -12,7 +12,7 @@ import (
 
 const (
 	taskArnRegexExpr = "(:task/)|(arn:aws:ecs:)|:"
-	ecs_metadata_dir = "/var/lib/ecs/data/metadata/"
+	ecsDataMount = "/var/lib/ecs/data/metadata/"
 )
 
 func InitMetadataFile(task *api.Task, container *api.Container, path string) error {
@@ -60,7 +60,7 @@ func InjectDockerMetadata(task *api.Task, container *api.Container, dmd *DockerM
 }
 
 func GetMetadataFilePath(task *api.Task, container *api.Container) string {
-	return ecs_metadata_dir + getIDfromArn(task.Arn) + "/" + container.Name + "/"
+	return "metadata/" + getIDfromArn(task.Arn) + "/" + container.Name + "/"
 }
 
 func getIDfromArn(taskarn string) string {
