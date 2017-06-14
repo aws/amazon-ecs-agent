@@ -11,20 +11,24 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package main
+package app
 
 import (
-	mathrand "math/rand"
+	"fmt"
 	"os"
-	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/app"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-func init() {
-	mathrand.Seed(time.Now().UnixNano())
-}
-
-func main() {
-	os.Exit(app.Run(os.Args[1:]))
+// printLicense prints the Agent's license text
+func printLicense() int {
+	license := utils.NewLicenseProvider()
+	text, err := license.GetText()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return exitcodes.ExitError
+	}
+	fmt.Println(text)
+	return exitcodes.ExitSuccess
 }

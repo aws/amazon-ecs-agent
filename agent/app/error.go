@@ -11,20 +11,15 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package main
+package app
 
-import (
-	mathrand "math/rand"
-	"os"
-	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/app"
-)
-
-func init() {
-	mathrand.Seed(time.Now().UnixNano())
+// nonTerminalError represents a transient error when executing the ECS Agent
+type nonTerminalError struct {
+	error
 }
 
-func main() {
-	os.Exit(app.Run(os.Args[1:]))
+// isNonTerminal returns true if the error is transient
+func isNonTerminal(err error) bool {
+	_, ok := err.(nonTerminalError)
+	return ok
 }
