@@ -406,6 +406,14 @@ func (_mr *_MockImageManagerRecorder) GetImageStateFromImageName(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetImageStateFromImageName", arg0)
 }
 
+func (_m *MockImageManager) PreserveImageUnsafe(_param0 string) {
+	_m.ctrl.Call(_m, "PreserveImageUnsafe", _param0)
+}
+
+func (_mr *_MockImageManagerRecorder) PreserveImageUnsafe(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PreserveImageUnsafe", arg0)
+}
+
 func (_m *MockImageManager) RecordContainerReference(_param0 *api.Container) error {
 	ret := _m.ctrl.Call(_m, "RecordContainerReference", _param0)
 	ret0, _ := ret[0].(error)

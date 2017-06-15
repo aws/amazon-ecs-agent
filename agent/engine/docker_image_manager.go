@@ -40,6 +40,7 @@ type ImageManager interface {
 	AddAllImageStates(imageStates []*image.ImageState)
 	GetImageStateFromImageName(containerImageName string) *image.ImageState
 	StartImageCleanupProcess(ctx context.Context)
+	PreserveImageUnsafe(string)
 	SetSaver(stateManager statemanager.Saver)
 }
 
@@ -56,6 +57,7 @@ type dockerImageManager struct {
 	minimumAgeBeforeDeletion         time.Duration
 	numImagesToDelete                int
 	imageCleanupTimeInterval         time.Duration
+	preservedImages                  []string
 }
 
 // ImageStatesForDeletion is used for implementing the sort interface
@@ -70,6 +72,18 @@ func NewImageManager(cfg *config.Config, client DockerClient, state dockerstate.
 		numImagesToDelete:        cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: cfg.ImageCleanupInterval,
 	}
+}
+
+// PreserveImageUnsafe adds the image into preservedImages array that won't be cleaned up by agent
+func (imageManager *dockerImageManager) PreserveImageUnsafe(image string) {
+	for _, m := range imageManager.preservedImages {
+		if m == image {
+			seelog.Debugf("Image has already been preserved, image: %s", image)
+			return
+		}
+	}
+
+	imageManager.preservedImages = append(imageManager.preservedImages, image)
 }
 
 func (imageManager *dockerImageManager) SetSaver(stateManager statemanager.Saver) {
@@ -335,18 +349,35 @@ func (imageManager *dockerImageManager) deleteImage(imageID string, imageState *
 		seelog.Errorf("Image ID to be deleted is null")
 		return
 	}
-	seelog.Infof("Removing Image: %s", imageID)
-	err := imageManager.client.RemoveImage(imageID, removeImageTimeout)
-	if err != nil {
-		if err.Error() == imageNotFoundForDeletionError {
-			seelog.Errorf("Image already removed from the instance: %v", err)
-		} else {
-			seelog.Errorf("Error removing Image %v - %v", imageID, err)
-			delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
-			return
+
+	// Due to the logic in removeUnusedImages if we don't remove the imagestate
+	// of preserved image, it will always be the LRU image to be deleted, this cause
+	// other image can't be deleted. we can get rid of this after changing the logic
+	// in removeUnusedImages to get all the images to be deleted once or so.
+	preserved := false
+	for _, m := range imageManager.preservedImages {
+		if imageID == m {
+			seelog.Infof("Image %s was marked to be preserved, skipping deletion", imageID)
+			preserved = true
+			break
 		}
 	}
-	seelog.Infof("Image removed: %v", imageID)
+
+	if !preserved {
+		seelog.Infof("Removing Image: %s", imageID)
+		err := imageManager.client.RemoveImage(imageID, removeImageTimeout)
+		if err != nil {
+			if err.Error() == imageNotFoundForDeletionError {
+				seelog.Errorf("Image already removed from the instance: %v", err)
+			} else {
+				seelog.Errorf("Error removing Image %v - %v", imageID, err)
+				delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
+				return
+			}
+		}
+		seelog.Infof("Image removed: %v", imageID)
+	}
+
 	imageState.RemoveImageName(imageID)
 	if len(imageState.Image.Names) == 0 {
 		seelog.Infof("Cleaning up all tracking information for image %s as it has zero references", imageID)
