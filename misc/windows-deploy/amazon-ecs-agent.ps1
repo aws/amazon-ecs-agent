@@ -61,35 +61,9 @@ try {
 
     LogMsg "Docker is running and ready."
 
-    LogMsg "First stop/remove any existing credential proxy containers"
-    $credentialProxy = "ecs-cred-proxy"
-    docker inspect ${credentialProxy}
-    if (${LastExitCode} -eq 0) {
-        try {
-            LogMsg "Stopping/Removing credential proxy."
-            docker stop ${credentialProxy}
-            docker rm ${credentialProxy}
-        } catch {
-            LogMsg -message "Stopping/Removing Credential Proxy container failed" -logLevel "ERROR"
-            LogMsg -message "IAM roles may not work. Try manually stopping/removing the container before running this script again." -logLevel "ERROR"
-            exit 1
-        }
-    }
-
     if([System.Environment]::GetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "Machine") -eq "true") {
         LogMsg "IAM roles environment variable is set."
-
-        .\loopback.ps1
         .\hostsetup.ps1
-
-        try {
-            docker build -t amazon/amazon-ecs-credential-proxy --file .\credentialproxy.dockerfile . | out-null
-            .\setupcredentialproxy.ps1 | out-null
-        } catch {
-            LogMsg -message "Running Credential Proxy container failed." -logLevel "ERROR"
-            LogMsg -message $_.Exception.Message -logLevel "ERROR"
-            exit 2
-        }
     }
 
     LogMsg "Starting agent... "

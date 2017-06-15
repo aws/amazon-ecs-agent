@@ -786,7 +786,7 @@ func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListCont
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
-	return dg.clientFactory.FindAvailableVersions()
+	return dg.clientFactory.FindSupportedAPIVersions()
 }
 
 func (dg *dockerGoClient) Version() (string, error) {

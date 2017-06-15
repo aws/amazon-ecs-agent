@@ -1,6 +1,6 @@
 // +build windows,functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,8 +38,8 @@ const (
 	networkModeTaskDefinition       = "network-mode-windows"
 )
 
-// TestAwslogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
-func TestAwslogsDriver(t *testing.T) {
+// TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
+func TestAWSLogsDriver(t *testing.T) {
 	RequireDockerVersion(t, ">=1.9.0") // awslogs drivers available from docker 1.9.0
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	// Test whether the log group existed or not

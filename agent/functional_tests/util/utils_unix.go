@@ -1,6 +1,6 @@
 // +build !windows,functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -207,8 +207,7 @@ func (agent *TestAgent) StartAgent() error {
 		return errors.New("Could not inspect agent container: " + err.Error())
 	}
 	agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
-	err = agent.platformIndependentStartAgent()
-	return err
+	return agent.verifyIntrospectionAPI()
 }
 
 // getBindMounts actually constructs volume binds for container's host config
