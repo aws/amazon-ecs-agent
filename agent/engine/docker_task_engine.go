@@ -137,9 +137,9 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // Init initializes a DockerTaskEngine such that it may communicate with docker
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
-func (engine *DockerTaskEngine) Init() error {
+func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
-	ctx, cancel := context.WithCancel(context.TODO())
+	derivedCtx, cancel := context.WithCancel(context.TODO())
 	engine.stopEngine = cancel
 
 	// Determine whether the engine can perform concurrent "docker pull" based on docker version
@@ -148,13 +148,13 @@ func (engine *DockerTaskEngine) Init() error {
 	// Open the event stream before we sync state so that e.g. if a container
 	// goes from running to stopped after we sync with it as "running" we still
 	// have the "went to stopped" event pending so we can be up to date.
-	err := engine.openEventstream(ctx)
+	err := engine.openEventstream(derivedCtx)
 	if err != nil {
 		return err
 	}
 	engine.synchronizeState()
 	// Now catch up and start processing new events per normal
-	go engine.handleDockerEvents(ctx)
+	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
 	return nil
 }
@@ -167,7 +167,7 @@ func (engine *DockerTaskEngine) SetDockerClient(client DockerClient) {
 }
 
 // MustInit blocks and retries until an engine can be initialized.
-func (engine *DockerTaskEngine) MustInit() {
+func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	if engine.initialized {
 		return
 	}
@@ -180,7 +180,7 @@ func (engine *DockerTaskEngine) MustInit() {
 		if engine.initialized {
 			return nil
 		}
-		err := engine.Init()
+		err := engine.Init(ctx)
 		if err != nil {
 			errorOnce.Do(func() {
 				log.Error("Could not connect to docker daemon", "err", err)
