@@ -14,12 +14,14 @@
 package app
 
 import (
-	"context"
 	"fmt"
+
+	"golang.org/x/net/context"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
+	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -64,12 +66,14 @@ type agent interface {
 // after creating it via
 // the newAgent() method
 type ecsAgent struct {
-	ctx                  context.Context
-	ec2MetadataClient    ec2.EC2MetadataClient
-	cfg                  *config.Config
-	dockerClient         engine.DockerClient
-	containerInstanceArn string
-	credentialProvider   *aws_credentials.Credentials
+	ctx                   context.Context
+	ec2MetadataClient     ec2.EC2MetadataClient
+	cfg                   *config.Config
+	dockerClient          engine.DockerClient
+	containerInstanceArn  string
+	credentialProvider    *aws_credentials.Credentials
+	stateManagerFactory   factory.StateManager
+	saveableOptionFactory factory.SaveableOption
 }
 
 // newAgent returns a new ecsAgent object
@@ -112,16 +116,20 @@ func newAgent(
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
-		credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		stateManagerFactory:   factory.NewStateManager(),
+		saveableOptionFactory: factory.NewSaveableOption(),
 	}, nil
 
 }
 
+// printVersion prints the ECS Agent version string
 func (agent *ecsAgent) printVersion() int {
 	version.PrintVersion(agent.dockerClient)
 	return exitcodes.ExitSuccess
 }
 
+// start starts the ECS Agent
 func (agent *ecsAgent) start() int {
 	sighandlers.StartDebugHandler()
 
@@ -129,21 +137,28 @@ func (agent *ecsAgent) start() int {
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewTaskEngineState()
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
+	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
-	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager)
+	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
 }
 
+// doStart is the worker invoked by start for starting the ECS Agent. This involves
+// initializing the docker task engine, state saver, image manager, credentials
+// manager, poll and telemetry sessions, api handler etc
 func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
-	imageManager engine.ImageManager) int {
+	imageManager engine.ImageManager,
+	client api.ECSClient) int {
 
+	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
 		credentialsManager, state, imageManager)
 	if err != nil {
 		return exitcodes.ExitTerminal
 	}
 
+	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceArn, &currentEC2InstanceID)
 	if err != nil {
@@ -151,7 +166,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
-	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
+	// Register the container instance
 	err = agent.registerContainerInstance(taskEngine, stateManager, client)
 	if err != nil {
 		if isNonTerminal(err) {
@@ -163,20 +178,23 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetSaver(stateManager)
 	imageManager.SetSaver(stateManager)
-	taskEngine.MustInit()
+	taskEngine.MustInit(agent.ctx)
 
+	// Start back ground routines, including the telemetry session
 	deregisterInstanceEventStream := eventstream.NewEventStream(
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
-
 	taskHandler := eventhandler.NewTaskHandler()
-
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
+
+	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine, stateManager,
 		deregisterInstanceEventStream, client, taskHandler)
 }
 
+// newTaskEngine creates a new docker task engine object. It tries to load the
+// local state if needed, else initializes a new one
 func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
@@ -186,14 +204,14 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	if !agent.cfg.Checkpoint {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state), "", nil
+		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
+			credentialsManager, containerChangeEventStream, imageManager, state), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
 	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
-	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-		containerChangeEventStream, imageManager, state)
+	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
+		credentialsManager, containerChangeEventStream, imageManager, state)
 
 	// previousState is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
@@ -230,6 +248,9 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
 
+// setClusterInConfig sets the cluster name in the config object based on
+// previous state. It returns an error if there's a mismatch between the
+// the current cluster name with what's restored from the cluster state
 func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 	// TODO Handle default cluster in a sane and unified way across the codebase
 	configuredCluster := agent.cfg.Cluster
@@ -249,16 +270,20 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 	return nil
 }
 
+// getEC2InstanceID gets the EC2 instance ID from the metadata service
 func (agent *ecsAgent) getEC2InstanceID() string {
 	instanceIdentityDoc, err := agent.ec2MetadataClient.InstanceIdentityDocument()
 	if err != nil {
-		log.Criticalf("Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
+		log.Criticalf(
+			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		return ""
 	}
 	return instanceIdentityDoc.InstanceId
 }
 
-// expect all of these to be backfilled on Load
+// newStateManager creates a new state manager object for the task engine.
+// Rest of the parameters are pointers and it's expected that all of these
+// will be backfilled when state manager's Load() method is invoked
 func (agent *ecsAgent) newStateManager(
 	taskEngine engine.TaskEngine,
 	cluster *string,
@@ -268,21 +293,28 @@ func (agent *ecsAgent) newStateManager(
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
 	}
-	return statemanager.NewStateManager(agent.cfg,
+
+	return agent.stateManagerFactory.NewStateManager(agent.cfg,
 		statemanager.AddSaveable("TaskEngine", taskEngine),
-		statemanager.AddSaveable("ContainerInstanceArn", containerInstanceArn),
+		// This is for making testing easier as we can mock this
+		agent.saveableOptionFactory.AddSaveable("ContainerInstanceArn",
+			containerInstanceArn),
 		statemanager.AddSaveable("Cluster", cluster),
-		statemanager.AddSaveable("EC2InstanceID", savedInstanceID),
-		// The ACSSeqNum field is retained for compatibility with statemanager.EcsDataVersion 4 and
-		// can be removed in the future with a version bump.
+		// This is for making testing easier as we can mock this
+		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
+		// The ACSSeqNum field is retained for compatibility with
+		// statemanager.EcsDataVersion 4 and can be removed in the future
+		// with a version bump.
 		statemanager.AddSaveable("ACSSeqNum", 1),
 	)
 }
 
+// registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
 	taskEngine engine.TaskEngine,
 	stateManager statemanager.StateManager,
 	client api.ECSClient) error {
+
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		log.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
@@ -315,6 +347,9 @@ func (agent *ecsAgent) registerContainerInstance(
 
 }
 
+// registerContainerInstance registers a container instance that has already been
+// registered with ECS. This is for cases where the ECS Agent is being restored
+// from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []string) error {
 	_, err := client.RegisterContainerInstance(agent.containerInstanceArn, capabilities)
 	if err == nil {
@@ -332,6 +367,7 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 	return nonTerminalError{err}
 }
 
+// startAsyncRoutines starts all of the background methods
 func (agent *ecsAgent) startAsyncRoutines(
 	containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
@@ -373,6 +409,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go tcshandler.StartMetricsSession(telemetrySessionParams)
 }
 
+// startACSSession starts a session with ECS's Agent Communication service. This
+// is a blocking call and only returns when the handler returns
 func (agent *ecsAgent) startACSSession(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
