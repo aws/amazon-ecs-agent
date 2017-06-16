@@ -21,12 +21,13 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/aws-sdk-go/aws/defaults"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 )
 
@@ -41,6 +42,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	imageManager := engine.NewMockImageManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	dockerClient := engine.NewMockDockerClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(1)
@@ -48,8 +50,10 @@ func TestDoStartHappyPath(t *testing.T) {
 
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
 	gomock.InOrder(
+		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
@@ -70,7 +74,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
-		credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 	}
 
