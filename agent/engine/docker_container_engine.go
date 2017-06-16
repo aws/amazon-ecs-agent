@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-//	"os" //TODO: DEBUG
 
 	"golang.org/x/net/context"
 
@@ -32,7 +31,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 
@@ -429,17 +427,11 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 		Context:    ctx,
 	}
 	dockerContainer, err := client.CreateContainer(containerOptions)
+
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
-	//TODO DEBUG Uncomment return dg.containerMetadata(dockerContainer.ID)
-	md := dg.containerMetadata(dockerContainer.ID)
-	if (md.Metadata == nil) {
-//		os.Stderr.WriteString("EDTEST metadata is nil at createContainer\n") //TODO DEBUG
-	} else {
-//		os.Stderr.WriteString("EDTEST metadata is not nil at createContainer\n") //TODO DEBUG
-	}
-	return md
+	return dg.containerMetadata(dockerContainer.ID)
 }
 
 func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) DockerContainerMetadata {
@@ -633,14 +625,7 @@ func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
 	if err != nil {
 		return DockerContainerMetadata{DockerID: id, Error: CannotInspectContainerError{err}}
 	}
-	//TODO DEBUG Uncomment return metadataFromContainer(dockerContainer)
-	md := metadataFromContainer(dockerContainer)
-	if md.Metadata == nil {
-//		os.Stderr.WriteString("EDTEST metadata is nil at containerMetadata\n") //TODO DEBUG
-	} else {
-//		os.Stderr.WriteString("EDTEST metadata is not nil at containerMetadata\n") //TODO DEBUG
-	}
-	return md
+	return metadataFromContainer(dockerContainer)
 }
 
 func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
@@ -654,15 +639,9 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 			return DockerContainerMetadata{Error: api.NamedError(err)}
 		}
 	}
-	md := metadataservice.AcquireDockerMetadata(dockerContainer)
-	if (md == nil) {
-//		os.Stderr.WriteString("EDTEST metadata is nil at metadataFromContainer\n") //TODO DEBUG
-	} else {
-//		os.Stderr.WriteString("EDTEST metadata is not nil at metadataFromContainer\n") //TODO DEBUG
-	}
+
 	metadata := DockerContainerMetadata{
 		DockerID:     dockerContainer.ID,
-		Metadata:     md,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
