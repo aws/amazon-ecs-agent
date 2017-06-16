@@ -40,8 +40,6 @@ func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// Create a new docker stats engine
-	// TODO make dockerStatsEngine not a singleton object
-	dockerStatsEngine = nil
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainers"))
 
 	// Create a container to get the container id.
@@ -143,8 +141,6 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
 	// Create a new docker stats engine
-	// TODO make dockerStatsEngine not a singleton object
-	dockerStatsEngine = nil
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"))
 	defer engine.removeAll()
 
@@ -288,8 +284,6 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		&testTask)
 
 	// Create a new docker stats engine
-	// TODO make dockerStatsEngine not a singleton object
-	dockerStatsEngine = nil
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
 	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
@@ -412,8 +406,6 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		&testTask)
 
 	// Create a new docker stats engine
-	// TODO make dockerStatsEngine not a singleton object
-	dockerStatsEngine = nil
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
 	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
