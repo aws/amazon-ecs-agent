@@ -17,9 +17,9 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"os" //TODO: DEBUG
 	"sync"
 	"time"
-	"os"
 
 	"golang.org/x/net/context"
 
@@ -49,7 +49,7 @@ const (
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
 	ECSDataDir                   = "/data/"
-	HostDataDir                  = "/var/lib/ecs/data/"
+	HostDataDir                  = "/var/lib/ecs/"
 )
 
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
@@ -307,6 +307,15 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 			seelog.Errorf("Error removing container reference from image state: %v", err)
 		}
 	}
+
+	//Clean up metadata files created for this task
+	err := metadataservice.Clean(task)
+	if err == nil {
+		seelog.Infof("DEBUG Cleaned metadata file directory for task %s", task)
+	} else {
+		seelog.Errorf("DEBUG Unable to remove metadata file directory for task %s: %s", task, err.Error())
+	}
+
 	engine.saver.Save()
 }
 
@@ -601,33 +610,27 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
-	//Create volume to mount metadata
-	metadataPath := ECSDataDir + metadataservice.GetMetadataFilePath(task, container)
+	//Create mount metadata in container from host directory then add metadata file to this volume
+	metadataPath, ioerr := metadataservice.InitMetadataDir(task, container)
 	hostMetadataPath := HostDataDir + metadataservice.GetMetadataFilePath(task, container)
-	ioerr := os.MkdirAll(metadataPath, os.ModePerm)
 	if ioerr == nil {
 		seelog.Infof("Created metadata directory at %s", metadataPath)
 	} else {
 		seelog.Errorf("Failed to create metadata directory at %s. Error: %s", metadataPath, ioerr.Error())
 	}
-	ioerr = metadataservice.InitMetadataFile(task, container, metadataPath)
+	ioerr = metadataservice.InitMetadataFile(task, container)
 	if ioerr == nil {
 		seelog.Infof("Created metadata file at %s", metadataPath + "metadata.json")
 	} else {
 		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath + "metadata.json", ioerr.Error())
 	}
-	/*vol_metadata :=*/ client.CreateVolume(metadataPath)
-	seelog.Infof("Created volume at %s", metadataPath)
-	//config.Volumes[metadataPath] = struct{}{} //Add mount path to configuration
+	//Bind mount to metadata in container
 	hostConfig.Binds = []string{ hostMetadataPath + ":" + "/ecs/metadata/" + container.Name }
 	seelog.Infof("Mounted volume %s to container %s of task %s", metadataPath, container, task)
+
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
-//		if metadata.Metadata != nil {
-			//metadataservice.InitMetadataFile(task, container, metadataPath + "metadata.json")
-//			metadataservice.InjectDockerMetadata(task, container, metadata.Metadata)
-//		} //TODO: Handle error case
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata
@@ -672,6 +675,15 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 	}
 
+	//TODO DEBUG Test if removal works if stopped (Not sure how to trigger a removal event so we'll use this to debug)
+	path := metadataservice.GetMetadataFilePath(task, container)
+	ioerr := os.RemoveAll(path)
+	if ioerr == nil {
+		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
+	} else {
+		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
+	}
+
 	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
 }
 
@@ -686,6 +698,17 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
+	}
+
+	//TODO Figure out how to trigger removal event manually
+	//Current issue: When removal event actually triggers the file no longer exists
+	//TODO Move to metadataservice if successful
+	path := metadataservice.GetMetadataFilePath(task, container) + "metadata.json"
+	ioerr := os.Remove(path)
+	if ioerr == nil {
+		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
+	} else {
+		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
 	}
 
 	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
