@@ -19,11 +19,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
-const instanceTypeChangedErrorMessage = "Container instance type changes are not supported."
+// InstanceTypeChangedErrorMessage is the error message to print for the
+// instance type changed error when registering a container instance
+const InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
 
+// IsInstanceTypeChangedError returns true if the error when
+// registering the container instance is because of instance type being
+// changed
 func IsInstanceTypeChangedError(err error) bool {
 	if awserr, ok := err.(awserr.Error); ok {
-		return strings.Contains(awserr.Message(), instanceTypeChangedErrorMessage)
+		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
 	}
 	return false
 }
