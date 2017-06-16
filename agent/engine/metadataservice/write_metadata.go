@@ -1,6 +1,7 @@
 package metadataservice
 
 import (
+	"path/filepath"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -42,9 +43,39 @@ func WriteToMetadata(task *api.Task, container *api.Container, data []byte) erro
 	return err
 }
 
-func Clean(task *api.Task) error {
-	mddir_path := ecsDataMount + "metadata/" + getIDfromArn(task.Arn)
-	return os.RemoveAll(mddir_path)
+func CleanContainer(task *api.Task, container *api.Container) error {
+	mdfile_path := GetMetadataFilePath(task, container)
+	return removeContents(mdfile_path)
+}
+
+func CleanTask(task *api.Task) error {
+	mddir_path := GetTaskMetadataDir(task)
+	return removeContents(mddir_path)
+}
+
+//Removes directory and all its children. We use this instead of os.RemoveAll to handle case
+//where the directory does not exist
+func removeContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return nil
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return os.Remove(dir)
+}
+
+func GetTaskMetadataDir(task *api.Task) string {
+	return ecsDataMount + "metadata/" + getIDfromArn(task.Arn) + "/"
 }
 
 func GetMetadataFilePath(task *api.Task, container *api.Container) string {

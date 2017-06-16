@@ -17,7 +17,7 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"os" //TODO: DEBUG
+//	"os" //TODO: DEBUG
 	"sync"
 	"time"
 
@@ -306,14 +306,6 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		if err != nil {
 			seelog.Errorf("Error removing container reference from image state: %v", err)
 		}
-	}
-
-	//Clean up metadata files created for this task
-	err := metadataservice.Clean(task)
-	if err == nil {
-		seelog.Infof("DEBUG Cleaned metadata file directory for task %s", task)
-	} else {
-		seelog.Errorf("DEBUG Unable to remove metadata file directory for task %s: %s", task, err.Error())
 	}
 
 	engine.saver.Save()
@@ -675,9 +667,11 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	//TODO DEBUG Test if removal works if stopped (Not sure how to trigger a removal event so we'll use this to debug)
+	//TODO Add check to remove task directory if all associated containers are stopped
 	path := metadataservice.GetMetadataFilePath(task, container)
-	ioerr := os.RemoveAll(path)
+	ioerr := metadataservice.CleanContainer(task, container)
+	//path := metadataservice.GetTaskMetadataDir(task)
+	//ioerr := metadataservice.CleanTask(task)
 	if ioerr == nil {
 		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
 	} else {
@@ -698,17 +692,6 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
-	}
-
-	//TODO Figure out how to trigger removal event manually
-	//Current issue: When removal event actually triggers the file no longer exists
-	//TODO Move to metadataservice if successful
-	path := metadataservice.GetMetadataFilePath(task, container) + "metadata.json"
-	ioerr := os.Remove(path)
-	if ioerr == nil {
-		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
-	} else {
-		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
 	}
 
 	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
