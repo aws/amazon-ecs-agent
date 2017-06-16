@@ -66,9 +66,6 @@ type DockerStatsEngine struct {
 	tasksToDefinitions map[string]*taskDefinition
 }
 
-// dockerStatsEngine is a singleton object of DockerStatsEngine.
-// TODO make dockerStatsEngine not a singleton object
-var dockerStatsEngine *DockerStatsEngine
 var EmptyMetricsError = errors.New("No task metrics to report")
 
 // ResolveTask resolves the api task object, given container id.
@@ -100,17 +97,13 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
-	if dockerStatsEngine == nil {
-		dockerStatsEngine = &DockerStatsEngine{
-			client:                     client,
-			resolver:                   nil,
-			tasksToContainers:          make(map[string]map[string]*StatsContainer),
-			tasksToDefinitions:         make(map[string]*taskDefinition),
-			containerChangeEventStream: containerChangeEventStream,
-		}
+	return &DockerStatsEngine{
+		client:                     client,
+		resolver:                   nil,
+		tasksToContainers:          make(map[string]map[string]*StatsContainer),
+		tasksToDefinitions:         make(map[string]*taskDefinition),
+		containerChangeEventStream: containerChangeEventStream,
 	}
-
-	return dockerStatsEngine
 }
 
 // MustInit initializes fields of the DockerStatsEngine object.

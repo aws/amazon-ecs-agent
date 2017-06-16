@@ -89,14 +89,14 @@ func (_mr *_MockTaskEngineRecorder) GetTaskByArn(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskByArn", arg0)
 }
 
-func (_m *MockTaskEngine) Init() error {
-	ret := _m.ctrl.Call(_m, "Init")
+func (_m *MockTaskEngine) Init(_param0 context.Context) error {
+	ret := _m.ctrl.Call(_m, "Init", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockTaskEngineRecorder) Init() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Init")
+func (_mr *_MockTaskEngineRecorder) Init(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Init", arg0)
 }
 
 func (_m *MockTaskEngine) ListTasks() ([]*api.Task, error) {
@@ -121,12 +121,12 @@ func (_mr *_MockTaskEngineRecorder) MarshalJSON() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarshalJSON")
 }
 
-func (_m *MockTaskEngine) MustInit() {
-	_m.ctrl.Call(_m, "MustInit")
+func (_m *MockTaskEngine) MustInit(_param0 context.Context) {
+	_m.ctrl.Call(_m, "MustInit", _param0)
 }
 
-func (_mr *_MockTaskEngineRecorder) MustInit() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MustInit")
+func (_mr *_MockTaskEngineRecorder) MustInit(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MustInit", arg0)
 }
 
 func (_m *MockTaskEngine) SetSaver(_param0 statemanager.Saver) {

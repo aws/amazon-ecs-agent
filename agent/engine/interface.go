@@ -19,12 +19,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"golang.org/x/net/context"
 )
 
 // TaskEngine is an interface for the DockerTaskEngine
 type TaskEngine interface {
-	Init() error
-	MustInit()
+	Init(context.Context) error
+	MustInit(context.Context)
 	// Disable *must* only be called when this engine will no longer be used
 	// (e.g. right before exiting down the process). It will irreversably stop
 	// this task engine from processing new tasks

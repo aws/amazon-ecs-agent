@@ -181,10 +181,10 @@ func createFakeContainerStats() []*ContainerStats {
 type MockTaskEngine struct {
 }
 
-func (engine *MockTaskEngine) Init() error {
+func (engine *MockTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
-func (engine *MockTaskEngine) MustInit() {
+func (engine *MockTaskEngine) MustInit(ctx context.Context) {
 }
 
 func (engine *MockTaskEngine) StateChangeEvents() <-chan statechange.Event {
