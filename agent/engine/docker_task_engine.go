@@ -17,7 +17,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-//	"os" //TODO: DEBUG
 	"sync"
 	"time"
 
@@ -648,7 +647,22 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
 		}
 	}
-	return client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	md := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+
+	//Get metadata through container inspection and currently available 
+	rawContainer, ioerr := client.InspectContainer(dockerContainer.DockerID, inspectContainerTimeout)
+	if ioerr != nil {
+		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, ioerr.Error())
+	}
+	metadata := metadataservice.AcquireMetadata(rawContainer, engine.cfg, task)
+	ioerr = metadataservice.WriteToMetadata(task, container, metadata)
+	if ioerr != nil {
+		seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, ioerr.Error())
+	} else {
+		seelog.Infof("Updated metadata file for task %s container %s", task, container)
+	}
+
+	return md
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -667,18 +681,38 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	//TODO Add check to remove task directory if all associated containers are stopped
+	//Clean up metadata for container
 	path := metadataservice.GetMetadataFilePath(task, container)
 	ioerr := metadataservice.CleanContainer(task, container)
-	//path := metadataservice.GetTaskMetadataDir(task)
-	//ioerr := metadataservice.CleanTask(task)
 	if ioerr == nil {
 		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
 	} else {
 		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
 	}
+	//Clean metadata directory for task if all associated containers are stopped
+	/*if allContainersStopped(task) {
+		ioerr = metadataservice.CleanTask(task)
+		if ioerr == nil {
+			seelog.Infof("Successful removal of metadata directory for task %s", task)
+		} else {
+			seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, ioerr.Error())
+		}
+	}*/
 
 	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
+}
+
+//Function to check if all containers have been stopped so we can safely remove task metadata directory
+//This implementation is very slow as we need to get the KnownStatus lock for every container every time a container is stopped
+//TODO Add a number of running containers in a task to task struct and r/w lock to update it so we can access this value efficiently
+func allContainersStopped(task *api.Task) bool {
+	containers := task.Containers
+	for _, c := range containers {
+		if c.GetKnownStatus() != api.ContainerStopped {
+			return false
+		}
+	}
+	return true
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
