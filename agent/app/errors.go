@@ -13,13 +13,13 @@
 
 package app
 
-// nonTerminalError represents a transient error when executing the ECS Agent
-type nonTerminalError struct {
+// transientError represents a transient error when executing the ECS Agent
+type transientError struct {
 	error
 }
 
-// isNonTerminal returns true if the error is transient
-func isNonTerminal(err error) bool {
-	_, ok := err.(nonTerminalError)
+// isTranisent returns true if the error is transient
+func isTranisent(err error) bool {
+	_, ok := err.(transientError)
 	return ok
 }
