@@ -13,6 +13,9 @@
 
 package pause
 
+// https://golang.org/src/syscall/zerrors_linux_386.go#L1382
+const noSuchFile = "no such file or directory"
+
 // UnsupportedPlatformError indicates an error when loading pause container
 // image on an unsupported OS platform
 type UnsupportedPlatformError struct {
@@ -23,5 +26,14 @@ type UnsupportedPlatformError struct {
 // type
 func UnsupportedPlatform(err error) bool {
 	_, ok := err.(UnsupportedPlatformError)
+	return ok
+}
+
+type NoSuchFileError struct {
+	error
+}
+
+func IsNoSuchFileError(err error) bool {
+	_, ok := err.(NoSuchFileError)
 	return ok
 }
