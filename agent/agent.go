@@ -14,7 +14,7 @@
 package main
 
 import (
-	mathrand "math/rand"
+	"math/rand"
 	"os"
 	"time"
 
@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	mathrand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {

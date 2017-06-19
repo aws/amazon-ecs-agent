@@ -344,7 +344,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
@@ -383,7 +383,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
@@ -529,7 +529,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }
 
 func TestReregisterContainerInstanceAttributeError(t *testing.T) {
@@ -565,7 +565,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }
 
 func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
@@ -601,7 +601,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.True(t, isNonTerminal(err))
+	assert.True(t, isTranisent(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetHappyPath(t *testing.T) {
@@ -670,7 +670,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetCanRetryError(
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.True(t, isNonTerminal(err))
+	assert.True(t, isTranisent(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetCannotRetryError(t *testing.T) {
@@ -704,7 +704,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetCannotRetryErr
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetAttributeError(t *testing.T) {
@@ -738,5 +738,5 @@ func TestRegisterContainerInstanceWhenContainerInstanceArnIsNotSetAttributeError
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)
 	assert.Error(t, err)
-	assert.False(t, isNonTerminal(err))
+	assert.False(t, isTranisent(err))
 }

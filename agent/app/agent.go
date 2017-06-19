@@ -120,7 +120,6 @@ func newAgent(
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
 	}, nil
-
 }
 
 // printVersion prints the ECS Agent version string
@@ -169,7 +168,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Register the container instance
 	err = agent.registerContainerInstance(taskEngine, stateManager, client)
 	if err != nil {
-		if isNonTerminal(err) {
+		if isTranisent(err) {
 			return exitcodes.ExitError
 		}
 		return exitcodes.ExitTerminal
@@ -334,10 +333,10 @@ func (agent *ecsAgent) registerContainerInstance(
 			return err
 		}
 		if _, ok := err.(utils.AttributeError); ok {
-			log.Criticalf("Instance registration attempt with an invalid attribute")
+			log.Critical("Instance registration attempt with an invalid attribute")
 			return err
 		}
-		return nonTerminalError{err}
+		return transientError{err}
 	}
 	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceArn = containerInstanceArn
@@ -361,10 +360,10 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 		return err
 	}
 	if _, ok := err.(utils.AttributeError); ok {
-		log.Criticalf("Instance re-registration attempt with an invalid attribute")
+		log.Critical("Instance re-registration attempt with an invalid attribute")
 		return err
 	}
-	return nonTerminalError{err}
+	return transientError{err}
 }
 
 // startAsyncRoutines starts all of the background methods
