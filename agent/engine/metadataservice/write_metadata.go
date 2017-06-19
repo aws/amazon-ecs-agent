@@ -1,6 +1,7 @@
 package metadataservice
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"io/ioutil"
 	"os"
@@ -31,7 +32,15 @@ func InitMetadataFile(task *api.Task, container *api.Container) error {
 	return err
 }
 
-func WriteToMetadata(task *api.Task, container *api.Container, data []byte) error {
+func WriteToMetadata(task *api.Task, container *api.Container, metadata *Metadata) error {
+	data, err := json.Marshal(*metadata)
+	if err != nil {
+		return err
+	}
+	return writeToMetadata(task, container, data)
+}
+
+func writeToMetadata(task *api.Task, container *api.Container, data []byte) error {
 	mdfile_path := GetMetadataFilePath(task, container) + "metadata.json"
 
 	mdfile, err := os.OpenFile(mdfile_path, os.O_WRONLY | os.O_APPEND, 0644)
