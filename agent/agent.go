@@ -191,16 +191,28 @@ func _main() int {
 		taskEngine = engine.NewTaskEngine(cfg, dockerClient, credentialsManager, containerChangeEventStream, imageManager, state)
 	}
 
-	// Load Pause Container Image
-	_, err = pause.LoadImage(cfg, dockerClient)
-	if err != nil {
-		if !pause.UnsupportedPlatform(err) {
-			log.Criticalf("Error loading pause container image: %v", err)
+	if cfg.TaskENIEnabled {
+		// Load Pause Container Image
+		_, err = pause.LoadImage(cfg, dockerClient)
+		if err != nil {
+			if pause.IsNoSuchFileError(err) {
+				return exitcodes.ExitTerminal
+			}
+			if !pause.UnsupportedPlatform(err) {
+				log.Criticalf("Error loading pause container image: %v", err)
+				return exitcodes.ExitError
+			}
+			log.Debugf("Ignoring error loading pause container image: %v", err)
+		} else {
+			log.Info("Successfully loaded pause container image")
+		}
+		// Setup ENI Watcher
+		_, err = eniwatchersetup.New(ctx, state, taskEngine)
+		if err != nil {
+			log.Errorf("Error setting up ENI Watcher: %v", err)
 			return exitcodes.ExitError
 		}
-		log.Debugf("Ignoring error loading pause container image: %v", err)
-	} else {
-		log.Info("Successfully loaded pause container image")
+		log.Debug("ENI watcher has been setup successfully")
 	}
 
 	stateManager, err := initializeStateManager(cfg, taskEngine, &cfg.Cluster, &containerInstanceArn, &currentEc2InstanceID)
@@ -253,15 +265,6 @@ func _main() int {
 			}
 			return exitcodes.ExitError
 		}
-	}
-
-	// Setup ENI Watcher
-	_, err = eniwatchersetup.New(ctx, state, taskEngine)
-	// TODO: Add capability/alternatives to determine task networking availability
-	if err != nil {
-		log.Errorf("Error setting up ENI Watcher: %v", err)
-	} else {
-		log.Debug("ENI watcher has been setup successfully")
 	}
 
 	// Begin listening to the docker daemon and saving changes

@@ -41,6 +41,10 @@ func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Im
 func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSystem) error {
 	pauseContainerReader, err := fs.Open(path)
 	if err != nil {
+		if err.Error() == noSuchFile {
+			return NoSuchFileError{errors.Wrapf(err,
+				"pause container load: failed to read pause container image: %s", path)}
+		}
 		return errors.Wrapf(err,
 			"pause container load: failed to read pause container image: %s", path)
 	}

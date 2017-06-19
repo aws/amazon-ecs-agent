@@ -285,8 +285,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil)
 	client.EXPECT().PullImage(pauseContainer.Image, nil).Return(DockerContainerMetadata{})
-	imageManager.EXPECT().RecordContainerReference(pauseContainer).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(pauseContainer.Image).Return(nil)
 
 	gomock.InOrder(
 		// Ensure that the pause container is created first
@@ -1400,8 +1398,6 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	// Pause container will be launched first
 	gomock.InOrder(
 		dockerClient.EXPECT().PullImage(pauseContainerImage, nil).Return(DockerContainerMetadata{}),
-		imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil),
-		imageManager.EXPECT().GetImageStateFromImageName(pauseContainerImage).Return(nil),
 		dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
@@ -1445,7 +1441,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(DockerContainerMetadata{DockerID: pauseContainerID})
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).Times(2)
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
 	exitCode := 0
 	eventStream <- DockerContainerChangeEvent{
@@ -1550,7 +1546,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 
 	testTask.SetTaskENI(&api.ENI{
-		ID: "TestTaskWithSteadyStateResourcesProvisioned",
+		ID: "TestStopPauseContainerCleanupCalled",
 		IPV4Addresses: []*api.ENIIPV4Address{
 			{
 				Primary: true,

@@ -325,6 +325,10 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		if err != nil {
 			log.Debug("Unable to remove old container", "err", err, "task", task, "cont", cont)
 		}
+		// Internal container(created by ecs-agent) state isn't recorded
+		if cont.IsInternal() {
+			continue
+		}
 		err = engine.imageManager.RemoveContainerReferenceFromImageState(cont)
 		if err != nil {
 			seelog.Errorf("Error removing container reference from image state: %v", err)
@@ -558,6 +562,12 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
+
+	// Don't add internal images(created by ecs-agent) into imagemanger state
+	if container.IsInternal() {
+		return metadata
+	}
+
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
 		seelog.Errorf("Error adding container reference to image state: %v", err)

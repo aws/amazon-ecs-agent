@@ -34,3 +34,16 @@ func TestUnsupportedPlatform(t *testing.T) {
 		})
 	}
 }
+
+func TestIsNoSuchFileError(t *testing.T) {
+	testCases := map[error]bool{
+		errors.New("error"):                         false,
+		NoSuchFileError{errors.New("No such file")}: true,
+	}
+
+	for err, expected := range testCases {
+		t.Run(fmt.Sprintf("return %t for type %s", expected, reflect.TypeOf(err)), func(t *testing.T) {
+			assert.Equal(t, expected, IsNoSuchFileError(err))
+		})
+	}
+}
