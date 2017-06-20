@@ -1,6 +1,5 @@
 package metadataservice
 
-//
 type Metadata struct {
 	Status string `json:"Status, omitempty"`
 	ContainerID string `json:"ContainerID, omitempty"`
@@ -27,8 +26,6 @@ func (m *Metadata) NetworkInfo() *ContainerNetworkMetadata {
 	return m.networkInfo
 } */
 
-//Probably unneeded since all our metadata operations occur in docker_task_engine.go where 
-//Task information is directly available
 type AWSMetadata struct {
 	clusterArn string `json:"ClusterArn, omitempty"`
 	taskArn string `json:"TaskArn, omitempty"`
