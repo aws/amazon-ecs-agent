@@ -33,7 +33,7 @@ func InitMetadataFile(task *api.Task, container *api.Container) error {
 }
 
 func WriteToMetadata(task *api.Task, container *api.Container, metadata *Metadata) error {
-	data, err := json.Marshal(*metadata)
+	data, err := json.MarshalIndent(*metadata, "", "\t")
 	if err != nil {
 		return err
 	}

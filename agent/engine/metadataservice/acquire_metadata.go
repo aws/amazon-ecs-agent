@@ -23,7 +23,7 @@ func AcquireMetadata(container *docker.Container, cfg *config.Config, task *api.
 
 func acquireDockerMetadata(container *docker.Container) DockerMetadata {
 	return DockerMetadata {
-		status        : container.State.String(),
+		status        : container.State.StateString(),
 		containerID   : container.ID,
 		containerName : container.Name,
 		imageID       : container.Image,
