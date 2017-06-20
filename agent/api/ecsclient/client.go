@@ -303,7 +303,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 			Attachments: attachments,
 		})
 		if err != nil {
-			log.Warn("Could not submit an attachment state change", "err", err)
+			log.Warn("Could not submit an attachment state change", "err", err, "statechange", change)
 			return err
 		}
 
@@ -324,10 +324,10 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	taskStatus := change.Status.String()
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-		Cluster: &client.config.Cluster,
-		Task:    &change.TaskArn,
-		Status:  &taskStatus,
-		Reason:  &change.Reason,
+		Cluster: aws.String(client.config.Cluster),
+		Task:    aws.String(change.TaskArn),
+		Status:  aws.String(taskStatus),
+		Reason:  aws.String(change.Reason),
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)

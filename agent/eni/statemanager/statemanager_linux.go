@@ -66,7 +66,7 @@ func (statemanager *stateManager) ENIStateChangeShouldBeSent(macAddress string) 
 		return nil, false
 	}
 
-	if eni.GetSentStatus() {
+	if eni.IsSent() {
 		log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
 		return eni, false
 	}

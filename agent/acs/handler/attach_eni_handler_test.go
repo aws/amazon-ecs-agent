@@ -376,9 +376,12 @@ func TestENIAckTimeout(t *testing.T) {
 
 	eniAttachHandler.addENIAttachmentToState(message)
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
-	time.Sleep(time.Millisecond * waitTimeout * 2)
-
-	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 0)
+	for {
+		time.Sleep(time.Millisecond * waitTimeout)
+		if len(taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments()) == 0 {
+			break
+		}
+	}
 }
 
 // TestENIAckWithinTimeout tests the eni state change was reported before the timeout

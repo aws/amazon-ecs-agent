@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 
 	"github.com/deniswernert/udev"
@@ -75,10 +76,16 @@ func TestWatcherInit(t *testing.T) {
 		}, nil),
 	)
 
+	wait := sync.WaitGroup{}
+	wait.Add(1)
 	var event statechange.Event
-	go func() { event = <-eventChannel }()
+	go func() {
+		event = <-eventChannel
+		wait.Done()
+	}()
 	watcher.Init()
 
+	wait.Wait()
 	assert.NotNil(t, event.(api.TaskStateChange).Attachments)
 	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
 

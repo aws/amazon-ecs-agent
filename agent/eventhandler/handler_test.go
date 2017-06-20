@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -242,6 +243,7 @@ func TestENISentStatusChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	timer := mock_ttime.NewMockTimer(ctrl)
 
 	task := &api.Task{
 		Arn: "taskarn",
@@ -250,6 +252,7 @@ func TestENISentStatusChange(t *testing.T) {
 	eniAttachment := &api.ENIAttachment{
 		TaskArn:          "taskarn",
 		AttachStatusSent: false,
+		AckTimer:         timer,
 	}
 
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
@@ -260,6 +263,7 @@ func TestENISentStatusChange(t *testing.T) {
 	})
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(nil)
+	timer.EXPECT().Stop()
 
 	events := list.New()
 	events.PushBack(sendableTaskEvent)

@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -34,6 +35,7 @@ type ENIAttachment struct {
 	// Status is the status of the eni: none/attached/detached
 	Status         ENIAttachmentStatus `json:"status"`
 	sentStatusLock sync.RWMutex
+	AckTimer       ttime.Timer
 }
 
 // ENI contains information of the eni
@@ -121,8 +123,8 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	return nil
 }
 
-// GetSentStatus checks if the eni attached status has been sent
-func (eni *ENIAttachment) GetSentStatus() bool {
+// IsSent checks if the eni attached status has been sent
+func (eni *ENIAttachment) IsSent() bool {
 	eni.sentStatusLock.RLock()
 	defer eni.sentStatusLock.RUnlock()
 
@@ -135,4 +137,9 @@ func (eni *ENIAttachment) SetSentStatus() {
 	defer eni.sentStatusLock.Unlock()
 
 	eni.AttachStatusSent = true
+}
+
+// StopAckTimer stops the ack timer set on the ENI attachment
+func (eni *ENIAttachment) StopAckTimer() {
+	eni.AckTimer.Stop()
 }
