@@ -3,6 +3,7 @@ package metadataservice
 import (
 	"encoding/json"
 	"path/filepath"
+	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -24,12 +25,13 @@ func InitMetadataDir(task *api.Task, container *api.Container) (string, error) {
 
 func InitMetadataFile(task *api.Task, container *api.Container) error {
 	mdfile_path := GetMetadataFilePath(task, container)
-	tmpfile, err := ioutil.TempFile(mdfile_path, "tmp_metadata")
-	if err != nil {
+	//tmpfile, err := ioutil.TempFile(mdfile_path, "tmp_metadata")
+	return ioutil.WriteFile(mdfile_path + "metadata.json", nil, 0644)
+/*	if err != nil {
 		return err
 	}
-	err = os.Rename(tmpfile.Name(), mdfile_path + "metadata.json")
-	return err
+	//err = os.Rename(tmpfile.Name(), mdfile_path + "metadata.json")
+	return err */
 }
 
 func WriteToMetadata(task *api.Task, container *api.Container, metadata *Metadata) error {
@@ -55,11 +57,6 @@ func writeToMetadata(task *api.Task, container *api.Container, data []byte) erro
 func CleanContainer(task *api.Task, container *api.Container) error {
 	mdfile_path := GetMetadataFilePath(task, container)
 	return removeContents(mdfile_path)
-}
-
-func CleanTask(task *api.Task) error {
-	mddir_path := GetTaskMetadataDir(task)
-	return removeContents(mddir_path)
 }
 
 //Removes directory and all its children. We use this instead of os.RemoveAll to handle case

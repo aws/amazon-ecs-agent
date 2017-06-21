@@ -41,8 +41,4 @@ type Client interface {
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error
-
-//	ListVolumes(opts docker.ListVolumesOptions) ([]docker.Volume, error)
-	CreateVolume(opts docker.CreateVolumeOptions) (*docker.Volume, error)
-	RemoveVolume(name string) error
 }

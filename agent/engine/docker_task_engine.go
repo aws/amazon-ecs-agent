@@ -307,6 +307,14 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		}
 	}
 
+	//Clean metadata directory for task 
+	ioerr := metadataservice.CleanTask(task)
+	if ioerr == nil {
+		seelog.Infof("Successful removal of metadata directory for task %s", task)
+	} else {
+		seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, ioerr.Error())
+	}
+
 	engine.saver.Save()
 }
 
@@ -681,38 +689,7 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	//Clean up metadata for container
-	path := metadataservice.GetMetadataFilePath(task, container)
-	ioerr := metadataservice.CleanContainer(task, container)
-	if ioerr == nil {
-		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
-	} else {
-		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
-	}
-	//Clean metadata directory for task if all associated containers are stopped
-	/*if allContainersStopped(task) {
-		ioerr = metadataservice.CleanTask(task)
-		if ioerr == nil {
-			seelog.Infof("Successful removal of metadata directory for task %s", task)
-		} else {
-			seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, ioerr.Error())
-		}
-	}*/
-
 	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
-}
-
-//Function to check if all containers have been stopped so we can safely remove task metadata directory
-//This implementation is very slow as we need to get the KnownStatus lock for every container every time a container is stopped
-//TODO Add a number of running containers in a task to task struct and r/w lock to update it so we can access this value efficiently
-func allContainersStopped(task *api.Task) bool {
-	containers := task.Containers
-	for _, c := range containers {
-		if c.GetKnownStatus() != api.ContainerStopped {
-			return false
-		}
-	}
-	return true
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
@@ -727,7 +704,16 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	if !ok {
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
-
+/*
+	//Clean up metadata for container
+	path := metadataservice.GetMetadataFilePath(task, container)
+	ioerr := metadataservice.CleanContainer(task, container)
+	if ioerr == nil {
+		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
+	} else {
+		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
+	}
+*/
 	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
 }
 
