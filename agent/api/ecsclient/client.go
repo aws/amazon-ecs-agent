@@ -283,6 +283,51 @@ func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
 	return attributes
 }
 
+func (client *APIECSClient) buildContainerStateChangePayload(change api.ContainerStateChange) *ecs.ContainerStateChange {
+	statechange := &ecs.ContainerStateChange{
+		ContainerName: aws.String(change.ContainerName),
+	}
+
+	if change.Reason != "" {
+		if len(change.Reason) > ecsMaxReasonLength {
+			trimmed := change.Reason[0:ecsMaxReasonLength]
+			statechange.Reason = aws.String(trimmed)
+		} else {
+			statechange.Reason = aws.String(change.Reason)
+		}
+	}
+	status := change.Status
+
+	if status != api.ContainerStopped && status != api.ContainerRunning {
+		log.Info("Not submitting not supported upstream container state", "state", status)
+		return nil
+	}
+
+	statechange.Status = aws.String(status.String())
+
+	if change.ExitCode != nil {
+		exitCode := int64(*change.ExitCode)
+		statechange.ExitCode = aws.Int64(exitCode)
+	}
+	networkBindings := make([]*ecs.NetworkBinding, len(change.PortBindings))
+	for i, binding := range change.PortBindings {
+		hostPort := int64(binding.HostPort)
+		containerPort := int64(binding.ContainerPort)
+		bindIP := binding.BindIP
+		protocol := binding.Protocol.String()
+
+		networkBindings[i] = &ecs.NetworkBinding{
+			BindIP:        aws.String(bindIP),
+			ContainerPort: aws.Int64(containerPort),
+			HostPort:      aws.Int64(hostPort),
+			Protocol:      aws.String(protocol),
+		}
+	}
+	statechange.NetworkBindings = networkBindings
+
+	return statechange
+}
+
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
 	if change.Status == api.TaskStatusNone {
 		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
@@ -296,16 +341,30 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 	}
 
 	status := change.Status.String()
-	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-		Cluster: &client.config.Cluster,
-		Task:    &change.TaskArn,
-		Status:  &status,
-		Reason:  &change.Reason,
-	})
+
+	req := ecs.SubmitTaskStateChangeInput{
+		Cluster: aws.String(client.config.Cluster),
+		Task:    aws.String(change.TaskArn),
+		Status:  aws.String(status),
+		Reason:  aws.String(change.Reason),
+	}
+
+	containerEvents := make([]*ecs.ContainerStateChange, len(change.Containers))
+	for i, containerEvent := range change.Containers {
+		containerEvents[i] = client.buildContainerStateChangePayload(containerEvent)
+	}
+
+	req.Containers = containerEvents
+
+	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&req)
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)
 		return err
 	}
+
+	// WIP LOG payload
+	seelog.Info("WIP, sent req contents: ", req)
+
 	return nil
 }
 
