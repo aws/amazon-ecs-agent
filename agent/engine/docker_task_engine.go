@@ -609,21 +609,16 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
-	//Create mount metadata in container from host directory then add metadata file to this volume
-	metadataPath, ioerr := metadataservice.InitMetadataDir(task, container)
+	//Initialize metadata file 
+	//TODO: Do initial write of static data to the file
+	metadataPath, ioerr := metadataservice.InitMetadataFile(task, container)
+	if ioerr == nil {
+		seelog.Infof("Created metadata file at %s", metadataPath)
+	} else {
+		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath, ioerr.Error())
+	}
+	//Bind host volume to mount path in container
 	hostMetadataPath := HostDataDir + metadataservice.GetMetadataFilePath(task, container)
-	if ioerr == nil {
-		seelog.Infof("Created metadata directory at %s", metadataPath)
-	} else {
-		seelog.Errorf("Failed to create metadata directory at %s. Error: %s", metadataPath, ioerr.Error())
-	}
-	ioerr = metadataservice.InitMetadataFile(task, container)
-	if ioerr == nil {
-		seelog.Infof("Created metadata file at %s", metadataPath + "metadata.json")
-	} else {
-		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath + "metadata.json", ioerr.Error())
-	}
-	//Bind mount to metadata in container
 	hostConfig.Binds = []string{ hostMetadataPath + ":" + "/ecs/metadata/" + container.Name }
 	seelog.Infof("Mounted volume %s to container %s of task %s", metadataPath, container, task)
 
@@ -657,7 +652,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	}
 	md := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 
-	//Get metadata through container inspection and currently available 
+	//Get metadata through container inspection and available task information then convert this to writable metadata 
 	rawContainer, ioerr := client.InspectContainer(dockerContainer.DockerID, inspectContainerTimeout)
 	if ioerr != nil {
 		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, ioerr.Error())
@@ -704,16 +699,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 	if !ok {
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
-/*
-	//Clean up metadata for container
-	path := metadataservice.GetMetadataFilePath(task, container)
-	ioerr := metadataservice.CleanContainer(task, container)
-	if ioerr == nil {
-		seelog.Infof("Successful removal of metadata file %s at container %s %s", path, task, container)
-	} else {
-		seelog.Errorf("Failed removal of metadata file %s at container %s %s: %s", path, task, container, ioerr.Error())
-	}
-*/
+
 	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
 }
 
