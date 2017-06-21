@@ -47,6 +47,9 @@ type TaskHandler struct {
 	tasksToEvents map[string]*eventList
 	// tasksToEventsLock for locking the map
 	tasksToEventsLock sync.RWMutex
+	// batchMap is used to collect container events
+	// between task transitions
+	batchMap map[string][]api.ContainerStateChange
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
@@ -54,6 +57,7 @@ func NewTaskHandler() *TaskHandler {
 	return &TaskHandler{
 		tasksToEvents:   make(map[string]*eventList),
 		submitSemaphore: utils.NewSemaphore(concurrentEventCalls),
+		batchMap:        make(map[string][]api.ContainerStateChange),
 	}
 }
 
@@ -65,6 +69,7 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 		if !ok {
 			return errors.New("eventhandler: unable to get task event from state change event")
 		}
+		handler.flushBatch(&event)
 		handler.addEvent(newSendableTaskEvent(event), client)
 		return nil
 
@@ -73,12 +78,24 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 		if !ok {
 			return errors.New("eventhandler: unable to get container event from state change event")
 		}
-		handler.addEvent(newSendableContainerEvent(event), client)
+		handler.batchContainerEvent(event)
 		return nil
 
 	default:
 		return errors.New("eventhandler: unable to determine event type from state change event")
 	}
+}
+
+// batchContainerEvent collects container state change events for a given task arn
+func (handler *TaskHandler) batchContainerEvent(event api.ContainerStateChange) {
+	handler.batchMap[event.TaskArn] = append(handler.batchMap[event.TaskArn], event)
+}
+
+// flushBatch attaches the task arn's container events to TaskStateChange event that
+// is being submittied to the backend
+func (handler *TaskHandler) flushBatch(event *api.TaskStateChange) {
+	event.Containers = append(event.Containers, handler.batchMap[event.TaskArn]...)
+	delete(handler.batchMap, event.TaskArn)
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate
