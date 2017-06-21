@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	dockerDefaultTag = "latest"
+	dockerDefaultTag     = "latest"
 	defaultMetadataMount = "/var/lib/ecs/data/metadata"
 )
 
@@ -890,4 +890,3 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 	}
 	return client.RemoveImage(imageName)
 }
-
