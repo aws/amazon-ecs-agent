@@ -306,11 +306,11 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	}
 
 	//Clean metadata directory for task 
-	ioerr := metadataservice.CleanTask(task)
-	if ioerr == nil {
+	err := metadataservice.CleanTask(task)
+	if err == nil {
 		seelog.Infof("Successful removal of metadata directory for task %s", task)
 	} else {
-		seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, ioerr.Error())
+		seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, err.Error())
 	}
 
 	engine.saver.Save()
