@@ -6,22 +6,25 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-//Main metadata gathering function.
+//AcquireMetadata gathers metadata from inputs and packages it for JSON Marshaling
 func AcquireMetadata(container *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
 	dockermd := acquireDockerMetadata(container)
 	awsmd := acquireAWSMetadata(cfg, task)
 	return &Metadata {
-		Status        : dockermd.status,
-		ContainerID   : dockermd.containerID,
-		ContainerName : dockermd.containerName,
-		ImageID       : dockermd.imageID,
-		ImageName     : dockermd.imageName,
-		ClusterArn    : awsmd.clusterArn,
-		TaskArn       : awsmd.taskArn,
+		status        : dockermd.status,
+		containerID   : dockermd.containerID,
+		containerName : dockermd.containerName,
+		imageID       : dockermd.imageID,
+		imageName     : dockermd.imageName,
+		clusterArn    : awsmd.clusterArn,
+		taskArn       : awsmd.taskArn,
 	}
 }
 
 func acquireDockerMetadata(container *docker.Container) DockerMetadata {
+	if container == nil {
+		return DockerMetadata{}
+	}
 	return DockerMetadata {
 		status        : container.State.StateString(),
 		containerID   : container.ID,
