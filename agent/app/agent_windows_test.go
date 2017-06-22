@@ -20,12 +20,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -34,14 +31,10 @@ import (
 // TestDoStartHappyPath tests the doStart method for windows. This method should
 // go away when we support metrics for windows containers
 func TestDoStartHappyPath(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
-	credentialsManager := mock_credentials.NewMockManager(ctrl)
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	imageManager := engine.NewMockImageManager(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
-	dockerClient := engine.NewMockDockerClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
 	var discoverEndpointsInvoked sync.WaitGroup
