@@ -23,3 +23,14 @@ func isTranisent(err error) bool {
 	_, ok := err.(transientError)
 	return ok
 }
+
+// clusterMismatchError represents a mismatch in cluster name between the
+// state file and the config object
+type clusterMismatchError struct {
+	error
+}
+
+func isClusterMismatch(err error) bool {
+	_, ok := err.(clusterMismatchError)
+	return ok
+}

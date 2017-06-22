@@ -70,7 +70,7 @@ type ecsAgent struct {
 	ec2MetadataClient     ec2.EC2MetadataClient
 	cfg                   *config.Config
 	dockerClient          engine.DockerClient
-	containerInstanceArn  string
+	containerInstanceARN  string
 	credentialProvider    *aws_credentials.Credentials
 	stateManagerFactory   factory.StateManager
 	saveableOptionFactory factory.SaveableOption
@@ -159,7 +159,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceArn, &currentEC2InstanceID)
+		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
 	if err != nil {
 		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -227,12 +227,6 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		return nil, "", err
 	}
 
-	if previousCluster != "" {
-		if err := agent.setClusterInConfig(previousCluster); err != nil {
-			return nil, "", err
-		}
-	}
-
 	currentEC2InstanceID := agent.getEC2InstanceID()
 	if previousEC2InstanceID != "" && previousEC2InstanceID != currentEC2InstanceID {
 		log.Warnf(instanceIDMismatchErrorFormat,
@@ -242,8 +236,15 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state), currentEC2InstanceID, nil
 	}
+
+	if previousCluster != "" {
+		if err := agent.setClusterInConfig(previousCluster); err != nil {
+			return nil, "", err
+		}
+	}
+
 	// Use the values we loaded if there's no issue
-	agent.containerInstanceArn = previousContainerInstanceArn
+	agent.containerInstanceARN = previousContainerInstanceArn
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
 
@@ -258,10 +259,11 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 		configuredCluster = config.DefaultClusterName
 	}
 	if previousCluster != configuredCluster {
-		clusterMismatchError := fmt.Errorf(clusterMismatchErrorFormat,
-			previousCluster, configuredCluster)
-		log.Criticalf("%v", clusterMismatchError)
-		return clusterMismatchError
+		err := clusterMismatchError{
+			fmt.Errorf(clusterMismatchErrorFormat, previousCluster, configuredCluster),
+		}
+		log.Criticalf("%v", err)
+		return err
 	}
 	agent.cfg.Cluster = previousCluster
 	log.Infof("Restored cluster '%s'", agent.cfg.Cluster)
@@ -298,13 +300,9 @@ func (agent *ecsAgent) newStateManager(
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("ContainerInstanceArn",
 			containerInstanceArn),
-		statemanager.AddSaveable("Cluster", cluster),
+		agent.saveableOptionFactory.AddSaveable("Cluster", cluster),
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
-		// The ACSSeqNum field is retained for compatibility with
-		// statemanager.EcsDataVersion 4 and can be removed in the future
-		// with a version bump.
-		statemanager.AddSaveable("ACSSeqNum", 1),
 	)
 }
 
@@ -320,8 +318,8 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	capabilities := taskEngine.Capabilities()
 
-	if agent.containerInstanceArn != "" {
-		log.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceArn, agent.cfg.Cluster)
+	if agent.containerInstanceARN != "" {
+		log.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
 		return agent.reregisterContainerInstance(client, capabilities)
 	}
 
@@ -339,7 +337,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		return transientError{err}
 	}
 	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
-	agent.containerInstanceArn = containerInstanceArn
+	agent.containerInstanceARN = containerInstanceArn
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil
@@ -350,7 +348,7 @@ func (agent *ecsAgent) registerContainerInstance(
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []string) error {
-	_, err := client.RegisterContainerInstance(agent.containerInstanceArn, capabilities)
+	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities)
 	if err == nil {
 		return nil
 	}
@@ -385,10 +383,10 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go sighandlers.StartTerminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.ServeHttp(&agent.containerInstanceArn, taskEngine, agent.cfg)
+	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	// Start serving the endpoint to fetch IAM Role credentials
-	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceArn, agent.cfg)
+	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager, taskHandler)
@@ -396,7 +394,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		CredentialProvider:            agent.credentialProvider,
 		Cfg:                           agent.cfg,
-		ContainerInstanceArn:          agent.containerInstanceArn,
+		ContainerInstanceArn:          agent.containerInstanceARN,
 		DeregisterInstanceEventStream: deregisterInstanceEventStream,
 		ContainerChangeEventStream:    containerChangeEventStream,
 		DockerClient:                  agent.dockerClient,
@@ -422,7 +420,7 @@ func (agent *ecsAgent) startACSSession(
 		agent.ctx,
 		agent.cfg,
 		deregisterInstanceEventStream,
-		agent.containerInstanceArn,
+		agent.containerInstanceARN,
 		agent.credentialProvider,
 		client,
 		stateManager,
