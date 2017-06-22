@@ -39,7 +39,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, requests, _, _ := mockwsutils.StartMockServer(t, closeWS)
+	mockServer, _, requests, _, _ := utils.StartMockServer(t, closeWS)
 	defer mockServer.Close()
 
 	req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
@@ -70,7 +70,7 @@ func TestProxyVariableCustomValue(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, _, _, _ := mockwsutils.StartMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.StartMockServer(t, closeWS)
 	defer mockServer.Close()
 
 	testString := "Custom no proxy string"
@@ -86,7 +86,7 @@ func TestProxyVariableDefaultValue(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, _, _, _ := mockwsutils.StartMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.StartMockServer(t, closeWS)
 	defer mockServer.Close()
 
 	os.Unsetenv("NO_PROXY")
@@ -104,7 +104,7 @@ func TestHandleMessagePermissibleCloseCode(t *testing.T) {
 	defer close(closeWS)
 
 	messageError := make(chan error)
-	mockServer, _, _, _, _ := mockwsutils.StartMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.StartMockServer(t, closeWS)
 	cs := getClientServer(mockServer.URL)
 	cs.Connect()
 
@@ -123,7 +123,7 @@ func TestHandleMessageUnexpectedCloseCode(t *testing.T) {
 	defer close(closeWS)
 
 	messageError := make(chan error)
-	mockServer, _, _, _, _ := mockwsutils.StartMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.StartMockServer(t, closeWS)
 	cs := getClientServer(mockServer.URL)
 	cs.Connect()
 

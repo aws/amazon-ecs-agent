@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package mockwsutils
+package utils
 
 import (
 	"net/http"
@@ -23,6 +23,7 @@ import (
 )
 
 // StartMockServer starts a mock websocket server.
+// TODO replace with gomock
 func StartMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string)
 	requestsChan := make(chan string)

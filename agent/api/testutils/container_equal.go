@@ -82,14 +82,8 @@ func ContainersEqual(lhs, rhs *api.Container) bool {
 	if lhs.AppliedStatus != rhs.AppliedStatus {
 		return false
 	}
-	if lhs.KnownExitCode == nil || rhs.KnownExitCode == nil {
-		if lhs.KnownExitCode != nil || rhs.KnownExitCode != nil {
-			return false
-		}
-	} else {
-		if *lhs.KnownExitCode != *rhs.KnownExitCode {
-			return false
-		}
+	if !reflect.DeepEqual(lhs.GetKnownExitCode(), rhs.GetKnownExitCode()) {
+		return false
 	}
 
 	return true

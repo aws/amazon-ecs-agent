@@ -62,6 +62,9 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
+	// lock is used for fields that are accessed and updated concurrently
+	lock sync.RWMutex
+
 	// DesiredStatusUnsafe represents the state where the container should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler,
@@ -74,7 +77,6 @@ type Container struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	DesiredStatusUnsafe ContainerStatus `json:"desiredStatus"`
-	desiredStatusLock   sync.RWMutex
 
 	// KnownStatusUnsafe represents the state where the container is.
 	// NOTE: Do not access `KnownStatusUnsafe` directly.  Instead, use `GetKnownStatus`
@@ -83,7 +85,6 @@ type Container struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
-	knownStatusLock   sync.RWMutex
 
 	// RunDependencies is a list of containers that must be run before
 	// this one is created
@@ -106,9 +107,8 @@ type Container struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON is
 	// handled properly so that the state storage continues to work.
 	SentStatusUnsafe ContainerStatus `json:"SentStatus"`
-	sentStatusLock   sync.RWMutex
 
-	KnownExitCode     *int
+	knownExitCode     *int
 	KnownPortBindings []PortBinding
 }
 
@@ -156,57 +156,69 @@ func (c *Container) DesiredTerminal() bool {
 
 // GetKnownStatus returns the known status of the container
 func (c *Container) GetKnownStatus() ContainerStatus {
-	c.knownStatusLock.RLock()
-	defer c.knownStatusLock.RUnlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
 	return c.KnownStatusUnsafe
 }
 
 // SetKnownStatus sets the known status of the container
 func (c *Container) SetKnownStatus(status ContainerStatus) {
-	c.knownStatusLock.Lock()
-	defer c.knownStatusLock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.KnownStatusUnsafe = status
 }
 
 // GetDesiredStatus gets the desired status of the container
 func (c *Container) GetDesiredStatus() ContainerStatus {
-	c.desiredStatusLock.RLock()
-	defer c.desiredStatusLock.RUnlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
 	return c.DesiredStatusUnsafe
 }
 
 // SetDesiredStatus sets the desired status of the container
 func (c *Container) SetDesiredStatus(status ContainerStatus) {
-	c.desiredStatusLock.Lock()
-	defer c.desiredStatusLock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.DesiredStatusUnsafe = status
 }
 
 // GetSentStatus safely returns the SentStatusUnsafe of the container
 func (c *Container) GetSentStatus() ContainerStatus {
-	c.sentStatusLock.RLock()
-	defer c.sentStatusLock.RUnlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
 	return c.SentStatusUnsafe
 }
 
 // SetSentStatus safely sets the SentStatusUnsafe of the container
 func (c *Container) SetSentStatus(status ContainerStatus) {
-	c.sentStatusLock.Lock()
-	defer c.sentStatusLock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.SentStatusUnsafe = status
+}
+
+func (c *Container) SetKnownExitCode(i *int) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.knownExitCode = i
+}
+
+func (c *Container) GetKnownExitCode() *int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.knownExitCode
 }
 
 // String returns a human readable string representation of this object
 func (c *Container) String() string {
 	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
-	if c.KnownExitCode != nil {
-		ret += " - Exit: " + strconv.Itoa(*c.KnownExitCode)
+	if c.GetKnownExitCode() != nil {
+		ret += " - Exit: " + strconv.Itoa(*c.GetKnownExitCode())
 	}
 	return ret
 }

@@ -14,81 +14,77 @@
 package testutils
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestContainerEqual(t *testing.T) {
-	one := 1
-	onePtr := &one
-	anotherOne := 1
-	anotherOnePtr := &anotherOne
-	two := 2
-	twoPtr := &two
-	equalPairs := []Container{
-		{Name: "name"}, {Name: "name"},
-		{Image: "nginx"}, {Image: "nginx"},
-		{Command: []string{"c"}}, {Command: []string{"c"}},
-		{CPU: 1}, {CPU: 1},
-		{Memory: 1}, {Memory: 1},
-		{Links: []string{"1", "2"}}, {Links: []string{"1", "2"}},
-		{Links: []string{"1", "2"}}, {Links: []string{"2", "1"}},
-		{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, {VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}},
-		{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, {VolumesFrom: []VolumeFrom{{"2", true}, {"1", false}}},
-		{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, {Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}},
-		{Essential: true}, {Essential: true},
-		{EntryPoint: nil}, {EntryPoint: nil},
-		{EntryPoint: &[]string{"1", "2"}}, {EntryPoint: &[]string{"1", "2"}},
-		{Environment: map[string]string{}}, {Environment: map[string]string{}},
-		{Environment: map[string]string{"a": "b", "c": "d"}}, {Environment: map[string]string{"c": "d", "a": "b"}},
-		{DesiredStatusUnsafe: ContainerRunning}, {DesiredStatusUnsafe: ContainerRunning},
-		{AppliedStatus: ContainerRunning}, {AppliedStatus: ContainerRunning},
-		{KnownStatusUnsafe: ContainerRunning}, {KnownStatusUnsafe: ContainerRunning},
-		{KnownExitCode: nil}, {KnownExitCode: nil},
-		{KnownExitCode: onePtr}, {KnownExitCode: anotherOnePtr},
-	}
-	unequalPairs := []Container{
-		{Name: "name"}, {Name: "名前"},
-		{Image: "nginx"}, {Image: "えんじんえっくす"},
-		{Command: []string{"c"}}, {Command: []string{"し"}},
-		{Command: []string{"c", "b"}}, {Command: []string{"b", "c"}},
-		{CPU: 1}, {CPU: 2e2},
-		{Memory: 1}, {Memory: 2e2},
-		{Links: []string{"1", "2"}}, {Links: []string{"1", "二"}},
-		{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, {VolumesFrom: []VolumeFrom{{"1", false}, {"二", false}}},
-		{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, {Ports: []PortBinding{{1, 2, "二", TransportProtocolTCP}}},
-		{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, {Ports: []PortBinding{{1, 22, "1", TransportProtocolTCP}}},
-		{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, {Ports: []PortBinding{{1, 2, "1", TransportProtocolUDP}}},
-		{Essential: true}, {Essential: false},
-		{EntryPoint: nil}, {EntryPoint: &[]string{"nonnil"}},
-		{EntryPoint: &[]string{"1", "2"}}, {EntryPoint: &[]string{"2", "1"}},
-		{EntryPoint: &[]string{"1", "2"}}, {EntryPoint: &[]string{"1", "二"}},
-		{Environment: map[string]string{"a": "b", "c": "d"}}, {Environment: map[string]string{"し": "d", "a": "b"}},
-		{DesiredStatusUnsafe: ContainerRunning}, {DesiredStatusUnsafe: ContainerStopped},
-		{AppliedStatus: ContainerRunning}, {AppliedStatus: ContainerStopped},
-		{KnownStatusUnsafe: ContainerRunning}, {KnownStatusUnsafe: ContainerStopped},
-		{KnownExitCode: nil}, {KnownExitCode: onePtr},
-		{KnownExitCode: onePtr}, {KnownExitCode: twoPtr},
+
+	exitCodeContainer := func(p *int) Container {
+		c := Container{}
+		c.SetKnownExitCode(p)
+		return c
 	}
 
-	for i := 0; i < len(equalPairs); i += 2 {
-		if !ContainersEqual(&equalPairs[i], &equalPairs[i+1]) {
-			t.Error(i, equalPairs[i], " should equal ", equalPairs[i+1])
-		}
-		// Should be symetric
-		if !ContainersEqual(&equalPairs[i+1], &equalPairs[i]) {
-			t.Error(i, "(symetric)", equalPairs[i+1], " should equal ", equalPairs[i])
-		}
+	testCases := []struct {
+		lhs           Container
+		rhs           Container
+		shouldBeEqual bool
+	}{
+		// Equal Pairs
+		{Container{Name: "name"}, Container{Name: "name"}, true},
+		{Container{Image: "nginx"}, Container{Image: "nginx"}, true},
+		{Container{Command: []string{"c"}}, Container{Command: []string{"c"}}, true},
+		{Container{CPU: 1}, Container{CPU: 1}, true},
+		{Container{Memory: 1}, Container{Memory: 1}, true},
+		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"1", "2"}}, true},
+		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"2", "1"}}, true},
+		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, true},
+		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"2", true}, {"1", false}}}, true},
+		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, true},
+		{Container{Essential: true}, Container{Essential: true}, true},
+		{Container{EntryPoint: nil}, Container{EntryPoint: nil}, true},
+		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "2"}}, true},
+		{Container{Environment: map[string]string{}}, Container{Environment: map[string]string{}}, true},
+		{Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"c": "d", "a": "b"}}, true},
+		{Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerRunning}, true},
+		{Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerRunning}, true},
+		{Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerRunning}, true},
+		{exitCodeContainer(aws.Int(1)), exitCodeContainer(aws.Int(1)), true},
+		{exitCodeContainer(nil), exitCodeContainer(nil), true},
+		// Unequal Pairs
+		{Container{Name: "name"}, Container{Name: "名前"}, false},
+		{Container{Image: "nginx"}, Container{Image: "えんじんえっくす"}, false},
+		{Container{Command: []string{"c"}}, Container{Command: []string{"し"}}, false},
+		{Container{Command: []string{"c", "b"}}, Container{Command: []string{"b", "c"}}, false},
+		{Container{CPU: 1}, Container{CPU: 2e2}, false},
+		{Container{Memory: 1}, Container{Memory: 2e2}, false},
+		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"1", "二"}}, false},
+		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"1", false}, {"二", false}}}, false},
+		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "二", TransportProtocolTCP}}}, false},
+		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 22, "1", TransportProtocolTCP}}}, false},
+		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolUDP}}}, false},
+		{Container{Essential: true}, Container{Essential: false}, false},
+		{Container{EntryPoint: nil}, Container{EntryPoint: &[]string{"nonnil"}}, false},
+		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"2", "1"}}, false},
+		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "二"}}, false},
+		{Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"し": "d", "a": "b"}}, false},
+		{Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerStopped}, false},
+		{Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerStopped}, false},
+		{Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerStopped}, false},
+		{exitCodeContainer(aws.Int(0)), exitCodeContainer(aws.Int(42)), false},
+		{exitCodeContainer(nil), exitCodeContainer(aws.Int(12)), false},
 	}
 
-	for i := 0; i < len(unequalPairs); i += 2 {
-		if ContainersEqual(&unequalPairs[i], &unequalPairs[i+1]) {
-			t.Error(i, unequalPairs[i], " shouldn't equal ", unequalPairs[i+1])
-		}
-		//symetric
-		if ContainersEqual(&unequalPairs[i+1], &unequalPairs[i]) {
-			t.Error(i, "(symetric)", unequalPairs[i+1], " shouldn't equal ", unequalPairs[i])
-		}
+	for index, tc := range testCases {
+		t.Run(fmt.Sprintf("index %d expected %t", index, tc.shouldBeEqual), func(t *testing.T) {
+			assert.Equal(t, ContainersEqual(&tc.lhs, &tc.rhs), tc.shouldBeEqual, "ContainersEqual not working as expected. Check index failure.")
+			// Symetric
+			assert.Equal(t, ContainersEqual(&tc.rhs, &tc.lhs), tc.shouldBeEqual, "Symetric equality check failed. Check index failure.")
+		})
 	}
 }

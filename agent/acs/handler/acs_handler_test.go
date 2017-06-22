@@ -976,7 +976,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		t.Errorf("Mismatch between expected and added credentials id for task, expected: %s, added: %s", credentialsIdInRefreshMessage, credentialsIdFromTask)
 	}
 
-	go server.Close()
+	server.Close()
 	// Cancel context should close the session
 	<-ended
 }
@@ -1060,6 +1060,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	}
 }
 
+// TODO: replace with gomock
 func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string, 1)
 	requestsChan := make(chan string, 1)

@@ -104,7 +104,7 @@ type ClientServer interface {
 	io.Closer
 }
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer,WebsocketConn mock/$GOFILE
 
 // ClientServerImpl wraps commonly used methods defined in ClientServer interface.
 type ClientServerImpl struct {
@@ -135,6 +135,8 @@ type ClientServerImpl struct {
 // 'MakeRequest' can be made after calling this, but responss will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
 		return err
@@ -201,6 +203,8 @@ func (cs *ClientServerImpl) Connect() error {
 }
 
 func (cs *ClientServerImpl) IsReady() bool {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
 	return cs.conn != nil
 }
 
@@ -210,6 +214,9 @@ func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
 
 // Disconnect disconnects the connection
 func (cs *ClientServerImpl) Disconnect(...interface{}) error {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
+
 	if cs.conn != nil {
 		return cs.conn.Close()
 	}

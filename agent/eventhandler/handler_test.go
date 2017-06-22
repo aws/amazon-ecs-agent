@@ -18,14 +18,12 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func containerEvent(arn string) statechange.Event {
@@ -100,41 +98,33 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 
 	handler := NewTaskHandler()
 
-	contCalled := make(chan struct{}, concurrentEventCalls+1)
 	completeStateChange := make(chan bool, concurrentEventCalls+1)
-	count := 0
-	countLock := &sync.Mutex{}
+	var wg sync.WaitGroup
+
 	client.EXPECT().SubmitContainerStateChange(gomock.Any()).Times(concurrentEventCalls + 1).Do(func(interface{}) {
-		countLock.Lock()
-		count++
-		countLock.Unlock()
+		wg.Done()
 		<-completeStateChange
-		contCalled <- struct{}{}
 	})
+
 	// Test concurrency; ensure it doesn't attempt to send more than
 	// concurrentEventCalls at once
+	wg.Add(concurrentEventCalls)
+
 	// Put on N+1 events
 	for i := 0; i < concurrentEventCalls+1; i++ {
 		handler.AddStateChangeEvent(containerEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
-	time.Sleep(10 * time.Millisecond)
+	wg.Wait()
 
-	// N events should be waiting for potential errors since we havent started completing state changes
-	assert.Equal(t, concurrentEventCalls, count, "Too many event calls got through concurrently")
-	// Let one state change finish
+	//Let one change through
+	wg.Add(1)
 	completeStateChange <- true
-	<-contCalled
-	time.Sleep(10 * time.Millisecond)
-
-	assert.Equal(t, concurrentEventCalls+1, count, "Another concurrent call didn't start when expected")
+	wg.Wait()
 
 	// ensure the remaining requests are completed
 	for i := 0; i < concurrentEventCalls; i++ {
 		completeStateChange <- true
-		<-contCalled
 	}
-	time.Sleep(5 * time.Millisecond)
-	assert.Equal(t, concurrentEventCalls+1, count, "Extra concurrent calls appeared from nowhere")
 }
 
 func TestSendsEventsContainerDifferences(t *testing.T) {

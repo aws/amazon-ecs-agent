@@ -84,6 +84,12 @@ func (imageManager *dockerImageManager) AddAllImageStates(imageStates []*image.I
 	}
 }
 
+func (imageManager *dockerImageManager) GetImageStatesCount() int {
+	imageManager.updateLock.RLock()
+	defer imageManager.updateLock.RUnlock()
+	return len(imageManager.imageStates)
+}
+
 // RecordContainerReference adds container reference to the corresponding imageState object
 func (imageManager *dockerImageManager) RecordContainerReference(container *api.Container) error {
 	// the image state has been updated, save the new state
