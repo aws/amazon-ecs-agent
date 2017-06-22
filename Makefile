@@ -84,7 +84,7 @@ testnnp:
 	cd misc/testnnp; $(MAKE) $(MFLAGS)
 
 run-integ-tests: test-registry gremlin
-	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/...
+	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
 netkitten:
 	cd misc/netkitten; $(MAKE) $(MFLAGS)
