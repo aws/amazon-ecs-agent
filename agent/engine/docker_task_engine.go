@@ -47,8 +47,6 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	labelPrefix                  = "com.amazonaws.ecs."
-	ECSDataDir                   = "/data/"
-	HostDataDir                  = "/var/lib/ecs/"
 )
 
 // DockerTaskEngine is an abstraction over the DockerGoClient so that
@@ -615,12 +613,11 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if ioerr == nil {
 		seelog.Infof("Created metadata file at %s", metadataPath)
 	} else {
-		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath, ioerr.Error())
+		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath, err.Error())
 	}
 	//Bind host volume to mount path in container
-	hostMetadataPath := HostDataDir + metadataservice.GetMetadataFilePath(task, container)
-	hostConfig.Binds = []string{ hostMetadataPath + ":" + "/ecs/metadata/" + container.Name }
-	seelog.Infof("Mounted volume %s to container %s of task %s", metadataPath, container, task)
+	hostMetadataBind := bindHostDir(hostConfig.Binds, engine.cfg, task, container)
+	seelog.Infof("Mounted %s to container %s of task %s", hostMetadataBind, container, task)
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
@@ -628,6 +625,13 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata
+}
+
+func bindHostDir(binds []string, cfg *config.Config, task *api.Task, container *api.Container) string {
+	hostMetadataPath := cfg.HostDataDir + metadataservice.GetMetadataFilePath(task, container)
+	hostBind := fmt.Sprintf("%s:/ecs/metadata/%s", hostMetadataPath, container.Name)
+	binds = append(binds, hostBind)
+	return hostBind
 }
 
 func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -653,19 +657,24 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	md := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 
 	//Get metadata through container inspection and available task information then convert this to writable metadata 
-	rawContainer, ioerr := client.InspectContainer(dockerContainer.DockerID, inspectContainerTimeout)
-	if ioerr != nil {
-		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, ioerr.Error())
-	}
-	metadata := metadataservice.AcquireMetadata(rawContainer, engine.cfg, task)
-	ioerr = metadataservice.WriteToMetadata(task, container, metadata)
-	if ioerr != nil {
-		seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, ioerr.Error())
+	err := engine.updateMetadata(dockerContainer.DockerID, task, container)
+	if err != nil {
+		seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, err.Error())
 	} else {
 		seelog.Infof("Updated metadata file for task %s container %s", task, container)
 	}
 
 	return md
+}
+
+func (engine *DockerTaskEngine) updateMetadata(dockerID string, task *api.Task, container *api.Container) error {
+	client := engine.client
+	dockerContainer, err := client.InspectContainer(dockerID, inspectContainerTimeout)
+	if err != nil {
+		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, err.Error())
+	}
+	metadata := metadataservice.AcquireMetadata(dockerContainer, engine.cfg, task)
+	return metadataservice.WriteToMetadata(task, container, metadata)
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
