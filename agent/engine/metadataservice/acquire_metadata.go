@@ -25,12 +25,16 @@ func acquireDockerMetadata(container *docker.Container) DockerMetadata {
 	if container == nil {
 		return DockerMetadata{}
 	}
+	imName := ""
+	if (container.Config != nil) {
+		imName = container.Config.Image
+	}
 	return DockerMetadata {
 		status        : container.State.StateString(),
 		containerID   : container.ID,
 		containerName : container.Name,
 		imageID       : container.Image,
-		imageName     : container.Config.Image,
+		imageName     : imName,
 	}
 }
 
