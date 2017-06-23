@@ -10,15 +10,21 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
-const (
-	ecsDataMount = "/data/"
-)
+//Gets the metadata file path for any agent-managed container
+func GetMetadataFilePath(task *api.Task, container *api.Container, dataDir string) string {
+	taskID := getIDfromArn(task.Arn)
+	//Empty task ID indicates malformed Arn (Should not happen)
+	if taskID == "" {
+		return ""
+	}
+	return dataDir + "/" + "metadata/" + getIDfromArn(task.Arn) + "/" + container.Name + "/"
+}
 
 //Initialize Metadata file 
 //TODO: Write static data to it initially and use Metadata struct for dynamic 
 //data exclusively
-func InitMetadataFile(task *api.Task, container *api.Container) (string, error) {
-	mddir_path := GetMetadataFilePath(task, container)
+func InitMetadataFile(task *api.Task, container *api.Container, dataDir string) (string, error) {
+	mddir_path := GetMetadataFilePath(task, container, dataDir)
 	err := os.MkdirAll(mddir_path, os.ModePerm)
 	if err != nil {
 		return "", err
@@ -27,17 +33,8 @@ func InitMetadataFile(task *api.Task, container *api.Container) (string, error) 
 	return mdfile_path, ioutil.WriteFile(mdfile_path, nil, 0644)
 }
 
-//Writes Metadata struct in JSON format into the metadatafile
-func WriteToMetadata(task *api.Task, container *api.Container, metadata *Metadata) error {
-	data, err := json.MarshalIndent(*metadata, "", "\t")
-	if err != nil {
-		return err
-	}
-	return writeToMetadata(task, container, data)
-}
-
-func writeToMetadata(task *api.Task, container *api.Container, data []byte) error {
-	mdfile_path := GetMetadataFilePath(task, container) + "metadata.json"
+func writeToMetadata(task *api.Task, container *api.Container, data []byte, dataDir string) error {
+	mdfile_path := GetMetadataFilePath(task, container, dataDir) + "metadata.json"
 
 	mdfile, err := os.OpenFile(mdfile_path, os.O_WRONLY | os.O_APPEND, 0644)
 	defer mdfile.Close()
@@ -48,14 +45,17 @@ func writeToMetadata(task *api.Task, container *api.Container, data []byte) erro
 	return err
 }
 
-//Cleans the metadata files of all containers associated with a task
-func CleanTask(task *api.Task) error {
-	md_path := getTaskMetadataDir(task)
-	return removeContents(md_path)
+//Writes Metadata struct in JSON format into the metadatafile
+func WriteToMetadata(task *api.Task, container *api.Container, metadata *Metadata, dataDir string) error {
+	data, err := json.MarshalIndent(*metadata, "", "\t")
+	if err != nil {
+		return err
+	}
+	return writeToMetadata(task, container, data, dataDir)
 }
 
-func getTaskMetadataDir(task *api.Task) string {
-	return ecsDataMount + "metadata/" + getIDfromArn(task.Arn) + "/"
+func getTaskMetadataDir(task *api.Task, dataDir string) string {
+	return dataDir + "/" + "metadata/" + getIDfromArn(task.Arn) + "/"
 }
 
 //Removes directory and all its children. We use this instead of os.RemoveAll to handle case
@@ -79,17 +79,12 @@ func removeContents(dir string) error {
 	return os.Remove(dir)
 }
 
-//Gets the metadata file path for any agent-managed container
-func GetMetadataFilePath(task *api.Task, container *api.Container) string {
-	taskID := getIDfromArn(task.Arn)
-	//Empty task ID indicates malformed Arn (Should not happen)
-	if taskID == "" {
-		return ""
-	}
-	return ecsDataMount + "metadata/" + getIDfromArn(task.Arn) + "/" + container.Name + "/"
+//Cleans the metadata files of all containers associated with a task
+func CleanTask(task *api.Task, dataDir string) error {
+	md_path := getTaskMetadataDir(task, dataDir)
+	return removeContents(md_path)
 }
 
-//TODO Change to SplitN instead of regex split
 func getIDfromArn(taskarn string) string {
 	colonSplitArn := strings.SplitN(taskarn, ":", 6)
 	//Incorrectly formatted Arn (Should not happen)
