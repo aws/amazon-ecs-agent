@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,10 +19,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
-const INSTANCE_TYPE_CHANGED_ERROR_MESSAGE = "Container instance type changes are not supported."
+// InstanceTypeChangedErrorMessage is the error message to print for the
+// instance type changed error when registering a container instance
+const InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
 
-func IsInstanceTypeChangedError(err awserr.Error) bool {
-	return strings.Contains(err.Message(), INSTANCE_TYPE_CHANGED_ERROR_MESSAGE)
+// IsInstanceTypeChangedError returns true if the error when
+// registering the container instance is because of instance type being
+// changed
+func IsInstanceTypeChangedError(err error) bool {
+	if awserr, ok := err.(awserr.Error); ok {
+		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
+	}
+	return false
 }
 
 type badVolumeError struct {

@@ -1,10 +1,10 @@
 <powershell>
-## The string 'windows' shoud be replaced with your cluster name
+## The string 'windows' should be replaced with your cluster name
 
 # Set agent env variables for the Machine context (durable)
 [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "windows", "Machine")
 [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
-$agentVersion = 'v1.14.2'
+$agentVersion = 'v1.14.3'
 $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
 $agentZipMD5Uri = "$agentZipUri.md5"
 

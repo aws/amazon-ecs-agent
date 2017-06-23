@@ -1,6 +1,6 @@
 // +build windows, functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -127,8 +127,7 @@ func (agent *TestAgent) StartAgent() error {
 	}
 	agent.Process = agentInvoke.Process
 	agent.IntrospectionURL = "http://localhost:51678"
-	err = agent.platformIndependentStartAgent()
-	return err
+	return agent.verifyIntrospectionAPI()
 }
 
 func (agent *TestAgent) Cleanup() {

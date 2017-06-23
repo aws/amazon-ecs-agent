@@ -196,7 +196,7 @@ func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *
 	for i, imageState := range imageManager.imageStates {
 		if imageState.Image.ImageID == imageStateToBeRemoved.Image.ImageID {
 			// Image State found; hence remove it
-			seelog.Infof("Removing Image State: %v from Image Manager", imageState.Image.ImageID)
+			seelog.Infof("Removing Image State: [%s] from Image Manager", imageState.String())
 			imageManager.imageStates = append(imageManager.imageStates[:i], imageManager.imageStates[i+1:]...)
 			return
 		}
@@ -205,13 +205,14 @@ func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *
 
 func (imageManager *dockerImageManager) getCandidateImagesForDeletion() []*image.ImageState {
 	if len(imageManager.imageStatesConsideredForDeletion) < 1 {
+		seelog.Debugf("Image Manager: Empty state!")
 		// no image states present in image manager
 		return nil
 	}
 	var imagesForDeletion []*image.ImageState
 	for _, imageState := range imageManager.imageStatesConsideredForDeletion {
 		if imageManager.isImageOldEnough(imageState) && imageState.HasNoAssociatedContainers() {
-			seelog.Infof("Candidate image for deletion: %+v", imageState)
+			seelog.Infof("Candidate image for deletion: [%s]", imageState.String())
 			imagesForDeletion = append(imagesForDeletion, imageState)
 		}
 	}
@@ -275,28 +276,30 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 }
 
 func (imageManager *dockerImageManager) removeUnusedImages() {
-	seelog.Infof("Begin building map of eligible unused images for deletion")
+	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
+	ImagePullDeleteLock.Lock()
+	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
+	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
+	defer ImagePullDeleteLock.Unlock()
+
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
+
 	imageManager.imageStatesConsideredForDeletion = make(map[string]*image.ImageState)
+	seelog.Info("Begin building map of eligible unused images for deletion")
 	for _, imageState := range imageManager.getAllImageStates() {
 		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
 	}
 	for i := 0; i < imageManager.numImagesToDelete; i++ {
 		err := imageManager.removeLeastRecentlyUsedImage()
 		if err != nil {
-			seelog.Infof("End of eligible images for deletion")
+			seelog.Infof("End of eligible images for deletion: %v; Still have %d image states being managed", err, len(imageManager.getAllImageStates()))
 			break
 		}
 	}
 }
 
 func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
-	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
-	ImagePullDeleteLock.Lock()
-	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
-	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
-	defer ImagePullDeleteLock.Unlock()
 	leastRecentlyUsedImage := imageManager.getUnusedImageForDeletion()
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")

@@ -238,10 +238,16 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{Arn: "t1", KnownStatusUnsafe: api.TaskStopped}, nil)
+	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{
+		Arn:               "t1",
+		KnownStatusUnsafe: api.TaskStopped,
+		Family:            "f1",
+	}, nil)
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
 	defer engine.removeAll()
 
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
 	engine.resolver = resolver
 
 	engine.addContainer("c1")

@@ -1,14 +1,13 @@
-// +build !windows
 // Copyright 2016 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package docker provides a client for the Docker remote API.
-//
-// See https://goo.gl/G3plxW for more details on the remote API.
+// +build !windows
+
 package docker
 
 import (
+	"context"
 	"net"
 	"net/http"
 
@@ -24,6 +23,9 @@ func (c *Client) initializeNativeClient() {
 	socketPath := c.endpointURL.Path
 	tr := cleanhttp.DefaultTransport()
 	tr.Dial = func(network, addr string) (net.Conn, error) {
+		return c.Dialer.Dial(network, addr)
+	}
+	tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		return c.Dialer.Dial(unixProtocol, socketPath)
 	}
 	c.nativeHTTPClient = &http.Client{Transport: tr}

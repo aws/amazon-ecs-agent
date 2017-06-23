@@ -4,7 +4,7 @@
 
 // Package docker provides a client for the Docker remote API.
 //
-// See https://goo.gl/G3plxW for more details on the remote API.
+// See https://goo.gl/o2v3rk for more details on the remote API.
 package docker
 
 import (
@@ -31,6 +31,7 @@ import (
 
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/homedir"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/hashicorp/go-cleanhttp"
 	"golang.org/x/net/context"
@@ -57,6 +58,7 @@ var (
 	apiVersion112, _ = NewAPIVersion("1.12")
 	apiVersion119, _ = NewAPIVersion("1.19")
 	apiVersion124, _ = NewAPIVersion("1.24")
+	apiVersion125, _ = NewAPIVersion("1.25")
 )
 
 // APIVersion is an internal representation of a version of the Remote API.
@@ -229,17 +231,26 @@ func NewVersionnedTLSClient(endpoint string, cert, key, ca, apiVersionString str
 // NewVersionedTLSClient returns a Client instance ready for TLS communications with the givens
 // server endpoint, key and certificates, using a specific remote API version.
 func NewVersionedTLSClient(endpoint string, cert, key, ca, apiVersionString string) (*Client, error) {
-	certPEMBlock, err := ioutil.ReadFile(cert)
-	if err != nil {
-		return nil, err
+	var certPEMBlock []byte
+	var keyPEMBlock []byte
+	var caPEMCert []byte
+	if _, err := os.Stat(cert); !os.IsNotExist(err) {
+		certPEMBlock, err = ioutil.ReadFile(cert)
+		if err != nil {
+			return nil, err
+		}
 	}
-	keyPEMBlock, err := ioutil.ReadFile(key)
-	if err != nil {
-		return nil, err
+	if _, err := os.Stat(key); !os.IsNotExist(err) {
+		keyPEMBlock, err = ioutil.ReadFile(key)
+		if err != nil {
+			return nil, err
+		}
 	}
-	caPEMCert, err := ioutil.ReadFile(ca)
-	if err != nil {
-		return nil, err
+	if _, err := os.Stat(ca); !os.IsNotExist(err) {
+		caPEMCert, err = ioutil.ReadFile(ca)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return NewVersionedTLSClientFromBytes(endpoint, certPEMBlock, keyPEMBlock, caPEMCert, apiVersionString)
 }
@@ -298,14 +309,14 @@ func NewVersionedTLSClientFromBytes(endpoint string, certPEMBlock, keyPEMBlock, 
 			return nil, err
 		}
 	}
-	if certPEMBlock == nil || keyPEMBlock == nil {
-		return nil, errors.New("Both cert and key are required")
+	tlsConfig := &tls.Config{}
+	if certPEMBlock != nil && keyPEMBlock != nil {
+		tlsCert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{tlsCert}
 	}
-	tlsCert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 	if caPEMCert == nil {
 		tlsConfig.InsecureSkipVerify = true
 	} else {
@@ -371,10 +382,18 @@ func (c *Client) Endpoint() string {
 
 // Ping pings the docker server
 //
-// See https://goo.gl/kQCfJj for more details.
+// See https://goo.gl/wYfgY1 for more details.
 func (c *Client) Ping() error {
+	return c.PingWithContext(nil)
+}
+
+// PingWithContext pings the docker server
+// The context object can be used to cancel the ping request.
+//
+// See https://goo.gl/wYfgY1 for more details.
+func (c *Client) PingWithContext(ctx context.Context) error {
 	path := "/_ping"
-	resp, err := c.do("GET", path, doOptions{})
+	resp, err := c.do("GET", path, doOptions{context: ctx})
 	if err != nil {
 		return err
 	}
@@ -582,7 +601,8 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 	}
 	var canceled uint32
 	if streamOptions.inactivityTimeout > 0 {
-		ch := handleInactivityTimeout(&streamOptions, cancelRequest, &canceled)
+		var ch chan<- struct{}
+		resp.Body, ch = handleInactivityTimeout(resp.Body, streamOptions.inactivityTimeout, cancelRequest, &canceled)
 		defer close(ch)
 	}
 	err = handleStreamResponse(resp, &streamOptions)
@@ -611,57 +631,44 @@ func handleStreamResponse(resp *http.Response, streamOptions *streamOptions) err
 		_, err = io.Copy(streamOptions.stdout, resp.Body)
 		return err
 	}
-	dec := json.NewDecoder(resp.Body)
-	for {
-		var m jsonMessage
-		if err := dec.Decode(&m); err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-		if m.Stream != "" {
-			fmt.Fprint(streamOptions.stdout, m.Stream)
-		} else if m.Progress != "" {
-			fmt.Fprintf(streamOptions.stdout, "%s %s\r", m.Status, m.Progress)
-		} else if m.Error != "" {
-			return errors.New(m.Error)
-		}
-		if m.Status != "" {
-			fmt.Fprintln(streamOptions.stdout, m.Status)
-		}
+	if st, ok := streamOptions.stdout.(interface {
+		io.Writer
+		FD() uintptr
+		IsTerminal() bool
+	}); ok {
+		err = jsonmessage.DisplayJSONMessagesToStream(resp.Body, st, nil)
+	} else {
+		err = jsonmessage.DisplayJSONMessagesStream(resp.Body, streamOptions.stdout, 0, false, nil)
 	}
-	return nil
+	return err
 }
 
-type proxyWriter struct {
-	io.Writer
+type proxyReader struct {
+	io.ReadCloser
 	calls uint64
 }
 
-func (p *proxyWriter) callCount() uint64 {
+func (p *proxyReader) callCount() uint64 {
 	return atomic.LoadUint64(&p.calls)
 }
 
-func (p *proxyWriter) Write(data []byte) (int, error) {
+func (p *proxyReader) Read(data []byte) (int, error) {
 	atomic.AddUint64(&p.calls, 1)
-	return p.Writer.Write(data)
+	return p.ReadCloser.Read(data)
 }
 
-func handleInactivityTimeout(options *streamOptions, cancelRequest func(), canceled *uint32) chan<- struct{} {
+func handleInactivityTimeout(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
 	done := make(chan struct{})
-	proxyStdout := &proxyWriter{Writer: options.stdout}
-	proxyStderr := &proxyWriter{Writer: options.stderr}
-	options.stdout = proxyStdout
-	options.stderr = proxyStderr
+	proxyReader := &proxyReader{ReadCloser: reader}
 	go func() {
 		var lastCallCount uint64
 		for {
 			select {
-			case <-time.After(options.inactivityTimeout):
+			case <-time.After(timeout):
 			case <-done:
 				return
 			}
-			curCallCount := proxyStdout.callCount() + proxyStderr.callCount()
+			curCallCount := proxyReader.callCount()
 			if curCallCount == lastCallCount {
 				atomic.AddUint32(canceled, 1)
 				cancelRequest()
@@ -670,7 +677,7 @@ func handleInactivityTimeout(options *streamOptions, cancelRequest func(), cance
 			lastCallCount = curCallCount
 		}
 	}()
-	return done
+	return proxyReader, done
 }
 
 type hijackOptions struct {

@@ -154,7 +154,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
 	)
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -468,7 +468,7 @@ func TestRemoveEvents(t *testing.T) {
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
 	)
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -590,7 +590,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		})
 	}
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -676,7 +676,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	err := taskEngine.Init() // start the task engine
+	err := taskEngine.Init(context.TODO()) // start the task engine
 	assert.Nil(t, err)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -749,7 +749,7 @@ func TestStopWithPendingStops(t *testing.T) {
 
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go func() {
@@ -914,7 +914,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		)
 	}
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -1012,7 +1012,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 		)
 	}
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err, "Error getting event streams from engine")
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -1089,7 +1089,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 		)
 	}
 
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.NoError(t, err, "Error getting event streams from engine")
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -1162,7 +1162,7 @@ func TestAddAttributes(t *testing.T) {
 func TestCapabilities(t *testing.T) {
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
-			dockerclient.JsonFileDriver,
+			dockerclient.JSONFileDriver,
 			dockerclient.SyslogDriver,
 			dockerclient.JournaldDriver,
 			dockerclient.GelfDriver,
@@ -1318,7 +1318,7 @@ func TestGetTaskByArn(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).AnyTimes() // TODO change to MaxTimes(1)
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.Nil(t, err)
 	defer taskEngine.Disable()
 
@@ -1339,7 +1339,7 @@ func TestEngineEnableConcurrentPull(t *testing.T) {
 
 	client.EXPECT().Version().Return("1.11.1", nil)
 	client.EXPECT().ContainerEvents(gomock.Any())
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	assert.Nil(t, err)
 
 	dockerTaskEngine, _ := taskEngine.(*DockerTaskEngine)
@@ -1353,7 +1353,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 
 	client.EXPECT().Version().Return("1.11.0", nil)
 	client.EXPECT().ContainerEvents(gomock.Any())
-	err := taskEngine.Init()
+	err := taskEngine.Init(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 
@@ -1590,7 +1590,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 
 	task := testdata.LoadTask("circular_dependency")
 
-	taskEngine.Init()
+	taskEngine.Init(context.TODO())
 	events := taskEngine.StateChangeEvents()
 
 	go taskEngine.AddTask(task)
