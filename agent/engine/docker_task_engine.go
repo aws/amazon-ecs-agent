@@ -29,11 +29,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/engine/metadataservice"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
@@ -563,7 +563,6 @@ func bindHostDir(binds []string, cfg *config.Config, task *api.Task, container *
 	return binds
 }
 
-
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
 	log.Info("Creating container", "task", task, "container", container)
 	client := engine.client
@@ -618,7 +617,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
-	//Initialize metadata file 
+	//Initialize metadata file
 	//TODO: Do initial write of static data to the file
 	metadataPath, ioerr := metadataservice.InitMetadataFile(task, container, engine.cfg.DataDir)
 	if ioerr == nil {
@@ -628,7 +627,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	}
 	//Bind host volume to mount path in container
 	hostConfig.Binds = bindHostDir(hostConfig.Binds, engine.cfg, task, container)
-	seelog.Infof("Mounted %s to container %s of task %s", hostConfig.Binds[len(hostConfig.Binds) - 1], container, task)
+	seelog.Infof("Mounted %s to container %s of task %s", hostConfig.Binds[len(hostConfig.Binds)-1], container, task)
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
@@ -671,7 +670,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	}
 	md := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 
-	//Get metadata through container inspection and available task information then convert this to writable metadata 
+	//Get metadata through container inspection and available task information then convert this to writable metadata
 	if md.Error == nil {
 		err := engine.updateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
