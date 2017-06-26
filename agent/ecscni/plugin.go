@@ -182,17 +182,17 @@ func (client *cniClient) Version(name string) (string, error) {
 	}
 
 	cmd := exec.Command(file, versionCommand)
-	versionInfo, err := cmd.Output()
+	output, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "output: %s", output)
 	}
 
 	version := &struct {
 		Version string `json:"version"`
 	}{}
-	err = json.Unmarshal(versionInfo, version)
+	err = json.Unmarshal(output, version)
 	if err != nil {
-		return "", errors.Wrapf(err, "ecscni: Unmarshal version from string: %s", versionInfo)
+		return "", errors.Wrapf(err, "ecscni: Unmarshal version from string: %s", output)
 	}
 
 	return version.Version, nil
