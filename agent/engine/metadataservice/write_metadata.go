@@ -2,9 +2,9 @@ package metadataservice
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -20,8 +20,8 @@ func GetMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 	return dataDir + "/" + "metadata/" + getIDfromArn(task.Arn) + "/" + container.Name + "/"
 }
 
-//Initialize Metadata file 
-//TODO: Write static data to it initially and use Metadata struct for dynamic 
+//Initialize Metadata file
+//TODO: Write static data to it initially and use Metadata struct for dynamic
 //data exclusively
 func InitMetadataFile(task *api.Task, container *api.Container, dataDir string) (string, error) {
 	mddir_path := GetMetadataFilePath(task, container, dataDir)
@@ -36,7 +36,7 @@ func InitMetadataFile(task *api.Task, container *api.Container, dataDir string) 
 func writeToMetadata(task *api.Task, container *api.Container, data []byte, dataDir string) error {
 	mdfile_path := GetMetadataFilePath(task, container, dataDir) + "metadata.json"
 
-	mdfile, err := os.OpenFile(mdfile_path, os.O_WRONLY | os.O_APPEND, 0644)
+	mdfile, err := os.OpenFile(mdfile_path, os.O_WRONLY|os.O_APPEND, 0644)
 	defer mdfile.Close()
 	if err != nil {
 		return err
@@ -98,4 +98,3 @@ func getIDfromArn(taskarn string) string {
 	}
 	return arnTaskPartSplit[1]
 }
-
