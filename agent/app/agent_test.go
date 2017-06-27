@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 
@@ -46,7 +48,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const clusterName = "some-cluster"
+const (
+	clusterName          = "some-cluster"
+	containerInstanceARN = "container-instance1"
+)
+
+var capabilities []*ecs.Attribute
 
 func setup(t *testing.T) (*gomock.Controller,
 	*mock_credentials.MockManager,
@@ -556,9 +563,6 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		taskEngine.EXPECT().Capabilities().Return(capabilities),
@@ -588,9 +592,6 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
@@ -625,9 +626,6 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		taskEngine.EXPECT().Capabilities().Return(capabilities),
@@ -660,9 +658,6 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
@@ -697,9 +692,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		taskEngine.EXPECT().Capabilities().Return(capabilities),
@@ -731,8 +723,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	capabilities := []string{""}
 
 	retriableError := utils.NewRetriableError(utils.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
@@ -766,8 +756,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-
 	cannotRetryError := utils.NewRetriableError(utils.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
@@ -799,8 +787,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	capabilities := []string{""}
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
