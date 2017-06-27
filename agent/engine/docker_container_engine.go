@@ -421,7 +421,6 @@ func (dg *dockerGoClient) createContainer(ctx context.Context, config *docker.Co
 		Context:    ctx,
 	}
 	dockerContainer, err := client.CreateContainer(containerOptions)
-
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
@@ -633,7 +632,6 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 			return DockerContainerMetadata{Error: api.NamedError(err)}
 		}
 	}
-
 	metadata := DockerContainerMetadata{
 		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
