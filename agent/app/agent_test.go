@@ -43,7 +43,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -101,7 +100,6 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -147,7 +145,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		ec2MetadataClient:     ec2MetadataClient,
 		stateManagerFactory:   stateManagerFactory,
@@ -174,8 +171,10 @@ func TestDoStartLoadImageError(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
 			gomock.InOrder(
+				mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 				dockerClient.EXPECT().SupportedVersions().Return(nil),
 				client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 					containerInstanceARN, nil),
@@ -195,7 +194,7 @@ func TestDoStartLoadImageError(t *testing.T) {
 			agent := &ecsAgent{
 				ctx:                ctx,
 				cfg:                &cfg,
-				credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
+				credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 				dockerClient:       dockerClient,
 				pauseLoader:        mockPauseLoader,
 			}
@@ -242,7 +241,9 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	gomock.InOrder(
+		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
@@ -255,8 +256,8 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
-		credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:       dockerClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -298,7 +299,6 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -352,7 +352,6 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -407,7 +406,6 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -442,7 +440,6 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -478,7 +475,6 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -519,7 +515,6 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,

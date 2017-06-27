@@ -946,6 +946,9 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 }
 
 // getTaskENIAttribute checks if the task network was enabled and whether the plugin are existed
+// TODO This method needs to be refactored to extract both version and feature flags from the
+// plugins. The task-eni capability will become a name-only capability and the version
+// information will be registered as an instance attribute
 func (engine *DockerTaskEngine) getTaskENIAttribute() *ecs.Attribute {
 	if !engine.cfg.TaskENIEnabled {
 		return nil

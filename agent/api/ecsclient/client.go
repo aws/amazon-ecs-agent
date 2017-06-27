@@ -156,7 +156,6 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			return "", err
 		}
 		// Not a VPC. Remove task networking capability
-		// TODO Set task networking capability to be false
 		seelog.Infof("VPC and Subnet IDs are not set for instance in Instance Metadata; Disabling Task ENI capability")
 		client.config.TaskENIEnabled = false
 	}
@@ -358,7 +357,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 			Attachments: attachments,
 		})
 		if err != nil {
-			log.Warn("Could not submit an attachment state change", "err", err, "statechange", change)
+			seelog.Warnf("Could not submit an attachment state change: %v", err)
 			return err
 		}
 
