@@ -175,7 +175,17 @@ func TestDoStartLoadImageError(t *testing.T) {
 
 			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
-			mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, err)
+			gomock.InOrder(
+				dockerClient.EXPECT().SupportedVersions().Return(nil),
+				client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
+					containerInstanceARN, nil),
+				imageManager.EXPECT().SetSaver(gomock.Any()),
+				dockerClient.EXPECT().Version().Return("", nil),
+				dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(nil, nil),
+				state.EXPECT().AllImageStates().Return(nil),
+				state.EXPECT().AllTasks().Return(nil),
+				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, err),
+			)
 
 			cfg := config.DefaultConfig()
 			cfg.TaskENIEnabled = true
