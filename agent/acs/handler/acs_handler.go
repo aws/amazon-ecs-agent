@@ -31,6 +31,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -78,8 +80,10 @@ type session struct {
 	deregisterInstanceEventStream   *eventstream.EventStream
 	taskEngine                      engine.TaskEngine
 	ecsClient                       api.ECSClient
+	state                           dockerstate.TaskEngineState
 	stateManager                    statemanager.StateManager
 	credentialsManager              rolecredentials.Manager
+	taskHandler                     *eventhandler.TaskHandler
 	ctx                             context.Context
 	cancel                          context.CancelFunc
 	backoff                         utils.Backoff
@@ -133,9 +137,11 @@ func NewSession(ctx context.Context,
 	containerInstanceArn string,
 	credentialsProvider *credentials.Credentials,
 	ecsClient api.ECSClient,
+	taskEngineState dockerstate.TaskEngineState,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
-	credentialsManager rolecredentials.Manager) Session {
+	credentialsManager rolecredentials.Manager,
+	taskHandler *eventhandler.TaskHandler) Session {
 	resources := newSessionResources(credentialsProvider)
 	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -147,9 +153,11 @@ func NewSession(ctx context.Context,
 		containerInstanceARN:            containerInstanceArn,
 		credentialsProvider:             credentialsProvider,
 		ecsClient:                       ecsClient,
+		state:                           taskEngineState,
 		stateManager:                    stateManager,
 		taskEngine:                      taskEngine,
 		credentialsManager:              credentialsManager,
+		taskHandler:                     taskHandler,
 		ctx:                             derivedContext,
 		cancel:                          cancel,
 		backoff:                         backoff,
@@ -260,9 +268,32 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
+	// Add handler to ack ENI attach message
+	eniAttachHandler := newAttachENIHandler(
+		acsSession.ctx,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.state,
+		acsSession.stateManager,
+	)
+	eniAttachHandler.start()
+	defer eniAttachHandler.stop()
+
+	client.AddRequestHandler(eniAttachHandler.handlerFunc())
+
 	// Add request handler for handling payload messages from ACS
-	payloadHandler := newPayloadRequestHandler(acsSession.ctx, acsSession.taskEngine, acsSession.ecsClient, cfg.Cluster,
-		acsSession.containerInstanceARN, client, acsSession.stateManager, refreshCredsHandler, acsSession.credentialsManager)
+	payloadHandler := newPayloadRequestHandler(
+		acsSession.ctx,
+		acsSession.taskEngine,
+		acsSession.ecsClient,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.stateManager,
+		refreshCredsHandler,
+		acsSession.credentialsManager,
+		acsSession.taskHandler)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()

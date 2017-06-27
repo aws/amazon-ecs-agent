@@ -1,3 +1,5 @@
+// +build codegen
+
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,6 +13,8 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+// Note: This package uses the 'codegen' directive for compatibility with
+// the  AWS SDK's code generation scripts.
 package main
 
 import (
@@ -22,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/aws/aws-sdk-go/private/model/api"
 	"github.com/aws/aws-sdk-go/private/util"
@@ -39,7 +44,7 @@ var typesOnlyTplAPI = template.Must(template.New("api").Parse(`
 {{ end }}
 `))
 
-const copyrightHeader = `// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+const copyrightHeaderTemplate = `// Copyright 2014-%d Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -52,6 +57,8 @@ const copyrightHeader = `// Copyright 2014-2016 Amazon.com, Inc. or its affiliat
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 `
+
+var copyrightHeader = fmt.Sprintf(copyrightHeaderTemplate, time.Now().Year())
 
 // return-based exit code so the 'defer' works
 func _main() int {

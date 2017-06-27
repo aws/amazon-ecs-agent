@@ -279,7 +279,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 			cs.handleMessage(message)
 
 		case permissibleCloseCode(err):
-			seelog.Warnf("Connection closed for a valid reason: %s", err)
+			seelog.Infof("Connection closed for a valid reason: %s", err)
 			return io.EOF
 
 		default:
@@ -344,5 +344,9 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650
 func permissibleCloseCode(err error) bool {
-	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseInternalServerErr)
+	return websocket.IsCloseError(err,
+		websocket.CloseNormalClosure,
+		websocket.CloseAbnormalClosure,
+		websocket.CloseGoingAway,
+		websocket.CloseInternalServerErr)
 }

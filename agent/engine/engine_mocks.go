@@ -17,11 +17,14 @@
 package engine
 
 import (
+	io "io"
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
+	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
@@ -77,6 +80,16 @@ func (_mr *_MockTaskEngineRecorder) Disable() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Disable")
 }
 
+func (_m *MockTaskEngine) GetAdditionalAttributes() []*ecs.Attribute {
+	ret := _m.ctrl.Call(_m, "GetAdditionalAttributes")
+	ret0, _ := ret[0].([]*ecs.Attribute)
+	return ret0
+}
+
+func (_mr *_MockTaskEngineRecorder) GetAdditionalAttributes() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAdditionalAttributes")
+}
+
 func (_m *MockTaskEngine) GetTaskByArn(_param0 string) (*api.Task, bool) {
 	ret := _m.ctrl.Call(_m, "GetTaskByArn", _param0)
 	ret0, _ := ret[0].(*api.Task)
@@ -88,14 +101,14 @@ func (_mr *_MockTaskEngineRecorder) GetTaskByArn(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskByArn", arg0)
 }
 
-func (_m *MockTaskEngine) Init() error {
-	ret := _m.ctrl.Call(_m, "Init")
+func (_m *MockTaskEngine) Init(_param0 context.Context) error {
+	ret := _m.ctrl.Call(_m, "Init", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockTaskEngineRecorder) Init() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Init")
+func (_mr *_MockTaskEngineRecorder) Init(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Init", arg0)
 }
 
 func (_m *MockTaskEngine) ListTasks() ([]*api.Task, error) {
@@ -120,12 +133,12 @@ func (_mr *_MockTaskEngineRecorder) MarshalJSON() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarshalJSON")
 }
 
-func (_m *MockTaskEngine) MustInit() {
-	_m.ctrl.Call(_m, "MustInit")
+func (_m *MockTaskEngine) MustInit(_param0 context.Context) {
+	_m.ctrl.Call(_m, "MustInit", _param0)
 }
 
-func (_mr *_MockTaskEngineRecorder) MustInit() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MustInit")
+func (_mr *_MockTaskEngineRecorder) MustInit(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MustInit", arg0)
 }
 
 func (_m *MockTaskEngine) SetSaver(_param0 statemanager.Saver) {
@@ -136,15 +149,14 @@ func (_mr *_MockTaskEngineRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockTaskEngine) TaskEvents() (<-chan api.TaskStateChange, <-chan api.ContainerStateChange) {
-	ret := _m.ctrl.Call(_m, "TaskEvents")
-	ret0, _ := ret[0].(<-chan api.TaskStateChange)
-	ret1, _ := ret[1].(<-chan api.ContainerStateChange)
-	return ret0, ret1
+func (_m *MockTaskEngine) StateChangeEvents() chan statechange.Event {
+	ret := _m.ctrl.Call(_m, "StateChangeEvents")
+	ret0, _ := ret[0].(chan statechange.Event)
+	return ret0
 }
 
-func (_mr *_MockTaskEngineRecorder) TaskEvents() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskEvents")
+func (_mr *_MockTaskEngineRecorder) StateChangeEvents() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StateChangeEvents")
 }
 
 func (_m *MockTaskEngine) UnmarshalJSON(_param0 []byte) error {
@@ -251,6 +263,16 @@ func (_m *MockDockerClient) ListContainers(_param0 bool, _param1 time.Duration) 
 
 func (_mr *_MockDockerClientRecorder) ListContainers(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0, arg1)
+}
+
+func (_m *MockDockerClient) LoadImage(_param0 io.Reader, _param1 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) LoadImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0, arg1)
 }
 
 func (_m *MockDockerClient) PullImage(_param0 string, _param1 *api.RegistryAuthenticationData) DockerContainerMetadata {

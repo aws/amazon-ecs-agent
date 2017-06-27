@@ -1,5 +1,5 @@
 // +build windows
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -63,7 +63,7 @@ func DefaultConfig() Config {
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,
 		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JsonFileDriver},
+		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:           DefaultDockerStopTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),

@@ -53,7 +53,11 @@ type APIECSClient struct {
 	pollEndpoinCache        async.Cache
 }
 
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+func NewECSClient(
+	credentialProvider *credentials.Credentials,
+	config *config.Config,
+	ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
@@ -145,6 +149,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			Name: aws.String(attribute),
 		})
 	}
+
 	for _, attribute := range client.getAdditionalAttributes() {
 		registrationAttributes = append(registrationAttributes, attribute)
 	}
@@ -262,7 +267,7 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{&ecs.Attribute{
+	return []*ecs.Attribute{{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
@@ -291,12 +296,25 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return nil
 	}
 
-	status := change.Status.String()
+	var attachments []*ecs.AttachmentStateChange
+
+	if change.Attachments != nil {
+		eniStatus := change.Attachments.Status.String()
+		attachments = []*ecs.AttachmentStateChange{
+			{
+				AttachmentArn: &change.Attachments.AttachmentArn,
+				Status:        &eniStatus,
+			},
+		}
+	}
+
+	taskStatus := change.Status.String()
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-		Cluster: &client.config.Cluster,
-		Task:    &change.TaskArn,
-		Status:  &status,
-		Reason:  &change.Reason,
+		Cluster:     &client.config.Cluster,
+		Task:        &change.TaskArn,
+		Status:      &taskStatus,
+		Reason:      &change.Reason,
+		Attachments: attachments,
 	})
 	if err != nil {
 		log.Warn("Could not submit a task state change", "err", err)

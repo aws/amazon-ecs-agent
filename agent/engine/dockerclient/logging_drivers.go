@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,21 +16,21 @@ package dockerclient
 type LoggingDriver string
 
 const (
-	JsonFileDriver LoggingDriver = "json-file"
-	SyslogDriver   LoggingDriver = "syslog"
-	JournaldDriver LoggingDriver = "journald"
-	GelfDriver     LoggingDriver = "gelf"
-	FluentdDriver  LoggingDriver = "fluentd"
-	AwslogsDriver  LoggingDriver = "awslogs"
-	SplunklogsDriver  LoggingDriver = "splunk"
+	JSONFileDriver   LoggingDriver = "json-file"
+	SyslogDriver     LoggingDriver = "syslog"
+	JournaldDriver   LoggingDriver = "journald"
+	GelfDriver       LoggingDriver = "gelf"
+	FluentdDriver    LoggingDriver = "fluentd"
+	AWSLogsDriver    LoggingDriver = "awslogs"
+	SplunklogsDriver LoggingDriver = "splunk"
 )
 
 var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{
-	JsonFileDriver: Version_1_18,
-	SyslogDriver:   Version_1_18,
-	JournaldDriver: Version_1_19,
-	GelfDriver:     Version_1_20,
-	FluentdDriver:  Version_1_20,
-	AwslogsDriver:  Version_1_21,
-	SplunklogsDriver:  Version_1_22,
+	JSONFileDriver:   Version_1_18,
+	SyslogDriver:     Version_1_18,
+	JournaldDriver:   Version_1_19,
+	GelfDriver:       Version_1_20,
+	FluentdDriver:    Version_1_20,
+	AWSLogsDriver:    Version_1_21,
+	SplunklogsDriver: Version_1_22,
 }

@@ -16,6 +16,7 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
+	"encoding/json"
 	"io"
 	"strings"
 	"sync"
@@ -43,7 +44,13 @@ const (
 // Timelimits for docker operations enforced above docker
 const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
-	ListContainersTimeout   = 10 * time.Minute
+	ListContainersTimeout = 10 * time.Minute
+	// LoadImageTimeout is the timeout for the LoadImage API. It's set
+	// to much lower value than pullImageTimeout as it involves loading
+	// image from either a file or STDIN
+	// calls involved.
+	// TODO: Benchmark and re-evaluate this value
+	LoadImageTimeout        = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 4 * time.Minute
 	startContainerTimeout   = 3 * time.Minute
@@ -90,6 +97,7 @@ type DockerClient interface {
 	Version() (string, error)
 	InspectImage(string) (*docker.Image, error)
 	RemoveImage(string, time.Duration) error
+	LoadImage(io.Reader, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -146,9 +154,13 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (
 		return nil, err
 	}
 
+	var dockerAuthData json.RawMessage
+	if cfg.EngineAuthData != nil {
+		dockerAuthData = cfg.EngineAuthData.Contents()
+	}
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
-		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, cfg.EngineAuthData.Contents()),
+		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		config:           cfg,
 	}, nil
@@ -781,7 +793,7 @@ func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListCont
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
-	return dg.clientFactory.FindAvailableVersions()
+	return dg.clientFactory.FindSupportedAPIVersions()
 }
 
 func (dg *dockerGoClient) Version() (string, error) {
@@ -822,6 +834,8 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	return stats, nil
 }
 
+// RemoveImage invokes github.com/fsouza/go-dockerclient.Client's
+// RemoveImage API with a timeout
 func (dg *dockerGoClient) RemoveImage(imageName string, imageRemovalTimeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), imageRemovalTimeout)
 	defer cancel()
@@ -842,4 +856,32 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
+}
+
+// LoadImage invokes loads an image from an input stream, with a specified timeout
+func (dg *dockerGoClient) LoadImage(inputStream io.Reader, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	response := make(chan error, 1)
+	go func() {
+		response <- dg.loadImage(docker.LoadImageOptions{
+			InputStream: inputStream,
+			Context:     ctx,
+		})
+	}()
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		return &DockerTimeoutError{timeout, "loading image"}
+	}
+}
+
+func (dg *dockerGoClient) loadImage(opts docker.LoadImageOptions) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+	return client.LoadImage(opts)
 }

@@ -1,6 +1,6 @@
 // +build !windows,functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -134,7 +134,7 @@ func (agent *TestAgent) StartAgent() error {
 	dockerConfig := &docker.Config{
 		Image: agent.Image,
 		ExposedPorts: map[docker.Port]struct{}{
-			"51678/tcp": struct{}{},
+			"51678/tcp": {},
 		},
 		Env: []string{
 			"ECS_CLUSTER=" + Cluster,
@@ -160,7 +160,7 @@ func (agent *TestAgent) StartAgent() error {
 	hostConfig := &docker.HostConfig{
 		Binds: binds,
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"51678/tcp": []docker.PortBinding{docker.PortBinding{HostIP: "0.0.0.0"}},
+			"51678/tcp": {{HostIP: "0.0.0.0"}},
 		},
 		Links: agent.Options.ContainerLinks,
 	}
@@ -182,7 +182,7 @@ func (agent *TestAgent) StartAgent() error {
 		}
 
 		for key, value := range agent.Options.PortBindings {
-			hostConfig.PortBindings[key] = []docker.PortBinding{docker.PortBinding{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
+			hostConfig.PortBindings[key] = []docker.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
 			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
 	}
@@ -207,8 +207,7 @@ func (agent *TestAgent) StartAgent() error {
 		return errors.New("Could not inspect agent container: " + err.Error())
 	}
 	agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
-	err = agent.platformIndependentStartAgent()
-	return err
+	return agent.verifyIntrospectionAPI()
 }
 
 // getBindMounts actually constructs volume binds for container's host config

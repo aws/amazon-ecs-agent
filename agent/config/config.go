@@ -80,6 +80,25 @@ const (
 	// minimumNumImagesToDeletePerCycle specifies the minimum number of images that to be deleted when
 	// performing image cleanup.
 	minimumNumImagesToDeletePerCycle = 1
+
+	// defaultCNIPluginsPath is the default path where cni binaries are located
+	defaultCNIPluginsPath = "/amazon-ecs-cni-plugins"
+
+	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
+	DefaultMinSupportedCNIVersion = "0.3.0"
+
+	// pauseContainerTarball is the path to the pause container tarball
+	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+)
+
+var (
+	// PauseContainerTag is the tag for the pause container image. The linker's load
+	// flags are used to populate this value from the Makefile
+	PauseContainerTag = ""
+
+	// PauseContainerImageName is the name of the pause container image. The linker's
+	// load flags are used to populate this value from the Makefile
+	PauseContainerImageName = ""
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -286,6 +305,7 @@ func environmentConfig() (Config, error) {
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
+	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 
@@ -300,6 +320,8 @@ func environmentConfig() (Config, error) {
 	if numImagesToDeletePerCycleEnvVal != "" && err != nil {
 		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
+
+	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
 
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
 	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
@@ -340,6 +362,7 @@ func environmentConfig() (Config, error) {
 		SELinuxCapable:                   seLinuxCapable,
 		AppArmorCapable:                  appArmorCapable,
 		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
+		TaskENIEnabled:                   taskENIEnabled,
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
 		CredentialsAuditLogFile:          credentialsAuditLogFile,
@@ -350,6 +373,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
+		CNIPluginsPath:                   cniPluginsPath,
 	}, err
 }
 

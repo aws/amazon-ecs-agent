@@ -112,6 +112,21 @@ func (CannotGetDockerClientError) ErrorName() string {
 	return "CannotGetDockerclientError"
 }
 
+// TaskDependencyError is the error for task that dependencies can't
+// be resolved
+type TaskDependencyError struct {
+	taskArn string
+}
+
+func (err TaskDependencyError) Error() string {
+	return "Task dependencies cannot be resolved, taskArn: " + err.taskArn
+}
+
+// ErrorName is the name of the error
+func (err TaskDependencyError) ErrorName() string {
+	return "TaskDependencyError"
+}
+
 // TaskStoppedBeforePullBeginError is a type for task errors involving pull
 type TaskStoppedBeforePullBeginError struct {
 	taskArn string
@@ -254,4 +269,18 @@ func (err CannotListContainersError) Error() string {
 
 func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
+}
+
+// ContainerNetworkingError indicates any error when dealing with the network
+// namespace of container
+type ContainerNetworkingError struct {
+	fromError error
+}
+
+func (err ContainerNetworkingError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err ContainerNetworkingError) ErrorName() string {
+	return "ContainerNetworkingError"
 }

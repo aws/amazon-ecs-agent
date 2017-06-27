@@ -119,6 +119,10 @@ type Config struct {
 	// tasks with IAM Roles when networkMode is set to 'host'
 	TaskIAMRoleEnabledForNetworkHost bool
 
+	// TaskENIEnabled specifies if the Agent is capable of launching task within
+	// defined EC2 networks
+	TaskENIEnabled bool
+
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
 	ImageCleanupDisabled bool
@@ -143,6 +147,15 @@ type Config struct {
 
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
+
+	// CNIPluginsPath is the path for the cni plugins
+	CNIPluginsPath string
+
+	// PauseContainerTarballPath is the path to the pause container tarball
+	PauseContainerTarballPath string
+
+	// PauseContainer is the tag for the pause container image
+	PauseContainerTag string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged
@@ -154,9 +167,12 @@ type SensitiveRawMessage struct {
 	contents json.RawMessage
 }
 
-// NewSensitiveRawMessage returns a new encapsulated json.RawMessage that
-// cannot be accidentally logged via .String/.GoString/%v/%#v
+// NewSensitiveRawMessage returns a new encapsulated json.RawMessage or nil if
+// the data is empty. It cannot be accidentally logged via .String/.GoString/%v/%#v
 func NewSensitiveRawMessage(data json.RawMessage) *SensitiveRawMessage {
+	if len(data) == 0 {
+		return nil
+	}
 	return &SensitiveRawMessage{contents: data}
 }
 

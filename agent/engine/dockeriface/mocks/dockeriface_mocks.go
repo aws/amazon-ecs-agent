@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -116,6 +116,16 @@ func (_m *MockClient) ListContainers(_param0 go_dockerclient.ListContainersOptio
 
 func (_mr *_MockClientRecorder) ListContainers(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
+}
+
+func (_m *MockClient) LoadImage(_param0 go_dockerclient.LoadImageOptions) error {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientRecorder) LoadImage(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0)
 }
 
 func (_m *MockClient) Ping() error {

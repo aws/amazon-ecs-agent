@@ -51,6 +51,32 @@ func (s AckRequest) GoString() string {
 	return s.String()
 }
 
+type AttachTaskNetworkInterfacesMessage struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s AttachTaskNetworkInterfacesMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachTaskNetworkInterfacesMessage) GoString() string {
+	return s.String()
+}
+
 type BadRequestException struct {
 	_ struct{} `type:"structure"`
 
@@ -164,6 +190,30 @@ func (s ECRAuthData) String() string {
 
 // GoString returns the string representation
 func (s ECRAuthData) GoString() string {
+	return s.String()
+}
+
+type ElasticNetworkInterface struct {
+	_ struct{} `type:"structure"`
+
+	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
+
+	Ec2Id *string `locationName:"ec2Id" type:"string"`
+
+	Ipv4Addresses []*IPv4AddressAssignment `locationName:"ipv4Addresses" type:"list"`
+
+	Ipv6Addresses []*IPv6AddressAssignment `locationName:"ipv6Addresses" type:"list"`
+
+	MacAddress *string `locationName:"macAddress" type:"string"`
+}
+
+// String returns the string representation
+func (s ElasticNetworkInterface) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ElasticNetworkInterface) GoString() string {
 	return s.String()
 }
 
@@ -306,6 +356,40 @@ func (s IAMRoleCredentialsMessage) String() string {
 
 // GoString returns the string representation
 func (s IAMRoleCredentialsMessage) GoString() string {
+	return s.String()
+}
+
+type IPv4AddressAssignment struct {
+	_ struct{} `type:"structure"`
+
+	Primary *bool `locationName:"primary" type:"boolean"`
+
+	PrivateAddress *string `locationName:"privateAddress" type:"string"`
+}
+
+// String returns the string representation
+func (s IPv4AddressAssignment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IPv4AddressAssignment) GoString() string {
+	return s.String()
+}
+
+type IPv6AddressAssignment struct {
+	_ struct{} `type:"structure"`
+
+	Address *string `locationName:"address" type:"string"`
+}
+
+// String returns the string representation
+func (s IPv6AddressAssignment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IPv6AddressAssignment) GoString() string {
 	return s.String()
 }
 
@@ -555,6 +639,8 @@ type Task struct {
 	Containers []*Container `locationName:"containers" type:"list"`
 
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
+
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
 
 	Family *string `locationName:"family" type:"string"`
 

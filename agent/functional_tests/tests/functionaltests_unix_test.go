@@ -1,6 +1,6 @@
 // +build !windows,functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -47,6 +47,7 @@ const (
 	logDriverTaskDefinition         = "logdriver-jsonfile"
 	cleanupTaskDefinition           = "nginx"
 	networkModeTaskDefinition       = "network-mode"
+	fluentdLogPath                  = "/tmp/ftslog"
 )
 
 // TestRunManyTasks runs several tasks in short succession and expects them to
@@ -104,7 +105,7 @@ func TestCommandOverrides(t *testing.T) {
 	defer agent.Cleanup()
 
 	task, err := agent.StartTaskWithOverrides(t, "simple-exit", []*ecsapi.ContainerOverride{
-		&ecsapi.ContainerOverride{
+		{
 			Name:    strptr("exit"),
 			Command: []*string{strptr("sh"), strptr("-c"), strptr("exit 21")},
 		},
@@ -280,8 +281,8 @@ func TestSquidProxy(t *testing.T) {
 	}
 }
 
-// TestAwslogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
-func TestAwslogsDriver(t *testing.T) {
+// TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
+func TestAWSLogsDriver(t *testing.T) {
 	RequireDockerVersion(t, ">=1.9.0") // awslogs drivers available from docker 1.9.0
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	// Test whether the log group existed or not
@@ -435,7 +436,7 @@ func TestTaskIamRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
 		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": map[string]string{
+			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
 			},
@@ -458,7 +459,7 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
 		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": map[string]string{
+			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
 			},
@@ -568,4 +569,70 @@ func TestNetworkModeBridge(t *testing.T) {
 
 	err := networkModeTest(t, agent, "bridge")
 	require.NoError(t, err, "Networking mode bridge testing failed")
+}
+
+// TestFluentdTag tests the fluentd logging driver option "tag"
+func TestFluentdTag(t *testing.T) {
+	// tag was added in docker 1.9.0
+	RequireDockerVersion(t, ">=1.9.0")
+
+	fluentdDriverTest("fluentd-tag", t)
+}
+
+// TestFluentdLogTag tests the fluentd logging driver option "log-tag"
+func TestFluentdLogTag(t *testing.T) {
+	// fluentd was added in docker 1.8.0
+	// and deprecated in 1.12.0
+	RequireDockerVersion(t, ">=1.8.0")
+	RequireDockerVersion(t, "<1.12.0")
+
+	fluentdDriverTest("fluentd-log-tag", t)
+}
+
+func fluentdDriverTest(taskDefinition string, t *testing.T) {
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+
+	// fluentd is supported in agnet >=1.5.0
+	agent.RequireVersion(">=1.5.0")
+
+	driverTask, err := agent.StartTask(t, "fluentd-driver")
+	require.NoError(t, err)
+
+	err = driverTask.WaitRunning(2 * time.Minute)
+	require.NoError(t, err)
+
+	testTask, err := agent.StartTask(t, taskDefinition)
+	require.NoError(t, err)
+
+	err = testTask.WaitRunning(2 * time.Minute)
+	assert.NoError(t, err)
+
+	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
+	assert.NoError(t, err, "failed to resolve the container id from agent state")
+
+	container, err := agent.DockerClient.InspectContainer(dockerID)
+	assert.NoError(t, err, "failed to inspect the container")
+
+	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)
+
+	// clean up
+	err = testTask.WaitStopped(1 * time.Minute)
+	assert.NoError(t, err, "task failed to be stopped")
+
+	driverTask.Stop()
+	err = driverTask.WaitStopped(1 * time.Minute)
+	assert.NoError(t, err, "task failed to be stopped")
+
+	// Verify the log file existed and also the content contains the expected format
+	err = SearchStrInDir(fluentdLogPath, "ecsfts", "hello, this is fluentd functional test")
+	assert.NoError(t, err, "failed to find the content in the fluent log file")
+
+	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
+	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }

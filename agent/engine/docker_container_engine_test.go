@@ -561,7 +561,7 @@ func TestContainerEvents(t *testing.T) {
 		ID: "cid2",
 		NetworkSettings: &docker.NetworkSettings{
 			Ports: map[docker.Port][]docker.PortBinding{
-				"80/tcp": []docker.PortBinding{docker.PortBinding{HostPort: "9001"}},
+				"80/tcp": {{HostPort: "9001"}},
 			},
 		},
 		Volumes: map[string]string{"/host/path": "/container/path"},
@@ -684,7 +684,7 @@ func TestListContainers(t *testing.T) {
 	mockDocker, client, _, done := dockerClientSetup(t)
 	defer done()
 
-	containers := []docker.APIContainers{docker.APIContainers{ID: "id"}}
+	containers := []docker.APIContainers{{ID: "id"}}
 	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
 	response := client.ListContainers(true, ListContainersTimeout)
 	if response.Error != nil {
@@ -946,4 +946,31 @@ func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
 	}, nil)
 	metadata := client.containerMetadata("id")
 	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
+}
+
+func TestLoadImageHappyPath(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
+
+	err := client.LoadImage(nil, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestLoadImageTimeoutError(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Do(func(x interface{}) {
+		wait.Wait()
+	})
+
+	err := client.LoadImage(nil, time.Millisecond)
+	assert.Error(t, err)
+	_, ok := err.(*DockerTimeoutError)
+	assert.True(t, ok)
+	wait.Done()
 }

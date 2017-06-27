@@ -19,6 +19,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateDockerTaskEngineState(t *testing.T) {
@@ -32,6 +34,10 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should not have a test task")
 	}
 
+	if _, ok := state.TaskByShortID("test"); ok {
+		t.Error("Empty state should not have a test taskid")
+	}
+
 	if _, ok := state.TaskByID("test"); ok {
 		t.Error("Empty state should not have a test taskid")
 	}
@@ -43,6 +49,14 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 	if len(state.AllImageStates()) != 0 {
 		t.Error("Empty state should have no image states")
 	}
+
+	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 0)
+	task, ok := state.TaskByShortID("test")
+	if assert.Empty(t, ok, "Empty state should have no tasks") {
+		assert.Empty(t, task, "Empty state should have no tasks")
+	}
+
+	assert.Empty(t, state.GetAllContainerIDs(), "Empty state should have no containers")
 }
 
 func TestAddTask(t *testing.T) {
@@ -64,9 +78,36 @@ func TestAddTask(t *testing.T) {
 	}
 }
 
+func TestAddRemoveENIAttachment(t *testing.T) {
+	state := NewTaskEngineState()
+
+	attachment := &api.ENIAttachment{
+		TaskArn:       "taskarn",
+		AttachmentArn: "eni1",
+		MacAddress:    "mac1",
+	}
+
+	state.AddENIAttachment(attachment)
+	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 1)
+	eni, ok := state.ENIByMac("mac1")
+	assert.True(t, ok)
+	assert.Equal(t, eni.TaskArn, attachment.TaskArn)
+
+	eni, ok = state.ENIByMac("non-mac")
+	assert.False(t, ok)
+	assert.Nil(t, eni)
+
+	// Remove the attachment from state
+	state.RemoveENIAttachment(attachment.MacAddress)
+	assert.Len(t, state.AllImageStates(), 0)
+	eni, ok = state.ENIByMac("mac1")
+	assert.False(t, ok)
+	assert.Nil(t, eni)
+}
+
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*api.Container{&api.Container{
+	testTask := &api.Task{Arn: "test", Containers: []*api.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)

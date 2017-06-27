@@ -4,13 +4,23 @@
     "apiVersion":"2014-11-13",
     "endpointPrefix":"ecsacs",
     "jsonVersion":"1.1",
+    "protocol":"json",
     "serviceAbbreviation":"Amazon ECS ACS",
     "serviceFullName":"Amazon EC2 Container Service Agent Communication Service",
     "signatureVersion":"v4",
     "targetPrefix":"AmazonEC2ContainerAgentServiceV20141113",
-    "protocol":"json"
+    "uid":"ecsacs-2014-11-13"
   },
   "operations":{
+    "AttachTaskNetworkInterfaces":{
+      "name":"AttachTaskNetworkInterfaces",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"AttachTaskNetworkInterfacesMessage"},
+      "output":{"shape":"AckRequest"}
+    },
     "Error":{
       "name":"Error",
       "http":{
@@ -54,30 +64,12 @@
       "input":{"shape":"PollRequest"},
       "output":{"shape":"CloseMessage"},
       "errors":[
-        {
-          "shape":"ServerException",
-          "exception":true
-        },
-        {
-          "shape":"BadRequestException",
-          "exception":true
-        },
-        {
-          "shape":"InvalidClusterException",
-          "exception":true
-        },
-        {
-          "shape":"AccessDeniedException",
-          "exception":true
-        },
-        {
-          "shape":"InvalidInstanceException",
-          "exception":true
-        },
-        {
-          "shape":"InactiveInstanceException",
-          "exception":true
-        }
+        {"shape":"ServerException"},
+        {"shape":"BadRequestException"},
+        {"shape":"InvalidClusterException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"InvalidInstanceException"},
+        {"shape":"InactiveInstanceException"}
       ]
     },
     "RefreshTaskIAMRoleCredentials":{
@@ -121,6 +113,17 @@
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
         "messageId":{"shape":"String"}
+      }
+    },
+    "AttachTaskNetworkInterfacesMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "taskArn":{"shape":"String"},
+        "messageId":{"shape":"String"},
+        "waitTimeoutMs":{"shape":"Long"},
+        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
       }
     },
     "AuthenticationType":{
@@ -181,6 +184,20 @@
         "endpointOverride":{"shape":"String"}
       }
     },
+    "ElasticNetworkInterface":{
+      "type":"structure",
+      "members":{
+        "macAddress":{"shape":"String"},
+        "attachmentArn":{"shape":"String"},
+        "ec2Id":{"shape":"String"},
+        "ipv4Addresses":{"shape":"IPv4AddressList"},
+        "ipv6Addresses":{"shape":"IPv6AddressList"}
+      }
+    },
+    "ElasticNetworkInterfaceList":{
+      "type":"list",
+      "member":{"shape":"ElasticNetworkInterface"}
+    },
     "EnvironmentVariables":{
       "type":"map",
       "key":{"shape":"String"},
@@ -230,6 +247,27 @@
         "roleCredentials":{"shape":"IAMRoleCredentials"},
         "messageId":{"shape":"String"}
       }
+    },
+    "IPv4AddressAssignment":{
+      "type":"structure",
+      "members":{
+        "privateAddress":{"shape":"String"},
+        "primary":{"shape":"Boolean"}
+      }
+    },
+    "IPv4AddressList":{
+      "type":"list",
+      "member":{"shape":"IPv4AddressAssignment"}
+    },
+    "IPv6AddressAssignment":{
+      "type":"structure",
+      "members":{
+        "address":{"shape":"String"}
+      }
+    },
+    "IPv6AddressList":{
+      "type":"list",
+      "member":{"shape":"IPv6AddressAssignment"}
     },
     "InactiveInstanceException":{
       "type":"structure",
@@ -360,7 +398,8 @@
         "version":{"shape":"String"},
         "taskDefinitionAccountId":{"shape":"String"},
         "volumes":{"shape":"VolumeList"},
-        "roleCredentials":{"shape":"IAMRoleCredentials"}
+        "roleCredentials":{"shape":"IAMRoleCredentials"},
+        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
       }
     },
     "TaskList":{

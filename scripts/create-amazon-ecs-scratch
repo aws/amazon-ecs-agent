@@ -9,7 +9,9 @@
 
 mkdir amazon-ecs-scratch # include other directories that are needed here
 mkdir amazon-ecs-scratch/tmp
+mkdir amazon-ecs-scratch/images
+
 cd amazon-ecs-scratch
 tar -cv . | docker import - "amazon/amazon-ecs-scratch:make"
 cd ..
-rmdir amazon-ecs-scratch/tmp amazon-ecs-scratch
+rmdir amazon-ecs-scratch/tmp amazon-ecs-scratch/images amazon-ecs-scratch

@@ -16,6 +16,7 @@ package image
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,10 @@ type Image struct {
 	ImageID string
 	Names   []string
 	Size    int64
+}
+
+func (image *Image) String() string {
+	return fmt.Sprintf("ImageID: %s; Names: %s", image.ImageID, strings.Join(image.Names, ", "))
 }
 
 // ImageState represents a docker image
@@ -87,7 +92,7 @@ func (imageState *ImageState) RemoveContainerReference(container *api.Container)
 	// Get the image state write lock for updating container reference
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
-	for i, _ := range imageState.Containers {
+	for i := range imageState.Containers {
 		if imageState.Containers[i].Name == container.Name {
 			// Container reference found; hence remove it
 			seelog.Infof("Removing Container Reference: %v from Image State- %v", container.Name, imageState.Image.ImageID)
@@ -113,4 +118,13 @@ func (imageState *ImageState) MarshalJSON() ([]byte, error) {
 		PulledAt:   imageState.PulledAt,
 		LastUsedAt: imageState.LastUsedAt,
 	})
+}
+
+func (imageState *ImageState) String() string {
+	image := ""
+	if imageState.Image != nil {
+		image = imageState.Image.String()
+	}
+	return fmt.Sprintf("Image: [%s] referenced by %d containers; PulledAt: %s; LastUsedAt: %s",
+		image, len(imageState.Containers), imageState.PulledAt.String(), imageState.LastUsedAt.String())
 }

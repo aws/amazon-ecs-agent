@@ -51,6 +51,14 @@ func (_mr *_MockTaskEngineStateRecorder) AddContainer(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddContainer", arg0, arg1)
 }
 
+func (_m *MockTaskEngineState) AddENIAttachment(_param0 *api.ENIAttachment) {
+	_m.ctrl.Call(_m, "AddENIAttachment", _param0)
+}
+
+func (_mr *_MockTaskEngineStateRecorder) AddENIAttachment(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddENIAttachment", arg0)
+}
+
 func (_m *MockTaskEngineState) AddImageState(_param0 *image.ImageState) {
 	_m.ctrl.Call(_m, "AddImageState", _param0)
 }
@@ -109,6 +117,27 @@ func (_mr *_MockTaskEngineStateRecorder) ContainerMapByArn(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerMapByArn", arg0)
 }
 
+func (_m *MockTaskEngineState) ENIByMac(_param0 string) (*api.ENIAttachment, bool) {
+	ret := _m.ctrl.Call(_m, "ENIByMac", _param0)
+	ret0, _ := ret[0].(*api.ENIAttachment)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockTaskEngineStateRecorder) ENIByMac(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ENIByMac", arg0)
+}
+
+func (_m *MockTaskEngineState) GetAllContainerIDs() []string {
+	ret := _m.ctrl.Call(_m, "GetAllContainerIDs")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+func (_mr *_MockTaskEngineStateRecorder) GetAllContainerIDs() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllContainerIDs")
+}
+
 func (_m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 	ret := _m.ctrl.Call(_m, "MarshalJSON")
 	ret0, _ := ret[0].([]byte)
@@ -118,6 +147,14 @@ func (_m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 
 func (_mr *_MockTaskEngineStateRecorder) MarshalJSON() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarshalJSON")
+}
+
+func (_m *MockTaskEngineState) RemoveENIAttachment(_param0 string) {
+	_m.ctrl.Call(_m, "RemoveENIAttachment", _param0)
+}
+
+func (_mr *_MockTaskEngineStateRecorder) RemoveENIAttachment(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveENIAttachment", arg0)
 }
 
 func (_m *MockTaskEngineState) RemoveImageState(_param0 *image.ImageState) {
@@ -156,6 +193,17 @@ func (_m *MockTaskEngineState) TaskByID(_param0 string) (*api.Task, bool) {
 
 func (_mr *_MockTaskEngineStateRecorder) TaskByID(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByID", arg0)
+}
+
+func (_m *MockTaskEngineState) TaskByShortID(_param0 string) ([]*api.Task, bool) {
+	ret := _m.ctrl.Call(_m, "TaskByShortID", _param0)
+	ret0, _ := ret[0].([]*api.Task)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockTaskEngineStateRecorder) TaskByShortID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TaskByShortID", arg0)
 }
 
 func (_m *MockTaskEngineState) UnmarshalJSON(_param0 []byte) error {

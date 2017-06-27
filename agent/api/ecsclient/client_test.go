@@ -95,13 +95,13 @@ func TestSubmitContainerStateChange(t *testing.T) {
 			ContainerName: strptr("cont"),
 			Status:        strptr("RUNNING"),
 			NetworkBindings: []*ecs.NetworkBinding{
-				&ecs.NetworkBinding{
+				{
 					BindIP:        strptr("1.2.3.4"),
 					ContainerPort: int64ptr(intptr(1)),
 					HostPort:      int64ptr(intptr(2)),
 					Protocol:      strptr("tcp"),
 				},
-				&ecs.NetworkBinding{
+				{
 					BindIP:        strptr("2.2.3.4"),
 					ContainerPort: int64ptr(intptr(3)),
 					HostPort:      int64ptr(intptr(4)),
@@ -115,12 +115,12 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		ContainerName: "cont",
 		Status:        api.ContainerRunning,
 		PortBindings: []api.PortBinding{
-			api.PortBinding{
+			{
 				BindIP:        "1.2.3.4",
 				ContainerPort: 1,
 				HostPort:      2,
 			},
-			api.PortBinding{
+			{
 				BindIP:        "2.2.3.4",
 				ContainerPort: 3,
 				HostPort:      4,
@@ -149,7 +149,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 			ExitCode:      int64ptr(&exitCode),
 			Reason:        strptr(reason),
 			NetworkBindings: []*ecs.NetworkBinding{
-				&ecs.NetworkBinding{
+				{
 					BindIP:        strptr(""),
 					ContainerPort: int64ptr(intptr(0)),
 					HostPort:      int64ptr(intptr(0)),
@@ -165,7 +165,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		ExitCode:      &exitCode,
 		Reason:        reason,
 		PortBindings: []api.PortBinding{
-			api.PortBinding{},
+			{},
 		},
 	})
 	if err != nil {
@@ -380,8 +380,14 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, mockEC2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{
+			Cluster:   "",
+			AWSRegion: "us-east-1",
+		},
+		mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 

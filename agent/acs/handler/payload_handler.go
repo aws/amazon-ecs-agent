@@ -32,11 +32,12 @@ type payloadRequestHandler struct {
 	// messageBuffer is used to process PayloadMessages received from the server
 	messageBuffer chan *ecsacs.PayloadMessage
 	// ackRequest is used to send acks to the backend
-	ackRequest chan string
-	ctx        context.Context
-	taskEngine engine.TaskEngine
-	ecsClient  api.ECSClient
-	saver      statemanager.Saver
+	ackRequest  chan string
+	ctx         context.Context
+	taskEngine  engine.TaskEngine
+	ecsClient   api.ECSClient
+	saver       statemanager.Saver
+	taskHandler *eventhandler.TaskHandler
 	// cancel is used to stop go routines started by start() method
 	cancel               context.CancelFunc
 	cluster              string
@@ -47,7 +48,17 @@ type payloadRequestHandler struct {
 }
 
 // newPayloadRequestHandler returns a new payloadRequestHandler object
-func newPayloadRequestHandler(ctx context.Context, taskEngine engine.TaskEngine, ecsClient api.ECSClient, cluster string, containerInstanceArn string, acsClient wsclient.ClientServer, saver statemanager.Saver, refreshHandler refreshCredentialsHandler, credentialsManager credentials.Manager) payloadRequestHandler {
+func newPayloadRequestHandler(
+	ctx context.Context,
+	taskEngine engine.TaskEngine,
+	ecsClient api.ECSClient,
+	cluster string,
+	containerInstanceArn string,
+	acsClient wsclient.ClientServer,
+	saver statemanager.Saver,
+	refreshHandler refreshCredentialsHandler,
+	credentialsManager credentials.Manager,
+	taskHandler *eventhandler.TaskHandler) payloadRequestHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return payloadRequestHandler{
@@ -56,6 +67,7 @@ func newPayloadRequestHandler(ctx context.Context, taskEngine engine.TaskEngine,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
 		saver:                saver,
+		taskHandler:          taskHandler,
 		ctx:                  derivedContext,
 		cancel:               cancel,
 		cluster:              cluster,
@@ -193,6 +205,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
 		}
+
+		// Adding the eni information to the task struct
+		if len(task.ElasticNetworkInterfaces) != 0 {
+			eni, err := api.ENIFromACS(task.ElasticNetworkInterfaces)
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
+			}
+
+			apiTask.SetTaskENI(eni)
+		}
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out
@@ -274,11 +298,13 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 	}
 
 	// Only need to stop the task; it brings down the containers too.
-	eventhandler.AddTaskEvent(api.TaskStateChange{
+	taskEvent := api.TaskStateChange{
 		TaskArn: *task.Arn,
 		Status:  api.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
-	}, payloadHandler.ecsClient)
+	}
+
+	payloadHandler.taskHandler.AddStateChangeEvent(taskEvent, payloadHandler.ecsClient)
 }
 
 // clearAcks drains the ack request channel

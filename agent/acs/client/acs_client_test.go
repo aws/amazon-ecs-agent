@@ -28,9 +28,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 )
 
-const sampleCredentialsMessage = `
+const (
+	sampleCredentialsMessage = `
 {
   "type": "IAMRoleCredentialsMessage",
   "message": {
@@ -48,6 +50,29 @@ const sampleCredentialsMessage = `
   }
 }
 `
+	sampleAttachENIMessage = `
+{
+  "type": "AttachTaskNetworkInterfacesMessage",
+  "message": {
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "task",
+    "elasticNetworkInterfaces":[{
+      "attachmentArn": "attach_arn",
+      "ec2Id": "eni_id",
+      "ipv4Addresses":[{
+        "primary": true,
+        "privateAddress": "ipv4"
+      }],
+      "ipv6Addresses":[{
+        "address": "ipv6"
+      }],
+      "macAddress": "mac"
+    }]
+  }
+}
+`
+)
 
 type messageLogger struct {
 	writes [][]byte
@@ -364,4 +389,56 @@ func TestConnectClientError(t *testing.T) {
 	if _, ok := err.(*wsclient.WSError); !ok || err.Error() != "InvalidClusterException: Invalid cluster" {
 		t.Error("Did not get correctly typed error: " + err.Error())
 	}
+}
+
+func TestAttachENIHandlerCalled(t *testing.T) {
+	cs, ml := testCS()
+
+	handlerCalled := make(chan struct{})
+	var handledMessage *ecsacs.AttachTaskNetworkInterfacesMessage
+	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
+		handledMessage = message
+		handlerCalled <- struct{}{}
+	}
+
+	cs.AddRequestHandler(reqHandler)
+
+	ml.reads = [][]byte{[]byte(sampleAttachENIMessage)}
+	var isClosed bool
+	go func() {
+		err := cs.Serve()
+		if !isClosed {
+			assert.NoError(t, err)
+		}
+	}()
+
+	<-handlerCalled
+
+	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:  aws.String("123"),
+		ClusterArn: aws.String("default"),
+		TaskArn:    aws.String("task"),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{AttachmentArn: aws.String("attach_arn"),
+				Ec2Id: aws.String("eni_id"),
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String("ipv4"),
+					},
+				},
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String("ipv6"),
+					},
+				},
+				MacAddress: aws.String("mac"),
+			},
+		},
+	}
+
+	assert.Equal(t, expectedMessage, handledMessage)
+
+	isClosed = true
+	cs.Close()
 }
