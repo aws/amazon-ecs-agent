@@ -675,10 +675,10 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
 		}
 	}
-	md := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	containerMetadata := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 
 	// Get metadata through container inspection and available task information then convert this to writable metadata
-	if md.Error == nil {
+	if containerMetadata.Error == nil {
 		err := engine.updateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
 			seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, err.Error())
@@ -686,7 +686,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			seelog.Debugf("Updated metadata file for task %s container %s", task, container)
 		}
 	}
-	return md
+	return containerMetadata
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
