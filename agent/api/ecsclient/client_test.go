@@ -32,8 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -42,12 +40,11 @@ import (
 const configuredCluster = "mycluster"
 
 func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, additionalAttributes map[string]string) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
 	client := NewECSClient(credentials.AnonymousCredentials,
 		&config.Config{Cluster: configuredCluster,
 			AWSRegion:          "us-east-1",
 			InstanceAttributes: additionalAttributes,
-		}, ec2Metadata, taskEngine)
+		}, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -383,10 +380,14 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
 
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, mockEC2Metadata, taskEngine)
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{
+			Cluster:   "",
+			AWSRegion: "us-east-1",
+		},
+		mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 
