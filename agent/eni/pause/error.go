@@ -29,10 +29,23 @@ func UnsupportedPlatform(err error) bool {
 	return ok
 }
 
+// NewUnsupportedPlatformError creates a new UnsupportedPlatformError object
+func NewUnsupportedPlatformError(err error) UnsupportedPlatformError {
+	return UnsupportedPlatformError{err}
+}
+
+// NoSuchFileError wraps the error from the os package with the message
+// "no such file error"
 type NoSuchFileError struct {
 	error
 }
 
+// NewNoSuchFileError creates a new NoSuchFileError object
+func NewNoSuchFileError(err error) NoSuchFileError {
+	return NoSuchFileError{err}
+}
+
+// IsNoSuchFileError returns true if the error is of NoSuchFileError type
 func IsNoSuchFileError(err error) bool {
 	_, ok := err.(NoSuchFileError)
 	return ok

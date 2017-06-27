@@ -28,7 +28,7 @@ import (
 )
 
 // LoadImage helps load the pause container image for the agent
-func LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
+func (*loader) LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
 	if err := loadFromFile(cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
 		return nil, err
@@ -42,8 +42,8 @@ func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSyste
 	pauseContainerReader, err := fs.Open(path)
 	if err != nil {
 		if err.Error() == noSuchFile {
-			return NoSuchFileError{errors.Wrapf(err,
-				"pause container load: failed to read pause container image: %s", path)}
+			return NewNoSuchFileError(errors.Wrapf(err,
+				"pause container load: failed to read pause container image: %s", path))
 		}
 		return errors.Wrapf(err,
 			"pause container load: failed to read pause container image: %s", path)

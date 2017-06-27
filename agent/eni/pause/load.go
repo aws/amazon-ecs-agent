@@ -1,6 +1,4 @@
-// +build !linux
-
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,17 +14,20 @@
 package pause
 
 import (
-	"runtime"
-
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/pkg/errors"
 )
 
-// LoadImage returns UnsupportedPlatformError on the unsupported platform
-func (*loader) LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
-	return nil, NewUnsupportedPlatformError(errors.Errorf(
-		"pause container load: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+// Loader defines an interface for loading the pause container image. This is mostly
+// to facilitate mocking and testing of the LoadImage method
+type Loader interface {
+	LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error)
+}
+
+type loader struct{}
+
+// New creates a new pause image loader
+func New() Loader {
+	return &loader{}
 }

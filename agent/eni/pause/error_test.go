@@ -24,8 +24,8 @@ import (
 
 func TestUnsupportedPlatform(t *testing.T) {
 	testCases := map[error]bool{
-		errors.New("error"):                           false,
-		UnsupportedPlatformError{errors.New("error")}: true,
+		errors.New("error"):                              false,
+		NewUnsupportedPlatformError(errors.New("error")): true,
 	}
 
 	for err, expected := range testCases {
@@ -37,8 +37,8 @@ func TestUnsupportedPlatform(t *testing.T) {
 
 func TestIsNoSuchFileError(t *testing.T) {
 	testCases := map[error]bool{
-		errors.New("error"):                         false,
-		NoSuchFileError{errors.New("No such file")}: true,
+		errors.New("error"):                            false,
+		NewNoSuchFileError(errors.New("No such file")): true,
 	}
 
 	for err, expected := range testCases {
