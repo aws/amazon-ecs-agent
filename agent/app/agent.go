@@ -28,6 +28,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
+	eniwatchersetup "github.com/aws/amazon-ecs-agent/agent/eni/setup"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -74,6 +76,7 @@ type ecsAgent struct {
 	credentialProvider    *aws_credentials.Credentials
 	stateManagerFactory   factory.StateManager
 	saveableOptionFactory factory.SaveableOption
+	pauseLoader           pause.Loader
 }
 
 // newAgent returns a new ecsAgent object
@@ -119,6 +122,7 @@ func newAgent(
 		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
+		pauseLoader:           pause.New(),
 	}, nil
 }
 
@@ -157,6 +161,25 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	// Check if Task ENI is enabled
+	if agent.cfg.TaskENIEnabled {
+		// Load the Pause container image
+		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
+			log.Criticalf("Error loading pause container image: %v", err)
+			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
+				return exitcodes.ExitTerminal
+			}
+			return exitcodes.ExitError
+		}
+		log.Info("Successfully loaded pause container image")
+		// Setup ENI Watcher
+		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine); err != nil {
+			log.Errorf("Unable to set up ENI Watcher: %v", err)
+			return exitcodes.ExitError
+		}
+		log.Debug("ENI watcher has been setup successfully")
+	}
+
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
@@ -189,7 +212,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine, stateManager,
-		deregisterInstanceEventStream, client, taskHandler)
+		deregisterInstanceEventStream, client, state, taskHandler)
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
@@ -414,6 +437,7 @@ func (agent *ecsAgent) startACSSession(
 	stateManager statemanager.StateManager,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
+	state dockerstate.TaskEngineState,
 	taskHandler *eventhandler.TaskHandler) int {
 
 	acsSession := acshandler.NewSession(
@@ -423,6 +447,7 @@ func (agent *ecsAgent) startACSSession(
 		agent.containerInstanceARN,
 		agent.credentialProvider,
 		client,
+		state,
 		stateManager,
 		taskEngine,
 		credentialsManager,

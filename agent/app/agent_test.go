@@ -16,7 +16,11 @@ package app
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
+
+	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
+	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 
 	"golang.org/x/net/context"
 
@@ -146,6 +150,44 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
+}
+
+func TestDoStartLoadImageError(t *testing.T) {
+	errorsToExitCode := map[error]int{
+		errors.New("error"):                                    exitcodes.ExitError,
+		pause.NewNoSuchFileError(errors.New("error")):          exitcodes.ExitTerminal,
+		pause.NewUnsupportedPlatformError(errors.New("error")): exitcodes.ExitTerminal,
+	}
+
+	for err, expectedExitCode := range errorsToExitCode {
+		errType := reflect.TypeOf(err)
+		t.Run(fmt.Sprintf("error type %s->expected exit code %d", errType, expectedExitCode), func(t *testing.T) {
+			ctrl, credentialsManager, state, imageManager, client,
+				dockerClient, _, _ := setup(t)
+			defer ctrl.Finish()
+
+			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+
+			mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, err)
+
+			cfg := config.DefaultConfig()
+			cfg.TaskENIEnabled = true
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:                ctx,
+				cfg:                &cfg,
+				credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
+				dockerClient:       dockerClient,
+				pauseLoader:        mockPauseLoader,
+			}
+
+			exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
+				credentialsManager, state, imageManager, client)
+			assert.Equal(t, expectedExitCode, exitCode)
+		})
+	}
 }
 
 func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
