@@ -104,7 +104,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).MinTimes(1)
 
 	gomock.InOrder(
-		mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
@@ -112,6 +111,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
+		mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil),
 		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 			// Ensures that the test waits until acs session has bee started
 			discoverEndpointsInvoked.Done()

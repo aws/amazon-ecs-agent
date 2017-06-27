@@ -158,6 +158,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		// Not a VPC. Remove task networking capability
 		// TODO Set task networking capability to be false
 		seelog.Infof("VPC and Subnet IDs are not set for instance in Instance Metadata; Disabling Task ENI capability")
+		client.config.TaskENIEnabled = false
 	}
 	// Add VPC ID and Subnet ID attributes if any
 	for _, attribute := range vpcAttributes {

@@ -162,25 +162,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
-	// Check if Task ENI is enabled
-	if agent.cfg.TaskENIEnabled {
-		// Load the Pause container image
-		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
-			log.Criticalf("Error loading pause container image: %v", err)
-			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-				return exitcodes.ExitTerminal
-			}
-			return exitcodes.ExitError
-		}
-		log.Info("Successfully loaded pause container image")
-		// Setup ENI Watcher
-		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine); err != nil {
-			log.Errorf("Unable to set up ENI Watcher: %v", err)
-			return exitcodes.ExitError
-		}
-		log.Debug("ENI watcher has been setup successfully")
-	}
-
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
@@ -202,6 +183,25 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	taskEngine.SetSaver(stateManager)
 	imageManager.SetSaver(stateManager)
 	taskEngine.MustInit(agent.ctx)
+
+	// Check if Task ENI is enabled
+	if agent.cfg.TaskENIEnabled {
+		// Load the Pause container image
+		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
+			log.Criticalf("Error loading pause container image: %v", err)
+			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
+				return exitcodes.ExitTerminal
+			}
+			return exitcodes.ExitError
+		}
+		log.Info("Successfully loaded pause container image")
+		// Setup ENI Watcher
+		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine); err != nil {
+			log.Errorf("Unable to set up ENI Watcher: %v", err)
+			return exitcodes.ExitError
+		}
+		log.Debug("ENI watcher has been setup successfully")
+	}
 
 	// Start back ground routines, including the telemetry session
 	deregisterInstanceEventStream := eventstream.NewEventStream(
@@ -368,7 +368,7 @@ func (agent *ecsAgent) registerContainerInstance(
 
 }
 
-// registerContainerInstance registers a container instance that has already been
+// reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute) error {
