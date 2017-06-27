@@ -1,4 +1,4 @@
-// +build !windows
+// +build linux
 
 // Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
