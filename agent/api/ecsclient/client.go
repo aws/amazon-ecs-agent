@@ -37,7 +37,10 @@ const (
 	ecsMaxReasonLength    = 255
 	pollEndpointCacheSize = 1
 	pollEndpointCacheTTL  = 20 * time.Minute
-	RoundtripTimeout      = 5 * time.Second
+	roundtripTimeout      = 5 * time.Second
+
+	vpcIDAttributeName    = "ecs.vpc-id"
+	subnetIDAttributeName = "ecs.subnet-id"
 )
 
 // APIECSClient implements ECSClient
@@ -59,7 +62,7 @@ func NewECSClient(
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, config.AcceptInsecureCert)
+	ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}
@@ -308,11 +311,11 @@ func (client *APIECSClient) getVPCAttributes() ([]*ecs.Attribute, error) {
 
 	return []*ecs.Attribute{
 		{
-			Name:  aws.String("ecs.vpc-id"),
+			Name:  aws.String(vpcIDAttributeName),
 			Value: aws.String(vpcID),
 		},
 		{
-			Name:  aws.String("ecs.subnet-id"),
+			Name:  aws.String(subnetIDAttributeName),
 			Value: aws.String(subnetID),
 		},
 	}, nil

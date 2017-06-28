@@ -914,12 +914,16 @@ func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
 	}
 
 	if engine.cfg.TaskENIEnabled {
-		if taskENIAttribute := engine.getTaskENIAttribute(); taskENIAttribute != nil {
-			capabilities = append(capabilities, taskENIAttribute)
+		taskENIAttribute, err := engine.getTaskENIAttribute()
+		if err != nil {
+			return capabilities
 		}
-		if taskENIVersionAttribute := engine.getTaskENIPluginVersionAttribute(); taskENIVersionAttribute != nil {
-			capabilities = append(capabilities, taskENIVersionAttribute)
+		capabilities = append(capabilities, taskENIAttribute)
+		taskENIVersionAttribute, err := engine.getTaskENIPluginVersionAttribute()
+		if err != nil {
+			return capabilities
 		}
+		capabilities = append(capabilities, taskENIVersionAttribute)
 	}
 
 	return capabilities
@@ -959,27 +963,29 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 // getTaskENIAttribute returns the ECS "task-eni" attribute if all the necessary
 // CNI plugins are present and if they contain the capabilities required to
 // configure an ENI for a task
-func (engine *DockerTaskEngine) getTaskENIAttribute() *ecs.Attribute {
+func (engine *DockerTaskEngine) getTaskENIAttribute() (*ecs.Attribute, error) {
+	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
-		// Check if we can get version information from each plugin
 		capabilities, err := engine.cniClient.Capabilities(plugin)
 		if err != nil {
 			seelog.Warnf(
 				"Task ENI not enabled due to error in getting capabilities supported by the plugin '%s': %v",
 				plugin, err)
-			return nil
+			return nil, err
 		}
 		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
 			seelog.Warnf(
-				"Task ENI not enabled as plugin '%s' doesn't support the capability '%s'",
+				"Task ENI not enabled as plugin '%s' doesn't support the capability: %s",
 				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
-			return nil
+			return nil, errors.Errorf(
+				"engine get task-eni attribute: plugin '%s' doesn't support capability: %s",
+				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
 		}
 	}
 
 	return &ecs.Attribute{
 		Name: aws.String(attributePrefix + taskENIAttributeSuffix),
-	}
+	}, nil
 }
 
 func contains(capabilities []string, capability string) bool {
@@ -998,17 +1004,17 @@ func contains(capabilities []string, capability string) bool {
 // should also emit the same version information. Also, the version information
 // doesn't contribute to placement decisions and just serves as additional
 // debugging information
-func (engine *DockerTaskEngine) getTaskENIPluginVersionAttribute() *ecs.Attribute {
+func (engine *DockerTaskEngine) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
 	version, err := engine.cniClient.Version(ecscni.ECSENIPluginName)
 	if err != nil {
 		seelog.Warnf(
 			"Unable to determine the version of the plugin '%s': %v",
 			ecscni.ECSENIPluginName, err)
-		return nil
+		return nil, err
 	}
 
 	return &ecs.Attribute{
 		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 		Value: aws.String(version),
-	}
+	}, nil
 }

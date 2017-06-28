@@ -184,6 +184,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	imageManager.SetSaver(stateManager)
 	taskEngine.MustInit(agent.ctx)
 
+	// Start back ground routines, including the telemetry session
+	deregisterInstanceEventStream := eventstream.NewEventStream(
+		deregisterContainerInstanceEventStreamName, agent.ctx)
+	deregisterInstanceEventStream.StartListening()
+	taskHandler := eventhandler.NewTaskHandler()
+
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled {
 		// Load the Pause container image
@@ -203,11 +209,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		log.Debug("ENI watcher has been setup successfully")
 	}
 
-	// Start back ground routines, including the telemetry session
-	deregisterInstanceEventStream := eventstream.NewEventStream(
-		deregisterContainerInstanceEventStreamName, agent.ctx)
-	deregisterInstanceEventStream.StartListening()
-	taskHandler := eventhandler.NewTaskHandler()
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
 

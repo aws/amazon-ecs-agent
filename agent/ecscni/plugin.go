@@ -189,6 +189,9 @@ func (client *cniClient) Version(name string) (string, error) {
 	}
 
 	version := &cniPluginVersion{}
+	// versionInfo is of the format
+	// {"version":"2017.06.0","dirty":true,"gitShortHash":"226db36"}
+	// Unmarshal this
 	err = json.Unmarshal(versionInfo, version)
 	if err != nil {
 		return "", errors.Wrapf(err, "ecscni: Unmarshal version from string: %s", versionInfo)
@@ -205,6 +208,10 @@ type cniPluginVersion struct {
 	Hash    string `json:"gitShortHash"`
 }
 
+// str generates a string version of the CNI plugin version
+// Example:
+// {"version":"2017.06.0","dirty":true,"gitShortHash":"226db36"} => *226db36V2017.06.0
+// {"version":"2017.06.0","dirty":false,"gitShortHash":"326db36"} => 326db36V2017.06.0
 func (version *cniPluginVersion) str() string {
 	ver := ""
 	if version.Dirty {
