@@ -1224,8 +1224,8 @@ func TestGetTaskENIAttributeEmptyCapabilityListFromPlugin(t *testing.T) {
 			TaskENIEnabled: true,
 		},
 	}
-	attribute := taskEngine.getTaskENIAttribute()
-	assert.Nil(t, attribute)
+	_, err := taskEngine.getTaskENIAttribute()
+	assert.Error(t, err)
 }
 
 func TestGetTaskENIAttributeErrorGettingCapabilitiesFromPlugin(t *testing.T) {
@@ -1233,7 +1233,7 @@ func TestGetTaskENIAttributeErrorGettingCapabilitiesFromPlugin(t *testing.T) {
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil)
+	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(nil, errors.New("error"))
 
 	taskEngine := &DockerTaskEngine{
 		cniClient: cniClient,
@@ -1241,8 +1241,8 @@ func TestGetTaskENIAttributeErrorGettingCapabilitiesFromPlugin(t *testing.T) {
 			TaskENIEnabled: true,
 		},
 	}
-	attribute := taskEngine.getTaskENIAttribute()
-	assert.Nil(t, attribute)
+	_, err := taskEngine.getTaskENIAttribute()
+	assert.Error(t, err)
 }
 
 func TestCapabilitiesECR(t *testing.T) {
