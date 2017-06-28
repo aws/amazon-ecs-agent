@@ -48,18 +48,22 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	handler := NewTaskHandler()
+	taskarn := "taskarn"
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(1)
 
 	// Trivial: one container, no errors
-	contEvent1 := containerEvent("1")
-	contEvent2 := containerEvent("2")
-	taskEvent2 := taskEvent("2")
+	contEvent1 := containerEvent(taskarn)
+	contEvent2 := containerEvent(taskarn)
+	taskEvent2 := taskEvent(taskarn)
 
-	client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitContainerStateChange(contEvent2.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitTaskStateChange(taskEvent2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 2, len(change.Containers))
+		assert.Equal(t, taskarn, change.Containers[0].TaskArn)
+		assert.Equal(t, taskarn, change.Containers[1].TaskArn)
+		wg.Done()
+	})
 
 	handler.AddStateChangeEvent(contEvent1, client)
 	handler.AddStateChangeEvent(contEvent2, client)
@@ -74,19 +78,20 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	handler := NewTaskHandler()
+	taskarn := "taskarn"
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
-	contEvent1 := containerEvent("1")
+	taskEvent := taskEvent(taskarn)
 
 	gomock.InOrder(
-		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(retriable).Do(func(interface{}) { wg.Done() }),
-		client.EXPECT().SubmitContainerStateChange(contEvent1.(api.ContainerStateChange)).Return(nil).Do(func(interface{}) { wg.Done() }),
+		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(retriable).Do(func(interface{}) { wg.Done() }),
+		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(nil).Do(func(interface{}) { wg.Done() }),
 	)
 
-	handler.AddStateChangeEvent(contEvent1, client)
+	handler.AddStateChangeEvent(taskEvent, client)
 
 	wg.Wait()
 }
@@ -101,7 +106,7 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	completeStateChange := make(chan bool, concurrentEventCalls+1)
 	var wg sync.WaitGroup
 
-	client.EXPECT().SubmitContainerStateChange(gomock.Any()).Times(concurrentEventCalls + 1).Do(func(interface{}) {
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Times(concurrentEventCalls + 1).Do(func(interface{}) {
 		wg.Done()
 		<-completeStateChange
 	})
@@ -112,11 +117,11 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 
 	// Put on N+1 events
 	for i := 0; i < concurrentEventCalls+1; i++ {
-		handler.AddStateChangeEvent(containerEvent("concurrent_"+strconv.Itoa(i)), client)
+		handler.AddStateChangeEvent(taskEvent("concurrent_"+strconv.Itoa(i)), client)
 	}
 	wg.Wait()
 
-	//Let one change through
+	// accept a single change event
 	wg.Add(1)
 	completeStateChange <- true
 	wg.Wait()
@@ -127,57 +132,34 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	}
 }
 
-func TestSendsEventsContainerDifferences(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
-
-	handler := NewTaskHandler()
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// Test container event replacement doesn't happen
-	contEventNotReplaced := containerEvent("notreplaced1")
-	contEventSortaRedundant := containerEventStopped("notreplaced1")
-
-	client.EXPECT().SubmitContainerStateChange(contEventNotReplaced.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
-	client.EXPECT().SubmitContainerStateChange(contEventSortaRedundant.(api.ContainerStateChange)).Do(func(interface{}) { wg.Done() })
-
-	handler.AddStateChangeEvent(contEventNotReplaced, client)
-	handler.AddStateChangeEvent(contEventSortaRedundant, client)
-
-	wg.Wait()
-}
-
 func TestSendsEventsTaskDifferences(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
 	handler := NewTaskHandler()
+	taskarnA := "taskarnA"
+	taskarnB := "taskarnB"
 
-	wait := &sync.WaitGroup{}
-	wait.Add(4)
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	// Test task event replacement doesn't happen
-	notReplacedCont := containerEvent("notreplaced2")
-	sortaRedundantCont := containerEventStopped("notreplaced2")
+	taskEventA := taskEvent(taskarnA)
 
-	notReplacedTask := taskEvent("notreplaced")
-	sortaRedundantTask := taskEventStopped("notreplaced2")
+	contEventB1 := containerEvent(taskarnB)
+	contEventB2 := containerEventStopped(taskarnB)
+	taskEventB := taskEventStopped(taskarnB)
 
-	client.EXPECT().SubmitContainerStateChange(notReplacedCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitContainerStateChange(sortaRedundantCont.(api.ContainerStateChange)).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(notReplacedTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
-	client.EXPECT().SubmitTaskStateChange(sortaRedundantTask.(api.TaskStateChange)).Do(func(interface{}) { wait.Done() })
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) { wg.Done() })
 
-	handler.AddStateChangeEvent(notReplacedCont, client)
-	handler.AddStateChangeEvent(notReplacedTask, client)
-	handler.AddStateChangeEvent(sortaRedundantCont, client)
-	handler.AddStateChangeEvent(sortaRedundantTask, client)
+	handler.AddStateChangeEvent(contEventB1, client)
+	handler.AddStateChangeEvent(taskEventA, client)
+	handler.AddStateChangeEvent(contEventB2, client)
+	handler.AddStateChangeEvent(taskEventB, client)
 
-	wait.Wait()
+	wg.Wait()
 }
 
 func TestSendsEventsDedupe(t *testing.T) {
@@ -186,26 +168,33 @@ func TestSendsEventsDedupe(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	handler := NewTaskHandler()
+	taskarnA := "taskarnA"
+	taskarnB := "taskarnB"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	// Verify that a task doesn't get sent if we already have 'sent' it
-	task1 := taskEvent("alreadySent")
+	task1 := taskEvent(taskarnA)
 	task1.(api.TaskStateChange).Task.SetSentStatus(api.TaskRunning)
-	cont1 := containerEvent("alreadySent")
+	cont1 := containerEvent(taskarnA)
 	cont1.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
 	handler.AddStateChangeEvent(task1, client)
 
-	task2 := taskEvent("containerSent")
+	task2 := taskEvent(taskarnB)
 	task2.(api.TaskStateChange).Task.SetSentStatus(api.TaskStatusNone)
-	cont2 := containerEvent("containerSent")
+	cont2 := containerEvent(taskarnB)
 	cont2.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
 
 	// Expect to send a task status but not a container status
-	client.EXPECT().SubmitTaskStateChange(task2.(api.TaskStateChange)).Do(func(interface{}) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 1, len(change.Containers))
+		assert.Equal(t, taskarnB, change.Containers[0].TaskArn)
+		assert.Equal(t, taskarnB, change.TaskArn)
+		wg.Done()
+	})
 
 	handler.AddStateChangeEvent(cont2, client)
 	handler.AddStateChangeEvent(task2, client)
