@@ -49,10 +49,16 @@ const (
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	attributePrefix              = "ecs.capability."
 	taskENIAttributeSuffix       = "task-eni"
-	taskENIVersion               = "0.1.0"
-	capabilityPlugin             = "cni-plugin"
+	cniPluginVersionSuffix       = "cni-plugin-version"
 	labelPrefix                  = "com.amazonaws.ecs."
 )
+
+// awsVPCCNIPlugins is a list of CNI plugins required by the ECS Agent
+// to configure the ENI for a task
+var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
+	ecscni.ECSBridgePluginName,
+	ecscni.ECSIPAMPluginName,
+}
 
 type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
 
@@ -907,8 +913,13 @@ func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
 		}
 	}
 
-	if taskENIAttribute := engine.getTaskENIAttribute(); taskENIAttribute != nil {
-		capabilities = append(capabilities, taskENIAttribute)
+	if engine.cfg.TaskENIEnabled {
+		if taskENIAttribute := engine.getTaskENIAttribute(); taskENIAttribute != nil {
+			capabilities = append(capabilities, taskENIAttribute)
+		}
+		if taskENIVersionAttribute := engine.getTaskENIPluginVersionAttribute(); taskENIVersionAttribute != nil {
+			capabilities = append(capabilities, taskENIVersionAttribute)
+		}
 	}
 
 	return capabilities
@@ -945,34 +956,59 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	return false
 }
 
-// getTaskENIAttribute checks if the task network was enabled and whether the plugin are existed
-// TODO This method needs to be refactored to extract both version and feature flags from the
-// plugins. The task-eni capability will become a name-only capability and the version
-// information will be registered as an instance attribute
+// getTaskENIAttribute returns the ECS "task-eni" attribute if all the necessary
+// CNI plugins are present and if they contain the capabilities required to
+// configure an ENI for a task
 func (engine *DockerTaskEngine) getTaskENIAttribute() *ecs.Attribute {
-	if !engine.cfg.TaskENIEnabled {
+	for _, plugin := range awsVPCCNIPlugins {
+		// Check if we can get version information from each plugin
+		capabilities, err := engine.cniClient.Capabilities(plugin)
+		if err != nil {
+			seelog.Warnf(
+				"Task ENI not enabled due to error in getting capabilities supported by the plugin '%s': %v",
+				plugin, err)
+			return nil
+		}
+		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
+			seelog.Warnf(
+				"Task ENI not enabled as plugin '%s' doesn't support the capability '%s'",
+				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
+			return nil
+		}
+	}
+
+	return &ecs.Attribute{
+		Name: aws.String(attributePrefix + taskENIAttributeSuffix),
+	}
+}
+
+func contains(capabilities []string, capability string) bool {
+	for _, cap := range capabilities {
+		if cap == capability {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getTaskENIPluginVersionAttribute returns the version information of the ECS
+// CNI plugins. It just executes the ENI plugin as the assumption is that these
+// plugins are packaged with the ECS Agent, which means all of the other plugins
+// should also emit the same version information. Also, the version information
+// doesn't contribute to placement decisions and just serves as additional
+// debugging information
+func (engine *DockerTaskEngine) getTaskENIPluginVersionAttribute() *ecs.Attribute {
+	version, err := engine.cniClient.Version(ecscni.ECSENIPluginName)
+	if err != nil {
+		seelog.Warnf(
+			"Unable to determine the version of the plugin '%s': %v",
+			ecscni.ECSENIPluginName, err)
 		return nil
 	}
 
-	// ECS Agent requires all of these plugins to configure the ENI for a task
-	plugins := []string{"ecs-bridge", "ecs-eni", "ecs-ipam"}
-
-	for _, plugin := range plugins {
-		// Check if we can get version information from each plugin
-		version, err := engine.cniClient.Version(plugin)
-		if err != nil {
-			seelog.Warnf("Engine: Unable to get the version of plugin %s: %v", plugin, err)
-			return nil
-		}
-		if version != taskENIVersion {
-			seelog.Warnf("Engine: Incorrect version of the plugin %s found: %s", plugin, version)
-			return nil
-		}
-	}
-	// We don't need to add an attribute for each of the plugin, since all the plugin will be packaged
-	// together with the agent
 	return &ecs.Attribute{
-		Name:  aws.String(attributePrefix + taskENIAttributeSuffix),
-		Value: aws.String(taskENIVersion),
+		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+		Value: aws.String(version),
 	}
 }

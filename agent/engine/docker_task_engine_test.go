@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -1168,14 +1169,16 @@ func TestCapabilities(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	defer ctrl.Finish()
 
+	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 		}),
-		cniClient.EXPECT().Version("ecs-bridge").Return(taskENIVersion, nil),
-		cniClient.EXPECT().Version("ecs-eni").Return(taskENIVersion, nil),
-		cniClient.EXPECT().Version("ecs-ipam").Return(taskENIVersion, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -1186,16 +1189,18 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
+		attributePrefix + taskENIAttributeSuffix,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
 	for _, name := range expectedCapabilityNames {
-		expectedCapabilities = append(expectedCapabilities, &ecs.Attribute{Name: aws.String(name)})
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
 		&ecs.Attribute{
-			Name:  aws.String(attributePrefix + taskENIAttributeSuffix),
-			Value: aws.String(taskENIVersion),
+			Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+			Value: aws.String("v1"),
 		})
 
 	capabilities := taskEngine.Capabilities()
@@ -1204,6 +1209,40 @@ func TestCapabilities(t *testing.T) {
 		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
 		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
 	}
+}
+
+func TestGetTaskENIAttributeEmptyCapabilityListFromPlugin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil)
+
+	taskEngine := &DockerTaskEngine{
+		cniClient: cniClient,
+		cfg: &config.Config{
+			TaskENIEnabled: true,
+		},
+	}
+	attribute := taskEngine.getTaskENIAttribute()
+	assert.Nil(t, attribute)
+}
+
+func TestGetTaskENIAttributeErrorGettingCapabilitiesFromPlugin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil)
+
+	taskEngine := &DockerTaskEngine{
+		cniClient: cniClient,
+		cfg: &config.Config{
+			TaskENIEnabled: true,
+		},
+	}
+	attribute := taskEngine.getTaskENIAttribute()
+	assert.Nil(t, attribute)
 }
 
 func TestCapabilitiesECR(t *testing.T) {
