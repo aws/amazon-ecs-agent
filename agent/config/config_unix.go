@@ -28,7 +28,7 @@ func DefaultConfig() Config {
 		ReservedPorts:               []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
 		ReservedPortsUDP:            []uint16{},
 		DataDir:                     "/data/",
-		InstanceDataDir:             "/var/lib/ecs/",
+		InstanceDataDir:             "/var/lib/ecs",
 		DisableMetrics:              false,
 		ReservedMemory:              0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver},

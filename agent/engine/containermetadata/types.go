@@ -16,6 +16,7 @@ type PortMapping struct {
 // in docker containers
 type NetworkMetadata struct {
 	ports       []PortMapping
+	networkMode string
 	gateway     string
 	iPAddress   string
 	iPv6Gateway string
@@ -23,22 +24,24 @@ type NetworkMetadata struct {
 
 func (nm *NetworkMetadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Ports       []PortMapping
-		Gateway     string
-		IPAddress   string
-		IPv6Gateway string
+		Ports       []PortMapping `json:"PortMappings, omitempty"`
+		NetworkMode string        `json:"NetworkMode, omitempty"`
+		Gateway     string        `json:"Gateway, omitempty"`
+		IPAddress   string        `json:"IPAdress, omitempty"`
+		IPv6Gateway string        `json:"IPv6Gateway, omitempty"`
 	}{
 		Ports:       nm.ports,
+		NetworkMode: nm.networkMode,
 		Gateway:     nm.gateway,
 		IPAddress:   nm.iPAddress,
 		IPv6Gateway: nm.iPv6Gateway,
 	})
 }
 
-// DockerMetadata keeps track of all metadata acquired from Docker inspection
+// DockerContainerMetadata keeps track of all metadata acquired from Docker inspection
 // Has redundancies with engine.DockerContainerMetadata but packages all
 // docker metadata we want in the service so we can change features easily
-type DockerMetadata struct {
+type DockerContainerMetadata struct {
 	status        string
 	containerID   string
 	containerName string
@@ -47,8 +50,9 @@ type DockerMetadata struct {
 	networkInfo   *NetworkMetadata
 }
 
-// AWSMetadata keeps track of all metadata acquired from AWS
-type AWSMetadata struct {
+// TaskStaticMetadata keeps track of all metadata associated with a task
+// provided by AWS, does not depend on the creation of the container
+type TaskStaticMetadata struct {
 	clusterArn string `json:"ClusterArn, omitempty"`
 	taskArn    string `json:"TaskArn, omitempty"`
 }
@@ -68,14 +72,18 @@ type Metadata struct {
 
 func (m *Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Status        string           `json:"Status, omitempty"`
-		ContainerID   string           `json:"ContainerID, omitempty"`
-		ContainerName string           `json:"ContainerName, omitempty"`
-		ImageID       string           `json:"ImageID, omitempty"`
-		ImageName     string           `json:"ImageName, omitempty"`
-		ClusterArn    string           `json:"ClusterArn, omitempty"`
-		TaskArn       string           `json:"TaskArn, omitempty"`
-		Network       *NetworkMetadata `json:"Network, omitempty"`
+		Status        string `json:"Status, omitempty"`
+		ContainerID   string `json:"ContainerID, omitempty"`
+		ContainerName string `json:"ContainerName, omitempty"`
+		ImageID       string `json:"ImageID, omitempty"`
+		ImageName     string `json:"ImageName, omitempty"`
+		ClusterArn    string `json:"ClusterArn, omitempty"`
+		TaskArn       string `json:"TaskArn, omitempty"`
+		//NetworkMode   string `json:"NetworkMode, omitempty"`
+		//Gateway       string `json:"Gateway, omitempty"`
+		//IPAddress     string `json:"IPAddress, omitempty"`
+		//IPv6Gateway   string `json:"IPv6Gateway, omitempty"`
+		Network *NetworkMetadata `json:"Network, omitempty"`
 	}{
 		Status:        m.status,
 		ContainerID:   m.containerID,
