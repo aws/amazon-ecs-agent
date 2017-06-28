@@ -20,6 +20,9 @@ import (
 const (
 	// versionCommand is the command used to get the version of plugin
 	versionCommand = "--version"
+	// capabilitiesCommand is the command used to get the capabilities of a
+	// CNI plugin
+	capabilitiesCommand = "--capabilities"
 	// defaultEthName is the name of veth pair name in the container namespace
 	defaultEthName = "ecs-eth0"
 	// defaultBridgeName is the default name of bridge created for container to
@@ -29,15 +32,20 @@ const (
 	netnsFormat = "/proc/%s/ns/net"
 	// ecsSubnet is the available ip addresses to use for task networking
 	ecsSubnet = "169.254.172.0/22"
+
+	// ECSIPAMPluginName is the binary of the ipam plugin
+	ECSIPAMPluginName = "ecs-ipam"
+	// ECSBridgePluginName is the binary of the bridge plugin
+	ECSBridgePluginName = "ecs-bridge"
+	// ECSENIPluginName is the binary of the eni plugin
+	ECSENIPluginName = "ecs-eni"
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
-	// ipamPluginName is the binary of the ipam plugin
-	ipamPluginName = "ecs-ipam"
-	// bridgePluginName is the binary of the bridge plugin
-	bridgePluginName = "ecs-bridge"
-	// eniPluginName is the binary of the eni plugin
-	eniPluginName = "ecs-eni"
+	// CapabilityAWSVPCNetworkingMode is the capability string, which when
+	// present in the output of the '--capabilities' command of a CNI plugin
+	// indicates that the plugin can support the ECS "awsvpc" network mode
+	CapabilityAWSVPCNetworkingMode = "awsvpc-network-mode"
 )
 
 // IPAMConfig contains all the information needed to invoke the ipam plugin

@@ -27,19 +27,20 @@ import (
 	"github.com/pkg/errors"
 )
 
+// CNIClient defines the method of setting/cleaning up container namespace
+type CNIClient interface {
+	Version(string) (string, error)
+	Capabilities(string) ([]string, error)
+	SetupNS(*Config) error
+	CleanupNS(*Config) error
+}
+
 // cniClient is the client to call plugin and setup the network
 type cniClient struct {
 	pluginsPath string
 	cniVersion  string
 	subnet      string
 	libcni      libcni.CNI
-}
-
-// CNIClient defines the method of setting/cleaning up container namespace
-type CNIClient interface {
-	Version(string) (string, error)
-	SetupNS(*Config) error
-	CleanupNS(*Config) error
 }
 
 // NewClient creates a client of ecscni which is used to invoke the plugin
@@ -106,7 +107,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 
 	ipamConf := IPAMConfig{
-		Type:        ipamPluginName,
+		Type:        ECSIPAMPluginName,
 		CNIVersion:  client.cniVersion,
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
@@ -123,14 +124,14 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		bridgeName = cfg.BridgeName
 	}
 	bridgeConf := BridgeConfig{
-		Type:       bridgePluginName,
+		Type:       ECSBridgePluginName,
 		CNIVersion: client.cniVersion,
 		BridgeName: bridgeName,
 		IPAM:       ipamConf,
 	}
 
 	eniConf := ENIConfig{
-		Type:        eniPluginName,
+		Type:        ECSENIPluginName,
 		CNIVersion:  client.cniVersion,
 		ENIID:       cfg.ENIID,
 		IPV4Address: cfg.ENIIPV4Address,
@@ -146,7 +147,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	plugins := []*libcni.NetworkConfig{
 		&libcni.NetworkConfig{
 			Network: &types.NetConf{
-				Type: bridgePluginName,
+				Type: ECSBridgePluginName,
 			},
 			Bytes: bridgeConfBytes,
 		},
@@ -159,7 +160,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 	plugins = append(plugins, &libcni.NetworkConfig{
 		Network: &types.NetConf{
-			Type: eniPluginName,
+			Type: ECSENIPluginName,
 		},
 		Bytes: eniConfBytes,
 	})
@@ -175,7 +176,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 func (client *cniClient) Version(name string) (string, error) {
 	file := filepath.Join(client.pluginsPath, name)
 
-	// Check if the plugin execute file exists
+	// Check if the plugin file exists before executing it
 	_, err := os.Stat(file)
 	if err != nil {
 		return "", err
@@ -187,13 +188,54 @@ func (client *cniClient) Version(name string) (string, error) {
 		return "", err
 	}
 
-	version := &struct {
-		Version string `json:"version"`
-	}{}
+	version := &cniPluginVersion{}
 	err = json.Unmarshal(versionInfo, version)
 	if err != nil {
 		return "", errors.Wrapf(err, "ecscni: Unmarshal version from string: %s", versionInfo)
 	}
 
-	return version.Version, nil
+	return version.str(), nil
+}
+
+// cniPluginVersion is used to convert the JSON output of the
+// '--version' command into a string
+type cniPluginVersion struct {
+	Version string `json:"version"`
+	Dirty   bool   `json:"dirty"`
+	Hash    string `json:"gitShortHash"`
+}
+
+func (version *cniPluginVersion) str() string {
+	ver := ""
+	if version.Dirty {
+		ver = "*"
+	}
+	return ver + version.Hash + "V" + version.Version
+}
+
+// Capabilities returns the capabilities supported by a plugin
+func (client *cniClient) Capabilities(name string) ([]string, error) {
+	file := filepath.Join(client.pluginsPath, name)
+
+	// Check if the plugin file exists before executing it
+	_, err := os.Stat(file)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command(file, capabilitiesCommand)
+	capabilitiesInfo, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	capabilities := &struct {
+		Capabilities []string `json:"capabilities"`
+	}{}
+	err = json.Unmarshal(capabilitiesInfo, capabilities)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ecscni: Unmarshal capabilities from string: %s", capabilitiesInfo)
+	}
+
+	return capabilities.Capabilities, nil
 }
