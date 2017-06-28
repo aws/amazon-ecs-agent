@@ -101,7 +101,7 @@ func acquireStaticMetadata(cfg *config.Config, task *api.Task) *Metadata {
 
 // AcquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
-func AcquireMetadata(container *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
+func acquireMetadata(container *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
 	dockerMD := acquireDockerContainerMetadata(container)
 	taskMD := acquireTaskStaticMetadata(cfg, task)
 	return &Metadata{
