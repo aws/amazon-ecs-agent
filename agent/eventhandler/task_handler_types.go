@@ -36,6 +36,7 @@ type sendableEvent struct {
 func (event *sendableEvent) String() string {
 	event.lock.RLock()
 	defer event.lock.RUnlock()
+
 	if event.isContainerEvent {
 		return "ContainerChange: " + event.containerChange.String()
 	} else {
