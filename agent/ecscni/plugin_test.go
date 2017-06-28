@@ -2,6 +2,7 @@ package ecscni
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
@@ -59,9 +60,9 @@ func TestConstructNetworkConfig(t *testing.T) {
 	eniConfig := &ENIConfig{}
 	for _, plugin := range networkConfigList.Plugins {
 		var err error
-		if plugin.Network.Type == bridgePluginName {
+		if plugin.Network.Type == ECSBridgePluginName {
 			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == eniPluginName {
+		} else if plugin.Network.Type == ECSENIPluginName {
 			err = json.Unmarshal(plugin.Bytes, eniConfig)
 		}
 		assert.NoError(t, err, "unmarshal config from bytes failed")
@@ -74,4 +75,34 @@ func TestConstructNetworkConfig(t *testing.T) {
 	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
 	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
 	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
+}
+
+func TestCNIPluginVersion(t *testing.T) {
+	testCases := []struct {
+		version *cniPluginVersion
+		str     string
+	}{
+		{
+			version: &cniPluginVersion{
+				Version: "1",
+				Dirty:   false,
+				Hash:    "hash",
+			},
+			str: "hashV1",
+		},
+		{
+			version: &cniPluginVersion{
+				Version: "1",
+				Dirty:   true,
+				Hash:    "hash",
+			},
+			str: "*hashV1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("version string %s", tc.str), func(t *testing.T) {
+			assert.Equal(t, tc.str, tc.version.str())
+		})
+	}
 }
