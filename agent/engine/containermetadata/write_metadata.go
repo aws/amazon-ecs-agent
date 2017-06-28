@@ -124,7 +124,7 @@ func UpdateMetadata(client dockerClient, cfg *config.Config, dockerID string, ta
 		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, err.Error())
 		return err
 	}
-	metadata := AcquireMetadata(dockerContainer, cfg, task)
+	metadata := acquireMetadata(dockerContainer, cfg, task)
 	err = writeJSONToMetadataFile(task, container, metadata, cfg.DataDir)
 	if err != nil {
 		seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, err.Error())
