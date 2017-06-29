@@ -1441,21 +1441,24 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	dockerClient.EXPECT().Version()
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 
-	const (
-		// These should match exactly the pause container we configured in task.go
-		pauseContainerName  = "~internal~ecs~pause"
-		pauseContainerID    = "pauseContainerID"
-		pauseContainerImage = "gcr.io/google_containers/pause:latest"
-	)
+	pauseContainerID := "pauseContainerID"
 	// Pause container will be launched first
 	gomock.InOrder(
-		dockerClient.EXPECT().PullImage(pauseContainerImage, nil).Return(DockerContainerMetadata{}),
-		dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
-			ID:    pauseContainerID,
-			State: docker.State{Pid: 123},
-		}, nil),
+		dockerClient.EXPECT().PullImage(gomock.Any(), nil).Return(DockerContainerMetadata{}),
+		dockerClient.EXPECT().CreateContainer(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(config *docker.Config, x, y, z interface{}) {
+				name, ok := config.Labels[labelPrefix+"container-name"]
+				assert.True(t, ok)
+				assert.Equal(t, api.PauseContainerName, name)
+			}).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(
+			DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(
+			&docker.Container{
+				ID:    pauseContainerID,
+				State: docker.State{Pid: 123},
+			}, nil),
 		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
 	)
 
@@ -1466,7 +1469,8 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: containerID})
 
-	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(DockerContainerMetadata{DockerID: containerID})
+	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
+		DockerContainerMetadata{DockerID: containerID})
 
 	steadyStateVerify := make(chan time.Time)
 	cleanup := make(chan time.Time)
@@ -1493,7 +1497,8 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 		State: docker.State{Pid: 123},
 	}, nil)
 	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
-	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(DockerContainerMetadata{DockerID: pauseContainerID})
+	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(
+		DockerContainerMetadata{DockerID: pauseContainerID})
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
