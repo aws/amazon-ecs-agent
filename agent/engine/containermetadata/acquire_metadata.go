@@ -72,9 +72,9 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 	}
 }
 
-// acquireTaskStaticMetadata parses metadata in the AWS configuration and task
+// acquireTaskMetadata parses metadata in the AWS configuration and task
 // and packages this data for JSON marshaling
-func acquireTaskStaticMetadata(cfg *config.Config, task *api.Task) TaskStaticMetadata {
+func acquireTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
 	clusterArnFromConfig := ""
 	if cfg != nil {
 		clusterArnFromConfig = cfg.Cluster
@@ -83,28 +83,19 @@ func acquireTaskStaticMetadata(cfg *config.Config, task *api.Task) TaskStaticMet
 	if task != nil {
 		taskArnFromConfig = task.Arn
 	}
-	return TaskStaticMetadata{
+	return TaskMetadata{
 		clusterArn: clusterArnFromConfig,
 		taskArn:    taskArnFromConfig,
 	}
 }
 
-// AcquireStaticMetadata gets the initial metadata that is available before
-// container creation, i.e. AWS generated information
-func acquireStaticMetadata(cfg *config.Config, task *api.Task) *Metadata {
-	awsMD := acquireTaskStaticMetadata(cfg, task)
-	return &Metadata{
-		clusterArn: awsMD.clusterArn,
-		taskArn:    awsMD.taskArn,
-	}
-}
-
-// AcquireMetadata gathers metadata from a docker container, and task
+// acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
-func acquireMetadata(container *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
-	dockerMD := acquireDockerContainerMetadata(container)
-	taskMD := acquireTaskStaticMetadata(cfg, task)
+func acquireMetadata(dockerContainer *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
+	dockerMD := acquireDockerContainerMetadata(dockerContainer)
+	taskMD := acquireTaskMetadata(cfg, task)
 	return &Metadata{
+		version:       taskMD.version,
 		status:        dockerMD.status,
 		containerID:   dockerMD.containerID,
 		containerName: dockerMD.containerName,
@@ -114,4 +105,8 @@ func acquireMetadata(container *docker.Container, cfg *config.Config, task *api.
 		taskArn:       taskMD.taskArn,
 		network:       dockerMD.networkInfo,
 	}
+}
+
+func acquireStaticMetadata(cfg *config.Config, task *api.Task) *Metadata {
+	return acquireMetadata(nil, cfg, task)
 }

@@ -24,6 +24,7 @@ const (
 // dockerClient is a wrapper for the docker interface functions we need
 type dockerClient interface {
 	InspectContainer(string, time.Duration) (*docker.Container, error)
+	Version() (string, error)
 }
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
@@ -83,7 +84,7 @@ func initMetadataFile(cfg *config.Config, task *api.Task, container *api.Contain
 
 	// Get common metadata of all containers of this task and write it to file
 	md := acquireStaticMetadata(cfg, task)
-	data, err := json.MarshalIndent(*md, "", "\t")
+	data, err := json.MarshalIndent(md, "", "\t")
 	if err != nil {
 		return mdFilePath, err
 	}
