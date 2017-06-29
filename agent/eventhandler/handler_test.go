@@ -132,6 +132,38 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	}
 }
 
+func TestSendsEventsContainerDifferences(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+
+	handler := NewTaskHandler()
+	taskarn := "taskarn"
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// Test container event replacement doesn't happen
+	contEvent1 := containerEvent(taskarn)
+	contEvent2 := containerEventStopped(taskarn)
+	taskEvent := taskEvent(taskarn)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 2, len(change.Containers))
+		assert.Equal(t, taskarn, change.Containers[0].TaskArn)
+		assert.Equal(t, api.ContainerRunning, change.Containers[0].Status)
+		assert.Equal(t, taskarn, change.Containers[1].TaskArn)
+		assert.Equal(t, api.ContainerStopped, change.Containers[1].Status)
+		wg.Done()
+	})
+
+	handler.AddStateChangeEvent(contEvent1, client)
+	handler.AddStateChangeEvent(contEvent2, client)
+	handler.AddStateChangeEvent(taskEvent, client)
+
+	wg.Wait()
+}
+
 func TestSendsEventsTaskDifferences(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -146,17 +178,27 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 
 	// Test task event replacement doesn't happen
 	taskEventA := taskEvent(taskarnA)
+	contEventA1 := containerEvent(taskarnA)
 
 	contEventB1 := containerEvent(taskarnB)
 	contEventB2 := containerEventStopped(taskarnB)
 	taskEventB := taskEventStopped(taskarnB)
 
-	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) { wg.Done() })
-	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) { wg.Done() })
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, taskarnB, change.TaskArn)
+		wg.Done()
+	})
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, taskarnA, change.TaskArn)
+		wg.Done()
+	})
 
 	handler.AddStateChangeEvent(contEventB1, client)
-	handler.AddStateChangeEvent(taskEventA, client)
+	handler.AddStateChangeEvent(contEventA1, client)
 	handler.AddStateChangeEvent(contEventB2, client)
+
+	handler.AddStateChangeEvent(taskEventA, client)
 	handler.AddStateChangeEvent(taskEventB, client)
 
 	wg.Wait()
