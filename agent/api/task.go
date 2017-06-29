@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
@@ -34,17 +35,15 @@ import (
 )
 
 const (
+	// PauseContainerName is the internal name for the pause container
+	PauseContainerName = "~internal~ecs~pause"
+
 	emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
 
 	// awsSDKCredentialsRelativeURIPathEnvironmentVariableName defines the name of the environment
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-	// pauseContainerName is the internal name for the pause container
-	pauseContainerName = "~internal~ecs~pause"
-	// pauseContainerImage is container image used to create the pause container
-	// TODO: Modify this to amazon/amazon-ecs-pause or something similar
-	pauseContainerImage = "gcr.io/google_containers/pause:latest"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
 	// networkModeContainerPrefix specifies the prefix string used for setting the
@@ -256,11 +255,11 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 		if container.SteadyStateDependencies == nil {
 			container.SteadyStateDependencies = make([]string, 0)
 		}
-		container.SteadyStateDependencies = append(container.SteadyStateDependencies, pauseContainerName)
+		container.SteadyStateDependencies = append(container.SteadyStateDependencies, PauseContainerName)
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
-	pauseContainer.Name = pauseContainerName
-	pauseContainer.Image = pauseContainerImage
+	pauseContainer.Name = PauseContainerName
+	pauseContainer.Image = fmt.Sprintf("%s:%s", config.PauseContainerImageName, config.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)
