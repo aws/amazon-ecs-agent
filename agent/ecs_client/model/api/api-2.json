@@ -961,7 +961,8 @@
         "journald",
         "gelf",
         "fluentd",
-        "awslogs"
+        "awslogs",
+        "logentries"
       ]
     },
     "Long":{"type":"long"},
