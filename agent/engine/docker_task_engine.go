@@ -610,7 +610,8 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	containermetadata.CreateMetadata(engine.cfg, &hostConfig.Binds, task, container)
+	// We do this in a goroutine as the call to get docker client version may block us
+	go containermetadata.CreateMetadata(engine.client, engine.cfg, &hostConfig.Binds, task, container)
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {

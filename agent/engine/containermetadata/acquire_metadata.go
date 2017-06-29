@@ -8,10 +8,12 @@ import (
 
 // acquireNetworkMetadata parses the docker.NetworkSettings struct and
 // packages the desired metadata for JSON marshaling
-func acquireNetworkMetadata(settings *docker.NetworkSettings) *NetworkMetadata {
+func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	if settings == nil {
-		return nil
+		return NetworkMetadata{}
 	}
+
+	// Scan all mapped ports
 	portMapping := make([]PortMapping, 0)
 	for port, bind := range settings.Ports {
 		containerPort := port.Port()
@@ -28,11 +30,17 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) *NetworkMetadata {
 			portMapping = append(portMapping, portMap)
 		}
 	}
-	networkModeFromContainer := ""
+
+	// This metadata is available in two different places in NetworkSettings
+	// Since a container should have only one network mode this metadata
+	// should be identical in the two locations but maybe there are other
+	// use cases?
 	gateway := settings.Gateway
 	iPAddress := settings.IPAddress
 	iPv6Gateway := settings.IPv6Gateway
-	// Assume there is at most one network mode (And if none, network is "None")
+
+	// Assume there is at most one network mode (And if none, network is "none")
+	networkModeFromContainer := ""
 	if len(settings.Networks) == 1 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkModeFromContainer = modeFromSettings
@@ -43,7 +51,7 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) *NetworkMetadata {
 	} else if len(settings.Networks) == 0 {
 		networkModeFromContainer = "none"
 	}
-	return &NetworkMetadata{
+	return NetworkMetadata{
 		ports:       portMapping,
 		networkMode: networkModeFromContainer,
 		gateway:     gateway,
@@ -54,15 +62,15 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) *NetworkMetadata {
 
 // acquireDockerContainerMetadata parses the metadata in a docker container
 // and packages this data for JSON marshaling
-func acquireDockerContainerMetadata(container *docker.Container) DockerContainerMetadata {
+func acquireDockerContainerMetadata(container *docker.Container) DockerContainerMD {
 	if container == nil {
-		return DockerContainerMetadata{}
+		return DockerContainerMD{}
 	}
 	imageNameFromConfig := ""
 	if container.Config != nil {
 		imageNameFromConfig = container.Config.Image
 	}
-	return DockerContainerMetadata{
+	return DockerContainerMD{
 		status:        container.State.StateString(),
 		containerID:   container.ID,
 		containerName: container.Name,
@@ -74,7 +82,14 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 
 // acquireTaskMetadata parses metadata in the AWS configuration and task
 // and packages this data for JSON marshaling
-func acquireTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
+func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api.Task) TaskMetadata {
+	// Get docker version from client. May block metadata file updates so the file changes
+	// should be made in a goroutine as this does a docker client call
+	version, err := client.Version()
+	if err != nil {
+		version = ""
+	}
+
 	clusterArnFromConfig := ""
 	if cfg != nil {
 		clusterArnFromConfig = cfg.Cluster
@@ -84,6 +99,7 @@ func acquireTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
 		taskArnFromConfig = task.Arn
 	}
 	return TaskMetadata{
+		version:    version,
 		clusterArn: clusterArnFromConfig,
 		taskArn:    taskArnFromConfig,
 	}
@@ -91,10 +107,10 @@ func acquireTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
 
 // acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
-func acquireMetadata(dockerContainer *docker.Container, cfg *config.Config, task *api.Task) *Metadata {
-	dockerMD := acquireDockerContainerMetadata(dockerContainer)
-	taskMD := acquireTaskMetadata(cfg, task)
-	return &Metadata{
+func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg *config.Config, task *api.Task) Metadata {
+	dockerMD := acquireDockerContainerMetadata(container)
+	taskMD := acquireTaskMetadata(client, cfg, task)
+	return Metadata{
 		version:       taskMD.version,
 		status:        dockerMD.status,
 		containerID:   dockerMD.containerID,
@@ -103,10 +119,17 @@ func acquireMetadata(dockerContainer *docker.Container, cfg *config.Config, task
 		imageName:     dockerMD.imageName,
 		clusterArn:    taskMD.clusterArn,
 		taskArn:       taskMD.taskArn,
-		network:       dockerMD.networkInfo,
+		ports:         dockerMD.networkInfo.ports,
+		networkMode:   dockerMD.networkInfo.networkMode,
+		gateway:       dockerMD.networkInfo.gateway,
+		iPAddress:     dockerMD.networkInfo.iPAddress,
+		iPv6Gateway:   dockerMD.networkInfo.iPv6Gateway,
 	}
 }
 
-func acquireStaticMetadata(cfg *config.Config, task *api.Task) *Metadata {
-	return acquireMetadata(nil, cfg, task)
+// acquireMetadataAtContainerCreate gathers metadata from task and cluster configurations
+// then packages it for JSON Marshaling. We use this version to get data
+// available prior to container creation
+func acquireMetadataAtContainerCreate(client dockerDummyClient, cfg *config.Config, task *api.Task) Metadata {
+	return acquireMetadata(client, nil, cfg, task)
 }

@@ -12,20 +12,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
-
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
 	inspectContainerTimeout = 30 * time.Second
 	metadataFile            = "metadata.json"
 )
-
-// dockerClient is a wrapper for the docker interface functions we need
-type dockerClient interface {
-	InspectContainer(string, time.Duration) (*docker.Container, error)
-	Version() (string, error)
-}
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
 func getTaskIDfromArn(taskarn string) string {
@@ -54,20 +46,21 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 
 // writeToMetadata writes given data into the metadata file
 func writeToMetadata(task *api.Task, container *api.Container, data []byte, dataDir string) error {
-	mdFilePath := getMetadataFilePath(task, container, dataDir) + metadataFile
+	mdFileDir := getMetadataFilePath(task, container, dataDir)
+	mdFilePath := fmt.Sprintf("%s/%s", mdFileDir, metadataFile)
 
-	mdfile, err := os.OpenFile(mdFilePath, os.O_WRONLY, 0644)
-	defer mdfile.Close()
+	mdFile, err := os.OpenFile(mdFilePath, os.O_WRONLY, 0644)
+	defer mdFile.Close()
 	if err != nil {
 		return err
 	}
-	_, err = mdfile.Write(data)
+	_, err = mdFile.Write(data)
 	return err
 }
 
 // initMetadataFile initializes metadata file and populates it with initially available
 // metadata about the container's task and instance
-func initMetadataFile(cfg *config.Config, task *api.Task, container *api.Container) (string, error) {
+func initMetadataFile(client dockerDummyClient, cfg *config.Config, task *api.Task, container *api.Container) (string, error) {
 	// Create task and container directories if they do not yet exist
 	mdDirectoryPath := getMetadataFilePath(task, container, cfg.DataDir)
 	err := os.MkdirAll(mdDirectoryPath, os.ModePerm)
@@ -83,7 +76,7 @@ func initMetadataFile(cfg *config.Config, task *api.Task, container *api.Contain
 	}
 
 	// Get common metadata of all containers of this task and write it to file
-	md := acquireStaticMetadata(cfg, task)
+	md := acquireMetadataAtContainerCreate(client, cfg, task)
 	data, err := json.MarshalIndent(md, "", "\t")
 	if err != nil {
 		return mdFilePath, err
@@ -93,8 +86,13 @@ func initMetadataFile(cfg *config.Config, task *api.Task, container *api.Contain
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
-func CreateMetadata(cfg *config.Config, binds *[]string, task *api.Task, container *api.Container) error {
-	metadataPath, err := initMetadataFile(cfg, task, container)
+func CreateMetadata(client dockerDummyClient, cfg *config.Config, binds *[]string, task *api.Task, container *api.Container) error {
+	// Do not create metadata file for internal containers
+	if container.IsInternal {
+		return nil
+	}
+
+	metadataPath, err := initMetadataFile(client, cfg, task, container)
 	if err != nil {
 		seelog.Errorf("Failed to create metadata file at %s. Error: %s", metadataPath, err.Error())
 		return err
@@ -109,8 +107,8 @@ func CreateMetadata(cfg *config.Config, binds *[]string, task *api.Task, contain
 
 // WriteJSONToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func writeJSONToMetadataFile(task *api.Task, container *api.Container, metadata *Metadata, dataDir string) error {
-	data, err := json.MarshalIndent(metadata, "", "\t")
+func writeJSONToMetadataFile(task *api.Task, container *api.Container, metadata Metadata, dataDir string) error {
+	data, err := json.MarshalIndent(&metadata, "", "\t")
 	if err != nil {
 		return err
 	}
@@ -119,13 +117,18 @@ func writeJSONToMetadataFile(task *api.Task, container *api.Container, metadata 
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
-func UpdateMetadata(client dockerClient, cfg *config.Config, dockerID string, task *api.Task, container *api.Container) error {
+func UpdateMetadata(client dockerDummyClient, cfg *config.Config, dockerID string, task *api.Task, container *api.Container) error {
+	// Do not update (non-existent) metadata file for internal containers
+	if container.IsInternal {
+		return nil
+	}
+
 	dockerContainer, err := client.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
 		seelog.Errorf("Failed to inspect container %s of task %s, error: %s", container, task, err.Error())
 		return err
 	}
-	metadata := acquireMetadata(dockerContainer, cfg, task)
+	metadata := acquireMetadata(client, dockerContainer, cfg, task)
 	err = writeJSONToMetadataFile(task, container, metadata, cfg.DataDir)
 	if err != nil {
 		seelog.Errorf("Failed to update metadata file for task %s container %s, error: %s", task, container, err.Error())

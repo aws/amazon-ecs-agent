@@ -2,7 +2,17 @@ package containermetadata
 
 import (
 	"encoding/json"
+	docker "github.com/fsouza/go-dockerclient"
+	"time"
 )
+
+// dockerDummyClient is a wrapper for the docker interface functions we need
+// We use this as a dummy type to be able to pass in engine.DockerClient to
+// our functions without creating import cycles
+type dockerDummyClient interface {
+	InspectContainer(string, time.Duration) (*docker.Container, error)
+	Version() (string, error)
+}
 
 // PortMapping holds data about the container's port bind to the host
 type PortMapping struct {
@@ -22,34 +32,16 @@ type NetworkMetadata struct {
 	iPv6Gateway string
 }
 
-/*
-func (nm *NetworkMetadata) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Ports       []PortMapping `json:"PortMappings, omitempty"`
-		NetworkMode string        `json:"NetworkMode, omitempty"`
-		Gateway     string        `json:"Gateway, omitempty"`
-		IPAddress   string        `json:"IPAdress, omitempty"`
-		IPv6Gateway string        `json:"IPv6Gateway, omitempty"`
-	}{
-		Ports:       nm.ports,
-		NetworkMode: nm.networkMode,
-		Gateway:     nm.gateway,
-		IPAddress:   nm.iPAddress,
-		IPv6Gateway: nm.iPv6Gateway,
-	})
-}
-*/
-
-// DockerContainerMetadata keeps track of all metadata acquired from Docker inspection
-// Has redundancies with engine.DockerContainerMetadata but packages all
+// DockerContainerMD keeps track of all metadata acquired from Docker inspection
+// Has redundancies with engine.DockerContainerMetadata but this packages all
 // docker metadata we want in the service so we can change features easily
-type DockerContainerMetadata struct {
+type DockerContainerMD struct {
 	status        string
 	containerID   string
 	containerName string
 	imageID       string
 	imageName     string
-	networkInfo   *NetworkMetadata
+	networkInfo   NetworkMetadata
 }
 
 // TaskMetadata keeps track of all metadata associated with a task
@@ -73,19 +65,14 @@ type Metadata struct {
 	imageID           string
 	containerName     string
 	containerID       string
-	network           *NetworkMetadata
+	ports             []PortMapping
+	networkMode       string
+	gateway           string
+	iPAddress         string
+	iPv6Gateway       string
 }
 
 func (m *Metadata) MarshalJSON() ([]byte, error) {
-	var ports []PortMapping
-	var networkMode, gateway, iPAddress, iPv6Gateway string
-	if m.network != nil {
-		ports = m.network.ports
-		networkMode = m.network.networkMode
-		gateway = m.network.gateway
-		iPAddress = m.network.iPAddress
-		iPv6Gateway = m.network.iPv6Gateway
-	}
 	return json.Marshal(struct {
 		Version           string        `json:"DockerVersion, omitempty"`
 		Status            string        `json:"Status, omitempty"`
@@ -101,7 +88,6 @@ func (m *Metadata) MarshalJSON() ([]byte, error) {
 		Gateway           string        `json:"Gateway, omitempty"`
 		IPAddress         string        `json:"IPAddress, omitempty"`
 		IPv6Gateway       string        `json:"IPv6Gateway, omitempty"`
-		//		Network           *NetworkMetadata `json:"Network, omitempty"`
 	}{
 		Version:           m.version,
 		Status:            m.status,
@@ -112,11 +98,10 @@ func (m *Metadata) MarshalJSON() ([]byte, error) {
 		ImageID:           m.imageID,
 		ContainerName:     m.containerName,
 		ContainerID:       m.containerID,
-		Ports:             ports,
-		NetworkMode:       networkMode,
-		Gateway:           gateway,
-		IPAddress:         iPAddress,
-		IPv6Gateway:       iPv6Gateway,
-		//		Network:       m.network,
+		Ports:             m.ports,
+		NetworkMode:       m.networkMode,
+		Gateway:           m.gateway,
+		IPAddress:         m.iPAddress,
+		IPv6Gateway:       m.iPv6Gateway,
 	})
 }
