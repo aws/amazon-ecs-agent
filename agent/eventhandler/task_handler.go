@@ -49,7 +49,8 @@ type TaskHandler struct {
 	tasksToEventsLock sync.RWMutex
 	// batchMap is used to collect container events
 	// between task transitions
-	batchMap map[string][]api.ContainerStateChange
+	batchMap     map[string][]api.ContainerStateChange
+	batchMapLock sync.RWMutex
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
@@ -88,14 +89,18 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 
 // batchContainerEvent collects container state change events for a given task arn
 func (handler *TaskHandler) batchContainerEvent(event api.ContainerStateChange) {
+	handler.batchMapLock.Lock()
 	handler.batchMap[event.TaskArn] = append(handler.batchMap[event.TaskArn], event)
+	handler.batchMapLock.Unlock()
 }
 
 // flushBatch attaches the task arn's container events to TaskStateChange event that
 // is being submittied to the backend
 func (handler *TaskHandler) flushBatch(event *api.TaskStateChange) {
+	handler.batchMapLock.Lock()
 	event.Containers = append(event.Containers, handler.batchMap[event.TaskArn]...)
 	delete(handler.batchMap, event.TaskArn)
+	handler.batchMapLock.Unlock()
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate
