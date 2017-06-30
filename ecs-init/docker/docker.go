@@ -57,6 +57,12 @@ const (
 	// For more information on capabilities, please read this manpage:
 	// http://man7.org/linux/man-pages/man7/capabilities.7.html
 	CapNetAdmin = "NET_ADMIN"
+	// CapSysAdmin to start agent with SYS_ADMIN capability
+	// This is needed for the ECS Agent to invoke the setns call when
+	// configuring the network namespace of the pause container
+	// For more information on setns, please read this manpage:
+	// http://man7.org/linux/man-pages/man2/setns.2.html
+	CapSysAdmin = "SYS_ADMIN"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -232,7 +238,7 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		Binds:       binds,
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
-		CapAdd:      []string{CapNetAdmin},
+		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
 	}
 }
 
