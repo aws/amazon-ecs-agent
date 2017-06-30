@@ -610,8 +610,12 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	// We do this in a goroutine as the call to get docker client version may block us
-	go containermetadata.CreateMetadata(engine.client, engine.cfg, &hostConfig.Binds, task, container)
+	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
+	// But we require the host Config binds to be properly set before we create the container
+	mderr := containermetadata.CreateMetadata(engine.client, engine.cfg, &hostConfig.Binds, task, container)
+	if mderr != nil {
+		seelog.Errorf("%s", mderr.Error())
+	}
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
@@ -641,14 +645,19 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
 		}
 	}
-	containerMetadata := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
-	if containerMetadata.Error == nil {
-		go containermetadata.UpdateMetadata(engine.client, engine.cfg, dockerContainer.DockerID, task, container)
+	if dockerContainerMD.Error == nil {
+		go func() {
+			err := containermetadata.UpdateMetadata(engine.client, engine.cfg, dockerContainer.DockerID, task, container)
+			if err != nil {
+				seelog.Errorf("%s", err.Error())
+			}
+		}()
 	}
-	return containerMetadata
+	return dockerContainerMD
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
