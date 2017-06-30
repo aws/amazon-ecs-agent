@@ -400,6 +400,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 	client api.ECSClient,
 	taskHandler *eventhandler.TaskHandler) {
 
+	go agent.waitOnChildProcesses(agent.ctx)
+
 	// Start of the periodic image cleanup process
 	if !agent.cfg.ImageCleanupDisabled {
 		go imageManager.StartImageCleanupProcess(agent.ctx)
