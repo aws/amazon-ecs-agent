@@ -13,7 +13,11 @@
 
 package ec2
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+)
 
 type blackholeMetadataClientImpl struct{}
 
@@ -25,10 +29,14 @@ func (blackholeMetadataClientImpl) DefaultCredentials() (*RoleCredentials, error
 	return nil, errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	return nil, errors.New("blackholed")
+func (blackholeMetadataClientImpl) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	return ec2metadata.EC2InstanceIdentityDocument{}, errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) ReadResource(path string) ([]byte, error) {
-	return nil, errors.New("blackholed")
+func (blackholeMetadataClientImpl) GetMetadata(path string) (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClientImpl) GetDynamicData(path string) (string, error) {
+	return "", errors.New("blackholed")
 }

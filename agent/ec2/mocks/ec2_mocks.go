@@ -17,9 +17,8 @@
 package mock_ec2
 
 import (
-	http "net/http"
-
 	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
+	ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -55,26 +54,37 @@ func (_mr *_MockEC2MetadataClientRecorder) DefaultCredentials() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefaultCredentials")
 }
 
-func (_m *MockEC2MetadataClient) InstanceIdentityDocument() (*ec2.InstanceIdentityDocument, error) {
+func (_m *MockEC2MetadataClient) GetDynamicData(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetDynamicData", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) GetDynamicData(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDynamicData", arg0)
+}
+
+func (_m *MockEC2MetadataClient) GetMetadata(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0)
+}
+
+func (_m *MockEC2MetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
 	ret := _m.ctrl.Call(_m, "InstanceIdentityDocument")
-	ret0, _ := ret[0].(*ec2.InstanceIdentityDocument)
+	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 func (_mr *_MockEC2MetadataClientRecorder) InstanceIdentityDocument() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InstanceIdentityDocument")
-}
-
-func (_m *MockEC2MetadataClient) ReadResource(_param0 string) ([]byte, error) {
-	ret := _m.ctrl.Call(_m, "ReadResource", _param0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockEC2MetadataClientRecorder) ReadResource(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadResource", arg0)
 }
 
 // Mock of HttpClient interface
@@ -98,13 +108,35 @@ func (_m *MockHttpClient) EXPECT() *_MockHttpClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockHttpClient) Get(_param0 string) (*http.Response, error) {
-	ret := _m.ctrl.Call(_m, "Get", _param0)
-	ret0, _ := ret[0].(*http.Response)
+func (_m *MockHttpClient) GetDynamicData(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetDynamicData", _param0)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockHttpClientRecorder) Get(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0)
+func (_mr *_MockHttpClientRecorder) GetDynamicData(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDynamicData", arg0)
+}
+
+func (_m *MockHttpClient) GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	ret := _m.ctrl.Call(_m, "GetInstanceIdentityDocument")
+	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockHttpClientRecorder) GetInstanceIdentityDocument() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInstanceIdentityDocument")
+}
+
+func (_m *MockHttpClient) GetMetadata(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockHttpClientRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0)
 }

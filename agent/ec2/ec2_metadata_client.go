@@ -16,33 +16,25 @@ package ec2
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/cihub/seelog"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
-	EC2_METADATA_SERVICE_URL                      = "http://169.254.169.254"
-	SECURITY_CREDENTIALS_RESOURCE                 = "/2014-02-25/meta-data/iam/security-credentials/"
-	INSTANCE_IDENTITY_DOCUMENT_RESOURCE           = "/2014-02-25/dynamic/instance-identity/document"
-	INSTANCE_IDENTITY_DOCUMENT_SIGNATURE_RESOURCE = "/2014-02-25/dynamic/instance-identity/signature"
-	SIGNED_INSTANCE_IDENTITY_DOCUMENT_RESOURCE    = "/2014-02-25/dynamic/instance-identity/pkcs7"
-	EC2_METADATA_REQUEST_TIMEOUT                  = time.Duration(1 * time.Second)
+	SecurityCrednetialsResource               = "iam/security-credentials/"
+	InstanceIdentityDocumentResource          = "instance-identity/document"
+	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
 )
 
 const (
-	metadataRetries            = 5
-	metadataRetryMaxDelay      = 2 * time.Second
-	metadataRetryStartDelay    = 250 * time.Millisecond
-	metadataRetryDelayMultiple = 2
+	metadataRetries = 5
 )
 
+// RoleCredentials contains the information associated with an IAM role
 type RoleCredentials struct {
 	Code            string    `json:"Code"`
 	LastUpdated     time.Time `json:"LastUpdated"`
@@ -53,135 +45,71 @@ type RoleCredentials struct {
 	Expiration      time.Time `json:"Expiration"`
 }
 
-type InstanceIdentityDocument struct {
-	InstanceId       string  `json:"instanceId"`
-	InstanceType     string  `json:"instanceType"`
-	Region           string  `json:"region"`
-	PrivateIp        *string `json:"privateIp"`
-	AvailabilityZone string  `json:"availabilityZone"`
-}
-
 type HttpClient interface {
-	Get(string) (*http.Response, error)
+	GetMetadata(string) (string, error)
+	GetDynamicData(string) (string, error)
+	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
 }
 
+// EC2MetadataClient is the client used to get metadata from instance metadata service
 type EC2MetadataClient interface {
 	DefaultCredentials() (*RoleCredentials, error)
-	ReadResource(string) ([]byte, error)
-	InstanceIdentityDocument() (*InstanceIdentityDocument, error)
+	GetMetadata(string) (string, error)
+	GetDynamicData(string) (string, error)
+	InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
 }
 
 type ec2MetadataClientImpl struct {
 	client HttpClient
 }
 
-func NewEC2MetadataClient(httpClient HttpClient) EC2MetadataClient {
-	if httpClient == nil {
-		var lowTimeoutDial http.RoundTripper = &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: EC2_METADATA_REQUEST_TIMEOUT,
-			}).Dial,
-		}
-
-		httpClient = &http.Client{Transport: lowTimeoutDial}
+// NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
+func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
+	if client == nil {
+		return &ec2MetadataClientImpl{client: ec2metadata.New(session.New(), aws.NewConfig().WithMaxRetries(metadataRetries))}
+	} else {
+		return &ec2MetadataClientImpl{client: client}
 	}
-
-	return &ec2MetadataClientImpl{client: httpClient}
 }
 
+// DefaultCredentials returns the credentials associated with the instance iam role
 func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	securityCredentialResp, err := c.ReadResource(SECURITY_CREDENTIALS_RESOURCE)
+	securityCredential, err := c.client.GetMetadata(SecurityCrednetialsResource)
 	if err != nil {
 		return nil, err
 	}
 
-	securityCredentialList := strings.Split(strings.TrimSpace(string(securityCredentialResp)), "\n")
+	securityCredentialList := strings.Split(strings.TrimSpace(securityCredential), "\n")
 	if len(securityCredentialList) == 0 {
 		return nil, errors.New("No security credentials in response")
 	}
 
 	defaultCredentialName := securityCredentialList[0]
 
-	rawResp, err := c.ReadResource(SECURITY_CREDENTIALS_RESOURCE + defaultCredentialName)
+	defaultCredentialStr, err := c.client.GetMetadata(SecurityCrednetialsResource + defaultCredentialName)
 	if err != nil {
 		return nil, err
 	}
 	var credential RoleCredentials
-	err = json.Unmarshal(rawResp, &credential)
+	err = json.Unmarshal([]byte(defaultCredentialStr), &credential)
 	if err != nil {
 		return nil, err
 	}
 	return &credential, nil
 }
 
-func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	rawIidResp, err := c.ReadResource(INSTANCE_IDENTITY_DOCUMENT_RESOURCE)
-	if err != nil {
-		return nil, err
-	}
-
-	var iid InstanceIdentityDocument
-
-	err = json.Unmarshal(rawIidResp, &iid)
-	if err != nil {
-		return nil, err
-	}
-	return &iid, nil
+// GetDynamicData returns the dynamic data with provided path from instance metadata
+func (c *ec2MetadataClientImpl) GetDynamicData(path string) (string, error) {
+	return c.client.GetDynamicData(path)
 }
 
-func (c *ec2MetadataClientImpl) ResourceServiceUrl(path string) string {
-	// TODO, override EC2_METADATA_SERVICE_URL based on the environment
-	return EC2_METADATA_SERVICE_URL + path
+// InstanceIdentityDocument returns instance identity documents
+// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
+func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	return c.client.GetInstanceIdentityDocument()
 }
 
-func (c *ec2MetadataClientImpl) ReadResource(path string) ([]byte, error) {
-	endpoint := c.ResourceServiceUrl(path)
-
-	var err error
-	var resp *http.Response
-	utils.RetryNWithBackoff(utils.NewSimpleBackoff(metadataRetryStartDelay, metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2), metadataRetries, func() error {
-		resp, err = c.client.Get(endpoint)
-		if err == nil && resp.StatusCode == 200 {
-			return nil
-		}
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-		if err == nil {
-			seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-			return fmt.Errorf("Error contacting EC2 Metadata service; non-200 response: %v", resp.StatusCode)
-		} else {
-			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
-			return err
-		}
-	})
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadAll(resp.Body)
-}
-
-// DefaultClient is the client used for package level methods.
-var DefaultClient = NewEC2MetadataClient(nil)
-
-// ReadResource reads a given path from the EC2 metadata service using the
-// default client
-func ReadResource(path string) ([]byte, error) {
-	return DefaultClient.ReadResource(path)
-}
-
-// GetInstanceIdentityDocument returns an InstanceIdentityDocument read using
-// the default client
-func GetInstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	return DefaultClient.InstanceIdentityDocument()
-}
-
-// DefaultCredentials returns the instance's default role read using the default
-// client
-func DefaultCredentials() (*RoleCredentials, error) {
-	return DefaultClient.DefaultCredentials()
+// GetMetadata returns the metadata from instance metadata service specified by the path
+func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
+	return c.client.GetMetadata(path)
 }
