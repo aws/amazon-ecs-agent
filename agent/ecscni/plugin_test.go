@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_cnitypes"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,12 @@ func TestSetupNS(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockResult := mock_types.NewMockResult(ctrl)
+
+	gomock.InOrder(
+		libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(mockResult, nil),
+		mockResult.EXPECT().String().Return(""),
+	)
 
 	err := ecscniClient.SetupNS(&Config{})
 	assert.NoError(t, err)
@@ -88,7 +94,7 @@ func TestCNIPluginVersion(t *testing.T) {
 				Dirty:   false,
 				Hash:    "hash",
 			},
-			str: "hashV1",
+			str: "hash-1",
 		},
 		{
 			version: &cniPluginVersion{
@@ -96,7 +102,7 @@ func TestCNIPluginVersion(t *testing.T) {
 				Dirty:   true,
 				Hash:    "hash",
 			},
-			str: "*hashV1",
+			str: "@hash-1",
 		},
 	}
 

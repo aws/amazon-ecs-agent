@@ -77,7 +77,7 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 		return err
 	}
 
-	seelog.Debugf("Set up container namespace done: %v", result)
+	seelog.Debugf("Set up container namespace done: %s", result.String())
 	return nil
 }
 
@@ -210,14 +210,14 @@ type cniPluginVersion struct {
 
 // str generates a string version of the CNI plugin version
 // Example:
-// {"version":"2017.06.0","dirty":true,"gitShortHash":"226db36"} => *226db36V2017.06.0
-// {"version":"2017.06.0","dirty":false,"gitShortHash":"326db36"} => 326db36V2017.06.0
+// {"version":"2017.06.0","dirty":true,"gitShortHash":"226db36"} => @226db36-2017.06.0
+// {"version":"2017.06.0","dirty":false,"gitShortHash":"326db36"} => 326db36-2017.06.0
 func (version *cniPluginVersion) str() string {
 	ver := ""
 	if version.Dirty {
-		ver = "*"
+		ver = "@"
 	}
-	return ver + version.Hash + "V" + version.Version
+	return ver + version.Hash + "-" + version.Version
 }
 
 // Capabilities returns the capabilities supported by a plugin
