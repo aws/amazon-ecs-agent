@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
@@ -72,6 +73,8 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 	}
 
 	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
+	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
+	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	result, err := client.libcni.AddNetworkList(netConfigList, cns)
 	if err != nil {
 		return err
@@ -96,6 +99,8 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 	}
 
 	seelog.Debugf("Starting clean up the container namespace: %s", cfg.ContainerID)
+	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
+	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	return client.libcni.DelNetworkList(netConfigList, cns)
 }
 
