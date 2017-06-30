@@ -33,11 +33,11 @@ type StateManager interface {
 // stateManager handles the state change of eni
 type stateManager struct {
 	agentState     dockerstate.TaskEngineState
-	eniChangeEvent chan statechange.Event
+	eniChangeEvent chan<- statechange.Event
 }
 
 // New returns a new StateManager
-func New(state dockerstate.TaskEngineState, event chan statechange.Event) StateManager {
+func New(state dockerstate.TaskEngineState, event chan<- statechange.Event) StateManager {
 	return &stateManager{
 		agentState:     state,
 		eniChangeEvent: event,
@@ -74,7 +74,7 @@ func (statemanager *stateManager) ENIStateChangeShouldBeSent(macAddress string) 
 	return eni, true
 }
 
-// HandleENIEvent handles the eni event from udev or reconcil phase
+// HandleENIEvent handles the eni event from udev or reconcile phase
 func (statemanager *stateManager) HandleENIEvent(mac string) {
 	eni, ok := statemanager.ENIStateChangeShouldBeSent(mac)
 	if ok {
