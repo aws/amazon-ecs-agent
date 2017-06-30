@@ -479,6 +479,40 @@ func TestRegisterContainerInstanceGetVPCIDError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRegisterContainerInstanceLaunchedWithoutVPC(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+
+	cfg := config.Config{TaskENIEnabled: true}
+	client := &APIECSClient{
+		config:         &cfg,
+		ec2metadata:    mockEC2Metadata,
+		standardClient: mockSDK,
+	}
+
+	capabilities := buildAttributeList([]string{"capability1", "capability2"}, nil)
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockEC2Metadata.EXPECT().VPCID(mac).Return("", ec2.NewMetadataError(http.StatusNotFound)),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(nil, nil),
+		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(nil, nil),
+		mockSDK.EXPECT().RegisterContainerInstance(gomock.Any()).Return(
+			&ecs.RegisterContainerInstanceOutput{
+				ContainerInstance: &ecs.ContainerInstance{
+					ContainerInstanceArn: aws.String("arn"),
+				},
+			}, nil),
+	)
+
+	_, err := client.registerContainerInstance(configuredCluster, "", capabilities)
+	assert.Error(t, err)
+	assert.False(t, cfg.TaskENIEnabled)
+}
+
 func TestValidateRegisteredAttributes(t *testing.T) {
 	origAttributes := []*ecs.Attribute{
 		{Name: aws.String("foo"), Value: aws.String("bar")},
