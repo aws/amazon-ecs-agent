@@ -58,6 +58,16 @@ func writeToMetadata(task *api.Task, container *api.Container, data []byte, data
 	return err
 }
 
+// WriteJSONToMetadata puts the metadata into JSON format and writes into
+// the metadata file
+func writeJSONToMetadataFile(task *api.Task, container *api.Container, metadata Metadata, dataDir string) error {
+	data, err := json.MarshalIndent(&metadata, "", "\t")
+	if err != nil {
+		return err
+	}
+	return writeToMetadata(task, container, data, dataDir)
+}
+
 // initMetadataFile initializes metadata file and populates it with initially available
 // metadata about the container's task and instance
 func initMetadataFile(client dockerDummyClient, cfg *config.Config, task *api.Task, container *api.Container) (string, error) {
@@ -77,17 +87,14 @@ func initMetadataFile(client dockerDummyClient, cfg *config.Config, task *api.Ta
 
 	// Get common metadata of all containers of this task and write it to file
 	md := acquireMetadataAtContainerCreate(client, cfg, task)
-	data, err := json.MarshalIndent(md, "", "\t")
-	if err != nil {
-		return mdFilePath, err
-	}
-	return mdFilePath, writeToMetadata(task, container, data, cfg.DataDir)
+	return mdFilePath, writeJSONToMetadata(task, container, data, cfg.DataDir)
 }
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 func CreateMetadata(client dockerDummyClient, cfg *config.Config, binds *[]string, task *api.Task, container *api.Container) error {
 	// Do not create metadata file for internal containers
+	// TODO: Add error handling for this case?
 	if container.IsInternal {
 		return nil
 	}
@@ -103,16 +110,6 @@ func CreateMetadata(client dockerDummyClient, cfg *config.Config, binds *[]strin
 	instanceBind := fmt.Sprintf("%s/%s:/ecs/metadata/%s", cfg.InstanceDataDir, metadataFilePath, container.Name)
 	*binds = append(*binds, instanceBind)
 	return nil
-}
-
-// WriteJSONToMetadata puts the metadata into JSON format and writes into
-// the metadata file
-func writeJSONToMetadataFile(task *api.Task, container *api.Container, metadata Metadata, dataDir string) error {
-	data, err := json.MarshalIndent(&metadata, "", "\t")
-	if err != nil {
-		return err
-	}
-	return writeToMetadata(task, container, data, dataDir)
 }
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
