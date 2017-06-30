@@ -13,22 +13,10 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 		return NetworkMetadata{}
 	}
 
-	// Scan all mapped ports
-	portMapping := make([]PortMapping, 0)
-	for port, bind := range settings.Ports {
-		containerPort := port.Port()
-		protocol := port.Proto()
-		for index := range bind {
-			hostIP := bind[index].HostIP
-			hostPort := bind[index].HostPort
-			portMap := PortMapping{
-				ContainerPort: containerPort,
-				HostPort:      hostPort,
-				BindIP:        hostIP,
-				Protocol:      protocol,
-			}
-			portMapping = append(portMapping, portMap)
-		}
+	// Get Port bindings from docker settings
+	ports, err := api.PortBindingFromDockerPortBinding(settings.Ports)
+	if err != nil {
+		ports = nil
 	}
 
 	// This metadata is available in two different places in NetworkSettings
@@ -52,7 +40,7 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 		networkModeFromContainer = "none"
 	}
 	return NetworkMetadata{
-		ports:       portMapping,
+		ports:       ports,
 		networkMode: networkModeFromContainer,
 		gateway:     gateway,
 		iPAddress:   iPAddress,

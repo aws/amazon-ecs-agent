@@ -309,9 +309,9 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	if engine.cfg != nil {
 		err := containermetadata.CleanTaskMetadata(task, engine.cfg.DataDir)
 		if err != nil {
-			seelog.Errorf("Failed removal of metadata directory for task %s, error: %s", task, err.Error())
+			seelog.Errorf("Failed cleanup of metadata directory for task %s, error: %s", task, err.Error())
 		} else {
-			seelog.Debugf("Successful removal of metadata directory for task %s", task)
+			seelog.Debugf("Successful cleanup of metadata directory for task %s", task)
 		}
 	}
 	engine.saver.Save()

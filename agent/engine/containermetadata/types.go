@@ -2,8 +2,11 @@ package containermetadata
 
 import (
 	"encoding/json"
-	docker "github.com/fsouza/go-dockerclient"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // dockerDummyClient is a wrapper for the docker interface functions we need
@@ -14,18 +17,10 @@ type dockerDummyClient interface {
 	Version() (string, error)
 }
 
-// PortMapping holds data about the container's port bind to the host
-type PortMapping struct {
-	ContainerPort string `json:"ContainerPort, omitempty"`
-	HostPort      string `json:"HostPort, omitempty"`
-	BindIP        string `json:"BindIP, omitempty"`
-	Protocol      string `json:"Protocol, omitempty"`
-}
-
 // NetworkMetadata keeps track of the data we parse from the Network Settings
 // in docker containers
 type NetworkMetadata struct {
-	ports       []PortMapping
+	ports       []api.PortBinding
 	networkMode string
 	gateway     string
 	iPAddress   string
@@ -65,7 +60,7 @@ type Metadata struct {
 	imageID           string
 	containerName     string
 	containerID       string
-	ports             []PortMapping
+	ports             []api.PortBinding
 	networkMode       string
 	gateway           string
 	iPAddress         string
@@ -74,20 +69,20 @@ type Metadata struct {
 
 func (m *Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Version           string        `json:"DockerVersion, omitempty"`
-		Status            string        `json:"Status, omitempty"`
-		ClusterArn        string        `json:"ClusterArn, omitempty"`
-		ContainerInstance string        `json:"ContainerInstanceArn, omitempty"`
-		TaskArn           string        `json:"TaskArn, omitempty"`
-		ContainerID       string        `json:"ContainerID, omitempty"`
-		ContainerName     string        `json:"ContainerName, omitempty"`
-		ImageID           string        `json:"ImageID, omitempty"`
-		ImageName         string        `json:"ImageName, omitempty"`
-		Ports             []PortMapping `json:"PortMappings, omitempty"`
-		NetworkMode       string        `json:"NetworkMode, omitempty"`
-		Gateway           string        `json:"Gateway, omitempty"`
-		IPAddress         string        `json:"IPAddress, omitempty"`
-		IPv6Gateway       string        `json:"IPv6Gateway, omitempty"`
+		Version           string            `json:"DockerVersion, omitempty"`
+		Status            string            `json:"Status, omitempty"`
+		ClusterArn        string            `json:"ClusterArn, omitempty"`
+		ContainerInstance string            `json:"ContainerInstanceArn, omitempty"`
+		TaskArn           string            `json:"TaskArn, omitempty"`
+		ContainerID       string            `json:"ContainerID, omitempty"`
+		ContainerName     string            `json:"ContainerName, omitempty"`
+		ImageID           string            `json:"ImageID, omitempty"`
+		ImageName         string            `json:"ImageName, omitempty"`
+		Ports             []api.PortBinding `json:"PortMappings, omitempty"`
+		NetworkMode       string            `json:"NetworkMode, omitempty"`
+		Gateway           string            `json:"Gateway, omitempty"`
+		IPAddress         string            `json:"IPAddress, omitempty"`
+		IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
 	}{
 		Version:           m.version,
 		Status:            m.status,
