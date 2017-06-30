@@ -29,7 +29,7 @@ const (
 	// communicate with ecs-agent
 	defaultBridgeName = "ecs-bridge"
 	// netnsFormat is used to construct the path to cotainer network namespace
-	netnsFormat = "/proc/%s/ns/net"
+	netnsFormat = "/ecs/host/proc/%s/ns/net"
 	// ecsSubnet is the available ip addresses to use for task networking
 	ecsSubnet = "169.254.172.0/22"
 
