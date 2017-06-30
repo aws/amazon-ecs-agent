@@ -21,14 +21,15 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	eniWatcher "github.com/aws/amazon-ecs-agent/agent/eni"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
 // udevWatcher is a local construct to mimic the eniwatcher on unsupported platforms
 type udevWatcher struct{}
 
 // New is used to return an error for unsupported platforms
-func New(ctx context.Context, state dockerstate.TaskEngineState, engine engine.TaskEngine) (*udevWatcher, error) {
+func New(ctx context.Context, state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) (*eniWatcher.UdevWatcher, error) {
 	return nil, errors.New(fmt.Sprintf("eni watcher new: unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH))
 }

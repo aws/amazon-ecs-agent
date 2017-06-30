@@ -202,7 +202,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		log.Info("Successfully loaded pause container image")
 		// Setup ENI Watcher
-		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine); err != nil {
+		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine.StateChangeEvents()); err != nil {
 			log.Errorf("Unable to set up ENI Watcher: %v", err)
 			return exitcodes.ExitError
 		}

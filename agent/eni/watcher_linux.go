@@ -24,12 +24,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	eniUtils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
 // UdevWatcher maintains the state of attached ENIs
@@ -46,9 +46,10 @@ type UdevWatcher struct {
 }
 
 // New is used to return an instance of the UdevWatcher struct
-func New(ctx context.Context, udevwrap udevwrapper.Udev, state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) *UdevWatcher {
-	stateChangeChannel := taskEngine.StateChangeEvents()
-	return _new(ctx, netlinkwrapper.New(), udevwrap, eniStateManager.New(state, stateChangeChannel))
+func New(ctx context.Context, udevwrap udevwrapper.Udev,
+	state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) *UdevWatcher {
+	return _new(ctx, netlinkwrapper.New(), udevwrap,
+		eniStateManager.New(state, stateChangeEvents))
 }
 
 // _new is used to nest the return of the UdevWatcher struct
@@ -76,8 +77,9 @@ func (udevWatcher *UdevWatcher) Init() error {
 		return errors.New("udev watcher init: no network interfaces discovered for initialization")
 	}
 
-	// Pass state to Init
-	udevWatcher.state.Init(links)
+	// Initialize eni state manager with a list of network interface
+	// devices discovered.
+	go udevWatcher.state.Init(links)
 	return nil
 }
 
