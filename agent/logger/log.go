@@ -30,6 +30,7 @@ const (
 
 var logfile string
 var level string
+var levelLock sync.RWMutex
 var levels map[string]string
 var logger OldLogger
 
@@ -49,6 +50,7 @@ func initLogger() {
 		"crit":  "critical",
 		"none":  "off",
 	}
+
 	level = DEFAULT_LOGLEVEL
 
 	logger = &Shim{}
@@ -72,10 +74,21 @@ func reloadConfig() {
 // SetLevel sets the log level for logging
 func SetLevel(logLevel string) {
 	parsedLevel, ok := levels[strings.ToLower(logLevel)]
+
 	if ok {
+		levelLock.Lock()
+		defer levelLock.Unlock()
 		level = parsedLevel
 		reloadConfig()
 	}
+}
+
+// GetLevel gets the log level
+func GetLevel() string {
+	levelLock.RLock()
+	defer levelLock.RLock()
+
+	return level
 }
 
 // ForModule returns an OldLogger instance.  OldLogger is deprecated and kept
