@@ -128,8 +128,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().Version()
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID:"containerId"}, nil)
+			&docker.Container{ID: "containerId"}, nil)
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -271,8 +272,9 @@ func TestRemoveEvents(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().Version()
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID:"containerId"}, nil)
+			&docker.Container{ID: "containerId"}, nil)
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -491,8 +493,9 @@ func TestSteadyStatePoll(t *testing.T) {
 					wait.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().Version()
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID:"containerId"}, nil)
+			&docker.Container{ID: "containerId"}, nil)
 	}
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
@@ -737,10 +740,9 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 						eventStream <- createDockerEvent(api.ContainerRunning)
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
-
 			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID:"containerId"}, nil),
-
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 			// StopContainer times out
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError),
 			// Since task is not in steady state, progressContainers causes
@@ -843,9 +845,9 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 						eventsReported.Done()
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
-
 			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID:"containerId"}, nil),
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 
 			// StopContainer errors out. However, since this is a known unretriable error,
 			// the task engine should not retry stopping the container and move on.
@@ -929,7 +931,8 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(
 				DockerContainerMetadata{DockerID: "containerId"}),
 			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID:"containerId"}, nil),
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 			// StopContainer errors out a couple of times
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStoppingError).Times(2),
 			// Since task is not in steady state, progressContainers causes
