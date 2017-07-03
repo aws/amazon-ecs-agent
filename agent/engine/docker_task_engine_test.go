@@ -128,9 +128,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-		client.EXPECT().Version()
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
 			&docker.Container{ID: "containerId"}, nil)
+		client.EXPECT().Version()
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -272,9 +272,9 @@ func TestRemoveEvents(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-		client.EXPECT().Version()
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
 			&docker.Container{ID: "containerId"}, nil)
+		client.EXPECT().Version()
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
