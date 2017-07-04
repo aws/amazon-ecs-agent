@@ -7479,9 +7479,6 @@ const (
 
 	// LogDriverAwslogs is a LogDriver enum value
 	LogDriverAwslogs = "awslogs"
-
-	// LogDriverLogentries is a LogDriver enum value
-	LogDriverLogentries = "logentries"
 )
 
 const (
