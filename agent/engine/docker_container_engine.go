@@ -71,25 +71,60 @@ const (
 type DockerClient interface {
 	// SupportedVersions returns a slice of the supported docker versions (or at least supposedly supported).
 	SupportedVersions() []dockerclient.DockerVersion
+
+	// KnownVersions returns a slice of the Docker API versions known to the Docker daemon.
+	KnownVersions() []dockerclient.DockerVersion
+
 	// WithVersion returns a new DockerClient for which all operations will use the given remote api version.
 	// A default version will be used for a client not produced via this method.
 	WithVersion(dockerclient.DockerVersion) DockerClient
+
+	// ContainerEvents returns a channel of DockerContainerChangeEvents. Events are placed into the channel and should
+	// be processed by the listener.
 	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
+	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 
+	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
+	// should be provided for the request.
 	CreateContainer(*docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
+
+	// StartContainer starts the container identified by the name provided. A timeout value should be provided for the
+	// request.
 	StartContainer(string, time.Duration) DockerContainerMetadata
+
+	// StopContainer stops the container identified by the name provided. A timeout value should be provided for the
+	// request.
 	StopContainer(string, time.Duration) DockerContainerMetadata
+
+	// DescribeContainer returns status information about the specified container.
 	DescribeContainer(string) (api.ContainerStatus, DockerContainerMetadata)
+
+	// RemoveContainer removes a container (typically the rootfs, logs, and associated metadata) identified by the name.
+	// A timeout value should be provided for the request.
 	RemoveContainer(string, time.Duration) error
 
+	// InspectContainer returns information about the specified container. A timeout value should be provided for the
+	// request.
 	InspectContainer(string, time.Duration) (*docker.Container, error)
+
+	// ListContainers returns the set of containers known to the Docker daemon. A timeout value should be provided for
+	// the request.
 	ListContainers(bool, time.Duration) ListContainersResponse
+
+	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
+	// be canceled.
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
+	// Version returns the version of the Docker daemon.
 	Version() (string, error)
+
+	// InspectImage returns information about the specified image.
 	InspectImage(string) (*docker.Image, error)
+
+	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
+	// value should be provided for the request.
 	RemoveImage(string, time.Duration) error
 }
 
@@ -787,6 +822,10 @@ func (dg *dockerGoClient) listContainers(all bool, ctx context.Context) ListCont
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
 	return dg.clientFactory.FindSupportedAPIVersions()
+}
+
+func (dg *dockerGoClient) KnownVersions() []dockerclient.DockerVersion {
+	return dg.clientFactory.FindKnownAPIVersions()
 }
 
 func (dg *dockerGoClient) Version() (string, error) {

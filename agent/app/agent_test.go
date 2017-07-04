@@ -158,6 +158,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
@@ -185,6 +186,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)

@@ -984,6 +984,12 @@ func TestCapabilities(t *testing.T) {
 		dockerclient.Version_1_18,
 	})
 
+	client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_17,
+		dockerclient.Version_1_18,
+		dockerclient.Version_1_19,
+	})
+
 	capabilities := taskEngine.Capabilities()
 
 	expectedCapabilities := []string{
@@ -992,6 +998,7 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
 		"com.amazonaws.ecs.capability.logging-driver.json-file",
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
+		"com.amazonaws.ecs.capability.logging-driver.journald",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
 	}
@@ -1009,6 +1016,7 @@ func TestCapabilitiesECR(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 
@@ -1032,6 +1040,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1053,6 +1062,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1074,6 +1084,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1095,6 +1106,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
