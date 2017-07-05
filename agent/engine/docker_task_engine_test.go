@@ -155,7 +155,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
-
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
