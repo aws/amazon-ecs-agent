@@ -112,19 +112,19 @@ func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg 
 	dockerMD := acquireDockerContainerMetadata(container)
 	taskMD := acquireTaskMetadata(client, cfg, task)
 	return Metadata{
-		version:       taskMD.version,
-		status:        dockerMD.status,
-		containerID:   dockerMD.containerID,
-		containerName: dockerMD.containerName,
-		imageID:       dockerMD.imageID,
-		imageName:     dockerMD.imageName,
-		clusterArn:    taskMD.clusterArn,
-		taskArn:       taskMD.taskArn,
-		ports:         dockerMD.networkInfo.ports,
-		networkMode:   dockerMD.networkInfo.networkMode,
-		gateway:       dockerMD.networkInfo.gateway,
-		iPAddress:     dockerMD.networkInfo.iPAddress,
-		iPv6Gateway:   dockerMD.networkInfo.iPv6Gateway,
+		Version:       taskMD.version,
+		Status:        dockerMD.status,
+		ContainerID:   dockerMD.containerID,
+		ContainerName: dockerMD.containerName,
+		ImageID:       dockerMD.imageID,
+		ImageName:     dockerMD.imageName,
+		ClusterArn:    taskMD.clusterArn,
+		TaskArn:       taskMD.taskArn,
+		Ports:         dockerMD.networkInfo.ports,
+		NetworkMode:   dockerMD.networkInfo.networkMode,
+		Gateway:       dockerMD.networkInfo.gateway,
+		IPAddress:     dockerMD.networkInfo.iPAddress,
+		IPv6Gateway:   dockerMD.networkInfo.iPv6Gateway,
 	}
 }
 

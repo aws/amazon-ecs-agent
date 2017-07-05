@@ -14,7 +14,6 @@
 package containermetadata
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -64,22 +63,23 @@ type TaskMetadata struct {
 // Metadata packages all acquired metadata and is used to format it
 // into JSON to write to the metadata file
 type Metadata struct {
-	version           string
-	status            string
-	clusterArn        string
-	containerInstance string
-	taskArn           string
-	containerID       string
-	containerName     string
-	imageID           string
-	imageName         string
-	ports             []api.PortBinding
-	networkMode       string
-	gateway           string
-	iPAddress         string
-	iPv6Gateway       string
+	Version           string            `json:"DockerVersion, omitempty"`
+	Status            string            `json:"Status, omitempty"`
+	ClusterArn        string            `json:"ClusterArn, omitempty"`
+	ContainerInstance string            `json:"ContainerInstanceArn, omitempty"`
+	TaskArn           string            `json:"TaskArn, omitempty"`
+	ContainerID       string            `json:"ContainerID, omitempty"`
+	ContainerName     string            `json:"ContainerName, omitempty"`
+	ImageID           string            `json:"ImageID, omitempty"`
+	ImageName         string            `json:"ImageName, omitempty"`
+	Ports             []api.PortBinding `json:"PortMappings, omitempty"`
+	NetworkMode       string            `json:"NetworkMode, omitempty"`
+	Gateway           string            `json:"Gateway, omitempty"`
+	IPAddress         string            `json:"IPAddress, omitempty"`
+	IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
 }
 
+/*
 func (m *Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Version           string            `json:"DockerVersion, omitempty"`
@@ -112,4 +112,4 @@ func (m *Metadata) MarshalJSON() ([]byte, error) {
 		IPAddress:         m.iPAddress,
 		IPv6Gateway:       m.iPv6Gateway,
 	})
-}
+}*/
