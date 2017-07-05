@@ -108,6 +108,11 @@ type Task struct {
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
 
+	// roleCredentials is the credentials used by agent to perform some action
+	// in the task level, like pull image from ecr
+	roleCredentials     *credentials.IAMRoleCredentials `json:"-"`
+	roleCredentialsLock sync.RWMutex
+
 	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
 	// used to look up the credentials for task in the credentials manager
@@ -715,6 +720,16 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		}
 	}
 
+	// Set up the task credentials from payload message
+	if envelope.RoleCredentials != nil {
+		seelog.Debugf("Received task with credentials, setting task execution credentials, task: %s", task.String())
+		task.SetTaskCredentials(credentials.IAMRoleCredentials{
+			RoleArn:         envelope.RoleCredentials.RoleArn,
+			AccessKeyID:     envelope.RoleCredentials.AccessKeyId,
+			SecretAccessKey: envelope.RoleCredentials.SecretAccessKey,
+			SessionToken:    envelope.RoleCredentials.SessionToken,
+		})
+	}
 	return task, nil
 }
 
@@ -862,6 +877,42 @@ func (task *Task) GetTaskENI() *ENI {
 	defer task.eniLock.RUnlock()
 
 	return task.ENI
+}
+
+// SetTaskCredentials sets the role credentials of the task
+func (task *Task) SetTaskCredentials(credentials *credential.IAMRoleCredentials) {
+	task.roleCredentialsLock.Lock()
+	defer task.roleCredentialsLock.Unlock()
+
+	task.roleCredentials = credentials
+}
+
+// GetTaskCredentials returns the role credential of the task
+func (task *Task) GetTaskCredentials() (credential.IAMRoleCredentials, bool) {
+	task.roleCredentialsLock.RLock()
+	defer task.roleCredentialsLock.RUnlock()
+
+	if task.roleCredentials == nil {
+		return credentials.IAMRoleCredentials{}, false
+	}
+
+	return task.roleCredentials, true
+}
+
+// TaskCredentialsNeedsUpdate check if there are container waiting for the
+// credentials to progress eg: pull
+func (task *Task) WaitForCredentials() bool {
+	if task.GetKnownStatus() > api.TaskStatusNone {
+		return false
+	}
+
+	for _, container := range task.Containers {
+		if container.GetKnownStatus() < api.ContainerPulled && container.IsECRCredentialsEnabled() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // String returns a human readable string representation of this object

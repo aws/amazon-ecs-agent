@@ -42,7 +42,7 @@ func NewECRAuthProvider(authData *api.ECRAuthData, clientFactory ecr.ECRFactory)
 	log.Tracef("Getting client in %s with endpoint %s", authData.Region, authData.EndpointOverride)
 	return &ecrAuthProvider{
 		authData: authData,
-		client:   clientFactory.GetClient(authData.Region, authData.EndpointOverride),
+		client:   clientFactory.GetClient(authData),
 	}
 }
 
