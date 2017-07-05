@@ -84,7 +84,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	createStartEventsReported := sync.WaitGroup{}
 
 	// versionDone ensures that we get the docker client version call before anything else continues
-	versionDone := make(chan bool)
+	//	versionDone := make(chan bool)
 
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -133,11 +133,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
 			&docker.Container{ID: "containerId"}, nil)
-		client.EXPECT().Version().Do(
-			func() {
-				// Send signal that version call is done
-				versionDone <- true
-			})
+		client.EXPECT().Version() /*.Do(
+		func() {
+			// Send signal that version call is done
+			versionDone <- true
+		})*/
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -162,7 +162,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTask)
 
 	// Ensure version call is complete before proceeding
-	<-versionDone
+	//	<-versionDone
 
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
