@@ -86,10 +86,10 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api.Task) TaskMetadata {
 	// Get docker version from client. May block metadata file updates so the file changes
 	// should be made in a goroutine as this does a docker client call
-	version, err := client.Version()
-	if err != nil {
-		version = ""
-	}
+	/*	version, err := client.Version()
+		if err != nil {
+			version = ""
+		}*/
 
 	clusterArnFromConfig := ""
 	if cfg != nil {
