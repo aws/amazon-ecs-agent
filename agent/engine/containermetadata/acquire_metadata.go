@@ -112,7 +112,7 @@ func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg 
 	dockerMD := acquireDockerContainerMetadata(container)
 	taskMD := acquireTaskMetadata(client, cfg, task)
 	return Metadata{
-		Version:       taskMD.version,
+		//		Version:       taskMD.version,
 		Status:        dockerMD.status,
 		ContainerID:   dockerMD.containerID,
 		ContainerName: dockerMD.containerName,
