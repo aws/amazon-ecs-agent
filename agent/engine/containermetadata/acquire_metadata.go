@@ -100,7 +100,7 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 		taskArnFromConfig = task.Arn
 	}
 	return TaskMetadata{
-		version:    version,
+		//version:    version,
 		clusterArn: clusterArnFromConfig,
 		taskArn:    taskArnFromConfig,
 	}
