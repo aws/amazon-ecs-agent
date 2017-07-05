@@ -13,6 +13,10 @@
 
 package api
 
+import (
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+)
+
 // RegistryAuthenticationData is the authentication data sent by the ECS backend.  Currently, the only supported
 // authentication data is for ECR.
 type RegistryAuthenticationData struct {
@@ -22,7 +26,9 @@ type RegistryAuthenticationData struct {
 
 // ECRAuthData is the authentication details for ECR specifying the region, registryID, and possible endpoint override
 type ECRAuthData struct {
-	EndpointOverride string `json:"endpointOverride"`
-	Region           string `json:"region"`
-	RegistryID       string `json:"registryId"`
+	EndpointOverride string                         `json:"endpointOverride"`
+	Region           string                         `json:"region"`
+	RegistryID       string                         `json:"registryId"`
+	UseExecutionRole bool                           `json:"useExecutionRole"`
+	PullCredentials  credentials.IAMRoleCredentials `json:"-"`
 }

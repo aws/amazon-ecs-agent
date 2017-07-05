@@ -246,6 +246,12 @@ func (engine *DockerTaskEngine) synchronizeState() {
 
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
+		// For containers that use ecr credentials, it needs to wait for the
+		// backend to send the credentials after restart
+		if task.WaitForCredentials() {
+			continue
+		}
+
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
 			engine.startTask(task)
@@ -290,6 +296,22 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		engine.startTask(task)
 	}
 	engine.saver.Save()
+}
+
+// updateTaskContainerCredentials checks if the container credentials needs to be updated
+func (engine *DockerTaskEngine) updateTaskContainerCredentials(task, update *api.Task) bool {
+	if !task.WaitForCredentials() {
+		return false
+	}
+
+	credential, ok := update.IAMRoleCredentials()
+	if !ok {
+		seelog.Errorf("Updage task credentials: no credentials found in the updated task: %s", update.String())
+		return false
+	}
+
+	task.SetTaskCredentials(credential)
+	return true
 }
 
 // CheckTaskState inspects the state of all containers within a task and writes
@@ -508,6 +530,18 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 		return nil
 	}
 
+	_, ok := engine.managedTasks[task.Arn]
+	// Update the registry credentials of container if needed
+	// This could happen in two situations for tasks that has ecr credentials:
+	// (1) agent restart:
+	//    task is not started, agent needs to call start task
+	// (2) acs resend the payload message:
+	//    task is already started in the task manager, agent needs to call update task
+	if engine.updateTaskContainerCredentials(existingTask, task) && !ok {
+		engine.startTask(existingTask)
+		return nil
+	}
+
 	// Update task
 	engine.updateTask(existingTask, task)
 
@@ -586,6 +620,11 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	// Don't add internal images(created by ecs-agent) into imagemanger state
 	if container.IsInternal() {
 		return metadata
+	}
+
+	// Clean up the ecr pull credentials after pulling
+	if container.IsECRCredentialsEnabled() {
+		container.RegistryAuthentication.ECRAuthData.PullCredentials = nil
 	}
 
 	err := engine.imageManager.RecordContainerReference(container)

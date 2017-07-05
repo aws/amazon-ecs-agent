@@ -60,6 +60,7 @@ type Container struct {
 	Overrides              ContainerOverrides          `json:"overrides"`
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
+	ECRCredentialsEnabled  bool                        `json:"ecrCredentialsEnabled"`
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
@@ -235,6 +236,39 @@ func (c *Container) GetKnownExitCode() *int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.knownExitCode
+}
+
+// SetRegistryAuthCredentials will set the credentials for pulling image from ecr
+func (c *Container) SetRegistryAuthCredentials(credential *credentials.IAMRoleCredentials) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.RegistryAuthentication == nil || c.RegistryAuthentication.ECRAuthData == nil {
+		return fmt.Errorf("Container: set ecr pull credentials failed, no registry auth data for container")
+	}
+
+	if !c.RegistryAuthentication.ECRAuthData.UseExecutionRole {
+		return fmt.Errorf("Container: set ecr pull credentials failed, using task level credentials is disabled")
+	}
+
+	c.RegistryAuthentication.ECRAuthData.PullCredentials = *credentials
+	return nil
+}
+
+// SetECRCredentialsEnabled sets the flag to indicate the container has its own ecr credentials
+func (c *Container) SetECRCredentialsEnabled() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.ECRCredentialsEnabled = true
+}
+
+// IsECRCredentialsEnabled returns whether this container has its own ecr credentials
+func (c *Container) IsECRCredentialsEnabled() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.ECRCredentialsEnabled
 }
 
 // String returns a human readable string representation of this object
