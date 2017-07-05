@@ -133,11 +133,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
 			&docker.Container{ID: "containerId"}, nil)
-		client.EXPECT().Version() /*.Do(
-		func() {
-			// Send signal that version call is done
-			versionDone <- true
-		}) */
+		client.EXPECT().Version().Do(
+			func() {
+				// Send signal that version call is done
+				versionDone <- true
+			})
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -160,10 +160,10 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
-	/*
-		// Ensure version call is complete before proceeding
-		<-versionDone
-	*/
+
+	// Ensure version call is complete before proceeding
+	<-versionDone
+
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
 
