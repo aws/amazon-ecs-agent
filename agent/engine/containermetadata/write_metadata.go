@@ -54,7 +54,7 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 	if taskID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/metadata/%s/%s/", dataDir, taskID, container.Name)
+	return fmt.Sprintf("%smetadata/%s/%s/", dataDir, taskID, container.Name)
 }
 
 // mdFileExist checks if metadata file exists or not
@@ -139,7 +139,7 @@ func UpdateMetadata(client dockerDummyClient, cfg *config.Config, dockerID strin
 	// Verify metadata file exists before proceeding
 	var err error
 	if !mdFileExist(task, container, cfg.DataDir) {
-		err = fmt.Errorf("Failed to updata metadata for container %s of task %s: File does not exist", container, task)
+		err = fmt.Errorf("Failed to update metadata for container %s of task %s: File does not exist", container, task)
 		return err
 	}
 
