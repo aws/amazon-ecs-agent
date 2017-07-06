@@ -104,6 +104,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+		client.EXPECT().Version()
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 
@@ -128,6 +129,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+			&docker.Container{ID: "containerId"}, nil)
+		client.EXPECT().Version()
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -251,6 +255,7 @@ func TestRemoveEvents(t *testing.T) {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
+		client.EXPECT().Version()
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 				createdContainerName = containerName
@@ -269,6 +274,9 @@ func TestRemoveEvents(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+			&docker.Container{ID: "containerId"}, nil)
+		client.EXPECT().Version()
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -396,6 +404,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
+		client.EXPECT().Version()
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
@@ -487,6 +496,9 @@ func TestSteadyStatePoll(t *testing.T) {
 					wait.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+			&docker.Container{ID: "containerId"}, nil)
+		client.EXPECT().Version()
 	}
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
@@ -639,6 +651,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 			assert.True(t, ok, "Expected container sleep5")
 			return nil
 		}),
+		client.EXPECT().Version(),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
 	)
 
@@ -677,6 +690,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		"com.amazonaws.ecs.cluster":                 "",
 		"key": "value",
 	}
+	client.EXPECT().Version()
 	client.EXPECT().CreateContainer(expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
 	taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 }
@@ -718,6 +732,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
+		client.EXPECT().Version()
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
@@ -730,6 +745,9 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 						eventStream <- createDockerEvent(api.ContainerRunning)
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
+			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 			// StopContainer times out
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError),
 			// Since task is not in steady state, progressContainers causes
@@ -815,6 +833,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil),
 			// Simulate successful create container
+			client.EXPECT().Version(),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(x, y, z, timeout interface{}) {
 					eventsReported.Add(1)
@@ -832,7 +851,9 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 						eventsReported.Done()
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
-
+			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 			// StopContainer errors out. However, since this is a known unretriable error,
 			// the task engine should not retry stopping the container and move on.
 			// If there's a delay in task engine's processing of the ContainerRunning
@@ -909,11 +930,15 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil),
 			// Simulate successful create container
+			client.EXPECT().Version(),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 				DockerContainerMetadata{DockerID: "containerId"}),
 			// Simulate successful start container
 			client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(
 				DockerContainerMetadata{DockerID: "containerId"}),
+			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
+				&docker.Container{ID: "containerId"}, nil),
+			client.EXPECT().Version(),
 			// StopContainer errors out a couple of times
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStoppingError).Times(2),
 			// Since task is not in steady state, progressContainers causes
