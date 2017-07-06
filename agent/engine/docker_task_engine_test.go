@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -44,7 +45,7 @@ const credentialsID = "credsid"
 
 var defaultConfig = config.DefaultConfig()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockMetadataManager) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -53,9 +54,11 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 	containerChangeEventStream := eventstream.NewEventStream("TESTTASKENGINE", context.Background())
 	containerChangeEventStream.StartListening()
 	imageManager := NewMockImageManager(ctrl)
-	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, dockerstate.NewTaskEngineState())
+	metadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
+	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, dockerstate.NewTaskEngineState(), metadataManager)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
-	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager
+
+	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager
 }
 
 func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
@@ -66,7 +69,7 @@ func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	roleCredentials := &credentials.TaskIAMRoleCredentials{
@@ -104,7 +107,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
-		client.EXPECT().Version()
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 
@@ -129,9 +132,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID: "containerId"}, nil)
-		client.EXPECT().Version()
+		metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -219,6 +220,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		}).Return(nil)
 
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
+	metadataManager.EXPECT().CleanTaskMetadata(gomock.Any())
 	// trigger cleanup
 	cleanup <- time.Now()
 	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
@@ -238,7 +240,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 // cleaned up. This test ensures that there's no regression in the task engine and ensures
 // there's no deadlock as seen in #313
 func TestRemoveEvents(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -255,7 +257,7 @@ func TestRemoveEvents(t *testing.T) {
 		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
 		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
-		client.EXPECT().Version()
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 				createdContainerName = containerName
@@ -274,9 +276,7 @@ func TestRemoveEvents(t *testing.T) {
 					createStartEventsReported.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID: "containerId"}, nil)
-		client.EXPECT().Version()
+		metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 	}
 
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -358,6 +358,8 @@ func TestRemoveEvents(t *testing.T) {
 
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 
+	metadataManager.EXPECT().CleanTaskMetadata(gomock.Any())
+
 	// This ensures that managedTask.waitForStopReported makes progress
 	sleepTask.SetSentStatus(api.TaskStopped)
 
@@ -376,7 +378,7 @@ func TestRemoveEvents(t *testing.T) {
 }
 
 func TestStartTimeoutThenStart(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -404,7 +406,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
-		client.EXPECT().Version()
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
@@ -453,7 +455,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 }
 
 func TestSteadyStatePoll(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	wait := &sync.WaitGroup{}
@@ -480,6 +482,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
 		wait.Add(1)
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() {
@@ -496,9 +499,7 @@ func TestSteadyStatePoll(t *testing.T) {
 					wait.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
-		client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-			&docker.Container{ID: "containerId"}, nil)
-		client.EXPECT().Version()
+		metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 	}
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
@@ -582,7 +583,7 @@ func TestSteadyStatePoll(t *testing.T) {
 }
 
 func TestStopWithPendingStops(t *testing.T) {
-	ctrl, client, testTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -633,7 +634,7 @@ func TestStopWithPendingStops(t *testing.T) {
 }
 
 func TestCreateContainerForceSave(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, _, metadataManager := mocks(t, &config.Config{})
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -651,7 +652,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 			assert.True(t, ok, "Expected container sleep5")
 			return nil
 		}),
-		client.EXPECT().Version(),
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
 	)
 
@@ -662,7 +663,7 @@ func TestCreateContainerForceSave(t *testing.T) {
 }
 
 func TestCreateContainerMergesLabels(t *testing.T) {
-	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	testTask := &api.Task{
@@ -690,7 +691,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		"com.amazonaws.ecs.cluster":                 "",
 		"key": "value",
 	}
-	client.EXPECT().Version()
+	metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 	client.EXPECT().CreateContainer(expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
 	taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 }
@@ -699,7 +700,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 // only when terminal events are recieved from docker event stream when
 // StopContainer times out
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -732,7 +733,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
-		client.EXPECT().Version()
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
@@ -745,9 +746,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 						eventStream <- createDockerEvent(api.ContainerRunning)
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
-			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID: "containerId"}, nil),
-			client.EXPECT().Version(),
+			metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 			// StopContainer times out
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStopTimeoutError),
 			// Since task is not in steady state, progressContainers causes
@@ -817,7 +816,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 // stop container call returns an unretriable error from docker, specifically the
 // ContainerNotRunning error
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -833,7 +832,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil),
 			// Simulate successful create container
-			client.EXPECT().Version(),
+			metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(x, y, z, timeout interface{}) {
 					eventsReported.Add(1)
@@ -851,9 +850,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 						eventsReported.Done()
 					}()
 				}).Return(DockerContainerMetadata{DockerID: "containerId"}),
-			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID: "containerId"}, nil),
-			client.EXPECT().Version(),
+			metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 			// StopContainer errors out. However, since this is a known unretriable error,
 			// the task engine should not retry stopping the container and move on.
 			// If there's a delay in task engine's processing of the ContainerRunning
@@ -911,7 +908,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 // transitions to stopped only after receiving the container stopped event from docker when
 // the initial stop container call fails with an unknown error.
 func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, metadataManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -930,15 +927,13 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil),
 			// Simulate successful create container
-			client.EXPECT().Version(),
+			metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 				DockerContainerMetadata{DockerID: "containerId"}),
 			// Simulate successful start container
 			client.EXPECT().StartContainer("containerId", startContainerTimeout).Return(
 				DockerContainerMetadata{DockerID: "containerId"}),
-			client.EXPECT().InspectContainer("containerId", inspectContainerTimeout).Return(
-				&docker.Container{ID: "containerId"}, nil),
-			client.EXPECT().Version(),
+			metadataManager.EXPECT().UpdateMetadata(gomock.Any(), gomock.Any(), gomock.Any()),
 			// StopContainer errors out a couple of times
 			client.EXPECT().StopContainer("containerId", gomock.Any()).Return(containerStoppingError).Times(2),
 			// Since task is not in steady state, progressContainers causes
@@ -1001,7 +996,7 @@ func TestCapabilities(t *testing.T) {
 		AppArmorCapable:         true,
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1035,7 +1030,7 @@ func TestCapabilities(t *testing.T) {
 
 func TestCapabilitiesECR(t *testing.T) {
 	conf := &config.Config{}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1059,7 +1054,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	conf := &config.Config{
 		TaskIAMRoleEnabled: true,
 	}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1081,7 +1076,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	conf := &config.Config{
 		TaskIAMRoleEnabled: true,
 	}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1103,7 +1098,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	conf := &config.Config{
 		TaskIAMRoleEnabledForNetworkHost: true,
 	}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1125,7 +1120,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	conf := &config.Config{
 		TaskIAMRoleEnabledForNetworkHost: true,
 	}
-	ctrl, client, _, taskEngine, _, _ := mocks(t, conf)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -1147,7 +1142,7 @@ func TestGetTaskByArn(t *testing.T) {
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
 
-	ctrl, client, _, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version()
@@ -1173,7 +1168,7 @@ func TestGetTaskByArn(t *testing.T) {
 }
 
 func TestEngineEnableConcurrentPull(t *testing.T) {
-	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version().Return("1.11.1", nil)
@@ -1187,7 +1182,7 @@ func TestEngineEnableConcurrentPull(t *testing.T) {
 }
 
 func TestEngineDisableConcurrentPull(t *testing.T) {
-	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version().Return("1.11.0", nil)
@@ -1206,7 +1201,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 // TestTaskWithCircularDependency tests the task with containers of which the
 // dependencies can't be resolved
 func TestTaskWithCircularDependency(t *testing.T) {
-	ctrl, client, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version().Return("1.12.6", nil)

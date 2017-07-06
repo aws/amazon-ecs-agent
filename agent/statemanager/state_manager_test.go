@@ -38,7 +38,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
