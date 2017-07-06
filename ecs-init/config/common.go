@@ -29,6 +29,9 @@ const (
 	AgentLogFile = "ecs-agent.log"
 
 	UnixSocketPrefix = "unix://"
+
+	// Used to mount /proc for agent container
+	ProcFS = "/proc"
 )
 
 // AgentConfigDirectory returns the location on disk for configuration

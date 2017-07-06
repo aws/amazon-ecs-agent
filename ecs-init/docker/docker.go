@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	logDir   = "/log"
-	dataDir  = "/data"
-	readOnly = ":ro"
+	logDir      = "/log"
+	dataDir     = "/data"
+	readOnly    = ":ro"
+	hostProcDir = "/host/proc"
 	// set default to /var/run instead of /var/run/docker.sock in case
 	// /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint = "/var/run"
@@ -233,6 +234,7 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
+		config.ProcFS + ":" + hostProcDir,
 	}
 	return &godocker.HostConfig{
 		Binds:       binds,
