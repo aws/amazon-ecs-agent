@@ -92,13 +92,15 @@ type DockerTaskEngine struct {
 	_time                ttime.Time
 	_timeOnce            sync.Once
 	imageManager         ImageManager
+
+	metadataManager containermetadata.MetadataManager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.MetadataManager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -115,6 +117,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
+
+		metadataManager: metadataManager,
 	}
 
 	return dockerTaskEngine
@@ -307,7 +311,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 
 	// Clean metadata directory for task
 	if engine.cfg != nil {
-		err := containermetadata.CleanTaskMetadata(task, engine.cfg.DataDir)
+		err := engine.metadataManager.CleanTaskMetadata(task)
 		if err != nil {
 			seelog.Errorf("Failed cleanup of metadata directory for task %s, error: %s", task, err.Error())
 		} else {
@@ -612,7 +616,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
 	// But we require the host Config binds to be properly set before we create the container
-	mderr := containermetadata.CreateMetadata(engine.client, engine.cfg, &hostConfig.Binds, task, container)
+	mderr := engine.metadataManager.CreateMetadata(&hostConfig.Binds, task, container)
 	if mderr != nil {
 		seelog.Errorf("%s", mderr.Error())
 	}
@@ -651,7 +655,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	// Performs this in the background to avoid delaying container start
 	if dockerContainerMD.Error == nil {
 		go func() {
-			err := containermetadata.UpdateMetadata(engine.client, engine.cfg, dockerContainer.DockerID, task, container)
+			err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
 			if err != nil {
 				seelog.Errorf("%s", err.Error())
 			}

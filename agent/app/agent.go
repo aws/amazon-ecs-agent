@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -74,6 +75,7 @@ type ecsAgent struct {
 	credentialProvider    *aws_credentials.Credentials
 	stateManagerFactory   factory.StateManager
 	saveableOptionFactory factory.SaveableOption
+	metadataManager       containermetadata.MetadataManager
 }
 
 // newAgent returns a new ecsAgent object
@@ -119,6 +121,7 @@ func newAgent(
 		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
+		metadataManager:       containermetadata.NewMetadataManager(dockerClient, cfg),
 	}, nil
 }
 
@@ -204,13 +207,13 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	if !agent.cfg.Checkpoint {
 		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-			credentialsManager, containerChangeEventStream, imageManager, state), "", nil
+			credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
 	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-		credentialsManager, containerChangeEventStream, imageManager, state)
+		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager)
 
 	// previousState is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
@@ -236,7 +239,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state), currentEC2InstanceID, nil
+			containerChangeEventStream, imageManager, state, agent.metadataManager), currentEC2InstanceID, nil
 	}
 
 	if previousCluster != "" {
