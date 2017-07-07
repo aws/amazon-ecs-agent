@@ -90,7 +90,7 @@ test-registry: netkitten volumes-test squid awscli image-cleanup-test-images flu
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
 	# Privileged needed for docker-in-docker so integ tests pass
-	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
+	docker run --net=none -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: testnnp test-registry
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
