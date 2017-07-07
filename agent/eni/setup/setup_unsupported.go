@@ -22,7 +22,6 @@ import (
 	"runtime"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	eniWatcher "github.com/aws/amazon-ecs-agent/agent/eni"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
@@ -30,6 +29,6 @@ import (
 type udevWatcher struct{}
 
 // New is used to return an error for unsupported platforms
-func New(ctx context.Context, state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) (*eniWatcher.UdevWatcher, error) {
+func New(ctx context.Context, state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) (*udevWatcher, error) {
 	return nil, errors.New(fmt.Sprintf("eni watcher new: unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
