@@ -213,6 +213,11 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 		return err
 	}
 
+	// Ensure we do not update a stopped, dead, or invalid container
+	if dockerContainer == nil || dockerContainer.State.Dead || !dockerContainer.State.FinishedAt.IsZero() {
+		err = fmt.Errorf("Failed ot update metadata for container %s of task %s: Container stopped or invalid")
+	}
+
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := acquireMetadata(manager.client, dockerContainer, manager.cfg, task)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
