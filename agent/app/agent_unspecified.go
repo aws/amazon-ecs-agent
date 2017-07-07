@@ -17,5 +17,7 @@ package app
 
 import "golang.org/x/net/context"
 
-func (agent *ecsAgent) waitOnChildProcesses(ctx context.Context) {
+// startSigchldHandler is a nop for non linux platforms
+func (agent *ecsAgent) startSigchldHandler(ctx context.Context) {
+	// Not implemented
 }

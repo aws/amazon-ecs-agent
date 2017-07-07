@@ -24,48 +24,54 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (agent *ecsAgent) waitOnChildProcesses(ctx context.Context) {
+// startSigchldHandler registers a channel to receiev SIGCHLD signals for
+// the agent process. On receiving SIGCHLD, it invokes the wait4 syscall
+// so that child processes are appropriately cleaned up.
+func (agent *ecsAgent) startSigchldHandler(ctx context.Context) {
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGCHLD)
-
-	log.Infof("Starting signal processing loop for SIGCHLD")
 	go processSignal(ctx, signals)
-	log.Infof("Starting wait loop for child processes")
-	doWait(ctx)
 }
 
 func processSignal(ctx context.Context, signals <-chan os.Signal) {
+	log.Infof("Starting the SIGCHLD handler")
 	for {
 		select {
 		case s := <-signals:
 			log.Debugf("Received SIGCHLD: %s", s.String())
+			if err := wait(); err != nil {
+				log.Debugf("Error waiting for state change of the child process: %v", err)
+			} else {
+				log.Debugf("Wait for state change of the child process complete")
+			}
 		case <-ctx.Done():
+			log.Infof("Stopping the SIGCHLD handler")
 			return
 		}
 	}
 }
 
-func doWait(ctx context.Context) {
-	waitError := make(chan error)
-	go func() { waitError <- wait() }()
-	for {
-		select {
-		case <-waitError:
-			go func() { waitError <- wait() }()
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
+// wait wraps the Wait4 syscall and returns the error if any
 func wait() error {
 	var ws syscall.WaitStatus
 	var ru syscall.Rusage
+	// More information on wait4 syscall can be found in manual pages
+	// via `man 2 wait4` command. The syscall is used to wait for state
+	// changes in the child processes of the Agent. Examples of such
+	// processes include CNI plugins and the dhclient processes started
+	// by these plugins. As per man pages, if a wait is not performed,
+	// then the terminated child remains in a "zombie" state, which is
+	// especially problematic for the dhclient process as the network
+	// resources, including the namespace that holds the ENI would not
+	// be properly cleaned up.
+	//
+	// wait4(pid, status, options, rusage) is equivalent to
+	// the waitpid(pid, status, options) syscall. The value of -1 for
+	// the pid field means that we wait for any child process. The
+	// handles for waitstatus and rusage will be populated and can be
+	// optionall used to infer the status of the child process when
+	// needed. The options field is set to 0 as we are not setting any
+	// additional options on the wait4 syscall.
 	_, err := syscall.Wait4(-1, &ws, 0, &ru)
-	if err != nil {
-		log.Errorf("Error waiting for child: %v", err)
-		return err
-	}
-
-	return nil
+	return err
 }
