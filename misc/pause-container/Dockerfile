@@ -15,5 +15,4 @@ FROM scratch
 MAINTAINER Amazon Web Services, Inc.
 COPY pause /usr/bin/
 WORKDIR /usr/bin
-USER 1000
 CMD ["./pause"]
