@@ -654,12 +654,10 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
 	if dockerContainerMD.Error == nil {
-		go func() {
-			err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
-			if err != nil {
-				seelog.Errorf("%s", err.Error())
-			}
-		}()
+		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
+		if err != nil {
+			seelog.Errorf("%s", err.Error())
+		}
 	}
 	return dockerContainerMD
 }
