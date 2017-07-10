@@ -78,38 +78,3 @@ type Metadata struct {
 	IPAddress         string            `json:"IPAddress, omitempty"`
 	IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
 }
-
-/*
-func (m *Metadata) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Version           string            `json:"DockerVersion, omitempty"`
-		Status            string            `json:"Status, omitempty"`
-		ClusterArn        string            `json:"ClusterArn, omitempty"`
-		ContainerInstance string            `json:"ContainerInstanceArn, omitempty"`
-		TaskArn           string            `json:"TaskArn, omitempty"`
-		ContainerID       string            `json:"ContainerID, omitempty"`
-		ContainerName     string            `json:"ContainerName, omitempty"`
-		ImageID           string            `json:"ImageID, omitempty"`
-		ImageName         string            `json:"ImageName, omitempty"`
-		Ports             []api.PortBinding `json:"PortMappings, omitempty"`
-		NetworkMode       string            `json:"NetworkMode, omitempty"`
-		Gateway           string            `json:"Gateway, omitempty"`
-		IPAddress         string            `json:"IPAddress, omitempty"`
-		IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
-	}{
-		Version:           m.version,
-		Status:            m.status,
-		ClusterArn:        m.clusterArn,
-		ContainerInstance: m.containerInstance,
-		TaskArn:           m.taskArn,
-		ImageName:         m.imageName,
-		ImageID:           m.imageID,
-		ContainerName:     m.containerName,
-		ContainerID:       m.containerID,
-		Ports:             m.ports,
-		NetworkMode:       m.networkMode,
-		Gateway:           m.gateway,
-		IPAddress:         m.iPAddress,
-		IPv6Gateway:       m.iPv6Gateway,
-	})
-}*/
