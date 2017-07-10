@@ -54,13 +54,13 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 	if taskID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/metadata/%s/%s/", dataDir, taskID, container.Name)
+	return filepath.Join(dataDir, "metadata", taskID, container.Name)
 }
 
 // mdFileExist checks if metadata file exists or not
 func mdFileExist(task *api.Task, container *api.Container, dataDir string) bool {
 	mdFileDir := getMetadataFilePath(task, container, dataDir)
-	mdFilePath := fmt.Sprintf("%s/%s", mdFileDir, metadataFile)
+	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 	if _, err := os.Stat(mdFilePath); err != nil {
 		if os.IsNotExist(err) {
 			return false
@@ -77,7 +77,7 @@ func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container
 		return err
 	}
 	mdFileDir := getMetadataFilePath(task, container, dataDir)
-	mdFilePath := fmt.Sprintf("%s/%s", mdFileDir, metadataFile)
+	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 
 	mdFile, err := os.OpenFile(mdFilePath, os.O_WRONLY, 0644)
 	defer mdFile.Close()
@@ -91,7 +91,7 @@ func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container
 // getTaskMetadataDir acquires the directory with all of the metadata
 // files of a given task
 func getTaskMetadataDir(task *api.Task, dataDir string) string {
-	return fmt.Sprintf("%s/metadata/%s/", dataDir, getTaskIDfromArn(task.Arn))
+	return filepath.Join(dataDir, "metadata", getTaskIDfromArn(task.Arn))
 }
 
 // removeContents removes a directory and all its children. We use this
@@ -164,11 +164,13 @@ func (manager *metadataManager) CreateMetadata(binds *[]string, task *api.Task, 
 	}
 
 	// Add the directory of this container's metadata to the container's mount binds
+	// This is the only operating system specific point here, so it would be nice if there
+	// were some elegant way to do this for both windows and linux at the same time
 	instanceBind := fmt.Sprintf("%s/%s:/ecs/metadata/%s", manager.cfg.InstanceDataDir, mdDirectoryPath, container.Name)
 	*binds = append(*binds, instanceBind)
 
 	// Create metadata file
-	mdFilePath := fmt.Sprintf("%s/%s", mdDirectoryPath, metadataFile)
+	mdFilePath := filepath.Join(mdDirectoryPath, metadataFile)
 	err = ioutil.WriteFile(mdFilePath, nil, 0644)
 	if err != nil {
 		err = fmt.Errorf("Failed to create metadata file at %s: %s", mdFilePath, err.Error())
