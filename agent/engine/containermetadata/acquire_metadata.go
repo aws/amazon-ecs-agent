@@ -33,9 +33,6 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	}
 
 	// This metadata is available in two different places in NetworkSettings
-	// Since a container should have only one network mode this metadata
-	// should be identical in the two locations but maybe there are other
-	// use cases?
 	gateway := settings.Gateway
 	iPAddress := settings.IPAddress
 	iPv6Gateway := settings.IPv6Gateway
