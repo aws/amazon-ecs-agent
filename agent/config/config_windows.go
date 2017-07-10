@@ -60,6 +60,8 @@ func DefaultConfig() Config {
 		},
 		ReservedPortsUDP: []uint16{},
 		DataDir:          filepath.Join(ecsRoot, "data"),
+		//Since agent on windows does not run in a container we use the original path
+		InstanceDataDir: filepath.Join(ecsRoot, "data"),
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,
 		ReservedMemory:              0,
