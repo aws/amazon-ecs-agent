@@ -52,10 +52,11 @@ func (_mr *_MockMetadataManagerRecorder) CleanTaskMetadata(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanTaskMetadata", arg0)
 }
 
-func (_m *MockMetadataManager) CreateMetadata(_param0 *[]string, _param1 *api.Task, _param2 *api.Container) error {
+func (_m *MockMetadataManager) CreateMetadata(_param0 []string, _param1 *api.Task, _param2 *api.Container) ([]string, error) {
 	ret := _m.ctrl.Call(_m, "CreateMetadata", _param0, _param1, _param2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockMetadataManagerRecorder) CreateMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
