@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,6 +30,7 @@ import (
 const (
 	inspectContainerTimeout = 30 * time.Second
 	metadataFile            = "metadata.json"
+	windowsMountPoint       = "C:\\ecs\\metadata"
 )
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
@@ -37,11 +38,13 @@ func getTaskIDfromArn(taskarn string) string {
 	colonSplitArn := strings.SplitN(taskarn, ":", 6)
 	// Incorrectly formatted Arn (Should not happen)
 	if len(colonSplitArn) < 6 {
+		seelog.Errorf("Error in parsing task Arn: Invalid Arn format")
 		return ""
 	}
 	arnTaskPartSplit := strings.SplitN(colonSplitArn[5], "/", 2)
 	// Incorrectly formatted Arn (Should not happen)
 	if len(arnTaskPartSplit) < 2 {
+		seelog.Errorf("Error in parsing task Arn: Invalid Arn format")
 		return ""
 	}
 	return arnTaskPartSplit[1]
@@ -60,6 +63,11 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 // mdFileExist checks if metadata file exists or not
 func mdFileExist(task *api.Task, container *api.Container, dataDir string) bool {
 	mdFileDir := getMetadataFilePath(task, container, dataDir)
+	// Case when file path is invalid (Due to malformed task Arn)
+	if mdFileDir == "" {
+		return false
+	}
+
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 	if _, err := os.Stat(mdFilePath); err != nil {
 		if os.IsNotExist(err) {
@@ -77,6 +85,11 @@ func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container
 		return err
 	}
 	mdFileDir := getMetadataFilePath(task, container, dataDir)
+	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
+	if mdFileDir == "" {
+		err = fmt.Errorf("Failed to write to metadata: Malformed file path")
+		return err
+	}
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 
 	mdFile, err := os.OpenFile(mdFilePath, os.O_WRONLY, 0644)
@@ -118,7 +131,7 @@ func removeContents(dir string) error {
 // MetadataManager is an interface that allows us to abstract away the metadata
 // operations
 type MetadataManager interface {
-	CreateMetadata(*[]string, *api.Task, *api.Container) error
+	CreateMetadata([]string, *api.Task, *api.Container) ([]string, error)
 	UpdateMetadata(string, *api.Task, *api.Container) error
 	CleanTaskMetadata(*api.Task) error
 }
@@ -140,41 +153,41 @@ func NewMetadataManager(client dockerDummyClient, cfg *config.Config) *metadataM
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
-func (manager *metadataManager) CreateMetadata(binds *[]string, task *api.Task, container *api.Container) error {
+func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, container *api.Container) ([]string, error) {
 	// Check if manager has invalid entries
 	var err error
 	if manager.cfg == nil {
 		err = fmt.Errorf("Failed to create metadata: Invalid inputs")
-		return err
+		return binds, err
 	}
 
 	// Do not create metadata file for internal containers
 	// Add error handling for this case? Probably no need since
 	// Internal containers should not be visible to users anyways
 	if container.IsInternal {
-		return nil
+		return binds, nil
 	}
 
 	// Create task and container directories if they do not yet exist
 	mdDirectoryPath := getMetadataFilePath(task, container, manager.cfg.DataDir)
+	// Stop metadata creation if path is malformed for any reason
+	if mdDirectoryPath == "" {
+		err = fmt.Errorf("Failed to create metadata: Invalid file path")
+		return binds, err
+	}
+
 	err = os.MkdirAll(mdDirectoryPath, os.ModePerm)
 	if err != nil {
 		err = fmt.Errorf("Failed to create metadata directory at %s: %s", mdDirectoryPath, err.Error())
-		return err
+		return binds, err
 	}
-
-	// Add the directory of this container's metadata to the container's mount binds
-	// This is the only operating system specific point here, so it would be nice if there
-	// were some elegant way to do this for both windows and linux at the same time
-	instanceBind := fmt.Sprintf("%s\\%s:C:\\ecs\\metadata\\%s", manager.cfg.InstanceDataDir, mdDirectoryPath, container.Name)
-	*binds = append(*binds, instanceBind)
 
 	// Create metadata file
 	mdFilePath := filepath.Join(mdDirectoryPath, metadataFile)
 	err = ioutil.WriteFile(mdFilePath, nil, 0644)
 	if err != nil {
 		err = fmt.Errorf("Failed to create metadata file at %s: %s", mdFilePath, err.Error())
-		return err
+		return binds, err
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
@@ -182,9 +195,16 @@ func (manager *metadataManager) CreateMetadata(binds *[]string, task *api.Task, 
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		err = fmt.Errorf("Failed to write to metadata file %s: %s", mdFilePath, err.Error())
-		return err
+		return binds, err
 	}
-	return nil
+
+	// Add the directory of this container's metadata to the container's mount binds
+	// We do this at the end so that we only mount the directory if there are no errors
+	// This is the only operating system specific point here, so it would be nice if there
+	// were some elegant way to do this for both windows and linux at the same time
+	instanceBind := fmt.Sprintf("%s\\%s:%s\\%s", manager.cfg.DataDirOnHost, mdDirectoryPath, windowsMountPoint, container.Name)
+	binds = append(binds, instanceBind)
+	return binds, nil
 }
 
 // UpdateMetadata updates the metadata file after container starts and dynamic

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,16 +14,21 @@
 package containermetadata
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 // acquireNetworkMetadata parses the docker.NetworkSettings struct and
 // packages the desired metadata for JSON marshaling
-func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
+func acquireNetworkMetadata(settings *docker.NetworkSettings) (NetworkMetadata, error) {
+	var err error
 	if settings == nil {
-		return NetworkMetadata{}
+		err = fmt.Errorf("Failed to acquire network metadata: Network metadata not available or does not exist")
+		return NetworkMetadata{}, err
 	}
 
 	// Get Port bindings from docker settings
@@ -37,7 +42,7 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	iPAddress := settings.IPAddress
 	iPv6Gateway := settings.IPv6Gateway
 
-	// Assume there is at most one network mode (And if none, network is "none")
+	// Assume there is at most one network mode (And if no mode, network is "none")
 	networkModeFromContainer := ""
 	if len(settings.Networks) == 1 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
@@ -49,33 +54,46 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	} else if len(settings.Networks) == 0 {
 		networkModeFromContainer = "none"
 	}
-	return NetworkMetadata{
+	networkMD := NetworkMetadata{
 		ports:       ports,
 		networkMode: networkModeFromContainer,
 		gateway:     gateway,
 		iPAddress:   iPAddress,
 		iPv6Gateway: iPv6Gateway,
 	}
+	return networkMD, err
 }
 
 // acquireDockerContainerMetadata parses the metadata in a docker container
 // and packages this data for JSON marshaling
-func acquireDockerContainerMetadata(container *docker.Container) DockerContainerMD {
+func acquireDockerContainerMetadata(container *docker.Container) (DockerContainerMD, error) {
+	var err error
 	if container == nil {
-		return DockerContainerMD{}
+		err = fmt.Errorf("Failed to acquire container metadata: Container metadata not available or does not exist")
+		return DockerContainerMD{}, err
 	}
+
 	imageNameFromConfig := ""
 	if container.Config != nil {
 		imageNameFromConfig = container.Config.Image
+	} else {
+		// This case should never happen in real world cases because valid containers
+		// cannot lack a Config
+		err = fmt.Errorf("Failed to acquire container metadata: container has no configuration")
+		return DockerContainerMD{}, err
 	}
-	return DockerContainerMD{
+
+	networkMD, err := acquireNetworkMetadata(container.NetworkSettings)
+
+	dockerContainerMD := DockerContainerMD{
 		status:        container.State.StateString(),
 		containerID:   container.ID,
 		containerName: container.Name,
 		imageID:       container.Image,
 		imageName:     imageNameFromConfig,
-		networkInfo:   acquireNetworkMetadata(container.NetworkSettings),
+		networkInfo:   networkMD,
 	}
+	return dockerContainerMD, err
 }
 
 // acquireTaskMetadata parses metadata in the AWS configuration and task
@@ -86,16 +104,27 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 	version, err := client.Version()
 	if err != nil {
 		version = ""
+		seelog.Errorf("Failed to get docker version number: %s", err.Error())
 	}
 
 	clusterArnFromConfig := ""
 	if cfg != nil {
 		clusterArnFromConfig = cfg.Cluster
+	} else {
+		// This error should not happen in real world use cases (Or occurs somewhere else long
+		// before this should matter)
+		seelog.Errorf("Failed to get cluster Arn: Invalid configuration")
 	}
+
 	taskArnFromConfig := ""
 	if task != nil {
 		taskArnFromConfig = task.Arn
+	} else {
+		// This error should not happen in real world use cases (Or occurs somewhere else long
+		// before this should matter)
+		seelog.Errorf("Failed to get task Arn: Invalid task")
 	}
+
 	return TaskMetadata{
 		version:    version,
 		clusterArn: clusterArnFromConfig,
@@ -106,7 +135,10 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 // acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
 func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg *config.Config, task *api.Task) Metadata {
-	dockerMD := acquireDockerContainerMetadata(container)
+	dockerMD, err := acquireDockerContainerMetadata(container)
+	if err != nil {
+		seelog.Errorf("Error in getting metadata from docker: %s", err.Error())
+	}
 	taskMD := acquireTaskMetadata(client, cfg, task)
 	return Metadata{
 		Version:       taskMD.version,
@@ -129,5 +161,10 @@ func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg 
 // then packages it for JSON Marshaling. We use this version to get data
 // available prior to container creation
 func acquireMetadataAtContainerCreate(client dockerDummyClient, cfg *config.Config, task *api.Task) Metadata {
-	return acquireMetadata(client, nil, cfg, task)
+	taskMD := acquireTaskMetadata(client, cfg, task)
+	return Metadata{
+		Version:    taskMD.version,
+		ClusterArn: taskMD.clusterArn,
+		TaskArn:    taskMD.taskArn,
+	}
 }

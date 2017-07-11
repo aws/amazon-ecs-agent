@@ -616,9 +616,12 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
 	// But we require the host Config binds to be properly set before we create the container
-	mderr := engine.metadataManager.CreateMetadata(&hostConfig.Binds, task, container)
+	newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
 	if mderr != nil {
 		seelog.Errorf("%s", mderr.Error())
+	} else {
+		// Update hostConfig binds if metadata creation is successful
+		hostConfig.Binds = newBinds
 	}
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)

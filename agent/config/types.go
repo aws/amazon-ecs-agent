@@ -55,9 +55,9 @@ type Config struct {
 	// It is also used to keep the metadata of containers managed by the agent
 	// regardless of whether "Checkpoint" is set.
 	DataDir string
-	// InstanceDataDir is the directory in the instance from which we mount
+	// DataDirOnHost is the directory in the instance from which we mount
 	// DataDir to the ecs-agent container and to agent managed containers
-	InstanceDataDir string
+	DataDirOnHost string
 	// Checkpoint configures whether data should be periodically to a checkpoint
 	// file, in DataDir, such that on instance or agent restarts it will resume
 	// as the same ContainerInstance. It defaults to false.
