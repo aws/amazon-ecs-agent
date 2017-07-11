@@ -34,25 +34,21 @@ func (agent *ecsAgent) startSigchldHandler(ctx context.Context) {
 }
 
 func processSignal(ctx context.Context, signals <-chan os.Signal) {
-	log.Infof("Starting the SIGCHLD handler")
+	log.Info("Starting the SIGCHLD handler")
 	for {
 		select {
 		case s := <-signals:
 			log.Debugf("Received SIGCHLD: %s", s.String())
-			if err := wait(); err != nil {
-				log.Debugf("Error waiting for state change of the child process: %v", err)
-			} else {
-				log.Debugf("Wait for state change of the child process complete")
-			}
+			go wait()
 		case <-ctx.Done():
-			log.Infof("Stopping the SIGCHLD handler")
+			log.Info("Stopping the SIGCHLD handler")
 			return
 		}
 	}
 }
 
 // wait wraps the Wait4 syscall and returns the error if any
-func wait() error {
+func wait() {
 	var ws syscall.WaitStatus
 	var ru syscall.Rusage
 	// More information on wait4 syscall can be found in manual pages
@@ -72,6 +68,9 @@ func wait() error {
 	// optionall used to infer the status of the child process when
 	// needed. The options field is set to 0 as we are not setting any
 	// additional options on the wait4 syscall.
-	_, err := syscall.Wait4(-1, &ws, 0, &ru)
-	return err
+	if _, err := syscall.Wait4(-1, &ws, 0, &ru); err != nil {
+		log.Debugf("Error waiting for state change of the child process: %v", err)
+		return
+	}
+	log.Debug("Wait for state change of the child process complete")
 }
