@@ -38,8 +38,7 @@ import (
 )
 
 const (
-	dockerDefaultTag     = "latest"
-	defaultMetadataMount = "/var/lib/ecs/data/metadata"
+	dockerDefaultTag = "latest"
 )
 
 // Timelimits for docker operations enforced above docker
