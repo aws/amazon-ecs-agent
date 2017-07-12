@@ -685,7 +685,6 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	err := taskEngine.Init(ctx) // start the task engine
@@ -709,6 +708,11 @@ func TestSteadyStatePoll(t *testing.T) {
 	default:
 	}
 
+	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
+	assert.True(t, ok)
+	dockerContainer, ok := containerMap[sleepTask.Containers[0].Name]
+	assert.True(t, ok)
+
 	// Two steady state oks, one stop
 	gomock.InOrder(
 		client.EXPECT().DescribeContainer(containerID).Return(
@@ -724,11 +728,17 @@ func TestSteadyStatePoll(t *testing.T) {
 		// the engine *may* call StopContainer even though it's already stopped
 		client.EXPECT().StopContainer(containerID, stopContainerTimeout).AnyTimes(),
 	)
+	wait.Wait()
+
+	cleanupChan := make(chan time.Time)
+	testTime.EXPECT().After(gomock.Any()).Return(cleanupChan).AnyTimes()
+	client.EXPECT().RemoveContainer(dockerContainer.DockerName, removeContainerTimeout).Return(nil)
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
+
 	// trigger steady state verification
 	for i := 0; i < 10; i++ {
 		steadyStateVerify <- time.Now()
 	}
-	close(steadyStateVerify)
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
@@ -741,10 +751,19 @@ func TestSteadyStatePoll(t *testing.T) {
 		t.Fatal("Should be out of events")
 	default:
 	}
-	// cleanup expectations
-	testTime.EXPECT().Now().AnyTimes()
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	wait.Wait()
+
+	close(steadyStateVerify)
+	// trigger cleanup, this ensures all the goroutines were finished
+	sleepTask.SetSentStatus(api.TaskStopped)
+	cleanupChan <- time.Now()
+
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func TestStopWithPendingStops(t *testing.T) {
@@ -1175,6 +1194,11 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
 		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
@@ -1187,6 +1211,7 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
 		"com.amazonaws.ecs.capability.logging-driver.json-file",
 		"com.amazonaws.ecs.capability.logging-driver.syslog",
+		"com.amazonaws.ecs.capability.logging-driver.journald",
 		"com.amazonaws.ecs.capability.selinux",
 		"com.amazonaws.ecs.capability.apparmor",
 		attributePrefix + taskENIAttributeSuffix,
@@ -1253,6 +1278,7 @@ func TestCapabilitiesECR(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 
@@ -1276,6 +1302,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1297,6 +1324,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1318,6 +1346,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)
@@ -1339,6 +1368,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
+	client.EXPECT().KnownVersions().Return(nil)
 
 	capabilities := taskEngine.Capabilities()
 	capMap := make(map[string]bool)

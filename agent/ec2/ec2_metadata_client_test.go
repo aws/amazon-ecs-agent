@@ -15,13 +15,16 @@ package ec2
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ec2/http/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,22 +37,19 @@ const (
 	iidRegion    = "us-east-1"
 )
 
-var testInstanceIdentityDoc = `{
-  "privateIp" : "172.1.1.1",
-  "devpayProductCodes" : null,
-  "availabilityZone" : "us-east-1a",
-  "version" : "2010-08-31",
-  "region" : "us-east-1",
-  "accountId" : "012345678901",
-  "instanceId" : "i-01234567",
-  "billingProducts" : [ "bp-01234567" ],
-  "imageId" : "ami-12345678",
-  "instanceType" : "t2.micro",
-  "kernelId" : null,
-  "ramdiskId" : null,
-  "pendingTime" : "2015-06-04T22:16:06Z",
-  "architecture" : "x86_64"
-}`
+var testInstanceIdentityDoc = ec2metadata.EC2InstanceIdentityDocument{
+	PrivateIP:        "172.1.1.1",
+	AvailabilityZone: "us-east-1a",
+	Version:          "2010-08-31",
+	Region:           "us-east-1",
+	AccountID:        "012345678901",
+	InstanceID:       "i-01234567",
+	BillingProducts:  []string{"bp-01234567"},
+	ImageID:          "ami-12345678",
+	InstanceType:     "t2.micro",
+	PendingTime:      time.Now(),
+	Architecture:     "x86_64",
+}
 
 func testSuccessResponse(s string) (*http.Response, error) {
 	return &http.Response{
@@ -68,6 +68,27 @@ func testErrorResponse() (*http.Response, error) {
 	}, nil
 }
 
+func TestDefaultCredentials(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(SecurityCrednetialsResource).Return(testRoleName, nil)
+	mockGetter.EXPECT().GetMetadata(SecurityCrednetialsResource+testRoleName).Return(
+		string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte)), nil)
+
+	credentials, err := testClient.DefaultCredentials()
+	if err != nil {
+		t.Fail()
+	}
+	testCredentials := makeTestRoleCredentials()
+	if credentials.AccessKeyId != testCredentials.AccessKeyId {
+		t.Fail()
+	}
+}
+
 func TestGetInstanceIdentityDoc(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -75,25 +96,7 @@ func TestGetInstanceIdentityDoc(t *testing.T) {
 	mockGetter := mock_http.NewMockClient(ctrl)
 	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL + InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc))
-
-	doc, err := testClient.InstanceIdentityDocument()
-	assert.NoError(t, err)
-	assert.Equal(t, iidRegion, doc.Region)
-}
-
-func TestRetriesOnError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockGetter := mock_http.NewMockClient(ctrl)
-	testClient := NewEC2MetadataClient(mockGetter)
-
-	gomock.InOrder(
-		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")),
-		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(testErrorResponse()),
-		mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(testSuccessResponse(testInstanceIdentityDoc)),
-	)
+	mockGetter.EXPECT().GetInstanceIdentityDocument().Return(testInstanceIdentityDoc, nil)
 
 	doc, err := testClient.InstanceIdentityDocument()
 	assert.NoError(t, err)
@@ -107,44 +110,11 @@ func TestErrorPropogatesUp(t *testing.T) {
 	mockGetter := mock_http.NewMockClient(ctrl)
 	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL+InstanceIdentityDocumentResource).Return(nil, errors.New("Something broke")).MinTimes(1)
+	mockGetter.EXPECT().GetInstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{},
+		errors.New("Something broke"))
 
 	_, err := testClient.InstanceIdentityDocument()
 	assert.Error(t, err)
-}
-
-func TestReadResourceStringReadResourceError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockGetter := mock_http.NewMockClient(ctrl)
-	testClient := &ec2MetadataClient{httpClient: mockGetter}
-
-	path := "/some/path"
-	resourceName := "some resource"
-
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL+path).Return(
-		nil, errors.New("Something broke")).MinTimes(1)
-
-	_, err := testClient.readResourceString(path, resourceName)
-	assert.Error(t, err)
-}
-
-func TestReadResourceStringReadResourceSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockGetter := mock_http.NewMockClient(ctrl)
-	testClient := &ec2MetadataClient{httpClient: mockGetter}
-
-	path := "/some/path"
-	resourceName := "some resource"
-	response := "some response"
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL + path).Return(testSuccessResponse(response))
-
-	clientResponse, err := testClient.readResourceString(path, resourceName)
-	assert.NoError(t, err)
-	assert.Equal(t, response, clientResponse)
 }
 
 func TestPrimaryMAC(t *testing.T) {
@@ -154,7 +124,8 @@ func TestPrimaryMAC(t *testing.T) {
 	mockGetter := mock_http.NewMockClient(ctrl)
 	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL + macResource).Return(testSuccessResponse(mac))
+	mockGetter.EXPECT().GetMetadata(macResource).Return(mac, nil)
+
 	macResponse, err := testClient.PrimaryENIMAC()
 	assert.NoError(t, err)
 	assert.Equal(t, mac, macResponse)
@@ -167,8 +138,8 @@ func TestVPCID(t *testing.T) {
 	mockGetter := mock_http.NewMockClient(ctrl)
 	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL +
-		fmt.Sprintf(vpcIDResourceFormat, mac)).Return(testSuccessResponse(vpcID))
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(vpcIDResourceFormat, mac)).Return(vpcID)
+
 	vpcIDResponse, err := testClient.VPCID(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, vpcID, vpcIDResponse)
@@ -181,8 +152,7 @@ func TestSubnetID(t *testing.T) {
 	mockGetter := mock_http.NewMockClient(ctrl)
 	testClient := NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().Get(EC2MetadataServiceURL +
-		fmt.Sprintf(subnetIDResourceFormat, mac)).Return(testSuccessResponse(subnetID))
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(subnetIDResourceFormat, mac)).Return(subnetID)
 	subnetIDResponse, err := testClient.SubnetID(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, subnetID, subnetIDResponse)

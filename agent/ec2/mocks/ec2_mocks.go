@@ -18,6 +18,7 @@ package mock_ec2
 
 import (
 	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
+	ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -64,15 +65,37 @@ func (_mr *_MockEC2MetadataClientRecorder) PrimaryENIMAC() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrimaryENIMAC")
 }
 
-func (_m *MockEC2MetadataClient) ReadResource(_param0 string) ([]byte, error) {
-	ret := _m.ctrl.Call(_m, "ReadResource", _param0)
-	ret0, _ := ret[0].([]byte)
+func (_m *MockEC2MetadataClient) GetDynamicData(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetDynamicData", _param0)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockEC2MetadataClientRecorder) ReadResource(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadResource", arg0)
+func (_mr *_MockEC2MetadataClientRecorder) GetDynamicData(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDynamicData", arg0)
+}
+
+func (_m *MockEC2MetadataClient) GetMetadata(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0)
+}
+
+func (_m *MockEC2MetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	ret := _m.ctrl.Call(_m, "InstanceIdentityDocument")
+	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) InstanceIdentityDocument() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InstanceIdentityDocument")
 }
 
 func (_m *MockEC2MetadataClient) SubnetID(_param0 string) (string, error) {
@@ -95,4 +118,26 @@ func (_m *MockEC2MetadataClient) VPCID(_param0 string) (string, error) {
 
 func (_mr *_MockEC2MetadataClientRecorder) VPCID(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VPCID", arg0)
+}
+
+func (_m *MockHttpClient) GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	ret := _m.ctrl.Call(_m, "GetInstanceIdentityDocument")
+	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockHttpClientRecorder) GetInstanceIdentityDocument() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInstanceIdentityDocument")
+}
+
+func (_m *MockHttpClient) GetMetadata(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockHttpClientRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0)
 }

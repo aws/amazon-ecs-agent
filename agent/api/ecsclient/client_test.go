@@ -315,8 +315,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
@@ -378,8 +378,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Nil(t, req.ContainerInstanceArn)
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
@@ -565,8 +565,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "No such cluster", errors.New("No such cluster"))),
 		mc.EXPECT().CreateCluster(&ecs.CreateClusterInput{ClusterName: &defaultCluster}).Return(&ecs.CreateClusterOutput{Cluster: &ecs.Cluster{ClusterName: &defaultCluster}}, nil),
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),

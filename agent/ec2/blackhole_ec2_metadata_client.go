@@ -25,10 +25,6 @@ func (blackHoleMetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocu
 	return nil, errors.New("blackholed")
 }
 
-func (blackHoleMetadataClient) ReadResource(path string) ([]byte, error) {
-	return nil, errors.New("blackholed")
-}
-
 func (blackHoleMetadataClient) PrimaryENIMAC() (string, error) {
 	return "", errors.New("blackholed")
 }
@@ -38,5 +34,13 @@ func (blackHoleMetadataClient) VPCID(mac string) (string, error) {
 }
 
 func (blackHoleMetadataClient) SubnetID(mac string) (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClientImpl) GetMetadata(path string) (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClientImpl) GetDynamicData(path string) (string, error) {
 	return "", errors.New("blackholed")
 }

@@ -172,25 +172,23 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	}
 	registerRequest.Attributes = registrationAttributes
 	iidRetrieved := true
-	instanceIdentityDoc, err := client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentResource)
+	instanceIdentityDoc, err := client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
 	if err != nil {
 		seelog.Errorf("Unable to get instance identity document: %v", err)
 		iidRetrieved = false
-		instanceIdentityDoc = []byte{}
+		instanceIdentityDoc = ""
 	}
-	strIid := string(instanceIdentityDoc)
-	registerRequest.InstanceIdentityDocument = &strIid
+	registerRequest.InstanceIdentityDocument = &instanceIdentityDoc
 
-	instanceIdentitySignature := []byte{}
+	instanceIdentitySignature := ""
 	if iidRetrieved {
-		instanceIdentitySignature, err = client.ec2metadata.ReadResource(ec2.InstanceIdentityDocumentSignatureResource)
+		instanceIdentitySignature, err = client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource)
 		if err != nil {
 			seelog.Errorf("Unable to get instance identity signature: %v", err)
 		}
 	}
 
-	strIidSig := string(instanceIdentitySignature)
-	registerRequest.InstanceIdentityDocumentSignature = &strIidSig
+	registerRequest.InstanceIdentityDocumentSignature = &instanceIdentitySignature
 
 	// Micro-optimization, the pointer to this is used multiple times below
 	integerStr := "INTEGER"

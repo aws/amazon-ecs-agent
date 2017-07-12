@@ -112,6 +112,9 @@ func TestStartSession(t *testing.T) {
 
 	// Read request channel to get the metric data published to the server.
 	request := <-requestChan
+	cancel()
+	wait.Wait()
+
 	go func() {
 		for {
 			select {
@@ -134,8 +137,6 @@ func TestStartSession(t *testing.T) {
 	if responseType != "PublishMetricsRequest" {
 		t.Fatal("Unexpected responseType: ", responseType)
 	}
-	cancel()
-	wait.Wait()
 }
 
 func TestSessionConnectionClosedByRemote(t *testing.T) {

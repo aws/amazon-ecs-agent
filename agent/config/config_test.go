@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestBrokenEC2Metadata(t *testing.T) {
 	os.Clearenv()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
+	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 
 	_, err := NewConfig(mockEc2Metadata)
 	if err == nil {
@@ -63,7 +64,7 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("err"))
+	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
 
 	config, err := NewConfig(mockEc2Metadata)
