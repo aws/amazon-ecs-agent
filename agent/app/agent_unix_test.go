@@ -42,6 +42,8 @@ func TestDoStartHappyPath(t *testing.T) {
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
+		engine.ListContainersResponse{}).AnyTimes()
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
@@ -63,8 +65,6 @@ func TestDoStartHappyPath(t *testing.T) {
 		}).Return("telemetry-endpoint", nil),
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 			"tele-endpoint", nil).AnyTimes(),
-		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-			engine.ListContainersResponse{}).AnyTimes(),
 	)
 
 	cfg := config.DefaultConfig()
@@ -107,6 +107,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),

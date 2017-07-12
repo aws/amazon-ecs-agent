@@ -13,34 +13,42 @@
 
 package ec2
 
-import "errors"
+import (
+	"errors"
 
-type blackHoleMetadataClient struct{}
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+)
+
+type blackholeMetadataClient struct{}
 
 func NewBlackholeEC2MetadataClient() EC2MetadataClient {
-	return blackHoleMetadataClient{}
+	return blackholeMetadataClient{}
 }
 
-func (blackHoleMetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
+func (blackholeMetadataClient) DefaultCredentials() (*RoleCredentials, error) {
 	return nil, errors.New("blackholed")
 }
 
-func (blackHoleMetadataClient) PrimaryENIMAC() (string, error) {
+func (blackholeMetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	return ec2metadata.EC2InstanceIdentityDocument{}, errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) PrimaryENIMAC() (string, error) {
 	return "", errors.New("blackholed")
 }
 
-func (blackHoleMetadataClient) VPCID(mac string) (string, error) {
+func (blackholeMetadataClient) VPCID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
-func (blackHoleMetadataClient) SubnetID(mac string) (string, error) {
+func (blackholeMetadataClient) SubnetID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) GetMetadata(path string) (string, error) {
+func (blackholeMetadataClient) GetMetadata(path string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
-func (blackholeMetadataClientImpl) GetDynamicData(path string) (string, error) {
+func (blackholeMetadataClient) GetDynamicData(path string) (string, error) {
 	return "", errors.New("blackholed")
 }

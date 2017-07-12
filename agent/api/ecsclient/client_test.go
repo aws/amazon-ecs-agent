@@ -429,8 +429,8 @@ func TestRegisterContainerInstanceInClassicEC2(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, ec2.NewMetadataError(http.StatusNotFound)),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Nil(t, req.ContainerInstanceArn)
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
@@ -498,8 +498,8 @@ func TestRegisterContainerInstanceLaunchedWithoutVPC(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return("", ec2.NewMetadataError(http.StatusNotFound)),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(nil, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(nil, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mockSDK.EXPECT().RegisterContainerInstance(gomock.Any()).Return(
 			&ecs.RegisterContainerInstanceOutput{
 				ContainerInstance: &ecs.ContainerInstance{
@@ -572,8 +572,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentResource).Return(iidResponse, nil),
-		mockEC2Metadata.EXPECT().ReadResource(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignatureResponse, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			if *req.Cluster != config.DefaultClusterName {
 				t.Errorf("Wrong cluster: %v", *req.Cluster)

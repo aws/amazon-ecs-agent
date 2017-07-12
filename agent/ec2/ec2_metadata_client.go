@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -30,9 +29,9 @@ const (
 	SecurityCrednetialsResource               = "iam/security-credentials/"
 	InstanceIdentityDocumentResource          = "instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
-	macResource                               = "mac"
-	vpcIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
-	subnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
+	MacResource                               = "mac"
+	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
+	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 )
 
 const (
@@ -61,22 +60,14 @@ type EC2MetadataClient interface {
 	DefaultCredentials() (*RoleCredentials, error)
 	GetMetadata(string) (string, error)
 	GetDynamicData(string) (string, error)
-	// InstanceIdentityDocument retrieves the instance identity
-	// document from the instance metadata service
 	InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
-	// VPCID returns the VPC id for the network interface, given
-	// its mac address
 	VPCID(mac string) (string, error)
-	// SubnetID returns the subnet id for the network interface,
-	// given its mac address
 	SubnetID(mac string) (string, error)
-	// PrimaryENIMAC returns the MAC address for the primary
-	// network interface of the instance
 	PrimaryENIMAC() (string, error)
 }
 
-type ec2MetadataClient struct {
-	httpClient http.Client
+type ec2MetadataClientImpl struct {
+	client HttpClient
 }
 
 // NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
@@ -130,14 +121,20 @@ func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
 	return c.client.GetMetadata(path)
 }
 
+// PrimaryENIMAC returns the MAC address for the primary
+// network interface of the instance
 func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
-	return c.client.GetMetadata(mac)
+	return c.client.GetMetadata(MacResource)
 }
 
+// VPCID returns the VPC id for the network interface, given
+// its mac address
 func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
-	return c.client.GetMetadata(fmt.Sprintf(vpcIDResourceFormat, mac))
+	return c.client.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
 }
 
+// SubnetID returns the subnet id for the network interface,
+// given its mac address
 func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
-	return c.client.GetMetadata(fmt.Sprintf(subnetIDResourceFormat, mac))
+	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
 }
