@@ -15,7 +15,10 @@ PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container cni-plugins
+# Variable to determine branch/tag of amazon-ecs-cni-plugins
+ECS_CNI_REPOSITORY_REVISION=master
+
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container get-cni-sources cni-plugins
 
 all: docker
 
@@ -112,17 +115,17 @@ pause-container-release: pause-container
 	mkdir -p "$(shell pwd)/out"
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(shell pwd)/out/${PAUSE_CONTAINER_TARBALL}"
 
-# Variable to determine branch/tag of amazon-ecs-cni-plugins
-revision=master
-cni-sources:
-	@git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(revision)
+get-cni-sources:
+	@git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION)
 
-cni-plugins: cni-sources
+cni-plugins:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	@docker run --rm --net=none \
 		-v "$(shell pwd)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(shell pwd)/amazon-ecs-cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-cniplugins:make"
+
+	@echo "Built amazon-ecs-cni-plugins successfully."
 
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...

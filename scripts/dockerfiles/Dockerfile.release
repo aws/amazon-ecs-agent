@@ -21,7 +21,7 @@ COPY ["LICENSE", "NOTICE", "/"]
 COPY out/amazon-ecs-pause.tar /images/amazon-ecs-pause.tar
 
 # Copy our cni plugins ecs-eni, ecs-ipam and ecs-bridge
-COPY out/cni-plugins /cni-plugins
+COPY out/cni-plugins /amazon-ecs-cni-plugins
 
 # Copy our bundled certs to the first place go will check: see
 # https://golang.org/src/pkg/crypto/x509/root_unix.go
