@@ -304,7 +304,7 @@ func (agent *ecsAgent) getEC2InstanceID() string {
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		return ""
 	}
-	return instanceIdentityDoc.InstanceId
+	return instanceIdentityDoc.InstanceID
 }
 
 // newStateManager creates a new state manager object for the task engine.

@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
+	"sync"
 	"testing"
 	"time"
 
@@ -769,11 +770,14 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	statemanager := statemanager.NewNoopStateManager()
 	taskHandler := eventhandler.NewTaskHandler()
 
+	wait := sync.WaitGroup{}
+	wait.Add(1)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).Do(func(v interface{}) {}).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).Do(func(v interface{}) {}).AnyTimes()
 	mockWsClient.EXPECT().Connect().Return(nil)
 	mockWsClient.EXPECT().Serve().Do(func() {
+		wait.Done()
 		// Pretend as if the maximum heartbeatTimeout duration has
 		// been breached while Serving requests
 		time.Sleep(30 * time.Millisecond)
@@ -781,6 +785,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 
 	connectionClosed := make(chan bool)
 	mockWsClient.EXPECT().Close().Do(func() {
+		wait.Wait()
 		// Record connection closed
 		connectionClosed <- true
 	}).Return(nil)

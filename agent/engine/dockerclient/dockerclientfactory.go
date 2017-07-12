@@ -32,11 +32,21 @@ type Factory interface {
 	// if the client doesn't exist.
 	GetClient(version DockerVersion) (dockeriface.Client, error)
 
-	// FindSupportedAPIVersions tests each agent supported API version
-	// against the Docker daemon and returns a slice of supported
-	// versions. The slice will always be a subset (non-strict)
-	// of agent supported versions.
+	// FindSupportedAPIVersions returns a slice of agent-supported Docker API
+	// versions. Versions are tested by making calls against the Docker daemon
+	// and may occur either at Factory creation time or lazily upon invocation
+	// of this function. The slice represents the intersection of
+	// agent-supported versions and daemon-supported versions.
 	FindSupportedAPIVersions() []DockerVersion
+
+	// FindKnownAPIVersions returns a slice of Docker API versions that are
+	// known to the Docker daemon. Versions are tested by making calls against
+	// the Docker daemon and may occur either at Factory creation time or
+	// lazily upon invocation of this function. The slice represents the
+	// intersection of the API versions that the agent knows exist (but does
+	// not necessarily fully support) and the versions that result in
+	// successful responses by the Docker daemon.
+	FindKnownAPIVersions() []DockerVersion
 }
 
 type factory struct {
@@ -64,14 +74,26 @@ func (f *factory) GetDefaultClient() (dockeriface.Client, error) {
 
 func (f *factory) FindSupportedAPIVersions() []DockerVersion {
 	var supportedVersions []DockerVersion
-	for _, agentVersion := range getAgentVersions() {
-		_, err := f.GetClient(agentVersion)
+	for _, testVersion := range getAgentVersions() {
+		_, err := f.GetClient(testVersion)
 		if err != nil {
 			continue
 		}
-		supportedVersions = append(supportedVersions, agentVersion)
+		supportedVersions = append(supportedVersions, testVersion)
 	}
 	return supportedVersions
+}
+
+func (f *factory) FindKnownAPIVersions() []DockerVersion {
+	var knownVersions []DockerVersion
+	for _, testVersion := range getKnownAPIVersions() {
+		_, err := f.GetClient(testVersion)
+		if err != nil {
+			continue
+		}
+		knownVersions = append(knownVersions, testVersion)
+	}
+	return knownVersions
 }
 
 // getClient returns a client specified by the docker version. Its wrapped

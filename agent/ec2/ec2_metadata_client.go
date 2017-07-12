@@ -15,162 +15,126 @@ package ec2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
-	net_http "net/http"
+	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ec2/http"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
-	EC2MetadataServiceURL                     = "http://169.254.169.254"
-	SecurityCrednetialsResource               = "/2014-02-25/meta-data/iam/security-credentials/"
-	InstanceIdentityDocumentResource          = "/2014-02-25/dynamic/instance-identity/document"
-	InstanceIdentityDocumentSignatureResource = "/2014-02-25/dynamic/instance-identity/signature"
-	SignedInstanceIdentityDocumentResource    = "/2014-02-25/dynamic/instance-identity/pkcs7"
-
-	macResource            = "/2014-02-25/meta-data/mac"
-	vpcIDResourceFormat    = "/2014-02-25/meta-data/network/interfaces/macs/%s/vpc-id"
-	subnetIDResourceFormat = "/2014-02-25/meta-data/network/interfaces/macs/%s/subnet-id"
-
-	EC2MetadataRequestTimeout = 1 * time.Second
+	SecurityCrednetialsResource               = "iam/security-credentials/"
+	InstanceIdentityDocumentResource          = "instance-identity/document"
+	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
+	MacResource                               = "mac"
+	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
+	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 )
 
 const (
-	metadataRetries            = 5
-	metadataRetryMaxDelay      = 2 * time.Second
-	metadataRetryStartDelay    = 250 * time.Millisecond
-	metadataRetryDelayMultiple = 2
+	metadataRetries = 5
 )
 
-// InstanceIdentityDocument stores the fields that constitute the identity
-// of the EC2 Instance where the agent is running
-type InstanceIdentityDocument struct {
-	InstanceId       string  `json:"instanceId"`
-	InstanceType     string  `json:"instanceType"`
-	Region           string  `json:"region"`
-	PrivateIp        *string `json:"privateIp"`
-	AvailabilityZone string  `json:"availabilityZone"`
+// RoleCredentials contains the information associated with an IAM role
+type RoleCredentials struct {
+	Code            string    `json:"Code"`
+	LastUpdated     time.Time `json:"LastUpdated"`
+	Type            string    `json:"Type"`
+	AccessKeyId     string    `json:"AccessKeyId"`
+	SecretAccessKey string    `json:"SecretAccessKey"`
+	Token           string    `json:"Token"`
+	Expiration      time.Time `json:"Expiration"`
 }
 
-// EC2MetadataClient is the EC2 Metadata Service Client used by the
-// ECS Agent
+type HttpClient interface {
+	GetMetadata(string) (string, error)
+	GetDynamicData(string) (string, error)
+	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
+}
+
+// EC2MetadataClient is the client used to get metadata from instance metadata service
 type EC2MetadataClient interface {
-	// ReadResource reads the metadata associated with a resource
-	// path from the instance metadata service
-	ReadResource(path string) ([]byte, error)
-	// InstanceIdentityDocument retrieves the instance identity
-	// document from the instance metadata service
-	InstanceIdentityDocument() (*InstanceIdentityDocument, error)
-	// VPCID returns the VPC id for the network interface, given
-	// its mac address
+	DefaultCredentials() (*RoleCredentials, error)
+	GetMetadata(string) (string, error)
+	GetDynamicData(string) (string, error)
+	InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
 	VPCID(mac string) (string, error)
-	// SubnetID returns the subnet id for the network interface,
-	// given its mac address
 	SubnetID(mac string) (string, error)
-	// PrimaryENIMAC returns the MAC address for the primary
-	// network interface of the instance
 	PrimaryENIMAC() (string, error)
 }
 
-type ec2MetadataClient struct {
-	httpClient http.Client
+type ec2MetadataClientImpl struct {
+	client HttpClient
 }
 
-// NewEC2MetadataClient creates a new ec2MetadataClient object
-func NewEC2MetadataClient(httpClient http.Client) EC2MetadataClient {
-	if httpClient == nil {
-		var lowTimeoutDial net_http.RoundTripper = &net_http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: EC2MetadataRequestTimeout,
-			}).Dial,
-		}
-
-		httpClient = &net_http.Client{Transport: lowTimeoutDial}
+// NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
+func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
+	if client == nil {
+		return &ec2MetadataClientImpl{client: ec2metadata.New(session.New(), aws.NewConfig().WithMaxRetries(metadataRetries))}
+	} else {
+		return &ec2MetadataClientImpl{client: client}
 	}
-
-	return &ec2MetadataClient{httpClient: httpClient}
 }
 
-func (client *ec2MetadataClient) InstanceIdentityDocument() (*InstanceIdentityDocument, error) {
-	rawIIDResponse, err := client.ReadResource(InstanceIdentityDocumentResource)
+// DefaultCredentials returns the credentials associated with the instance iam role
+func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
+	securityCredential, err := c.client.GetMetadata(SecurityCrednetialsResource)
 	if err != nil {
 		return nil, err
 	}
 
-	var iid InstanceIdentityDocument
+	securityCredentialList := strings.Split(strings.TrimSpace(securityCredential), "\n")
+	if len(securityCredentialList) == 0 {
+		return nil, errors.New("No security credentials in response")
+	}
 
-	err = json.Unmarshal(rawIIDResponse, &iid)
+	defaultCredentialName := securityCredentialList[0]
+
+	defaultCredentialStr, err := c.client.GetMetadata(SecurityCrednetialsResource + defaultCredentialName)
 	if err != nil {
 		return nil, err
 	}
-	return &iid, nil
-}
-
-func (client *ec2MetadataClient) ReadResource(path string) ([]byte, error) {
-	endpoint := client.resourceServiceURL(path)
-
-	var err error
-	var resp *net_http.Response
-	utils.RetryNWithBackoff(
-		utils.NewSimpleBackoff(metadataRetryStartDelay,
-			metadataRetryMaxDelay, metadataRetryDelayMultiple, 0.2),
-		metadataRetries,
-		func() error {
-			resp, err = client.httpClient.Get(endpoint)
-			if err == nil && resp.StatusCode == net_http.StatusOK {
-				return nil
-			}
-			if resp != nil && resp.Body != nil {
-				resp.Body.Close()
-			}
-			if err == nil {
-				seelog.Warnf("Error accessing the EC2 Metadata Service; non-200 response: %v", resp.StatusCode)
-				return NewMetadataError(resp.StatusCode)
-			}
-			seelog.Warnf("Error accessing the EC2 Metadata Service; retrying: %v", err)
-			return err
-		})
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
+	var credential RoleCredentials
+	err = json.Unmarshal([]byte(defaultCredentialStr), &credential)
 	if err != nil {
 		return nil, err
 	}
-
-	return ioutil.ReadAll(resp.Body)
+	return &credential, nil
 }
 
-func (client *ec2MetadataClient) resourceServiceURL(path string) string {
-	// TODO, override EC2MetadataServiceURL based on the environment
-	return EC2MetadataServiceURL + path
+// GetDynamicData returns the dynamic data with provided path from instance metadata
+func (c *ec2MetadataClientImpl) GetDynamicData(path string) (string, error) {
+	return c.client.GetDynamicData(path)
 }
 
-func (client *ec2MetadataClient) PrimaryENIMAC() (string, error) {
-	return client.readResourceString(macResource, "MAC address of primary network interface")
+// InstanceIdentityDocument returns instance identity documents
+// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
+func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+	return c.client.GetInstanceIdentityDocument()
 }
 
-func (client *ec2MetadataClient) readResourceString(path string, resourceName string) (string, error) {
-	response, err := client.ReadResource(path)
-	if err != nil {
-		return "", errors.Wrapf(err,
-			"ec2 metadata client: unable to determine %s", resourceName)
-	}
-
-	return string(response), nil
+// GetMetadata returns the metadata from instance metadata service specified by the path
+func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
+	return c.client.GetMetadata(path)
 }
 
-func (client *ec2MetadataClient) VPCID(mac string) (string, error) {
-	return client.readResourceString(fmt.Sprintf(vpcIDResourceFormat, mac),
-		fmt.Sprintf("VPC ID for MAC address: %s", mac))
+// PrimaryENIMAC returns the MAC address for the primary
+// network interface of the instance
+func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
+	return c.client.GetMetadata(MacResource)
 }
 
-func (client *ec2MetadataClient) SubnetID(mac string) (string, error) {
-	return client.readResourceString(fmt.Sprintf(subnetIDResourceFormat, mac),
-		fmt.Sprintf("Subnet ID for MAC address: %s", mac))
+// VPCID returns the VPC id for the network interface, given
+// its mac address
+func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
+	return c.client.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
+}
+
+// SubnetID returns the subnet id for the network interface,
+// given its mac address
+func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
+	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
 }

@@ -32,7 +32,6 @@ import (
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -43,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -117,8 +117,8 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	expectedInstanceID := "inst-1"
-	iid := &ec2.InstanceIdentityDocument{
-		InstanceId: expectedInstanceID,
+	iid := ec2metadata.EC2InstanceIdentityDocument{
+		InstanceID: expectedInstanceID,
 		Region:     "us-west-2",
 	}
 	gomock.InOrder(
@@ -176,6 +176,7 @@ func TestDoStartLoadImageError(t *testing.T) {
 			gomock.InOrder(
 				mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 				dockerClient.EXPECT().SupportedVersions().Return(nil),
+				dockerClient.EXPECT().KnownVersions().Return(nil),
 				client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 					containerInstanceARN, nil),
 				imageManager.EXPECT().SetSaver(gomock.Any()),
@@ -216,6 +217,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
@@ -245,6 +247,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)
@@ -274,8 +277,8 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	cfg := config.DefaultConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := &ec2.InstanceIdentityDocument{
-		InstanceId: expectedInstanceID,
+	iid := ec2metadata.EC2InstanceIdentityDocument{
+		InstanceID: expectedInstanceID,
 		Region:     "us-west-2",
 	}
 	gomock.InOrder(
@@ -321,8 +324,8 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	cfg := config.DefaultConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := &ec2.InstanceIdentityDocument{
-		InstanceId: expectedInstanceID,
+	iid := ec2metadata.EC2InstanceIdentityDocument{
+		InstanceID: expectedInstanceID,
 		Region:     "us-west-2",
 	}
 
@@ -375,8 +378,8 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	cfg.Checkpoint = true
 	cfg.Cluster = "default"
 	ec2InstanceID := "inst-1"
-	iid := &ec2.InstanceIdentityDocument{
-		InstanceId: ec2InstanceID,
+	iid := ec2metadata.EC2InstanceIdentityDocument{
+		InstanceID: ec2InstanceID,
 		Region:     "us-west-2",
 	}
 
@@ -495,8 +498,8 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := &ec2.InstanceIdentityDocument{
-		InstanceId: expectedInstanceID,
+	iid := ec2metadata.EC2InstanceIdentityDocument{
+		InstanceID: expectedInstanceID,
 		Region:     "us-west-2",
 	}
 	gomock.InOrder(
@@ -555,7 +558,7 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
-	ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(nil, errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("error"))
 	assert.Equal(t, "", agent.getEC2InstanceID())
 }
 

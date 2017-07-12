@@ -55,8 +55,7 @@ func init() {
 		ecsconfig.Region = &region
 	}
 	if ecsconfig.Region == nil {
-		ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
-		if iid, err := ec2MetadataClient.InstanceIdentityDocument(); err == nil {
+		if iid, err := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument(); err == nil {
 			ecsconfig.Region = &iid.Region
 		}
 	}

@@ -869,15 +869,25 @@ func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
 	if !engine.cfg.PrivilegedDisabled {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"privileged-container")
 	}
-	versions := make(map[dockerclient.DockerVersion]bool)
+
+	supportedVersions := make(map[dockerclient.DockerVersion]bool)
+	// Determine API versions to report as supported. Supported versions are also used for capability-enablement, except
+	// logging drivers.
 	for _, version := range engine.client.SupportedVersions() {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
-		versions[version] = true
+		supportedVersions[version] = true
+	}
+
+	knownVersions := make(map[dockerclient.DockerVersion]struct{})
+	// Determine known API versions. Known versions are used exclusively for logging-driver enablement, since none of
+	// the structural API elements change.
+	for _, version := range engine.client.KnownVersions() {
+		knownVersions[version] = struct{}{}
 	}
 
 	for _, loggingDriver := range engine.cfg.AvailableLoggingDrivers {
 		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
-		if _, ok := versions[requiredVersion]; ok {
+		if _, ok := knownVersions[requiredVersion]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
 		}
 	}
@@ -889,15 +899,15 @@ func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
 	}
 
-	if _, ok := versions[dockerclient.Version_1_19]; ok {
+	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 	}
 
 	if engine.cfg.TaskIAMRoleEnabled {
 		// The "task-iam-role" capability is supported for docker v1.7.x onwards
 		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
-		// to lookup the table of docker versions to API versions
-		if _, ok := versions[dockerclient.Version_1_19]; ok {
+		// to lookup the table of docker supportedVersions to API supportedVersions
+		if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityTaskIAMRole)
 		} else {
 			seelog.Warn("Task IAM Role not enabled due to unsuppported Docker version")
@@ -906,7 +916,7 @@ func (engine *DockerTaskEngine) Capabilities() []*ecs.Attribute {
 
 	if engine.cfg.TaskIAMRoleEnabledForNetworkHost {
 		// The "task-iam-role-network-host" capability is supported for docker v1.7.x onwards
-		if _, ok := versions[dockerclient.Version_1_19]; ok {
+		if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityTaskIAMRoleNetHost)
 		} else {
 			seelog.Warn("Task IAM Role for Host Network not enabled due to unsuppported Docker version")
