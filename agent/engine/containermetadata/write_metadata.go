@@ -30,7 +30,7 @@ import (
 const (
 	inspectContainerTimeout = 30 * time.Second
 	metadataFile            = "metadata.json"
-	mountPoint          = "/ecs/metadata"
+	mountPoint              = "/ecs/metadata"
 )
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
