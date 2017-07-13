@@ -24,10 +24,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	eniUtils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
-	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
@@ -42,50 +42,43 @@ type UdevWatcher struct {
 	netlinkClient        netlinkwrapper.NetLink
 	udevMonitor          udevwrapper.Udev
 	events               chan *udev.UEvent
-	state                eniStateManager.StateManager
+	agentState           dockerstate.TaskEngineState
+	eniChangeEvent       chan<- statechange.Event
 }
 
 // New is used to return an instance of the UdevWatcher struct
 func New(ctx context.Context, udevwrap udevwrapper.Udev,
 	state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) *UdevWatcher {
-	return _new(ctx, netlinkwrapper.New(), udevwrap,
-		eniStateManager.New(state, stateChangeEvents))
+	return _new(ctx, netlinkwrapper.New(), udevwrap, state, stateChangeEvents)
 }
 
 // _new is used to nest the return of the UdevWatcher struct
-func _new(ctx context.Context, nlWrap netlinkwrapper.NetLink, udevWrap udevwrapper.Udev, eniState eniStateManager.StateManager) *UdevWatcher {
+func _new(ctx context.Context,
+	nlWrap netlinkwrapper.NetLink,
+	udevWrap udevwrapper.Udev,
+	state dockerstate.TaskEngineState,
+	stateChangeEvents chan<- statechange.Event) *UdevWatcher {
+
 	derivedContext, cancel := context.WithCancel(ctx)
 	return &UdevWatcher{
-		ctx:           derivedContext,
-		cancel:        cancel,
-		netlinkClient: nlWrap,
-		udevMonitor:   udevWrap,
-		events:        make(chan *udev.UEvent),
-		state:         eniState,
+		ctx:            derivedContext,
+		cancel:         cancel,
+		netlinkClient:  nlWrap,
+		udevMonitor:    udevWrap,
+		events:         make(chan *udev.UEvent),
+		agentState:     state,
+		eniChangeEvent: stateChangeEvents,
 	}
 }
 
 // Init initializes a new ENI Watcher
 func (udevWatcher *UdevWatcher) Init() error {
-	links, err := udevWatcher.netlinkClient.LinkList()
-	if err != nil {
-		return errors.Wrapf(err, "udev watcher init: error retrieving network interfaces")
-	}
-
-	// Return on empty list
-	if len(links) == 0 {
-		return errors.New("udev watcher init: no network interfaces discovered for initialization")
-	}
-
-	// Initialize eni state manager with a list of network interface
-	// devices discovered.
-	go udevWatcher.state.Init(links)
-	return nil
+	return udevWatcher.reconcileOnce()
 }
 
 // Start periodically updates the state of ENIs connected to the system
 func (udevWatcher *UdevWatcher) Start() {
-	// UDev Event Handler
+	// Udev Event Handler
 	go udevWatcher.eventHandler(udevWatcher.ctx)
 	udevWatcher.performPeriodicReconciliation(udevWatcher.ctx, defaultReconciliationInterval)
 }
@@ -102,7 +95,9 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Contex
 	for {
 		select {
 		case <-udevWatcher.updateIntervalTicker.C:
-			udevWatcher.reconcileOnce()
+			if err := udevWatcher.reconcileOnce(); err != nil {
+				log.Warnf("Udev watcher reconciliation failed: %v", err)
+			}
 		case <-ctx.Done():
 			udevWatcher.updateIntervalTicker.Stop()
 			return
@@ -111,18 +106,16 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Contex
 }
 
 // reconcileOnce is used to reconcile the state of ENIs attached to the instance
-func (udevWatcher *UdevWatcher) reconcileOnce() {
-	log.Debug("Udev watcher reconciliation: begin")
+func (udevWatcher *UdevWatcher) reconcileOnce() error {
 	links, err := udevWatcher.netlinkClient.LinkList()
 	if err != nil {
-		log.Warnf("Udev watcher reconciliation: error retrieving network interfaces: %v", err)
-		return
+		return errors.Wrapf(err, "uder watcher: unable to retrieve network interfaces")
 	}
 
 	// Return on empty list
 	if len(links) == 0 {
 		log.Info("Udev watcher reconciliation: no network interfaces discovered for reconciliation")
-		return
+		return nil
 	}
 
 	currentState := udevWatcher.buildState(links)
@@ -131,8 +124,48 @@ func (udevWatcher *UdevWatcher) reconcileOnce() {
 	// As we postulate the netlinkClient.LinkList() call to be expensive, we allow
 	// the race here. The state would be corrected during the next reconciliation loop.
 
-	udevWatcher.state.Reconcile(currentState)
-	log.Debug("Udev watcher reconciliation: end")
+	// Add new interfaces next
+	for mac, _ := range currentState {
+		udevWatcher.sendENIStateChange(mac)
+	}
+	return nil
+}
+
+// sendENIStateChange handles the eni event from udev or reconcile phase
+func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) {
+	eniAttachment, ok := udevWatcher.ENIStateChangeShouldBeSent(mac)
+	if ok {
+		go func(eni *api.ENIAttachment) {
+			eni.Status = api.ENIAttached
+			log.Infof("Emitting ENI change event for: %v", eni)
+			udevWatcher.eniChangeEvent <- api.TaskStateChange{
+				TaskArn:     eni.TaskArn,
+				Attachments: eni,
+			}
+		}(eniAttachment)
+	}
+}
+
+// ENIStateChangeShouldBeSent checks whether this eni is managed by ecs
+// and if its status should be sent to backend
+func (udevWatcher *UdevWatcher) ENIStateChangeShouldBeSent(macAddress string) (*api.ENIAttachment, bool) {
+	if macAddress == "" {
+		log.Warn("ENI state manager: device with empty mac address")
+		return nil, false
+	}
+	// check if this is an eni required by a task
+	eni, ok := udevWatcher.agentState.ENIByMac(macAddress)
+	if !ok {
+		log.Infof("ENI state manager: eni not managed by ecs: %s", macAddress)
+		return nil, false
+	}
+
+	if eni.IsSent() {
+		log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
+		return eni, false
+	}
+
+	return eni, true
 }
 
 // buildState is used to build a state of the system for reconciliation
@@ -172,7 +205,7 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 				log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
 				continue
 			}
-			udevWatcher.state.HandleENIEvent(macAddress)
+			udevWatcher.sendENIStateChange(macAddress)
 		case <-ctx.Done():
 			return
 		}
