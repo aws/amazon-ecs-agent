@@ -30,7 +30,7 @@ import (
 const (
 	inspectContainerTimeout = 30 * time.Second
 	metadataFile            = "metadata.json"
-	windowsMountPoint       = "C:\\ecs\\metadata"
+	mountPoint          = "/ecs/metadata"
 )
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
@@ -55,6 +55,7 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 	taskID := getTaskIDfromArn(task.Arn)
 	// Empty task ID indicates malformed Arn (Should not happen)
 	if taskID == "" {
+		seelog.Errorf("Error in getting metadata file path: Malformed task Arn")
 		return ""
 	}
 	return filepath.Join(dataDir, "metadata", taskID, container.Name)
@@ -143,7 +144,7 @@ type metadataManager struct {
 }
 
 // NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client dockerDummyClient, cfg *config.Config) *metadataManager {
+func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
 	manager := &metadataManager{
 		client: client,
 		cfg:    cfg,
@@ -153,6 +154,8 @@ func NewMetadataManager(client dockerDummyClient, cfg *config.Config) *metadataM
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
+// binds []string is passed by value to avoid race conditions by multiple
+// calls to CreateMetadata, although this should never actually happen
 func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, container *api.Container) ([]string, error) {
 	// Check if manager has invalid entries
 	var err error
@@ -202,7 +205,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	// We do this at the end so that we only mount the directory if there are no errors
 	// This is the only operating system specific point here, so it would be nice if there
 	// were some elegant way to do this for both windows and linux at the same time
-	instanceBind := fmt.Sprintf("%s\\%s:%s\\%s", manager.cfg.DataDirOnHost, mdDirectoryPath, windowsMountPoint, container.Name)
+	instanceBind := fmt.Sprintf("%s/%s:%s/%s", manager.cfg.DataDirOnHost, mdDirectoryPath, mountPoint, container.Name)
 	binds = append(binds, instanceBind)
 	return binds, nil
 }
