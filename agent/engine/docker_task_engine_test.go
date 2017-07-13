@@ -570,8 +570,8 @@ func TestSteadyStatePoll(t *testing.T) {
 	close(steadyStateVerify)
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(api.TaskStopped)
-	cleanupChan <- time.Now()
 	metadataManager.EXPECT().CleanTaskMetadata(gomock.Any())
+	cleanupChan <- time.Now()
 
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
