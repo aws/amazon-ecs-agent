@@ -24,24 +24,38 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	// waitForAnyPID is used by the wait4(2) syscall to wait for any
+	// process.
+	waitForAnyPID = -1
+	// wait4Options specifies the options set when invoking the
+	// wait4(2) syscall
+	wait4Options = 0
+)
+
 // startSigchldHandler registers a channel to receiev SIGCHLD signals for
-// the agent process. On receiving SIGCHLD, it invokes the wait4 syscall
+// the agent process. On receiving SIGCHLD, it invokes the wait4(2) syscall
 // so that child processes are appropriately cleaned up.
 func (agent *ecsAgent) startSigchldHandler(ctx context.Context) {
-	signals := make(chan os.Signal)
-	signal.Notify(signals, syscall.SIGCHLD)
-	go processSignal(ctx, signals)
+	// As per https://golang.org/pkg/os/signal/#Notify,
+	// Package signal will not block sending to c. For a channel used for
+	// notification of just one signal value, a buffer of size
+	// 1 is sufficient.
+	sigChldReceiver := make(chan os.Signal, 1)
+	signal.Notify(sigChldReceiver, syscall.SIGCHLD)
+	go processSignals(ctx, sigChldReceiver)
 }
 
-func processSignal(ctx context.Context, signals <-chan os.Signal) {
+func processSignals(ctx context.Context, sigChldReceiver chan os.Signal) {
 	log.Info("Starting the SIGCHLD handler")
 	for {
 		select {
-		case s := <-signals:
+		case s := <-sigChldReceiver:
 			log.Debugf("Received SIGCHLD: %s", s.String())
 			go wait()
 		case <-ctx.Done():
 			log.Info("Stopping the SIGCHLD handler")
+			signal.Stop(sigChldReceiver)
 			return
 		}
 	}
@@ -49,8 +63,8 @@ func processSignal(ctx context.Context, signals <-chan os.Signal) {
 
 // wait wraps the Wait4 syscall and returns the error if any
 func wait() {
-	var ws syscall.WaitStatus
-	var ru syscall.Rusage
+	var waitStatus syscall.WaitStatus
+	var rusage syscall.Rusage
 	// More information on wait4 syscall can be found in manual pages
 	// via `man 2 wait4` command. The syscall is used to wait for state
 	// changes in the child processes of the Agent. Examples of such
@@ -65,10 +79,10 @@ func wait() {
 	// the waitpid(pid, status, options) syscall. The value of -1 for
 	// the pid field means that we wait for any child process. The
 	// handles for waitstatus and rusage will be populated and can be
-	// optionall used to infer the status of the child process when
+	// optionally used to infer the status of the child process when
 	// needed. The options field is set to 0 as we are not setting any
 	// additional options on the wait4 syscall.
-	if _, err := syscall.Wait4(-1, &ws, 0, &ru); err != nil {
+	if _, err := syscall.Wait4(waitForAnyPID, &waitStatus, wait4Options, &rusage); err != nil {
 		log.Debugf("Error waiting for state change of the child process: %v", err)
 		return
 	}
