@@ -30,7 +30,7 @@ import (
 func New(ctx context.Context, state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) (*eniWatcher.UdevWatcher, error) {
 	log.Debug("Setting up ENI Watcher")
 
-	// Create UDev Monitor
+	// Create Udev Monitor
 	udevMonitor, err := udevwrapper.New()
 	if err != nil {
 		log.Errorf("Error creating udev monitor: %v", err)
