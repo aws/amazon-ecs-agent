@@ -60,6 +60,10 @@ func DefaultConfig() Config {
 		},
 		ReservedPortsUDP: []uint16{},
 		DataDir:          filepath.Join(ecsRoot, "data"),
+		// DataDirOnHost is identical to DataDir for Windows because we do not run on a container
+		// We use this redundancy to avoid making significant changes between the Windows and Linux
+		// versions of the containermetadata files
+		DataDirOnHost: filepath.Join(ecsRoot, "data"),
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,
 		ReservedMemory:              0,
