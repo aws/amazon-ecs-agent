@@ -1,3 +1,3 @@
 package model
 
-//go:generate go run ../../gogenerate/awssdk.go -typesOnly=true
+//go:generate go run -tags=codegen ../../gogenerate/awssdk.go -typesOnly=true
