@@ -28,7 +28,7 @@ import (
 
 const (
 	inspectContainerTimeout = 30 * time.Second
-	mountPoint              = "C:\\ecs\\metadata"
+	mountPoint              = `C:\ecs\metadata`
 )
 
 // MetadataManager is an interface that allows us to abstract away the metadata
@@ -104,7 +104,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	// We do this at the end so that we only mount the directory if there are no errors
 	// This is the only operating system specific point here, so it would be nice if there
 	// were some elegant way to do this for both windows and linux at the same time
-	instanceBind := fmt.Sprintf("%s\\%s:%s\\%s", manager.cfg.DataDirOnHost, mdDirectoryPath, mountPoint, container.Name)
+	instanceBind := fmt.Sprintf(`%s\%s:%s\%s`, manager.cfg.DataDirOnHost, mdDirectoryPath, mountPoint, container.Name)
 	binds = append(binds, instanceBind)
 	return binds, nil
 }
