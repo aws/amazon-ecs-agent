@@ -20,17 +20,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
 )
 
 const (
-	inspectContainerTimeout = 30 * time.Second
-	metadataFile            = "metadata.json"
-	mountPoint              = "/ecs/metadata"
+	metadataJoinSuffix = "metadata"
+	metadataFile       = "metadata.json"
 )
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
@@ -51,26 +48,26 @@ func getTaskIDfromArn(taskarn string) string {
 }
 
 // getMetadataFilePath gives the metadata file path for any agent-managed container
-func getMetadataFilePath(task *api.Task, container *api.Container, dataDir string) string {
+func getMetadataFilePath(task *api.Task, container *api.Container, dataDir string) (string, error) {
 	taskID := getTaskIDfromArn(task.Arn)
 	// Empty task ID indicates malformed Arn (Should not happen)
 	if taskID == "" {
-		seelog.Errorf("Error in getting metadata file path: Malformed task Arn")
-		return ""
+		err := fmt.Errorf("Error in getting metadata file path: Malformed task Arn")
+		return "", err
 	}
-	return filepath.Join(dataDir, "metadata", taskID, container.Name)
+	return filepath.Join(dataDir, metadataJoinSuffix, taskID, container.Name), nil
 }
 
 // mdFileExist checks if metadata file exists or not
 func mdFileExist(task *api.Task, container *api.Container, dataDir string) bool {
-	mdFileDir := getMetadataFilePath(task, container, dataDir)
+	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Case when file path is invalid (Due to malformed task Arn)
-	if mdFileDir == "" {
+	if err != nil {
 		return false
 	}
 
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
-	if _, err := os.Stat(mdFilePath); err != nil {
+	if _, err = os.Stat(mdFilePath); err != nil {
 		if os.IsNotExist(err) {
 			return false
 		}
@@ -85,27 +82,22 @@ func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container
 	if err != nil {
 		return err
 	}
-	mdFileDir := getMetadataFilePath(task, container, dataDir)
+	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
-	if mdFileDir == "" {
+	if err != nil {
 		err = fmt.Errorf("Failed to write to metadata: Malformed file path")
 		return err
 	}
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 
-	mdFile, err := os.OpenFile(mdFilePath, os.O_WRONLY, 0644)
-	defer mdFile.Close()
-	if err != nil {
-		return err
-	}
-	_, err = mdFile.Write(data)
+	err = ioutil.WriteFile(mdFilePath, data, 0644)
 	return err
 }
 
 // getTaskMetadataDir acquires the directory with all of the metadata
 // files of a given task
 func getTaskMetadataDir(task *api.Task, dataDir string) string {
-	return filepath.Join(dataDir, "metadata", getTaskIDfromArn(task.Arn))
+	return filepath.Join(dataDir, metadataJoinSuffix, getTaskIDfromArn(task.Arn))
 }
 
 // removeContents removes a directory and all its children. We use this
@@ -127,141 +119,4 @@ func removeContents(dir string) error {
 		}
 	}
 	return os.Remove(dir)
-}
-
-// MetadataManager is an interface that allows us to abstract away the metadata
-// operations
-type MetadataManager interface {
-	CreateMetadata([]string, *api.Task, *api.Container) ([]string, error)
-	UpdateMetadata(string, *api.Task, *api.Container) error
-	CleanTaskMetadata(*api.Task) error
-}
-
-// metadataManager implements the MetadataManager interface
-type metadataManager struct {
-	client dockerDummyClient
-	cfg    *config.Config
-}
-
-// NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
-	manager := &metadataManager{
-		client: client,
-		cfg:    cfg,
-	}
-	return manager
-}
-
-// CreateMetadata creates the metadata file and adds the metadata directory to
-// the container's mounted host volumes
-// binds []string is passed by value to avoid race conditions by multiple
-// calls to CreateMetadata, although this should never actually happen
-func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, container *api.Container) ([]string, error) {
-	// Check if manager has invalid entries
-	var err error
-	if manager.cfg == nil {
-		err = fmt.Errorf("Failed to create metadata: Invalid inputs")
-		return binds, err
-	}
-
-	// Do not create metadata file for internal containers
-	// Add error handling for this case? Probably no need since
-	// Internal containers should not be visible to users anyways
-	if container.IsInternal {
-		return binds, nil
-	}
-
-	// Create task and container directories if they do not yet exist
-	mdDirectoryPath := getMetadataFilePath(task, container, manager.cfg.DataDir)
-	// Stop metadata creation if path is malformed for any reason
-	if mdDirectoryPath == "" {
-		err = fmt.Errorf("Failed to create metadata: Invalid file path")
-		return binds, err
-	}
-
-	err = os.MkdirAll(mdDirectoryPath, os.ModePerm)
-	if err != nil {
-		err = fmt.Errorf("Failed to create metadata directory at %s: %s", mdDirectoryPath, err.Error())
-		return binds, err
-	}
-
-	// Create metadata file
-	mdFilePath := filepath.Join(mdDirectoryPath, metadataFile)
-	err = ioutil.WriteFile(mdFilePath, nil, 0644)
-	if err != nil {
-		err = fmt.Errorf("Failed to create metadata file at %s: %s", mdFilePath, err.Error())
-		return binds, err
-	}
-
-	// Acquire the metadata then write it in JSON format to the file
-	metadata := acquireMetadataAtContainerCreate(manager.client, manager.cfg, task)
-	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
-	if err != nil {
-		err = fmt.Errorf("Failed to write to metadata file %s: %s", mdFilePath, err.Error())
-		return binds, err
-	}
-
-	// Add the directory of this container's metadata to the container's mount binds
-	// We do this at the end so that we only mount the directory if there are no errors
-	// This is the only operating system specific point here, so it would be nice if there
-	// were some elegant way to do this for both windows and linux at the same time
-	instanceBind := fmt.Sprintf("%s/%s:%s/%s", manager.cfg.DataDirOnHost, mdDirectoryPath, mountPoint, container.Name)
-	binds = append(binds, instanceBind)
-	return binds, nil
-}
-
-// UpdateMetadata updates the metadata file after container starts and dynamic
-// metadata is available
-func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
-	// Check if manager has invalid entries
-	var err error
-	if manager.cfg == nil {
-		err = fmt.Errorf("Failed to update metadata: Invalid inputs")
-		return err
-	}
-
-	// Do not update (non-existent) metadata file for internal containers
-	if container.IsInternal {
-		return nil
-	}
-
-	// Verify metadata file exists before proceeding
-	if !mdFileExist(task, container, manager.cfg.DataDir) {
-		err = fmt.Errorf("Failed to update metadata for container %s of task %s: File does not exist", container, task)
-		return err
-	}
-
-	// Get docker container information through api call
-	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
-	if err != nil {
-		err = fmt.Errorf("Failed to inspect container %s of task %s: %s", container, task, err.Error())
-		return err
-	}
-
-	// Ensure we do not update a stopped, dead, or invalid container
-	if dockerContainer == nil || dockerContainer.State.Dead || !dockerContainer.State.FinishedAt.IsZero() {
-		err = fmt.Errorf("Failed ot update metadata for container %s of task %s: Container stopped or invalid")
-	}
-
-	// Acquire the metadata then write it in JSON format to the file
-	metadata := acquireMetadata(manager.client, dockerContainer, manager.cfg, task)
-	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
-	if err != nil {
-		err = fmt.Errorf("Failed to update metadata for container %s of task %s: %s", container, task, err.Error())
-	} else {
-		seelog.Debugf("Updated metadata file for task %s container %s", task, container)
-	}
-	return err
-}
-
-// CleanTaskMetadata removes the metadata files of all containers associated with a task
-func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
-	// Check if manager has invalid entries
-	var err error
-	if task == nil || manager.cfg == nil {
-		err = fmt.Errorf("Failed to clean metadata directory: Invalid inputs")
-		return err
-	}
-	mdPath := getTaskMetadataDir(task, manager.cfg.DataDir)
-	return removeContents(mdPath)
 }

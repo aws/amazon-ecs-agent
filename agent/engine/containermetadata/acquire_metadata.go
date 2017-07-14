@@ -14,76 +14,79 @@
 package containermetadata
 
 import (
-	"fmt"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 // acquireNetworkMetadata parses the docker.NetworkSettings struct and
 // packages the desired metadata for JSON marshaling
-func acquireNetworkMetadata(settings *docker.NetworkSettings) (NetworkMetadata, error) {
+func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	var err error
 	if settings == nil {
-		err = fmt.Errorf("Failed to acquire network metadata: Network metadata not available or does not exist")
-		return NetworkMetadata{}, err
+		seelog.Errorf("Failed to acquire network metadata: Network metadata not available or does not exist")
+		return NetworkMetadata{}
 	}
 
 	// Get Port bindings from docker settings
 	ports, err := api.PortBindingFromDockerPortBinding(settings.Ports)
 	if err != nil {
-		ports = nil
+		seelog.Errorf("Failed to acquire port binding metadata: %v", err)
 	}
 
 	// This metadata is available in two different places in NetworkSettings
-	gateway := settings.Gateway
-	iPAddress := settings.IPAddress
-	iPv6Gateway := settings.IPv6Gateway
+	ipv4Address := settings.IPAddress
+	ipv4Gateway := settings.Gateway
+	ipv6Address := settings.GlobalIPv6Address
+	ipv6Gateway := settings.IPv6Gateway
 
 	// Assume there is at most one network mode (And if no mode, network is "none")
 	networkModeFromContainer := ""
 	if len(settings.Networks) == 1 {
+		seelog.Debugf("One network mode found")
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkModeFromContainer = modeFromSettings
-			gateway = containerNetwork.Gateway
-			iPAddress = containerNetwork.IPAddress
-			iPv6Gateway = containerNetwork.IPv6Gateway
+			ipv4Address = containerNetwork.IPAddress
+			ipv4Gateway = containerNetwork.Gateway
+			ipv6Address = containerNetwork.GlobalIPv6Address
+			ipv6Gateway = containerNetwork.IPv6Gateway
 		}
 	} else if len(settings.Networks) == 0 {
+		seelog.Debugf("No network modes found. Defaulting to none mode")
 		networkModeFromContainer = "none"
 	}
 	networkMD := NetworkMetadata{
 		ports:       ports,
 		networkMode: networkModeFromContainer,
-		gateway:     gateway,
-		iPAddress:   iPAddress,
-		iPv6Gateway: iPv6Gateway,
+		ipv4Address: ipv4Address,
+		ipv4Gateway: ipv4Gateway,
+		ipv6Address: ipv6Address,
+		ipv6Gateway: ipv6Gateway,
 	}
-	return networkMD, err
+	return networkMD
 }
 
 // acquireDockerContainerMetadata parses the metadata in a docker container
 // and packages this data for JSON marshaling
-func acquireDockerContainerMetadata(container *docker.Container) (DockerContainerMD, error) {
-	var err error
+func acquireDockerContainerMetadata(container *docker.Container) DockerContainerMD {
 	if container == nil {
-		err = fmt.Errorf("Failed to acquire container metadata: Container metadata not available or does not exist")
-		return DockerContainerMD{}, err
+		seelog.Errorf("Failed to acquire container metadata: Container metadata not available or does not exist")
+		return DockerContainerMD{}
 	}
 
 	imageNameFromConfig := ""
+	// A real world container should never lack a config but we check regardless to avoid
+	// nil pointer exceptions (Could occur if there is some error in the docker api call)
 	if container.Config != nil {
 		imageNameFromConfig = container.Config.Image
 	} else {
-		// This case should never happen in real world cases because valid containers
-		// cannot lack a Config
-		err = fmt.Errorf("Failed to acquire container metadata: container has no configuration")
-		return DockerContainerMD{}, err
+		seelog.Errorf("Failed to acquire container metadata: container has no configuration")
+		return DockerContainerMD{}
 	}
 
-	networkMD, err := acquireNetworkMetadata(container.NetworkSettings)
+	networkMD := acquireNetworkMetadata(container.NetworkSettings)
 
 	dockerContainerMD := DockerContainerMD{
 		status:        container.State.StateString(),
@@ -93,7 +96,7 @@ func acquireDockerContainerMetadata(container *docker.Container) (DockerContaine
 		imageName:     imageNameFromConfig,
 		networkInfo:   networkMD,
 	}
-	return dockerContainerMD, err
+	return dockerContainerMD
 }
 
 // acquireTaskMetadata parses metadata in the AWS configuration and task
@@ -104,7 +107,7 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 	version, err := client.Version()
 	if err != nil {
 		version = ""
-		seelog.Errorf("Failed to get docker version number: %s", err.Error())
+		seelog.Errorf("Failed to get docker version number: %v", err)
 	}
 
 	clusterArnFromConfig := ""
@@ -135,10 +138,7 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 // acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
 func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg *config.Config, task *api.Task) Metadata {
-	dockerMD, err := acquireDockerContainerMetadata(container)
-	if err != nil {
-		seelog.Errorf("Error in getting metadata from docker: %s", err.Error())
-	}
+	dockerMD := acquireDockerContainerMetadata(container)
 	taskMD := acquireTaskMetadata(client, cfg, task)
 	return Metadata{
 		Version:       taskMD.version,
@@ -151,9 +151,10 @@ func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg 
 		TaskArn:       taskMD.taskArn,
 		Ports:         dockerMD.networkInfo.ports,
 		NetworkMode:   dockerMD.networkInfo.networkMode,
-		Gateway:       dockerMD.networkInfo.gateway,
-		IPAddress:     dockerMD.networkInfo.iPAddress,
-		IPv6Gateway:   dockerMD.networkInfo.iPv6Gateway,
+		IPv4Address:   dockerMD.networkInfo.ipv4Address,
+		IPv4Gateway:   dockerMD.networkInfo.ipv4Gateway,
+		IPv6Address:   dockerMD.networkInfo.ipv6Address,
+		IPv6Gateway:   dockerMD.networkInfo.ipv6Gateway,
 	}
 }
 
