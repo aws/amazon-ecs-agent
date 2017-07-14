@@ -470,19 +470,19 @@ func TestSteadyStatePoll(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 
+		wait.Add(1)
 		client.EXPECT().CreateContainer(dockerConfig, gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(x, y, z, timeout interface{}) {
 				go func() {
-					wait.Add(1)
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					wait.Done()
 				}()
 			}).Return(DockerContainerMetadata{DockerID: "containerId"})
 
+		wait.Add(1)
 		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				go func() {
-					wait.Add(1)
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					wait.Done()
 				}()

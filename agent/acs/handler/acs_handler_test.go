@@ -842,6 +842,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			stateManager:         statemanager,
 			taskHandler:          taskHandler,
 			ctx:                  ctx,
+			_heartbeatTimeout:    1 * time.Second,
 			backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 			resources:            newSessionResources(credentials.AnonymousCredentials),
 			credentialsManager:   rolecredentials.NewManager(),
