@@ -110,6 +110,11 @@ func newAgent(
 		return nil, err
 	}
 
+	metadataManager := containermetadata.NewMetadataManager(dockerClient, cfg)
+	if metadataManager == nil {
+		log.Warnf("Failed to create metadata manager: Container metadata disabled")
+	}
+
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
@@ -121,7 +126,7 @@ func newAgent(
 		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
-		metadataManager:       containermetadata.NewMetadataManager(dockerClient, cfg),
+		metadataManager:       metadataManager,
 	}, nil
 }
 

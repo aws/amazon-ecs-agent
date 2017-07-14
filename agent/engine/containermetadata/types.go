@@ -34,9 +34,10 @@ type dockerDummyClient interface {
 type NetworkMetadata struct {
 	ports       []api.PortBinding
 	networkMode string
-	gateway     string
-	iPAddress   string
-	iPv6Gateway string
+	ipv4Address string
+	ipv4Gateway string
+	ipv6Address string
+	ipv6Gateway string
 }
 
 // DockerContainerMD keeps track of all metadata acquired from Docker inspection
@@ -74,7 +75,8 @@ type Metadata struct {
 	ImageName         string            `json:"ImageName, omitempty"`
 	Ports             []api.PortBinding `json:"PortMappings, omitempty"`
 	NetworkMode       string            `json:"NetworkMode, omitempty"`
-	Gateway           string            `json:"Gateway, omitempty"`
-	IPAddress         string            `json:"IPAddress, omitempty"`
+	IPv4Address       string            `json:"IPv4Address, omitempty"`
+	IPv4Gateway       string            `json:"IPv4Gateway, omitempty`
+	IPv6Address       string            `json:"IPv6Address, omitempty`
 	IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
 }
