@@ -15,7 +15,6 @@ package credentials
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -43,9 +42,7 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 		SecretAccessKey: "OhhSecret",
 		SessionToken:    "sessionToken",
 	}
-	if !reflect.DeepEqual(credentials, expectedCredentials) {
-		t.Error("Mismatch between expected and constructed credentials")
-	}
+	assert.Equal(t, credentials, expectedCredentials, "Mismatch between expected and constructed credentials")
 }
 
 // TestGetTaskCredentialsUnknownId tests if GetTaskCredentials returns a false value
@@ -102,12 +99,8 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 	assert.NoError(t, err, "Error adding credentials")
 
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
-	if !ok {
-		t.Error("GetTaskCredentials returned false for existing credentials")
-	}
-	if !reflect.DeepEqual(credentials, *credentialsFromManager) {
-		t.Error("Mismatch between added and retrieved credentials")
-	}
+	assert.True(t, ok, "GetTaskCredentials returned false for existing credentials")
+	assert.Equal(t, credentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
 
 	updatedCredentials := TaskIAMRoleCredentials{
 		ARN: "t1",
@@ -123,12 +116,9 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 	err = manager.SetTaskCredentials(updatedCredentials)
 	assert.NoError(t, err, "Error updating credentials")
 	credentialsFromManager, ok = manager.GetTaskCredentials("cid1")
-	if !ok {
-		t.Error("GetTaskCredentials returned false for existing credentials")
-	}
-	if !reflect.DeepEqual(updatedCredentials, *credentialsFromManager) {
-		t.Error("Mismatch between added and retrieved credentials")
-	}
+
+	assert.True(t, ok, "GetTaskCredentials returned false for existing credentials")
+	assert.Equal(t, updatedCredentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
 }
 
 // TestGenerateCredentialsEndpointRelativeURI tests if the relative credentials endpoint
@@ -166,12 +156,8 @@ func TestRemoveExistingCredentials(t *testing.T) {
 	assert.NoError(t, err, "Error adding credentials")
 
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
-	if !ok {
-		t.Error("GetTaskCredentials returned false for existing credentials")
-	}
-	if !reflect.DeepEqual(credentials, *credentialsFromManager) {
-		t.Error("Mismatch between added and retrieved credentials")
-	}
+	assert.True(t, ok, "GetTaskCredentials returned false for existing credentials")
+	assert.Equal(t, credentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
 
 	manager.RemoveCredentials("cid1")
 	_, ok = manager.GetTaskCredentials("cid1")

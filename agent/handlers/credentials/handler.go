@@ -178,7 +178,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		return nil, "", msg, errors.New(errText)
 	}
 
-	if credentials == nil {
+	if utils.ZeroOrNil(credentials) {
 		// This can happen when the agent is restarted and is reconciling its state.
 		errText := errPrefix + "Credentials uninitialized for ID"
 		log.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)

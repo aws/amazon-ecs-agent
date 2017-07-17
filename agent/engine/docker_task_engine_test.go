@@ -69,7 +69,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
-	roleCredentials := &credentials.TaskIAMRoleCredentials{
+	roleCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()

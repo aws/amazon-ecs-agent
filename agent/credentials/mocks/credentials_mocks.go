@@ -42,9 +42,9 @@ func (_m *MockManager) EXPECT() *_MockManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockManager) GetTaskCredentials(_param0 string) (*credentials.TaskIAMRoleCredentials, bool) {
+func (_m *MockManager) GetTaskCredentials(_param0 string) (credentials.TaskIAMRoleCredentials, bool) {
 	ret := _m.ctrl.Call(_m, "GetTaskCredentials", _param0)
-	ret0, _ := ret[0].(*credentials.TaskIAMRoleCredentials)
+	ret0, _ := ret[0].(credentials.TaskIAMRoleCredentials)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
