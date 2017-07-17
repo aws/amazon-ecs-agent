@@ -55,6 +55,11 @@ func processSignals(ctx context.Context, sigChldReceiver chan os.Signal) {
 			go wait()
 		case <-ctx.Done():
 			log.Info("Stopping the SIGCHLD handler")
+			// Since we expect this context to be cancelled only
+			// when the Agent exits, we do not read from the channel
+			// to ascertain if there's a stray SIGCHLD to be
+			// processed. Calling Stop should ensure that we don't
+			// receive a new signal from sigChldReceiver.
 			signal.Stop(sigChldReceiver)
 			return
 		}
