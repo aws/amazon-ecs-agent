@@ -102,7 +102,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).MinTimes(1)
+	state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).AnyTimes()
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
