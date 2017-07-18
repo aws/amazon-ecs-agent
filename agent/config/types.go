@@ -148,6 +148,10 @@ type Config struct {
 
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
+
+	// ContainerMetadataEnabled specifies if the agent should provide a metadata
+	// file for containers.
+	ContainerMetadataEnabled bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged
