@@ -133,7 +133,7 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 
 // sendENIStateChange handles the eni event from udev or reconcile phase
 func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) {
-	eniAttachment, ok := udevWatcher.ENIStateChangeShouldBeSent(mac)
+	eniAttachment, ok := udevWatcher.shouldSendENIStateChange(mac)
 	if ok {
 		go func(eni *api.ENIAttachment) {
 			eni.Status = api.ENIAttached
@@ -146,9 +146,9 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) {
 	}
 }
 
-// ENIStateChangeShouldBeSent checks whether this eni is managed by ecs
+// shouldSendENIStateChange checks whether this eni is managed by ecs
 // and if its status should be sent to backend
-func (udevWatcher *UdevWatcher) ENIStateChangeShouldBeSent(macAddress string) (*api.ENIAttachment, bool) {
+func (udevWatcher *UdevWatcher) shouldSendENIStateChange(macAddress string) (*api.ENIAttachment, bool) {
 	if macAddress == "" {
 		log.Warn("ENI state manager: device with empty mac address")
 		return nil, false
