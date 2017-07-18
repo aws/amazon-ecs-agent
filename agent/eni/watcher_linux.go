@@ -109,7 +109,7 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Contex
 func (udevWatcher *UdevWatcher) reconcileOnce() error {
 	links, err := udevWatcher.netlinkClient.LinkList()
 	if err != nil {
-		return errors.Wrapf(err, "uder watcher: unable to retrieve network interfaces")
+		return errors.Wrapf(err, "udev watcher: unable to retrieve network interfaces")
 	}
 
 	// Return on empty list
