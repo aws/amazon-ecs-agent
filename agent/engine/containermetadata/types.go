@@ -32,7 +32,6 @@ type dockerDummyClient interface {
 // NetworkMetadata keeps track of the data we parse from the Network Settings
 // in docker containers
 type NetworkMetadata struct {
-	ports       []api.PortBinding
 	networkMode string
 	ipv4Address string
 	ipv4Gateway string
@@ -49,6 +48,7 @@ type DockerContainerMD struct {
 	containerName string
 	imageID       string
 	imageName     string
+	ports         []api.PortBinding
 	networkInfo   NetworkMetadata
 }
 
@@ -64,19 +64,19 @@ type TaskMetadata struct {
 // Metadata packages all acquired metadata and is used to format it
 // into JSON to write to the metadata file
 type Metadata struct {
-	Version           string            `json:"DockerVersion, omitempty"`
-	Status            string            `json:"Status, omitempty"`
-	ClusterArn        string            `json:"ClusterArn, omitempty"`
-	ContainerInstance string            `json:"ContainerInstanceArn, omitempty"`
-	TaskArn           string            `json:"TaskArn, omitempty"`
-	ContainerID       string            `json:"ContainerID, omitempty"`
-	ContainerName     string            `json:"ContainerName, omitempty"`
-	ImageID           string            `json:"ImageID, omitempty"`
-	ImageName         string            `json:"ImageName, omitempty"`
-	Ports             []api.PortBinding `json:"PortMappings, omitempty"`
-	NetworkMode       string            `json:"NetworkMode, omitempty"`
-	IPv4Address       string            `json:"IPv4Address, omitempty"`
-	IPv4Gateway       string            `json:"IPv4Gateway, omitempty`
-	IPv6Address       string            `json:"IPv6Address, omitempty`
-	IPv6Gateway       string            `json:"IPv6Gateway, omitempty"`
+	Version           string            `json:"DockerVersion,omitempty"`
+	Status            string            `json:"Status,omitempty"`
+	ClusterArn        string            `json:"ClusterArn,omitempty"`
+	ContainerInstance string            `json:"ContainerInstanceArn,omitempty"`
+	TaskArn           string            `json:"TaskArn,omitempty"`
+	ContainerID       string            `json:"ContainerID,omitempty"`
+	ContainerName     string            `json:"ContainerName,omitempty"`
+	ImageID           string            `json:"ImageID,omitempty"`
+	ImageName         string            `json:"ImageName,omitempty"`
+	Ports             []api.PortBinding `json:"PortMappings,omitempty"`
+	NetworkMode       string            `json:"NetworkMode,omitempty"`
+	IPv4Address       string            `json:"IPv4Address,omitempty"`
+	IPv4Gateway       string            `json:"IPv4Gateway,omitempty"`
+	IPv6Address       string            `json:"IPv6Address,omitempty"`
+	IPv6Gateway       string            `json:"IPv6Gateway,omitempty"`
 }

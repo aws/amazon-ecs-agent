@@ -24,16 +24,9 @@ import (
 // acquireNetworkMetadata parses the docker.NetworkSettings struct and
 // packages the desired metadata for JSON marshaling
 func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
-	var err error
 	if settings == nil {
 		seelog.Errorf("Failed to acquire network metadata: Network metadata not available or does not exist")
 		return NetworkMetadata{}
-	}
-
-	// Get Port bindings from docker settings
-	ports, err := api.PortBindingFromDockerPortBinding(settings.Ports)
-	if err != nil {
-		seelog.Errorf("Failed to acquire port binding metadata: %v", err)
 	}
 
 	// This metadata is available in two different places in NetworkSettings
@@ -42,10 +35,9 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	ipv6Address := settings.GlobalIPv6Address
 	ipv6Gateway := settings.IPv6Gateway
 
-	// Assume there is at most one network mode (And if no mode, network is "none")
+	// Network mode is not available for Docker API versions 1.17-1.20
 	networkModeFromContainer := ""
 	if len(settings.Networks) == 1 {
-		seelog.Debugf("One network mode found")
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkModeFromContainer = modeFromSettings
 			ipv4Address = containerNetwork.IPAddress
@@ -53,12 +45,10 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 			ipv6Address = containerNetwork.GlobalIPv6Address
 			ipv6Gateway = containerNetwork.IPv6Gateway
 		}
-	} else if len(settings.Networks) == 0 {
-		seelog.Debugf("No network modes found. Defaulting to none mode")
-		networkModeFromContainer = "none"
+	} else {
+		seelog.Debugf("No network mode found due to old Docker Client version")
 	}
 	networkMD := NetworkMetadata{
-		ports:       ports,
 		networkMode: networkModeFromContainer,
 		ipv4Address: ipv4Address,
 		ipv4Gateway: ipv4Gateway,
@@ -86,6 +76,20 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 		return DockerContainerMD{}
 	}
 
+	// Get Port bindings from docker configurations
+	var ports []api.PortBinding
+	var err error
+	// A real world container should never lack a host config but we check just in case
+	if container.HostConfig != nil {
+		ports, err = api.PortBindingFromDockerPortBinding(container.HostConfig.PortBindings)
+		if err != nil {
+			seelog.Errorf("Failed to acquire port binding metadata: %v", err)
+		}
+	} else {
+		seelog.Errorf("Failed ot acquire container metadata: container has no host configuration")
+		return DockerContainerMD{}
+	}
+
 	networkMD := acquireNetworkMetadata(container.NetworkSettings)
 
 	dockerContainerMD := DockerContainerMD{
@@ -94,6 +98,7 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 		containerName: container.Name,
 		imageID:       container.Image,
 		imageName:     imageNameFromConfig,
+		ports:         ports,
 		networkInfo:   networkMD,
 	}
 	return dockerContainerMD
@@ -138,8 +143,8 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 // acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
 func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg *config.Config, task *api.Task) Metadata {
-	dockerMD := acquireDockerContainerMetadata(container)
 	taskMD := acquireTaskMetadata(client, cfg, task)
+	dockerMD := acquireDockerContainerMetadata(container)
 	return Metadata{
 		Version:       taskMD.version,
 		Status:        dockerMD.status,
@@ -149,7 +154,7 @@ func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg 
 		ImageName:     dockerMD.imageName,
 		ClusterArn:    taskMD.clusterArn,
 		TaskArn:       taskMD.taskArn,
-		Ports:         dockerMD.networkInfo.ports,
+		Ports:         dockerMD.ports,
 		NetworkMode:   dockerMD.networkInfo.networkMode,
 		IPv4Address:   dockerMD.networkInfo.ipv4Address,
 		IPv4Gateway:   dockerMD.networkInfo.ipv4Gateway,
