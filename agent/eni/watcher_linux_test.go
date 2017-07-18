@@ -18,6 +18,7 @@ package eni
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -25,14 +26,14 @@ import (
 	"github.com/deniswernert/udev"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	eniStateManager "github.com/aws/amazon-ecs-agent/agent/eni/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/eni/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
 )
@@ -59,35 +60,32 @@ func TestWatcherInit(t *testing.T) {
 		AttachStatusSent: false,
 	})
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
-	gomock.InOrder(
-		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
-			&netlink.Device{
-				LinkAttrs: netlink.LinkAttrs{
-					HardwareAddr: pm,
-					Name:         randomDevice,
-				},
+	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
+		&netlink.Device{
+			LinkAttrs: netlink.LinkAttrs{
+				HardwareAddr: pm,
+				Name:         randomDevice,
 			},
-		}, nil),
-	)
+		},
+	}, nil)
 
-	wait := sync.WaitGroup{}
-	wait.Add(1)
+	waitForEvents := sync.WaitGroup{}
+	waitForEvents.Add(1)
 	var event statechange.Event
 	go func() {
 		event = <-eventChannel
-		wait.Done()
+		assert.NotNil(t, event.(api.TaskStateChange).Attachments)
+		assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
+		waitForEvents.Done()
 	}()
 	watcher.Init()
 
-	wait.Wait()
-	assert.NotNil(t, event.(api.TaskStateChange).Attachments)
-	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
+	waitForEvents.Wait()
 
 	select {
 	case <-eventChannel:
@@ -108,10 +106,9 @@ func TestInitWithNetlinkError(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 	err := watcher.Init()
 	assert.Error(t, err)
 }
@@ -125,18 +122,15 @@ func TestWatcherInitWithEmptyList(t *testing.T) {
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
-	gomock.InOrder(
-		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil),
-	)
+	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
 
 	err := watcher.Init()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 // TestReconcileENIs tests the reconciliation code path
@@ -150,23 +144,20 @@ func TestReconcileENIs(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
 		MacAddress:       randomMAC,
 		AttachStatusSent: false,
 	})
 
-	gomock.InOrder(
-		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
-			&netlink.Device{
-				LinkAttrs: netlink.LinkAttrs{
-					HardwareAddr: pm,
-					Name:         randomDevice,
-				},
+	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
+		&netlink.Device{
+			LinkAttrs: netlink.LinkAttrs{
+				HardwareAddr: pm,
+				Name:         randomDevice,
 			},
-		}, nil),
-	)
+		},
+	}, nil)
 
 	var event statechange.Event
 	done := make(chan struct{})
@@ -176,7 +167,7 @@ func TestReconcileENIs(t *testing.T) {
 	}()
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 
 	<-done
@@ -202,10 +193,9 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 
 	select {
@@ -225,14 +215,11 @@ func TestReconcileENIsWithEmptyList(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
-	stateManager := eniStateManager.New(taskEngineState, eventChannel)
 
-	gomock.InOrder(
-		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil),
-	)
+	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, stateManager)
+	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 	watcher.Stop()
 
@@ -266,16 +253,14 @@ func TestUdevAddEvent(t *testing.T) {
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 	pm, _ := net.ParseMAC(randomMAC)
-	mockStateManager := mock_statemanager.NewMockStateManager(mockCtrl)
-	done := make(chan bool)
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager)
+	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager, eventChannel)
 
 	gomock.InOrder(
-		mockUdev.EXPECT().Monitor(watcher.events).Return(
-			nil,
-		),
+		mockUdev.EXPECT().Monitor(watcher.events).Return(nil),
 		mockNetlink.EXPECT().LinkByName(randomDevice).Return(
 			&netlink.Device{
 				LinkAttrs: netlink.LinkAttrs{
@@ -283,22 +268,21 @@ func TestUdevAddEvent(t *testing.T) {
 					Name:         randomDevice,
 				},
 			}, nil),
-		mockStateManager.EXPECT().HandleENIEvent(randomMAC).Do(
-			func(mac string) {
-				assert.Equal(t, randomMAC, mac)
-				done <- true
-			}),
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
+			&api.ENIAttachment{}, true),
 	)
 
 	// Spin off event handler
 	go watcher.eventHandler(ctx)
-
+	defer watcher.Stop()
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
 
-	watcher.Stop()
-	assert.True(t, <-done)
+	eniChangeEvent := <-eventChannel
+	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
+	require.True(t, ok)
+	assert.Equal(t, api.ENIAttached, taskStateChange.Attachments.Status)
 }
 
 // TestUdevSubsystemFilter checks the subsystem filter in the event handler
@@ -309,24 +293,20 @@ func TestUdevSubsystemFilter(t *testing.T) {
 	ctx := context.TODO()
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
-	mockStateManager := mock_statemanager.NewMockStateManager(mockCtrl)
 
 	// Create Watcher
-	watcher := _new(ctx, nil, mockUdev, mockStateManager)
+	watcher := _new(ctx, nil, mockUdev, nil, nil)
 
-	mockUdev.EXPECT().Monitor(watcher.events).Return(
-		nil,
-	)
+	mockUdev.EXPECT().Monitor(watcher.events).Return(nil)
 
 	// Spin off event handler
 	go watcher.eventHandler(ctx)
+	defer watcher.Stop()
 
 	// Send event to channel
+	// This event shouldn't trigger the statemanager to handle HandleENIEvent
 	event := getUdevEventDummy(udevAddEvent, udevPCISubsystem, randomDevPath)
 	watcher.events <- &event
-	watcher.Stop()
-
-	// This event shouldn't trigger the statemanager to handle HandleENIEvent
 }
 
 // TestUdevAddEventWithInvalidInterface attempts to add a device without
@@ -339,23 +319,18 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
-	mockStateManager := mock_statemanager.NewMockStateManager(mockCtrl)
 	// Create Watcher
-	watcher := _new(ctx, nil, mockUdev, mockStateManager)
+	watcher := _new(ctx, nil, mockUdev, nil, nil)
 
-	gomock.InOrder(
-		mockUdev.EXPECT().Monitor(watcher.events).Return(
-			nil,
-		),
-	)
+	mockUdev.EXPECT().Monitor(watcher.events).Return(nil)
 
 	// Spin off event handler
 	go watcher.eventHandler(ctx)
+	defer watcher.Stop()
 
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, incorrectDevPath)
 	watcher.events <- &event
-	watcher.Stop()
 }
 
 // TestUdevAddEventWithoutMACAdress attempts to add a device without
@@ -370,16 +345,15 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
-	mockStateManager := mock_statemanager.NewMockStateManager(mockCtrl)
-	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager)
+	watcher := _new(ctx, mockNetlink, mockUdev, nil, nil)
 
-	invoked := make(chan struct{})
+	var invoked sync.WaitGroup
+	invoked.Add(1)
+
 	gomock.InOrder(
-		mockUdev.EXPECT().Monitor(watcher.events).Return(
-			nil,
-		),
+		mockUdev.EXPECT().Monitor(watcher.events).Return(nil),
 		mockNetlink.EXPECT().LinkByName(randomDevice).Do(func(device string) {
-			invoked <- struct{}{}
+			invoked.Done()
 		}).Return(
 			&netlink.Device{},
 			errors.New("Dummy Netlink LinkByName error")),
@@ -387,10 +361,73 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 
 	// Spin off event handler
 	go watcher.eventHandler(ctx)
+	defer watcher.Stop()
 
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
-	<-invoked
-	watcher.Stop()
+	invoked.Wait()
+}
+
+func TestSendENIStateChange(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
+
+	watcher := _new(context.TODO(), nil, nil, mockStateManager, eventChannel)
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{}, true)
+
+	go watcher.sendENIStateChange(randomMAC)
+
+	eniChangeEvent := <-eventChannel
+	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
+	require.True(t, ok)
+	assert.Equal(t, api.ENIAttached, taskStateChange.Attachments.Status)
+}
+
+func TestShouldSendENIStateChange(t *testing.T) {
+	testCases := []struct {
+		eniAttachment     *api.ENIAttachment
+		eniByMACExists    bool
+		expectStateChange bool
+	}{
+		{
+			&api.ENIAttachment{},
+			true,
+			true,
+		},
+		{
+			&api.ENIAttachment{
+				AttachStatusSent: true,
+			},
+			true,
+			false,
+		},
+		{
+			&api.ENIAttachment{},
+			false,
+			false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(
+			fmt.Sprintf("return %t when exists is %t and sent is %s",
+				tc.expectStateChange, tc.eniByMACExists, tc.eniAttachment.Status.String()),
+			func(t *testing.T) {
+
+				mockCtrl := gomock.NewController(t)
+				defer mockCtrl.Finish()
+
+				mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+				watcher := _new(context.TODO(), nil, nil, mockStateManager, nil)
+
+				mockStateManager.EXPECT().ENIByMac(randomMAC).Return(tc.eniAttachment, tc.eniByMACExists)
+				_, ok := watcher.shouldSendENIStateChange(randomMAC)
+				assert.Equal(t, tc.expectStateChange, ok)
+			})
+	}
+
 }
