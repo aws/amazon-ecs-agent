@@ -287,6 +287,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		state.EXPECT().Reset(),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
