@@ -60,6 +60,23 @@ tag_and_push_docker() {
 	done
 }
 
+s3_ls() {
+	profile=""
+	if [[ ! -z "${AWS_PROFILE}" ]]; then
+		profile="--profile=${AWS_PROFILE}"
+	fi
+	aws ${profile} s3 ls "${1}"
+}
+
+s3_rm() {
+	profile=""
+	if [[ ! -z "${AWS_PROFILE}" ]]; then
+		profile="--profile=${AWS_PROFILE}"
+	fi
+	echo "Removing ${1}"
+	aws ${profile} s3 rm "${1}"
+}
+
 s3_cp() {
 	profile=""
 	if [[ ! -z "${AWS_PROFILE}" ]]; then
