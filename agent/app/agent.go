@@ -341,7 +341,6 @@ func (agent *ecsAgent) registerContainerInstance(
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil
-
 }
 
 // registerContainerInstance registers a container instance that has already been
