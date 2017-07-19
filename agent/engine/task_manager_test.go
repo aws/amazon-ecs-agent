@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -388,6 +389,7 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 // TODO: Test handleStoppedToRunningContainerTransition
 
 func TestCleanupTask(t *testing.T) {
+	cfg := config.DefaultConfig()
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -396,6 +398,7 @@ func TestCleanupTask(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
@@ -434,6 +437,7 @@ func TestCleanupTask(t *testing.T) {
 }
 
 func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
+	cfg := config.DefaultConfig()
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -442,6 +446,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
