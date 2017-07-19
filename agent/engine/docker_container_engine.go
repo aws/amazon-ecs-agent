@@ -168,15 +168,21 @@ var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
 func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (DockerClient, error) {
-	// Use latest compatible client if container metadata is enabled; otherwise use default
+	// Use 1.21 client if container metadata is enabled; otherwise use default
 	var err error
 	var client dockeriface.Client
 	var version dockerclient.DockerVersion
 	if cfg.ContainerMetadataEnabled {
-		supportedVersions := clientFactory.FindSupportedAPIVersions()
-		version = supportedVersions[len(supportedVersions)-1]
+		version = dockerclient.Version_1_21
 		client, err = clientFactory.GetClient(version)
-		seelog.Debugf("Container Metadata enabled. Using docker client version %s", version)
+		if err != nil {
+			// Retry with default
+			version = ""
+			client, err = clientFactory.GetDefaultClient()
+			seelog.Debugf("Container Metadata enabled but client version 1.21 unavailable. Using default version. Some features disabled")
+		} else {
+			seelog.Debugf("Container Metadata enabled. Using docker client version %s", version)
+		}
 	} else {
 		seelog.Debugf("Container Metadata disabled. Using default client version")
 		client, err = clientFactory.GetDefaultClient()
