@@ -605,16 +605,17 @@ func TestStopWithPendingStops(t *testing.T) {
 
 	taskEngine.AddTask(sleepTask2)
 	<-pullInvoked
-	stopSleep2 := *sleepTask2
+	stopSleep2 := testdata.LoadTask("sleep5")
+	stopSleep2.Arn = "arn2"
 	stopSleep2.SetDesiredStatus(api.TaskStopped)
 	stopSleep2.StopSequenceNumber = 4
-	taskEngine.AddTask(&stopSleep2)
+	taskEngine.AddTask(stopSleep2)
 
 	taskEngine.AddTask(sleepTask1)
-	stopSleep1 := *sleepTask1
+	stopSleep1 := testdata.LoadTask("sleep5")
 	stopSleep1.SetDesiredStatus(api.TaskStopped)
 	stopSleep1.StopSequenceNumber = 5
-	taskEngine.AddTask(&stopSleep1)
+	taskEngine.AddTask(stopSleep1)
 	pullDone <- true
 	// this means the PullImage is only called once due to the task is stopped before it
 	// gets the pull image lock
@@ -762,9 +763,9 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	// Set the task desired status to be stopped and StopContainer will be called
-	updateSleepTask := *sleepTask
+	updateSleepTask := testdata.LoadTask("sleep5")
 	updateSleepTask.SetDesiredStatus(api.TaskStopped)
-	go taskEngine.AddTask(&updateSleepTask)
+	go taskEngine.AddTask(updateSleepTask)
 
 	// StopContainer timeout error shouldn't cause cantainer/task status change
 	// until receive stop event from docker event stream
@@ -867,9 +868,9 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	eventsReported.Wait()
 
 	// Set the task desired status to be stopped and StopContainer will be called
-	updateSleepTask := *sleepTask
+	updateSleepTask := testdata.LoadTask("sleep5")
 	updateSleepTask.SetDesiredStatus(api.TaskStopped)
-	go taskEngine.AddTask(&updateSleepTask)
+	go taskEngine.AddTask(updateSleepTask)
 
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
@@ -944,9 +945,9 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	}
 
 	// Set the task desired status to be stopped and StopContainer will be called
-	updateSleepTask := *sleepTask
+	updateSleepTask := testdata.LoadTask("sleep5")
 	updateSleepTask.SetDesiredStatus(api.TaskStopped)
-	go taskEngine.AddTask(&updateSleepTask)
+	go taskEngine.AddTask(updateSleepTask)
 
 	// StopContainer invocation should have caused it to stop eventually.
 	event = <-stateChangeEvents
