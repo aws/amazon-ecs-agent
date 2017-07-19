@@ -87,6 +87,14 @@ func TestZeroOrNil(t *testing.T) {
 		t.Error("Uncomparable structs are never zero")
 	}
 
+	var strMap map[string]string
+	if !ZeroOrNil(strMap) {
+		t.Error("map[string]string is not zero or nil")
+	}
+
+	if ZeroOrNil(map[string]string{"foo": "bar"}) {
+		t.Error("map[string]string{foo:bar} is zero or nil")
+	}
 }
 
 func TestSlicesDeepEqual(t *testing.T) {
