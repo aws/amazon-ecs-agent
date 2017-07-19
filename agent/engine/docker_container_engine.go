@@ -168,7 +168,20 @@ var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
 func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (DockerClient, error) {
-	client, err := clientFactory.GetDefaultClient()
+	// Use latest compatible client if container metadata is enabled; otherwise use default
+	var err error
+	var client dockeriface.Client
+	var version dockerclient.DockerVersion
+	if cfg.ContainerMetadataEnabled {
+		supportedVersions := clientFactory.FindSupportedAPIVersions()
+		version = supportedVersions[len(supportedVersions)-1]
+		client, err = clientFactory.GetClient(version)
+		seelog.Debugf("Container Metadata enabled. Using docker client version %s", version)
+	} else {
+		seelog.Debugf("Container Metadata disabled. Using default client version")
+		client, err = clientFactory.GetDefaultClient()
+	}
+
 	if err != nil {
 		log.Error("Unable to connect to docker daemon. Ensure docker is running.", "err", err)
 		return nil, err
@@ -188,6 +201,7 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (
 	}
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
+		version:          version,
 		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		config:           cfg,

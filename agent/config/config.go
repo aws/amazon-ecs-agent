@@ -315,6 +315,8 @@ func environmentConfig() (Config, error) {
 		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
 	}
 
+	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
+
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
 	} else {
@@ -350,6 +352,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
+		ContainerMetadataEnabled:         containerMetadataEnabled,
 	}, err
 }
 
