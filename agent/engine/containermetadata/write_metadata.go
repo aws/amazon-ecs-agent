@@ -28,20 +28,24 @@ import (
 const (
 	metadataJoinSuffix = "metadata"
 	metadataFile       = "metadata.json"
+	readOnlyPerm       = 0644
 )
 
 // getTaskIDfromArn parses a task Arn and produces the task ID
+// A task Arn has format arn:aws:ecs:[region]:[account-id]:task/[task-id]
+// For a correctly formatted Arn we split it over ":" into 6 parts, the last part
+// containing the task-id which we extract by splitting it by "/".
 func getTaskIDfromArn(taskarn string) string {
 	colonSplitArn := strings.SplitN(taskarn, ":", 6)
 	// Incorrectly formatted Arn (Should not happen)
 	if len(colonSplitArn) < 6 {
-		seelog.Errorf("Error in parsing task Arn: Invalid Arn format")
+		seelog.Errorf("Error in parsing task Arn: Invalid TaskArn %s", taskarn)
 		return ""
 	}
 	arnTaskPartSplit := strings.SplitN(colonSplitArn[5], "/", 2)
 	// Incorrectly formatted Arn (Should not happen)
 	if len(arnTaskPartSplit) < 2 {
-		seelog.Errorf("Error in parsing task Arn: Invalid Arn format")
+		seelog.Errorf("Error in parsing task Arn: Invalid Arn %s", taskarn)
 		return ""
 	}
 	return arnTaskPartSplit[1]
@@ -63,12 +67,17 @@ func mdFileExist(task *api.Task, container *api.Container, dataDir string) bool 
 	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Case when file path is invalid (Due to malformed task Arn)
 	if err != nil {
+		seelog.Errorf("Metadata file not found due to error: %v", err)
 		return false
 	}
 
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 	if _, err = os.Stat(mdFilePath); err != nil {
 		if os.IsNotExist(err) {
+			return false
+		} else if err != nil {
+			// We should specifically log any error besides "IsNotExist"
+			seelog.Errorf("Metadata file not found due to error: %v", err)
 			return false
 		}
 	}
@@ -85,38 +94,16 @@ func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container
 	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
-		err = fmt.Errorf("Failed to write to metadata: Malformed file path")
+		err = fmt.Errorf("Failed to write to metadata: %v", err)
 		return err
 	}
 	mdFilePath := filepath.Join(mdFileDir, metadataFile)
 
-	err = ioutil.WriteFile(mdFilePath, data, 0644)
-	return err
+	return ioutil.WriteFile(mdFilePath, data, readOnlyPerm)
 }
 
 // getTaskMetadataDir acquires the directory with all of the metadata
 // files of a given task
 func getTaskMetadataDir(task *api.Task, dataDir string) string {
 	return filepath.Join(dataDir, metadataJoinSuffix, getTaskIDfromArn(task.Arn))
-}
-
-// removeContents removes a directory and all its children. We use this
-// instead of os.RemoveAll to handle case where the directory does not exist
-func removeContents(dir string) error {
-	d, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer d.Close()
-	names, err := d.Readdirnames(-1)
-	if err != nil {
-		return nil
-	}
-	for _, name := range names {
-		err = os.RemoveAll(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-	}
-	return os.Remove(dir)
 }
