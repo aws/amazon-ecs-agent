@@ -15,7 +15,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -30,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -409,6 +409,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		return nil, &HostConfigError{err.Error()}
 	}
 
+	// Populate hostConfig
 	hostConfig := &docker.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
@@ -530,6 +531,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
 		task.StopSequenceNumber = *envelope.SeqNum
 	}
+
+	// TODO: Inspect CgroupSpec upon model changes
 
 	return task, nil
 }

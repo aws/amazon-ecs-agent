@@ -19,6 +19,8 @@ import "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 const (
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
+	// Default cgroup prefix for ECS tasks
+	DefaultTaskCgroupPrefix = "/ecs"
 )
 
 // DefaultConfig returns the default configuration for Linux
