@@ -59,13 +59,6 @@ func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataMa
 // binds []string is passed by value to avoid race conditions by multiple
 // calls to CreateMetadata, although this should never actually happen
 func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, container *api.Container) ([]string, error) {
-	// Check if manager has invalid entries
-	var err error
-	if manager.cfg == nil {
-		err = fmt.Errorf("Invalid configuration")
-		return binds, err
-	}
-
 	// Do not create metadata file for internal containers
 	// Add error handling for this case? Probably no need since
 	// Internal containers should not be visible to users anyways
@@ -77,8 +70,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	mdDirectoryPath, err := getMetadataFilePath(task, container, manager.cfg.DataDir)
 	// Stop metadata creation if path is malformed for any reason
 	if err != nil {
-		err = fmt.Errorf("Invalid metadata file path due to malformed input")
-		return binds, err
+		return binds, fmt.Errorf("Invalid metadata file path with error: %v", err)
 	}
 
 	err = os.MkdirAll(mdDirectoryPath, os.ModePerm)
@@ -88,7 +80,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 
 	// Create metadata file
 	mdFilePath := filepath.Join(mdDirectoryPath, metadataFile)
-	err = ioutil.WriteFile(mdFilePath, nil, 0644)
+	err = ioutil.WriteFile(mdFilePath, nil, readOnlyPerm)
 	if err != nil {
 		return binds, err
 	}
@@ -112,13 +104,6 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
 func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
-	// Check if manager has invalid entries
-	var err error
-	if manager.cfg == nil {
-		err = fmt.Errorf("Invalid configuration")
-		return err
-	}
-
 	// Do not update (non-existent) metadata file for internal containers
 	if container.IsInternal {
 		return nil
@@ -126,8 +111,7 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Verify metadata file exists before proceeding
 	if !mdFileExist(task, container, manager.cfg.DataDir) {
-		err = fmt.Errorf("File does not exist")
-		return err
+		return fmt.Errorf("File does not exist")
 	}
 
 	// Get docker container information through api call
@@ -138,8 +122,7 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		err = fmt.Errorf("Container not running or invalid")
-		return err
+		return fmt.Errorf("Container not running or invalid")
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
@@ -149,12 +132,6 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 // CleanTaskMetadata removes the metadata files of all containers associated with a task
 func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
-	// Check if manager has invalid entries
-	var err error
-	if task == nil || manager.cfg == nil {
-		err = fmt.Errorf("Invalid task or config")
-		return err
-	}
 	mdPath := getTaskMetadataDir(task, manager.cfg.DataDir)
-	return removeContents(mdPath)
+	return os.RemoveAll(mdPath)
 }

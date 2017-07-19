@@ -310,7 +310,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	}
 
 	// Clean metadata directory for task
-	if engine.cfg != nil && engine.cfg.ContainerMetadataEnabled {
+	if engine.cfg.ContainerMetadataEnabled {
 		err := engine.metadataManager.CleanTaskMetadata(task)
 		if err != nil {
 			seelog.Errorf("Cleanup of metadata directory failed for task %s with error: %v", task, err)
