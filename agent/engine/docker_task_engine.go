@@ -310,7 +310,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	}
 
 	// Clean metadata directory for task
-	if engine.cfg != nil {
+	if engine.cfg != nil && engine.cfg.ContainerMetadataEnabled {
 		err := engine.metadataManager.CleanTaskMetadata(task)
 		if err != nil {
 			seelog.Errorf("Cleanup of metadata directory failed for task %s with error: %v", task, err)
@@ -616,15 +616,16 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
 	// But we require the host Config binds to be properly set before we create the container
-	newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
-	if mderr != nil {
-		seelog.Errorf("Create of metadata file for container %s of task %s failed with error: %v", container, task, mderr)
-	} else {
-		// Update hostConfig binds if metadata creation is successful
-		seelog.Debugf("Created metadata file for container %s of task %s", container, task)
-		hostConfig.Binds = newBinds
+	if engine.cfg.ContainerMetadataEnabled {
+		newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
+		if mderr != nil {
+			seelog.Errorf("Create of metadata file for container %s of task %s failed with error: %v", container, task, mderr)
+		} else {
+			// Update hostConfig binds if metadata creation is successful
+			seelog.Debugf("Created metadata file for container %s of task %s", container, task)
+			hostConfig.Binds = newBinds
+		}
 	}
-
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
@@ -657,7 +658,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
-	if dockerContainerMD.Error == nil {
+	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled == true {
 		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
 			seelog.Errorf("Update of metadata for container %s of task %s failed with error: %v", err)

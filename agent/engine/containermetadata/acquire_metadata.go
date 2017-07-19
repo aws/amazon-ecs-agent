@@ -48,6 +48,7 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	} else {
 		seelog.Debugf("No network mode found due to old Docker Client version")
 	}
+
 	networkMD := NetworkMetadata{
 		networkMode: networkModeFromContainer,
 		ipv4Address: ipv4Address,
