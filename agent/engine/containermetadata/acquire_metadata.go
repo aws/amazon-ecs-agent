@@ -143,35 +143,39 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 
 // acquireMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
-func acquireMetadata(client dockerDummyClient, container *docker.Container, cfg *config.Config, task *api.Task) Metadata {
-	taskMD := acquireTaskMetadata(client, cfg, task)
+func (manager *metadataManager) acquireMetadata(container *docker.Container, task *api.Task) Metadata {
+	taskMD := acquireTaskMetadata(manager.client, manager.cfg, task)
 	dockerMD := acquireDockerContainerMetadata(container)
 	return Metadata{
-		Version:       taskMD.version,
-		Status:        dockerMD.status,
-		ContainerID:   dockerMD.containerID,
-		ContainerName: dockerMD.containerName,
-		ImageID:       dockerMD.imageID,
-		ImageName:     dockerMD.imageName,
-		ClusterArn:    taskMD.clusterArn,
-		TaskArn:       taskMD.taskArn,
-		Ports:         dockerMD.ports,
-		NetworkMode:   dockerMD.networkInfo.networkMode,
-		IPv4Address:   dockerMD.networkInfo.ipv4Address,
-		IPv4Gateway:   dockerMD.networkInfo.ipv4Gateway,
-		IPv6Address:   dockerMD.networkInfo.ipv6Address,
-		IPv6Gateway:   dockerMD.networkInfo.ipv6Gateway,
+		Version:           taskMD.version,
+		ClientVersion:     manager.client.ClientVersion(),
+		Status:            dockerMD.status,
+		ContainerInstance: manager.containerInstanceArn,
+		ContainerID:       dockerMD.containerID,
+		ContainerName:     dockerMD.containerName,
+		ImageID:           dockerMD.imageID,
+		ImageName:         dockerMD.imageName,
+		ClusterArn:        taskMD.clusterArn,
+		TaskArn:           taskMD.taskArn,
+		Ports:             dockerMD.ports,
+		NetworkMode:       dockerMD.networkInfo.networkMode,
+		IPv4Address:       dockerMD.networkInfo.ipv4Address,
+		IPv4Gateway:       dockerMD.networkInfo.ipv4Gateway,
+		IPv6Address:       dockerMD.networkInfo.ipv6Address,
+		IPv6Gateway:       dockerMD.networkInfo.ipv6Gateway,
 	}
 }
 
 // acquireMetadataAtContainerCreate gathers metadata from task and cluster configurations
 // then packages it for JSON Marshaling. We use this version to get data
 // available prior to container creation
-func acquireMetadataAtContainerCreate(client dockerDummyClient, cfg *config.Config, task *api.Task) Metadata {
-	taskMD := acquireTaskMetadata(client, cfg, task)
+func (manager *metadataManager) acquireMetadataAtContainerCreate(task *api.Task) Metadata {
+	taskMD := acquireTaskMetadata(manager.client, manager.cfg, task)
 	return Metadata{
-		Version:    taskMD.version,
-		ClusterArn: taskMD.clusterArn,
-		TaskArn:    taskMD.taskArn,
+		Version:           taskMD.version,
+		ClientVersion:     manager.client.ClientVersion(),
+		ContainerInstance: manager.containerInstanceArn,
+		ClusterArn:        taskMD.clusterArn,
+		TaskArn:           taskMD.taskArn,
 	}
 }

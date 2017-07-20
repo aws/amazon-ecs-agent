@@ -51,7 +51,7 @@ func getAgentVersions() []DockerVersion {
 	return append(getWindowsReplaceableVersions(), MinDockerAPIWindows)
 }
 
-// getDefaultVersion returns agent's default version of the Docker API
-func getDefaultVersion() DockerVersion {
+// GetDefaultVersion returns agent's default version of the Docker API
+func GetDefaultVersion() DockerVersion {
 	return MinDockerAPIWindows
 }

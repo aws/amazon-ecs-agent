@@ -19,40 +19,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/cihub/seelog"
 )
 
 const (
-	inspectContainerTimeout = 30 * time.Second
-	mountPoint              = `C:\ecs\metadata`
+	mountPoint = `C:\ecs\metadata`
 )
-
-// MetadataManager is an interface that allows us to abstract away the metadata
-// operations
-type MetadataManager interface {
-	CreateMetadata([]string, *api.Task, *api.Container) ([]string, error)
-	UpdateMetadata(string, *api.Task, *api.Container) error
-	CleanTaskMetadata(*api.Task) error
-}
-
-// metadataManager implements the MetadataManager interface
-type metadataManager struct {
-	client dockerDummyClient
-	cfg    *config.Config
-}
-
-// NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
-	seelog.Debug("Creating metadata manager")
-	return &metadataManager{
-		client: client,
-		cfg:    cfg,
-	}
-}
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
@@ -86,7 +59,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := acquireMetadataAtContainerCreate(manager.client, manager.cfg, task)
+	metadata := manager.acquireMetadataAtContainerCreate(task)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		return binds, err
@@ -99,39 +72,4 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	instanceBind := fmt.Sprintf(`%s:%s\%s`, mdDirectoryPath, mountPoint, container.Name)
 	binds = append(binds, instanceBind)
 	return binds, nil
-}
-
-// UpdateMetadata updates the metadata file after container starts and dynamic
-// metadata is available
-func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
-	// Do not update (non-existent) metadata file for internal containers
-	if container.IsInternal {
-		return nil
-	}
-
-	// Verify metadata file exists before proceeding
-	if !mdFileExist(task, container, manager.cfg.DataDir) {
-		return fmt.Errorf("File does not exist")
-	}
-
-	// Get docker container information through api call
-	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
-	if err != nil {
-		return err
-	}
-
-	// Ensure we do not update a container that is invalid or is not running
-	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("Container not running or invalid")
-	}
-
-	// Acquire the metadata then write it in JSON format to the file
-	metadata := acquireMetadata(manager.client, dockerContainer, manager.cfg, task)
-	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
-}
-
-// CleanTaskMetadata removes the metadata files of all containers associated with a task
-func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
-	mdPath := getTaskMetadataDir(task, manager.cfg.DataDir)
-	return os.RemoveAll(mdPath)
 }
