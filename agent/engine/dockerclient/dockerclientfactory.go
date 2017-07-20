@@ -69,7 +69,7 @@ func NewFactory(endpoint string) Factory {
 }
 
 func (f *factory) GetDefaultClient() (dockeriface.Client, error) {
-	return f.GetClient(getDefaultVersion())
+	return f.GetClient(GetDefaultVersion())
 }
 
 func (f *factory) FindSupportedAPIVersions() []DockerVersion {

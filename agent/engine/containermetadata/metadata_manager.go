@@ -1,0 +1,95 @@
+// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
+package containermetadata
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/cihub/seelog"
+)
+
+const (
+	inspectContainerTimeout = 30 * time.Second
+)
+
+// MetadataManager is an interface that allows us to abstract away the metadata
+// operations
+type MetadataManager interface {
+	SetContainerInstanceArn(string)
+	CreateMetadata([]string, *api.Task, *api.Container) ([]string, error)
+	UpdateMetadata(string, *api.Task, *api.Container) error
+	CleanTaskMetadata(*api.Task) error
+}
+
+// metadataManager implements the MetadataManager interface
+type metadataManager struct {
+	client               dockerDummyClient
+	cfg                  *config.Config
+	containerInstanceArn string
+}
+
+// NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
+func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
+	seelog.Debug("Creating metadata manager")
+	return &metadataManager{
+		client: client,
+		cfg:    cfg,
+	}
+}
+
+// SetContainerInstanceArn sets the metadataManager's ContainerInstanceArn which is not available
+// at its creation as this information is not present directly at the agent's startup
+func (manager *metadataManager) SetContainerInstanceArn(containerInstanceArn string) {
+	manager.containerInstanceArn = containerInstanceArn
+	seelog.Debugf("Metadata manager's ContainerInstanceArn set to %s", containerInstanceArn)
+}
+
+// UpdateMetadata updates the metadata file after container starts and dynamic
+// metadata is available
+func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
+	// Do not update (non-existent) metadata file for internal containers
+	if container.IsInternal {
+		return nil
+	}
+
+	// Verify metadata file exists before proceeding
+	if !mdFileExist(task, container, manager.cfg.DataDir) {
+		return fmt.Errorf("File does not exist")
+	}
+
+	// Get docker container information through api call
+	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
+	if err != nil {
+		return err
+	}
+
+	// Ensure we do not update a container that is invalid or is not running
+	if dockerContainer == nil || !dockerContainer.State.Running {
+		return fmt.Errorf("Container not running or invalid")
+	}
+
+	// Acquire the metadata then write it in JSON format to the file
+	metadata := manager.acquireMetadata(dockerContainer, task)
+	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
+}
+
+// CleanTaskMetadata removes the metadata files of all containers associated with a task
+func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
+	mdPath := getTaskMetadataDir(task, manager.cfg.DataDir)
+	return os.RemoveAll(mdPath)
+}

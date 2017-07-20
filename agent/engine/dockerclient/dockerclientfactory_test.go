@@ -32,7 +32,7 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 	expectedClient := mock_dockeriface.NewMockClient(ctrl)
 	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		mockClient := mock_dockeriface.NewMockClient(ctrl)
-		if version == string(getDefaultVersion()) {
+		if version == string(GetDefaultVersion()) {
 			mockClient = expectedClient
 		}
 		mockClient.EXPECT().Ping()
