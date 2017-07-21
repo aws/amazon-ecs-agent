@@ -358,7 +358,7 @@ func websocketScheme(httpScheme string) (wsScheme string, err error) {
 	case "https":
 		wsScheme = "wss"
 	default:
-		err = fmt.Errorf("Unknown httpScheme %s", httpScheme)
+		err = fmt.Errorf("wsclient: unknown scheme %s", httpScheme)
 	}
 	return
 }
