@@ -15,8 +15,8 @@ package wsclient
 
 import (
 	"io"
+	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -171,9 +171,10 @@ func TestHandleIncorrectURLScheme(t *testing.T) {
 	mockServer.StartTLS()
 	defer mockServer.Close()
 
-	mockServerURL := strings.Replace(mockServer.URL, "https", "notaparticularlyrealscheme", 1)
+	mockServerURL, _ := url.Parse(mockServer.URL)
+	mockServerURL.Scheme = "notaparticularlyrealscheme"
 
-	cs := getClientServer(mockServerURL)
+	cs := getClientServer(mockServerURL.String())
 	err := cs.Connect()
 
 	assert.Error(t, err, "Expected error for incorrect URL scheme")
