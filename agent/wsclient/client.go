@@ -54,9 +54,6 @@ const (
 	// writeBufSize is the size of the write buffer for the ws connection.
 	writeBufSize = 32768
 
-	// gorilla/websocket expects the websocket scheme (ws[s]://)
-	wsScheme = "wss"
-
 	// Default NO_PROXY env var IP addresses
 	defaultNoProxyIP = "169.254.169.254,169.254.170.2"
 )
@@ -142,6 +139,10 @@ func (cs *ClientServerImpl) Connect() error {
 		return err
 	}
 
+	wsScheme, err := websocketScheme(parsedURL.Scheme)
+	if err != nil {
+		return err
+	}
 	parsedURL.Scheme = wsScheme
 
 	// NewRequest never returns an error if the url parses and we just verified
@@ -347,6 +348,19 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	} else {
 		seelog.Infof("No handler for message type: %s", typeStr)
 	}
+}
+
+func websocketScheme(httpScheme string) (wsScheme string, err error) {
+	// gorilla/websocket expects the websocket scheme (ws[s]://)
+	switch httpScheme {
+	case "http":
+		wsScheme = "ws"
+	case "https":
+		wsScheme = "wss"
+	default:
+		err = fmt.Errorf("Unknown httpScheme %s", httpScheme)
+	}
+	return
 }
 
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650
