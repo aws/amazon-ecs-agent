@@ -350,17 +350,18 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	}
 }
 
-func websocketScheme(httpScheme string) (wsScheme string, err error) {
+func websocketScheme(httpScheme string) (string, error) {
 	// gorilla/websocket expects the websocket scheme (ws[s]://)
+	var wsScheme string
 	switch httpScheme {
 	case "http":
 		wsScheme = "ws"
 	case "https":
 		wsScheme = "wss"
 	default:
-		err = fmt.Errorf("wsclient: unknown scheme %s", httpScheme)
+		return "", fmt.Errorf("wsclient: unknown scheme %s", httpScheme)
 	}
-	return
+	return wsScheme, nil
 }
 
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650
