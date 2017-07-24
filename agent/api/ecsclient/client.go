@@ -152,6 +152,8 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	// Standard attributes are included with all registrations.
 	registrationAttributes = append(registrationAttributes, attributes...)
 
+	client.disableTaskENIEnabledIfNoInit()
+
 	vpcAttributes, err := client.getVPCAttributes()
 	if err != nil {
 		// This error is processed only if the instance is launched with a VPC
@@ -160,6 +162,10 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		}
 		// Not a VPC. Remove task networking capability
 		seelog.Infof("VPC and Subnet IDs are not set for instance in Instance Metadata; Disabling Task ENI capability")
+		// TODO: We still need to remove the "task-eni" capability from the
+		// capabilities list. This will be done in the subsequent PR, where
+		// the `TaskEngine.Capabilities()` method will also be refactored
+		// into the `app` package
 		client.config.TaskENIEnabled = false
 	}
 	// Add VPC ID and Subnet ID attributes if any
@@ -228,6 +234,34 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	seelog.Info("Registered container instance with cluster!")
 	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
 	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
+}
+
+// disableTaskENIEnabledIfNoInit disables the Task ENI capability of the
+// Agent if the Agent was not started with an init system. We need the init system
+// to properly cleanup the dhclient processes when Task ENI capability is
+// enabled
+func (client *APIECSClient) disableTaskENIEnabledIfNoInit() {
+	ok, err := isAgentAlsoTheInit()
+	if err != nil {
+		seelog.Warnf("Unable to determine if Agent is started with an init system; Disabling Task ENI capability: %v", err)
+		// TODO: We still need to remove the "task-eni" capability from the
+		// capabilities list. This will be done in the subsequent PR, where
+		// the `TaskEngine.Capabilities()` method will also be refactored
+		// into the `app` package
+		client.config.TaskENIEnabled = false
+		return
+	}
+
+	if !ok {
+		return
+	}
+	seelog.Warn("Agent is not started with an init system; Disabling Task ENI capability")
+	// TODO: We still need to remove the "task-eni" capability from the
+	// capabilities list. This will be done in the subsequent PR, where
+	// the `TaskEngine.Capabilities()` method will also be refactored
+	// into the `app` package
+	client.config.TaskENIEnabled = false
+
 }
 
 func attributesToMap(attributes []*ecs.Attribute) map[string]string {
