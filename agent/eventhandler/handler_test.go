@@ -18,12 +18,14 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func containerEvent(arn string) statechange.Event {
@@ -185,12 +187,12 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	taskEventB := taskEventStopped(taskarnB)
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-		assert.Equal(t, taskarnB, change.TaskArn)
+		assert.Equal(t, taskarnA, change.TaskArn)
 		wg.Done()
 	})
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-		assert.Equal(t, taskarnA, change.TaskArn)
+		assert.Equal(t, taskarnB, change.TaskArn)
 		wg.Done()
 	})
 
@@ -199,6 +201,9 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	handler.AddStateChangeEvent(contEventB2, client)
 
 	handler.AddStateChangeEvent(taskEventA, client)
+
+	time.Sleep(1 * time.Millisecond)
+
 	handler.AddStateChangeEvent(taskEventB, client)
 
 	wg.Wait()
