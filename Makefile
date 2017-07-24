@@ -18,6 +18,10 @@ PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 # Variable to determine branch/tag of amazon-ecs-cni-plugins
 ECS_CNI_REPOSITORY_REVISION=master
 
+# Variable to override cni repository location
+ECS_CNI_REPOSITORY_SRC_DIR=$(shell pwd)/amazon-ecs-cni-plugins
+
+
 .PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container get-cni-sources cni-plugins
 
 all: docker
@@ -122,7 +126,7 @@ cni-plugins:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	@docker run --rm --net=none \
 		-v "$(shell pwd)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
-		-v "$(shell pwd)/amazon-ecs-cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins" \
+		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-cniplugins:make"
 
 	@echo "Built amazon-ecs-cni-plugins successfully."
