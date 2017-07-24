@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"golang.org/x/net/context"
@@ -49,9 +48,6 @@ type TaskEngine interface {
 	GetTaskByArn(string) (*api.Task, bool)
 
 	Version() (string, error)
-	// Capabilities returns an array of capabilities this task engine has, which
-	// should model what it can execute.
-	Capabilities() []*ecs.Attribute
 
 	json.Marshaler
 	json.Unmarshaler

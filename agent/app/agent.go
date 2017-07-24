@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -44,7 +45,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
-	log "github.com/cihub/seelog"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -78,6 +79,7 @@ type ecsAgent struct {
 	stateManagerFactory   factory.StateManager
 	saveableOptionFactory factory.SaveableOption
 	pauseLoader           pause.Loader
+	cniClient             ecscni.CNIClient
 }
 
 // newAgent returns a new ecsAgent object
@@ -91,24 +93,24 @@ func newAgent(
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 	}
 
-	log.Info("Loading configuration")
+	seelog.Info("Loading configuration")
 	cfg, err := config.NewConfig(ec2MetadataClient)
 	if err != nil {
 		// All required config values can be inferred from EC2 Metadata,
 		// so this error could be transient.
-		log.Criticalf("Error loading config: %v", err)
+		seelog.Criticalf("Error loading config: %v", err)
 		return nil, err
 	}
 	cfg.AcceptInsecureCert = aws.BoolValue(acceptInsecureCert)
 	if cfg.AcceptInsecureCert {
-		log.Warn("SSL certificate verification disabled. This is not recommended.")
+		seelog.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
-	log.Debugf("Loaded config: %s", cfg.String())
+	seelog.Debugf("Loaded config: %s", cfg.String())
 
 	dockerClient, err := engine.NewDockerGoClient(dockerclient.NewFactory(cfg.DockerEndpoint), cfg)
 	if err != nil {
 		// This is also non terminal in the current config
-		log.Criticalf("Error creating Docker client: %v", err)
+		seelog.Criticalf("Error creating Docker client: %v", err)
 		return nil, err
 	}
 
@@ -124,6 +126,10 @@ func newAgent(
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
 		pauseLoader:           pause.New(),
+		cniClient: ecscni.NewClient(&ecscni.Config{
+			PluginsPath:            cfg.CNIPluginsPath,
+			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
+		}),
 	}, nil
 }
 
@@ -166,12 +172,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
 	if err != nil {
-		log.Criticalf("Error creating state manager: %v", err)
+		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
 
 	// Register the container instance
-	err = agent.registerContainerInstance(taskEngine, stateManager, client)
+	err = agent.registerContainerInstance(stateManager, client)
 	if err != nil {
 		if isTranisent(err) {
 			return exitcodes.ExitError
@@ -194,19 +200,19 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.TaskENIEnabled {
 		// Load the Pause container image
 		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
-			log.Criticalf("Error loading pause container image: %v", err)
+			seelog.Criticalf("Error loading pause container image: %v", err)
 			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
 				return exitcodes.ExitTerminal
 			}
 			return exitcodes.ExitError
 		}
-		log.Info("Successfully loaded pause container image")
+		seelog.Info("Successfully loaded pause container image")
 		// Setup ENI Watcher
 		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine.StateChangeEvents()); err != nil {
-			log.Errorf("Unable to set up ENI Watcher: %v", err)
+			seelog.Errorf("Unable to set up ENI Watcher: %v", err)
 			return exitcodes.ExitError
 		}
-		log.Debug("ENI watcher has been setup successfully")
+		seelog.Debug("ENI watcher has been setup successfully")
 	}
 
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
@@ -227,7 +233,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	containerChangeEventStream.StartListening()
 
 	if !agent.cfg.Checkpoint {
-		log.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
+		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 			credentialsManager, containerChangeEventStream, imageManager, state), "", nil
 	}
@@ -242,19 +248,19 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	previousState, err := agent.newStateManager(previousTaskEngine, &previousCluster,
 		&previousContainerInstanceArn, &previousEC2InstanceID)
 	if err != nil {
-		log.Criticalf("Error creating state manager: %v", err)
+		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
 	}
 
 	err = previousState.Load()
 	if err != nil {
-		log.Criticalf("Error loading previously saved state: %v", err)
+		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
 	}
 
 	currentEC2InstanceID := agent.getEC2InstanceID()
 	if previousEC2InstanceID != "" && previousEC2InstanceID != currentEC2InstanceID {
-		log.Warnf(instanceIDMismatchErrorFormat,
+		seelog.Warnf(instanceIDMismatchErrorFormat,
 			previousEC2InstanceID, currentEC2InstanceID)
 
 		// Reset taskEngine; all the other values are still default
@@ -280,18 +286,18 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 	// TODO Handle default cluster in a sane and unified way across the codebase
 	configuredCluster := agent.cfg.Cluster
 	if configuredCluster == "" {
-		log.Debug("Setting cluster to default; none configured")
+		seelog.Debug("Setting cluster to default; none configured")
 		configuredCluster = config.DefaultClusterName
 	}
 	if previousCluster != configuredCluster {
 		err := clusterMismatchError{
 			fmt.Errorf(clusterMismatchErrorFormat, previousCluster, configuredCluster),
 		}
-		log.Criticalf("%v", err)
+		seelog.Criticalf("%v", err)
 		return err
 	}
 	agent.cfg.Cluster = previousCluster
-	log.Infof("Restored cluster '%s'", agent.cfg.Cluster)
+	seelog.Infof("Restored cluster '%s'", agent.cfg.Cluster)
 
 	return nil
 }
@@ -300,7 +306,7 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 func (agent *ecsAgent) getEC2InstanceID() string {
 	instanceIdentityDoc, err := agent.ec2MetadataClient.InstanceIdentityDocument()
 	if err != nil {
-		log.Criticalf(
+		seelog.Criticalf(
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		return ""
 	}
@@ -333,35 +339,34 @@ func (agent *ecsAgent) newStateManager(
 
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
-	taskEngine engine.TaskEngine,
 	stateManager statemanager.StateManager,
 	client api.ECSClient) error {
 
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
-		log.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
+		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
-	capabilities := taskEngine.Capabilities()
+	capabilities := agent.capabilities()
 
 	if agent.containerInstanceARN != "" {
-		log.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
+		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
 		return agent.reregisterContainerInstance(client, capabilities)
 	}
 
-	log.Info("Registering Instance with ECS")
+	seelog.Info("Registering Instance with ECS")
 	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities)
 	if err != nil {
-		log.Errorf("Error registering: %v", err)
+		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
 			return err
 		}
 		if _, ok := err.(utils.AttributeError); ok {
-			log.Critical("Instance registration attempt with an invalid attribute")
+			seelog.Critical("Instance registration attempt with an invalid attribute")
 			return err
 		}
 		return transientError{err}
 	}
-	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
+	seelog.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
@@ -376,13 +381,13 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 	if err == nil {
 		return nil
 	}
-	log.Errorf("Error re-registering: %v", err)
+	seelog.Errorf("Error re-registering: %v", err)
 	if api.IsInstanceTypeChangedError(err) {
-		log.Criticalf(instanceTypeMismatchErrorFormat, err)
+		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
 		return err
 	}
 	if _, ok := err.(utils.AttributeError); ok {
-		log.Critical("Instance re-registration attempt with an invalid attribute")
+		seelog.Critical("Instance re-registration attempt with an invalid attribute")
 		return err
 	}
 	return transientError{err}
@@ -454,12 +459,12 @@ func (agent *ecsAgent) startACSSession(
 		credentialsManager,
 		taskHandler,
 	)
-	log.Info("Beginning Polling for updates")
+	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()
 	if err != nil {
-		log.Criticalf("Unretriable error starting communicating with ACS: %v", err)
+		seelog.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	log.Critical("ACS Session handler should never exit")
+	seelog.Critical("ACS Session handler should never exit")
 	return exitcodes.ExitError
 }

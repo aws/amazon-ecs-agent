@@ -21,7 +21,6 @@ import (
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -60,16 +59,6 @@ func (_m *MockTaskEngine) AddTask(_param0 *api.Task) error {
 
 func (_mr *_MockTaskEngineRecorder) AddTask(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTask", arg0)
-}
-
-func (_m *MockTaskEngine) Capabilities() []*ecs.Attribute {
-	ret := _m.ctrl.Call(_m, "Capabilities")
-	ret0, _ := ret[0].([]*ecs.Attribute)
-	return ret0
-}
-
-func (_mr *_MockTaskEngineRecorder) Capabilities() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Capabilities")
 }
 
 func (_m *MockTaskEngine) Disable() {
