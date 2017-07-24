@@ -317,9 +317,6 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return err
 	}
 
-	// WIP LOG payload
-	seelog.Info("WIP, sent req contents: ", req)
-
 	return nil
 }
 
@@ -339,14 +336,14 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	status := change.Status
 
 	if status != api.ContainerStopped && status != api.ContainerRunning {
-		log.Info("Not submitting not supported upstream container state", "state", status)
+		seelog.Info("Not submitting not supported upstream container state", "state", status)
 		return nil
 	}
 
 	statechange.Status = aws.String(status.String())
 
 	if change.ExitCode != nil {
-		exitCode := int64(*change.ExitCode)
+		exitCode := int64(aws.IntValue(change.ExitCode))
 		statechange.ExitCode = aws.Int64(exitCode)
 	}
 	networkBindings := make([]*ecs.NetworkBinding, len(change.PortBindings))
