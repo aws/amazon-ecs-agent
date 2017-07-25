@@ -49,7 +49,7 @@ build-in-docker:
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
-docker: certs build-in-docker pause-container-release
+docker: certs build-in-docker pause-container-release cni-plugins
 	@cd scripts && ./create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
@@ -158,7 +158,7 @@ fluentd:
 image-cleanup-test-images:
 	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS)
 
-get-deps:
+get-deps: get-cni-sources
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
