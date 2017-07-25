@@ -120,9 +120,6 @@ type DockerClient interface {
 	// Version returns the version of the Docker daemon.
 	Version() (string, error)
 
-	// ClientVersion returns the version of the Docker API Client
-	ClientVersion() dockerclient.DockerVersion
-
 	// InspectImage returns information about the specified image.
 	InspectImage(string) (*docker.Image, error)
 
@@ -182,12 +179,13 @@ func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (
 			// Retry with default
 			version = ""
 			client, err = clientFactory.GetDefaultClient()
-			seelog.Debugf("Container Metadata enabled but client version 1.21 unavailable. Using default version. Some features disabled")
+			seelog.Debug("Container Metadata enabled but client version 1.21 is unavailable: using default version with some features disabled")
 		} else {
-			seelog.Debugf("Container Metadata enabled. Using docker client version %s", version)
+			// This log is misleading for Windows as we force 1.21 version to 1.24
+			seelog.Debug("Container Metadata enabled: using docker client version 1.21 (or higher)")
 		}
 	} else {
-		seelog.Debugf("Container Metadata disabled. Using default client version")
+		seelog.Debugf("Container metadata disabled: using default client version")
 		client, err = clientFactory.GetDefaultClient()
 	}
 
@@ -861,16 +859,6 @@ func (dg *dockerGoClient) Version() (string, error) {
 		return "", err
 	}
 	return info.Get("Version"), nil
-}
-
-// ClientVersion gives the current version of the Docker API client that
-// is being used
-func (dg *dockerGoClient) ClientVersion() dockerclient.DockerVersion {
-	// Give default version if version field is empty
-	if dg.version == "" {
-		return dockerclient.GetDefaultVersion()
-	}
-	return dg.version
 }
 
 // Stats returns a channel of *docker.Stats entries for the container.

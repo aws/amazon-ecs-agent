@@ -313,7 +313,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	if engine.cfg.ContainerMetadataEnabled {
 		err := engine.metadataManager.CleanTaskMetadata(task)
 		if err != nil {
-			seelog.Errorf("Cleanup of metadata directory failed for task %s with error: %v", task, err)
+			seelog.Errorf("Failed to clean up metadata directory for task %s with error: %v", task, err)
 		} else {
 			seelog.Debugf("Successful cleanup of metadata directory for task %s", task)
 		}
@@ -619,7 +619,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if engine.cfg.ContainerMetadataEnabled {
 		newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
 		if mderr != nil {
-			seelog.Errorf("Create of metadata file for container %s of task %s failed with error: %v", container, task, mderr)
+			seelog.Errorf("Failed to create metadata file for container %s of task %s: %v", container, task, mderr)
 		} else {
 			// Update hostConfig binds if metadata creation is successful
 			seelog.Debugf("Created metadata file for container %s of task %s", container, task)
@@ -661,7 +661,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled == true {
 		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
-			seelog.Errorf("Update of metadata for container %s of task %s failed with error: %v", err)
+			seelog.Errorf("Failed to update metadata file for container %s of task %s: %v", container, task, err)
 		} else {
 			seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
 		}

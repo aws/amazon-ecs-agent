@@ -45,7 +45,7 @@ type metadataManager struct {
 
 // NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
 func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
-	seelog.Debug("Creating metadata manager")
+	seelog.Debug("Creating metadata manager from configuration: %s", cfg)
 	return &metadataManager{
 		client: client,
 		cfg:    cfg,
@@ -55,8 +55,8 @@ func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataMa
 // SetContainerInstanceArn sets the metadataManager's ContainerInstanceArn which is not available
 // at its creation as this information is not present directly at the agent's startup
 func (manager *metadataManager) SetContainerInstanceArn(containerInstanceArn string) {
+	seelog.Debugf("Setting metadata manager's ContainerInstanceArn to %s", containerInstanceArn)
 	manager.containerInstanceArn = containerInstanceArn
-	seelog.Debugf("Metadata manager's ContainerInstanceArn set to %s", containerInstanceArn)
 }
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
@@ -69,7 +69,8 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Verify metadata file exists before proceeding
 	if !mdFileExist(task, container, manager.cfg.DataDir) {
-		return fmt.Errorf("File does not exist")
+		expectedPath, _ := getMetadataFilePath(task, container, manager.cfg.DataDir)
+		return fmt.Errorf("Failed to update metadata file: %s does not exist", expectedPath)
 	}
 
 	// Get docker container information through api call
@@ -80,11 +81,36 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("Container not running or invalid")
+		return fmt.Errorf("Failed to update metadata file: container not running or invalid")
 	}
 
+	// Get last metadata file creation time
+	createTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
+	createTimeFmt := ""
+	if err != nil {
+		seelog.Errorf("Metadata file create time stamp not available: %v", err)
+	} else {
+		createTimeFmt = createTime.Format(time.StampNano)
+	}
+	updateTimeFmt := ""
+
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.acquireMetadata(dockerContainer, task)
+	metadata := manager.acquireMetadata(createTimeFmt, updateTimeFmt, dockerContainer, task)
+	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
+	if err != nil {
+		return err
+	}
+
+	// Update the file again with time stamp of last file update. This will cause the file to have
+	// a different time stamp from its actual file stat inspection but this is unavoidable in our
+	// design as we must populate the metadata with the update time before updating
+	updateTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
+	if err != nil {
+		seelog.Errorf("Metadata file update time stamp not available: %s", err)
+	} else {
+		updateTimeFmt = updateTime.Format(time.StampNano)
+	}
+	metadata = manager.acquireMetadata(createTimeFmt, updateTimeFmt, dockerContainer, task)
 	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 }
 

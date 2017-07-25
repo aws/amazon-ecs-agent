@@ -113,11 +113,12 @@ func newAgent(
 	metadataManager := containermetadata.NewMetadataManager(dockerClient, cfg)
 	if !cfg.ContainerMetadataEnabled {
 		metadataManager = nil
-		log.Debugf("Container metadata feature disabled")
+		log.Debug("Container metadata feature disabled")
 	} else if metadataManager == nil {
-		// Terminate agent if container metadata is enabled but failed
+		// Terminate agent if container metadata is enabled but failed to prevent a faulty agent from
+		// running and propagating its faults into the user
 		log.Critical("Container metadata feature enabled but unable to start up. Terminating agent")
-		err = fmt.Errorf("")
+		err = fmt.Errorf("Container metadata enabled but failed to start")
 		return nil, err
 	}
 
