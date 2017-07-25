@@ -159,7 +159,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 				err = client.SubmitContainerStateChange(event.containerChange)
 				if err == nil {
 					// submitted; ensure we don't retry it
-					event.containerSent = true
+					event.setSent()
 					if event.containerChange.Container != nil {
 						event.containerChange.Container.SetSentStatus(event.containerChange.Status)
 					}
@@ -175,7 +175,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 				err = client.SubmitTaskStateChange(event.taskChange)
 				if err == nil {
 					// submitted or can't be retried; ensure we don't retry it
-					event.taskSent = true
+					event.setSent()
 					if event.taskChange.Task != nil {
 						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					}

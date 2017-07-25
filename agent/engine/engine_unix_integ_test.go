@@ -621,13 +621,13 @@ func TestVolumesFromRO(t *testing.T) {
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 
-	if testTask.Containers[1].KnownExitCode == nil || *testTask.Containers[1].KnownExitCode != 42 {
-		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].KnownExitCode)
+	if testTask.Containers[1].GetKnownExitCode() == nil || *testTask.Containers[1].GetKnownExitCode() != 42 {
+		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
 	}
-	if testTask.Containers[2].KnownExitCode == nil || *testTask.Containers[2].KnownExitCode != 0 {
+	if testTask.Containers[2].GetKnownExitCode() == nil || *testTask.Containers[2].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with default of rw")
 	}
-	if testTask.Containers[3].KnownExitCode == nil || *testTask.Containers[3].KnownExitCode != 0 {
+	if testTask.Containers[3].GetKnownExitCode() == nil || *testTask.Containers[3].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with explicit rw")
 	}
 }
@@ -782,7 +782,7 @@ check_events:
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 
-	if testTask.Containers[0].KnownExitCode == nil || *testTask.Containers[0].KnownExitCode != 42 {
+	if testTask.Containers[0].GetKnownExitCode() == nil || *testTask.Containers[0].GetKnownExitCode() != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
 	}
 }

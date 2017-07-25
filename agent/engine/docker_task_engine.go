@@ -408,7 +408,7 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
-		ExitCode:      cont.KnownExitCode,
+		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  cont.KnownPortBindings,
 		Reason:        reason,
 		Container:     cont,

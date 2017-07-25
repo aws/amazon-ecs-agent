@@ -13,92 +13,61 @@
 package eventstream
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
+	"github.com/stretchr/testify/assert"
 )
-
-type eventListener struct {
-	called bool
-}
-
-func (listener *eventListener) recordCall(...interface{}) error {
-	listener.called = true
-	return nil
-}
 
 // TestSubscribe tests the listener subscribed to the
 // event stream will be notified
 func TestSubscribe(t *testing.T) {
-	listener := eventListener{called: false}
+	waiter, listener := setupWaitGroupAndListener()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	eventStream := NewEventStream("TestSubscribe", ctx)
-	eventStream.Subscribe("listener", listener.recordCall)
+	defer cancel()
 
+	waiter.Add(1)
+	eventStream := NewEventStream("TestSubscribe", ctx)
+	eventStream.Subscribe("listener", listener)
 	eventStream.StartListening()
 
 	err := eventStream.WriteToEventStream(struct{}{})
-	if err != nil {
-		t.Errorf("Write to event stream failed, err: %v", err)
-	}
-
-	time.Sleep(1 * time.Second)
-
-	cancel()
-	if !listener.called {
-		t.Error("Listener was not invoked")
-	}
+	assert.NoError(t, err)
+	waiter.Wait()
 }
 
 // TestUnsubscribe tests the listener unsubscribed from the
 // event steam will not be notified
 func TestUnsubscribe(t *testing.T) {
-	listener1 := eventListener{called: false}
-	listener2 := eventListener{called: false}
+	waiter1, listener1 := setupWaitGroupAndListener()
+	waiter2, listener2 := setupWaitGroupAndListener()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	eventStream := NewEventStream("TestUnsubscribe", ctx)
-
-	eventStream.Subscribe("listener1", listener1.recordCall)
-	eventStream.Subscribe("listener2", listener2.recordCall)
-
+	eventStream.Subscribe("listener1", listener1)
+	eventStream.Subscribe("listener2", listener2)
 	eventStream.StartListening()
 
+	waiter1.Add(1)
+	waiter2.Add(1)
 	err := eventStream.WriteToEventStream(struct{}{})
-	if err != nil {
-		t.Errorf("Write to event stream failed, err: %v", err)
-	}
+	assert.NoError(t, err)
+	waiter1.Wait()
+	waiter2.Wait()
 
-	time.Sleep(1 * time.Second)
-	if !listener1.called {
-		t.Error("Listener 1 was not invoked")
-	}
-	if !listener2.called {
-		t.Error("Listener 2 was not invoked")
-	}
-
-	listener1.called = false
-	listener2.called = false
 	eventStream.Unsubscribe("listener1")
 
+	waiter2.Add(1)
 	err = eventStream.WriteToEventStream(struct{}{})
-	if err != nil {
-		t.Errorf("Write to event stream failed, err: %v", err)
-	}
+	assert.NoError(t, err)
 
-	// wait for the event stream to broadcast
-	time.Sleep(1 * time.Second)
-
-	if listener1.called {
-		t.Error("Unsubscribed handler shouldn't be called")
-	}
-
-	if !listener2.called {
-		t.Error("Listener 2 was not invoked without unsubscribing")
-	}
-	cancel()
+	waiter1.Wait()
+	waiter2.Wait()
 }
 
 // TestCancelEventStream tests the event stream can
@@ -106,22 +75,25 @@ func TestUnsubscribe(t *testing.T) {
 func TestCancelEventStream(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	eventStream := NewEventStream("TestCancelEventStream", ctx)
+	_, listener := setupWaitGroupAndListener()
 
-	listener := eventListener{called: false}
-
-	eventStream.Subscribe("listener", listener.recordCall)
-
+	eventStream.Subscribe("listener", listener)
 	eventStream.StartListening()
 	cancel()
 
-	// wait for the event stream to handle cancel
 	time.Sleep(1 * time.Second)
 
 	err := eventStream.WriteToEventStream(struct{}{})
-	if err == nil {
-		t.Error("Write to closed event stream should return an error")
+	assert.Error(t, err)
+}
+
+// setupWaitGroupAndListener creates a waitgroup and a function
+// that decrements a WaitGroup when called
+func setupWaitGroupAndListener() (*sync.WaitGroup, func(...interface{}) error) {
+	waiter := &sync.WaitGroup{}
+	listener := func(...interface{}) error {
+		waiter.Done()
+		return nil
 	}
-	if listener.called {
-		t.Error("Cancelled events context, handler should not be called")
-	}
+	return waiter, listener
 }

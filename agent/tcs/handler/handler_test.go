@@ -29,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
+	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
@@ -82,15 +82,16 @@ func TestFormatURL(t *testing.T) {
 func TestStartSession(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, serverChan, requestChan, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
+	server, serverChan, requestChan, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server.StartTLS()
 	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
 	wait := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
+	wait.Add(1)
 	go func() {
-		wait.Add(1)
 		select {
 		case sErr := <-serverErr:
 			t.Error(sErr)
@@ -142,7 +143,8 @@ func TestStartSession(t *testing.T) {
 func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, serverChan, _, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
+	server, serverChan, _, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server.StartTLS()
 	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +183,8 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, _, requestChan, serverErr, err := mockwsutils.StartMockServer(t, closeWS)
+	server, _, requestChan, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server.StartTLS()
 	defer server.Close()
 	if err != nil {
 		t.Fatal(err)

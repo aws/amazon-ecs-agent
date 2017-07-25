@@ -54,9 +54,6 @@ const (
 	// writeBufSize is the size of the write buffer for the ws connection.
 	writeBufSize = 32768
 
-	// gorilla/websocket expects the websocket scheme (ws[s]://)
-	wsScheme = "wss"
-
 	// Default NO_PROXY env var IP addresses
 	defaultNoProxyIP = "169.254.169.254,169.254.170.2"
 )
@@ -104,7 +101,7 @@ type ClientServer interface {
 	io.Closer
 }
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/$GOFILE
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer,WebsocketConn mock/$GOFILE
 
 // ClientServerImpl wraps commonly used methods defined in ClientServer interface.
 type ClientServerImpl struct {
@@ -135,11 +132,17 @@ type ClientServerImpl struct {
 // 'MakeRequest' can be made after calling this, but responss will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
 		return err
 	}
 
+	wsScheme, err := websocketScheme(parsedURL.Scheme)
+	if err != nil {
+		return err
+	}
 	parsedURL.Scheme = wsScheme
 
 	// NewRequest never returns an error if the url parses and we just verified
@@ -201,6 +204,8 @@ func (cs *ClientServerImpl) Connect() error {
 }
 
 func (cs *ClientServerImpl) IsReady() bool {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
 	return cs.conn != nil
 }
 
@@ -210,6 +215,9 @@ func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
 
 // Disconnect disconnects the connection
 func (cs *ClientServerImpl) Disconnect(...interface{}) error {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
+
 	if cs.conn != nil {
 		return cs.conn.Close()
 	}
@@ -340,6 +348,20 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	} else {
 		seelog.Infof("No handler for message type: %s", typeStr)
 	}
+}
+
+func websocketScheme(httpScheme string) (string, error) {
+	// gorilla/websocket expects the websocket scheme (ws[s]://)
+	var wsScheme string
+	switch httpScheme {
+	case "http":
+		wsScheme = "ws"
+	case "https":
+		wsScheme = "wss"
+	default:
+		return "", fmt.Errorf("wsclient: unknown scheme %s", httpScheme)
+	}
+	return wsScheme, nil
 }
 
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650

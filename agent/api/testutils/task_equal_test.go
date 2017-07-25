@@ -14,47 +14,42 @@
 package testutils
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTaskEqual(t *testing.T) {
-	equalPairs := []Task{
-		{Arn: "a"}, {Arn: "a"},
-		{Family: "a"}, {Family: "a"},
-		{Version: "a"}, {Version: "a"},
-		{Containers: []*Container{{Name: "a"}}}, {Containers: []*Container{{Name: "a"}}},
-		{DesiredStatusUnsafe: TaskRunning}, {DesiredStatusUnsafe: TaskRunning},
-		{KnownStatusUnsafe: TaskRunning}, {KnownStatusUnsafe: TaskRunning},
+
+	testCases := []struct {
+		rhs           Task
+		lhs           Task
+		shouldBeEqual bool
+	}{
+		// Equal Pairs
+		{Task{Arn: "a"}, Task{Arn: "a"}, true},
+		{Task{Family: "a"}, Task{Family: "a"}, true},
+		{Task{Version: "a"}, Task{Version: "a"}, true},
+		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "a"}}}, true},
+		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskRunning}, true},
+		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskRunning}, true},
+
+		// Unequal Pairs
+		{Task{Arn: "a"}, Task{Arn: "あ"}, false},
+		{Task{Family: "a"}, Task{Family: "あ"}, false},
+		{Task{Version: "a"}, Task{Version: "あ"}, false},
+		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "あ"}}}, false},
+		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskStopped}, false},
+		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskStopped}, false},
 	}
 
-	unequalPairs := []Task{
-		{Arn: "a"}, {Arn: "あ"},
-		{Family: "a"}, {Family: "あ"},
-		{Version: "a"}, {Version: "あ"},
-		{Containers: []*Container{{Name: "a"}}}, {Containers: []*Container{{Name: "あ"}}},
-		{DesiredStatusUnsafe: TaskRunning}, {DesiredStatusUnsafe: TaskStopped},
-		{KnownStatusUnsafe: TaskRunning}, {KnownStatusUnsafe: TaskStopped},
-	}
-
-	for i := 0; i < len(equalPairs); i += 2 {
-		if !TasksEqual(&equalPairs[i], &equalPairs[i+1]) {
-			t.Error(i, equalPairs[i], " should equal ", equalPairs[i+1])
-		}
-		// Should be symetric
-		if !TasksEqual(&equalPairs[i+1], &equalPairs[i]) {
-			t.Error(i, "(symetric)", equalPairs[i+1], " should equal ", equalPairs[i])
-		}
-	}
-
-	for i := 0; i < len(unequalPairs); i += 2 {
-		if TasksEqual(&unequalPairs[i], &unequalPairs[i+1]) {
-			t.Error(i, unequalPairs[i], " shouldn't equal ", unequalPairs[i+1])
-		}
-		//symetric
-		if TasksEqual(&unequalPairs[i+1], &unequalPairs[i]) {
-			t.Error(i, "(symetric)", unequalPairs[i+1], " shouldn't equal ", unequalPairs[i])
-		}
+	for index, tc := range testCases {
+		t.Run(fmt.Sprintf("index %d expected %t", index, tc.shouldBeEqual), func(t *testing.T) {
+			assert.Equal(t, TasksEqual(&tc.lhs, &tc.rhs), tc.shouldBeEqual, "TasksEqual not working as expected. Check index failure.")
+			// Symetric
+			assert.Equal(t, TasksEqual(&tc.rhs, &tc.lhs), tc.shouldBeEqual, "Symetric equality check failed. Check index failure.")
+		})
 	}
 }

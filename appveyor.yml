@@ -13,4 +13,4 @@ install:
 build_script:
   - go build ./agent
 test_script:
-  - ps: .\scripts\run-unit-tests.ps1
+  - go test -short -race -timeout=40s ./agent/...

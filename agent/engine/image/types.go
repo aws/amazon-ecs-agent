@@ -60,6 +60,12 @@ func (imageState *ImageState) AddImageName(imageName string) {
 	}
 }
 
+func (imageState *ImageState) GetImageNamesCount() int {
+	imageState.updateLock.RLock()
+	defer imageState.updateLock.RUnlock()
+	return len(imageState.Image.Names)
+}
+
 func (imageState *ImageState) HasNoAssociatedContainers() bool {
 	return len(imageState.Containers) == 0
 }
