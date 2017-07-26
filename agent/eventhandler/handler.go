@@ -14,6 +14,8 @@
 package eventhandler
 
 import (
+	"sync"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -26,8 +28,15 @@ var log = logger.ForModule("eventhandler")
 // changes to a task or container's SentStatus
 var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
 
+// TODO Delete me. This is only a placeholder to avoid data race when accessing
+// the gloabal statesaver object. This should be going away with the eventhandler
+// refactor to batch state change events submitted to backend
+var statesaverLock sync.Mutex
+
 func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver, eventhandler *TaskHandler) {
+	statesaverLock.Lock()
 	statesaver = saver
+	statesaverLock.Unlock()
 
 	for {
 		stateChangeEvents := taskEngine.StateChangeEvents()
