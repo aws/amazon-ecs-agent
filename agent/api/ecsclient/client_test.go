@@ -530,9 +530,13 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	client.(*APIECSClient).SetSDK(mockSDK)
 	client.(*APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
 
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil)
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil)
-
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
+		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+	)
 	_, err := client.RegisterContainerInstance("", nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
