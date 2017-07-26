@@ -110,16 +110,15 @@ func newAgent(
 		return nil, err
 	}
 
-	metadataManager := containermetadata.NewMetadataManager(dockerClient, cfg)
-	if !cfg.ContainerMetadataEnabled {
-		metadataManager = nil
+	var metadataManager containermetadata.MetadataManager
+	if cfg.ContainerMetadataEnabled {
+		log.Debug("Container metadata feature enabled")
+		// Get the oldest client version with up to date inspect API
+		// usable for container metadata feature
+		metadataDockerClient := dockerClient.WithVersion(containermetadata.ContainerMetadataClientVersion)
+		metadataManager = containermetadata.NewMetadataManager(metadataDockerClient, cfg)
+	} else {
 		log.Debug("Container metadata feature disabled")
-	} else if metadataManager == nil {
-		// Terminate agent if container metadata is enabled but failed to prevent a faulty agent from
-		// running and propagating its faults into the user
-		log.Critical("Container metadata feature enabled but unable to start up. Terminating agent")
-		err = fmt.Errorf("Container metadata enabled but failed to start")
-		return nil, err
 	}
 
 	return &ecsAgent{
@@ -260,9 +259,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	// Use the values we loaded if there's no issue
 	agent.containerInstanceARN = previousContainerInstanceArn
-	if agent.cfg.ContainerMetadataEnabled {
-		agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
-	}
+	agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
 
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
@@ -357,9 +354,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
-	if agent.cfg.ContainerMetadataEnabled {
-		agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
-	}
+	agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil

@@ -63,8 +63,8 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID, container.Name), nil
 }
 
-// mdFileExist checks if metadata file exists or not
-func mdFileExist(task *api.Task, container *api.Container, dataDir string) bool {
+// metadataFileExists checks if metadata file exists or not
+func metadataFileExists(task *api.Task, container *api.Container, dataDir string) bool {
 	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Case when file path is invalid (Due to malformed task Arn)
 	if err != nil {
