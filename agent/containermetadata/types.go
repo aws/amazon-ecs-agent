@@ -35,6 +35,8 @@ type NetworkMetadata struct {
 	networkMode string
 	ipv4Address string
 	ipv4Gateway string
+	ipv6Address string
+	ipv6Gateway string
 }
 
 // DockerContainerMD keeps track of all metadata acquired from Docker inspection
@@ -53,7 +55,7 @@ type DockerContainerMD struct {
 // provided by AWS, does not depend on the creation of the container
 type TaskMetadata struct {
 	cluster string
-	taskArn string
+	taskARN string
 }
 
 // Metadata packages all acquired metadata and is used to format it
@@ -63,40 +65,44 @@ type TaskMetadata struct {
 type Metadata struct {
 	taskMetadata            TaskMetadata
 	dockerContainerMetadata DockerContainerMD
-	containerInstance       string
-	createTime              string
-	updateTime              string
+	containerInstanceARN    string
+	createTime              time.Time
+	updateTime              time.Time
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
-			Cluster           string            `json:"Cluster,omitempty"`
-			ContainerInstance string            `json:"ContainerInstanceArn,omitempty"`
-			TaskArn           string            `json:"TaskArn,omitempty"`
-			ContainerID       string            `json:"ContainerID,omitempty"`
-			ContainerName     string            `json:"ContainerName,omitempty"`
-			ImageID           string            `json:"ImageID,omitempty"`
-			ImageName         string            `json:"ImageName,omitempty"`
-			Ports             []api.PortBinding `json:"PortMappings,omitempty"`
-			NetworkMode       string            `json:"NetworkMode,omitempty"`
-			IPv4Address       string            `json:"IPv4Address,omitempty"`
-			IPv4Gateway       string            `json:"IPv4Gateway,omitempty"`
-			CreateTime        string            `json:"CreateTime,omitempty"`
-			UpdateTime        string            `json:"UpdateTime,omitempty"`
+			Cluster              string            `json:"Cluster,omitempty"`
+			ContainerInstanceARN string            `json:"ContainerInstanceARN,omitempty"`
+			TaskARN              string            `json:"TaskARN,omitempty"`
+			ContainerID          string            `json:"ContainerID,omitempty"`
+			ContainerName        string            `json:"ContainerName,omitempty"`
+			ImageID              string            `json:"ImageID,omitempty"`
+			ImageName            string            `json:"ImageName,omitempty"`
+			Ports                []api.PortBinding `json:"PortMappings,omitempty"`
+			NetworkMode          string            `json:"NetworkMode,omitempty"`
+			IPv4Address          string            `json:"IPv4Address,omitempty"`
+			IPv4Gateway          string            `json:"IPv4Gateway,omitempty"`
+			IPv6Address          string            `json:"IPv6Address,omitempty"`
+			IPv6Gateway          string            `json:"IPv6Gateway,omitempty"`
+			CreateTime           time.Time         `json:"CreateTime,omitempty"`
+			UpdateTime           time.Time         `json:"UpdateTime,omitempty"`
 		}{
-			Cluster:           m.taskMetadata.cluster,
-			ContainerInstance: m.containerInstance,
-			TaskArn:           m.taskMetadata.taskArn,
-			ContainerID:       m.dockerContainerMetadata.containerID,
-			ContainerName:     m.dockerContainerMetadata.containerName,
-			ImageID:           m.dockerContainerMetadata.imageID,
-			ImageName:         m.dockerContainerMetadata.imageName,
-			Ports:             m.dockerContainerMetadata.ports,
-			NetworkMode:       m.dockerContainerMetadata.networkInfo.networkMode,
-			IPv4Address:       m.dockerContainerMetadata.networkInfo.ipv4Address,
-			IPv4Gateway:       m.dockerContainerMetadata.networkInfo.ipv4Gateway,
-			CreateTime:        m.createTime,
-			UpdateTime:        m.updateTime,
+			Cluster:              m.taskMetadata.cluster,
+			ContainerInstanceARN: m.containerInstanceARN,
+			TaskARN:              m.taskMetadata.taskARN,
+			ContainerID:          m.dockerContainerMetadata.containerID,
+			ContainerName:        m.dockerContainerMetadata.containerName,
+			ImageID:              m.dockerContainerMetadata.imageID,
+			ImageName:            m.dockerContainerMetadata.imageName,
+			Ports:                m.dockerContainerMetadata.ports,
+			NetworkMode:          m.dockerContainerMetadata.networkInfo.networkMode,
+			IPv4Address:          m.dockerContainerMetadata.networkInfo.ipv4Address,
+			IPv4Gateway:          m.dockerContainerMetadata.networkInfo.ipv4Gateway,
+			IPv6Address:          m.dockerContainerMetadata.networkInfo.ipv6Address,
+			IPv6Gateway:          m.dockerContainerMetadata.networkInfo.ipv6Gateway,
+			CreateTime:           m.createTime,
+			UpdateTime:           m.updateTime,
 		})
 }

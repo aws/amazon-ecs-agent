@@ -41,7 +41,7 @@ type MetadataManager interface {
 type metadataManager struct {
 	client               dockerMetadataClient
 	cfg                  *config.Config
-	containerInstanceArn string
+	containerInstanceARN string
 }
 
 // NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
@@ -54,12 +54,12 @@ func NewMetadataManager(client dockerMetadataClient, cfg *config.Config) Metadat
 
 // SetContainerInstanceArn sets the metadataManager's ContainerInstanceArn which is not available
 // at its creation as this information is not present immediately at the agent's startup
-func (manager *metadataManager) SetContainerInstanceArn(containerInstanceArn string) {
+func (manager *metadataManager) SetContainerInstanceArn(containerInstanceARN string) {
 	// Do nothing if disabled
 	if !manager.cfg.ContainerMetadataEnabled {
 		return
 	}
-	manager.containerInstanceArn = containerInstanceArn
+	manager.containerInstanceARN = containerInstanceARN
 }
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
@@ -94,16 +94,13 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Get last metadata file creation time
 	createTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
-	createTimeFmt := ""
 	if err != nil {
 		seelog.Errorf("container metadata update: %v", err)
-	} else {
-		createTimeFmt = createTime.Format(time.StampNano)
 	}
-	updateTimeFmt := ""
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.acquireMetadata(createTimeFmt, updateTimeFmt, dockerContainer, task)
+	var updateTime time.Time
+	metadata := manager.parseMetadata(createTime, updateTime, dockerContainer, task)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		return err
@@ -112,15 +109,13 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 	// Update the file again with time stamp of last file update. This will cause the file to have
 	// a different time stamp from its actual file stat inspection but this is unavoidable in our
 	// design as we must populate the metadata with the update time before updating
-	updateTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
+	updateTime, err = getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
 	if err != nil {
 		seelog.Errorf("container metadata update: %v", err)
-	} else {
-		updateTimeFmt = updateTime.Format(time.StampNano)
 	}
 	// We fetch the metadata and write it once more to put the update time into the file. This update
 	// time is the time of the last update where we update with new metadata
-	metadata = manager.acquireMetadata(createTimeFmt, updateTimeFmt, dockerContainer, task)
+	metadata = manager.parseMetadata(createTime, updateTime, dockerContainer, task)
 	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 }
 
