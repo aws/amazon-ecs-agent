@@ -21,10 +21,12 @@ import (
 	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
 
 const (
-	mountPoint = "/ecs/metadata"
+	mountPoint                     = "/ecs/metadata"
+	ContainerMetadataClientVersion = dockerclient.Version_1_21
 )
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
@@ -32,9 +34,12 @@ const (
 // binds []string is passed by value to avoid race conditions by multiple
 // calls to CreateMetadata, although this should never actually happen
 func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, container *api.Container) ([]string, error) {
+	// Do nothing if disabled
+	if !manager.cfg.ContainerMetadataEnabled {
+		return nil, nil
+	}
+
 	// Do not create metadata file for internal containers
-	// Add error handling for this case? Probably no need since
-	// Internal containers should not be visible to users anyways
 	if container.IsInternal {
 		return binds, nil
 	}
@@ -43,7 +48,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	mdDirectoryPath, err := getMetadataFilePath(task, container, manager.cfg.DataDir)
 	// Stop metadata creation if path is malformed for any reason
 	if err != nil {
-		return binds, fmt.Errorf("Invalid metadata file path with error: %v", err)
+		return binds, fmt.Errorf("container metadata create: %v", err)
 	}
 
 	err = os.MkdirAll(mdDirectoryPath, os.ModePerm)

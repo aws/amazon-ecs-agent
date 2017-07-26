@@ -27,15 +27,12 @@ import (
 // errors here and handle them at this stage.
 func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 	if settings == nil {
-		seelog.Errorf("Failed to acquire network metadata: Network metadata not available or does not exist")
 		return NetworkMetadata{}
 	}
 
 	// This metadata is available in two different places in NetworkSettings
 	ipv4Address := settings.IPAddress
 	ipv4Gateway := settings.Gateway
-	ipv6Address := settings.GlobalIPv6Address
-	ipv6Gateway := settings.IPv6Gateway
 
 	// Network mode is not available for Docker API versions 1.17-1.20
 	networkModeFromContainer := ""
@@ -44,18 +41,13 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 			networkModeFromContainer = modeFromSettings
 			ipv4Address = containerNetwork.IPAddress
 			ipv4Gateway = containerNetwork.Gateway
-			ipv6Address = containerNetwork.GlobalIPv6Address
-			ipv6Gateway = containerNetwork.IPv6Gateway
 		}
-	} else {
-		seelog.Debug("No network mode found due to old Docker Client version")
 	}
 
 	networkMD := NetworkMetadata{
 		networkMode: networkModeFromContainer,
-		ipv4Address: ipv4Address, ipv4Gateway: ipv4Gateway,
-		ipv6Address: ipv6Address,
-		ipv6Gateway: ipv6Gateway,
+		ipv4Address: ipv4Address,
+		ipv4Gateway: ipv4Gateway,
 	}
 	return networkMD
 }
@@ -66,31 +58,33 @@ func acquireNetworkMetadata(settings *docker.NetworkSettings) NetworkMetadata {
 // errors here and handle them at this stage.
 func acquireDockerContainerMetadata(container *docker.Container) DockerContainerMD {
 	if container == nil {
-		seelog.Errorf("Failed to acquire container metadata: Container metadata not available or does not exist")
+		seelog.Warn("Failed to acquire container metadata: Container metadata not available or does not exist")
 		return DockerContainerMD{}
 	}
 
 	imageNameFromConfig := ""
-	// A real world container should never lack a config but we check regardless to avoid
-	// nil pointer exceptions (Could occur if there is some error in the docker api call)
+	// In most cases a container should never lack a config but we check regardless to avoid
+	// nil pointer exceptions (Could occur if there is some error in the docker api call, if the
+	// container we receive has incomplete information)
 	if container.Config != nil {
 		imageNameFromConfig = container.Config.Image
 	} else {
-		seelog.Errorf("Failed to acquire container metadata: container has no configuration")
+		seelog.Warn("Failed to acquire container metadata: container has no configuration")
 		return DockerContainerMD{}
 	}
 
 	// Get Port bindings from docker configurations
 	var ports []api.PortBinding
 	var err error
-	// A real world container should never lack a host config but we check just in case
+	// In most cases a container should never lack a host config but we check just in case to avoid
+	// nil pointer exception (Could occur if there is some error in the docker api call)
 	if container.HostConfig != nil {
 		ports, err = api.PortBindingFromDockerPortBinding(container.HostConfig.PortBindings)
 		if err != nil {
-			seelog.Errorf("Failed to acquire port binding metadata: %v", err)
+			seelog.Warnf("Failed to acquire port binding metadata: %v", err)
 		}
 	} else {
-		seelog.Errorf("Failed to acquire container metadata: container has no host configuration")
+		seelog.Warn("Failed to acquire container metadata: container has no host configuration")
 		return DockerContainerMD{}
 	}
 
@@ -111,37 +105,29 @@ func acquireDockerContainerMetadata(container *docker.Container) DockerContainer
 // and packages this data for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api.Task) TaskMetadata {
-	// Get docker version from client. May block metadata file updates so the file changes
-	// should be made in a goroutine as this does a docker client call
-	version, err := client.Version()
-	if err != nil {
-		version = ""
-		seelog.Errorf("Failed to get docker version number: %v", err)
-	}
-
-	clusterArnFromConfig := ""
+func acquireTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
+	clusterFromConfig := ""
 	if cfg != nil {
-		clusterArnFromConfig = cfg.Cluster
+		clusterFromConfig = cfg.Cluster
 	} else {
-		// This error should not happen in real world use cases (Or occurs somewhere else long
-		// before this should matter)
-		seelog.Errorf("Failed to get cluster Arn: invalid configuration")
+		// This error should not happen in most use cases as the agent should not be missing
+		// a configuration. This is only here as a safety in tests where the config may not
+		// valid to avoid nil pointer dereference
+		seelog.Warn("Failed to get cluster Arn: invalid configuration")
 	}
 
 	taskArnFromConfig := ""
 	if task != nil {
 		taskArnFromConfig = task.Arn
 	} else {
-		// This error should not happen in real world use cases (Or occurs somewhere else long
-		// before this should matter)
-		seelog.Errorf("Failed to get task Arn: invalid task")
+		// This error should not happen in most use cases. This check is mostly for current or
+		// future tests having mocked tasks that are nil
+		seelog.Warn("Failed to get task Arn: invalid task")
 	}
 
 	return TaskMetadata{
-		version:    version,
-		clusterArn: clusterArnFromConfig,
-		taskArn:    taskArnFromConfig,
+		cluster: clusterFromConfig,
+		taskArn: taskArnFromConfig,
 	}
 }
 
@@ -150,25 +136,14 @@ func acquireTaskMetadata(client dockerDummyClient, cfg *config.Config, task *api
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
 func (manager *metadataManager) acquireMetadata(createTime string, updateTime string, container *docker.Container, task *api.Task) Metadata {
-	taskMD := acquireTaskMetadata(manager.client, manager.cfg, task)
+	taskMD := acquireTaskMetadata(manager.cfg, task)
 	dockerMD := acquireDockerContainerMetadata(container)
 	return Metadata{
-		Version:           taskMD.version,
-		ContainerInstance: manager.containerInstanceArn,
-		ContainerID:       dockerMD.containerID,
-		ContainerName:     dockerMD.containerName,
-		ImageID:           dockerMD.imageID,
-		ImageName:         dockerMD.imageName,
-		Cluster:           taskMD.clusterArn,
-		TaskArn:           taskMD.taskArn,
-		Ports:             dockerMD.ports,
-		NetworkMode:       dockerMD.networkInfo.networkMode,
-		IPv4Address:       dockerMD.networkInfo.ipv4Address,
-		IPv4Gateway:       dockerMD.networkInfo.ipv4Gateway,
-		IPv6Address:       dockerMD.networkInfo.ipv6Address,
-		IPv6Gateway:       dockerMD.networkInfo.ipv6Gateway,
-		CreateTime:        createTime,
-		UpdateTime:        updateTime,
+		taskMetadata:            taskMD,
+		dockerContainerMetadata: dockerMD,
+		containerInstance:       manager.containerInstanceArn,
+		createTime:              createTime,
+		updateTime:              updateTime,
 	}
 }
 
@@ -178,11 +153,9 @@ func (manager *metadataManager) acquireMetadata(createTime string, updateTime st
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
 func (manager *metadataManager) acquireMetadataAtContainerCreate(task *api.Task) Metadata {
-	taskMD := acquireTaskMetadata(manager.client, manager.cfg, task)
+	taskMD := acquireTaskMetadata(manager.cfg, task)
 	return Metadata{
-		Version:           taskMD.version,
-		ContainerInstance: manager.containerInstanceArn,
-		Cluster:           taskMD.clusterArn,
-		TaskArn:           taskMD.taskArn,
+		taskMetadata:      taskMD,
+		containerInstance: manager.containerInstanceArn,
 	}
 }

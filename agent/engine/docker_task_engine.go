@@ -310,13 +310,11 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	}
 
 	// Clean metadata directory for task
-	if engine.cfg.ContainerMetadataEnabled {
-		err := engine.metadataManager.CleanTaskMetadata(task)
-		if err != nil {
-			seelog.Errorf("Failed to clean up metadata directory for task %s with error: %v", task, err)
-		} else {
-			seelog.Debugf("Successful cleanup of metadata directory for task %s", task)
-		}
+	err := engine.metadataManager.CleanTaskMetadata(task)
+	if err != nil {
+		seelog.Errorf("Failed to clean up metadata directory for task %s with error: %v", task, err)
+	} else {
+		seelog.Debugf("Successful cleanup of metadata directory for task %s", task)
 	}
 	engine.saver.Save()
 }
@@ -616,16 +614,16 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
 	// But we require the host Config binds to be properly set before we create the container
-	if engine.cfg.ContainerMetadataEnabled {
-		newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
-		if mderr != nil {
-			seelog.Errorf("Failed to create metadata file for container %s of task %s: %v", container, task, mderr)
-		} else {
-			// Update hostConfig binds if metadata creation is successful
-			seelog.Debugf("Created metadata file for container %s of task %s", container, task)
-			hostConfig.Binds = newBinds
-		}
+	newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
+	if mderr != nil {
+		seelog.Errorf("Failed to create metadata file for container %s of task %s: %v", container, task, mderr)
+	} else {
+		// Update hostConfig binds if metadata creation is successful. This will add the metadata directory
+		// to the container's list of mounted volumes
+		seelog.Debugf("Created metadata file for container %s of task %s", container, task)
+		hostConfig.Binds = newBinds
 	}
+
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
@@ -658,7 +656,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
-	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled == true {
+	if dockerContainerMD.Error == nil {
 		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
 			seelog.Errorf("Failed to update metadata file for container %s of task %s: %v", container, task, err)

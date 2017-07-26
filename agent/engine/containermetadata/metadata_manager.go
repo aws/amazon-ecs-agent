@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+
 	"github.com/cihub/seelog"
 )
 
@@ -38,14 +39,13 @@ type MetadataManager interface {
 
 // metadataManager implements the MetadataManager interface
 type metadataManager struct {
-	client               dockerDummyClient
+	client               dockerMetadataClient
 	cfg                  *config.Config
 	containerInstanceArn string
 }
 
 // NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataManager {
-	seelog.Debug("Creating metadata manager from configuration: %s", cfg)
+func NewMetadataManager(client dockerMetadataClient, cfg *config.Config) MetadataManager {
 	return &metadataManager{
 		client: client,
 		cfg:    cfg,
@@ -53,24 +53,32 @@ func NewMetadataManager(client dockerDummyClient, cfg *config.Config) MetadataMa
 }
 
 // SetContainerInstanceArn sets the metadataManager's ContainerInstanceArn which is not available
-// at its creation as this information is not present directly at the agent's startup
+// at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetContainerInstanceArn(containerInstanceArn string) {
-	seelog.Debugf("Setting metadata manager's ContainerInstanceArn to %s", containerInstanceArn)
+	// Do nothing if disabled
+	if !manager.cfg.ContainerMetadataEnabled {
+		return
+	}
 	manager.containerInstanceArn = containerInstanceArn
 }
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
 func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
+	// Do nothing if disabled
+	if !manager.cfg.ContainerMetadataEnabled {
+		return nil
+	}
+
 	// Do not update (non-existent) metadata file for internal containers
 	if container.IsInternal {
 		return nil
 	}
 
 	// Verify metadata file exists before proceeding
-	if !mdFileExist(task, container, manager.cfg.DataDir) {
+	if !metadataFileExists(task, container, manager.cfg.DataDir) {
 		expectedPath, _ := getMetadataFilePath(task, container, manager.cfg.DataDir)
-		return fmt.Errorf("Failed to update metadata file: %s does not exist", expectedPath)
+		return fmt.Errorf("container metadata update: %s does not exist", expectedPath)
 	}
 
 	// Get docker container information through api call
@@ -81,14 +89,14 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("Failed to update metadata file: container not running or invalid")
+		return fmt.Errorf("container metadata update: container not running or invalid")
 	}
 
 	// Get last metadata file creation time
 	createTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
 	createTimeFmt := ""
 	if err != nil {
-		seelog.Errorf("Metadata file create time stamp not available: %v", err)
+		seelog.Errorf("container metadata update: %v", err)
 	} else {
 		createTimeFmt = createTime.Format(time.StampNano)
 	}
@@ -106,16 +114,23 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 	// design as we must populate the metadata with the update time before updating
 	updateTime, err := getMetadataFileUpdateTime(task, container, manager.cfg.DataDir)
 	if err != nil {
-		seelog.Errorf("Metadata file update time stamp not available: %s", err)
+		seelog.Errorf("container metadata update: %v", err)
 	} else {
 		updateTimeFmt = updateTime.Format(time.StampNano)
 	}
+	// We fetch the metadata and write it once more to put the update time into the file. This update
+	// time is the time of the last update where we update with new metadata
 	metadata = manager.acquireMetadata(createTimeFmt, updateTimeFmt, dockerContainer, task)
 	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 }
 
 // CleanTaskMetadata removes the metadata files of all containers associated with a task
 func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
+	// Do nothing if disabled
+	if !manager.cfg.ContainerMetadataEnabled {
+		return nil
+	}
+
 	mdPath := getTaskMetadataDir(task, manager.cfg.DataDir)
 	return os.RemoveAll(mdPath)
 }

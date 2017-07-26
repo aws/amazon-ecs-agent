@@ -44,6 +44,7 @@ const (
 func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
+	dataDir := filepath.Join(ecsRoot, "data")
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
 		ReservedPorts: []uint16{
@@ -59,11 +60,11 @@ func DefaultConfig() Config {
 			netBIOSPort,
 		},
 		ReservedPortsUDP: []uint16{},
-		DataDir:          filepath.Join(ecsRoot, "data"),
+		DataDir:          dataDir,
 		// DataDirOnHost is identical to DataDir for Windows because we do not run on a container
 		// We use this redundancy to avoid making significant changes between the Windows and Linux
 		// versions of the containermetadata files
-		DataDirOnHost: filepath.Join(ecsRoot, "data"),
+		DataDirOnHost: dataDir,
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,
 		ReservedMemory:              0,
