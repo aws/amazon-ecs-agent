@@ -32,21 +32,21 @@ const (
 	readOnlyPerm       = 0644
 )
 
-// getTaskIDfromArn parses a task Arn and produces the task ID
-// A task Arn has format arn:aws:ecs:[region]:[account-id]:task/[task-id]
-// For a correctly formatted Arn we split it over ":" into 6 parts, the last part
+// getTaskIDfromARN parses a task ARN and produces the task ID
+// A task ARN has format arn:aws:ecs:[region]:[account-id]:task/[task-id]
+// For a correctly formatted ARN we split it over ":" into 6 parts, the last part
 // containing the task-id which we extract by splitting it by "/".
-func getTaskIDfromArn(taskarn string) string {
-	colonSplitArn := strings.SplitN(taskarn, ":", 6)
-	// Incorrectly formatted Arn (Should not happen)
-	if len(colonSplitArn) < 6 {
-		seelog.Errorf("Failed to parse task Arn: invalid TaskArn %s", taskarn)
+func getTaskIDfromARN(taskarn string) string {
+	colonSplitARN := strings.SplitN(taskarn, ":", 6)
+	// Incorrectly formatted ARN (Should not happen)
+	if len(colonSplitARN) < 6 {
+		seelog.Errorf("Failed to parse task ARN: invalid TaskARN %s", taskarn)
 		return ""
 	}
-	arnTaskPartSplit := strings.SplitN(colonSplitArn[5], "/", 2)
-	// Incorrectly formatted Arn (Should not happen)
+	arnTaskPartSplit := strings.SplitN(colonSplitARN[5], "/", 2)
+	// Incorrectly formatted ARN (Should not happen)
 	if len(arnTaskPartSplit) < 2 {
-		seelog.Errorf("Failed to parse task Arn: invalid TaskArn %s", taskarn)
+		seelog.Errorf("Failed to parse task ARN: invalid TaskARN %s", taskarn)
 		return ""
 	}
 	return arnTaskPartSplit[1]
@@ -54,10 +54,10 @@ func getTaskIDfromArn(taskarn string) string {
 
 // getMetadataFilePath gives the metadata file path for any agent-managed container
 func getMetadataFilePath(task *api.Task, container *api.Container, dataDir string) (string, error) {
-	taskID := getTaskIDfromArn(task.Arn)
-	// Empty task ID indicates malformed Arn (Should not happen)
+	taskID := getTaskIDfromARN(task.Arn)
+	// Empty task ID indicates malformed ARN (Should not happen)
 	if taskID == "" {
-		err := fmt.Errorf("Failed to form metdata file path: invalid task Arn")
+		err := fmt.Errorf("Failed to form metdata file path: invalid task ARN")
 		return "", err
 	}
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID, container.Name), nil
@@ -66,7 +66,7 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 // metadataFileExists checks if metadata file exists or not
 func metadataFileExists(task *api.Task, container *api.Container, dataDir string) bool {
 	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
-	// Case when file path is invalid (Due to malformed task Arn)
+	// Case when file path is invalid (Due to malformed task ARN)
 	if err != nil {
 		seelog.Errorf("Failed to find metadata file: %v", err)
 		return false
@@ -122,5 +122,5 @@ func getMetadataFileUpdateTime(task *api.Task, container *api.Container, dataDir
 // getTaskMetadataDir acquires the directory with all of the metadata
 // files of a given task
 func getTaskMetadataDir(task *api.Task, dataDir string) string {
-	return filepath.Join(dataDir, metadataJoinSuffix, getTaskIDfromArn(task.Arn))
+	return filepath.Join(dataDir, metadataJoinSuffix, getTaskIDfromARN(task.Arn))
 }

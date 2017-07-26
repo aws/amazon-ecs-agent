@@ -217,18 +217,6 @@ func (_m *MockDockerClient) EXPECT() *MockDockerClientMockRecorder {
 	return _m.recorder
 }
 
-// ClientVersion mocks base method
-func (_m *MockDockerClient) ClientVersion() dockerclient.DockerVersion {
-	ret := _m.ctrl.Call(_m, "ClientVersion")
-	ret0, _ := ret[0].(dockerclient.DockerVersion)
-	return ret0
-}
-
-// ClientVersion indicates an expected call of ClientVersion
-func (_mr *MockDockerClientMockRecorder) ClientVersion() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClientVersion")
-}
-
 // ContainerEvents mocks base method
 func (_m *MockDockerClient) ContainerEvents(_param0 context.Context) (<-chan DockerContainerChangeEvent, error) {
 	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)

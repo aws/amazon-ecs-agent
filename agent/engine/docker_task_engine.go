@@ -312,9 +312,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	// Clean metadata directory for task
 	err := engine.metadataManager.CleanTaskMetadata(task)
 	if err != nil {
-		seelog.Errorf("Failed to clean up metadata directory for task %s with error: %v", task, err)
-	} else {
-		seelog.Debugf("Successful cleanup of metadata directory for task %s", task)
+		seelog.Errorf("clean task metadata failed for task %s: %v", task, err)
 	}
 	engine.saver.Save()
 }
@@ -612,16 +610,16 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	// CreateMetadata has a call to docker API for the client version so this may be block our container creation
-	// But we require the host Config binds to be properly set before we create the container
 	newBinds, mderr := engine.metadataManager.CreateMetadata(hostConfig.Binds, task, container)
-	if mderr != nil {
-		seelog.Errorf("Failed to create metadata file for container %s of task %s: %v", container, task, mderr)
-	} else {
+	if engine.cfg.ContainerMetadataEnabled && mderr == nil {
 		// Update hostConfig binds if metadata creation is successful. This will add the metadata directory
 		// to the container's list of mounted volumes
+		// We do this here to avoid potentially unsafe passing by reference
 		seelog.Debugf("Created metadata file for container %s of task %s", container, task)
 		hostConfig.Binds = newBinds
+	} else if engine.cfg.ContainerMetadataEnabled {
+		// If an error occurred and container metadata is enabled
+		seelog.Errorf("create metadata failed for container %s of task %s: %v", container, task, mderr)
 	}
 
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
@@ -659,7 +657,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	if dockerContainerMD.Error == nil {
 		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
 		if err != nil {
-			seelog.Errorf("Failed to update metadata file for container %s of task %s: %v", container, task, err)
+			seelog.Errorf("update metadata file failed for container %s of task %s: %v", container, task, err)
 		} else {
 			seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
 		}

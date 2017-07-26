@@ -113,8 +113,8 @@ func newAgent(
 	var metadataManager containermetadata.MetadataManager
 	if cfg.ContainerMetadataEnabled {
 		log.Debug("Container metadata feature enabled")
-		// Get the oldest client version with up to date inspect API
-		// usable for container metadata feature
+		// Get the oldest Docker Client version with up to date inspect API
+		// as some metadata is unavailable in older API client versions
 		metadataDockerClient := dockerClient.WithVersion(containermetadata.ContainerMetadataClientVersion)
 		metadataManager = containermetadata.NewMetadataManager(metadataDockerClient, cfg)
 	} else {

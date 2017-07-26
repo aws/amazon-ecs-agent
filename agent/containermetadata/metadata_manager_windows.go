@@ -1,4 +1,4 @@
-// +build !windows
+// +build windows
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	mountPoint                     = "/ecs/metadata"
-	ContainerMetadataClientVersion = dockerclient.Version_1_21
+	mountPoint                     = `C:\ecs\metadata`
+	ContainerMetadataClientVersion = dockerclient.Version_1_24
 )
 
 // CreateMetadata creates the metadata file and adds the metadata directory to
@@ -64,7 +64,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.acquireMetadataAtContainerCreate(task)
+	metadata := manager.parseMetadataAtContainerCreate(task)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		return binds, err
@@ -74,7 +74,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	// We do this at the end so that we only mount the directory if there are no errors
 	// This is the only operating system specific point here, so it would be nice if there
 	// were some elegant way to do this for both windows and linux at the same time
-	instanceBind := fmt.Sprintf("%s/%s:%s/%s", manager.cfg.DataDirOnHost, mdDirectoryPath, mountPoint, container.Name)
+	instanceBind := fmt.Sprintf(`%s:%s\%s`, mdDirectoryPath, mountPoint, container.Name)
 	binds = append(binds, instanceBind)
 	return binds, nil
 }
