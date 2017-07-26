@@ -513,6 +513,34 @@ func TestRegisterContainerInstanceLaunchedWithoutVPC(t *testing.T) {
 	assert.False(t, cfg.TaskENIEnabled)
 }
 
+// TestRegisterContainerInstanceWithNegativeResource tests the registeration should fail with negative resource
+func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	_, mem := getCpuAndMemory()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{Cluster: configuredCluster,
+			AWSRegion:      "us-east-1",
+			ReservedMemory: uint16(mem) + 1,
+		}, mockEC2Metadata)
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(mockCtrl)
+	client.(*APIECSClient).SetSDK(mockSDK)
+	client.(*APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
+		mockEC2Metadata.EXPECT().VPCID(mac).Return(vpcID, nil),
+		mockEC2Metadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+	)
+	_, err := client.RegisterContainerInstance("", nil)
+	assert.Error(t, err, "Register resource with negative value should cause registration fail")
+}
+
 func TestValidateRegisteredAttributes(t *testing.T) {
 	origAttributes := []*ecs.Attribute{
 		{Name: aws.String("foo"), Value: aws.String("bar")},

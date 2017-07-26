@@ -291,8 +291,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		seelog.Warnf("Failed to write container change event to event stream, err %v", err)
 	}
 
-	if event.ExitCode != nil && event.ExitCode != container.KnownExitCode {
-		container.KnownExitCode = event.ExitCode
+	if event.ExitCode != nil && event.ExitCode != container.GetKnownExitCode() {
+		container.SetKnownExitCode(event.ExitCode)
 	}
 	if event.PortBindings != nil {
 		container.KnownPortBindings = event.PortBindings

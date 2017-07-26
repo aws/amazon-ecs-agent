@@ -728,10 +728,10 @@ func TestImageCleanupHappyPath(t *testing.T) {
 	go imageManager.performPeriodicImageCleanup(ctx, 2*time.Millisecond)
 	time.Sleep(1 * time.Second)
 	cancel()
-	if len(imageState.Image.Names) != 0 {
+	if imageState.GetImageNamesCount() != 0 {
 		t.Error("Error removing image name from state after the image is removed")
 	}
-	if len(imageManager.imageStates) != 0 {
+	if imageManager.GetImageStatesCount() != 0 {
 		t.Error("Error removing image state after the image is removed")
 	}
 }

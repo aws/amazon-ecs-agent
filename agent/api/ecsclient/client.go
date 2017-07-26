@@ -15,6 +15,7 @@ package ecsclient
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"strings"
 	"time"
@@ -200,7 +201,12 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	integerStr := "INTEGER"
 
 	cpu, mem := getCpuAndMemory()
-	mem = mem - int64(client.config.ReservedMemory)
+	remainingMem := mem - int64(client.config.ReservedMemory)
+	if remainingMem < 0 {
+		return "", fmt.Errorf(
+			"api register-container-instance: reserved memory is higher than available memory on the host, total memory: %d, reserved: %d",
+			mem, client.config.ReservedMemory)
+	}
 
 	cpuResource := ecs.Resource{
 		Name:         utils.Strptr("CPU"),
@@ -210,7 +216,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	memResource := ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         &integerStr,
-		IntegerValue: &mem,
+		IntegerValue: &remainingMem,
 	}
 	portResource := ecs.Resource{
 		Name:           utils.Strptr("PORTS"),

@@ -15,7 +15,8 @@ package utils
 
 import (
 	"math"
-	mathrand "math/rand"
+	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -30,6 +31,7 @@ type SimpleBackoff struct {
 	max            time.Duration
 	jitterMultiple float64
 	multiple       float64
+	mu             sync.Mutex
 }
 
 // NewSimpleBackoff creates a Backoff which ranges from min to max increasing by
@@ -50,6 +52,8 @@ func NewSimpleBackoff(min, max time.Duration, jitterMultiple, multiple float64) 
 }
 
 func (sb *SimpleBackoff) Duration() time.Duration {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
 	ret := sb.current
 	sb.current = time.Duration(math.Min(float64(sb.max.Nanoseconds()), float64(float64(sb.current.Nanoseconds())*sb.multiple)))
 
@@ -57,6 +61,8 @@ func (sb *SimpleBackoff) Duration() time.Duration {
 }
 
 func (sb *SimpleBackoff) Reset() {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
 	sb.current = sb.start
 }
 
@@ -67,7 +73,7 @@ func AddJitter(duration time.Duration, jitter time.Duration) time.Duration {
 	if jitter.Nanoseconds() == 0 {
 		randJitter = 0
 	} else {
-		randJitter = mathrand.Int63n(jitter.Nanoseconds())
+		randJitter = rand.Int63n(jitter.Nanoseconds())
 	}
 	return time.Duration(duration.Nanoseconds() + randJitter)
 }

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package mockwsutils
+package utils
 
 import (
 	"net/http"
@@ -22,8 +22,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// StartMockServer starts a mock websocket server.
-func StartMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
+// GetMockServer retuns a mock websocket server that can be started up as TLS or not.
+// TODO replace with gomock
+func GetMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string)
 	requestsChan := make(chan string)
 	errChan := make(chan error)
@@ -62,6 +63,6 @@ func StartMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, cha
 		}
 	})
 
-	server := httptest.NewTLSServer(handler)
+	server := httptest.NewUnstartedServer(handler)
 	return server, serverChan, requestsChan, errChan, nil
 }

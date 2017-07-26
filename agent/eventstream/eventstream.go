@@ -16,11 +16,11 @@
 package eventstream
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 type eventHandler func(...interface{}) error

@@ -113,8 +113,8 @@ func TestHostVolumeMount(t *testing.T) {
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 
-	assert.NotNil(t, testTask.Containers[0].KnownExitCode, "No exit code found")
-	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code")
+	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
+	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
 
 	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
@@ -150,8 +150,8 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 
-	assert.NotNil(t, testTask.Containers[0].KnownExitCode, "No exit code found")
-	assert.Equal(t, 42, *testTask.Containers[0].KnownExitCode, "Wrong exit code, file probably wasn't present")
+	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
+	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code, file probably wasn't present")
 }
 
 func TestSweepContainer(t *testing.T) {

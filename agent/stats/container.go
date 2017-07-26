@@ -14,6 +14,7 @@
 package stats
 
 import (
+	"errors"
 	"time"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -96,6 +97,9 @@ func (container *StatsContainer) collect() {
 func (container *StatsContainer) processStatsStream() error {
 	dockerID := container.containerMetadata.DockerID
 	seelog.Debugf("Collecting stats for container %s", dockerID)
+	if container.client == nil {
+		return errors.New("container processStatsStream: Client is not set.")
+	}
 	dockerStats, err := container.client.Stats(dockerID, container.ctx)
 	if err != nil {
 		return err

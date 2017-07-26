@@ -720,6 +720,7 @@ func TestListContainersTimeout(t *testing.T) {
 	if response.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
+	<-warp
 	wait.Done()
 }
 

@@ -20,21 +20,19 @@
 package tcsclient
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/gorilla/websocket"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -43,37 +41,6 @@ const (
 	testCluster                = "default"
 	testContainerInstance      = "containerInstance"
 )
-
-type messageLogger struct {
-	writes [][]byte
-	reads  [][]byte
-	closed bool
-}
-
-func (ml *messageLogger) WriteMessage(_ int, data []byte) error {
-	if ml.closed {
-		return errors.New("can't write to closed ws")
-	}
-	ml.writes = append(ml.writes, data)
-	return nil
-}
-
-func (ml *messageLogger) Close() error {
-	ml.closed = true
-	return nil
-}
-
-func (ml *messageLogger) ReadMessage() (int, []byte, error) {
-	for len(ml.reads) == 0 && !ml.closed {
-		time.Sleep(1 * time.Millisecond)
-	}
-	if ml.closed {
-		return 0, []byte{}, errors.New("can't read from a closed websocket")
-	}
-	read := ml.reads[len(ml.reads)-1]
-	ml.reads = ml.reads[0 : len(ml.reads)-1]
-	return websocket.TextMessage, read, nil
-}
 
 type mockStatsEngine struct{}
 
@@ -124,7 +91,14 @@ func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 }
 
 func TestPayloadHandlerCalled(t *testing.T) {
-	cs, ml := testCS()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+
+	conn.EXPECT().ReadMessage().AnyTimes().Return(1, []byte(`{"type":"AckPublishMetric","message":{}}`), nil)
+	conn.EXPECT().Close()
 
 	handledPayload := make(chan *ecstcs.AckPublishMetric)
 
@@ -133,30 +107,30 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	ml.reads = [][]byte{[]byte(`{"type":"AckPublishMetric","message":{}}`)}
-
-	var isClosed bool
-	go func() {
-		err := cs.Serve()
-		if !isClosed && err != nil {
-			t.Fatal("Premature end of serving", err)
-		}
-	}()
+	go cs.Serve()
+	defer cs.Close()
 
 	t.Log("Waiting for handler to return payload.")
 	<-handledPayload
-	isClosed = true
-	cs.Close()
 }
 
 func TestPublishMetricsRequest(t *testing.T) {
-	cs, _ := testCS()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().Close()
+	// TODO: should use explicit values
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any())
+
+	cs := testCS(conn)
+	defer cs.Close()
+
 	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cs.Close()
 }
 func TestPublishMetricsOnceEmptyStatsError(t *testing.T) {
 	cs := clientServer{
@@ -221,47 +195,34 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	}
 }
 
-func testCS() (wsclient.ClientServer, *messageLogger) {
+func testCS(conn *mock_wsclient.MockWebsocketConn) wsclient.ClientServer {
 	testCreds := credentials.AnonymousCredentials
 	cfg := &config.Config{
 		AWSRegion:          "us-east-1",
 		AcceptInsecureCert: true,
 	}
 	cs := New("localhost:443", cfg, testCreds, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
-	ml := &messageLogger{make([][]byte, 0), make([][]byte, 0), false}
-	cs.SetConnection(ml)
-	return cs, ml
+	cs.SetConnection(conn)
+	return cs
 }
 
-// TestDeregisterInstanceStream tests the ws connection will be closed by tcs client when
+// TestCloseClientServer tests the ws connection will be closed by tcs client when
 // received the deregisterInstanceStream
-func TestDeregisterInstanceStream(t *testing.T) {
-	cs, ml := testCS()
+func TestCloseClientServer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	deregisterInstanceEventStream := eventstream.NewEventStream("TestDeregisterInstanceStream", ctx)
-	deregisterInstanceEventStream.StartListening()
-	defer cancel()
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
 
-	err := deregisterInstanceEventStream.Subscribe("TestDeregisterContainerInstanceHandler", cs.Disconnect)
-	if err != nil {
-		t.Errorf("Error subscribing to event stream, err %v", err)
-	}
+	gomock.InOrder(
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()),
+		conn.EXPECT().Close(),
+	)
 
-	err = cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
-	if err != nil {
-		t.Errorf("Error making client request: %v", err)
-	}
-	if ml.closed {
-		t.Error("Connection closed before send the deregister event")
-	}
-	err = deregisterInstanceEventStream.WriteToEventStream(struct{}{})
-	if err != nil {
-		t.Errorf("Failed to write to event stream, err %v", err)
-	}
-	// wait for the handler to run
-	time.Sleep(1 * time.Second)
-	if !ml.closed {
-		t.Error("Client should be closed after receiving deregister event")
-	}
+	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
+	assert.Nil(t, err)
+
+	err = cs.Disconnect()
+	assert.Nil(t, err)
 }
