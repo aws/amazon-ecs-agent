@@ -158,7 +158,6 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-
 	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().ReadMessage().AnyTimes().Return(websocket.TextMessage, []byte(sampleCredentialsMessage), nil)
 	conn.EXPECT().Close()
@@ -338,27 +337,24 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 }
 
 func TestAttachENIHandlerCalled(t *testing.T) {
-	cs, ml := testCS()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	handlerCalled := make(chan struct{})
-	var handledMessage *ecsacs.AttachTaskNetworkInterfacesMessage
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+	defer cs.Close()
+
+	conn.EXPECT().ReadMessage().AnyTimes().Return(websocket.TextMessage, []byte(sampleAttachENIMessage), nil)
+	conn.EXPECT().Close()
+
+	messageChannel := make(chan *ecsacs.AttachTaskNetworkInterfacesMessage)
 	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
-		handledMessage = message
-		handlerCalled <- struct{}{}
+		messageChannel <- message
 	}
 
 	cs.AddRequestHandler(reqHandler)
 
-	ml.reads = [][]byte{[]byte(sampleAttachENIMessage)}
-	var isClosed bool
-	go func() {
-		err := cs.Serve()
-		if !isClosed {
-			assert.NoError(t, err)
-		}
-	}()
-
-	<-handlerCalled
+	go cs.Serve()
 
 	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),
@@ -383,8 +379,5 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, expectedMessage, handledMessage)
-
-	isClosed = true
-	cs.Close()
+	assert.Equal(t, <-messageChannel, expectedMessage)
 }
