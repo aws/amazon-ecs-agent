@@ -30,7 +30,7 @@ import (
 
 func TestDoStartHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, metadataManager := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -62,6 +62,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		}).Return("telemetry-endpoint", nil),
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 			"tele-endpoint", nil).AnyTimes(),
+		metadataManager.EXPECT().SetContainerInstanceArn(gomock.Any()),
 		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
 			engine.ListContainersResponse{}).AnyTimes(),
 	)
@@ -75,6 +76,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
+		metadataManager:    metadataManager,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
