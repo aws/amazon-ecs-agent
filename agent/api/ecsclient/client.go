@@ -336,7 +336,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	status := change.Status
 
 	if status != api.ContainerStopped && status != api.ContainerRunning {
-		seelog.Info("Not submitting not supported upstream container state", "state", status)
+		seelog.Warn("Not submitting unsupported upstream container state", "state", status)
 		return nil
 	}
 
