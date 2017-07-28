@@ -330,7 +330,8 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	status := change.Status
 
 	if status != api.ContainerStopped && status != api.ContainerRunning {
-		seelog.Warn("Not submitting unsupported upstream container state", "state", status)
+		seelog.Warnf("Not submitting unsupported upstream container state %s for container %s in task %s",
+			status.String(), change.ContainerName, change.TaskArn)
 		return nil
 	}
 

@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -178,6 +177,9 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	var wgAddEvent sync.WaitGroup
+	wgAddEvent.Add(1)
+
 	// Test task event replacement doesn't happen
 	taskEventA := taskEvent(taskarnA)
 	contEventA1 := containerEvent(taskarnA)
@@ -188,6 +190,7 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
 		assert.Equal(t, taskarnA, change.TaskArn)
+		wgAddEvent.Done()
 		wg.Done()
 	})
 
@@ -201,8 +204,7 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	handler.AddStateChangeEvent(contEventB2, client)
 
 	handler.AddStateChangeEvent(taskEventA, client)
-
-	time.Sleep(1 * time.Millisecond)
+	wgAddEvent.Wait()
 
 	handler.AddStateChangeEvent(taskEventB, client)
 
