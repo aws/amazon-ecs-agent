@@ -64,7 +64,7 @@ func (manager *metadataManager) CreateMetadata(binds []string, task *api.Task, c
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadataAtContainerCreate(task)
+	metadata := manager.parseMetadataAtContainerCreate(task, container)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		return binds, err

@@ -43,19 +43,20 @@ type NetworkMetadata struct {
 // Has redundancies with engine.DockerContainerMetadata but this packages all
 // docker metadata we want in the service so we can change features easily
 type DockerContainerMD struct {
-	containerID   string
-	containerName string
-	imageID       string
-	imageName     string
-	ports         []api.PortBinding
-	networkInfo   NetworkMetadata
+	containerID         string
+	dockerContainerName string
+	imageID             string
+	imageName           string
+	ports               []api.PortBinding
+	networkInfo         NetworkMetadata
 }
 
 // TaskMetadata keeps track of all metadata associated with a task
 // provided by AWS, does not depend on the creation of the container
 type TaskMetadata struct {
-	cluster string
-	taskARN string
+	containerName string
+	cluster       string
+	taskARN       string
 }
 
 // Metadata packages all acquired metadata and is used to format it
@@ -78,6 +79,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			TaskARN              string            `json:"TaskARN,omitempty"`
 			ContainerID          string            `json:"ContainerID,omitempty"`
 			ContainerName        string            `json:"ContainerName,omitempty"`
+			DockerContainerName  string            `json:"DockerContainerName,omitempty"`
 			ImageID              string            `json:"ImageID,omitempty"`
 			ImageName            string            `json:"ImageName,omitempty"`
 			Ports                []api.PortBinding `json:"PortMappings,omitempty"`
@@ -93,7 +95,8 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			ContainerInstanceARN: m.containerInstanceARN,
 			TaskARN:              m.taskMetadata.taskARN,
 			ContainerID:          m.dockerContainerMetadata.containerID,
-			ContainerName:        m.dockerContainerMetadata.containerName,
+			ContainerName:        m.taskMetadata.containerName,
+			DockerContainerName:  m.dockerContainerMetadata.dockerContainerName,
 			ImageID:              m.dockerContainerMetadata.imageID,
 			ImageName:            m.dockerContainerMetadata.imageName,
 			Ports:                m.dockerContainerMetadata.ports,

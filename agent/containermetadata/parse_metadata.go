@@ -104,12 +104,12 @@ func parseDockerContainerMetadata(container *docker.Container) DockerContainerMD
 	}
 
 	dockerContainerMD := DockerContainerMD{
-		containerID:   container.ID,
-		containerName: container.Name,
-		imageID:       container.Image,
-		imageName:     imageNameFromConfig,
-		ports:         ports,
-		networkInfo:   networkMD,
+		containerID:         container.ID,
+		dockerContainerName: container.Name,
+		imageID:             container.Image,
+		imageName:           imageNameFromConfig,
+		ports:               ports,
+		networkInfo:         networkMD,
 	}
 	return dockerContainerMD
 }
@@ -118,7 +118,9 @@ func parseDockerContainerMetadata(container *docker.Container) DockerContainerMD
 // and packages this data for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
+func parseTaskMetadata(cfg *config.Config, task *api.Task, container *api.Container) TaskMetadata {
+	containerName := container.Name
+
 	clusterFromConfig := ""
 	if cfg != nil {
 		clusterFromConfig = cfg.Cluster
@@ -129,18 +131,12 @@ func parseTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
 		seelog.Warn("Failed to get cluster ARN: invalid configuration")
 	}
 
-	taskARNFromConfig := ""
-	if task != nil {
-		taskARNFromConfig = task.Arn
-	} else {
-		// This error should not happen in most use cases. This check is mostly for current or
-		// future tests having mocked tasks that are nil
-		seelog.Warn("Failed to get task ARN: invalid task")
-	}
+	taskARNFromConfig := task.Arn
 
 	return TaskMetadata{
-		cluster: clusterFromConfig,
-		taskARN: taskARNFromConfig,
+		containerName: containerName,
+		cluster:       clusterFromConfig,
+		taskARN:       taskARNFromConfig,
 	}
 }
 
@@ -148,9 +144,9 @@ func parseTaskMetadata(cfg *config.Config, task *api.Task) TaskMetadata {
 // configuration and data then packages it for JSON Marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func (manager *metadataManager) parseMetadata(createTime time.Time, updateTime time.Time, container *docker.Container, task *api.Task) Metadata {
-	taskMD := parseTaskMetadata(manager.cfg, task)
-	dockerMD := parseDockerContainerMetadata(container)
+func (manager *metadataManager) parseMetadata(createTime time.Time, updateTime time.Time, dockerContainer *docker.Container, task *api.Task, container *api.Container) Metadata {
+	taskMD := parseTaskMetadata(manager.cfg, task, container)
+	dockerMD := parseDockerContainerMetadata(dockerContainer)
 	return Metadata{
 		taskMetadata:            taskMD,
 		dockerContainerMetadata: dockerMD,
@@ -165,8 +161,8 @@ func (manager *metadataManager) parseMetadata(createTime time.Time, updateTime t
 // available prior to container creation
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func (manager *metadataManager) parseMetadataAtContainerCreate(task *api.Task) Metadata {
-	taskMD := parseTaskMetadata(manager.cfg, task)
+func (manager *metadataManager) parseMetadataAtContainerCreate(task *api.Task, container *api.Container) Metadata {
+	taskMD := parseTaskMetadata(manager.cfg, task, container)
 	return Metadata{
 		taskMetadata:         taskMD,
 		containerInstanceARN: manager.containerInstanceARN,
