@@ -51,9 +51,8 @@ type Config struct {
 	ReservedPortsUDP []uint16
 
 	// DataDir is the directory data is saved to in order to preserve state
-	// across agent restarts. It is only used if "Checkpoint" is true as well.
+	// across agent restarts.
 	// It is also used to keep the metadata of containers managed by the agent
-	// regardless of whether "Checkpoint" is set.
 	DataDir string
 	// DataDirOnHost is the directory in the instance from which we mount
 	// DataDir to the ecs-agent container and to agent managed containers

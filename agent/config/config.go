@@ -316,6 +316,7 @@ func environmentConfig() (Config, error) {
 	}
 
 	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
+	dataDirOnHost := os.Getenv("ECS_DATADIRONHOST")
 
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
@@ -353,6 +354,7 @@ func environmentConfig() (Config, error) {
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
 		ContainerMetadataEnabled:         containerMetadataEnabled,
+		DataDirOnHost:                    dataDirOnHost,
 	}, err
 }
 

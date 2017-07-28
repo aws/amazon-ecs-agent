@@ -100,7 +100,7 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 
 	// Acquire the metadata then write it in JSON format to the file
 	var updateTime time.Time
-	metadata := manager.parseMetadata(createTime, updateTime, dockerContainer, task)
+	metadata := manager.parseMetadata(createTime, updateTime, dockerContainer, task, container)
 	err = metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 	}
 	// We fetch the metadata and write it once more to put the update time into the file. This update
 	// time is the time of the last update where we update with new metadata
-	metadata = manager.parseMetadata(createTime, updateTime, dockerContainer, task)
+	metadata = manager.parseMetadata(createTime, updateTime, dockerContainer, task, container)
 	return metadata.writeToMetadataFile(task, container, manager.cfg.DataDir)
 }
 
