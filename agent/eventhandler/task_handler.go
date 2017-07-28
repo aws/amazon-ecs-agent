@@ -94,7 +94,7 @@ func (handler *TaskHandler) batchContainerEvent(event api.ContainerStateChange) 
 	handler.taskHandlerLock.Lock()
 	defer handler.taskHandlerLock.Unlock()
 
-	seelog.Info("TaskHandler, batching container event :", event)
+	seelog.Infof("TaskHandler, batching container event: %s", event.String())
 	handler.tasksToContainerStates[event.TaskArn] = append(handler.tasksToContainerStates[event.TaskArn], event)
 }
 
