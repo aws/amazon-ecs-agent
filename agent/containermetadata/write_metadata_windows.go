@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 )
 
@@ -29,7 +30,7 @@ const (
 )
 
 // createMetadataFile initializes the metadata file
-func createMetadataFile(metadataDirectoryPath) error {
+func createMetadataFile(metadataDirectoryPath string) error {
 	metadataFilePath := filepath.Join(metadataDirectoryPath, metadataFile)
 	//	err := ioutil.WriteFile(metadataFilePath, nil, readOnlyPerm)
 	file, err := os.Create(metadataFilePath)
