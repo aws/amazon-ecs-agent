@@ -99,6 +99,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.Equal(t, cluster, config.Cluster, "cluster name not as expected from file")
 	assert.Equal(t, dockerAuthType, config.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(config.EngineAuthData.Contents()), "docker auth data not as expected from file")
+	assert.Equal(t, map[string]string{"attribute1": "value1"}, config.InstanceAttributes)
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge
@@ -136,6 +137,7 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	assert.Equal(t, cluster, config.Cluster, "cluster name not as expected from environment variable")
 	assert.Equal(t, dockerAuthType, config.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(config.EngineAuthData.Contents()), "docker auth data not as expected from file")
+	assert.Equal(t, map[string]string{"attribute1": "value1"}, config.InstanceAttributes)
 }
 
 // setupDockerAuthConfiguration create a temp file store the configuration
