@@ -30,6 +30,11 @@ type engineError interface {
 	ErrorName() string
 }
 
+type cannotStopContainerError interface {
+	engineError
+	IsUnretriableError() bool
+}
+
 // impossibleTransitionError is an error that occurs when an event causes a
 // container to try and transition to a state that it cannot be moved to
 type impossibleTransitionError struct {

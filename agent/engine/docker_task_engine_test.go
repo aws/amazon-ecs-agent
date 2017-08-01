@@ -901,7 +901,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStoppingError := DockerContainerMetadata{
-		Error: &CannotStopContainerError{errors.New("Error stopping container")},
+		Error: CannotStopContainerError{errors.New("Error stopping container")},
 	}
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
