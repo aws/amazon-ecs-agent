@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,6 +18,7 @@ package mock_containermetadata
 
 import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -57,11 +58,10 @@ func (_mr *MockMetadataManagerMockRecorder) CleanTaskMetadata(arg0 interface{}) 
 }
 
 // CreateMetadata mocks base method
-func (_m *MockMetadataManager) CreateMetadata(_param0 []string, _param1 *api.Task, _param2 *api.Container) ([]string, error) {
+func (_m *MockMetadataManager) CreateMetadata(_param0 *go_dockerclient.HostConfig, _param1 *api.Task, _param2 *api.Container) error {
 	ret := _m.ctrl.Call(_m, "CreateMetadata", _param0, _param1, _param2)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateMetadata indicates an expected call of CreateMetadata

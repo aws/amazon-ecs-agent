@@ -22,7 +22,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -396,16 +395,14 @@ func TestCleanupTask(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockClient := NewMockDockerClient(ctrl)
 	mockImageManager := NewMockImageManager(ctrl)
-	mockMetadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
-		cfg:             &cfg,
-		saver:           statemanager.NewNoopStateManager(),
-		state:           mockState,
-		client:          mockClient,
-		imageManager:    mockImageManager,
-		metadataManager: mockMetadataManager,
+		cfg:          &cfg,
+		saver:        statemanager.NewNoopStateManager(),
+		state:        mockState,
+		client:       mockClient,
+		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
 		Task:           testdata.LoadTask("sleep5"),
@@ -435,7 +432,6 @@ func TestCleanupTask(t *testing.T) {
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
-	mockMetadataManager.EXPECT().CleanTaskMetadata(gomock.Any())
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
 }
@@ -447,16 +443,14 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockClient := NewMockDockerClient(ctrl)
 	mockImageManager := NewMockImageManager(ctrl)
-	mockMetadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
-		cfg:             &cfg,
-		saver:           statemanager.NewNoopStateManager(),
-		state:           mockState,
-		client:          mockClient,
-		imageManager:    mockImageManager,
-		metadataManager: mockMetadataManager,
+		cfg:          &cfg,
+		saver:        statemanager.NewNoopStateManager(),
+		state:        mockState,
+		client:       mockClient,
+		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
 		Task:           testdata.LoadTask("sleep5"),
@@ -497,7 +491,6 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
-	mockMetadataManager.EXPECT().CleanTaskMetadata(gomock.Any())
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
 	assert.Equal(t, api.TaskStopped, mTask.GetSentStatus())
@@ -509,15 +502,13 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockClient := NewMockDockerClient(ctrl)
 	mockImageManager := NewMockImageManager(ctrl)
-	mockMetadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
-		saver:           statemanager.NewNoopStateManager(),
-		state:           mockState,
-		client:          mockClient,
-		imageManager:    mockImageManager,
-		metadataManager: mockMetadataManager,
+		saver:        statemanager.NewNoopStateManager(),
+		state:        mockState,
+		client:       mockClient,
+		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
 		Task:           testdata.LoadTask("sleep5"),

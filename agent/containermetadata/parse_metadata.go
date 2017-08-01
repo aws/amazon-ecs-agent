@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
@@ -38,9 +37,6 @@ func parseNetworkMetadata(settings *docker.NetworkSettings) (NetworkMetadata, er
 
 	// This metadata is available in two different places in NetworkSettings
 	ipv4Address := settings.IPAddress
-	ipv4Gateway := settings.Gateway
-	ipv6Address := settings.GlobalIPv6Address
-	ipv6Gateway := settings.IPv6Gateway
 
 	// Network mode is not available for Docker API versions 1.17-1.20
 	networkModeFromContainer := ""
@@ -48,18 +44,12 @@ func parseNetworkMetadata(settings *docker.NetworkSettings) (NetworkMetadata, er
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkModeFromContainer = modeFromSettings
 			ipv4Address = containerNetwork.IPAddress
-			ipv4Gateway = containerNetwork.Gateway
-			ipv6Address = settings.GlobalIPv6Address
-			ipv6Gateway = settings.IPv6Gateway
 		}
 	}
 
 	networkMD := NetworkMetadata{
 		networkMode: networkModeFromContainer,
 		ipv4Address: ipv4Address,
-		ipv4Gateway: ipv4Gateway,
-		ipv6Address: ipv6Address,
-		ipv6Gateway: ipv6Gateway,
 	}
 	return networkMD, nil
 }
@@ -118,24 +108,13 @@ func parseDockerContainerMetadata(container *docker.Container) DockerContainerMD
 // and packages this data for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseTaskMetadata(cfg *config.Config, task *api.Task, container *api.Container) TaskMetadata {
+func parseTaskMetadata(task *api.Task, container *api.Container) TaskMetadata {
 	containerName := container.Name
-
-	clusterFromConfig := ""
-	if cfg != nil {
-		clusterFromConfig = cfg.Cluster
-	} else {
-		// This error should not happen in most use cases as the agent should not be missing
-		// a configuration. This is only here as a safety in tests where the config may not
-		// valid to avoid nil pointer dereference
-		seelog.Warn("Failed to get cluster ARN: invalid configuration")
-	}
 
 	taskARNFromConfig := task.Arn
 
 	return TaskMetadata{
 		containerName: containerName,
-		cluster:       clusterFromConfig,
 		taskARN:       taskARNFromConfig,
 	}
 }
@@ -145,14 +124,14 @@ func parseTaskMetadata(cfg *config.Config, task *api.Task, container *api.Contai
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
 func (manager *metadataManager) parseMetadata(createTime time.Time, updateTime time.Time, dockerContainer *docker.Container, task *api.Task, container *api.Container) Metadata {
-	taskMD := parseTaskMetadata(manager.cfg, task, container)
+	taskMD := parseTaskMetadata(task, container)
 	dockerMD := parseDockerContainerMetadata(dockerContainer)
 	return Metadata{
+		cluster:                 manager.cluster,
 		taskMetadata:            taskMD,
 		dockerContainerMetadata: dockerMD,
 		containerInstanceARN:    manager.containerInstanceARN,
-		createTime:              createTime,
-		updateTime:              updateTime,
+		metadataStatus:          "Updated",
 	}
 }
 
@@ -162,9 +141,11 @@ func (manager *metadataManager) parseMetadata(createTime time.Time, updateTime t
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
 func (manager *metadataManager) parseMetadataAtContainerCreate(task *api.Task, container *api.Container) Metadata {
-	taskMD := parseTaskMetadata(manager.cfg, task, container)
+	taskMD := parseTaskMetadata(task, container)
 	return Metadata{
+		cluster:              manager.cluster,
 		taskMetadata:         taskMD,
 		containerInstanceARN: manager.containerInstanceARN,
+		metadataStatus:       "Created",
 	}
 }
