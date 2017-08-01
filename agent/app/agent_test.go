@@ -25,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -52,8 +51,7 @@ func setup(t *testing.T) (*gomock.Controller,
 	*mock_api.MockECSClient,
 	*engine.MockDockerClient,
 	*mock_factory.MockStateManager,
-	*mock_factory.MockSaveableOption,
-	*mock_containermetadata.MockMetadataManager) {
+	*mock_factory.MockSaveableOption) {
 
 	ctrl := gomock.NewController(t)
 
@@ -64,13 +62,12 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_api.NewMockECSClient(ctrl),
 		engine.NewMockDockerClient(ctrl),
 		mock_factory.NewMockStateManager(ctrl),
-		mock_factory.NewMockSaveableOption(ctrl),
-		mock_containermetadata.NewMockMetadataManager(ctrl)
+		mock_factory.NewMockSaveableOption(ctrl)
 }
 
 func TestDoStartNewTaskEngineError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -97,7 +94,6 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -107,7 +103,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 
 func TestDoStartNewStateManagerError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -124,7 +120,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
-		metadataManager.EXPECT().SetContainerInstanceArn(gomock.Any()),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -146,7 +141,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		ec2MetadataClient:     ec2MetadataClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -156,7 +150,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 
 func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, metadataManager := setup(t)
+		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -178,7 +172,6 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
-		metadataManager:    metadataManager,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -188,7 +181,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 
 func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, metadataManager := setup(t)
+		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -207,7 +200,6 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:       dockerClient,
-		metadataManager:    metadataManager,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -217,7 +209,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 
 func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -241,7 +233,6 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
-		metadataManager.EXPECT().SetContainerInstanceArn(gomock.Any()),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -255,7 +246,6 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -267,7 +257,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 
 func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -311,7 +301,6 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -323,7 +312,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 
 func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -367,7 +356,6 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -378,7 +366,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 
 func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	cfg := config.DefaultConfig()
@@ -402,7 +390,6 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -413,7 +400,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 
 func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
@@ -439,7 +426,6 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -450,7 +436,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 
 func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory, metadataManager := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -469,7 +455,6 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
-		metadataManager.EXPECT().SetContainerInstanceArn(gomock.Any()),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -483,7 +468,6 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,
-		metadataManager:       metadataManager,
 	}
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
@@ -673,7 +657,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	metadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
 
 	capabilities := []string{""}
 	containerInstanceARN := "container-instance1"
@@ -682,7 +665,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		taskEngine.EXPECT().Capabilities().Return(capabilities),
 		client.EXPECT().RegisterContainerInstance("", capabilities).Return(containerInstanceARN, nil),
-		metadataManager.EXPECT().SetContainerInstanceArn(gomock.Any()),
 		stateManager.EXPECT().Save(),
 	)
 
@@ -695,7 +677,6 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		ctx:                ctx,
 		cfg:                &cfg,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-		metadataManager:    metadataManager,
 	}
 
 	err := agent.registerContainerInstance(taskEngine, stateManager, client)

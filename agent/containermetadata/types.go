@@ -34,9 +34,6 @@ type dockerMetadataClient interface {
 type NetworkMetadata struct {
 	networkMode string
 	ipv4Address string
-	ipv4Gateway string
-	ipv6Address string
-	ipv6Gateway string
 }
 
 // DockerContainerMD keeps track of all metadata acquired from Docker inspection
@@ -55,7 +52,6 @@ type DockerContainerMD struct {
 // provided by AWS, does not depend on the creation of the container
 type TaskMetadata struct {
 	containerName string
-	cluster       string
 	taskARN       string
 }
 
@@ -64,11 +60,11 @@ type TaskMetadata struct {
 // than simply containing the previous three structures to simplify JSON
 // parsing and avoid exposing those structs in the final metadata file.
 type Metadata struct {
+	cluster                 string
 	taskMetadata            TaskMetadata
 	dockerContainerMetadata DockerContainerMD
 	containerInstanceARN    string
-	createTime              time.Time
-	updateTime              time.Time
+	metadataStatus          string
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
@@ -85,13 +81,9 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Ports                []api.PortBinding `json:"PortMappings,omitempty"`
 			NetworkMode          string            `json:"NetworkMode,omitempty"`
 			IPv4Address          string            `json:"IPv4Address,omitempty"`
-			IPv4Gateway          string            `json:"IPv4Gateway,omitempty"`
-			IPv6Address          string            `json:"IPv6Address,omitempty"`
-			IPv6Gateway          string            `json:"IPv6Gateway,omitempty"`
-			CreateTime           time.Time         `json:"CreateTime,omitempty"`
-			UpdateTime           time.Time         `json:"UpdateTime,omitempty"`
+			MetadataFileStatus   string            `json:"MetadataFileStatus,omitempty"`
 		}{
-			Cluster:              m.taskMetadata.cluster,
+			Cluster:              m.cluster,
 			ContainerInstanceARN: m.containerInstanceARN,
 			TaskARN:              m.taskMetadata.taskARN,
 			ContainerID:          m.dockerContainerMetadata.containerID,
@@ -102,10 +94,6 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Ports:                m.dockerContainerMetadata.ports,
 			NetworkMode:          m.dockerContainerMetadata.networkInfo.networkMode,
 			IPv4Address:          m.dockerContainerMetadata.networkInfo.ipv4Address,
-			IPv4Gateway:          m.dockerContainerMetadata.networkInfo.ipv4Gateway,
-			IPv6Address:          m.dockerContainerMetadata.networkInfo.ipv6Address,
-			IPv6Gateway:          m.dockerContainerMetadata.networkInfo.ipv6Gateway,
-			CreateTime:           m.createTime,
-			UpdateTime:           m.updateTime,
+			MetadataFileStatus:   m.metadataStatus,
 		})
 }

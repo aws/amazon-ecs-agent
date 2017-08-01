@@ -14,9 +14,7 @@
 package containermetadata
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +34,8 @@ const (
 // A task ARN has format arn:aws:ecs:[region]:[account-id]:task/[task-id]
 // For a correctly formatted ARN we split it over ":" into 6 parts, the last part
 // containing the task-id which we extract by splitting it by "/".
+// This function should be eventually be replaced by a standardized ARN parsing
+// module
 func getTaskIDfromARN(taskarn string) string {
 	colonSplitARN := strings.SplitN(taskarn, ":", 6)
 	// Incorrectly formatted ARN (Should not happen)
@@ -65,15 +65,15 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 
 // metadataFileExists checks if metadata file exists or not
 func metadataFileExists(task *api.Task, container *api.Container, dataDir string) bool {
-	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
+	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Case when file path is invalid (Due to malformed task ARN)
 	if err != nil {
 		seelog.Errorf("Failed to find metadata file: %v", err)
 		return false
 	}
 
-	mdFilePath := filepath.Join(mdFileDir, metadataFile)
-	if _, err = os.Stat(mdFilePath); err != nil {
+	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
+	if _, err = os.Stat(metadataFilePath); err != nil {
 		if !os.IsNotExist(err) {
 			// We should specifically log any error besides "IsNotExist"
 			seelog.Errorf("Failed to find metadata file: %v", err)
@@ -85,34 +85,34 @@ func metadataFileExists(task *api.Task, container *api.Container, dataDir string
 
 // writeToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container, dataDir string) error {
+/*func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container, dataDir string) error {
 	data, err := json.MarshalIndent(md, "", "\t")
 	if err != nil {
 		return err
 	}
-	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
+	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
 		return fmt.Errorf("Failed to write to metadata file: %v", err)
 	}
-	mdFilePath := filepath.Join(mdFileDir, metadataFile)
+	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
 
-	return ioutil.WriteFile(mdFilePath, data, readOnlyPerm)
-}
+	return ioutil.WriteFile(metadataFilePath, data, readOnlyPerm)
+}*/
 
 // getMetdataFileUpdateTime gets the last update time of the metadata file
 func getMetadataFileUpdateTime(task *api.Task, container *api.Container, dataDir string) (time.Time, error) {
-	mdFileDir, err := getMetadataFilePath(task, container, dataDir)
+	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
 	if err != nil {
 		return time.Time{}, err
 	}
-	mdFilePath := filepath.Join(mdFileDir, metadataFile)
-	mdFile, err := os.Open(mdFilePath)
+	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
+	metadataFile, err := os.Open(metadataFilePath)
 	if err != nil {
 		return time.Time{}, err
 	}
-	defer mdFile.Close()
-	fileInfo, err := mdFile.Stat()
+	defer metadataFile.Close()
+	fileInfo, err := metadataFile.Stat()
 	if err != nil {
 		return time.Time{}, err
 	}

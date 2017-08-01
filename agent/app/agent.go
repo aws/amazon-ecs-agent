@@ -258,7 +258,9 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	// Use the values we loaded if there's no issue
 	agent.containerInstanceARN = previousContainerInstanceArn
-	agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
+	if agent.cfg.ContainerMetadataEnabled {
+		agent.metadataManager.SetContainerInstanceArn(previousContainerInstanceArn)
+	}
 
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
@@ -353,7 +355,9 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
-	agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
+	if agent.cfg.ContainerMetadataEnabled {
+		agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
+	}
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil
