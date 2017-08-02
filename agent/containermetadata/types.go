@@ -29,21 +29,29 @@ type dockerMetadataClient interface {
 	InspectContainer(string, time.Duration) (*docker.Container, error)
 }
 
-// NetworkMetadata keeps track of the data we parse from the Network Settings
-// in docker containers
-type NetworkMetadata struct {
-	networkMode string
-	ipv4Address string
+// Network is a struct that keeps track of metadata of a network interface
+type Network struct {
+	InterfaceName string `json:"InterfaceName,omitempty"`
+	IPv4Address   string `json:"IPv4Address,omitempty"`
 }
 
-// DockerContainerMD keeps track of all metadata acquired from Docker inspection
+// NetworkMetadata keeps track of the data we parse from the Network Settings
+// in docker containers. While most information is redundant with the internal
+// Network struct, we keeps this wrapper in case we wish to add data specifically
+// from the NetworkSettings
+type NetworkMetadata struct {
+	networks []Network
+}
+
+// DockerContainerMetadata keeps track of all metadata acquired from Docker inspection
 // Has redundancies with engine.DockerContainerMetadata but this packages all
 // docker metadata we want in the service so we can change features easily
-type DockerContainerMD struct {
+type DockerContainerMetadata struct {
 	containerID         string
 	dockerContainerName string
 	imageID             string
 	imageName           string
+	networkMode         string
 	ports               []api.PortBinding
 	networkInfo         NetworkMetadata
 }
@@ -62,27 +70,30 @@ type TaskMetadata struct {
 type Metadata struct {
 	cluster                 string
 	taskMetadata            TaskMetadata
-	dockerContainerMetadata DockerContainerMD
+	dockerContainerMetadata DockerContainerMetadata
 	containerInstanceARN    string
 	metadataStatus          string
 }
 
+// MetadataSerializer is an intermediate struct that converts the information
+// in Metadata into information to encode into JSOn
+type MetadataSerializer struct {
+	Cluster              string            `json:"Cluster,omitempty"`
+	ContainerInstanceARN string            `json:"ContainerInstanceARN,omitempty"`
+	TaskARN              string            `json:"TaskARN,omitempty"`
+	ContainerID          string            `json:"ContainerID,omitempty"`
+	ContainerName        string            `json:"ContainerName,omitempty"`
+	DockerContainerName  string            `json:"DockerContainerName,omitempty"`
+	ImageID              string            `json:"ImageID,omitempty"`
+	ImageName            string            `json:"ImageName,omitempty"`
+	Ports                []api.PortBinding `json:"PortMappings,omitempty"`
+	Networks             []Network         `json:"Networks,omitempty"`
+	MetadataFileStatus   string            `json:"MetadataFileStatus,omitempty"`
+}
+
 func (m Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
-		struct {
-			Cluster              string            `json:"Cluster,omitempty"`
-			ContainerInstanceARN string            `json:"ContainerInstanceARN,omitempty"`
-			TaskARN              string            `json:"TaskARN,omitempty"`
-			ContainerID          string            `json:"ContainerID,omitempty"`
-			ContainerName        string            `json:"ContainerName,omitempty"`
-			DockerContainerName  string            `json:"DockerContainerName,omitempty"`
-			ImageID              string            `json:"ImageID,omitempty"`
-			ImageName            string            `json:"ImageName,omitempty"`
-			Ports                []api.PortBinding `json:"PortMappings,omitempty"`
-			NetworkMode          string            `json:"NetworkMode,omitempty"`
-			IPv4Address          string            `json:"IPv4Address,omitempty"`
-			MetadataFileStatus   string            `json:"MetadataFileStatus,omitempty"`
-		}{
+		MetadataSerializer{
 			Cluster:              m.cluster,
 			ContainerInstanceARN: m.containerInstanceARN,
 			TaskARN:              m.taskMetadata.taskARN,
@@ -92,8 +103,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			ImageID:              m.dockerContainerMetadata.imageID,
 			ImageName:            m.dockerContainerMetadata.imageName,
 			Ports:                m.dockerContainerMetadata.ports,
-			NetworkMode:          m.dockerContainerMetadata.networkInfo.networkMode,
-			IPv4Address:          m.dockerContainerMetadata.networkInfo.ipv4Address,
+			Networks:             m.dockerContainerMetadata.networkInfo.networks,
 			MetadataFileStatus:   m.metadataStatus,
 		})
 }

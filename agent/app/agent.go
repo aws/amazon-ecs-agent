@@ -114,7 +114,19 @@ func newAgent(
 	if cfg.ContainerMetadataEnabled {
 		// Get the oldest Docker Client version with up to date inspect API
 		// as some metadata is unavailable in older API client versions
-		metadataDockerClient := dockerClient.WithVersion(containermetadata.ContainerMetadataClientVersion)
+		// If this version is unavailable we use default
+		// Due to limitations of interfaces and import cycles
+		// we can not do this logic in containermetadata package currently
+		// If we move DockerClient out of the engine, this section should be moved
+		// into containermetadata.NewMetadataManager()
+		supportedClients := dockerClient.SupportedVersions()
+		metadataDockerClient := dockerClient
+		for index := range supportedClients {
+			if supportedClients[index] == containermetadata.ContainerMetadataClientVersion {
+				metadataDockerClient = dockerClient.WithVersion(containermetadata.ContainerMetadataClientVersion)
+				break
+			}
+		}
 		metadataManager = containermetadata.NewMetadataManager(metadataDockerClient, cfg)
 	}
 
@@ -183,6 +195,10 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitError
 		}
 		return exitcodes.ExitTerminal
+	}
+	// Add container instance ARN to metadata manager
+	if agent.cfg.ContainerMetadataEnabled {
+		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -258,9 +274,6 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	// Use the values we loaded if there's no issue
 	agent.containerInstanceARN = previousContainerInstanceArn
-	if agent.cfg.ContainerMetadataEnabled {
-		agent.metadataManager.SetContainerInstanceArn(previousContainerInstanceArn)
-	}
 
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
@@ -355,9 +368,6 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	log.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
-	if agent.cfg.ContainerMetadataEnabled {
-		agent.metadataManager.SetContainerInstanceArn(agent.containerInstanceARN)
-	}
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil

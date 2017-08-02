@@ -1,4 +1,5 @@
 // +build windows
+
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,7 +16,6 @@
 package containermetadata
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,7 +32,6 @@ const (
 // createMetadataFile initializes the metadata file
 func createMetadataFile(metadataDirectoryPath string) error {
 	metadataFilePath := filepath.Join(metadataDirectoryPath, metadataFile)
-	//	err := ioutil.WriteFile(metadataFilePath, nil, readOnlyPerm)
 	file, err := os.Create(metadataFilePath)
 	if err != nil {
 		return err
@@ -54,15 +53,11 @@ func createBinds(binds []string, dataDirOnHost string, metadataDirectoryPath str
 
 // writeToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container, dataDir string) error {
-	data, err := json.MarshalIndent(md, "", "\t")
-	if err != nil {
-		return err
-	}
+func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, dataDir string) error {
 	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
-		return fmt.Errorf("Failed to write to metadata file: %v", err)
+		return fmt.Errorf("write to metadata file for task %s container %s: %v", task, container, err)
 	}
 	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
 

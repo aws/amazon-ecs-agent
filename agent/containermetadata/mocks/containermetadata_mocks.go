@@ -69,14 +69,14 @@ func (_mr *MockMetadataManagerMockRecorder) CreateMetadata(arg0, arg1, arg2 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMetadata", arg0, arg1, arg2)
 }
 
-// SetContainerInstanceArn mocks base method
-func (_m *MockMetadataManager) SetContainerInstanceArn(_param0 string) {
-	_m.ctrl.Call(_m, "SetContainerInstanceArn", _param0)
+// SetContainerInstanceARN mocks base method
+func (_m *MockMetadataManager) SetContainerInstanceARN(_param0 string) {
+	_m.ctrl.Call(_m, "SetContainerInstanceARN", _param0)
 }
 
-// SetContainerInstanceArn indicates an expected call of SetContainerInstanceArn
-func (_mr *MockMetadataManagerMockRecorder) SetContainerInstanceArn(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetContainerInstanceArn", arg0)
+// SetContainerInstanceARN indicates an expected call of SetContainerInstanceARN
+func (_mr *MockMetadataManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetContainerInstanceARN", arg0)
 }
 
 // UpdateMetadata mocks base method
