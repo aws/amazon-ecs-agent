@@ -255,7 +255,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			// If docker returned a transient error while trying to stop a container,
 			// reset the known status to the current status and return
 			cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
-			if ok && !cannotStopContainerError.IsUnretriableError() {
+			if ok && cannotStopContainerError.IsRetriableError() {
 				seelog.Infof("Error stopping the container, ignoring state change; error: %s, task: %v",
 					cannotStopContainerError.Error(), mtask.Task)
 				container.SetKnownStatus(currentKnownStatus)
