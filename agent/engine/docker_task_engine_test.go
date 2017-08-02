@@ -1247,7 +1247,7 @@ func TestEnableContainerMetadata(t *testing.T) {
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
 		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
 		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
-		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any())
+		metadataManager.EXPECT().CreateMetadata(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
 
