@@ -22,17 +22,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnretriableErrorReturnsTrueForNoSuchContainer(t *testing.T) {
+func TestRetriableErrorReturnsFalseForNoSuchContainer(t *testing.T) {
 	err := CannotStopContainerError{&docker.NoSuchContainer{}}
-	assert.True(t, err.IsUnretriableError(), "No such container error should be treated as unretriable docker error")
+	assert.False(t, err.IsRetriableError(), "No such container error should be treated as unretriable docker error")
 }
 
-func TestUnretriableErrorReturnsTrueForContainerNotRunning(t *testing.T) {
+func TestRetriableErrorReturnsFalseForContainerNotRunning(t *testing.T) {
 	err := CannotStopContainerError{&docker.ContainerNotRunning{}}
-	assert.True(t, err.IsUnretriableError(), "ContainerNotRunning error should be treated as unretriable docker error")
+	assert.False(t, err.IsRetriableError(), "ContainerNotRunning error should be treated as unretriable docker error")
 }
 
-func TestUnretriableErrorReturnsFalse(t *testing.T) {
+func TestRetriableErrorReturnsTrue(t *testing.T) {
 	err := CannotStopContainerError{errors.New("error")}
-	assert.False(t, err.IsUnretriableError(), "Non unretriable error treated as unretriable docker error")
+	assert.True(t, err.IsRetriableError(), "Non unretriable error treated as unretriable docker error")
 }

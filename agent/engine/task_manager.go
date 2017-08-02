@@ -254,8 +254,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			}
 			// If docker returned a transient error while trying to stop a container,
 			// reset the known status to the current status and return
-			cannotStopContainerError, ok := event.Error.(*CannotStopContainerError)
-			if ok && !cannotStopContainerError.IsUnretriableError() {
+			cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
+			if ok && cannotStopContainerError.IsRetriableError() {
 				seelog.Infof("Error stopping the container, ignoring state change; error: %s, task: %v",
 					cannotStopContainerError.Error(), mtask.Task)
 				container.SetKnownStatus(currentKnownStatus)
@@ -266,8 +266,9 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			// clearly can't just continue trying to transition it to stopped
 			// again and again... In this case, assume it's stopped (or close
 			// enough) and get on with it
-			// This actually happens a lot for the case of stopping something that was not running.
-			llog.Info("Error for 'docker stop' of container; assuming it's stopped anyways", "err", event.Error)
+			// This can happen in cases where the container we tried to stop
+			// was already stopped or did not exist at all.
+			seelog.Warnf("'docker stop' returned %s: %s", event.Error.ErrorName(), event.Error.Error())
 			container.SetKnownStatus(api.ContainerStopped)
 			container.SetDesiredStatus(api.ContainerStopped)
 		} else if event.Status == api.ContainerPulled {

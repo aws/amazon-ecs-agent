@@ -552,7 +552,7 @@ func (dg *dockerGoClient) StopContainer(dockerID string, timeout time.Duration) 
 		if err == context.DeadlineExceeded {
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "stopped"}}
 		}
-		return DockerContainerMetadata{Error: &CannotStopContainerError{err}}
+		return DockerContainerMetadata{Error: CannotStopContainerError{err}}
 	}
 }
 

@@ -30,6 +30,11 @@ type engineError interface {
 	ErrorName() string
 }
 
+type cannotStopContainerError interface {
+	engineError
+	IsRetriableError() bool
+}
+
 // impossibleTransitionError is an error that occurs when an event causes a
 // container to try and transition to a state that it cannot be moved to
 type impossibleTransitionError struct {
@@ -154,15 +159,21 @@ func (err CannotStopContainerError) ErrorName() string {
 	return "CannotStopContainerError"
 }
 
-func (err CannotStopContainerError) IsUnretriableError() bool {
+// IsRetriableError returns a boolean indicating whether the call that
+// generated the error can be retried.
+// When stopping a container, most errors that we can get should be
+// considered retriable. However, in the case where the container is
+// already stopped or doesn't exist at all, there's no sense in
+// retrying.
+func (err CannotStopContainerError) IsRetriableError() bool {
 	if _, ok := err.fromError.(*docker.NoSuchContainer); ok {
-		return true
+		return false
 	}
 	if _, ok := err.fromError.(*docker.ContainerNotRunning); ok {
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
 
 // CannotPullContainerError indicates any error when trying to pull
