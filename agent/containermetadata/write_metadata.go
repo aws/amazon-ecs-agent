@@ -18,7 +18,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/cihub/seelog"
@@ -36,29 +35,26 @@ const (
 // containing the task-id which we extract by splitting it by "/".
 // This function should be eventually be replaced by a standardized ARN parsing
 // module
-func getTaskIDfromARN(taskarn string) string {
+func getTaskIDfromARN(taskarn string) (string, error) {
 	colonSplitARN := strings.SplitN(taskarn, ":", 6)
 	// Incorrectly formatted ARN (Should not happen)
 	if len(colonSplitARN) < 6 {
-		seelog.Errorf("Failed to parse task ARN: invalid TaskARN %s", taskarn)
-		return ""
+		return "", fmt.Errorf("get task ARN: invalid TaskARN %s", taskarn)
 	}
 	arnTaskPartSplit := strings.SplitN(colonSplitARN[5], "/", 2)
 	// Incorrectly formatted ARN (Should not happen)
 	if len(arnTaskPartSplit) < 2 {
-		seelog.Errorf("Failed to parse task ARN: invalid TaskARN %s", taskarn)
-		return ""
+		return "", fmt.Errorf("get task ARN: invalid TaskARN %s", taskarn)
 	}
-	return arnTaskPartSplit[1]
+	return arnTaskPartSplit[1], nil
 }
 
 // getMetadataFilePath gives the metadata file path for any agent-managed container
 func getMetadataFilePath(task *api.Task, container *api.Container, dataDir string) (string, error) {
-	taskID := getTaskIDfromARN(task.Arn)
+	taskID, err := getTaskIDfromARN(task.Arn)
 	// Empty task ID indicates malformed ARN (Should not happen)
-	if taskID == "" {
-		err := fmt.Errorf("Failed to form metdata file path: invalid task ARN")
-		return "", err
+	if err != nil {
+		return "", fmt.Errorf("get metdata file path of task %s container %s: %v", task, container, err)
 	}
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID, container.Name), nil
 }
@@ -68,7 +64,7 @@ func metadataFileExists(task *api.Task, container *api.Container, dataDir string
 	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
 	// Case when file path is invalid (Due to malformed task ARN)
 	if err != nil {
-		seelog.Errorf("Failed to find metadata file: %v", err)
+		seelog.Errorf("Finding metadata file for task %s container %s: %v", task, container, err)
 		return false
 	}
 
@@ -76,51 +72,16 @@ func metadataFileExists(task *api.Task, container *api.Container, dataDir string
 	if _, err = os.Stat(metadataFilePath); err != nil {
 		if !os.IsNotExist(err) {
 			// We should specifically log any error besides "IsNotExist"
-			seelog.Errorf("Failed to find metadata file: %v", err)
+			seelog.Errorf("Finding metadata file for task %s container %s: %v", task, container, err)
 		}
 		return false
 	}
 	return true
 }
 
-// writeToMetadata puts the metadata into JSON format and writes into
-// the metadata file
-/*func (md *Metadata) writeToMetadataFile(task *api.Task, container *api.Container, dataDir string) error {
-	data, err := json.MarshalIndent(md, "", "\t")
-	if err != nil {
-		return err
-	}
-	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
-	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
-	if err != nil {
-		return fmt.Errorf("Failed to write to metadata file: %v", err)
-	}
-	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
-
-	return ioutil.WriteFile(metadataFilePath, data, readOnlyPerm)
-}*/
-
-// getMetdataFileUpdateTime gets the last update time of the metadata file
-func getMetadataFileUpdateTime(task *api.Task, container *api.Container, dataDir string) (time.Time, error) {
-	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
-	if err != nil {
-		return time.Time{}, err
-	}
-	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
-	metadataFile, err := os.Open(metadataFilePath)
-	if err != nil {
-		return time.Time{}, err
-	}
-	defer metadataFile.Close()
-	fileInfo, err := metadataFile.Stat()
-	if err != nil {
-		return time.Time{}, err
-	}
-	return fileInfo.ModTime(), err
-}
-
 // getTaskMetadataDir acquires the directory with all of the metadata
 // files of a given task
-func getTaskMetadataDir(task *api.Task, dataDir string) string {
-	return filepath.Join(dataDir, metadataJoinSuffix, getTaskIDfromARN(task.Arn))
+func getTaskMetadataDir(task *api.Task, dataDir string) (string, error) {
+	taskID, err := getTaskIDfromARN(task.Arn)
+	return filepath.Join(dataDir, metadataJoinSuffix, taskID), err
 }

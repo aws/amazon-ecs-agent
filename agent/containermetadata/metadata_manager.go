@@ -14,6 +14,7 @@
 package containermetadata
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -21,7 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
-	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -32,7 +32,7 @@ const (
 // MetadataManager is an interface that allows us to abstract away the metadata
 // operations
 type MetadataManager interface {
-	SetContainerInstanceArn(string)
+	SetContainerInstanceARN(string)
 	CreateMetadata(*docker.HostConfig, *api.Task, *api.Container) error
 	UpdateMetadata(string, *api.Task, *api.Container) error
 	CleanTaskMetadata(*api.Task) error
@@ -59,13 +59,9 @@ func NewMetadataManager(client dockerMetadataClient, cfg *config.Config) Metadat
 	}
 }
 
-// SetContainerInstanceArn sets the metadataManager's ContainerInstanceArn which is not available
+// SetContainerInstanceARN sets the metadataManager's ContainerInstanceArn which is not available
 // at its creation as this information is not present immediately at the agent's startup
-func (manager *metadataManager) SetContainerInstanceArn(containerInstanceARN string) {
-	// Do nothing if disabled
-	if manager == nil || !manager.enabled {
-		return
-	}
+func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN string) {
 	manager.containerInstanceARN = containerInstanceARN
 }
 
@@ -73,11 +69,6 @@ func (manager *metadataManager) SetContainerInstanceArn(containerInstanceARN str
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
 func (manager *metadataManager) CreateMetadata(hostConfig *docker.HostConfig, task *api.Task, container *api.Container) error {
-	// Do nothing if disabled
-	if manager == nil || !manager.enabled {
-		return nil
-	}
-
 	// Do not create metadata file for internal containers
 	if container.IsInternal {
 		return nil
@@ -103,15 +94,14 @@ func (manager *metadataManager) CreateMetadata(hostConfig *docker.HostConfig, ta
 
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadataAtContainerCreate(task, container)
-	err = metadata.writeToMetadataFile(task, container, manager.dataDir)
+	data, err := json.MarshalIndent(metadata, "", "\t")
+	err = writeToMetadataFile(data, task, container, manager.dataDir)
 	if err != nil {
 		return err
 	}
 
 	// Add the directory of this container's metadata to the container's mount binds
 	// We do this at the end so that we only mount the directory if there are no errors
-	// This is the only operating system specific point here, so it would be nice if there
-	// were some elegant way to do this for both windows and linux at the same time
 	binds := createBinds(hostConfig.Binds, manager.dataDirOnHost, metadataDirectoryPath, mountPoint, container.Name)
 	hostConfig.Binds = binds
 	return nil
@@ -120,11 +110,6 @@ func (manager *metadataManager) CreateMetadata(hostConfig *docker.HostConfig, ta
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
 func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
-	// Do nothing if disabled
-	if manager == nil || !manager.enabled {
-		return nil
-	}
-
 	// Do not update (non-existent) metadata file for internal containers
 	if container.IsInternal {
 		return nil
@@ -147,40 +132,17 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 		return fmt.Errorf("container metadata update: container not running or invalid")
 	}
 
-	// Get last metadata file creation time
-	createTime, err := getMetadataFileUpdateTime(task, container, manager.dataDir)
-	if err != nil {
-		seelog.Errorf("container metadata update: %v", err)
-	}
-
 	// Acquire the metadata then write it in JSON format to the file
-	var updateTime time.Time
-	metadata := manager.parseMetadata(createTime, updateTime, dockerContainer, task, container)
-	err = metadata.writeToMetadataFile(task, container, manager.dataDir)
-	if err != nil {
-		return err
-	}
-
-	// Update the file again with time stamp of last file update. This will cause the file to have
-	// a different time stamp from its actual file stat inspection but this is unavoidable in our
-	// design as we must populate the metadata with the update time before updating
-	updateTime, err = getMetadataFileUpdateTime(task, container, manager.dataDir)
-	if err != nil {
-		seelog.Errorf("container metadata update: %v", err)
-	}
-	// We fetch the metadata and write it once more to put the update time into the file. This update
-	// time is the time of the last update where we update with new metadata
-	metadata = manager.parseMetadata(createTime, updateTime, dockerContainer, task, container)
-	return metadata.writeToMetadataFile(task, container, manager.dataDir)
+	metadata := manager.parseMetadata(dockerContainer, task, container)
+	data, err := json.MarshalIndent(metadata, "", "\t")
+	return writeToMetadataFile(data, task, container, manager.dataDir)
 }
 
 // CleanTaskMetadata removes the metadata files of all containers associated with a task
 func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
-	// Do nothing if disabled
-	if manager == nil || !manager.enabled {
-		return nil
+	metadataPath, err := getTaskMetadataDir(task, manager.dataDir)
+	if err != nil {
+		return err
 	}
-
-	metadataPath := getTaskMetadataDir(task, manager.dataDir)
 	return os.RemoveAll(metadataPath)
 }
