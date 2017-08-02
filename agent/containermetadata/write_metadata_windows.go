@@ -45,10 +45,17 @@ func createMetadataFile(metadataDirectoryPath string) error {
 }
 
 // createBinds will do the appropriate formatting to add a new mount in a container's HostConfig
-func createBinds(binds []string, dataDirOnHost string, metadataDirectoryPath string, mountPoint string, containerName string) []string {
+func createBinds(binds []string, dataDirOnHost string, metadataDirectoryPath string, containerName string) []string {
 	instanceBind := fmt.Sprintf(`%s:%s\%s`, metadataDirectoryPath, mountPoint, containerName)
 	binds = append(binds, instanceBind)
 	return binds
+}
+
+// injectEnv will add the mount point into the container as an enviornment variable ECS_CONTAINER_METADATA
+func injectEnv(env []string, containerName string) []string {
+	metadataEnvVariable := fmt.Sprintf(`%s=%s\%s`, metadataEnvironmentVariable, mountPoint, containerName)
+	env = append(env, metadataEnvVariable)
+	return env
 }
 
 // writeToMetadata puts the metadata into JSON format and writes into

@@ -26,14 +26,15 @@ import (
 )
 
 const (
-	inspectContainerTimeout = 30 * time.Second
+	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA"
+	inspectContainerTimeout     = 30 * time.Second
 )
 
 // MetadataManager is an interface that allows us to abstract away the metadata
 // operations
 type MetadataManager interface {
 	SetContainerInstanceARN(string)
-	CreateMetadata(*docker.HostConfig, *api.Task, *api.Container) error
+	CreateMetadata(*docker.Config, *docker.HostConfig, *api.Task, *api.Container) error
 	UpdateMetadata(string, *api.Task, *api.Container) error
 	CleanTaskMetadata(*api.Task) error
 }
@@ -68,7 +69,7 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // createmetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) CreateMetadata(hostConfig *docker.HostConfig, task *api.Task, container *api.Container) error {
+func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig *docker.HostConfig, task *api.Task, container *api.Container) error {
 	// Do not create metadata file for internal containers
 	if container.IsInternal {
 		return nil
@@ -101,9 +102,14 @@ func (manager *metadataManager) CreateMetadata(hostConfig *docker.HostConfig, ta
 	}
 
 	// Add the directory of this container's metadata to the container's mount binds
-	// We do this at the end so that we only mount the directory if there are no errors
-	binds := createBinds(hostConfig.Binds, manager.dataDirOnHost, metadataDirectoryPath, mountPoint, container.Name)
+	// Then add the destination directory as an environment variable in the container $METADATA
+	binds := createBinds(hostConfig.Binds, manager.dataDirOnHost, metadataDirectoryPath, container.Name)
 	hostConfig.Binds = binds
+
+	// Add the destination directory of the mount path to the container's environment variables as
+	// ECS_CONTAINER_METADATA
+	env := injectEnv(config.Env, container.Name)
+	config.Env = env
 	return nil
 }
 
