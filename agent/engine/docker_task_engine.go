@@ -613,7 +613,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	if engine.cfg.ContainerMetadataEnabled {
-		mderr := engine.metadataManager.CreateMetadata(hostConfig, task, container)
+		mderr := engine.metadataManager.CreateMetadata(config, hostConfig, task, container)
 		if mderr != nil {
 			seelog.Errorf("create metadata failed for container %s of task %s: %v", container, task, mderr)
 		}
