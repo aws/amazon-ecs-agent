@@ -66,7 +66,7 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 	manager.containerInstanceARN = containerInstanceARN
 }
 
-// createmetadata creates the metadata file and adds the metadata directory to
+// Createmetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
 func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig *docker.HostConfig, task *api.Task, container *api.Container) error {
