@@ -73,7 +73,6 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 		return err
 	}
 	defer temp.Close()
-	err = temp.Chmod(readOnlyPerm)
 	if err != nil {
 		return err
 	}
