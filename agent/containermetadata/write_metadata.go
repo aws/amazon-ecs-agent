@@ -26,7 +26,6 @@ import (
 const (
 	metadataJoinSuffix = "metadata"
 	metadataFile       = "metadata.json"
-	readOnlyPerm       = 0644
 )
 
 // getTaskIDfromARN parses a task ARN and produces the task ID
