@@ -45,8 +45,8 @@ import (
 const (
 	// heartbeatTimeout is the maximum time to wait between heartbeats
 	// without disconnecting
-	heartbeatTimeout = 5 * time.Minute
-	heartbeatJitter  = 3 * time.Minute
+	heartbeatTimeout = 1 * time.Minute
+	heartbeatJitter  = 1 * time.Minute
 
 	inactiveInstanceReconnectDelay = 1 * time.Hour
 
@@ -298,7 +298,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 	backoffResetTimer := time.AfterFunc(
 		utils.AddJitter(acsSession.heartbeatTimeout(), acsSession.heartbeatJitter()), func() {
 			// If we do not have an error connecting and remain connected for at
-			// least 5 or so minutes, reset the backoff. This prevents disconnect
+			// least 1 or so minutes, reset the backoff. This prevents disconnect
 			// errors that only happen infrequently from damaging the
 			// reconnectability as significantly.
 			acsSession.backoff.Reset()
