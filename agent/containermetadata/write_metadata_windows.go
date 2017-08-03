@@ -67,7 +67,7 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 	}
 	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
 
-	file, err := os.OpenFile(metadataFilePath, os.O_WRONLY, readOnlyPerm)
+	file, err := os.OpenFile(metadataFilePath, os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}
