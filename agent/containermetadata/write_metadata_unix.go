@@ -38,7 +38,6 @@ func createMetadataFile(metadataDirectoryPath string) error {
 		return err
 	}
 	defer temp.Close()
-	err = temp.Chmod(readOnlyPerm)
 	if err != nil {
 		return err
 	}
