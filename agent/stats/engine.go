@@ -240,6 +240,9 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 }
 
 func (engine *DockerStatsEngine) isIdle() bool {
+	engine.containersLock.RLock()
+	defer engine.containersLock.RUnlock()
+
 	return len(engine.tasksToContainers) == 0
 }
 
