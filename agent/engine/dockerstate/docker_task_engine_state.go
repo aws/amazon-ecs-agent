@@ -158,6 +158,16 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 	defer state.lock.RUnlock()
 
 	ret, ok := state.taskToID[arn]
+
+	// Copy the map to avoid data race
+	if ok {
+		mc := make(map[string]*api.DockerContainer)
+		for k, v := range ret {
+			mc[k] = v
+		}
+		return mc, ok
+	}
+
 	return ret, ok
 }
 
