@@ -31,8 +31,8 @@ type dockerMetadataClient interface {
 
 // Network is a struct that keeps track of metadata of a network interface
 type Network struct {
-	InterfaceName string `json:"InterfaceName,omitempty"`
-	IPv4Address   string `json:"IPv4Address,omitempty"`
+	NetworkMode string `json:"NetworkMode,omitempty"`
+	IPv4Address string `json:"IPv4Address,omitempty"`
 }
 
 // NetworkMetadata keeps track of the data we parse from the Network Settings

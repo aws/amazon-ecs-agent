@@ -22,6 +22,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+
+	"github.com/pborman/uuid"
 )
 
 const (
@@ -43,18 +45,15 @@ func createMetadataFile(metadataDirectoryPath string) error {
 	return file.Sync()
 }
 
-// createBinds will do the appropriate formatting to add a new mount in a container's HostConfig
-func createBinds(binds []string, dataDirOnHost string, metadataDirectoryPath string, containerName string) []string {
-	instanceBind := fmt.Sprintf(`%s:%s\%s`, metadataDirectoryPath, mountPoint, containerName)
+// createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig
+// and add the metadata file path as an environment variable ECS_CONTAINER_METADATA_FILE
+func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadataDirectoryPath string) ([]string, []string) {
+	randID := uuid.New()
+	instanceBind := fmt.Sprintf(`%s:%s\%s`, metadataDirectoryPath, mountPoint, randID)
+	metadataEnvVariable := fmt.Sprintf(`%s=%s\%s\%s`, metadataEnvironmentVariable, mountPoint, randID, metadataFile)
 	binds = append(binds, instanceBind)
-	return binds
-}
-
-// injectEnv will add the mount point into the container as an enviornment variable ECS_CONTAINER_METADATA
-func injectEnv(env []string, containerName string) []string {
-	metadataEnvVariable := fmt.Sprintf(`%s=%s\%s`, metadataEnvironmentVariable, mountPoint, containerName)
 	env = append(env, metadataEnvVariable)
-	return env
+	return binds, env
 }
 
 // writeToMetadata puts the metadata into JSON format and writes into
