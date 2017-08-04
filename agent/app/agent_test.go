@@ -16,13 +16,7 @@ package app
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
-
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-
-	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
-	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 
 	"golang.org/x/net/context"
 
@@ -33,8 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -156,64 +149,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
-}
-
-func TestDoStartLoadImageError(t *testing.T) {
-	errorsToExitCode := map[error]int{
-		errors.New("error"):                                    exitcodes.ExitError,
-		pause.NewNoSuchFileError(errors.New("error")):          exitcodes.ExitTerminal,
-		pause.NewUnsupportedPlatformError(errors.New("error")): exitcodes.ExitTerminal,
-	}
-	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
-
-	for err, expectedExitCode := range errorsToExitCode {
-		errType := reflect.TypeOf(err)
-		t.Run(fmt.Sprintf("error type %s->expected exit code %d", errType, expectedExitCode), func(t *testing.T) {
-			ctrl, credentialsManager, state, imageManager, client,
-				dockerClient, _, _ := setup(t)
-			defer ctrl.Finish()
-
-			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-			mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-			cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-
-			gomock.InOrder(
-				mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-				dockerClient.EXPECT().SupportedVersions().Return(nil),
-				dockerClient.EXPECT().KnownVersions().Return(nil),
-				cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
-				cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
-				cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
-				cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
-				client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
-					containerInstanceARN, nil),
-				imageManager.EXPECT().SetSaver(gomock.Any()),
-				dockerClient.EXPECT().Version().Return("", nil),
-				dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(nil, nil),
-				state.EXPECT().AllImageStates().Return(nil),
-				state.EXPECT().AllTasks().Return(nil),
-				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, err),
-			)
-
-			cfg := config.DefaultConfig()
-			cfg.TaskENIEnabled = true
-			ctx, cancel := context.WithCancel(context.TODO())
-			// Cancel the context to cancel async routines
-			defer cancel()
-			agent := &ecsAgent{
-				ctx:                ctx,
-				cfg:                &cfg,
-				credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-				dockerClient:       dockerClient,
-				pauseLoader:        mockPauseLoader,
-				cniClient:          cniClient,
-			}
-
-			exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-				credentialsManager, state, imageManager, client)
-			assert.Equal(t, expectedExitCode, exitCode)
-		})
-	}
 }
 
 func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
@@ -599,7 +534,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.NoError(t, err)
 }
 
@@ -633,7 +568,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -668,7 +603,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -703,7 +638,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.True(t, isTranisent(err))
 }
@@ -737,7 +672,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, containerInstanceARN, agent.containerInstanceARN)
 }
@@ -771,7 +706,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.True(t, isTranisent(err))
 }
@@ -805,7 +740,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -839,7 +774,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }

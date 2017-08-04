@@ -14,6 +14,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 
 	"golang.org/x/net/context"
@@ -22,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
+	"github.com/aws/amazon-ecs-agent/agent/app/oswrapper"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -31,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
-	eniwatchersetup "github.com/aws/amazon-ecs-agent/agent/eni/setup"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
@@ -54,6 +55,13 @@ const (
 	clusterMismatchErrorFormat                 = "Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?"
 	instanceIDMismatchErrorFormat              = "Data mismatch; saved InstanceID '%s' does not match current InstanceID '%s'. Overwriting old datafile"
 	instanceTypeMismatchErrorFormat            = "The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance: %v"
+
+	vpcIDAttributeName    = "ecs.vpc-id"
+	subnetIDAttributeName = "ecs.subnet-id"
+)
+
+var (
+	instanceNotLaunchedInVPCError = errors.New("instance not launched in VPC")
 )
 
 // agent interface is used by the app runner to interact with the ecsAgent
@@ -80,6 +88,9 @@ type ecsAgent struct {
 	saveableOptionFactory factory.SaveableOption
 	pauseLoader           pause.Loader
 	cniClient             ecscni.CNIClient
+	os                    oswrapper.OS
+	vpc                   string
+	subnet                string
 }
 
 // newAgent returns a new ecsAgent object
@@ -130,6 +141,7 @@ func newAgent(
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
+		os: oswrapper.New(),
 	}, nil
 }
 
@@ -176,8 +188,30 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	var vpcSubnetAttributes []*ecs.Attribute
+	// Check if Task ENI is enabled
+	if agent.cfg.TaskENIEnabled {
+		if err, terminal := agent.initializeTaskENIDependencies(state, taskEngine); err != nil {
+			if err != instanceNotLaunchedInVPCError {
+				seelog.Criticalf("Unable to initialize Task ENI dependencies: %v", err)
+				if terminal {
+					return exitcodes.ExitTerminal
+				}
+				return exitcodes.ExitError
+			}
+			// We have ascertained that the EC2 Instance is not running in a VPC
+			// No need to stop the ECS Agent in this case; all we need to do is
+			// to not update the config to disabled the TaskENIEnabled flag and
+			// move on
+			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
+			agent.cfg.TaskENIEnabled = false
+		} else {
+			vpcSubnetAttributes = agent.constructVPCSubnetAttributes()
+		}
+	}
+
 	// Register the container instance
-	err = agent.registerContainerInstance(stateManager, client)
+	err = agent.registerContainerInstance(stateManager, client, vpcSubnetAttributes)
 	if err != nil {
 		if isTranisent(err) {
 			return exitcodes.ExitError
@@ -195,25 +229,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
 	taskHandler := eventhandler.NewTaskHandler()
-
-	// Check if Task ENI is enabled
-	if agent.cfg.TaskENIEnabled {
-		// Load the Pause container image
-		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
-			seelog.Criticalf("Error loading pause container image: %v", err)
-			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-				return exitcodes.ExitTerminal
-			}
-			return exitcodes.ExitError
-		}
-		seelog.Info("Successfully loaded pause container image")
-		// Setup ENI Watcher
-		if _, err := eniwatchersetup.New(agent.ctx, state, taskEngine.StateChangeEvents()); err != nil {
-			seelog.Errorf("Unable to set up ENI Watcher: %v", err)
-			return exitcodes.ExitError
-		}
-		seelog.Debug("ENI watcher has been setup successfully")
-	}
 
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
@@ -337,16 +352,32 @@ func (agent *ecsAgent) newStateManager(
 	)
 }
 
+// constructVPCSubnetAttributes returns vpc and subnet IDs of the instance as
+// an attribute list
+func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecs.Attribute {
+	return []*ecs.Attribute{
+		{
+			Name:  aws.String(vpcIDAttributeName),
+			Value: aws.String(agent.vpc),
+		},
+		{
+			Name:  aws.String(subnetIDAttributeName),
+			Value: aws.String(agent.subnet),
+		},
+	}
+}
+
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
 	stateManager statemanager.StateManager,
-	client api.ECSClient) error {
+	client api.ECSClient,
+	additionalAttributes []*ecs.Attribute) error {
 
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
-	capabilities := agent.capabilities()
+	capabilities := append(agent.capabilities(), additionalAttributes...)
 
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
