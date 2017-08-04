@@ -320,12 +320,6 @@ func TestCustomAttributesWithMaxOptions(t *testing.T) {
 
 	_, ok := attribMap["ecs.os-type"]
 	assert.True(t, ok, "OS attribute not found")
-
-	_, ok = attribMap["ecs.vpc-id"]
-	assert.True(t, ok, "VPC ID attribute not found")
-
-	_, ok = attribMap["ecs.subnet-id"]
-	assert.True(t, ok, "VPC ID attribute not found")
 }
 
 // waitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs
