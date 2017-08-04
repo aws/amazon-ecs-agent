@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA"
+	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA_FILE"
 	inspectContainerTimeout     = 30 * time.Second
 )
 
@@ -103,13 +103,9 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 
 	// Add the directory of this container's metadata to the container's mount binds
 	// Then add the destination directory as an environment variable in the container $METADATA
-	binds := createBinds(hostConfig.Binds, manager.dataDirOnHost, metadataDirectoryPath, container.Name)
-	hostConfig.Binds = binds
-
-	// Add the destination directory of the mount path to the container's environment variables as
-	// ECS_CONTAINER_METADATA
-	env := injectEnv(config.Env, container.Name)
+	binds, env := createBindsEnv(hostConfig.Binds, config.Env, manager.dataDirOnHost, metadataDirectoryPath)
 	config.Env = env
+	hostConfig.Binds = binds
 	return nil
 }
 
