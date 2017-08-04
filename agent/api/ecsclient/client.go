@@ -39,9 +39,6 @@ const (
 	pollEndpointCacheSize = 1
 	pollEndpointCacheTTL  = 20 * time.Minute
 	roundtripTimeout      = 5 * time.Second
-
-	vpcIDAttributeName    = "ecs.vpc-id"
-	subnetIDAttributeName = "ecs.subnet-id"
 )
 
 // APIECSClient implements ECSClient
@@ -153,30 +150,8 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	// Standard attributes are included with all registrations.
 	registrationAttributes = append(registrationAttributes, attributes...)
 
-	client.disableTaskENIEnabledIfNoInit()
-
-	vpcAttributes, err := client.getVPCAttributes()
-	if err != nil {
-		// This error is processed only if the instance is launched with a VPC
-		if !launchedWithoutVPC(err) {
-			return "", err
-		}
-		// Not a VPC. Remove task networking capability
-		seelog.Infof("VPC and Subnet IDs are not set for instance in Instance Metadata; Disabling Task ENI capability")
-		// TODO: We still need to remove the "task-eni" capability from the
-		// capabilities list. This will be done in the subsequent PR, where
-		// the `TaskEngine.Capabilities()` method will also be refactored
-		// into the `app` package
-		client.config.TaskENIEnabled = false
-	}
-	// Add VPC ID and Subnet ID attributes if any
-	for _, attribute := range vpcAttributes {
-		registrationAttributes = append(registrationAttributes, attribute)
-	}
 	// Add additional attributes such as the os type
-	for _, attribute := range client.getAdditionalAttributes() {
-		registrationAttributes = append(registrationAttributes, attribute)
-	}
+	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
 	registerRequest.Attributes = registrationAttributes
 	iidRetrieved := true
 	instanceIdentityDoc, err := client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
@@ -242,34 +217,6 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
 }
 
-// disableTaskENIEnabledIfNoInit disables the Task ENI capability of the
-// Agent if the Agent was not started with an init system. We need the init system
-// to properly cleanup the dhclient processes when Task ENI capability is
-// enabled
-func (client *APIECSClient) disableTaskENIEnabledIfNoInit() {
-	ok, err := isAgentAlsoTheInit()
-	if err != nil {
-		seelog.Warnf("Unable to determine if Agent is started with an init system; Disabling Task ENI capability: %v", err)
-		// TODO: We still need to remove the "task-eni" capability from the
-		// capabilities list. This will be done in the subsequent PR, where
-		// the `TaskEngine.Capabilities()` method will also be refactored
-		// into the `app` package
-		client.config.TaskENIEnabled = false
-		return
-	}
-
-	if !ok {
-		return
-	}
-	seelog.Warn("Agent is not started with an init system; Disabling Task ENI capability")
-	// TODO: We still need to remove the "task-eni" capability from the
-	// capabilities list. This will be done in the subsequent PR, where
-	// the `TaskEngine.Capabilities()` method will also be refactored
-	// into the `app` package
-	client.config.TaskENIEnabled = false
-
-}
-
 func attributesToMap(attributes []*ecs.Attribute) map[string]string {
 	attributeMap := make(map[string]string)
 	attribs := attributes
@@ -326,46 +273,6 @@ func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
-}
-
-func (client *APIECSClient) getVPCAttributes() ([]*ecs.Attribute, error) {
-	mac, err := client.ec2metadata.PrimaryENIMAC()
-	if err != nil {
-		seelog.Warnf("Unable to get the MAC address of the primary network interface: %v", err)
-		return nil, err
-	}
-
-	vpcID, err := client.ec2metadata.VPCID(mac)
-	if err != nil {
-		seelog.Warnf("Unable to get the VPC ID of the primary network interface: %v", err)
-		return nil, err
-	}
-
-	subnetID, err := client.ec2metadata.SubnetID(mac)
-	if err != nil {
-		seelog.Warnf("Unable to get the Subnet ID of the primary network interface: %v", err)
-		return nil, err
-	}
-
-	return []*ecs.Attribute{
-		{
-			Name:  aws.String(vpcIDAttributeName),
-			Value: aws.String(vpcID),
-		},
-		{
-			Name:  aws.String(subnetIDAttributeName),
-			Value: aws.String(subnetID),
-		},
-	}, nil
-}
-
-func launchedWithoutVPC(err error) bool {
-	metadataError, ok := err.(*ec2.MetadataError)
-	if !ok {
-		return false
-	}
-
-	return metadataError.LaunchedWithoutVPC()
 }
 
 func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
