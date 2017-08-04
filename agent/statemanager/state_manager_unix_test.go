@@ -43,7 +43,7 @@ func TestStateManager(t *testing.T) {
 
 	// Now let's make some state to save
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	require.Nil(t, err)
@@ -59,7 +59,7 @@ func TestStateManager(t *testing.T) {
 	assertFileMode(t, filepath.Join(tmpDir, "ecs_agent_data.json"))
 
 	// Now make sure we can load that state sanely
-	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState())
+	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))

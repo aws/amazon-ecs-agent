@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -91,13 +92,15 @@ type DockerTaskEngine struct {
 	_time                ttime.Time
 	_timeOnce            sync.Once
 	imageManager         ImageManager
+
+	metadataManager containermetadata.MetadataManager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.MetadataManager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -114,6 +117,8 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsMan
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
+
+		metadataManager: metadataManager,
 	}
 
 	return dockerTaskEngine
@@ -301,6 +306,14 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 		err = engine.imageManager.RemoveContainerReferenceFromImageState(cont)
 		if err != nil {
 			seelog.Errorf("Error removing container reference from image state: %v", err)
+		}
+	}
+
+	// Clean metadata directory for task
+	if engine.cfg.ContainerMetadataEnabled {
+		err := engine.metadataManager.CleanTaskMetadata(task)
+		if err != nil {
+			seelog.Errorf("clean task metadata failed for task %s: %v", task, err)
 		}
 	}
 	engine.saver.Save()
@@ -597,6 +610,15 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
 	engine.saver.ForceSave()
 
+	// Create metadata directory and file then populate it with common metadata of all containers of this task
+	// Afterwards add this directory to the container's mounts if file creation was successful
+	if engine.cfg.ContainerMetadataEnabled {
+		mderr := engine.metadataManager.CreateMetadata(config, hostConfig, task, container)
+		if mderr != nil {
+			seelog.Errorf("create metadata failed for container %s of task %s: %v", container, task, mderr)
+		}
+	}
+
 	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
@@ -625,7 +647,19 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			Error: CannotStartContainerError{fmt.Errorf("Container not recorded as created")},
 		}
 	}
-	return client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+
+	// Get metadata through container inspection and available task information then write this to the metadata file
+	// Performs this in the background to avoid delaying container start
+	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled {
+		err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task, container)
+		if err != nil {
+			seelog.Errorf("update metadata file failed for container %s of task %s: %v", container, task, err)
+		} else {
+			seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
+		}
+	}
+	return dockerContainerMD
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
