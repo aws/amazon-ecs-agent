@@ -117,12 +117,6 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 		return nil
 	}
 
-	// Verify metadata file exists before proceeding
-	if !metadataFileExists(task, container, manager.dataDir) {
-		expectedPath, _ := getMetadataFilePath(task, container, manager.dataDir)
-		return fmt.Errorf("container metadata update: %s does not exist", expectedPath)
-	}
-
 	// Get docker container information through api call
 	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {

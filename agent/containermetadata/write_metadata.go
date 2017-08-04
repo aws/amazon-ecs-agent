@@ -15,12 +15,10 @@ package containermetadata
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -56,26 +54,6 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 		return "", fmt.Errorf("get metdata file path of task %s container %s: %v", task, container, err)
 	}
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID, container.Name), nil
-}
-
-// metadataFileExists checks if metadata file exists or not
-func metadataFileExists(task *api.Task, container *api.Container, dataDir string) bool {
-	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
-	// Case when file path is invalid (Due to malformed task ARN)
-	if err != nil {
-		seelog.Errorf("Finding metadata file for task %s container %s: %v", task, container, err)
-		return false
-	}
-
-	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
-	if _, err = os.Stat(metadataFilePath); err != nil {
-		if !os.IsNotExist(err) {
-			// We should specifically log any error besides "IsNotExist"
-			seelog.Errorf("Finding metadata file for task %s container %s: %v", task, container, err)
-		}
-		return false
-	}
-	return true
 }
 
 // getTaskMetadataDir acquires the directory with all of the metadata
