@@ -13,10 +13,7 @@
 
 package ec2
 
-import (
-	"fmt"
-	"net/http"
-)
+import "fmt"
 
 // MetadataError is used to encapsulate the error returned because of non OK HTTP
 // status codes in the response when querying the Instance Metadata Service
@@ -37,9 +34,7 @@ func (err *MetadataError) Error() string {
 	return fmt.Sprintf("ec2 metadata client: unsuccessful response from Metadata service: %v", err.statusCode)
 }
 
-// LaunchedWithoutVPC true if we deduce that the instance was launched in "Classic EC2",
-// that is without a VPC. The instance metadata returns 404 when the 'vcp-id' path is
-// queried on such instances and we rely on that logic.
-func (err *MetadataError) LaunchedWithoutVPC() bool {
-	return err.statusCode == http.StatusNotFound
+// GetStatusCode returns the http status code for the error from metadata
+func (err *MetadataError) GetStatusCode() int {
+	return err.statusCode
 }
