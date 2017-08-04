@@ -259,8 +259,9 @@ func TestUdevAddEvent(t *testing.T) {
 	// Create Watcher
 	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager, eventChannel)
 
+	shutdown := make(chan bool)
 	gomock.InOrder(
-		mockUdev.EXPECT().Monitor(watcher.events).Return(nil),
+		mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown),
 		mockNetlink.EXPECT().LinkByName(randomDevice).Return(
 			&netlink.Device{
 				LinkAttrs: netlink.LinkAttrs{
@@ -273,8 +274,7 @@ func TestUdevAddEvent(t *testing.T) {
 	)
 
 	// Spin off event handler
-	go watcher.eventHandler(ctx)
-	defer watcher.Stop()
+	go watcher.eventHandler()
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
@@ -283,6 +283,19 @@ func TestUdevAddEvent(t *testing.T) {
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
 	assert.Equal(t, api.ENIAttached, taskStateChange.Attachments.Status)
+
+	var waitForClose sync.WaitGroup
+	waitForClose.Add(2)
+	mockUdev.EXPECT().Close().Do(func() {
+		waitForClose.Done()
+	}).Return(nil)
+	go func() {
+		<-shutdown
+		waitForClose.Done()
+	}()
+
+	go watcher.Stop()
+	waitForClose.Wait()
 }
 
 // TestUdevSubsystemFilter checks the subsystem filter in the event handler
@@ -297,16 +310,28 @@ func TestUdevSubsystemFilter(t *testing.T) {
 	// Create Watcher
 	watcher := _new(ctx, nil, mockUdev, nil, nil)
 
-	mockUdev.EXPECT().Monitor(watcher.events).Return(nil)
+	shutdown := make(chan bool)
+	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
 
 	// Spin off event handler
-	go watcher.eventHandler(ctx)
-	defer watcher.Stop()
-
+	go watcher.eventHandler()
 	// Send event to channel
 	// This event shouldn't trigger the statemanager to handle HandleENIEvent
 	event := getUdevEventDummy(udevAddEvent, udevPCISubsystem, randomDevPath)
 	watcher.events <- &event
+
+	var waitForClose sync.WaitGroup
+	waitForClose.Add(2)
+	mockUdev.EXPECT().Close().Do(func() {
+		waitForClose.Done()
+	}).Return(nil)
+	go func() {
+		<-shutdown
+		waitForClose.Done()
+	}()
+
+	go watcher.Stop()
+	waitForClose.Wait()
 }
 
 // TestUdevAddEventWithInvalidInterface attempts to add a device without
@@ -322,15 +347,28 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 	// Create Watcher
 	watcher := _new(ctx, nil, mockUdev, nil, nil)
 
-	mockUdev.EXPECT().Monitor(watcher.events).Return(nil)
+	shutdown := make(chan bool)
+	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
 
 	// Spin off event handler
-	go watcher.eventHandler(ctx)
-	defer watcher.Stop()
+	go watcher.eventHandler()
 
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, incorrectDevPath)
 	watcher.events <- &event
+
+	var waitForClose sync.WaitGroup
+	waitForClose.Add(2)
+	mockUdev.EXPECT().Close().Do(func() {
+		waitForClose.Done()
+	}).Return(nil)
+	go func() {
+		<-shutdown
+		waitForClose.Done()
+	}()
+
+	go watcher.Stop()
+	waitForClose.Wait()
 }
 
 // TestUdevAddEventWithoutMACAdress attempts to add a device without
@@ -350,8 +388,9 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 	var invoked sync.WaitGroup
 	invoked.Add(1)
 
+	shutdown := make(chan bool)
 	gomock.InOrder(
-		mockUdev.EXPECT().Monitor(watcher.events).Return(nil),
+		mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown),
 		mockNetlink.EXPECT().LinkByName(randomDevice).Do(func(device string) {
 			invoked.Done()
 		}).Return(
@@ -360,13 +399,25 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 	)
 
 	// Spin off event handler
-	go watcher.eventHandler(ctx)
-	defer watcher.Stop()
+	go watcher.eventHandler()
 
 	// Send event to channel
 	event := getUdevEventDummy(udevAddEvent, udevNetSubsystem, randomDevPath)
 	watcher.events <- &event
 	invoked.Wait()
+
+	var waitForClose sync.WaitGroup
+	waitForClose.Add(2)
+	mockUdev.EXPECT().Close().Do(func() {
+		waitForClose.Done()
+	}).Return(nil)
+	go func() {
+		<-shutdown
+		waitForClose.Done()
+	}()
+
+	go watcher.Stop()
+	waitForClose.Wait()
 }
 
 func TestSendENIStateChange(t *testing.T) {
