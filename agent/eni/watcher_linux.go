@@ -79,8 +79,8 @@ func (udevWatcher *UdevWatcher) Init() error {
 // Start periodically updates the state of ENIs connected to the system
 func (udevWatcher *UdevWatcher) Start() {
 	// Udev Event Handler
-	go udevWatcher.eventHandler(udevWatcher.ctx)
-	udevWatcher.performPeriodicReconciliation(udevWatcher.ctx, defaultReconciliationInterval)
+	go udevWatcher.eventHandler()
+	udevWatcher.performPeriodicReconciliation(defaultReconciliationInterval)
 }
 
 // Stop is used to invoke the cancellation routine
@@ -90,7 +90,7 @@ func (udevWatcher *UdevWatcher) Stop() {
 
 // performPeriodicReconciliation is used to periodically invoke the
 // reconciliation process based on a ticker
-func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Context, updateInterval time.Duration) {
+func (udevWatcher *UdevWatcher) performPeriodicReconciliation(updateInterval time.Duration) {
 	udevWatcher.updateIntervalTicker = time.NewTicker(updateInterval)
 	for {
 		select {
@@ -98,7 +98,7 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(ctx context.Contex
 			if err := udevWatcher.reconcileOnce(); err != nil {
 				log.Warnf("Udev watcher reconciliation failed: %v", err)
 			}
-		case <-ctx.Done():
+		case <-udevWatcher.ctx.Done():
 			udevWatcher.updateIntervalTicker.Stop()
 			return
 		}
@@ -182,8 +182,9 @@ func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]stri
 }
 
 // eventHandler is used to manage udev net subsystem events to add/remove interfaces
-func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
-	udevWatcher.udevMonitor.Monitor(udevWatcher.events)
+func (udevWatcher *UdevWatcher) eventHandler() {
+	// The shutdown channel will be used to terminate the watch for udev events
+	shutdown := udevWatcher.udevMonitor.Monitor(udevWatcher.events)
 	for {
 		select {
 		case event := <-udevWatcher.events:
@@ -206,7 +207,13 @@ func (udevWatcher *UdevWatcher) eventHandler(ctx context.Context) {
 				continue
 			}
 			udevWatcher.sendENIStateChange(macAddress)
-		case <-ctx.Done():
+		case <-udevWatcher.ctx.Done():
+			log.Info("Stopping udev event handler")
+			// Send the shutdown signal and close the connection
+			shutdown <- true
+			if err := udevWatcher.udevMonitor.Close(); err != nil {
+				log.Warnf("Unable to close the udev monitoring socket: %v", err)
+			}
 			return
 		}
 	}
