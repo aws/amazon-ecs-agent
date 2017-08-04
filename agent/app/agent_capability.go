@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -31,13 +30,6 @@ const (
 	taskENIAttributeSuffix       = "task-eni"
 	cniPluginVersionSuffix       = "cni-plugin-version"
 )
-
-// awsVPCCNIPlugins is a list of CNI plugins required by the ECS Agent
-// to configure the ENI for a task
-var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
-	ecscni.ECSBridgePluginName,
-	ecscni.ECSIPAMPluginName,
-}
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
@@ -119,11 +111,12 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	}
 
 	if agent.cfg.TaskENIEnabled {
-		taskENIAttribute, err := agent.getTaskENIAttribute()
-		if err != nil {
-			return capabilities
-		}
-		capabilities = append(capabilities, taskENIAttribute)
+		// The assumption here is that all of the dependecies for supporting the
+		// Task ENI in the Agent have already been validated prior to the invocation of
+		// the `agent.capabilities()` call
+		capabilities = append(capabilities, &ecs.Attribute{
+			Name: aws.String(attributePrefix + taskENIAttributeSuffix),
+		})
 		taskENIVersionAttribute, err := agent.getTaskENIPluginVersionAttribute()
 		if err != nil {
 			return capabilities
@@ -157,42 +150,4 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 
 func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
 	return append(attributes, &ecs.Attribute{Name: aws.String(name)})
-}
-
-// getTaskENIAttribute returns the ECS "task-eni" attribute if all the necessary
-// CNI plugins are present and if they contain the capabilities required to
-// configure an ENI for a task
-func (agent *ecsAgent) getTaskENIAttribute() (*ecs.Attribute, error) {
-	// Check if we can get capabilities from each plugin
-	for _, plugin := range awsVPCCNIPlugins {
-		capabilities, err := agent.cniClient.Capabilities(plugin)
-		if err != nil {
-			seelog.Warnf(
-				"Task ENI not enabled due to error in getting capabilities supported by the plugin '%s': %v",
-				plugin, err)
-			return nil, err
-		}
-		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
-			seelog.Warnf(
-				"Task ENI not enabled as plugin '%s' doesn't support the capability: %s",
-				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
-			return nil, errors.Errorf(
-				"engine get task-eni attribute: plugin '%s' doesn't support capability: %s",
-				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
-		}
-	}
-
-	return &ecs.Attribute{
-		Name: aws.String(attributePrefix + taskENIAttributeSuffix),
-	}, nil
-}
-
-func contains(capabilities []string, capability string) bool {
-	for _, cap := range capabilities {
-		if cap == capability {
-			return true
-		}
-	}
-
-	return false
 }

@@ -225,7 +225,7 @@ func (acsSession *session) Start() error {
 				}
 			}
 		case <-acsSession.ctx.Done():
-			seelog.Debugf("context done")
+			seelog.Debugf("ACS session context cancelled")
 			return acsSession.ctx.Err()
 		}
 

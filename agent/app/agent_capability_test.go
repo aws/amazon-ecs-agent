@@ -14,7 +14,6 @@
 package app
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
@@ -55,7 +54,6 @@ func TestCapabilities(t *testing.T) {
 		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
-	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -66,9 +64,6 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
-		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
-		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
 	)
 
@@ -111,46 +106,6 @@ func TestCapabilities(t *testing.T) {
 		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
 		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
 	}
-}
-
-func TestGetTaskENIAttributeEmptyCapabilityListFromPlugin(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil)
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:       ctx,
-		cfg:       &config.Config{TaskENIEnabled: true},
-		cniClient: cniClient,
-	}
-
-	_, err := agent.getTaskENIAttribute()
-	assert.Error(t, err)
-}
-
-func TestGetTaskENIAttributeErrorGettingCapabilitiesFromPlugin(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(nil, errors.New("error"))
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:       ctx,
-		cfg:       &config.Config{TaskENIEnabled: true},
-		cniClient: cniClient,
-	}
-
-	_, err := agent.getTaskENIAttribute()
-	assert.Error(t, err)
 }
 
 func TestCapabilitiesECR(t *testing.T) {
