@@ -46,11 +46,11 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Address := containerNetwork.IPAddress
-			networkInterface := Network{networkMode, ipv4Address}
+			networkInterface := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
 			networkInterfaceList = append(networkInterfaceList, networkInterface)
 		}
 	} else {
-		networkInterface := Network{networkModeFromHostConfig, ipv4AddressFromSettings}
+		networkInterface := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
 		networkInterfaceList = append(networkInterfaceList, networkInterface)
 	}
 
@@ -63,9 +63,9 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 // and packages this data for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseDockerContainerMetadata(task *api.Task, container *api.Container, dockerContainer *docker.Container) DockerContainerMetadata {
-	if container == nil {
-		seelog.Warnf("Failed to parse container metadata for task %s container %s: container metadata not available or does not exist", task, container)
+func parseDockerContainerMetadata(taskARN string, containerName string, dockerContainer *docker.Container) DockerContainerMetadata {
+	if dockerContainer == nil {
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: container metadata not available or does not exist", taskARN, containerName)
 		return DockerContainerMetadata{}
 	}
 
@@ -76,7 +76,7 @@ func parseDockerContainerMetadata(task *api.Task, container *api.Container, dock
 	if dockerContainer.Config != nil {
 		imageNameFromConfig = dockerContainer.Config.Image
 	} else {
-		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no configuration", task, container)
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no configuration", taskARN, containerName)
 	}
 
 	// Get Port bindings from docker configurations
@@ -85,15 +85,15 @@ func parseDockerContainerMetadata(task *api.Task, container *api.Container, dock
 	if dockerContainer.HostConfig != nil {
 		ports, err = api.PortBindingFromDockerPortBinding(dockerContainer.HostConfig.PortBindings)
 		if err != nil {
-			seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", task, container, err)
+			seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 		}
 	} else {
-		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no host configuration", task, container)
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no host configuration", taskARN, containerName)
 	}
 
 	networkMetadata, err := parseNetworkMetadata(dockerContainer.NetworkSettings, dockerContainer.HostConfig)
 	if err != nil {
-		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", task, container, err)
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 	}
 
 	return DockerContainerMetadata{
@@ -106,34 +106,18 @@ func parseDockerContainerMetadata(task *api.Task, container *api.Container, dock
 	}
 }
 
-// parseTaskMetadata parses  in the AWS configuration and task
-// and packages this data for JSON marshaling
-// Since we accept incomplete metadata fields, we should not return
-// errors here and handle them at this stage.
-func parseTaskMetadata(task *api.Task, container *api.Container) TaskMetadata {
-	containerName := container.Name
-
-	taskARNFromConfig := task.Arn
-
-	return TaskMetadata{
-		containerName: containerName,
-		taskARN:       taskARNFromConfig,
-	}
-}
-
 // parseMetadata gathers metadata from a docker container, and task
 // configuration and data then packages it for JSON Marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this or the above stage.
-func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container, task *api.Task, container *api.Container) Metadata {
-	taskMD := parseTaskMetadata(task, container)
-	dockerMD := parseDockerContainerMetadata(task, container, dockerContainer)
+func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container, taskARN string, containerName string) Metadata {
+	dockerMD := parseDockerContainerMetadata(taskARN, containerName, dockerContainer)
 	return Metadata{
 		cluster:                 manager.cluster,
-		taskMetadata:            taskMD,
+		taskMetadata:            TaskMetadata{containerName: containerName, taskARN: taskARN},
 		dockerContainerMetadata: dockerMD,
 		containerInstanceARN:    manager.containerInstanceARN,
-		metadataStatus:          "READY",
+		metadataStatus:          Metadata_READY,
 	}
 }
 
@@ -142,12 +126,11 @@ func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container,
 // available prior to container creation
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this or the above stage.
-func (manager *metadataManager) parseMetadataAtContainerCreate(task *api.Task, container *api.Container) Metadata {
-	taskMD := parseTaskMetadata(task, container)
+func (manager *metadataManager) parseMetadataAtContainerCreate(taskARN string, containerName string) Metadata {
 	return Metadata{
 		cluster:              manager.cluster,
-		taskMetadata:         taskMD,
+		taskMetadata:         TaskMetadata{containerName: containerName, taskARN: taskARN},
 		containerInstanceARN: manager.containerInstanceARN,
-		metadataStatus:       "NOT_READY",
+		metadataStatus:       Metadata_NOT_READY,
 	}
 }

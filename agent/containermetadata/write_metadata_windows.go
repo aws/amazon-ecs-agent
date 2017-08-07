@@ -65,6 +65,5 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 	if err != nil {
 		return err
 	}
-	temp.Sync()
 	return os.Rename(temp.Name(), metadataFileName)
 }

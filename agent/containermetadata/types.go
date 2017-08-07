@@ -33,6 +33,7 @@ type dockerMetadataClient interface {
 type Network struct {
 	NetworkMode string `json:"NetworkMode,omitempty"`
 	IPv4Address string `json:"IPv4Address,omitempty"`
+	IPv6Address string `json:"IPv6Address,omitempty"`
 }
 
 // NetworkMetadata keeps track of the data we parse from the Network Settings
@@ -72,7 +73,7 @@ type Metadata struct {
 	taskMetadata            TaskMetadata
 	dockerContainerMetadata DockerContainerMetadata
 	containerInstanceARN    string
-	metadataStatus          string
+	metadataStatus          MetadataStatus
 }
 
 // MetadataSerializer is an intermediate struct that converts the information
@@ -88,7 +89,7 @@ type MetadataSerializer struct {
 	ImageName            string            `json:"ImageName,omitempty"`
 	Ports                []api.PortBinding `json:"PortMappings,omitempty"`
 	Networks             []Network         `json:"Networks,omitempty"`
-	MetadataFileStatus   string            `json:"MetadataFileStatus,omitempty"`
+	MetadataFileStatus   MetadataStatus    `json:"MetadataFileStatus,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {

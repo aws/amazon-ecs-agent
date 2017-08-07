@@ -30,6 +30,13 @@ const (
 	inspectContainerTimeout     = 30 * time.Second
 )
 
+type MetadataStatus string
+
+const (
+	Metadata_NOT_READY = "NOT_READY"
+	Metadata_READY     = "READY"
+)
+
 // MetadataManager is an interface that allows us to abstract away the metadata
 // operations
 type MetadataManager interface {
@@ -41,11 +48,18 @@ type MetadataManager interface {
 
 // metadataManager implements the MetadataManager interface
 type metadataManager struct {
-	client               dockerMetadataClient
-	cluster              string
-	enabled              bool
-	dataDir              string
-	dataDirOnHost        string
+	// client is the Docker API Client that the metadata manager uses. It defaults
+	// to 1.21 on Linux and 1.24 on Windows
+	client dockerMetadataClient
+	// cluster is the cluster where this agent is run
+	cluster string
+	// dataDir is the directory where the metadata is being written. For Linux
+	// this is a container directory
+	dataDir string
+	// dataDirOnHost is the directory from which dataDir is mounted for Linux
+	// version of the agent
+	dataDirOnHost string
+	// containerInstanceARN is the Container Instance ARN registered for this agent
 	containerInstanceARN string
 }
 
@@ -54,7 +68,6 @@ func NewMetadataManager(client dockerMetadataClient, cfg *config.Config) Metadat
 	return &metadataManager{
 		client:        client,
 		cluster:       cfg.Cluster,
-		enabled:       cfg.ContainerMetadataEnabled,
 		dataDir:       cfg.DataDir,
 		dataDirOnHost: cfg.DataDirOnHost,
 	}
@@ -84,11 +97,11 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 
 	err = os.MkdirAll(metadataDirectoryPath, os.ModePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating metadata directory for task %s: %v", task, err)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadataAtContainerCreate(task, container)
+	metadata := manager.parseMetadataAtContainerCreate(task.Arn, container.Name)
 	data, err := json.MarshalIndent(metadata, "", "\t")
 	err = writeToMetadataFile(data, task, container, manager.dataDir)
 	if err != nil {
@@ -123,7 +136,7 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadata(dockerContainer, task, container)
+	metadata := manager.parseMetadata(dockerContainer, task.Arn, container.Name)
 	data, err := json.MarshalIndent(metadata, "", "\t")
 	return writeToMetadataFile(data, task, container, manager.dataDir)
 }

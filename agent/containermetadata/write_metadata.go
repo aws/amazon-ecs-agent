@@ -23,7 +23,7 @@ import (
 
 const (
 	metadataJoinSuffix = "metadata"
-	metadataFile       = "metadata.json"
+	metadataFile       = "ecs-container-metadata.json"
 )
 
 // getTaskIDfromARN parses a task ARN and produces the task ID
@@ -60,5 +60,5 @@ func getMetadataFilePath(task *api.Task, container *api.Container, dataDir strin
 // files of a given task
 func getTaskMetadataDir(task *api.Task, dataDir string) (string, error) {
 	taskID, err := getTaskIDfromARN(task.Arn)
-	return filepath.Join(dataDir, metadataJoinSuffix, taskID), err
+	return filepath.Join(dataDir, metadataJoinSuffix, taskID), fmt.Errorf("get task metadata directory: %v", err)
 }
