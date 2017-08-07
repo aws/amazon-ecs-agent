@@ -524,7 +524,9 @@
         "dockerSecurityOptions":{"shape":"StringList"},
         "dockerLabels":{"shape":"DockerLabelsMap"},
         "ulimits":{"shape":"UlimitList"},
-        "logConfiguration":{"shape":"LogConfiguration"}
+        "logConfiguration":{"shape":"LogConfiguration"},
+        "capAdd":{"shape":"StringList"},
+        "capDrop":{"shape":"StringList"}
       }
     },
     "ContainerDefinitions":{
