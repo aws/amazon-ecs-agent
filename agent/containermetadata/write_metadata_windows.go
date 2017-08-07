@@ -54,7 +54,11 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 
 	file, err := os.OpenFile(metadataFileName, os.O_WRONLY, 644)
 	if err != nil {
-		return err
+		// Retry if file does not exist
+		file, err := os.Create(metadataFileName)
+		if err != nil {
+			return err
+		}
 	}
 	defer file.Close()
 	_, err = file.Write(data)
