@@ -58,9 +58,6 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 		return err
 	}
 	defer temp.Close()
-	if err != nil {
-		return err
-	}
 	_, err = temp.Write(data)
 	if err != nil {
 		return err
