@@ -17,7 +17,6 @@ package containermetadata
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -53,7 +52,7 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	file, err := os.OpenFile(metadataFileName, os.O_WRONLY, metadataPerm)
+	file, err := os.OpenFile(metadataFileName, os.O_WRONLY, 644)
 	if err != nil {
 		return err
 	}
