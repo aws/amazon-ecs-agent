@@ -87,12 +87,6 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 		return err
 	}
 
-	// Create metadata file
-	err = createMetadataFile(metadataDirectoryPath)
-	if err != nil {
-		return err
-	}
-
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadataAtContainerCreate(task, container)
 	data, err := json.MarshalIndent(metadata, "", "\t")

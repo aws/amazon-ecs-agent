@@ -33,20 +33,6 @@ const (
 	metadataPerm                   = 0644
 )
 
-// createMetadataFile initializes the metadata file
-func createMetadataFile(metadataDirectoryPath string) error {
-	metadataFilePath := filepath.Join(metadataDirectoryPath, metadataFile)
-	temp, err := ioutil.TempFile(metadataDirectoryPath, "temp_metadata_file")
-	if err != nil {
-		return err
-	}
-	defer temp.Close()
-	if err != nil {
-		return err
-	}
-	return os.Rename(temp.Name(), metadataFilePath)
-}
-
 // createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig
 // and add the metadata file path as an environment variable ECS_CONTAINER_METADATA_FILE
 // We add an additional uuid to the path to ensure it does not conflict with user mounts
@@ -67,7 +53,7 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 	if err != nil {
 		return fmt.Errorf("write to metadata file for task %s container %s: %v", task, container, err)
 	}
-	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
+	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
 	temp, err := ioutil.TempFile(metadataFileDir, "temp_metadata_file")
 	if err != nil {
@@ -85,5 +71,5 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 	if err != nil {
 		return err
 	}
-	return os.Rename(temp.Name(), metadataFilePath)
+	return os.Rename(temp.Name(), metadataFileName)
 }
