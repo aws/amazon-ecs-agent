@@ -65,15 +65,18 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 		return fmt.Errorf("write to metadata file for task %s container %s: %v", task, container, err)
 	}
 	metadataFilePath := filepath.Join(metadataFileDir, metadataFile)
-
-	file, err := os.OpenFile(metadataFilePath, os.O_WRONLY, os.ModePerm)
+	temp, err := ioutil.TempFile(metadataFileDir, "temp_metadata_file")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	_, err = file.Write(data)
+	defer temp.Close()
 	if err != nil {
 		return err
 	}
-	return file.Sync()
+	_, err = temp.Write(data)
+	if err != nil {
+		return err
+	}
+	temp.Sync()
+	return os.Rename(temp.Name(), metadataFilePath)
 }

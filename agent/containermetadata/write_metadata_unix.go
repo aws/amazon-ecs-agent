@@ -30,6 +30,7 @@ import (
 const (
 	mountPoint                     = "/opt/ecs/metadata"
 	ContainerMetadataClientVersion = dockerclient.Version_1_21
+	metadataPerm                   = 0644
 )
 
 // createMetadataFile initializes the metadata file
@@ -77,6 +78,10 @@ func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, 
 		return err
 	}
 	_, err = temp.Write(data)
+	if err != nil {
+		return err
+	}
+	err = temp.Chmod(metadataPerm)
 	if err != nil {
 		return err
 	}
