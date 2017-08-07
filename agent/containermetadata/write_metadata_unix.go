@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/pborman/uuid"
@@ -47,11 +46,11 @@ func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadata
 
 // writeToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func writeToMetadataFile(data []byte, task *api.Task, container *api.Container, dataDir string) error {
-	metadataFileDir, err := getMetadataFilePath(task, container, dataDir)
+func writeToMetadataFile(data []byte, taskARN string, containerName string, dataDir string) error {
+	metadataFileDir, err := getMetadataFilePath(taskARN, containerName, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
-		return fmt.Errorf("write to metadata file for task %s container %s: %v", task, container, err)
+		return fmt.Errorf("write to metadata file for task %s container %s: %v", taskARN, containerName, err)
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 

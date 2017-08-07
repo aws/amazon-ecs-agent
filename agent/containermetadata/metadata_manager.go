@@ -19,7 +19,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -41,9 +40,9 @@ const (
 // operations
 type MetadataManager interface {
 	SetContainerInstanceARN(string)
-	CreateMetadata(*docker.Config, *docker.HostConfig, *api.Task, *api.Container) error
-	UpdateMetadata(string, *api.Task, *api.Container) error
-	CleanTaskMetadata(*api.Task) error
+	CreateMetadata(*docker.Config, *docker.HostConfig, string, string) error
+	UpdateMetadata(string, string, string) error
+	CleanTaskMetadata(string) error
 }
 
 // metadataManager implements the MetadataManager interface
@@ -82,14 +81,9 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // Createmetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig *docker.HostConfig, task *api.Task, container *api.Container) error {
-	// Do not create metadata file for internal containers
-	if container.IsInternal {
-		return nil
-	}
-
+func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig *docker.HostConfig, taskARN string, containerName string) error {
 	// Create task and container directories if they do not yet exist
-	metadataDirectoryPath, err := getMetadataFilePath(task, container, manager.dataDir)
+	metadataDirectoryPath, err := getMetadataFilePath(taskARN, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason
 	if err != nil {
 		return fmt.Errorf("container metadata create: %v", err)
@@ -97,13 +91,13 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 
 	err = os.MkdirAll(metadataDirectoryPath, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("creating metadata directory for task %s: %v", task, err)
+		return fmt.Errorf("creating metadata directory for task %s: %v", taskARN, err)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadataAtContainerCreate(task.Arn, container.Name)
+	metadata := manager.parseMetadataAtContainerCreate(taskARN, containerName)
 	data, err := json.MarshalIndent(metadata, "", "\t")
-	err = writeToMetadataFile(data, task, container, manager.dataDir)
+	err = writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 	if err != nil {
 		return err
 	}
@@ -118,12 +112,7 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
-func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, container *api.Container) error {
-	// Do not update (non-existent) metadata file for internal containers
-	if container.IsInternal {
-		return nil
-	}
-
+func (manager *metadataManager) UpdateMetadata(dockerID string, taskARN string, containerName string) error {
 	// Get docker container information through api call
 	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
@@ -136,14 +125,14 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, task *api.Task, 
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadata(dockerContainer, task.Arn, container.Name)
+	metadata := manager.parseMetadata(dockerContainer, taskARN, containerName)
 	data, err := json.MarshalIndent(metadata, "", "\t")
-	return writeToMetadataFile(data, task, container, manager.dataDir)
+	return writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 }
 
 // CleanTaskMetadata removes the metadata files of all containers associated with a task
-func (manager *metadataManager) CleanTaskMetadata(task *api.Task) error {
-	metadataPath, err := getTaskMetadataDir(task, manager.dataDir)
+func (manager *metadataManager) CleanTaskMetadata(taskARN string) error {
+	metadataPath, err := getTaskMetadataDir(taskARN, manager.dataDir)
 	if err != nil {
 		return err
 	}

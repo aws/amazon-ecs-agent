@@ -17,7 +17,6 @@
 package mock_containermetadata
 
 import (
-	api "github.com/aws/amazon-ecs-agent/agent/api"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -46,7 +45,7 @@ func (_m *MockMetadataManager) EXPECT() *MockMetadataManagerMockRecorder {
 }
 
 // CleanTaskMetadata mocks base method
-func (_m *MockMetadataManager) CleanTaskMetadata(_param0 *api.Task) error {
+func (_m *MockMetadataManager) CleanTaskMetadata(_param0 string) error {
 	ret := _m.ctrl.Call(_m, "CleanTaskMetadata", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -58,7 +57,7 @@ func (_mr *MockMetadataManagerMockRecorder) CleanTaskMetadata(arg0 interface{}) 
 }
 
 // CreateMetadata mocks base method
-func (_m *MockMetadataManager) CreateMetadata(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 *api.Task, _param3 *api.Container) error {
+func (_m *MockMetadataManager) CreateMetadata(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string, _param3 string) error {
 	ret := _m.ctrl.Call(_m, "CreateMetadata", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -80,7 +79,7 @@ func (_mr *MockMetadataManagerMockRecorder) SetContainerInstanceARN(arg0 interfa
 }
 
 // UpdateMetadata mocks base method
-func (_m *MockMetadataManager) UpdateMetadata(_param0 string, _param1 *api.Task, _param2 *api.Container) error {
+func (_m *MockMetadataManager) UpdateMetadata(_param0 string, _param1 string, _param2 string) error {
 	ret := _m.ctrl.Call(_m, "UpdateMetadata", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
