@@ -132,6 +132,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	dockerClient.EXPECT().Version().AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
 		engine.ListContainersResponse{}).AnyTimes()
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 		// Ensures that the test waits until acs session has bee started
 		discoverEndpointsInvoked.Done()
@@ -179,7 +180,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
-		imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()),
 	)
 
 	cfg := config.DefaultConfig()
