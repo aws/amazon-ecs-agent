@@ -232,13 +232,13 @@ func (client *cniClient) Capabilities(name string) ([]string, error) {
 	// Check if the plugin file exists before executing it
 	_, err := os.Stat(file)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ecscni: unable to describe file info for '%s'", file)
 	}
 
 	cmd := exec.Command(file, capabilitiesCommand)
 	capabilitiesInfo, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ecscni: failed invoking capabilities command for '%s'", name)
 	}
 
 	capabilities := &struct {
@@ -246,7 +246,7 @@ func (client *cniClient) Capabilities(name string) ([]string, error) {
 	}{}
 	err = json.Unmarshal(capabilitiesInfo, capabilities)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ecscni: Unmarshal capabilities from string: %s", capabilitiesInfo)
+		return nil, errors.Wrapf(err, "ecscni: failed to unmarshal capabilities for '%s' from string: %s", name, capabilitiesInfo)
 	}
 
 	return capabilities.Capabilities, nil

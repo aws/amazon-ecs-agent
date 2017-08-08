@@ -201,7 +201,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			}
 			// We have ascertained that the EC2 Instance is not running in a VPC
 			// No need to stop the ECS Agent in this case; all we need to do is
-			// to not update the config to disabled the TaskENIEnabled flag and
+			// to not update the config to disable the TaskENIEnabled flag and
 			// move on
 			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
 			agent.cfg.TaskENIEnabled = false

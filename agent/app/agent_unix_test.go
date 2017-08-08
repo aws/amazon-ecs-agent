@@ -302,7 +302,7 @@ func TestQueryCNIPluginsCapabilitiesHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		cniClient: cniClient,
 	}
-	assert.NoError(t, agent.queryCNIPluginsCapabilities())
+	assert.NoError(t, agent.verifyCNIPluginsCapabilities())
 }
 
 func TestQueryCNIPluginsCapabilitiesEmptyCapabilityListFromPlugin(t *testing.T) {
@@ -316,7 +316,7 @@ func TestQueryCNIPluginsCapabilitiesEmptyCapabilityListFromPlugin(t *testing.T) 
 		cniClient: cniClient,
 	}
 
-	assert.Error(t, agent.queryCNIPluginsCapabilities())
+	assert.Error(t, agent.verifyCNIPluginsCapabilities())
 }
 
 func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testing.T) {
@@ -330,7 +330,7 @@ func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testin
 		cniClient: cniClient,
 	}
 
-	assert.Error(t, agent.queryCNIPluginsCapabilities())
+	assert.Error(t, agent.verifyCNIPluginsCapabilities())
 }
 
 func setupMocksForInitializeTaskENIDependencies(t *testing.T) (*gomock.Controller,

@@ -16,7 +16,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -25,7 +24,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
-	enisetup "github.com/aws/amazon-ecs-agent/agent/eni/setup"
+	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 // initPID defines the process identifier for the init process
@@ -60,7 +63,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 
 	// Validate that the CNI plugins exist in the expected path and that
 	// they possess the right capabilities
-	if err := agent.queryCNIPluginsCapabilities(); err != nil {
+	if err := agent.verifyCNIPluginsCapabilities(); err != nil {
 		// An error here is terminal as it means that the plugins
 		// do not support the ENI capability
 		return err, true
@@ -72,15 +75,15 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 			// If the pause container's image tarball doesn't exist or if the
 			// invocation is done for an unsupported platform, we cannot recover.
 			// Return the error as terminal for these cases
-			return fmt.Errorf("unable to load pause container image: %v", err), true
+			return err, true
 		}
-		return fmt.Errorf("unable to load pause container image: %v", err), false
+		return err, false
 	}
 
-	if _, err := enisetup.New(agent.ctx, state, taskEngine.StateChangeEvents()); err != nil {
+	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
 		// Inability to initialize the udev watcher could succeed if the error
 		// was due the udev socket file not being available etc
-		return fmt.Errorf("unable to set up eni watcher: %v", err), false
+		return err, false
 	}
 
 	return nil, false
@@ -112,7 +115,7 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 }
 
 // isInstanceLaunchedInVPC returns false when the http status code is set to
-// 'not found' (404) wheb querying the vpc id from instance metadata
+// 'not found' (404) when querying the vpc id from instance metadata
 func isInstanceLaunchedInVPC(err error) bool {
 	if metadataErr, ok := err.(*ec2.MetadataError); ok &&
 		metadataErr.GetStatusCode() == http.StatusNotFound {
@@ -122,26 +125,42 @@ func isInstanceLaunchedInVPC(err error) bool {
 	return true
 }
 
-// queryCNIPluginsCapabilities returns an error if there's an error querying
+// verifyCNIPluginsCapabilities returns an error if there's an error querying
 // capabilities or if the required capability is absent from the capabilies
 // of the following plugins:
 // a. ecs-eni
 // b. ecs-bridge
 // c. ecs-ipam
-func (agent *ecsAgent) queryCNIPluginsCapabilities() error {
+func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
 		capabilities, err := agent.cniClient.Capabilities(plugin)
 		if err != nil {
-			return fmt.Errorf("unable to get capabilities supported by plugin '%s': %v",
-				plugin, err)
+			return err
 		}
 		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
-			return fmt.Errorf("plugin '%s' doesn't support the capability: %s",
+			return errors.Errorf("plugin '%s' doesn't support the capability: %s",
 				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
 		}
 	}
 
+	return nil
+}
+
+// startUdevWatcher starts the udev monitor and the watcher for receiving
+// notifications from the monitor
+func (agent *ecsAgent) startUdevWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
+	seelog.Debug("Setting up ENI Watcher")
+	udevMonitor, err := udevwrapper.New()
+	if err != nil {
+		return errors.Wrapf(err, "unable to create udev monitor")
+	}
+	// Create Watcher
+	eniWatcher := watcher.New(agent.ctx, udevMonitor, state, stateChangeEvents)
+	if err := eniWatcher.Init(); err != nil {
+		return errors.Wrapf(err, "unable to initialize eni watcher")
+	}
+	go eniWatcher.Start()
 	return nil
 }
 
