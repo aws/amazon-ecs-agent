@@ -44,28 +44,28 @@ func (_m *MockMetadataManager) EXPECT() *MockMetadataManagerMockRecorder {
 	return _m.recorder
 }
 
-// CleanTaskMetadata mocks base method
-func (_m *MockMetadataManager) CleanTaskMetadata(_param0 string) error {
-	ret := _m.ctrl.Call(_m, "CleanTaskMetadata", _param0)
+// Clean mocks base method
+func (_m *MockMetadataManager) Clean(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "Clean", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CleanTaskMetadata indicates an expected call of CleanTaskMetadata
-func (_mr *MockMetadataManagerMockRecorder) CleanTaskMetadata(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanTaskMetadata", arg0)
+// Clean indicates an expected call of Clean
+func (_mr *MockMetadataManagerMockRecorder) Clean(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Clean", arg0)
 }
 
-// CreateMetadata mocks base method
-func (_m *MockMetadataManager) CreateMetadata(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string, _param3 string) error {
-	ret := _m.ctrl.Call(_m, "CreateMetadata", _param0, _param1, _param2, _param3)
+// Create mocks base method
+func (_m *MockMetadataManager) Create(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string, _param3 string) error {
+	ret := _m.ctrl.Call(_m, "Create", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateMetadata indicates an expected call of CreateMetadata
-func (_mr *MockMetadataManagerMockRecorder) CreateMetadata(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMetadata", arg0, arg1, arg2, arg3)
+// Create indicates an expected call of Create
+func (_mr *MockMetadataManagerMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2, arg3)
 }
 
 // SetContainerInstanceARN mocks base method
@@ -78,14 +78,14 @@ func (_mr *MockMetadataManagerMockRecorder) SetContainerInstanceARN(arg0 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetContainerInstanceARN", arg0)
 }
 
-// UpdateMetadata mocks base method
-func (_m *MockMetadataManager) UpdateMetadata(_param0 string, _param1 string, _param2 string) error {
-	ret := _m.ctrl.Call(_m, "UpdateMetadata", _param0, _param1, _param2)
+// Update mocks base method
+func (_m *MockMetadataManager) Update(_param0 string, _param1 string, _param2 string) error {
+	ret := _m.ctrl.Call(_m, "Update", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateMetadata indicates an expected call of UpdateMetadata
-func (_mr *MockMetadataManagerMockRecorder) UpdateMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateMetadata", arg0, arg1, arg2)
+// Update indicates an expected call of Update
+func (_mr *MockMetadataManagerMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
