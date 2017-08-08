@@ -311,7 +311,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 
 	// Clean metadata directory for task
 	if engine.cfg.ContainerMetadataEnabled {
-		err := engine.metadataManager.CleanTaskMetadata(task.Arn)
+		err := engine.metadataManager.Clean(task.Arn)
 		if err != nil {
 			seelog.Errorf("Clean task metadata failed for task %s: %v", task, err)
 		}
@@ -613,7 +613,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
-		mderr := engine.metadataManager.CreateMetadata(config, hostConfig, task.Arn, container.Name)
+		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
 		if mderr != nil {
 			seelog.Errorf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
 		}
@@ -653,7 +653,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	// Performs this in the background to avoid delaying container start
 	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
 		go func() {
-			err := engine.metadataManager.UpdateMetadata(dockerContainer.DockerID, task.Arn, container.Name)
+			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
 			if err != nil {
 				seelog.Errorf("Update metadata file failed for container %s of task %s: %v", container, task, err)
 			} else {

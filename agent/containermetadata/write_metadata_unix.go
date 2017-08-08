@@ -29,7 +29,6 @@ import (
 const (
 	mountPoint                     = "/opt/ecs/metadata"
 	ContainerMetadataClientVersion = dockerclient.Version_1_21
-	metadataPerm                   = 0644
 )
 
 // createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig

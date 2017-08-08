@@ -22,41 +22,33 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-// parseNetworkMetadata parses the docker.NetworkSettings struct and
-// packages the desired metadata for JSON marshaling
+// parseMetadataAtContainerCreate gathers metadata from task and cluster configurations
+// then packages it for JSON Marshaling. We use this version to get data
+// available prior to container creation
 // Since we accept incomplete metadata fields, we should not return
-// errors here and handle them at this stage.
-func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.HostConfig) (NetworkMetadata, error) {
-	// Network settings and Host configuration should not be missing except due to errors
-	if settings == nil || hostConfig == nil {
-		err := fmt.Errorf("parse network metadata: could not find network settings or host configuration")
-		return NetworkMetadata{}, err
+// errors here and handle them at this or the above stage.
+func (manager *metadataManager) parseMetadataAtContainerCreate(taskARN string, containerName string) Metadata {
+	return Metadata{
+		cluster:              manager.cluster,
+		taskMetadata:         TaskMetadata{containerName: containerName, taskARN: taskARN},
+		containerInstanceARN: manager.containerInstanceARN,
+		metadataStatus:       MetadataInitial,
 	}
+}
 
-	// This metadata is the information provided in older versions of the API
-	// We get the NetworkMode (Network interface name) from the HostConfig because this
-	// this is the network with which the container is created
-	ipv4AddressFromSettings := settings.IPAddress
-	networkModeFromHostConfig := hostConfig.NetworkMode
-
-	// Extensive Network interface information is not available for Docker API versions 1.17-1.20
-	// Instead we only get the details of the first network interface
-	networkInterfaceList := make([]Network, 0)
-	if len(settings.Networks) > 0 {
-		for modeFromSettings, containerNetwork := range settings.Networks {
-			networkMode := modeFromSettings
-			ipv4Address := containerNetwork.IPAddress
-			networkInterface := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
-			networkInterfaceList = append(networkInterfaceList, networkInterface)
-		}
-	} else {
-		networkInterface := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
-		networkInterfaceList = append(networkInterfaceList, networkInterface)
+// parseMetadata gathers metadata from a docker container, and task
+// configuration and data then packages it for JSON Marshaling
+// Since we accept incomplete metadata fields, we should not return
+// errors here and handle them at this or the above stage.
+func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container, taskARN string, containerName string) Metadata {
+	dockerMD := parseDockerContainerMetadata(taskARN, containerName, dockerContainer)
+	return Metadata{
+		cluster:                 manager.cluster,
+		taskMetadata:            TaskMetadata{containerName: containerName, taskARN: taskARN},
+		dockerContainerMetadata: dockerMD,
+		containerInstanceARN:    manager.containerInstanceARN,
+		metadataStatus:          MetadataReady,
 	}
-
-	return NetworkMetadata{
-		networks: networkInterfaceList,
-	}, nil
 }
 
 // parseDockerContainerMetadata parses the metadata in a docker container
@@ -106,31 +98,39 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 	}
 }
 
-// parseMetadata gathers metadata from a docker container, and task
-// configuration and data then packages it for JSON Marshaling
+// parseNetworkMetadata parses the docker.NetworkSettings struct and
+// packages the desired metadata for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
-// errors here and handle them at this or the above stage.
-func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container, taskARN string, containerName string) Metadata {
-	dockerMD := parseDockerContainerMetadata(taskARN, containerName, dockerContainer)
-	return Metadata{
-		cluster:                 manager.cluster,
-		taskMetadata:            TaskMetadata{containerName: containerName, taskARN: taskARN},
-		dockerContainerMetadata: dockerMD,
-		containerInstanceARN:    manager.containerInstanceARN,
-		metadataStatus:          Metadata_READY,
+// errors here and handle them at this stage.
+func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.HostConfig) (NetworkMetadata, error) {
+	// Network settings and Host configuration should not be missing except due to errors
+	if settings == nil || hostConfig == nil {
+		err := fmt.Errorf("parse network metadata: could not find network settings or host configuration")
+		return NetworkMetadata{}, err
 	}
-}
 
-// parseMetadataAtContainerCreate gathers metadata from task and cluster configurations
-// then packages it for JSON Marshaling. We use this version to get data
-// available prior to container creation
-// Since we accept incomplete metadata fields, we should not return
-// errors here and handle them at this or the above stage.
-func (manager *metadataManager) parseMetadataAtContainerCreate(taskARN string, containerName string) Metadata {
-	return Metadata{
-		cluster:              manager.cluster,
-		taskMetadata:         TaskMetadata{containerName: containerName, taskARN: taskARN},
-		containerInstanceARN: manager.containerInstanceARN,
-		metadataStatus:       Metadata_NOT_READY,
+	// This metadata is the information provided in older versions of the API
+	// We get the NetworkMode (Network interface name) from the HostConfig because this
+	// this is the network with which the container is created
+	ipv4AddressFromSettings := settings.IPAddress
+	networkModeFromHostConfig := hostConfig.NetworkMode
+
+	// Extensive Network interface information is not available for Docker API versions 1.17-1.20
+	// Instead we only get the details of the first network interface
+	networkInterfaceList := make([]Network, 0)
+	if len(settings.Networks) > 0 {
+		for modeFromSettings, containerNetwork := range settings.Networks {
+			networkMode := modeFromSettings
+			ipv4Address := containerNetwork.IPAddress
+			networkInterface := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
+			networkInterfaceList = append(networkInterfaceList, networkInterface)
+		}
+	} else {
+		networkInterface := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
+		networkInterfaceList = append(networkInterfaceList, networkInterface)
 	}
+
+	return NetworkMetadata{
+		networks: networkInterfaceList,
+	}, nil
 }

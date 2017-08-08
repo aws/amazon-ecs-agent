@@ -175,8 +175,8 @@ configure them as something other than the defaults.
 | `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h | 1h |
 | `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 | 5 |
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
-| `ECS_ENABLE_CONTAINER_METADATA` | `<true|false>` | Whether to enable creation of a metadata file in the container | `false` | `false` |
-| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted | `/var/lib/ecs` | `Not used` |
+| `ECS_ENABLE_CONTAINER_METADATA` | `<true|false>` | Whether to enable creation of a metadata file in the container. If enabled the user can access the container's metadata internally by accessing the environment variable $ECS_CONTAINER_METADATA_FILE. The metadata file is only up to date after the container started, so the user should check the metadata file's status is at the appropriate stage before directly accessing it. Currently the states are 'NOT_READY' and 'READY'. | `false` | `false` |
+| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files as Docker requires an absolute path from the host in the case the Agent is run in a container. We do not use this value in Windows because the Agent is not run on a container in Windows. | `/var/lib/ecs` | `Not used` |
 
 ### Persistence
 

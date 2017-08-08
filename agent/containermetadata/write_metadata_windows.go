@@ -51,10 +51,12 @@ func writeToMetadataFile(data []byte, taskARN string, containerName string, data
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	file, err := os.OpenFile(metadataFileName, os.O_WRONLY, 644)
+	file, err := os.OpenFile(metadataFileName, os.O_WRONLY, metadataPerm)
 	if err != nil {
 		// Retry if file does not exist
-		file, err = os.Create(metadataFileName)
+		if os.IsNotExist(err) {
+			file, err = os.Create(metadataFileName)
+		}
 		if err != nil {
 			return err
 		}

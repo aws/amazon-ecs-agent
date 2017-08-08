@@ -27,22 +27,35 @@ import (
 const (
 	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA_FILE"
 	inspectContainerTimeout     = 30 * time.Second
+	metadataFile                = "ecs-container-metadata.json"
+	metadataPerm                = 0644
 )
 
+// MetadataStatus specifies the current update status of the metadata file.
+// The purpose of this status is for users to check if the metadata file has
+// reached the stage they need before they read the rest of the file to avoid
+// race conditions (Since the final stage will need to be after the container
+// starts up
+// In the future the metadata may require multiple stages of update and these
+// statuses should amended/appended accordingly.
 type MetadataStatus string
 
 const (
-	Metadata_NOT_READY = "NOT_READY"
-	Metadata_READY     = "READY"
+	// MetadataInitial is the initial state of the metadata file which
+	// contains metadata provided by the ECS Agent
+	MetadataInitial = "INITIAL"
+	// MetadataReady is the final state of the metadata file which indicates
+	// it has acquired all the data it needs (Currently from the Agent and Docker)
+	MetadataReady = "READY"
 )
 
 // MetadataManager is an interface that allows us to abstract away the metadata
 // operations
 type MetadataManager interface {
 	SetContainerInstanceARN(string)
-	CreateMetadata(*docker.Config, *docker.HostConfig, string, string) error
-	UpdateMetadata(string, string, string) error
-	CleanTaskMetadata(string) error
+	Create(*docker.Config, *docker.HostConfig, string, string) error
+	Update(string, string, string) error
+	Clean(string) error
 }
 
 // metadataManager implements the MetadataManager interface
@@ -81,12 +94,12 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // Createmetadata creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig *docker.HostConfig, taskARN string, containerName string) error {
+func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker.HostConfig, taskARN string, containerName string) error {
 	// Create task and container directories if they do not yet exist
 	metadataDirectoryPath, err := getMetadataFilePath(taskARN, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason
 	if err != nil {
-		return fmt.Errorf("container metadata create: %v", err)
+		return fmt.Errorf("container metadata create for task %s container %s: %v", taskARN, containerName, err)
 	}
 
 	err = os.MkdirAll(metadataDirectoryPath, os.ModePerm)
@@ -97,6 +110,11 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadataAtContainerCreate(taskARN, containerName)
 	data, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return fmt.Errorf("create metadata for task %s container %s: %v", taskARN, containerName, err)
+	}
+
+	// Write the metadata to file
 	err = writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 	if err != nil {
 		return err
@@ -112,7 +130,7 @@ func (manager *metadataManager) CreateMetadata(config *docker.Config, hostConfig
 
 // UpdateMetadata updates the metadata file after container starts and dynamic
 // metadata is available
-func (manager *metadataManager) UpdateMetadata(dockerID string, taskARN string, containerName string) error {
+func (manager *metadataManager) Update(dockerID string, taskARN string, containerName string) error {
 	// Get docker container information through api call
 	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
@@ -127,11 +145,15 @@ func (manager *metadataManager) UpdateMetadata(dockerID string, taskARN string, 
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadata(dockerContainer, taskARN, containerName)
 	data, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return fmt.Errorf("update metadata for task %s container %s: %v", taskARN, containerName, err)
+	}
+
 	return writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 }
 
 // CleanTaskMetadata removes the metadata files of all containers associated with a task
-func (manager *metadataManager) CleanTaskMetadata(taskARN string) error {
+func (manager *metadataManager) Clean(taskARN string) error {
 	metadataPath, err := getTaskMetadataDir(taskARN, manager.dataDir)
 	if err != nil {
 		return err

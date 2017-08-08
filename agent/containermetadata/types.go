@@ -76,9 +76,9 @@ type Metadata struct {
 	metadataStatus          MetadataStatus
 }
 
-// MetadataSerializer is an intermediate struct that converts the information
+// metadataSerializer is an intermediate struct that converts the information
 // in Metadata into information to encode into JSOn
-type MetadataSerializer struct {
+type metadataSerializer struct {
 	Cluster              string            `json:"Cluster,omitempty"`
 	ContainerInstanceARN string            `json:"ContainerInstanceARN,omitempty"`
 	TaskARN              string            `json:"TaskARN,omitempty"`
@@ -94,7 +94,7 @@ type MetadataSerializer struct {
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
-		MetadataSerializer{
+		metadataSerializer{
 			Cluster:              m.cluster,
 			ContainerInstanceARN: m.containerInstanceARN,
 			TaskARN:              m.taskMetadata.taskARN,

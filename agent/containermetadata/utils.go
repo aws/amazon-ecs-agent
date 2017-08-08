@@ -21,7 +21,6 @@ import (
 
 const (
 	metadataJoinSuffix = "metadata"
-	metadataFile       = "ecs-container-metadata.json"
 )
 
 // getTaskIDfromARN parses a task ARN and produces the task ID
