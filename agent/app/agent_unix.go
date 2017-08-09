@@ -81,8 +81,9 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 	}
 
 	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
-		// Inability to initialize the udev watcher could succeed if the error
-		// was due the udev socket file not being available etc
+		// If udev watcher was not initialized in this run because of the udev socket
+		// file not being available etc, the Agent might be able to retry and succeed
+		// on the next run. Hence, returning a false here for terminal bool
 		return err, false
 	}
 
@@ -107,7 +108,7 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 
 	subnetID, err := agent.ec2MetadataClient.SubnetID(mac)
 	if err != nil {
-		return fmt.Errorf("unable to get vpc id from instance metadata: %v", err), false
+		return fmt.Errorf("unable to get subnet id from instance metadata: %v", err), false
 	}
 	agent.vpc = vpcID
 	agent.subnet = subnetID
@@ -126,7 +127,7 @@ func isInstanceLaunchedInVPC(err error) bool {
 }
 
 // verifyCNIPluginsCapabilities returns an error if there's an error querying
-// capabilities or if the required capability is absent from the capabilies
+// capabilities or if the required capability is absent from the capabilities
 // of the following plugins:
 // a. ecs-eni
 // b. ecs-bridge
