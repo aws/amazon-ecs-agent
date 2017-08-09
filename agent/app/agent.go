@@ -191,22 +191,27 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled {
-		if err, terminal := agent.initializeTaskENIDependencies(state, taskEngine); err != nil {
-			if err != instanceNotLaunchedInVPCError {
-				seelog.Criticalf("Unable to initialize Task ENI dependencies: %v", err)
-				if terminal {
-					return exitcodes.ExitTerminal
-				}
-				return exitcodes.ExitError
-			}
+		err, terminal := agent.initializeTaskENIDependencies(state, taskEngine)
+		switch err {
+		case nil:
+			// No error, we can proceed with the rest of initialization
+			// Set vpc and subnet id attributes
+			vpcSubnetAttributes = agent.constructVPCSubnetAttributes()
+		case instanceNotLaunchedInVPCError:
 			// We have ascertained that the EC2 Instance is not running in a VPC
 			// No need to stop the ECS Agent in this case; all we need to do is
 			// to not update the config to disable the TaskENIEnabled flag and
 			// move on
 			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
 			agent.cfg.TaskENIEnabled = false
-		} else {
-			vpcSubnetAttributes = agent.constructVPCSubnetAttributes()
+		default:
+			// Encountered an error initializing dependencies for dealing with
+			// ENIs for Tasks. Exit with the appropriate error code
+			seelog.Criticalf("Unable to initialize Task ENI dependencies: %v", err)
+			if terminal {
+				return exitcodes.ExitTerminal
+			}
+			return exitcodes.ExitError
 		}
 	}
 
