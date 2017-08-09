@@ -83,7 +83,7 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	state := dockerstate.NewTaskEngineState()
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	metadataManager := containermetadata.NewMetadataManager(dockerClient, cfg)
+	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager)
