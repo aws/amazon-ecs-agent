@@ -22,10 +22,14 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-// dockerMetadataClient is a wrapper for the docker interface functions we need
+// DockerMetadataClient is a wrapper for the docker interface functions we need
 // We use this as a dummy type to be able to pass in engine.DockerClient to
 // our functions without creating import cycles
-type dockerMetadataClient interface {
+// We make it exported because we need to use it for testing (Using the MockDockerClient
+// in engine package leads to import cycles)
+// The problems described above are indications engine.DockerClient needs to be moved
+// outside the engine package
+type DockerMetadataClient interface {
 	InspectContainer(string, time.Duration) (*docker.Container, error)
 }
 

@@ -62,7 +62,7 @@ type MetadataManager interface {
 type metadataManager struct {
 	// client is the Docker API Client that the metadata manager uses. It defaults
 	// to 1.21 on Linux and 1.24 on Windows
-	client dockerMetadataClient
+	client DockerMetadataClient
 	// cluster is the cluster where this agent is run
 	cluster string
 	// dataDir is the directory where the metadata is being written. For Linux
@@ -76,7 +76,7 @@ type metadataManager struct {
 }
 
 // NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client dockerMetadataClient, cfg *config.Config) MetadataManager {
+func NewMetadataManager(client DockerMetadataClient, cfg *config.Config) MetadataManager {
 	return &metadataManager{
 		client:        client,
 		cluster:       cfg.Cluster,
@@ -91,7 +91,7 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 	manager.containerInstanceARN = containerInstanceARN
 }
 
-// Createmetadata creates the metadata file and adds the metadata directory to
+// Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
 func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker.HostConfig, taskARN string, containerName string) error {
@@ -128,8 +128,7 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 	return nil
 }
 
-// UpdateMetadata updates the metadata file after container starts and dynamic
-// metadata is available
+// Update updates the metadata file after container starts and dynamic metadata is available
 func (manager *metadataManager) Update(dockerID string, taskARN string, containerName string) error {
 	// Get docker container information through api call
 	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
@@ -139,7 +138,7 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("container metadata update: container not running or invalid")
+		return fmt.Errorf("container metadata update for task %s container %s: container not running or invalid", taskARN, containerName)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
@@ -152,11 +151,11 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 	return writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 }
 
-// CleanTaskMetadata removes the metadata files of all containers associated with a task
+// Clean removes the metadata files of all containers associated with a task
 func (manager *metadataManager) Clean(taskARN string) error {
 	metadataPath, err := getTaskMetadataDir(taskARN, manager.dataDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("clean task %s: %v", taskARN, err)
 	}
 	return os.RemoveAll(metadataPath)
 }
