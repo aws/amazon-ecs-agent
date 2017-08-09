@@ -116,7 +116,7 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 	networkModeFromHostConfig := hostConfig.NetworkMode
 
 	// Extensive Network interface information is not available for Docker API versions 1.17-1.20
-	// Instead we only get the details of the first network interface
+	// Instead we only get the details of the first network
 	networkInterfaceList := make([]Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {

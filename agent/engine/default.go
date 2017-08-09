@@ -27,6 +27,6 @@ import (
 var log = logger.ForModule("TaskEngine")
 
 // NewTaskEngine returns a default TaskEngine
-func NewTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.MetadataManager) TaskEngine {
+func NewTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.Manager) TaskEngine {
 	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, state, metadataManager)
 }

@@ -20,14 +20,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-
 	"github.com/pborman/uuid"
 )
 
 const (
-	mountPoint                     = `C:\ProgramData\Amazon\ECS\metadata`
-	ContainerMetadataClientVersion = dockerclient.Version_1_24
+	mountPoint = `C:\ProgramData\Amazon\ECS\metadata`
 )
 
 // createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig

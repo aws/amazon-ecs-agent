@@ -45,7 +45,7 @@ const credentialsID = "credsid"
 
 var defaultConfig = config.DefaultConfig()
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockMetadataManager) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockManager) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -54,7 +54,7 @@ func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerCli
 	containerChangeEventStream := eventstream.NewEventStream("TESTTASKENGINE", context.Background())
 	containerChangeEventStream.StartListening()
 	imageManager := NewMockImageManager(ctrl)
-	metadataManager := mock_containermetadata.NewMockMetadataManager(ctrl)
+	metadataManager := mock_containermetadata.NewMockManager(ctrl)
 	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, dockerstate.NewTaskEngineState(), metadataManager)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 

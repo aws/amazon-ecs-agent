@@ -43,6 +43,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
 	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
 	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+	os.Unsetenv("ECS_HOST_DATA_DIR")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Nil(t, err)
@@ -64,6 +65,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
+	assert.Equal(t, "/var/lib/ecs", cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file

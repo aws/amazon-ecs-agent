@@ -75,7 +75,7 @@ type ecsAgent struct {
 	credentialProvider    *aws_credentials.Credentials
 	stateManagerFactory   factory.StateManager
 	saveableOptionFactory factory.SaveableOption
-	metadataManager       containermetadata.MetadataManager
+	metadataManager       containermetadata.Manager
 }
 
 // newAgent returns a new ecsAgent object
@@ -110,24 +110,12 @@ func newAgent(
 		return nil, err
 	}
 
-	var metadataManager containermetadata.MetadataManager
+	var metadataManager containermetadata.Manager
 	if cfg.ContainerMetadataEnabled {
-		// Get the oldest Docker Client version with up to date inspect API
-		// as some metadata is unavailable in older API client versions
-		// If this version is unavailable we use default
-		// Due to limitations of interfaces and import cycles
-		// we can not do this logic in containermetadata package currently
-		// If we move DockerClient out of the engine, this section should be moved
-		// into containermetadata.NewMetadataManager()
-		supportedClients := dockerClient.SupportedVersions()
-		metadataDockerClient := dockerClient
-		for index := range supportedClients {
-			if supportedClients[index] == containermetadata.ContainerMetadataClientVersion {
-				metadataDockerClient = dockerClient.WithVersion(containermetadata.ContainerMetadataClientVersion)
-				break
-			}
-		}
-		metadataManager = containermetadata.NewMetadataManager(metadataDockerClient, cfg)
+		// We use the default API client for the metadata inspect call. This version has some information
+		// missing which means if we need those fields later we will need to change this client to
+		// the appropriate version
+		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
 	return &ecsAgent{

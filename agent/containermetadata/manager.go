@@ -49,16 +49,16 @@ const (
 	MetadataReady = "READY"
 )
 
-// MetadataManager is an interface that allows us to abstract away the metadata
+// Manager is an interface that allows us to abstract away the metadata
 // operations
-type MetadataManager interface {
+type Manager interface {
 	SetContainerInstanceARN(string)
 	Create(*docker.Config, *docker.HostConfig, string, string) error
 	Update(string, string, string) error
 	Clean(string) error
 }
 
-// metadataManager implements the MetadataManager interface
+// metadataManager implements the Manager interface
 type metadataManager struct {
 	// client is the Docker API Client that the metadata manager uses. It defaults
 	// to 1.21 on Linux and 1.24 on Windows
@@ -75,8 +75,8 @@ type metadataManager struct {
 	containerInstanceARN string
 }
 
-// NewMetadataManager creates a metadataManager for a given DockerTaskEngine settings.
-func NewMetadataManager(client DockerMetadataClient, cfg *config.Config) MetadataManager {
+// NewManager creates a metadataManager for a given DockerTaskEngine settings.
+func NewManager(client DockerMetadataClient, cfg *config.Config) Manager {
 	return &metadataManager{
 		client:        client,
 		cluster:       cfg.Cluster,
