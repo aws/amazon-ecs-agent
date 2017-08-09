@@ -70,6 +70,9 @@ func New(p client.ConfigProvider, cfgs ...*aws.Config) *ECS {
 
 // newClient creates, initializes and returns a new service client instance.
 func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegion, signingName string) *ECS {
+	if signingName == "" {
+		signingName = ServiceName
+	}
 	svc := &ECS{
 		Client: client.New(
 			cfg,

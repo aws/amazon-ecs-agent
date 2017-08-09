@@ -202,6 +202,88 @@ func (c *ECS) CreateServiceWithContext(ctx aws.Context, input *CreateServiceInpu
 	return out, req.Send()
 }
 
+const opDeleteAttributes = "DeleteAttributes"
+
+// DeleteAttributesRequest generates a "aws/request.Request" representing the
+// client's request for the DeleteAttributes operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeleteAttributes for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeleteAttributes method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeleteAttributesRequest method.
+//    req, resp := client.DeleteAttributesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+func (c *ECS) DeleteAttributesRequest(input *DeleteAttributesInput) (req *request.Request, output *DeleteAttributesOutput) {
+	op := &request.Operation{
+		Name:       opDeleteAttributes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteAttributesInput{}
+	}
+
+	output = &DeleteAttributesOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// DeleteAttributes API operation for Amazon EC2 Container Service.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation DeleteAttributes for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeTargetNotFoundException "TargetNotFoundException"
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+func (c *ECS) DeleteAttributes(input *DeleteAttributesInput) (*DeleteAttributesOutput, error) {
+	req, out := c.DeleteAttributesRequest(input)
+	return out, req.Send()
+}
+
+// DeleteAttributesWithContext is the same as DeleteAttributes with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeleteAttributes for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) DeleteAttributesWithContext(ctx aws.Context, input *DeleteAttributesInput, opts ...request.Option) (*DeleteAttributesOutput, error) {
+	req, out := c.DeleteAttributesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opDeleteCluster = "DeleteCluster"
 
 // DeleteClusterRequest generates a "aws/request.Request" representing the
@@ -1130,6 +1212,86 @@ func (c *ECS) DiscoverPollEndpointWithContext(ctx aws.Context, input *DiscoverPo
 	return out, req.Send()
 }
 
+const opListAttributes = "ListAttributes"
+
+// ListAttributesRequest generates a "aws/request.Request" representing the
+// client's request for the ListAttributes operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListAttributes for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListAttributes method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListAttributesRequest method.
+//    req, resp := client.ListAttributesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+func (c *ECS) ListAttributesRequest(input *ListAttributesInput) (req *request.Request, output *ListAttributesOutput) {
+	op := &request.Operation{
+		Name:       opListAttributes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ListAttributesInput{}
+	}
+
+	output = &ListAttributesOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// ListAttributes API operation for Amazon EC2 Container Service.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation ListAttributes for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+func (c *ECS) ListAttributes(input *ListAttributesInput) (*ListAttributesOutput, error) {
+	req, out := c.ListAttributesRequest(input)
+	return out, req.Send()
+}
+
+// ListAttributesWithContext is the same as ListAttributes with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListAttributes for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) ListAttributesWithContext(ctx aws.Context, input *ListAttributesInput, opts ...request.Option) (*ListAttributesOutput, error) {
+	req, out := c.ListAttributesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opListClusters = "ListClusters"
 
 // ListClustersRequest generates a "aws/request.Request" representing the
@@ -2004,6 +2166,90 @@ func (c *ECS) ListTasksPagesWithContext(ctx aws.Context, input *ListTasksInput, 
 	return p.Err()
 }
 
+const opPutAttributes = "PutAttributes"
+
+// PutAttributesRequest generates a "aws/request.Request" representing the
+// client's request for the PutAttributes operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See PutAttributes for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the PutAttributes method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the PutAttributesRequest method.
+//    req, resp := client.PutAttributesRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+func (c *ECS) PutAttributesRequest(input *PutAttributesInput) (req *request.Request, output *PutAttributesOutput) {
+	op := &request.Operation{
+		Name:       opPutAttributes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &PutAttributesInput{}
+	}
+
+	output = &PutAttributesOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// PutAttributes API operation for Amazon EC2 Container Service.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation PutAttributes for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+//   * ErrCodeTargetNotFoundException "TargetNotFoundException"
+//
+//   * ErrCodeAttributeLimitExceededException "AttributeLimitExceededException"
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+func (c *ECS) PutAttributes(input *PutAttributesInput) (*PutAttributesOutput, error) {
+	req, out := c.PutAttributesRequest(input)
+	return out, req.Send()
+}
+
+// PutAttributesWithContext is the same as PutAttributes with the addition of
+// the ability to pass a context and additional request options.
+//
+// See PutAttributes for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) PutAttributesWithContext(ctx aws.Context, input *PutAttributesInput, opts ...request.Option) (*PutAttributesOutput, error) {
+	req, out := c.PutAttributesRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opRegisterContainerInstance = "RegisterContainerInstance"
 
 // RegisterContainerInstanceRequest generates a "aws/request.Request" representing the
@@ -2752,6 +2998,94 @@ func (c *ECS) UpdateContainerAgentWithContext(ctx aws.Context, input *UpdateCont
 	return out, req.Send()
 }
 
+const opUpdateContainerInstancesState = "UpdateContainerInstancesState"
+
+// UpdateContainerInstancesStateRequest generates a "aws/request.Request" representing the
+// client's request for the UpdateContainerInstancesState operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See UpdateContainerInstancesState for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the UpdateContainerInstancesState method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the UpdateContainerInstancesStateRequest method.
+//    req, resp := client.UpdateContainerInstancesStateRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+func (c *ECS) UpdateContainerInstancesStateRequest(input *UpdateContainerInstancesStateInput) (req *request.Request, output *UpdateContainerInstancesStateOutput) {
+	op := &request.Operation{
+		Name:       opUpdateContainerInstancesState,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &UpdateContainerInstancesStateInput{}
+	}
+
+	output = &UpdateContainerInstancesStateOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// UpdateContainerInstancesState API operation for Amazon EC2 Container Service.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation UpdateContainerInstancesState for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server-side issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by something the client did, such as use
+//   an action or resource on behalf of a user that doesn't have permission to
+//   use the action or resource, or specify an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+//   * ErrCodeClusterNotFoundException "ClusterNotFoundException"
+//   The specified cluster could not be found. You can view your available clusters
+//   with ListClusters. Amazon ECS clusters are region-specific.
+//
+func (c *ECS) UpdateContainerInstancesState(input *UpdateContainerInstancesStateInput) (*UpdateContainerInstancesStateOutput, error) {
+	req, out := c.UpdateContainerInstancesStateRequest(input)
+	return out, req.Send()
+}
+
+// UpdateContainerInstancesStateWithContext is the same as UpdateContainerInstancesState with the addition of
+// the ability to pass a context and additional request options.
+//
+// See UpdateContainerInstancesState for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) UpdateContainerInstancesStateWithContext(ctx aws.Context, input *UpdateContainerInstancesStateInput, opts ...request.Option) (*UpdateContainerInstancesStateOutput, error) {
+	req, out := c.UpdateContainerInstancesStateRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opUpdateService = "UpdateService"
 
 // UpdateServiceRequest generates a "aws/request.Request" representing the
@@ -2880,6 +3214,10 @@ type Attribute struct {
 	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true"`
 
+	TargetId *string `locationName:"targetId" type:"string"`
+
+	TargetType *string `locationName:"targetType" type:"string" enum:"TargetType"`
+
 	// The value of the container instance attribute.
 	Value *string `locationName:"value" type:"string"`
 }
@@ -2910,6 +3248,18 @@ func (s *Attribute) Validate() error {
 // SetName sets the Name field's value.
 func (s *Attribute) SetName(v string) *Attribute {
 	s.Name = &v
+	return s
+}
+
+// SetTargetId sets the TargetId field's value.
+func (s *Attribute) SetTargetId(v string) *Attribute {
+	s.TargetId = &v
+	return s
+}
+
+// SetTargetType sets the TargetType field's value.
+func (s *Attribute) SetTargetType(v string) *Attribute {
+	s.TargetType = &v
 	return s
 }
 
@@ -3565,6 +3915,8 @@ type ContainerInstance struct {
 	// The number of tasks on the container instance that are in the PENDING status.
 	PendingTasksCount *int64 `locationName:"pendingTasksCount" type:"integer"`
 
+	RegisteredAt *time.Time `locationName:"registeredAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The registered resources on the container instance that are in use by current
 	// tasks.
 	RegisteredResources []*Resource `locationName:"registeredResources" type:"list"`
@@ -3579,6 +3931,8 @@ type ContainerInstance struct {
 	// The status of the container instance. The valid values are ACTIVE or INACTIVE.
 	// ACTIVE indicates that the container instance can accept tasks.
 	Status *string `locationName:"status" type:"string"`
+
+	Version *int64 `locationName:"version" type:"long"`
 
 	// The version information for the Amazon ECS container agent and Docker daemon
 	// running on the container instance.
@@ -3631,6 +3985,12 @@ func (s *ContainerInstance) SetPendingTasksCount(v int64) *ContainerInstance {
 	return s
 }
 
+// SetRegisteredAt sets the RegisteredAt field's value.
+func (s *ContainerInstance) SetRegisteredAt(v time.Time) *ContainerInstance {
+	s.RegisteredAt = &v
+	return s
+}
+
 // SetRegisteredResources sets the RegisteredResources field's value.
 func (s *ContainerInstance) SetRegisteredResources(v []*Resource) *ContainerInstance {
 	s.RegisteredResources = v
@@ -3655,6 +4015,12 @@ func (s *ContainerInstance) SetStatus(v string) *ContainerInstance {
 	return s
 }
 
+// SetVersion sets the Version field's value.
+func (s *ContainerInstance) SetVersion(v int64) *ContainerInstance {
+	s.Version = &v
+	return s
+}
+
 // SetVersionInfo sets the VersionInfo field's value.
 func (s *ContainerInstance) SetVersionInfo(v *VersionInfo) *ContainerInstance {
 	s.VersionInfo = v
@@ -3669,10 +4035,16 @@ type ContainerOverride struct {
 	// the Docker image or the task definition.
 	Command []*string `locationName:"command" type:"list"`
 
+	Cpu *int64 `locationName:"cpu" type:"integer"`
+
 	// The environment variables to send to the container. You can add new environment
 	// variables, which are added to the container at launch, or you can override
 	// the existing environment variables from the Docker image or the task definition.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
+
+	Memory *int64 `locationName:"memory" type:"integer"`
+
+	MemoryReservation *int64 `locationName:"memoryReservation" type:"integer"`
 
 	// The name of the container that receives the override.
 	Name *string `locationName:"name" type:"string"`
@@ -3694,15 +4066,87 @@ func (s *ContainerOverride) SetCommand(v []*string) *ContainerOverride {
 	return s
 }
 
+// SetCpu sets the Cpu field's value.
+func (s *ContainerOverride) SetCpu(v int64) *ContainerOverride {
+	s.Cpu = &v
+	return s
+}
+
 // SetEnvironment sets the Environment field's value.
 func (s *ContainerOverride) SetEnvironment(v []*KeyValuePair) *ContainerOverride {
 	s.Environment = v
 	return s
 }
 
+// SetMemory sets the Memory field's value.
+func (s *ContainerOverride) SetMemory(v int64) *ContainerOverride {
+	s.Memory = &v
+	return s
+}
+
+// SetMemoryReservation sets the MemoryReservation field's value.
+func (s *ContainerOverride) SetMemoryReservation(v int64) *ContainerOverride {
+	s.MemoryReservation = &v
+	return s
+}
+
 // SetName sets the Name field's value.
 func (s *ContainerOverride) SetName(v string) *ContainerOverride {
 	s.Name = &v
+	return s
+}
+
+type ContainerStateChange struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	ExitCode *int64 `locationName:"exitCode" type:"integer"`
+
+	NetworkBindings []*NetworkBinding `locationName:"networkBindings" type:"list"`
+
+	Reason *string `locationName:"reason" type:"string"`
+
+	Status *string `locationName:"status" type:"string"`
+}
+
+// String returns the string representation
+func (s ContainerStateChange) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ContainerStateChange) GoString() string {
+	return s.String()
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *ContainerStateChange) SetContainerName(v string) *ContainerStateChange {
+	s.ContainerName = &v
+	return s
+}
+
+// SetExitCode sets the ExitCode field's value.
+func (s *ContainerStateChange) SetExitCode(v int64) *ContainerStateChange {
+	s.ExitCode = &v
+	return s
+}
+
+// SetNetworkBindings sets the NetworkBindings field's value.
+func (s *ContainerStateChange) SetNetworkBindings(v []*NetworkBinding) *ContainerStateChange {
+	s.NetworkBindings = v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ContainerStateChange) SetReason(v string) *ContainerStateChange {
+	s.Reason = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ContainerStateChange) SetStatus(v string) *ContainerStateChange {
+	s.Status = &v
 	return s
 }
 
@@ -3773,10 +4217,16 @@ type CreateServiceInput struct {
 	// DesiredCount is a required field
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer" required:"true"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of load balancer objects, containing the load balancer name, the container
 	// name (as it appears in a container definition), and the container port to
 	// access from the load balancer.
 	LoadBalancers []*LoadBalancer `locationName:"loadBalancers" type:"list"`
+
+	PlacementConstraints []*PlacementConstraint `locationName:"placementConstraints" type:"list"`
+
+	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
 
 	// The name or full Amazon Resource Name (ARN) of the IAM role that allows your
 	// Amazon ECS container agent to make calls to your load balancer on your behalf.
@@ -3853,9 +4303,27 @@ func (s *CreateServiceInput) SetDesiredCount(v int64) *CreateServiceInput {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *CreateServiceInput) SetLaunchType(v string) *CreateServiceInput {
+	s.LaunchType = &v
+	return s
+}
+
 // SetLoadBalancers sets the LoadBalancers field's value.
 func (s *CreateServiceInput) SetLoadBalancers(v []*LoadBalancer) *CreateServiceInput {
 	s.LoadBalancers = v
+	return s
+}
+
+// SetPlacementConstraints sets the PlacementConstraints field's value.
+func (s *CreateServiceInput) SetPlacementConstraints(v []*PlacementConstraint) *CreateServiceInput {
+	s.PlacementConstraints = v
+	return s
+}
+
+// SetPlacementStrategy sets the PlacementStrategy field's value.
+func (s *CreateServiceInput) SetPlacementStrategy(v []*PlacementStrategy) *CreateServiceInput {
+	s.PlacementStrategy = v
 	return s
 }
 
@@ -3897,6 +4365,82 @@ func (s CreateServiceOutput) GoString() string {
 // SetService sets the Service field's value.
 func (s *CreateServiceOutput) SetService(v *Service) *CreateServiceOutput {
 	s.Service = v
+	return s
+}
+
+type DeleteAttributesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Attributes is a required field
+	Attributes []*Attribute `locationName:"attributes" type:"list" required:"true"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+}
+
+// String returns the string representation
+func (s DeleteAttributesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteAttributesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteAttributesInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeleteAttributesInput"}
+	if s.Attributes == nil {
+		invalidParams.Add(request.NewErrParamRequired("Attributes"))
+	}
+	if s.Attributes != nil {
+		for i, v := range s.Attributes {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Attributes", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *DeleteAttributesInput) SetAttributes(v []*Attribute) *DeleteAttributesInput {
+	s.Attributes = v
+	return s
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *DeleteAttributesInput) SetCluster(v string) *DeleteAttributesInput {
+	s.Cluster = &v
+	return s
+}
+
+type DeleteAttributesOutput struct {
+	_ struct{} `type:"structure"`
+
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
+}
+
+// String returns the string representation
+func (s DeleteAttributesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteAttributesOutput) GoString() string {
+	return s.String()
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *DeleteAttributesOutput) SetAttributes(v []*Attribute) *DeleteAttributesOutput {
+	s.Attributes = v
 	return s
 }
 
@@ -4047,6 +4591,8 @@ type Deployment struct {
 	// The ID of the deployment.
 	Id *string `locationName:"id" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// The number of tasks in the deployment that are in the PENDING status.
 	PendingCount *int64 `locationName:"pendingCount" type:"integer"`
 
@@ -4091,6 +4637,12 @@ func (s *Deployment) SetDesiredCount(v int64) *Deployment {
 // SetId sets the Id field's value.
 func (s *Deployment) SetId(v string) *Deployment {
 	s.Id = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *Deployment) SetLaunchType(v string) *Deployment {
+	s.LaunchType = &v
 	return s
 }
 
@@ -4887,6 +5439,112 @@ func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
 	return s
 }
 
+type ListAttributesInput struct {
+	_ struct{} `type:"structure"`
+
+	AttributeName *string `locationName:"attributeName" type:"string"`
+
+	AttributeValue *string `locationName:"attributeValue" type:"string"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	MaxResults *int64 `locationName:"maxResults" type:"integer"`
+
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// TargetType is a required field
+	TargetType *string `locationName:"targetType" type:"string" required:"true" enum:"TargetType"`
+}
+
+// String returns the string representation
+func (s ListAttributesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ListAttributesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ListAttributesInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ListAttributesInput"}
+	if s.TargetType == nil {
+		invalidParams.Add(request.NewErrParamRequired("TargetType"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAttributeName sets the AttributeName field's value.
+func (s *ListAttributesInput) SetAttributeName(v string) *ListAttributesInput {
+	s.AttributeName = &v
+	return s
+}
+
+// SetAttributeValue sets the AttributeValue field's value.
+func (s *ListAttributesInput) SetAttributeValue(v string) *ListAttributesInput {
+	s.AttributeValue = &v
+	return s
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *ListAttributesInput) SetCluster(v string) *ListAttributesInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListAttributesInput) SetMaxResults(v int64) *ListAttributesInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListAttributesInput) SetNextToken(v string) *ListAttributesInput {
+	s.NextToken = &v
+	return s
+}
+
+// SetTargetType sets the TargetType field's value.
+func (s *ListAttributesInput) SetTargetType(v string) *ListAttributesInput {
+	s.TargetType = &v
+	return s
+}
+
+type ListAttributesOutput struct {
+	_ struct{} `type:"structure"`
+
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
+
+	NextToken *string `locationName:"nextToken" type:"string"`
+}
+
+// String returns the string representation
+func (s ListAttributesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ListAttributesOutput) GoString() string {
+	return s.String()
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *ListAttributesOutput) SetAttributes(v []*Attribute) *ListAttributesOutput {
+	s.Attributes = v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListAttributesOutput) SetNextToken(v string) *ListAttributesOutput {
+	s.NextToken = &v
+	return s
+}
+
 type ListClustersInput struct {
 	_ struct{} `type:"structure"`
 
@@ -4972,6 +5630,8 @@ type ListContainerInstancesInput struct {
 	// the default cluster is assumed..
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	Filter *string `locationName:"filter" type:"string"`
+
 	// The maximum number of container instance results returned by ListContainerInstances
 	// in paginated output. When this parameter is used, ListContainerInstances
 	// only returns maxResults results in a single page along with a nextToken response
@@ -4988,6 +5648,8 @@ type ListContainerInstancesInput struct {
 	// returned the nextToken value. This value is null when there are no more results
 	// to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
+
+	Status *string `locationName:"status" type:"string" enum:"ContainerInstanceStatus"`
 }
 
 // String returns the string representation
@@ -5006,6 +5668,12 @@ func (s *ListContainerInstancesInput) SetCluster(v string) *ListContainerInstanc
 	return s
 }
 
+// SetFilter sets the Filter field's value.
+func (s *ListContainerInstancesInput) SetFilter(v string) *ListContainerInstancesInput {
+	s.Filter = &v
+	return s
+}
+
 // SetMaxResults sets the MaxResults field's value.
 func (s *ListContainerInstancesInput) SetMaxResults(v int64) *ListContainerInstancesInput {
 	s.MaxResults = &v
@@ -5015,6 +5683,12 @@ func (s *ListContainerInstancesInput) SetMaxResults(v int64) *ListContainerInsta
 // SetNextToken sets the NextToken field's value.
 func (s *ListContainerInstancesInput) SetNextToken(v string) *ListContainerInstancesInput {
 	s.NextToken = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ListContainerInstancesInput) SetStatus(v string) *ListContainerInstancesInput {
+	s.Status = &v
 	return s
 }
 
@@ -5515,6 +6189,8 @@ type LoadBalancer struct {
 
 	// The name of the load balancer.
 	LoadBalancerName *string `locationName:"loadBalancerName" type:"string"`
+
+	TargetGroupArn *string `locationName:"targetGroupArn" type:"string"`
 }
 
 // String returns the string representation
@@ -5542,6 +6218,12 @@ func (s *LoadBalancer) SetContainerPort(v int64) *LoadBalancer {
 // SetLoadBalancerName sets the LoadBalancerName field's value.
 func (s *LoadBalancer) SetLoadBalancerName(v string) *LoadBalancer {
 	s.LoadBalancerName = &v
+	return s
+}
+
+// SetTargetGroupArn sets the TargetGroupArn field's value.
+func (s *LoadBalancer) SetTargetGroupArn(v string) *LoadBalancer {
+	s.TargetGroupArn = &v
 	return s
 }
 
@@ -5699,6 +6381,66 @@ func (s *NetworkBinding) SetProtocol(v string) *NetworkBinding {
 	return s
 }
 
+type PlacementConstraint struct {
+	_ struct{} `type:"structure"`
+
+	Expression *string `locationName:"expression" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"PlacementConstraintType"`
+}
+
+// String returns the string representation
+func (s PlacementConstraint) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PlacementConstraint) GoString() string {
+	return s.String()
+}
+
+// SetExpression sets the Expression field's value.
+func (s *PlacementConstraint) SetExpression(v string) *PlacementConstraint {
+	s.Expression = &v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *PlacementConstraint) SetType(v string) *PlacementConstraint {
+	s.Type = &v
+	return s
+}
+
+type PlacementStrategy struct {
+	_ struct{} `type:"structure"`
+
+	Field *string `locationName:"field" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"PlacementStrategyType"`
+}
+
+// String returns the string representation
+func (s PlacementStrategy) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PlacementStrategy) GoString() string {
+	return s.String()
+}
+
+// SetField sets the Field field's value.
+func (s *PlacementStrategy) SetField(v string) *PlacementStrategy {
+	s.Field = &v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *PlacementStrategy) SetType(v string) *PlacementStrategy {
+	s.Type = &v
+	return s
+}
+
 // Port mappings allow containers to access ports on the host container instance
 // to send or receive traffic. Port mappings are specified as part of the container
 // definition. After a task reaches the RUNNING status, manual and automatic
@@ -5766,6 +6508,82 @@ func (s *PortMapping) SetHostPort(v int64) *PortMapping {
 // SetProtocol sets the Protocol field's value.
 func (s *PortMapping) SetProtocol(v string) *PortMapping {
 	s.Protocol = &v
+	return s
+}
+
+type PutAttributesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Attributes is a required field
+	Attributes []*Attribute `locationName:"attributes" type:"list" required:"true"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+}
+
+// String returns the string representation
+func (s PutAttributesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PutAttributesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *PutAttributesInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "PutAttributesInput"}
+	if s.Attributes == nil {
+		invalidParams.Add(request.NewErrParamRequired("Attributes"))
+	}
+	if s.Attributes != nil {
+		for i, v := range s.Attributes {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Attributes", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *PutAttributesInput) SetAttributes(v []*Attribute) *PutAttributesInput {
+	s.Attributes = v
+	return s
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *PutAttributesInput) SetCluster(v string) *PutAttributesInput {
+	s.Cluster = &v
+	return s
+}
+
+type PutAttributesOutput struct {
+	_ struct{} `type:"structure"`
+
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
+}
+
+// String returns the string representation
+func (s PutAttributesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PutAttributesOutput) GoString() string {
+	return s.String()
+}
+
+// SetAttributes sets the Attributes field's value.
+func (s *PutAttributesOutput) SetAttributes(v []*Attribute) *PutAttributesOutput {
+	s.Attributes = v
 	return s
 }
 
@@ -5915,7 +6733,9 @@ type RegisterTaskDefinitionInput struct {
 	// Family is a required field
 	Family *string `locationName:"family" type:"string" required:"true"`
 
-	NetworkMode *string `locationName:"networkMode" type:"string"`
+	NetworkMode *string `locationName:"networkMode" type:"string" enum:"NetworkMode"`
+
+	PlacementConstraints []*TaskDefinitionPlacementConstraint `locationName:"placementConstraints" type:"list"`
 
 	TaskRoleArn *string `locationName:"taskRoleArn" type:"string"`
 
@@ -5975,6 +6795,12 @@ func (s *RegisterTaskDefinitionInput) SetFamily(v string) *RegisterTaskDefinitio
 // SetNetworkMode sets the NetworkMode field's value.
 func (s *RegisterTaskDefinitionInput) SetNetworkMode(v string) *RegisterTaskDefinitionInput {
 	s.NetworkMode = &v
+	return s
+}
+
+// SetPlacementConstraints sets the PlacementConstraints field's value.
+func (s *RegisterTaskDefinitionInput) SetPlacementConstraints(v []*TaskDefinitionPlacementConstraint) *RegisterTaskDefinitionInput {
+	s.PlacementConstraints = v
 	return s
 }
 
@@ -6099,6 +6925,10 @@ type RunTaskInput struct {
 	// The count parameter is limited to 10 tasks per call.
 	Count *int64 `locationName:"count" type:"integer"`
 
+	Group *string `locationName:"group" type:"string"`
+
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of container overrides in JSON format that specify the name of a container
 	// in the specified task definition and the overrides it should receive. You
 	// can override the default command for a container (that is specified in the
@@ -6110,6 +6940,12 @@ type RunTaskInput struct {
 	// A total of 8192 characters are allowed for overrides. This limit includes
 	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
+
+	PlacementConstraints []*PlacementConstraint `locationName:"placementConstraints" type:"list"`
+
+	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
+
+	RoleArn *string `locationName:"roleArn" type:"string"`
 
 	// An optional tag specified when a task is started. For example if you automatically
 	// trigger a task to run a batch process job, you could apply a unique identifier
@@ -6164,9 +7000,39 @@ func (s *RunTaskInput) SetCount(v int64) *RunTaskInput {
 	return s
 }
 
+// SetGroup sets the Group field's value.
+func (s *RunTaskInput) SetGroup(v string) *RunTaskInput {
+	s.Group = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *RunTaskInput) SetLaunchType(v string) *RunTaskInput {
+	s.LaunchType = &v
+	return s
+}
+
 // SetOverrides sets the Overrides field's value.
 func (s *RunTaskInput) SetOverrides(v *TaskOverride) *RunTaskInput {
 	s.Overrides = v
+	return s
+}
+
+// SetPlacementConstraints sets the PlacementConstraints field's value.
+func (s *RunTaskInput) SetPlacementConstraints(v []*PlacementConstraint) *RunTaskInput {
+	s.PlacementConstraints = v
+	return s
+}
+
+// SetPlacementStrategy sets the PlacementStrategy field's value.
+func (s *RunTaskInput) SetPlacementStrategy(v []*PlacementStrategy) *RunTaskInput {
+	s.PlacementStrategy = v
+	return s
+}
+
+// SetRoleArn sets the RoleArn field's value.
+func (s *RunTaskInput) SetRoleArn(v string) *RunTaskInput {
+	s.RoleArn = &v
 	return s
 }
 
@@ -6238,6 +7104,8 @@ type Service struct {
 	// are displayed.
 	Events []*ServiceEvent `locationName:"events" type:"list"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of load balancer objects, containing the load balancer name, the container
 	// name (as it appears in a container definition), and the container port to
 	// access from the load balancer.
@@ -6245,6 +7113,10 @@ type Service struct {
 
 	// The number of tasks in the cluster that are in the PENDING state.
 	PendingCount *int64 `locationName:"pendingCount" type:"integer"`
+
+	PlacementConstraints []*PlacementConstraint `locationName:"placementConstraints" type:"list"`
+
+	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
 
 	// The Amazon Resource Name (ARN) of the IAM role associated with the service
 	// that allows the Amazon ECS container agent to register container instances
@@ -6318,6 +7190,12 @@ func (s *Service) SetEvents(v []*ServiceEvent) *Service {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *Service) SetLaunchType(v string) *Service {
+	s.LaunchType = &v
+	return s
+}
+
 // SetLoadBalancers sets the LoadBalancers field's value.
 func (s *Service) SetLoadBalancers(v []*LoadBalancer) *Service {
 	s.LoadBalancers = v
@@ -6327,6 +7205,18 @@ func (s *Service) SetLoadBalancers(v []*LoadBalancer) *Service {
 // SetPendingCount sets the PendingCount field's value.
 func (s *Service) SetPendingCount(v int64) *Service {
 	s.PendingCount = &v
+	return s
+}
+
+// SetPlacementConstraints sets the PlacementConstraints field's value.
+func (s *Service) SetPlacementConstraints(v []*PlacementConstraint) *Service {
+	s.PlacementConstraints = v
+	return s
+}
+
+// SetPlacementStrategy sets the PlacementStrategy field's value.
+func (s *Service) SetPlacementStrategy(v []*PlacementStrategy) *Service {
+	s.PlacementStrategy = v
 	return s
 }
 
@@ -6424,6 +7314,8 @@ type StartTaskInput struct {
 	// ContainerInstances is a required field
 	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
 
+	Group *string `locationName:"group" type:"string"`
+
 	// A list of container overrides in JSON format that specify the name of a container
 	// in the specified task definition and the overrides it should receive. You
 	// can override the default command for a container (that is specified in the
@@ -6489,6 +7381,12 @@ func (s *StartTaskInput) SetCluster(v string) *StartTaskInput {
 // SetContainerInstances sets the ContainerInstances field's value.
 func (s *StartTaskInput) SetContainerInstances(v []*string) *StartTaskInput {
 	s.ContainerInstances = v
+	return s
+}
+
+// SetGroup sets the Group field's value.
+func (s *StartTaskInput) SetGroup(v string) *StartTaskInput {
+	s.Group = &v
 	return s
 }
 
@@ -6733,6 +7631,8 @@ type SubmitTaskStateChangeInput struct {
 	// the task.
 	Cluster *string `locationName:"cluster" type:"string"`
 
+	Containers []*ContainerStateChange `locationName:"containers" type:"list"`
+
 	// The reason for the state change request.
 	Reason *string `locationName:"reason" type:"string"`
 
@@ -6757,6 +7657,12 @@ func (s SubmitTaskStateChangeInput) GoString() string {
 // SetCluster sets the Cluster field's value.
 func (s *SubmitTaskStateChangeInput) SetCluster(v string) *SubmitTaskStateChangeInput {
 	s.Cluster = &v
+	return s
+}
+
+// SetContainers sets the Containers field's value.
+func (s *SubmitTaskStateChangeInput) SetContainers(v []*ContainerStateChange) *SubmitTaskStateChangeInput {
+	s.Containers = v
 	return s
 }
 
@@ -6819,11 +7725,17 @@ type Task struct {
 	// The desired status of the task.
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
+	Group *string `locationName:"group" type:"string"`
+
 	// The last known status of the task.
 	LastStatus *string `locationName:"lastStatus" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// One or more container overrides.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
+
+	RoleArn *string `locationName:"roleArn" type:"string"`
 
 	StartedAt *time.Time `locationName:"startedAt" type:"timestamp" timestampFormat:"unix"`
 
@@ -6842,6 +7754,8 @@ type Task struct {
 	// The Amazon Resource Name (ARN) of the of the task definition that creates
 	// the task.
 	TaskDefinitionArn *string `locationName:"taskDefinitionArn" type:"string"`
+
+	Version *int64 `locationName:"version" type:"long"`
 }
 
 // String returns the string representation
@@ -6884,15 +7798,33 @@ func (s *Task) SetDesiredStatus(v string) *Task {
 	return s
 }
 
+// SetGroup sets the Group field's value.
+func (s *Task) SetGroup(v string) *Task {
+	s.Group = &v
+	return s
+}
+
 // SetLastStatus sets the LastStatus field's value.
 func (s *Task) SetLastStatus(v string) *Task {
 	s.LastStatus = &v
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *Task) SetLaunchType(v string) *Task {
+	s.LaunchType = &v
+	return s
+}
+
 // SetOverrides sets the Overrides field's value.
 func (s *Task) SetOverrides(v *TaskOverride) *Task {
 	s.Overrides = v
+	return s
+}
+
+// SetRoleArn sets the RoleArn field's value.
+func (s *Task) SetRoleArn(v string) *Task {
+	s.RoleArn = &v
 	return s
 }
 
@@ -6932,6 +7864,12 @@ func (s *Task) SetTaskDefinitionArn(v string) *Task {
 	return s
 }
 
+// SetVersion sets the Version field's value.
+func (s *Task) SetVersion(v int64) *Task {
+	s.Version = &v
+	return s
+}
+
 // Details of a task definition.
 type TaskDefinition struct {
 	_ struct{} `type:"structure"`
@@ -6946,7 +7884,9 @@ type TaskDefinition struct {
 	// of your task definition.
 	Family *string `locationName:"family" type:"string"`
 
-	NetworkMode *string `locationName:"networkMode" type:"string"`
+	NetworkMode *string `locationName:"networkMode" type:"string" enum:"NetworkMode"`
+
+	PlacementConstraints []*TaskDefinitionPlacementConstraint `locationName:"placementConstraints" type:"list"`
 
 	// The container instance attributes required by your task.
 	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`
@@ -7001,6 +7941,12 @@ func (s *TaskDefinition) SetNetworkMode(v string) *TaskDefinition {
 	return s
 }
 
+// SetPlacementConstraints sets the PlacementConstraints field's value.
+func (s *TaskDefinition) SetPlacementConstraints(v []*TaskDefinitionPlacementConstraint) *TaskDefinition {
+	s.PlacementConstraints = v
+	return s
+}
+
 // SetRequiresAttributes sets the RequiresAttributes field's value.
 func (s *TaskDefinition) SetRequiresAttributes(v []*Attribute) *TaskDefinition {
 	s.RequiresAttributes = v
@@ -7034,6 +7980,36 @@ func (s *TaskDefinition) SetTaskRoleArn(v string) *TaskDefinition {
 // SetVolumes sets the Volumes field's value.
 func (s *TaskDefinition) SetVolumes(v []*Volume) *TaskDefinition {
 	s.Volumes = v
+	return s
+}
+
+type TaskDefinitionPlacementConstraint struct {
+	_ struct{} `type:"structure"`
+
+	Expression *string `locationName:"expression" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"TaskDefinitionPlacementConstraintType"`
+}
+
+// String returns the string representation
+func (s TaskDefinitionPlacementConstraint) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskDefinitionPlacementConstraint) GoString() string {
+	return s.String()
+}
+
+// SetExpression sets the Expression field's value.
+func (s *TaskDefinitionPlacementConstraint) SetExpression(v string) *TaskDefinitionPlacementConstraint {
+	s.Expression = &v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *TaskDefinitionPlacementConstraint) SetType(v string) *TaskDefinitionPlacementConstraint {
+	s.Type = &v
 	return s
 }
 
@@ -7208,6 +8184,92 @@ func (s UpdateContainerAgentOutput) GoString() string {
 // SetContainerInstance sets the ContainerInstance field's value.
 func (s *UpdateContainerAgentOutput) SetContainerInstance(v *ContainerInstance) *UpdateContainerAgentOutput {
 	s.ContainerInstance = v
+	return s
+}
+
+type UpdateContainerInstancesStateInput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	// ContainerInstances is a required field
+	ContainerInstances []*string `locationName:"containerInstances" type:"list" required:"true"`
+
+	// Status is a required field
+	Status *string `locationName:"status" type:"string" required:"true" enum:"ContainerInstanceStatus"`
+}
+
+// String returns the string representation
+func (s UpdateContainerInstancesStateInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s UpdateContainerInstancesStateInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *UpdateContainerInstancesStateInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "UpdateContainerInstancesStateInput"}
+	if s.ContainerInstances == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerInstances"))
+	}
+	if s.Status == nil {
+		invalidParams.Add(request.NewErrParamRequired("Status"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCluster sets the Cluster field's value.
+func (s *UpdateContainerInstancesStateInput) SetCluster(v string) *UpdateContainerInstancesStateInput {
+	s.Cluster = &v
+	return s
+}
+
+// SetContainerInstances sets the ContainerInstances field's value.
+func (s *UpdateContainerInstancesStateInput) SetContainerInstances(v []*string) *UpdateContainerInstancesStateInput {
+	s.ContainerInstances = v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *UpdateContainerInstancesStateInput) SetStatus(v string) *UpdateContainerInstancesStateInput {
+	s.Status = &v
+	return s
+}
+
+type UpdateContainerInstancesStateOutput struct {
+	_ struct{} `type:"structure"`
+
+	ContainerInstances []*ContainerInstance `locationName:"containerInstances" type:"list"`
+
+	Failures []*Failure `locationName:"failures" type:"list"`
+}
+
+// String returns the string representation
+func (s UpdateContainerInstancesStateOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s UpdateContainerInstancesStateOutput) GoString() string {
+	return s.String()
+}
+
+// SetContainerInstances sets the ContainerInstances field's value.
+func (s *UpdateContainerInstancesStateOutput) SetContainerInstances(v []*ContainerInstance) *UpdateContainerInstancesStateOutput {
+	s.ContainerInstances = v
+	return s
+}
+
+// SetFailures sets the Failures field's value.
+func (s *UpdateContainerInstancesStateOutput) SetFailures(v []*Failure) *UpdateContainerInstancesStateOutput {
+	s.Failures = v
 	return s
 }
 
@@ -7451,6 +8513,14 @@ const (
 )
 
 const (
+	// ContainerInstanceStatusActive is a ContainerInstanceStatus enum value
+	ContainerInstanceStatusActive = "ACTIVE"
+
+	// ContainerInstanceStatusDraining is a ContainerInstanceStatus enum value
+	ContainerInstanceStatusDraining = "DRAINING"
+)
+
+const (
 	// DesiredStatusRunning is a DesiredStatus enum value
 	DesiredStatusRunning = "RUNNING"
 
@@ -7459,6 +8529,14 @@ const (
 
 	// DesiredStatusStopped is a DesiredStatus enum value
 	DesiredStatusStopped = "STOPPED"
+)
+
+const (
+	// LaunchTypeStandard is a LaunchType enum value
+	LaunchTypeStandard = "STANDARD"
+
+	// LaunchTypeServerless is a LaunchType enum value
+	LaunchTypeServerless = "SERVERLESS"
 )
 
 const (
@@ -7479,6 +8557,39 @@ const (
 
 	// LogDriverAwslogs is a LogDriver enum value
 	LogDriverAwslogs = "awslogs"
+
+	// LogDriverSplunk is a LogDriver enum value
+	LogDriverSplunk = "splunk"
+)
+
+const (
+	// NetworkModeBridge is a NetworkMode enum value
+	NetworkModeBridge = "bridge"
+
+	// NetworkModeHost is a NetworkMode enum value
+	NetworkModeHost = "host"
+
+	// NetworkModeNone is a NetworkMode enum value
+	NetworkModeNone = "none"
+)
+
+const (
+	// PlacementConstraintTypeDistinctInstance is a PlacementConstraintType enum value
+	PlacementConstraintTypeDistinctInstance = "distinctInstance"
+
+	// PlacementConstraintTypeMemberOf is a PlacementConstraintType enum value
+	PlacementConstraintTypeMemberOf = "memberOf"
+)
+
+const (
+	// PlacementStrategyTypeRandom is a PlacementStrategyType enum value
+	PlacementStrategyTypeRandom = "random"
+
+	// PlacementStrategyTypeSpread is a PlacementStrategyType enum value
+	PlacementStrategyTypeSpread = "spread"
+
+	// PlacementStrategyTypeBinpack is a PlacementStrategyType enum value
+	PlacementStrategyTypeBinpack = "binpack"
 )
 
 const (
@@ -7490,6 +8601,11 @@ const (
 )
 
 const (
+	// TargetTypeContainerInstance is a TargetType enum value
+	TargetTypeContainerInstance = "container-instance"
+)
+
+const (
 	// TaskDefinitionFamilyStatusActive is a TaskDefinitionFamilyStatus enum value
 	TaskDefinitionFamilyStatusActive = "ACTIVE"
 
@@ -7498,6 +8614,11 @@ const (
 
 	// TaskDefinitionFamilyStatusAll is a TaskDefinitionFamilyStatus enum value
 	TaskDefinitionFamilyStatusAll = "ALL"
+)
+
+const (
+	// TaskDefinitionPlacementConstraintTypeMemberOf is a TaskDefinitionPlacementConstraintType enum value
+	TaskDefinitionPlacementConstraintTypeMemberOf = "memberOf"
 )
 
 const (

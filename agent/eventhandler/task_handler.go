@@ -45,15 +45,22 @@ type TaskHandler struct {
 	// taskToEvents is arn:*eventList map so events may be serialized per task
 	//TODO: fix leak, currently items are never removed from this map
 	tasksToEvents map[string]*eventList
-	// tasksToEventsLock for locking the map
-	tasksToEventsLock sync.RWMutex
+	// tasksToContainerStates is used to collect container events
+	// between task transitions
+	tasksToContainerStates map[string][]api.ContainerStateChange
+
+	//  taskHandlerLock is used to safely access the following maps:
+	// * taskToEvents
+	// * tasksToContainerStates
+	taskHandlerLock sync.RWMutex
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
 func NewTaskHandler() *TaskHandler {
 	return &TaskHandler{
-		tasksToEvents:   make(map[string]*eventList),
-		submitSemaphore: utils.NewSemaphore(concurrentEventCalls),
+		tasksToEvents:          make(map[string]*eventList),
+		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
+		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
 	}
 }
 
@@ -65,6 +72,7 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 		if !ok {
 			return errors.New("eventhandler: unable to get task event from state change event")
 		}
+		handler.flushBatch(&event)
 		handler.addEvent(newSendableTaskEvent(event), client)
 		return nil
 
@@ -73,12 +81,31 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 		if !ok {
 			return errors.New("eventhandler: unable to get container event from state change event")
 		}
-		handler.addEvent(newSendableContainerEvent(event), client)
+		handler.batchContainerEvent(event)
 		return nil
 
 	default:
 		return errors.New("eventhandler: unable to determine event type from state change event")
 	}
+}
+
+// batchContainerEvent collects container state change events for a given task arn
+func (handler *TaskHandler) batchContainerEvent(event api.ContainerStateChange) {
+	handler.taskHandlerLock.Lock()
+	defer handler.taskHandlerLock.Unlock()
+
+	seelog.Infof("TaskHandler, batching container event: %s", event.String())
+	handler.tasksToContainerStates[event.TaskArn] = append(handler.tasksToContainerStates[event.TaskArn], event)
+}
+
+// flushBatch attaches the task arn's container events to TaskStateChange event that
+// is being submittied to the backend
+func (handler *TaskHandler) flushBatch(event *api.TaskStateChange) {
+	handler.taskHandlerLock.Lock()
+	defer handler.taskHandlerLock.Unlock()
+
+	event.Containers = append(event.Containers, handler.tasksToContainerStates[event.TaskArn]...)
+	delete(handler.tasksToContainerStates, event.TaskArn)
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate
@@ -103,8 +130,8 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 // getTaskEventList gets the eventList from taskToEvent map, and reduces the
 // scope of the taskToEventsLock to just this function
 func (handler *TaskHandler) getTaskEventList(change *sendableEvent) (taskEvents *eventList) {
-	handler.tasksToEventsLock.Lock()
-	defer handler.tasksToEventsLock.Unlock()
+	handler.taskHandlerLock.Lock()
+	defer handler.taskHandlerLock.Unlock()
 
 	taskEvents, ok := handler.tasksToEvents[change.taskArn()]
 	if !ok {
