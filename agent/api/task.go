@@ -248,7 +248,7 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 // there was no change
 // Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
-	seelog.Debug("Updating task %v", task)
+	seelog.Debug("Updating task: %s", task.String())
 
 	// Set to a large 'impossible' status that can't be the min
 	earliestStatus := ContainerZombie
