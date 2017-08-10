@@ -37,7 +37,7 @@ func TestWriteOpenFileFail(t *testing.T) {
 		mockOS.EXPECT().IsNotExist(mockOpenErr).Return(false),
 	)
 
-	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
 	if err == nil {
 		t.Error("Expected error to be returned")
 	}
@@ -62,7 +62,7 @@ func TestWriteFileWriteFail(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
 	if err == nil {
 		t.Error("Expected error to be returned")
 	}

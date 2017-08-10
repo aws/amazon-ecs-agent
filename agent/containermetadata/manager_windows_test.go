@@ -18,8 +18,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
-
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 )

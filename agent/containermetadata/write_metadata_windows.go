@@ -55,7 +55,7 @@ func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, d
 	if err != nil {
 		// Retry if file does not exist
 		if osWrap.IsNotExist(err) {
-			file, err = manager.osWrap.Create(metadataFileName)
+			file, err = osWrap.Create(metadataFileName)
 		}
 		if err != nil {
 			return err
