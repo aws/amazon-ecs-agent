@@ -26,7 +26,7 @@ import (
 
 // TestCreate is the mainline case for metadata create
 func TestCreate(t *testing.T) {
-	_, _, mockOS, mockFile, done := setup(t)
+	_, _, mockOS, mockFile, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
@@ -63,7 +63,7 @@ func TestCreate(t *testing.T) {
 
 // TestUpdate is mainline case for metadata update
 func TestUpdate(t *testing.T) {
-	mockClient, _, mockOS, mockFile, done := setup(t)
+	mockClient, _, mockOS, mockFile, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID

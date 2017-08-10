@@ -36,7 +36,7 @@ const (
 	dataDir              = "ecs_mockdata"
 )
 
-func setup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
+func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
 	ctrl := gomock.NewController(t)
 	mockDockerMetadataClient := mock_containermetadata.NewMockDockerMetadataClient(ctrl)
 	mockIOUtil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
@@ -47,7 +47,7 @@ func setup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *moc
 
 // TestSetContainerInstanceARN checks whether the container instance ARN is set correctly.
 func TestSetContainerInstanceARN(t *testing.T) {
-	_, _, _, _, done := setup(t)
+	_, _, _, _, done := managerSetup(t)
 	defer done()
 
 	mockARN := containerInstanceARN
@@ -61,7 +61,7 @@ func TestSetContainerInstanceARN(t *testing.T) {
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path
 func TestCreateMalformedFilepath(t *testing.T) {
-	_, _, _, _, done := setup(t)
+	_, _, _, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -78,7 +78,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 
 // TestCreateMkdirAllFail checks case when MkdirAll call fails
 func TestCreateMkdirAllFail(t *testing.T) {
-	_, _, mockOS, _, done := setup(t)
+	_, _, mockOS, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
@@ -101,7 +101,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 
 // TestUpdateInspectFail checks case when Inspect call fails
 func TestUpdateInspectFail(t *testing.T) {
-	mockClient, _, _, _, done := setup(t)
+	mockClient, _, _, _, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -124,7 +124,7 @@ func TestUpdateInspectFail(t *testing.T) {
 
 // TestUpdateNotRunningFail checks case where container is not running
 func TestUpdateNotRunningFail(t *testing.T) {
-	mockClient, _, _, _, done := setup(t)
+	mockClient, _, _, _, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -152,7 +152,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 
 // TestCleanMalformedFilepath checks case where ARN is invalid
 func TestCleanMalformedFilepath(t *testing.T) {
-	_, _, _, _, done := setup(t)
+	_, _, _, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -168,7 +168,7 @@ func TestCleanMalformedFilepath(t *testing.T) {
 
 // TestClean is the mainline case for metadata create
 func TestClean(t *testing.T) {
-	_, _, mockOS, _, done := setup(t)
+	_, _, mockOS, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN

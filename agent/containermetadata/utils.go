@@ -38,7 +38,7 @@ func getTaskIDfromARN(taskARN string) (string, error) {
 	arnTaskPartSplit := strings.SplitN(colonSplitARN[5], "/", 2)
 	// Incorrectly formatted ARN (Should not happen)
 	if len(arnTaskPartSplit) < 2 {
-		return "", fmt.Errorf("get task ARN: invalid TaskARN %s", taskARN)
+		return "", fmt.Errorf("get task ARN: cannot find TaskID for TaskARN %s", taskARN)
 	}
 	return arnTaskPartSplit[1], nil
 }

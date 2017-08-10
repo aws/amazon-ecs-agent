@@ -115,22 +115,22 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 	ipv4AddressFromSettings := settings.IPAddress
 	networkModeFromHostConfig := hostConfig.NetworkMode
 
-	// Extensive Network interface information is not available for Docker API versions 1.17-1.20
+	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network
-	networkInterfaceList := make([]Network, 0)
+	networkList := make([]Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Address := containerNetwork.IPAddress
-			networkInterface := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
-			networkInterfaceList = append(networkInterfaceList, networkInterface)
+			network := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
+			networkList = append(networkList, network)
 		}
 	} else {
-		networkInterface := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
-		networkInterfaceList = append(networkInterfaceList, networkInterface)
+		network := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
+		networkList = append(networkList, network)
 	}
 
 	return NetworkMetadata{
-		networks: networkInterfaceList,
+		networks: networkList,
 	}, nil
 }
