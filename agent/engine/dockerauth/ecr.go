@@ -17,52 +17,101 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-type ecrAuthProvider struct {
-	authData *api.ECRAuthData
-	client   ecr.ECRClient
+type cacheKey struct {
+	region           string
+	rolearn          string
+	registryID       string
+	endpointOverride string
 }
 
-const proxyEndpointScheme = "https://"
+type ecrAuthProvider struct {
+	tokenCache async.Cache
+	factory    ecr.ECRFactory
+	cacheLock  sync.RWMutex
+}
+
+const (
+	roundtripTimeout      = 5 * time.Second
+	tokenCacheSize        = 100
+	MinimumJitterDuration = 30 * time.Minute
+	tokenCacheTTL         = 12 * time.Hour
+	proxyEndpointScheme   = "https://"
+)
+
+func (key *cacheKey) String() string {
+	return fmt.Sprintf("%s-%s-%s-%s", key.rolearn, key.region, key.registryID, key.endpointOverride)
+}
 
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
 // credentials for pulling from Amazon EC2 Container Registry
-func NewECRAuthProvider(authData *api.ECRAuthData, clientFactory ecr.ECRFactory) DockerAuthProvider {
-	if authData == nil {
-		return &ecrAuthProvider{}
-	}
-	log.Tracef("Getting client in %s with endpoint %s", authData.Region, authData.EndpointOverride)
+func NewECRAuthProvider(ecrFactory ecr.ECRFactory) DockerAuthProvider {
 	return &ecrAuthProvider{
-		authData: authData,
-		client:   clientFactory.GetClient(authData),
+		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
+		factory:    ecrFactory,
 	}
 }
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *ecrAuthProvider) GetAuthconfig(image string) (docker.AuthConfiguration, error) {
-	if authProvider.authData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("ecrAuthProvider cannot be used without AuthData")
+func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
+	authData *api.ECRAuthData) (docker.AuthConfiguration, error) {
+	if authData == nil {
+		return docker.AuthConfiguration{}, fmt.Errorf("Missing AuthConfiguration data")
 	}
+
+	// First try to get the token from cache, if the token does not exist,
+	// then call ecr api to get the new token
+	key := cacheKey{
+		region:           authData.Region,
+		endpointOverride: authData.EndpointOverride,
+		registryID:       authData.RegistryID,
+	}
+	if !utils.ZeroOrNil(authData.PullCredentials) {
+		key.rolearn = authData.PullCredentials.RoleArn
+	}
+
+	authProvider.cacheLock.RLock()
+	defer authProvider.cacheLock.RUnlock()
+
+	token, ok := authProvider.tokenCache.Get(key.String())
+	if ok {
+		cachedToken := token.(*ecrapi.AuthorizationData)
+		if authProvider.ISTokenValid(cachedToken) {
+			return extractToken(cachedToken)
+		}
+		authProvider.tokenCache.Delete(key.String())
+	}
+
+	// Create ECR client to get the token
+	client, err := authProvider.factory.GetClient(authData)
 	log.Debugf("Calling ECR.GetAuthorizationToken for %s", image)
-	authData, err := authProvider.client.GetAuthorizationToken(authProvider.authData.RegistryID)
+	ecrAuthData, err := client.GetAuthorizationToken(authData.RegistryID)
 	if err != nil {
 		return docker.AuthConfiguration{}, err
 	}
-	if authData == nil {
+	if ecrAuthData == nil {
 		return docker.AuthConfiguration{}, fmt.Errorf("Missing AuthorizationData in ECR response for %s", image)
 	}
-	if authData.ProxyEndpoint != nil &&
-		strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(authData.ProxyEndpoint)) &&
-		authData.AuthorizationToken != nil {
-		return extractToken(authData)
+
+	if ecrAuthData.ProxyEndpoint != nil &&
+		strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(ecrAuthData.ProxyEndpoint)) &&
+		ecrAuthData.AuthorizationToken != nil {
+
+		// Cache the new token
+		authProvider.tokenCache.Set(key.String(), ecrAuthData)
+		return extractToken(ecrAuthData)
 	}
 	return docker.AuthConfiguration{}, fmt.Errorf("No AuthorizationToken found for %s", image)
 }
@@ -78,5 +127,17 @@ func extractToken(authData *ecrapi.AuthorizationData) (docker.AuthConfiguration,
 		Password:      parts[1],
 		ServerAddress: aws.StringValue(authData.ProxyEndpoint),
 	}, nil
+}
 
+// Ensure token is still within it's expiration window. We early expire to allow
+// for timing in calls and add jitter to avoid refreshing all of the tokens at once.
+func (authProvider *ecrAuthProvider) ISTokenValid(authData *ecrapi.AuthorizationData) bool {
+	if authData == nil || authData.ExpiresAt == nil {
+		return false
+	}
+
+	refreshTime := aws.TimeValue(authData.ExpiresAt).
+		Add(-1 * utils.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
+
+	return time.Now().Before(refreshTime)
 }

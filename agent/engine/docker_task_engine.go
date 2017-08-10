@@ -622,10 +622,15 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		return metadata
 	}
 
-	// Clean up the ecr pull credentials after pulling
-	if container.IsECRCredentialsEnabled() {
-		container.RegistryAuthentication.ECRAuthData.PullCredentials = nil
+	// Set up the credentials for pull from ecr if necessary
+	credential, ok := task.GetTaskCredentials()
+	if ok && container.IsECRCredentialsEnabled() {
+		container.SetRegistryAuthCredentials(&credential)
+		// Clean up the ecr pull credentials after pulling
+		defer container.SetRegistryAuthCredentials(&credentials.IAMRoleCredentials{})
 	}
+
+	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
 
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {

@@ -24,6 +24,8 @@ type Cache interface {
 	Get(key string) (Value, bool)
 	// sets a value in cache. overrites any existing value
 	Set(key string, value Value)
+	// deletes the value from the cache
+	Delete(key string)
 }
 
 // Creates an LRUCache with maximum size, ttl for items.
@@ -78,6 +80,13 @@ func (lru *lruCache) Set(key string, value Value) {
 	lru.cache[key] = &entry{value: value, added: time.Now()}
 	lru.evictList.PushBack(key)
 	lru.purgeSize()
+}
+
+func (lru *lruCache) Delete(key string) {
+	lru.Lock()
+	defer lru.Unlock()
+
+	delete(lru.cache, key)
 }
 
 func (lru *lruCache) updateAccessed(key string) {
