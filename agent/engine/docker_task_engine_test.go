@@ -232,6 +232,346 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	}
 }
 
+// TestContainerMetadataEnabledHappyPath checks case when metadata service is enabled and does not have errors
+func TestContainerMetadataEnabledHappyPath(t *testing.T) {
+	metadataConfig := defaultConfig
+	metadataConfig.ContainerMetadataEnabled = true
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(t, &metadataConfig)
+	defer ctrl.Finish()
+
+	roleCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+	credentialsManager.EXPECT().RemoveCredentials(credentialsID)
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.SetCredentialsID(credentialsID)
+
+	eventStream := make(chan DockerContainerChangeEvent)
+	// createStartEventsReported is used to force the test to wait until the container created and started
+	// events are processed
+	createStartEventsReported := sync.WaitGroup{}
+
+	client.EXPECT().Version()
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	var createdContainerName string
+	for _, container := range sleepTask.Containers {
+		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
+		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
+		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
+		dockerConfig, err := sleepTask.DockerConfig(container)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Container config should get updated with this during PostUnmarshalTask
+		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+		metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
+
+				if !reflect.DeepEqual(dockerConfig, config) {
+					t.Errorf("Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
+				}
+				// sleep5 task contains only one container. Just assign
+				// the containerName to createdContainerName
+				createdContainerName = containerName
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerCreated)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+			func(id string, timeout time.Duration) {
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerRunning)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	}
+
+	// steadyStateCheckWait is used to force the test to wait until the steady-state check
+	// has been invoked at least once
+	steadyStateCheckWait := sync.WaitGroup{}
+	steadyStateVerify := make(chan time.Time, 1)
+	cleanup := make(chan time.Time, 1)
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+			steadyStateCheckWait.Done()
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
+
+	err := taskEngine.Init(context.TODO())
+	assert.NoError(t, err)
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	steadyStateCheckWait.Add(1)
+	taskEngine.AddTask(sleepTask)
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+
+	select {
+	case <-stateChangeEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
+
+	// Wait for container create and start events to be processed
+	createStartEventsReported.Wait()
+	// Wait for steady state check to be invoked
+	steadyStateCheckWait.Wait()
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+
+	// Wait for all events to be consumed prior to moving it towards stopped; we
+	// don't want to race the below with these or we'll end up with the "going
+	// backwards in state" stop and we haven't 'expect'd for that
+
+	exitCode := 0
+	// And then docker reports that sleep died, as sleep is wont to do
+	eventStream <- DockerContainerChangeEvent{
+		Status: api.ContainerStopped,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: "containerId",
+			ExitCode: &exitCode,
+		},
+	}
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	// hold on to container event to verify exit code
+	contEvent := event.(api.ContainerStateChange)
+	assert.Equal(t, *contEvent.ExitCode, 0, "Exit code should be present")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	// This ensures that managedTask.waitForStopReported makes progress
+	sleepTask.SetSentStatus(api.TaskStopped)
+
+	// Extra events should not block forever; duplicate acs and docker events are possible
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+
+	sleepTaskStop := testdata.LoadTask("sleep5")
+	sleepTaskStop.SetCredentialsID(credentialsID)
+	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
+	taskEngine.AddTask(sleepTaskStop)
+	// As above, duplicate events should not be a problem
+	taskEngine.AddTask(sleepTaskStop)
+	taskEngine.AddTask(sleepTaskStop)
+
+	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
+		func(removedContainerName string, timeout time.Duration) {
+			assert.Equal(t, createdContainerName, removedContainerName, "Container name mismatch")
+		}).Return(nil)
+
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
+	metadataManager.EXPECT().Clean(gomock.Any()).Return(nil)
+	// trigger cleanup
+	cleanup <- time.Now()
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+
+	// Wait for the task to actually be dead; if we just fallthrough immediately,
+	// the remove might not have happened (expectation failure)
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestCotnainerMetadataEnabledErrorPath checks case when metadata service is enabled but calls return errors
+func TestContainerMetadataEnabledErrorPath(t *testing.T) {
+	metadataConfig := defaultConfig
+	metadataConfig.ContainerMetadataEnabled = true
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(t, &metadataConfig)
+	defer ctrl.Finish()
+
+	roleCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+	credentialsManager.EXPECT().RemoveCredentials(credentialsID)
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.SetCredentialsID(credentialsID)
+
+	eventStream := make(chan DockerContainerChangeEvent)
+	// createStartEventsReported is used to force the test to wait until the container created and started
+	// events are processed
+	createStartEventsReported := sync.WaitGroup{}
+
+	client.EXPECT().Version()
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	var createdContainerName string
+	for _, container := range sleepTask.Containers {
+		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+		client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
+		imageManager.EXPECT().RecordContainerReference(container).Return(nil)
+		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
+		dockerConfig, err := sleepTask.DockerConfig(container)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Container config should get updated with this during PostUnmarshalTask
+		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
+		// Container config should get updated with this during CreateContainer
+		dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = sleepTask.Arn
+		dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = sleepTask.Family
+		dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = sleepTask.Version
+		dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
+		metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("create metadata error"))
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
+
+				if !reflect.DeepEqual(dockerConfig, config) {
+					t.Errorf("Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
+				}
+				// sleep5 task contains only one container. Just assign
+				// the containerName to createdContainerName
+				createdContainerName = containerName
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerCreated)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+
+		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+			func(id string, timeout time.Duration) {
+				createStartEventsReported.Add(1)
+				go func() {
+					eventStream <- createDockerEvent(api.ContainerRunning)
+					createStartEventsReported.Done()
+				}()
+			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+		metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("update metadata error"))
+	}
+
+	// steadyStateCheckWait is used to force the test to wait until the steady-state check
+	// has been invoked at least once
+	steadyStateCheckWait := sync.WaitGroup{}
+	steadyStateVerify := make(chan time.Time, 1)
+	cleanup := make(chan time.Time, 1)
+	mockTime.EXPECT().Now().Do(func() time.Time { return time.Now() }).AnyTimes()
+	gomock.InOrder(
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
+			steadyStateCheckWait.Done()
+		}).Return(steadyStateVerify),
+		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
+	)
+
+	err := taskEngine.Init(context.TODO())
+	assert.NoError(t, err)
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	steadyStateCheckWait.Add(1)
+	taskEngine.AddTask(sleepTask)
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+
+	select {
+	case <-stateChangeEvents:
+		t.Fatal("Should be out of events")
+	default:
+	}
+
+	// Wait for container create and start events to be processed
+	createStartEventsReported.Wait()
+	// Wait for steady state check to be invoked
+	steadyStateCheckWait.Wait()
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+
+	// Wait for all events to be consumed prior to moving it towards stopped; we
+	// don't want to race the below with these or we'll end up with the "going
+	// backwards in state" stop and we haven't 'expect'd for that
+
+	exitCode := 0
+	// And then docker reports that sleep died, as sleep is wont to do
+	eventStream <- DockerContainerChangeEvent{
+		Status: api.ContainerStopped,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: "containerId",
+			ExitCode: &exitCode,
+		},
+	}
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+
+	// hold on to container event to verify exit code
+	contEvent := event.(api.ContainerStateChange)
+	assert.Equal(t, *contEvent.ExitCode, 0, "Exit code should be present")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	// This ensures that managedTask.waitForStopReported makes progress
+	sleepTask.SetSentStatus(api.TaskStopped)
+
+	// Extra events should not block forever; duplicate acs and docker events are possible
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+
+	sleepTaskStop := testdata.LoadTask("sleep5")
+	sleepTaskStop.SetCredentialsID(credentialsID)
+	sleepTaskStop.SetDesiredStatus(api.TaskStopped)
+	taskEngine.AddTask(sleepTaskStop)
+	// As above, duplicate events should not be a problem
+	taskEngine.AddTask(sleepTaskStop)
+	taskEngine.AddTask(sleepTaskStop)
+
+	// Expect a bunch of steady state 'poll' describes when we trigger cleanup
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
+		func(removedContainerName string, timeout time.Duration) {
+			assert.Equal(t, createdContainerName, removedContainerName, "Container name mismatch")
+		}).Return(nil)
+
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
+	metadataManager.EXPECT().Clean(gomock.Any()).Return(errors.New("clean metadata error"))
+	// trigger cleanup
+	cleanup <- time.Now()
+	go func() { eventStream <- createDockerEvent(api.ContainerStopped) }()
+
+	// Wait for the task to actually be dead; if we just fallthrough immediately,
+	// the remove might not have happened (expectation failure)
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // TestRemoveEvents tests if the task engine can handle task events while the task is being
 // cleaned up. This test ensures that there's no regression in the task engine and ensures
 // there's no deadlock as seen in #313
