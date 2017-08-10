@@ -85,7 +85,7 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 
 // DependenciesAreResolved validates that the `target` container can be started
 // given the current known state of the containers in `by`. If this function
-// returns true, `target` should be technically able to launch with on issues
+// returns true, `target` should be technically able to launch without issues
 func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 	nameMap := make(map[string]*api.Container)
 	for _, cont := range by {
@@ -161,41 +161,43 @@ func linkIsResolved(target *api.Container, link *api.Container) bool {
 
 func volumeCanResolve(target *api.Container, volume *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	volumeDesiredStatus := volume.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == target.GetSteadyStateStatus() {
-		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
-		// Allow this only if the known status of the source volume container is
-		// any of 'Created', 'steady state' or 'Stopped'
-		return volumeDesiredStatus == api.ContainerCreated ||
-			volumeDesiredStatus == volume.GetSteadyStateStatus() ||
-			volumeDesiredStatus == api.ContainerStopped
+	if targetDesiredStatus != api.ContainerCreated && targetDesiredStatus != target.GetSteadyStateStatus() {
+		// The 'target' container doesn't desire to move to either 'Created' or the 'steady' state,
+		// which is not allowed
+		log.Errorf("Failed to resolve the desired status of the volume [%v] for the target [%v]", volume, target)
+		return false
 	}
 
-	log.Errorf("Failed to resolve the desired status of the volume [%v] for the target [%v]", volume, target)
-	return false
+	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+	// Allow this only if the known status of the source volume container is
+	// any of 'Created', 'steady state' or 'Stopped'
+	volumeDesiredStatus := volume.GetDesiredStatus()
+	return volumeDesiredStatus == api.ContainerCreated ||
+		volumeDesiredStatus == volume.GetSteadyStateStatus() ||
+		volumeDesiredStatus == api.ContainerStopped
 }
 
 func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated || targetDesiredStatus == volume.GetSteadyStateStatus() {
-		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
-		// Allow this only if the known status of the source volume container is
-		// any of 'Created', 'steady state' or 'Stopped'
-		knownStatus := volume.GetKnownStatus()
-		return knownStatus == api.ContainerCreated ||
-			knownStatus == volume.GetSteadyStateStatus() ||
-			knownStatus == api.ContainerStopped
+	if targetDesiredStatus != api.ContainerCreated && targetDesiredStatus != api.ContainerRunning {
+		// The 'target' container doesn't desire to be moved to 'Created' or the 'steady' state.
+		// Do not allow it.
+		log.Errorf("Failed to resolve if the volume [%v] has been resolved for the target [%v]", volume, target)
+		return false
 	}
 
-	log.Errorf("Failed to resolve if the volume [%v] has been resolved for the target [%v]", volume, target)
-	return false
+	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+	// Allow this only if the known status of the source volume container is
+	// any of 'Created', 'steady state' or 'Stopped'
+	knownStatus := volume.GetKnownStatus()
+	return knownStatus == api.ContainerCreated ||
+		knownStatus == volume.GetSteadyStateStatus() ||
+		knownStatus == api.ContainerStopped
 }
 
 // onSteadyStateIsResolved defines a relationship where a target cannot be
 // created until 'dependency' has reached the steady state
-func onSteadyStateIsResolved(target *api.Container, dependency *api.Container) bool {
-	if target.GetDesiredStatus() >= api.ContainerCreated {
-		return dependency.GetKnownStatus() >= dependency.GetSteadyStateStatus()
-	}
-	return false
+func onSteadyStateIsResolved(target *api.Container, run *api.Container) bool {
+	return target.GetDesiredStatus() >= api.ContainerCreated &&
+		run.GetKnownStatus() >= run.GetSteadyStateStatus()
 }

@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -28,11 +29,98 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
 	"golang.org/x/net/context"
 )
+
+func TestHandleEventError(t *testing.T) {
+	testCases := []struct {
+		Name                         string
+		EventStatus                  api.ContainerStatus
+		CurrentKnownStatus           api.ContainerStatus
+		Error                        engineError
+		ExpectedKnownStatusSet       bool
+		ExpectedKnownStatus          api.ContainerStatus
+		ExpectedDesiredStatusStopped bool
+		ExpectedOK                   bool
+	}{
+		{
+			Name:               "StopTimedOut",
+			EventStatus:        api.ContainerStopped,
+			CurrentKnownStatus: api.ContainerRunning,
+			Error:              &DockerTimeoutError{},
+			ExpectedKnownStatusSet: true,
+			ExpectedKnownStatus:    api.ContainerRunning,
+			ExpectedOK:             false,
+		},
+		{
+			Name:               "StopErrorRetriable",
+			EventStatus:        api.ContainerStopped,
+			CurrentKnownStatus: api.ContainerRunning,
+			Error: &CannotStopContainerError{
+				fromError: errors.New(""),
+			},
+			ExpectedKnownStatusSet: true,
+			ExpectedKnownStatus:    api.ContainerRunning,
+			ExpectedOK:             false,
+		},
+		{
+			Name:               "StopErrorUnretriable",
+			EventStatus:        api.ContainerStopped,
+			CurrentKnownStatus: api.ContainerRunning,
+			Error: &CannotStopContainerError{
+				fromError: &docker.ContainerNotRunning{},
+			},
+			ExpectedKnownStatusSet:       true,
+			ExpectedKnownStatus:          api.ContainerStopped,
+			ExpectedDesiredStatusStopped: true,
+			ExpectedOK:                   true,
+		},
+		{
+			Name:        "PullError",
+			Error:       &DockerTimeoutError{},
+			EventStatus: api.ContainerPulled,
+			ExpectedOK:  true,
+		},
+		{
+			Name:               "Other",
+			EventStatus:        api.ContainerRunning,
+			CurrentKnownStatus: api.ContainerPulled,
+			Error:              &ContainerVanishedError{},
+			ExpectedKnownStatusSet:       true,
+			ExpectedKnownStatus:          api.ContainerPulled,
+			ExpectedDesiredStatusStopped: true,
+			ExpectedOK:                   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			containerChange := dockerContainerChange{
+				container: &api.Container{},
+				event: DockerContainerChangeEvent{
+					Status: tc.EventStatus,
+					DockerContainerMetadata: DockerContainerMetadata{
+						Error: tc.Error,
+					},
+				},
+			}
+			mtask := managedTask{}
+			ok := mtask.handleEventError(containerChange, tc.CurrentKnownStatus)
+			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")
+			if tc.ExpectedKnownStatusSet {
+				assert.Equal(t, tc.ExpectedKnownStatus, containerChange.container.GetKnownStatus())
+			}
+			if tc.ExpectedDesiredStatusStopped {
+				assert.Equal(t, api.ContainerStopped, containerChange.container.GetDesiredStatus())
+			}
+			assert.Equal(t, tc.Error.ErrorName(), containerChange.container.ApplyingError.ErrorName())
+		})
+	}
+}
 
 func TestContainerNextState(t *testing.T) {
 	testCases := []struct {
@@ -505,7 +593,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	// Recieved RUNNING event, known status is not STOPPED, expect this to
 	// be a noop. Assertions in transitionFunction asserts that as well
 	mTask.handleStoppedToRunningContainerTransition(
-		api.ContainerRunning, api.ContainerRunning, secondContainer)
+		api.ContainerRunning, secondContainer)
 
 	// Start building preconditions and assertions for STOPPED -> RUNNING
 	// transition that will be triggered by next invocation of
@@ -529,7 +617,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	// Recieved RUNNING, known status is STOPPED, expect this to invoke
 	// transition function once
 	mTask.handleStoppedToRunningContainerTransition(
-		api.ContainerRunning, api.ContainerStopped, firstContainer)
+		api.ContainerRunning, firstContainer)
 
 	// Wait for wait groups to be done
 	waitForTransitionFunctionInvocation.Wait()
@@ -543,7 +631,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	// should be fine here
 	for i := 0; i < 10; i++ {
 		mTask.handleStoppedToRunningContainerTransition(
-			api.ContainerRunning, api.ContainerStopped, firstContainer)
+			api.ContainerRunning, firstContainer)
 	}
 }
 

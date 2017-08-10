@@ -307,24 +307,25 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 	}
 }
 
-// updateTaskKnownState updates the given task's status based on its container's status.
+// updateTaskKnownStatus updates the given task's status based on its container's status.
 // It updates to the minimum of all containers no matter what
-// It returns a TaskStatus indicating what change occured or TaskStatusNone if
+// It returns a TaskStatus indicating what change occurred or TaskStatusNone if
 // there was no change
+// Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	seelog.Debugf("Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := ContainerZombie
 	var earliestKnownStatusContainer *Container
 	essentialContainerStopped := false
-	for _, cont := range task.Containers {
-		contKnownStatus := cont.GetKnownStatus()
-		if contKnownStatus == ContainerStopped && cont.Essential {
+	for _, container := range task.Containers {
+		containerKnownStatus := container.GetKnownStatus()
+		if containerKnownStatus == ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
-		if contKnownStatus < containerEarliestKnownStatus {
-			containerEarliestKnownStatus = contKnownStatus
-			earliestKnownStatusContainer = cont
+		if containerKnownStatus < containerEarliestKnownStatus {
+			containerEarliestKnownStatus = containerKnownStatus
+			earliestKnownStatusContainer = container
 		}
 	}
 	if earliestKnownStatusContainer == nil {
@@ -706,7 +707,8 @@ func (task *Task) UpdateDesiredStatus() {
 	task.updateContainerDesiredStatus()
 }
 
-// updateTaskDesiredStatus determines what status the task should properly be at based on its container's statuses
+// updateTaskDesiredStatus determines what status the task should properly be at based on the containers' statuses
+// Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatus() {
 	seelog.Debugf("Updating task: [%s]", task.String())
 
@@ -723,6 +725,7 @@ func (task *Task) updateTaskDesiredStatus() {
 
 // updateContainerDesiredStatus sets all container's desired status's to the
 // task's desired status
+// Invariant: container desired status is <= task desired status converted to container status
 func (task *Task) updateContainerDesiredStatus() {
 	for _, c := range task.Containers {
 		taskDesiredStatus := task.GetDesiredStatus()

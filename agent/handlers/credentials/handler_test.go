@@ -74,7 +74,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	}
 	path := credentials.V1CredentialsPath + "?id=" + credentialsID
 	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
+		expectedErrorMessage, path, func() (credentials.TaskIAMRoleCredentials, bool) { return credentials.TaskIAMRoleCredentials{}, false })
 	assert.NoError(t, err, "Error getting response body")
 }
 
@@ -88,7 +88,7 @@ func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	}
 	path := credentials.V2CredentialsPath + "/" + credentialsID
 	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, false })
+		expectedErrorMessage, path, func() (credentials.TaskIAMRoleCredentials, bool) { return credentials.TaskIAMRoleCredentials{}, false })
 	assert.NoError(t, err, "Error getting response body")
 }
 
@@ -102,7 +102,7 @@ func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	}
 	path := credentials.V1CredentialsPath + "?id=" + credentialsID
 	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
+		expectedErrorMessage, path, func() (credentials.TaskIAMRoleCredentials, bool) { return credentials.TaskIAMRoleCredentials{}, true })
 	assert.NoError(t, err, "Error getting response body")
 }
 
@@ -116,7 +116,7 @@ func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 	}
 	path := credentials.V2CredentialsPath + "/" + credentialsID
 	_, err := getResponseForCredentialsRequest(t, expectedErrorMessage.httpErrorCode,
-		expectedErrorMessage, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return nil, true })
+		expectedErrorMessage, path, func() (credentials.TaskIAMRoleCredentials, bool) { return credentials.TaskIAMRoleCredentials{}, true })
 	assert.NoError(t, err, "Error getting response body")
 }
 
@@ -124,6 +124,7 @@ func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 // the credentials manager contains the credentials id specified in the query.
 func TestCredentialsV1RequestWhenCredentialsFound(t *testing.T) {
 	creds := credentials.TaskIAMRoleCredentials{
+		ARN: "arn",
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
 			RoleArn:         roleArn,
 			AccessKeyID:     accessKeyID,
@@ -131,7 +132,7 @@ func TestCredentialsV1RequestWhenCredentialsFound(t *testing.T) {
 		},
 	}
 	path := credentials.V1CredentialsPath + "?id=" + credentialsID
-	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
+	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (credentials.TaskIAMRoleCredentials, bool) { return creds, true })
 	assert.NoError(t, err)
 
 	credentials, err := parseResponseBody(body)
@@ -146,6 +147,7 @@ func TestCredentialsV1RequestWhenCredentialsFound(t *testing.T) {
 // the credentials manager contains the credentials id specified in the query.
 func TestCredentialsV2RequestWhenCredentialsFound(t *testing.T) {
 	creds := credentials.TaskIAMRoleCredentials{
+		ARN: "arn",
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
 			RoleArn:         roleArn,
 			AccessKeyID:     accessKeyID,
@@ -153,7 +155,7 @@ func TestCredentialsV2RequestWhenCredentialsFound(t *testing.T) {
 		},
 	}
 	path := credentials.V2CredentialsPath + "/" + credentialsID
-	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (*credentials.TaskIAMRoleCredentials, bool) { return &creds, true })
+	body, err := getResponseForCredentialsRequest(t, http.StatusOK, nil, path, func() (credentials.TaskIAMRoleCredentials, bool) { return creds, true })
 	if err != nil {
 		t.Fatalf("Error retrieving credentials response: %v", err)
 	}
@@ -200,7 +202,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 // given id. The getCredentials function is used to simulate getting the
 // credentials object from the CredentialsManager
 func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
-	expectedErrorMessage *errorMessage, path string, getCredentials func() (*credentials.TaskIAMRoleCredentials, bool)) (*bytes.Buffer, error) {
+	expectedErrorMessage *errorMessage, path string, getCredentials func() (credentials.TaskIAMRoleCredentials, bool)) (*bytes.Buffer, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)

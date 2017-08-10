@@ -59,6 +59,8 @@ type TaskEngineState interface {
 	ENIByMac(mac string) (*api.ENIAttachment, bool)
 	// RemoveTask removes a task from the state
 	RemoveTask(task *api.Task)
+	// Reset resets all the fileds in the state
+	Reset()
 	// RemoveImageState removes an image.ImageState
 	RemoveImageState(imageState *image.ImageState)
 	json.Marshaler
@@ -95,14 +97,26 @@ func NewTaskEngineState() TaskEngineState {
 }
 
 func newDockerTaskEngineState() *DockerTaskEngineState {
-	return &DockerTaskEngineState{
-		tasks:          make(map[string]*api.Task),
-		idToTask:       make(map[string]string),
-		taskToID:       make(map[string]map[string]*api.DockerContainer),
-		idToContainer:  make(map[string]*api.DockerContainer),
-		imageStates:    make(map[string]*image.ImageState),
-		eniAttachments: make(map[string]*api.ENIAttachment),
-	}
+	state := &DockerTaskEngineState{}
+	state.initializeDockerTaskEngineState()
+	return state
+}
+
+func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.tasks = make(map[string]*api.Task)
+	state.idToTask = make(map[string]string)
+	state.taskToID = make(map[string]map[string]*api.DockerContainer)
+	state.idToContainer = make(map[string]*api.DockerContainer)
+	state.imageStates = make(map[string]*image.ImageState)
+	state.eniAttachments = make(map[string]*api.ENIAttachment)
+}
+
+// Reset resets all the states
+func (state *DockerTaskEngineState) Reset() {
+	state.initializeDockerTaskEngineState()
 }
 
 // AllTasks returns all of the tasks
@@ -227,6 +241,16 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 	defer state.lock.RUnlock()
 
 	ret, ok := state.taskToID[arn]
+
+	// Copy the map to avoid data race
+	if ok {
+		mc := make(map[string]*api.DockerContainer)
+		for k, v := range ret {
+			mc[k] = v
+		}
+		return mc, ok
+	}
+
 	return ret, ok
 }
 

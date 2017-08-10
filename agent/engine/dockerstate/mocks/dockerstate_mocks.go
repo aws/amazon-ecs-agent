@@ -173,6 +173,14 @@ func (_mr *_MockTaskEngineStateRecorder) RemoveTask(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveTask", arg0)
 }
 
+func (_m *MockTaskEngineState) Reset() {
+	_m.ctrl.Call(_m, "Reset")
+}
+
+func (_mr *_MockTaskEngineStateRecorder) Reset() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reset")
+}
+
 func (_m *MockTaskEngineState) TaskByArn(_param0 string) (*api.Task, bool) {
 	ret := _m.ctrl.Call(_m, "TaskByArn", _param0)
 	ret0, _ := ret[0].(*api.Task)

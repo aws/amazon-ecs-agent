@@ -79,7 +79,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
-	roleCredentials := &credentials.TaskIAMRoleCredentials{
+	roleCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsID},
 	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
@@ -1101,7 +1101,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStoppingError := DockerContainerMetadata{
-		Error: &CannotStopContainerError{errors.New("Error stopping container")},
+		Error: CannotStopContainerError{errors.New("Error stopping container")},
 	}
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(

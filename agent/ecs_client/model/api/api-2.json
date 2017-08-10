@@ -4,11 +4,12 @@
     "apiVersion":"2014-11-13",
     "endpointPrefix":"ecs",
     "jsonVersion":"1.1",
-    "protocol":"json",
     "serviceAbbreviation":"Amazon ECS",
     "serviceFullName":"Amazon EC2 Container Service",
     "signatureVersion":"v4",
-    "targetPrefix":"AmazonEC2ContainerServiceV20141113"
+    "signingName":"ecs",
+    "targetPrefix":"AmazonEC2ContainerServiceV20141113",
+    "protocol":"json"
   },
   "operations":{
     "CreateCluster":{
@@ -20,9 +21,19 @@
       "input":{"shape":"CreateClusterRequest"},
       "output":{"shape":"CreateClusterResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "CreateService":{
@@ -34,10 +45,46 @@
       "input":{"shape":"CreateServiceRequest"},
       "output":{"shape":"CreateServiceResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
+      ]
+    },
+    "DeleteAttributes":{
+      "name":"DeleteAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DeleteAttributesRequest"},
+      "output":{"shape":"DeleteAttributesResponse"},
+      "errors":[
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"TargetNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "DeleteAttributes":{
@@ -63,12 +110,31 @@
       "input":{"shape":"DeleteClusterRequest"},
       "output":{"shape":"DeleteClusterResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"},
-        {"shape":"ClusterContainsContainerInstancesException"},
-        {"shape":"ClusterContainsServicesException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterContainsContainerInstancesException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterContainsServicesException",
+          "exception":true
+        }
       ]
     },
     "DeleteService":{
@@ -80,11 +146,27 @@
       "input":{"shape":"DeleteServiceRequest"},
       "output":{"shape":"DeleteServiceResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"},
-        {"shape":"ServiceNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"ServiceNotFoundException",
+          "exception":true
+        }
       ]
     },
     "DeregisterContainerInstance":{
@@ -96,10 +178,23 @@
       "input":{"shape":"DeregisterContainerInstanceRequest"},
       "output":{"shape":"DeregisterContainerInstanceResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "DeregisterTaskDefinition":{
@@ -111,9 +206,19 @@
       "input":{"shape":"DeregisterTaskDefinitionRequest"},
       "output":{"shape":"DeregisterTaskDefinitionResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "DescribeClusters":{
@@ -125,9 +230,19 @@
       "input":{"shape":"DescribeClustersRequest"},
       "output":{"shape":"DescribeClustersResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "DescribeContainerInstances":{
@@ -139,10 +254,23 @@
       "input":{"shape":"DescribeContainerInstancesRequest"},
       "output":{"shape":"DescribeContainerInstancesResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "DescribeServices":{
@@ -154,10 +282,23 @@
       "input":{"shape":"DescribeServicesRequest"},
       "output":{"shape":"DescribeServicesResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "DescribeTaskDefinition":{
@@ -169,9 +310,19 @@
       "input":{"shape":"DescribeTaskDefinitionRequest"},
       "output":{"shape":"DescribeTaskDefinitionResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "DescribeTasks":{
@@ -183,10 +334,23 @@
       "input":{"shape":"DescribeTasksRequest"},
       "output":{"shape":"DescribeTasksResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "DiscoverPollEndpoint":{
@@ -198,8 +362,34 @@
       "input":{"shape":"DiscoverPollEndpointRequest"},
       "output":{"shape":"DiscoverPollEndpointResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        }
+      ]
+    },
+    "ListAttributes":{
+      "name":"ListAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ListAttributesRequest"},
+      "output":{"shape":"ListAttributesResponse"},
+      "errors":[
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "ListAttributes":{
@@ -224,9 +414,19 @@
       "input":{"shape":"ListClustersRequest"},
       "output":{"shape":"ListClustersResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "ListContainerInstances":{
@@ -238,10 +438,23 @@
       "input":{"shape":"ListContainerInstancesRequest"},
       "output":{"shape":"ListContainerInstancesResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "ListServices":{
@@ -253,10 +466,23 @@
       "input":{"shape":"ListServicesRequest"},
       "output":{"shape":"ListServicesResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "ListTaskDefinitionFamilies":{
@@ -268,9 +494,19 @@
       "input":{"shape":"ListTaskDefinitionFamiliesRequest"},
       "output":{"shape":"ListTaskDefinitionFamiliesResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "ListTaskDefinitions":{
@@ -282,9 +518,19 @@
       "input":{"shape":"ListTaskDefinitionsRequest"},
       "output":{"shape":"ListTaskDefinitionsResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "ListTasks":{
@@ -296,11 +542,54 @@
       "input":{"shape":"ListTasksRequest"},
       "output":{"shape":"ListTasksResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"},
-        {"shape":"ServiceNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"ServiceNotFoundException",
+          "exception":true
+        }
+      ]
+    },
+    "PutAttributes":{
+      "name":"PutAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PutAttributesRequest"},
+      "output":{"shape":"PutAttributesResponse"},
+      "errors":[
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"TargetNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"AttributeLimitExceededException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "PutAttributes":{
@@ -327,8 +616,15 @@
       "input":{"shape":"RegisterContainerInstanceRequest"},
       "output":{"shape":"RegisterContainerInstanceResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        }
       ]
     },
     "RegisterTaskDefinition":{
@@ -340,9 +636,19 @@
       "input":{"shape":"RegisterTaskDefinitionRequest"},
       "output":{"shape":"RegisterTaskDefinitionResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        }
       ]
     },
     "RunTask":{
@@ -354,10 +660,23 @@
       "input":{"shape":"RunTaskRequest"},
       "output":{"shape":"RunTaskResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "StartTask":{
@@ -369,10 +688,23 @@
       "input":{"shape":"StartTaskRequest"},
       "output":{"shape":"StartTaskResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "StopTask":{
@@ -384,10 +716,23 @@
       "input":{"shape":"StopTaskRequest"},
       "output":{"shape":"StopTaskResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "SubmitContainerStateChange":{
@@ -399,8 +744,15 @@
       "input":{"shape":"SubmitContainerStateChangeRequest"},
       "output":{"shape":"SubmitContainerStateChangeResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        }
       ]
     },
     "SubmitTaskStateChange":{
@@ -412,8 +764,15 @@
       "input":{"shape":"SubmitTaskStateChangeRequest"},
       "output":{"shape":"SubmitTaskStateChangeResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        }
       ]
     },
     "UpdateContainerAgent":{
@@ -425,13 +784,63 @@
       "input":{"shape":"UpdateContainerAgentRequest"},
       "output":{"shape":"UpdateContainerAgentResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"},
-        {"shape":"UpdateInProgressException"},
-        {"shape":"NoUpdateAvailableException"},
-        {"shape":"MissingVersionException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"UpdateInProgressException",
+          "exception":true
+        },
+        {
+          "shape":"NoUpdateAvailableException",
+          "exception":true
+        },
+        {
+          "shape":"MissingVersionException",
+          "exception":true
+        }
+      ]
+    },
+    "UpdateContainerInstancesState":{
+      "name":"UpdateContainerInstancesState",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"UpdateContainerInstancesStateRequest"},
+      "output":{"shape":"UpdateContainerInstancesStateResponse"},
+      "errors":[
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        }
       ]
     },
     "UpdateContainerInstancesState":{
@@ -458,12 +867,31 @@
       "input":{"shape":"UpdateServiceRequest"},
       "output":{"shape":"UpdateServiceResponse"},
       "errors":[
-        {"shape":"ServerException"},
-        {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
-        {"shape":"ClusterNotFoundException"},
-        {"shape":"ServiceNotFoundException"},
-        {"shape":"ServiceNotActiveException"}
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        },
+        {
+          "shape":"ClientException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ClusterNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"ServiceNotFoundException",
+          "exception":true
+        },
+        {
+          "shape":"ServiceNotActiveException",
+          "exception":true
+        }
       ]
     }
   },
@@ -666,7 +1094,10 @@
       "members":{
         "name":{"shape":"String"},
         "command":{"shape":"StringList"},
-        "environment":{"shape":"EnvironmentVariables"}
+        "environment":{"shape":"EnvironmentVariables"},
+        "cpu":{"shape":"BoxedInteger"},
+        "memory":{"shape":"BoxedInteger"},
+        "memoryReservation":{"shape":"BoxedInteger"}
       }
     },
     "ContainerOverrides":{
@@ -717,6 +1148,7 @@
         "loadBalancers":{"shape":"LoadBalancers"},
         "desiredCount":{"shape":"BoxedInteger"},
         "clientToken":{"shape":"String"},
+        "launchType":{"shape":"LaunchType"},
         "role":{"shape":"String"},
         "deploymentConfiguration":{"shape":"DeploymentConfiguration"},
         "placementConstraints":{"shape":"PlacementConstraints"},
@@ -781,7 +1213,8 @@
         "pendingCount":{"shape":"Integer"},
         "runningCount":{"shape":"Integer"},
         "createdAt":{"shape":"Timestamp"},
-        "updatedAt":{"shape":"Timestamp"}
+        "updatedAt":{"shape":"Timestamp"},
+        "launchType":{"shape":"LaunchType"}
       }
     },
     "DeploymentConfiguration":{
@@ -918,7 +1351,10 @@
     },
     "DockerLabelsMap":{
       "type":"map",
-      "key":{"shape":"String"},
+      "key":{
+        "shape":"String",
+        "required":true
+      },
       "value":{"shape":"String"}
     },
     "Double":{"type":"double"},
@@ -1120,7 +1556,10 @@
     },
     "LogConfigurationOptionsMap":{
       "type":"map",
-      "key":{"shape":"String"},
+      "key":{
+        "shape":"String",
+        "required":true
+      },
       "value":{"shape":"String"}
     },
     "LogDriver":{
@@ -1351,6 +1790,7 @@
         "desiredCount":{"shape":"Integer"},
         "runningCount":{"shape":"Integer"},
         "pendingCount":{"shape":"Integer"},
+        "launchType":{"shape":"LaunchType"},
         "taskDefinition":{"shape":"String"},
         "deploymentConfiguration":{"shape":"DeploymentConfiguration"},
         "deployments":{"shape":"Deployments"},

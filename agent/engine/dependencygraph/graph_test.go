@@ -17,6 +17,8 @@ package dependencygraph
 import (
 	"testing"
 
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -229,4 +231,216 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 	// transitioned into RESOURCES_PROVISIONED
 	resolved = DependenciesAreResolved(php, task.Containers)
 	assert.True(t, resolved, "Php should resolve")
+}
+
+func TestVolumeCanResolve(t *testing.T) {
+	testcases := []struct {
+		TargetDesired api.ContainerStatus
+		VolumeDesired api.ContainerStatus
+		Resolvable    bool
+	}{
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeDesired: api.ContainerStatusNone,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeDesired: api.ContainerCreated,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeDesired: api.ContainerRunning,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeDesired: api.ContainerStopped,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeDesired: api.ContainerZombie,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeDesired: api.ContainerStatusNone,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeDesired: api.ContainerCreated,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeDesired: api.ContainerRunning,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeDesired: api.ContainerStopped,
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeDesired: api.ContainerZombie,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerStatusNone,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerStopped,
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: api.ContainerZombie,
+			Resolvable:    false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeDesired.String()),
+			assertCanResolve(volumeCanResolve, tc.TargetDesired, tc.VolumeDesired, tc.Resolvable))
+	}
+}
+
+func TestVolumeIsResolved(t *testing.T) {
+	testcases := []struct {
+		TargetDesired api.ContainerStatus
+		VolumeKnown   api.ContainerStatus
+		Resolved      bool
+	}{
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeKnown:   api.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeKnown:   api.ContainerCreated,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeKnown:   api.ContainerRunning,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeKnown:   api.ContainerStopped,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			VolumeKnown:   api.ContainerZombie,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeKnown:   api.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeKnown:   api.ContainerCreated,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeKnown:   api.ContainerRunning,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeKnown:   api.ContainerStopped,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerRunning,
+			VolumeKnown:   api.ContainerZombie,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerStopped,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerZombie,
+			Resolved:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeKnown.String()),
+			assertResolved(volumeIsResolved, tc.TargetDesired, tc.VolumeKnown, tc.Resolved))
+	}
+}
+
+func TestOnSteadyStateIsResolved(t *testing.T) {
+	testcases := []struct {
+		TargetDesired api.ContainerStatus
+		RunKnown      api.ContainerStatus
+		Resolved      bool
+	}{
+		{
+			TargetDesired: api.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerPulled,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			RunKnown:      api.ContainerCreated,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			RunKnown:      api.ContainerRunning,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: api.ContainerCreated,
+			RunKnown:      api.ContainerStopped,
+			Resolved:      true,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+R:%s", tc.TargetDesired.String(), tc.RunKnown.String()),
+			assertResolved(onSteadyStateIsResolved, tc.TargetDesired, tc.RunKnown, tc.Resolved))
+	}
+}
+
+func assertCanResolve(f func(target *api.Container, dep *api.Container) bool, targetDesired, depKnown api.ContainerStatus, expectedResolvable bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &api.Container{
+			DesiredStatusUnsafe: targetDesired,
+		}
+		dep := &api.Container{
+			DesiredStatusUnsafe: depKnown,
+		}
+		resolvable := f(target, dep)
+		assert.Equal(t, expectedResolvable, resolvable)
+	}
+}
+
+func assertResolved(f func(target *api.Container, dep *api.Container) bool, targetDesired, depKnown api.ContainerStatus, expectedResolved bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &api.Container{
+			DesiredStatusUnsafe: targetDesired,
+		}
+		dep := &api.Container{
+			KnownStatusUnsafe: depKnown,
+		}
+		resolved := f(target, dep)
+		assert.Equal(t, expectedResolved, resolved)
+	}
 }

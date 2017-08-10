@@ -18,6 +18,6 @@ package credentials
 // between the task engine, acs and credentials handlers
 type Manager interface {
 	SetTaskCredentials(TaskIAMRoleCredentials) error
-	GetTaskCredentials(string) (*TaskIAMRoleCredentials, bool)
+	GetTaskCredentials(string) (TaskIAMRoleCredentials, bool)
 	RemoveCredentials(string)
 }
