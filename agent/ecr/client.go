@@ -17,9 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/async"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
 )
@@ -32,7 +30,6 @@ const (
 // ECRClient wrapper interface for mocking
 type ECRClient interface {
 	GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error)
-	IsTokenValid(*ecrapi.AuthorizationData) bool
 }
 
 // ECRSDK is an interface that specifies the subset of the AWS Go SDK's ECR
@@ -43,29 +40,16 @@ type ECRSDK interface {
 }
 
 type ecrClient struct {
-	sdkClient  ECRSDK
-	tokenCache async.Cache
+	sdkClient ECRSDK
 }
 
-func NewECRClient(sdkClient ECRSDK, tokenCache async.Cache) ECRClient {
+func NewECRClient(sdkClient ECRSDK) ECRClient {
 	return &ecrClient{
-		sdkClient:  sdkClient,
-		tokenCache: tokenCache,
+		sdkClient: sdkClient,
 	}
 }
 
 func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error) {
-	cachedToken, found := client.tokenCache.Get(registryId)
-	if found {
-		cachedAuthData := cachedToken.(*ecrapi.AuthorizationData)
-
-		if client.IsTokenValid(cachedAuthData) {
-			return cachedAuthData, nil
-		} else {
-			log.Debugf("Token found, but expires at %s", aws.TimeValue(cachedAuthData.ExpiresAt))
-		}
-	}
-
 	log.Debugf("Calling GetAuthorizationToken for %q", registryId)
 
 	output, err := client.sdkClient.GetAuthorizationToken(&ecrapi.GetAuthorizationTokenInput{
@@ -79,23 +63,5 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 	if len(output.AuthorizationData) != 1 {
 		return nil, fmt.Errorf("Unexpected number of results in AuthorizationData (%d)", len(output.AuthorizationData))
 	}
-	authData := output.AuthorizationData[0]
-	client.tokenCache.Set(registryId, authData)
-
-	return authData, nil
-}
-
-// Ensure token is still within it's expiration window. We early expire to allow for timing in calls and add jitter to avoid
-// refreshing all of the tokens at once.
-func (client *ecrClient) IsTokenValid(authData *ecrapi.AuthorizationData) bool {
-	if authData == nil || authData.ExpiresAt == nil {
-		return false
-	}
-
-	refreshTime := aws.TimeValue(authData.ExpiresAt).Add(-1 * client.expirationJitter())
-	return time.Now().Before(refreshTime)
-}
-
-func (client *ecrClient) expirationJitter() time.Duration {
-	return utils.AddJitter(MinimumJitterDuration, MaximumJitterDuration)
+	return output.AuthorizationData[0], nil
 }

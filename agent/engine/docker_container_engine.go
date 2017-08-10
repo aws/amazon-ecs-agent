@@ -168,8 +168,8 @@ type DockerClient interface {
 type dockerGoClient struct {
 	clientFactory    dockerclient.Factory
 	version          dockerclient.DockerVersion
-	auth             dockerauth.DockerAuthProvider
 	ecrClientFactory ecr.ECRFactory
+	auth             dockerauth.DockerAuthProvider
 	config           *config.Config
 
 	_time     ttime.Time
@@ -427,10 +427,10 @@ func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
 	if authData == nil || authData.Type != "ecr" {
-		return dg.auth.GetAuthconfig(image)
+		return dg.auth.GetAuthconfig(image, nil)
 	}
-	provider := dockerauth.NewECRAuthProvider(authData.ECRAuthData, dg.ecrClientFactory)
-	authConfig, err := provider.GetAuthconfig(image)
+	provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory)
+	authConfig, err := provider.GetAuthconfig(image, authData.ECRAuthData)
 	if err != nil {
 		return authConfig, CannotPullECRContainerError{err}
 	}

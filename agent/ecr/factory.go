@@ -15,83 +15,59 @@
 package ecr
 
 import (
+	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/async"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 type ECRFactory interface {
-	GetClient(*api.ECRAuthData) ECRClient
+	GetClient(*api.ECRAuthData) (ECRClient, error)
 }
 
 type ecrFactory struct {
 	httpClient *http.Client
-
-	clientsLock sync.Mutex
-	clients     map[cacheKey]ECRClient
-}
-
-type cacheKey struct {
-	region           string
-	endpointOverride string
 }
 
 const (
 	roundtripTimeout = 5 * time.Second
-	tokenCacheSize   = 100
-	tokenCacheTTL    = 12 * time.Hour
 )
 
 // NewECRFactory returns an ECRFactory capable of producing ECRSDK clients
 func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 	return &ecrFactory{
 		httpClient: httpclient.New(roundtripTimeout, acceptInsecureCert),
-		clients:    make(map[cacheKey]ECRClient),
 	}
 }
 
 // GetClient returns the correct region and endpoint aware client
-func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) ECRClient {
+func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, error) {
 	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(factory.httpClient)
 	if authData.EndpointOverride != "" {
 		cfg.Region = aws.String(authData.EndpointOverride)
 	}
 
-	// Container has its own credentials to pull from ECR
-	if authData.PullCredentials != nil {
-		creds := credentials.NewStaticCredentials(authData.PullCredentials.AccessKeyID, authData.PullCredentials.SecretAccessKey, authData.PullCredentials.SessionToken)
-		cfg := cfg.WithCredentials(creds)
-		return factory.newClient(cfg)
+	if authData.UseExecutionRole {
+		if authData.PullCredentials == (credentials.IAMRoleCredentials{}) {
+			return &ecrClient{}, fmt.Errorf("Container are set to use execution credentials, but the credentials is not set in auth data")
+		}
+		creds := awscreds.NewStaticCredentials(authData.PullCredentials.AccessKeyID,
+			authData.PullCredentials.SecretAccessKey,
+			authData.PullCredentials.SessionToken)
+		cfg = cfg.WithCredentials(creds)
 	}
 
-	// For containers pull using the default credentials, cache the ecr client
-	key := cacheKey{region: authData.Region, endpointOverride: authData.EndpointOverride}
-	client, ok := factory.clients[key]
-	if ok {
-		return client
-	}
-
-	factory.clientsLock.Lock()
-	defer factory.clientsLock.Unlock()
-	client, ok = factory.clients[key]
-	if ok {
-		return client
-	}
-	client = factory.newClient(cfg)
-	factory.clients[key] = client
-	return client
+	return factory.newClient(cfg), nil
 }
 
 func (factory *ecrFactory) newClient(cfg *aws.Config) ECRClient {
 	sdkClient := ecrapi.New(session.New(cfg))
-	tokenCache := async.NewLRUCache(tokenCacheSize, tokenCacheTTL)
-	return NewECRClient(sdkClient, tokenCache)
+	return NewECRClient(sdkClient)
 }
