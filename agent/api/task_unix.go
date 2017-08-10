@@ -15,10 +15,17 @@
 
 package api
 
+import (
+	"github.com/fsouza/go-dockerclient"
+)
+
 const (
 	portBindingHostIP = "0.0.0.0"
+	memorySwappinessDefault = 0
 )
 
 func (task *Task) adjustForPlatform() {}
 
 func getCanonicalPath(path string) string { return path }
+
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {}
