@@ -58,7 +58,7 @@ func TestWriteFileWriteFail(t *testing.T) {
 
 	gomock.InOrder(
 		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(mockData).Return(errors.New("write fail")),
+		mockFile.EXPECT().Write(mockData).Return(0, errors.New("write fail")),
 		mockFile.EXPECT().Close(),
 	)
 
