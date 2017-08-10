@@ -17,15 +17,14 @@ package containermetadata
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
-	"github.com/pborman/uuid"
 )
 
 const (
@@ -34,21 +33,21 @@ const (
 	invalidTaskARN       = "invalidARN"
 	validTaskARN         = "arn:aws:ecs:region:account-id:task/task-id"
 	containerName        = "container"
-	dataDirPrefix        = "ecs_mockdata"
+	dataDir              = "ecs_mockdata"
 )
 
-func setup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, string, func()) {
+func setup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
 	ctrl := gomock.NewController(t)
 	mockDockerMetadataClient := mock_containermetadata.NewMockDockerMetadataClient(ctrl)
-	// Generate UUID suffix for mocked dataDir to avoid collision with existing files and directories
-	randID := uuid.New()
-	mockDataDir := dataDirPrefix + "_" + randID
-	return mockDockerMetadataClient, mockDataDir, ctrl.Finish
+	mockIOUtil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+	mockOS := mock_oswrapper.NewMockOS(ctrl)
+	mockFile := mock_oswrapper.NewMockFile(ctrl)
+	return mockDockerMetadataClient, mockIOUtil, mockOS, mockFile, ctrl.Finish
 }
 
 // TestSetContainerInstanceARN checks whether the container instance ARN is set correctly.
 func TestSetContainerInstanceARN(t *testing.T) {
-	_, _, done := setup(t)
+	_, _, _, _, done := setup(t)
 	defer done()
 
 	mockARN := containerInstanceARN
@@ -62,7 +61,7 @@ func TestSetContainerInstanceARN(t *testing.T) {
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path
 func TestCreateMalformedFilepath(t *testing.T) {
-	_, _, done := setup(t)
+	_, _, _, _, done := setup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -79,65 +78,30 @@ func TestCreateMalformedFilepath(t *testing.T) {
 
 // TestCreateMkdirAllFail checks case when MkdirAll call fails
 func TestCreateMkdirAllFail(t *testing.T) {
-	_, mockDataDir, done := setup(t)
+	_, _, mockOS, _, done := setup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
 	mockContainerName := containerName
 
-	// Create metadata file directory path as a file instead of directory to cause MkDirAll to fail in Create call
-	directoryPath, _ := getTaskMetadataDir(mockTaskARN, mockDataDir)
-	os.MkdirAll(directoryPath, os.ModePerm)
-	filePath := filepath.Join(directoryPath, mockContainerName)
-	os.Create(filePath)
+	gomock.InOrder(
+		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(errors.New("err")),
+	)
 
 	newManager := &metadataManager{
-		dataDir: mockDataDir,
+		osWrap: mockOS,
 	}
 	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
-	expectErrorMessage := fmt.Sprintf("creating metadata directory for task %s: mkdir %s: not a directory", mockTaskARN, filePath)
-
-	// Remove test artifacts
-	os.RemoveAll(mockDataDir)
+	expectErrorMessage := fmt.Sprintf("creating metadata directory for task %s: err", mockTaskARN)
 
 	if err.Error() != expectErrorMessage {
 		t.Error("Got unexpected error: " + err.Error())
 	}
 }
 
-// TestCreate is the mainline case for metadata create
-func TestCreate(t *testing.T) {
-	_, mockDataDir, done := setup(t)
-	defer done()
-
-	mockTaskARN := validTaskARN
-	mockContainerName := containerName
-	mockConfig := &docker.Config{Env: make([]string, 0)}
-	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
-
-	newManager := &metadataManager{
-		dataDir: mockDataDir,
-	}
-	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
-
-	// Remove test artifacts
-	os.RemoveAll(mockDataDir)
-
-	if err != nil {
-		t.Error("Got unexpected error: " + err.Error())
-	}
-
-	if len(mockConfig.Env) != 1 {
-		t.Error("Unexpected number of environment variables in config: ", len(mockConfig.Env))
-	}
-	if len(mockHostConfig.Binds) != 1 {
-		t.Error("Unexpected number of binds in host config: ", len(mockHostConfig.Binds))
-	}
-}
-
 // TestUpdateInspectFail checks case when Inspect call fails
 func TestUpdateInspectFail(t *testing.T) {
-	mockClient, _, done := setup(t)
+	mockClient, _, _, _, done := setup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -160,7 +124,7 @@ func TestUpdateInspectFail(t *testing.T) {
 
 // TestUpdateNotRunningFail checks case where container is not running
 func TestUpdateNotRunningFail(t *testing.T) {
-	mockClient, _, done := setup(t)
+	mockClient, _, _, _, done := setup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -186,48 +150,9 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	}
 }
 
-// TestUpdate is mainline case for metadata update
-func TestUpdate(t *testing.T) {
-	mockClient, mockDataDir, done := setup(t)
-	defer done()
-
-	mockDockerID := dockerID
-	mockTaskARN := validTaskARN
-	mockContainerName := containerName
-	mockConfig := &docker.Config{Env: make([]string, 0)}
-	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
-	mockState := docker.State{
-		Running: true,
-	}
-	mockContainer := &docker.Container{
-		State: mockState,
-	}
-
-	newManager := &metadataManager{
-		client:  mockClient,
-		dataDir: mockDataDir,
-	}
-
-	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
-	if err != nil {
-		os.RemoveAll(mockDataDir)
-		t.Error("Got unexpected error: " + err.Error())
-	}
-
-	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
-	err = newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
-
-	// Remove test artifacts
-	os.RemoveAll(mockDataDir)
-
-	if err != nil {
-		t.Error("Got unexpected error: " + err.Error())
-	}
-}
-
 // TestCleanMalformedFilepath checks case where ARN is invalid
 func TestCleanMalformedFilepath(t *testing.T) {
-	_, _, done := setup(t)
+	_, _, _, _, done := setup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -243,40 +168,20 @@ func TestCleanMalformedFilepath(t *testing.T) {
 
 // TestClean is the mainline case for metadata create
 func TestClean(t *testing.T) {
-	_, mockDataDir, done := setup(t)
+	_, _, mockOS, _, done := setup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
-	mockContainerName := containerName
-	mockConfig := &docker.Config{Env: make([]string, 0)}
-	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
 
 	newManager := &metadataManager{
-		dataDir: mockDataDir,
+		osWrap: mockOS,
 	}
 
-	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
+	gomock.InOrder(
+		mockOS.EXPECT().RemoveAll(gomock.Any()).Return(nil),
+	)
+	err := newManager.Clean(mockTaskARN)
 	if err != nil {
-		os.RemoveAll(mockDataDir)
 		t.Error("Got unexpected error: " + err.Error())
 	}
-
-	err = newManager.Clean(mockTaskARN)
-	if err != nil {
-		os.RemoveAll(mockDataDir)
-		t.Error("Got unexpected error: " + err.Error())
-	}
-
-	// Verify cleanup by checking if file path still remains
-	metadataPath, _ := getTaskMetadataDir(mockTaskARN, mockDataDir)
-	_, err = os.Stat(metadataPath)
-	if err == nil {
-		os.RemoveAll(mockDataDir)
-		t.Error("Expected file to not exist")
-	}
-	if !os.IsNotExist(err) {
-		os.RemoveAll(mockDataDir)
-		t.Error("Got unexpected error: " + err.Error())
-	}
-	os.RemoveAll(mockDataDir)
 }

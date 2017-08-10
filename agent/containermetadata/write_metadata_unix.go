@@ -17,9 +17,10 @@ package containermetadata
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
 	"github.com/pborman/uuid"
 )
@@ -42,7 +43,7 @@ func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadata
 
 // writeToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func writeToMetadataFile(data []byte, taskARN string, containerName string, dataDir string) error {
+func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, data []byte, taskARN string, containerName string, dataDir string) error {
 	metadataFileDir, err := getMetadataFilePath(taskARN, containerName, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
@@ -50,7 +51,7 @@ func writeToMetadataFile(data []byte, taskARN string, containerName string, data
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	temp, err := ioutil.TempFile(metadataFileDir, "temp_metadata_file")
+	temp, err := ioutilWrap.TempFile(metadataFileDir, "temp_metadata_file")
 	if err != nil {
 		return err
 	}
@@ -63,5 +64,5 @@ func writeToMetadataFile(data []byte, taskARN string, containerName string, data
 	if err != nil {
 		return err
 	}
-	return os.Rename(temp.Name(), metadataFileName)
+	return osWrap.Rename(temp.Name(), metadataFileName)
 }

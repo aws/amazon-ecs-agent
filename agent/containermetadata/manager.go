@@ -20,6 +20,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -73,6 +76,10 @@ type metadataManager struct {
 	dataDirOnHost string
 	// containerInstanceARN is the Container Instance ARN registered for this agent
 	containerInstanceARN string
+	// osWrap is a wrapper for 'os' package operations
+	osWrap oswrapper.OS
+	// ioutilWrap is a wrapper for 'ioutil' package operations
+	ioutilWrap ioutilwrapper.IOUtil
 }
 
 // NewManager creates a metadataManager for a given DockerTaskEngine settings.
@@ -82,6 +89,8 @@ func NewManager(client DockerMetadataClient, cfg *config.Config) Manager {
 		cluster:       cfg.Cluster,
 		dataDir:       cfg.DataDir,
 		dataDirOnHost: cfg.DataDirOnHost,
+		osWrap:        oswrapper.NewOS(),
+		ioutilWrap:    ioutilwrapper.NewIOUtil(),
 	}
 }
 
@@ -102,7 +111,7 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 		return fmt.Errorf("container metadata create for task %s container %s: %v", taskARN, containerName, err)
 	}
 
-	err = os.MkdirAll(metadataDirectoryPath, os.ModePerm)
+	err = manager.osWrap.MkdirAll(metadataDirectoryPath, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("creating metadata directory for task %s: %v", taskARN, err)
 	}
@@ -115,7 +124,7 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 	}
 
 	// Write the metadata to file
-	err = writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
+	err = writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
 	if err != nil {
 		return err
 	}
@@ -148,7 +157,7 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 		return fmt.Errorf("update metadata for task %s container %s: %v", taskARN, containerName, err)
 	}
 
-	return writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
+	return writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
 }
 
 // Clean removes the metadata files of all containers associated with a task
@@ -157,5 +166,5 @@ func (manager *metadataManager) Clean(taskARN string) error {
 	if err != nil {
 		return fmt.Errorf("clean task %s: %v", taskARN, err)
 	}
-	return os.RemoveAll(metadataPath)
+	return manager.osWrap.RemoveAll(metadataPath)
 }
