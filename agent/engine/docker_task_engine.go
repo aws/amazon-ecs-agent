@@ -651,6 +651,8 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
+	// TODO: Add a state to the api.Container for the status of the metadata file (Whether it needs update) and
+	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
 	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
 		go func() {
 			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
