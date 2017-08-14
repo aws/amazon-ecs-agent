@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 )
 
 const (
@@ -251,7 +253,7 @@ func (c *Container) SetRegistryAuthCredentials(credential *credentials.IAMRoleCr
 		return fmt.Errorf("Container: set ecr pull credentials failed, using task level credentials is disabled")
 	}
 
-	c.RegistryAuthentication.ECRAuthData.PullCredentials = *credentials
+	c.RegistryAuthentication.ECRAuthData.PullCredentials = *credential
 	return nil
 }
 

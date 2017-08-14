@@ -879,16 +879,16 @@ func (task *Task) GetTaskENI() *ENI {
 	return task.ENI
 }
 
-// SetTaskCredentials sets the role credentials of the task
-func (task *Task) SetTaskCredentials(credentials *credential.IAMRoleCredentials) {
+// SetTaskExecutionCredentials sets the role credentials of the task
+func (task *Task) SetTaskExecutionCredentials(credential *credentials.IAMRoleCredentials) {
 	task.roleCredentialsLock.Lock()
 	defer task.roleCredentialsLock.Unlock()
 
-	task.roleCredentials = credentials
+	task.roleCredentials = credential
 }
 
-// GetTaskCredentials returns the role credential of the task
-func (task *Task) GetTaskCredentials() (credential.IAMRoleCredentials, bool) {
+// GetTaskExecutionCredentials returns the role credential of the task
+func (task *Task) GetTaskExecutionCredentials() (credentials.IAMRoleCredentials, bool) {
 	task.roleCredentialsLock.RLock()
 	defer task.roleCredentialsLock.RUnlock()
 
@@ -896,18 +896,18 @@ func (task *Task) GetTaskCredentials() (credential.IAMRoleCredentials, bool) {
 		return credentials.IAMRoleCredentials{}, false
 	}
 
-	return task.roleCredentials, true
+	return *task.roleCredentials, true
 }
 
 // TaskCredentialsNeedsUpdate check if there are container waiting for the
 // credentials to progress eg: pull
 func (task *Task) WaitForCredentials() bool {
-	if task.GetKnownStatus() > api.TaskStatusNone {
+	if task.GetKnownStatus() > TaskStatusNone {
 		return false
 	}
 
 	for _, container := range task.Containers {
-		if container.GetKnownStatus() < api.ContainerPulled && container.IsECRCredentialsEnabled() {
+		if container.GetKnownStatus() < ContainerPulled && container.IsECRCredentialsEnabled() {
 			return true
 		}
 	}
