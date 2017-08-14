@@ -70,12 +70,12 @@ func TestDockerCfgAuth(t *testing.T) {
 	providerDocker := NewDockerAuthProvider("docker", dockerAuthData)
 
 	for ndx, pair := range expectedPairs {
-		authConfig, _ := providerCfg.GetAuthconfig(pair.Image)
+		authConfig, _ := providerCfg.GetAuthconfig(pair.Image, nil)
 		if authConfig.Username != pair.ExpectedUser || authConfig.Password != pair.ExpectedPass {
 			t.Errorf("Expectation failure: #%v. Got %v, wanted %v", ndx, authConfig, pair)
 		}
 
-		authConfig, _ = providerDocker.GetAuthconfig(pair.Image)
+		authConfig, _ = providerDocker.GetAuthconfig(pair.Image, nil)
 		if authConfig.Username != pair.ExpectedUser || authConfig.Password != pair.ExpectedPass {
 			t.Errorf("Expectation failure: #%v. Got %v, wanted %v", ndx, authConfig, pair)
 		}
@@ -97,7 +97,7 @@ func TestAuthAppliesToOnlyRegistry(t *testing.T) {
 	provider := NewDockerAuthProvider("dockercfg", authData)
 
 	for ndx, pair := range expectedPairs {
-		authConfig, _ := provider.GetAuthconfig(pair.Image)
+		authConfig, _ := provider.GetAuthconfig(pair.Image, nil)
 		if authConfig.Username != pair.ExpectedUser || authConfig.Password != pair.ExpectedPass {
 			t.Errorf("Expectation failure: #%v. Got %v, wanted %v", ndx, authConfig, pair)
 		}
@@ -119,7 +119,7 @@ func TestAuthErrors(t *testing.T) {
 
 	for _, pair := range badPairs {
 		provider := NewDockerAuthProvider(pair.t, []byte(pair.a))
-		result, _ := provider.GetAuthconfig("nginx")
+		result, _ := provider.GetAuthconfig("nginx", nil)
 		if !reflect.DeepEqual(result, docker.AuthConfiguration{}) {
 			t.Errorf("Expected empty auth config for %v; got %v", pair, result)
 		}
@@ -129,7 +129,7 @@ func TestAuthErrors(t *testing.T) {
 
 func TestEmptyConfig(t *testing.T) {
 	provider := NewDockerAuthProvider("", []byte(""))
-	authConfig, _ := provider.GetAuthconfig("nginx")
+	authConfig, _ := provider.GetAuthconfig("nginx", nil)
 	if !reflect.DeepEqual(authConfig, docker.AuthConfiguration{}) {
 		t.Errorf("Expected empty authconfig to not return any auth data at all")
 	}

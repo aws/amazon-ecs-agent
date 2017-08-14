@@ -227,7 +227,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 		ServerAddress: "https://" + imageEndpoint,
 	}
 
-	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecrapi.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -274,8 +274,8 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 
-	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
 	// no retries for this error
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(nil, errors.New("test error"))
 
 	metadata := client.PullImage(image, authData)

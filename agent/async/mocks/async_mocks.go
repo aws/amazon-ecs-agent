@@ -42,6 +42,14 @@ func (_m *MockCache) EXPECT() *_MockCacheRecorder {
 	return _m.recorder
 }
 
+func (_m *MockCache) Delete(_param0 string) {
+	_m.ctrl.Call(_m, "Delete", _param0)
+}
+
+func (_mr *_MockCacheRecorder) Delete(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0)
+}
+
 func (_m *MockCache) Get(_param0 string) (async.Value, bool) {
 	ret := _m.ctrl.Call(_m, "Get", _param0)
 	ret0, _ := ret[0].(async.Value)
