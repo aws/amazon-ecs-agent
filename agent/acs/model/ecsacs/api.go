@@ -60,6 +60,8 @@ type AttachTaskNetworkInterfacesMessage struct {
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
 
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
 	MessageId *string `locationName:"messageId" type:"string"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -181,6 +183,8 @@ type ECRAuthData struct {
 	Region *string `locationName:"region" type:"string"`
 
 	RegistryId *string `locationName:"registryId" type:"string"`
+
+	UseExecutionRole *bool `locationName:"useExecutionRole" type:"boolean"`
 }
 
 // String returns the string representation
@@ -349,6 +353,8 @@ type IAMRoleCredentialsMessage struct {
 	MessageId *string `locationName:"messageId" type:"string"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+
+	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
 }
@@ -645,6 +651,8 @@ type Task struct {
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
 
 	Family *string `locationName:"family" type:"string"`
 
