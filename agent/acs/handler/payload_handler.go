@@ -217,6 +217,15 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 			apiTask.SetTaskENI(eni)
 		}
+		if task.ExecutionRoleCredentials != nil {
+			executionCredentials := credentials.TaskIAMRoleCredentials{
+				ARN:                aws.StringValue(task.Arn),
+				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials),
+			}
+			apiTask.SetTaskExecutionCredentials(&executionCredentials.IAMRoleCredentials)
+			// TODO PENG set the flag of container whether they need credentials from ecr to pull
+		}
+
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out

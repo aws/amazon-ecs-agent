@@ -304,13 +304,13 @@ func (engine *DockerTaskEngine) updateTaskContainerCredentials(task, update *api
 		return false
 	}
 
-	credential, ok := update.IAMRoleCredentials()
+	credential, ok := update.GetTaskExecutionCredentials()
 	if !ok {
 		seelog.Errorf("Updage task credentials: no credentials found in the updated task: %s", update.String())
 		return false
 	}
 
-	task.SetTaskCredentials(credential)
+	task.SetTaskExecutionCredentials(&credential)
 	return true
 }
 
@@ -623,7 +623,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	}
 
 	// Set up the credentials for pull from ecr if necessary
-	credential, ok := task.GetTaskCredentials()
+	credential, ok := task.GetTaskExecutionCredentials()
 	if ok && container.IsECRCredentialsEnabled() {
 		container.SetRegistryAuthCredentials(&credential)
 		// Clean up the ecr pull credentials after pulling
