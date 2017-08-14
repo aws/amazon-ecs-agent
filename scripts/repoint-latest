@@ -16,7 +16,6 @@
 set -e
 
 DRYRUN=true
-NUCLEAR=false
 
 IMAGE_NAME="amazon/amazon-ecs-agent"
 
@@ -38,7 +37,6 @@ usage() {
 	echo "  -b  BAD_VERSION     Version that will be unpublished"
 	echo "  -g  GOOD_VERSION    Version that will be re-tagged as latest"
 	echo "  -p  PROFILE         AWS CLI Profile (default is none)"
-	echo "  -n                  Nuclear option: delete the current version rather than just moving the latest pointer"
 	echo "  -h                  Display this help message"
 }
 
@@ -77,11 +75,6 @@ unpublish_s3() {
 
 	dryval s3_cp "s3://${PUBLISH_S3_BUCKET}/${base_name}-${GOOD_VERSION}.${suffix}" \
 		     "s3://${PUBLISH_S3_BUCKET}/${base_name}-${IMAGE_TAG_LATEST}.${suffix}"
-
-	if ${NUCLEAR}; then
-		dryval s3_rm "s3://${PUBLISH_S3_BUCKET}/${base_name}-${BAD_VERSION}.${suffix}"
-	   	dryval s3_rm "s3://${PUBLISH_S3_BUCKET}/${base_name}-${IMAGE_TAG_SHA}.${suffix}"	   
-	fi
 }
 
 unpublish_docker() {
@@ -112,10 +105,6 @@ unpublish_docker() {
 
 	rm "${tarball}"
 	rm "${tarball_md5}"
-
-	if ${NUCLEAR}; then
-		echo "There isn't a good way to delete image tags from docker hub. Please do it manually and carefully..."
-	fi
 }
 
 while getopts ":p:d:b:g:h:n" opt; do
@@ -124,9 +113,6 @@ while getopts ":p:d:b:g:h:n" opt; do
 			if [[ "${OPTARG}" = "false" ]]; then
 				DRYRUN=false
 			fi
-			;;
-		n)
-			NUCLEAR=true
 			;;
 		p)
 			AWS_PROFILE="${OPTARG}"
