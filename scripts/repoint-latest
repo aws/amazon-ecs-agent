@@ -96,6 +96,9 @@ unpublish_docker() {
 		exit 1
 	fi
 
+	echo "Removing any amazon/amazon-ecs-agent images for safety"
+	docker images -q amazon/amazon-ecs-agent | xargs -r -L 1 docker rmi -f
+
 	docker load < "${tarball}"
 
 	echo "Tagging as ${IMAGE_NAME}:${IMAGE_TAG_LATEST}"
