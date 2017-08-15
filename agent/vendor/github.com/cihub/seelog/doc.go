@@ -92,8 +92,7 @@ This way you are able to use package level funcs instead of passing the logger v
 
 Configuration
 
-Main seelog point is to configure logger via config files and not the code. So you can only specify
-formats and log rules by changing the configuration.
+Main seelog point is to configure logger via config files and not the code.
 The configuration is read by LoggerFrom* funcs. These funcs read xml configuration from different sources and try
 to create a logger using it.
 
@@ -132,6 +131,41 @@ This config represents a logger with adaptive timeout between log messages (chec
 logs to console, all.log, and errors.log depending on the log level. Its output formats also depend on log level. This logger will only
 use log level 'debug' and higher (minlevel is set) for all files with names that don't start with 'test'. For files starting with 'test'
 this logger prohibits all levels below 'error'.
+
+Configuration using code
+
+Although configuration using code is not recommended, it is sometimes needed and it is possible to do with seelog. Basically, what
+you need to do to get started is to create constraints, exceptions and a dispatcher tree (same as with config). Most of the New*
+functions in this package are used to provide such capabilities.
+
+Here is an example of configuration in code, that demonstrates an async loop logger that logs to a simple split dispatcher with
+a console receiver using a specified format and is filtered using a top-level min-max constraints and one expection for
+the 'main.go' file. So, this is basically a demonstration of configuration of most of the features:
+
+  package main
+
+  import log "github.com/cihub/seelog"
+
+  func main() {
+      defer log.Flush()
+      log.Info("Hello from Seelog!")
+
+      consoleWriter, _ := log.NewConsoleWriter()
+      formatter, _ := log.NewFormatter("%Level %Msg %File%n")
+      root, _ := log.NewSplitDispatcher(formatter, []interface{}{consoleWriter})
+      constraints, _ := log.NewMinMaxConstraints(log.TraceLvl, log.CriticalLvl)
+      specificConstraints, _ := log.NewListConstraints([]log.LogLevel{log.InfoLvl, log.ErrorLvl})
+      ex, _ := log.NewLogLevelException("*", "*main.go", specificConstraints)
+      exceptions := []*log.LogLevelException{ex}
+
+      logger := log.NewAsyncLoopLogger(log.NewLoggerConfig(constraints, exceptions, root))
+      log.ReplaceLogger(logger)
+
+      log.Trace("This should not be seen")
+      log.Debug("This should not be seen")
+      log.Info("Test")
+      log.Error("Test2")
+  }
 
 Examples
 

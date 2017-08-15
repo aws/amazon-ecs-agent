@@ -36,8 +36,8 @@ type asyncTimerLogger struct {
 	interval time.Duration
 }
 
-// newAsyncLoopLogger creates a new asynchronous loop logger
-func newAsyncTimerLogger(config *logConfig, interval time.Duration) (*asyncTimerLogger, error) {
+// NewAsyncLoopLogger creates a new asynchronous loop logger
+func NewAsyncTimerLogger(config *logConfig, interval time.Duration) (*asyncTimerLogger, error) {
 
 	if interval <= 0 {
 		return nil, errors.New("async logger interval should be > 0")
@@ -57,11 +57,11 @@ func (asnTimerLogger *asyncTimerLogger) processItem() (closed bool) {
 	asnTimerLogger.queueHasElements.L.Lock()
 	defer asnTimerLogger.queueHasElements.L.Unlock()
 
-	for asnTimerLogger.msgQueue.Len() == 0 && !asnTimerLogger.closed {
+	for asnTimerLogger.msgQueue.Len() == 0 && !asnTimerLogger.Closed() {
 		asnTimerLogger.queueHasElements.Wait()
 	}
 
-	if asnTimerLogger.closed {
+	if asnTimerLogger.Closed() {
 		return true
 	}
 
@@ -70,7 +70,7 @@ func (asnTimerLogger *asyncTimerLogger) processItem() (closed bool) {
 }
 
 func (asnTimerLogger *asyncTimerLogger) processQueue() {
-	for !asnTimerLogger.closed {
+	for !asnTimerLogger.Closed() {
 		closed := asnTimerLogger.processItem()
 
 		if closed {

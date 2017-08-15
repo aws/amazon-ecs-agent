@@ -76,23 +76,34 @@ func getLoggerTypeFromString(logTypeString string) (level loggerTypeFromString, 
 }
 
 // logConfig stores logging configuration. Contains messages dispatcher, allowed log level rules
-// (general constraints and exceptions), and messages formats (used by nodes of dispatcher tree)
+// (general constraints and exceptions)
 type logConfig struct {
 	Constraints    logLevelConstraints  // General log level rules (>min and <max, or set of allowed levels)
-	Exceptions     []*logLevelException // Exceptions to general rules for specific files or funcs
+	Exceptions     []*LogLevelException // Exceptions to general rules for specific files or funcs
 	RootDispatcher dispatcherInterface  // Root of output tree
-	LogType        loggerTypeFromString
-	LoggerData     interface{}
-	Params         *CfgParseParams // Check cfg_parser: CfgParseParams
 }
 
-func newConfig(
+func NewLoggerConfig(c logLevelConstraints, e []*LogLevelException, d dispatcherInterface) *logConfig {
+	return &logConfig{c, e, d}
+}
+
+// configForParsing is used when parsing config from file: logger type is deduced from string, params
+// need to be converted from attributes to values and passed to specific logger constructor. Also,
+// custom registered receivers and other parse params are used in this case.
+type configForParsing struct {
+	logConfig
+	LogType    loggerTypeFromString
+	LoggerData interface{}
+	Params     *CfgParseParams // Check cfg_parser: CfgParseParams
+}
+
+func newFullLoggerConfig(
 	constraints logLevelConstraints,
-	exceptions []*logLevelException,
+	exceptions []*LogLevelException,
 	rootDispatcher dispatcherInterface,
 	logType loggerTypeFromString,
 	logData interface{},
-	cfgParams *CfgParseParams) (*logConfig, error) {
+	cfgParams *CfgParseParams) (*configForParsing, error) {
 	if constraints == nil {
 		return nil, errors.New("constraints can not be nil")
 	}
@@ -100,7 +111,7 @@ func newConfig(
 		return nil, errors.New("rootDispatcher can not be nil")
 	}
 
-	config := new(logConfig)
+	config := new(configForParsing)
 	config.Constraints = constraints
 	config.Exceptions = exceptions
 	config.RootDispatcher = rootDispatcher

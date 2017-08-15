@@ -41,8 +41,8 @@ type minMaxConstraints struct {
 	max LogLevel
 }
 
-// newMinMaxConstraints creates a new minMaxConstraints struct with the specified min and max levels.
-func newMinMaxConstraints(min LogLevel, max LogLevel) (*minMaxConstraints, error) {
+// NewMinMaxConstraints creates a new minMaxConstraints struct with the specified min and max levels.
+func NewMinMaxConstraints(min LogLevel, max LogLevel) (*minMaxConstraints, error) {
 	if min > max {
 		return nil, fmt.Errorf("min level can't be greater than max. Got min: %d, max: %d", min, max)
 	}
@@ -72,8 +72,8 @@ type listConstraints struct {
 	allowedLevels map[LogLevel]bool
 }
 
-// newListConstraints creates a new listConstraints struct with the specified allowed levels.
-func newListConstraints(allowList []LogLevel) (*listConstraints, error) {
+// NewListConstraints creates a new listConstraints struct with the specified allowed levels.
+func NewListConstraints(allowList []LogLevel) (*listConstraints, error) {
 	if allowList == nil {
 		return nil, errors.New("list can't be nil")
 	}
@@ -149,7 +149,7 @@ func (listConstr *listConstraints) AllowedLevels() map[LogLevel]bool {
 type offConstraints struct {
 }
 
-func newOffConstraints() (*offConstraints, error) {
+func NewOffConstraints() (*offConstraints, error) {
 	return &offConstraints{}, nil
 }
 
