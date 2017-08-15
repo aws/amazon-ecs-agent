@@ -21,6 +21,9 @@ import (
 
 const (
 	portBindingHostIP = "0.0.0.0"
+
+	//memorySwappinessDefault is the expected default value for this platform. This is used in task_windows.go
+	//and is maintained here for unix default. Also used for testing
 	memorySwappinessDefault = 0
 )
 

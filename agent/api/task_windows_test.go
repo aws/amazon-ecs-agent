@@ -108,20 +108,9 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 	// Testing Windows platform override for HostConfig.
 	// Expects MemorySwappiness option to be set to -1
 
-	task := &Task{
-		Arn:                 "myArn",
-		DesiredStatusUnsafe: TaskRunning,
-		Family:              "myFamily",
-		Version:             "1",
-		Containers: []*Container{
-			{
-				Name: "myName",
-			},
-		},
-	}
+	task := &Task{}
 
-	hostConfig := &docker.HostConfig{
-	}
+	hostConfig := &docker.HostConfig{}
 
 	task.platformHostConfigOverride(hostConfig)
 
@@ -131,8 +120,7 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 func TestWindowsMemorySwappinessOption(t *testing.T) {
 	// Testing sending a task to windows overriding MemorySwappiness value
-	rawHostConfigInput := docker.HostConfig{
-	}
+	rawHostConfigInput := docker.HostConfig{}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 	if err != nil {
