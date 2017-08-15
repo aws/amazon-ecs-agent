@@ -123,12 +123,16 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials TaskIAMRol
 }
 
 // GetTaskCredentials retrieves credentials for a given credentials id
-func (manager *credentialsManager) GetTaskCredentials(id string) (*TaskIAMRoleCredentials, bool) {
+func (manager *credentialsManager) GetTaskCredentials(id string) (TaskIAMRoleCredentials, bool) {
 	manager.taskCredentialsLock.RLock()
 	defer manager.taskCredentialsLock.RUnlock()
 
 	taskCredentials, ok := manager.idToTaskCredentials[id]
-	return taskCredentials, ok
+
+	if !ok {
+		return TaskIAMRoleCredentials{}, ok
+	}
+	return *taskCredentials, ok
 }
 
 // RemoveCredentials removes credentials from the credentials manager

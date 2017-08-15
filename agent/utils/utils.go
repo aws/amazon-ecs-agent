@@ -44,7 +44,8 @@ func ZeroOrNil(obj interface{}) bool {
 	if obj == nil {
 		return true
 	}
-	if value.Kind() == reflect.Slice || value.Kind() == reflect.Array {
+	switch value.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map:
 		return value.Len() == 0
 	}
 	zero := reflect.Zero(reflect.TypeOf(obj))

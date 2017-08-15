@@ -4149,10 +4149,16 @@ type ContainerOverride struct {
 	// the Docker image or the task definition.
 	Command []*string `locationName:"command" type:"list"`
 
+	Cpu *int64 `locationName:"cpu" type:"integer"`
+
 	// The environment variables to send to the container. You can add new environment
 	// variables, which are added to the container at launch, or you can override
 	// the existing environment variables from the Docker image or the task definition.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
+
+	Memory *int64 `locationName:"memory" type:"integer"`
+
+	MemoryReservation *int64 `locationName:"memoryReservation" type:"integer"`
 
 	// The name of the container that receives the override.
 	Name *string `locationName:"name" type:"string"`
@@ -4174,9 +4180,27 @@ func (s *ContainerOverride) SetCommand(v []*string) *ContainerOverride {
 	return s
 }
 
+// SetCpu sets the Cpu field's value.
+func (s *ContainerOverride) SetCpu(v int64) *ContainerOverride {
+	s.Cpu = &v
+	return s
+}
+
 // SetEnvironment sets the Environment field's value.
 func (s *ContainerOverride) SetEnvironment(v []*KeyValuePair) *ContainerOverride {
 	s.Environment = v
+	return s
+}
+
+// SetMemory sets the Memory field's value.
+func (s *ContainerOverride) SetMemory(v int64) *ContainerOverride {
+	s.Memory = &v
+	return s
+}
+
+// SetMemoryReservation sets the MemoryReservation field's value.
+func (s *ContainerOverride) SetMemoryReservation(v int64) *ContainerOverride {
+	s.MemoryReservation = &v
 	return s
 }
 
@@ -4307,6 +4331,8 @@ type CreateServiceInput struct {
 	// DesiredCount is a required field
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer" required:"true"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of load balancer objects, containing the load balancer name, the container
 	// name (as it appears in a container definition), and the container port to
 	// access from the load balancer.
@@ -4390,6 +4416,12 @@ func (s *CreateServiceInput) SetDeploymentConfiguration(v *DeploymentConfigurati
 // SetDesiredCount sets the DesiredCount field's value.
 func (s *CreateServiceInput) SetDesiredCount(v int64) *CreateServiceInput {
 	s.DesiredCount = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *CreateServiceInput) SetLaunchType(v string) *CreateServiceInput {
+	s.LaunchType = &v
 	return s
 }
 
@@ -4681,6 +4713,8 @@ type Deployment struct {
 	// The ID of the deployment.
 	Id *string `locationName:"id" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// The number of tasks in the deployment that are in the PENDING status.
 	PendingCount *int64 `locationName:"pendingCount" type:"integer"`
 
@@ -4725,6 +4759,12 @@ func (s *Deployment) SetDesiredCount(v int64) *Deployment {
 // SetId sets the Id field's value.
 func (s *Deployment) SetId(v string) *Deployment {
 	s.Id = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *Deployment) SetLaunchType(v string) *Deployment {
+	s.LaunchType = &v
 	return s
 }
 
@@ -7216,6 +7256,8 @@ type Service struct {
 	// are displayed.
 	Events []*ServiceEvent `locationName:"events" type:"list"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of load balancer objects, containing the load balancer name, the container
 	// name (as it appears in a container definition), and the container port to
 	// access from the load balancer.
@@ -7297,6 +7339,12 @@ func (s *Service) SetDesiredCount(v int64) *Service {
 // SetEvents sets the Events field's value.
 func (s *Service) SetEvents(v []*ServiceEvent) *Service {
 	s.Events = v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *Service) SetLaunchType(v string) *Service {
+	s.LaunchType = &v
 	return s
 }
 

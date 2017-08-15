@@ -45,7 +45,7 @@ var expectedAck = &ecsacs.IAMRoleCredentialsAckRequest{
 	CredentialsId: aws.String(credentialsId),
 }
 
-var expectedCredentials = &credentials.TaskIAMRoleCredentials{
+var expectedCredentials = credentials.TaskIAMRoleCredentials{
 	ARN: taskArn,
 	IAMRoleCredentials: credentials.IAMRoleCredentials{
 		RoleArn:         roleArn,

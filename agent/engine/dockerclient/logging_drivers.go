@@ -23,6 +23,7 @@ const (
 	FluentdDriver    LoggingDriver = "fluentd"
 	AWSLogsDriver    LoggingDriver = "awslogs"
 	SplunklogsDriver LoggingDriver = "splunk"
+	LogentriesDriver LoggingDriver = "logentries"
 )
 
 var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{
@@ -33,4 +34,5 @@ var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{
 	FluentdDriver:    Version_1_20,
 	AWSLogsDriver:    Version_1_21,
 	SplunklogsDriver: Version_1_22,
+	LogentriesDriver: Version_1_25,
 }

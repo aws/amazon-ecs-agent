@@ -283,6 +283,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Warnf(instanceIDMismatchErrorFormat,
 			previousEC2InstanceID, currentEC2InstanceID)
 
+		// Reset agent state as a new container instance
+		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state), currentEC2InstanceID, nil
