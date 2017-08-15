@@ -50,15 +50,15 @@ unpublish_s3() {
 	fi
 
 	tarball_bad="$(mktemp)"
-	tarball_latest="$(mktemp)"
+	tarball_latest_md5="$(mktemp)"
 
 	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${BAD_VERSION}.tar" "${tarball_bad}"
-	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${IMAGE_TAG_LATEST}.tar.md5" "${tarball_latest}"
+	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${IMAGE_TAG_LATEST}.tar.md5" "${tarball_latest_md5}"
 
-	if ! check_md5 "${tarball_bad}" test_md5="$(md5sum ${tarball_latest} | sed 's/ .*//')" ; then
+	if ! check_md5 "${tarball_bad}" "${tarball_latest_md5}"; then
 		echo "The bad version ${BAD_VERSION} is not currently tagged as latest"
 		rm "${tarball_bad}"
-		rm "${tarball_latest}"
+		rm "${tarball_latest_md5}"
 		exit 1
 	fi
 
@@ -153,6 +153,16 @@ if [ -n "${TARGET_OS_OPT}" ]; then
 			exit 1
 		fi
 	done
+fi
+
+if [ "${GOOD_VERSION}" == "" ]; then
+   echo "GOOD_VERSION must be supplied with the -g flag"
+   exit 1
+fi
+
+if [ "${BAD_VERSION}" == "" ]; then
+   echo "BAD_VERSION must be supplied with the -b flag"
+   exit 1
 fi
 
 echo "Current bad version: ${BAD_VERSION}"
