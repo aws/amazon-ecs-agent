@@ -770,7 +770,14 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			// These result in us falling through to inspect the container, some
 			// out of caution, some because it's a form of state change
 			case "oom":
-				seelog.Infof("process within container %v died due to OOM", event.ID)
+				containerInfo := event.ID
+				// events only contain the container's name in newer Docker API
+				// versions (starting with 1.22)
+				if containerName, ok := event.Actor.Attributes["name"]; ok {
+					containerInfo += fmt.Sprintf(" (name: %q)", containerName)
+				}
+
+				seelog.Infof("process within container %s died due to OOM", containerInfo)
 				// "oom" can either means any process got OOM'd, but doesn't always
 				// mean the container dies (non-init processes). If the container also
 				// dies, you see a "die" status as well; we'll update suitably there
