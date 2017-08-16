@@ -289,9 +289,8 @@ func TestENISentStatusChange(t *testing.T) {
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
 		Attachment: eniAttachment,
 		TaskArn:    "taskarn",
-		// TODO: This should be api.TaskStatusNone
-		Status: api.TaskStatusNone,
-		Task:   task,
+		Status:     api.TaskStatusNone,
+		Task:       task,
 	})
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(nil)

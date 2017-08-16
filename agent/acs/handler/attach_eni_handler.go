@@ -100,7 +100,7 @@ func (handler *attachENIHandler) handleSingleMessage(message *ecsacs.AttachTaskN
 	// Validate fields in the message
 	if err := validateAttachTaskNetworkInterfacesMessage(message); err != nil {
 		return errors.Wrapf(err,
-			"attach eni message handler: error validating AttachTaskNetworkInterfac message received from ECS")
+			"attach eni message handler: error validating AttachTaskNetworkInterface message received from ECS")
 	}
 	if err := handler.acsClient.MakeRequest(&ecsacs.AckRequest{
 		Cluster:           message.ClusterArn,
