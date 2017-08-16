@@ -139,7 +139,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) {
 			eni.Status = api.ENIAttached
 			log.Infof("Emitting ENI change event for: %v", eni)
 			udevWatcher.eniChangeEvent <- api.TaskStateChange{
-				TaskArn:     eni.TaskArn,
+				TaskArn:     eni.TaskARN,
 				Attachments: eni,
 			}
 		}(eniAttachment)

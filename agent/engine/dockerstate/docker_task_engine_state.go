@@ -189,8 +189,8 @@ func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttac
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	if _, ok := state.eniAttachments[eniAttachment.MacAddress]; !ok {
-		state.eniAttachments[eniAttachment.MacAddress] = eniAttachment
+	if _, ok := state.eniAttachments[eniAttachment.MACAddress]; !ok {
+		state.eniAttachments[eniAttachment.MACAddress] = eniAttachment
 	} else {
 		seelog.Debugf("Duplicate eni attachment information: %v", eniAttachment)
 	}

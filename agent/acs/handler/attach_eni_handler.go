@@ -85,7 +85,9 @@ func (attachENIHandler *attachENIHandler) handleMessages() {
 	for {
 		select {
 		case message := <-attachENIHandler.messageBuffer:
-			attachENIHandler.handleSingleMessage(message)
+			if err := attachENIHandler.handleSingleMessage(message); err != nil {
+				seelog.Warnf("Unable to handle ENI Attachment message [%s]: %v", message.String(), err)
+			}
 		case <-attachENIHandler.ctx.Done():
 			return
 		}
@@ -93,56 +95,57 @@ func (attachENIHandler *attachENIHandler) handleMessages() {
 }
 
 // handleSingleMessage acks the message received
-// TODO: Send response to validate ENI attachment
-func (attachENIHandler *attachENIHandler) handleSingleMessage(message *ecsacs.AttachTaskNetworkInterfacesMessage) error {
+func (handler *attachENIHandler) handleSingleMessage(message *ecsacs.AttachTaskNetworkInterfacesMessage) error {
+	receivedAt := time.Now()
 	// Validate fields in the message
-	err := validateAttachTaskNetworkInterfacesMessage(message)
-	if err != nil {
-		return errors.Wrapf(err, "attach eni message handler: error validating AttachTaskNetworkInterfac message received from ECS")
+	if err := validateAttachTaskNetworkInterfacesMessage(message); err != nil {
+		return errors.Wrapf(err,
+			"attach eni message handler: error validating AttachTaskNetworkInterfac message received from ECS")
 	}
-
-	err = attachENIHandler.acsClient.MakeRequest(&ecsacs.AckRequest{
+	if err := handler.acsClient.MakeRequest(&ecsacs.AckRequest{
 		Cluster:           message.ClusterArn,
 		ContainerInstance: message.ContainerInstanceArn,
 		MessageId:         message.MessageId,
-	})
-	if err != nil {
+	}); err != nil {
 		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(message.MessageId), err)
 	}
-
 	// Check if this is a duplicate message
-	eniMac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
-	if _, ok := attachENIHandler.state.ENIByMac(eniMac); ok {
-		seelog.Infof("Duplicate ENI attachment message for ENI with MAC address: %s", eniMac)
-		return nil
+	mac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
+	if eniAttachment, ok := handler.state.ENIByMac(mac); ok {
+		seelog.Infof("Duplicate ENI attachment message for ENI with MAC address: %s", mac)
+		eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: handler.state}
+		return eniAttachment.StartTimer(eniAckTimeoutHandler.handle)
 	}
-
-	attachENIHandler.addENIAttachmentToState(message)
-	err = attachENIHandler.saver.Save()
-	if err != nil {
-		return errors.Wrapf(err, "attach eni message handler: error save agent state")
+	if err := handler.addENIAttachmentToState(message, receivedAt); err != nil {
+		return errors.Wrapf(err, "attach eni message handler: unable to add eni attachment to engine state")
+	}
+	if err := handler.saver.Save(); err != nil {
+		return errors.Wrapf(err, "attach eni message handler: unable to save agent state")
 	}
 	return nil
 }
 
 // addENIAttachmentToState adds the eni info to the state
-func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
-	attachmentArn := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
-	eniMac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
-	// Stop tracking the eni attachment after timeout
-	eniAckTimeout := time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond
-	eniAckTimeoutHandler := ackTimeoutHandler{mac: eniMac, state: handler.state}
-	ackTimeoutTimer := time.AfterFunc(eniAckTimeout, eniAckTimeoutHandler.handle)
-
-	seelog.Info("Adding eni info to state, eni: %s", attachmentArn)
+func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachTaskNetworkInterfacesMessage, receivedAt time.Time) error {
+	attachmentARN := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
+	mac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
+	taskARN := aws.StringValue(message.TaskArn)
 	eniAttachment := &api.ENIAttachment{
-		TaskArn:          aws.StringValue(message.TaskArn),
-		AttachmentArn:    attachmentArn,
+		TaskARN:          taskARN,
+		AttachmentARN:    attachmentARN,
 		AttachStatusSent: false,
-		MacAddress:       eniMac,
-		AckTimer:         ackTimeoutTimer,
+		MACAddress:       mac,
+		// Stop tracking the eni attachment after timeout
+		ExpiresAt: receivedAt.Add(time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond),
 	}
+	eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: handler.state}
+	if err := eniAttachment.StartTimer(eniAckTimeoutHandler.handle); err != nil {
+		return err
+	}
+	seelog.Info("Adding eni info for task '%s' to state, attachment=%s mac=%s",
+		taskARN, attachmentARN, mac)
 	handler.state.AddENIAttachment(eniAttachment)
+	return nil
 }
 
 // ackTimeoutHandler remove ENI attachment from agent state after the ENI ack timeout
@@ -154,11 +157,11 @@ type ackTimeoutHandler struct {
 func (handler *ackTimeoutHandler) handle() {
 	eniAttachment, ok := handler.state.ENIByMac(handler.mac)
 	if !ok {
-		seelog.Warnf("Timed out waiting for ENI ack; ignoring unmanaged ENI attachment with MAC address:%s", handler.mac)
+		seelog.Warnf("Timed out waiting for ENI ack; ignoring unmanaged ENI attachment with MAC address: %s", handler.mac)
 		return
 	}
 	if !eniAttachment.IsSent() {
-		seelog.Info("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", handler.mac)
+		seelog.Infof("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", handler.mac)
 		handler.state.RemoveENIAttachment(handler.mac)
 	}
 }
