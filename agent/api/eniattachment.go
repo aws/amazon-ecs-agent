@@ -14,6 +14,7 @@
 package api
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -81,4 +82,14 @@ func (eni *ENIAttachment) SetSentStatus() {
 // StopAckTimer stops the ack timer set on the ENI attachment
 func (eni *ENIAttachment) StopAckTimer() {
 	eni.ackTimer.Stop()
+}
+
+// String returns a string representation of the ENI Attachment
+func (eni *ENIAttachment) String() string {
+	eni.sentStatusLock.RLock()
+	defer eni.sentStatusLock.RUnlock()
+
+	return fmt.Sprintf(
+		"ENI Attachment; task=%s;attachment=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
+		eni.TaskARN, eni.AttachmentARN, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
 }

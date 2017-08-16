@@ -287,10 +287,10 @@ func TestENISentStatusChange(t *testing.T) {
 	assert.NoError(t, eniAttachment.StartTimer(timeoutFunc))
 
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
-		Attachments: eniAttachment,
-		TaskArn:     "taskarn",
+		Attachment: eniAttachment,
+		TaskArn:    "taskarn",
 		// TODO: This should be api.TaskStatusNone
-		Status: api.TaskRunning,
+		Status: api.TaskStatusNone,
 		Task:   task,
 	})
 
@@ -304,5 +304,4 @@ func TestENISentStatusChange(t *testing.T) {
 	}, client)
 
 	assert.True(t, eniAttachment.AttachStatusSent)
-	assert.Equal(t, api.TaskRunning, task.GetSentStatus())
 }

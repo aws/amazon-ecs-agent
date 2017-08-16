@@ -288,13 +288,13 @@ func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
 	// Submit attachment state change
-	if change.Attachments != nil {
+	if change.Attachment != nil {
 		var attachments []*ecs.AttachmentStateChange
 
-		eniStatus := change.Attachments.Status.String()
+		eniStatus := change.Attachment.Status.String()
 		attachments = []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: &change.Attachments.AttachmentARN,
+				AttachmentArn: &change.Attachment.AttachmentARN,
 				Status:        &eniStatus,
 			},
 		}

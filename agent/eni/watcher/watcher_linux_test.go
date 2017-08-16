@@ -56,7 +56,7 @@ func TestWatcherInit(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
-		MacAddress:       randomMAC,
+		MACAddress:       randomMAC,
 		AttachStatusSent: false,
 	})
 	eventChannel := make(chan statechange.Event)
@@ -79,8 +79,8 @@ func TestWatcherInit(t *testing.T) {
 	var event statechange.Event
 	go func() {
 		event = <-eventChannel
-		assert.NotNil(t, event.(api.TaskStateChange).Attachments)
-		assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
+		assert.NotNil(t, event.(api.TaskStateChange).Attachment)
+		assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
 		waitForEvents.Done()
 	}()
 	watcher.Init()
@@ -146,7 +146,7 @@ func TestReconcileENIs(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
-		MacAddress:       randomMAC,
+		MACAddress:       randomMAC,
 		AttachStatusSent: false,
 	})
 
@@ -171,8 +171,8 @@ func TestReconcileENIs(t *testing.T) {
 	watcher.reconcileOnce()
 
 	<-done
-	assert.NotNil(t, event.(api.TaskStateChange).Attachments)
-	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachments.MacAddress)
+	assert.NotNil(t, event.(api.TaskStateChange).Attachment)
+	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
 
 	select {
 	case <-eventChannel:
@@ -282,7 +282,7 @@ func TestUdevAddEvent(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, api.ENIAttached, taskStateChange.Attachments.Status)
+	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
 
 	var waitForClose sync.WaitGroup
 	waitForClose.Add(2)
@@ -436,7 +436,7 @@ func TestSendENIStateChange(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, api.ENIAttached, taskStateChange.Attachments.Status)
+	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
 }
 
 func TestShouldSendENIStateChange(t *testing.T) {
