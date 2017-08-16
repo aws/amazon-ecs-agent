@@ -57,8 +57,7 @@ func (eni *ENIAttachment) StartTimer(timeoutFunc func()) error {
 		return errors.Errorf("eni attachment: timer expiration is in the past; expiration [%s] < now [%s]",
 			eni.ExpiresAt.String(), now.String())
 	}
-	seelog.Infof("Starting ENI ack timer for task %s, with mac address %s, to expire at %s, with duration: %s",
-		eni.TaskARN, eni.MACAddress, eni.ExpiresAt, duration.String())
+	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.String())
 	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
 	return nil
 }

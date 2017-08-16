@@ -25,7 +25,7 @@ const (
 	taskARN       = "t1"
 	attachmentARN = "att1"
 	mac           = "mac1"
-	attachSent    = false
+	attachSent    = true
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
@@ -43,7 +43,17 @@ func TestMarshalUnmarshal(t *testing.T) {
 	var unmarshalledAttachment ENIAttachment
 	err = json.Unmarshal(bytes, &unmarshalledAttachment)
 	assert.NoError(t, err)
-	assert.Equal(t, attachment.String(), unmarshalledAttachment.String())
+	assert.Equal(t, attachment.TaskARN, unmarshalledAttachment.TaskARN)
+	assert.Equal(t, attachment.AttachmentARN, unmarshalledAttachment.AttachmentARN)
+	assert.Equal(t, attachment.AttachStatusSent, unmarshalledAttachment.AttachStatusSent)
+	assert.Equal(t, attachment.MACAddress, unmarshalledAttachment.MACAddress)
+	assert.Equal(t, attachment.Status, unmarshalledAttachment.Status)
+
+	expectedExpiresAtUTC, err := time.Parse(time.RFC3339, attachment.ExpiresAt.Format(time.RFC3339))
+	assert.NoError(t, err)
+	unmarshalledExpiresAtUTC, err := time.Parse(time.RFC3339, unmarshalledAttachment.ExpiresAt.Format(time.RFC3339))
+	assert.NoError(t, err)
+	assert.Equal(t, expectedExpiresAtUTC, unmarshalledExpiresAtUTC)
 }
 
 func TestStartTimerErrorWhenExpiresAtIsInThePast(t *testing.T) {
