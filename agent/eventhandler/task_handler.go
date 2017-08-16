@@ -182,7 +182,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 			event := eventToSubmit.Value.(*sendableEvent)
 
 			if event.containerShouldBeSent() {
-				seelog.Info("TaskHandler, Sending container change: ", event)
+				seelog.Infof("TaskHandler, Sending container change: %s", event.String())
 				err = client.SubmitContainerStateChange(event.containerChange)
 				if err == nil {
 					// submitted; ensure we don't retry it
@@ -191,35 +191,47 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 						event.containerChange.Container.SetSentStatus(event.containerChange.Status)
 					}
 					statesaver.Save()
-					seelog.Debug("TaskHandler, Submitted container state change")
+					seelog.Debugf("TaskHandler, Submitted container state change: %s", event.String())
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)
 				} else {
-					seelog.Error("TaskHandler, Unretriable error submitting container state change ", err)
+					seelog.Errorf("TaskHandler, Unretriable error submitting container state change [%s]: %v",
+						event.String(), err)
 				}
 			} else if event.taskShouldBeSent() {
-				seelog.Info("TaskHandler, Sending task change: ", event)
+				seelog.Infof("TaskHandler, Sending task change: %s", event.String())
 				err = client.SubmitTaskStateChange(event.taskChange)
 				if err == nil {
 					// submitted or can't be retried; ensure we don't retry it
 					event.setSent()
-					if event.taskChange.Task != nil {
-						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
-					}
-					if event.taskChange.Attachments != nil {
-						event.taskChange.Attachments.SetSentStatus()
-						event.taskChange.Attachments.StopAckTimer()
-					}
+					event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					statesaver.Save()
-					seelog.Debug("TaskHandler, Submitted task state change: ", event.taskChange)
+					seelog.Debugf("TaskHandler, Submitted task state change: %s", event.String())
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)
 				} else {
-					seelog.Error("TaskHandler, Unretriable error submitting container state change: ", err)
+					seelog.Errorf("TaskHandler, Unretriable error submitting task state change[%s]: %v",
+						event.String(), err)
+				}
+			} else if event.taskAttachmentShouldBeSent() {
+				seelog.Infof("TaskHandler, Sending task attachment change: %s", event.String())
+				err = client.SubmitTaskStateChange(event.taskChange)
+				if err == nil {
+					// submitted or can't be retried; ensure we don't retry it
+					event.setSent()
+					event.taskChange.Attachment.SetSentStatus()
+					event.taskChange.Attachment.StopAckTimer()
+					statesaver.Save()
+					seelog.Debugf("TaskHandler, Submitted task attachment state change: %s", event.String())
+					backoff.Reset()
+					taskEvents.events.Remove(eventToSubmit)
+				} else {
+					seelog.Errorf("TaskHandler, Unretriable error submitting task attachment state change [%s]: %v",
+						event.String(), err)
 				}
 			} else {
 				// Shouldn't be sent as either a task or container change event; must have been already sent
-				seelog.Info("TaskHandler, Not submitting redundant event; just removing")
+				seelog.Infof("TaskHandler, Not submitting redundant event; just removing: %s", event.String())
 				taskEvents.events.Remove(eventToSubmit)
 			}
 

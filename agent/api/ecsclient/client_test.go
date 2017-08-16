@@ -667,7 +667,7 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskArn: "task_arn",
-		Attachments: &api.ENIAttachment{
+		Attachment: &api.ENIAttachment{
 			AttachmentARN: "eni_arn",
 			Status:        api.ENIAttached,
 		},

@@ -43,7 +43,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 	var unmarshalledAttachment ENIAttachment
 	err = json.Unmarshal(bytes, &unmarshalledAttachment)
 	assert.NoError(t, err)
-	assert.Equal(t, *attachment, unmarshalledAttachment)
+	assert.Equal(t, attachment.String(), unmarshalledAttachment.String())
 }
 
 func TestStartTimerErrorWhenExpiresAtIsInThePast(t *testing.T) {

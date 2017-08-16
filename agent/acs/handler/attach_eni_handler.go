@@ -142,7 +142,7 @@ func (handler *attachENIHandler) addENIAttachmentToState(message *ecsacs.AttachT
 	if err := eniAttachment.StartTimer(eniAckTimeoutHandler.handle); err != nil {
 		return err
 	}
-	seelog.Info("Adding eni info for task '%s' to state, attachment=%s mac=%s",
+	seelog.Infof("Adding eni info for task '%s' to state, attachment=%s mac=%s",
 		taskARN, attachmentARN, mac)
 	handler.state.AddENIAttachment(eniAttachment)
 	return nil

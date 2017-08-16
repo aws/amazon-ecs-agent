@@ -15,8 +15,9 @@ package api
 
 import (
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"strconv"
+
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
 // ContainerStateChange represents a state change that needs to be sent to the
@@ -45,7 +46,8 @@ type ContainerStateChange struct {
 // TaskStateChange represents a state change that needs to be sent to the
 // SubmitTaskStateChange API
 type TaskStateChange struct {
-	Attachments *ENIAttachment
+	// Attachment is the eni attachment object to send
+	Attachment *ENIAttachment
 	// TaskArn is the unique identifier for the task
 	TaskArn string
 	// Status is the status to send
@@ -83,6 +85,9 @@ func (t *TaskStateChange) String() string {
 	res := fmt.Sprintf("%s -> %s", t.TaskArn, t.Status.String())
 	if t.Task != nil {
 		res += ", Known Sent: " + t.Task.GetSentStatus().String()
+	}
+	if t.Attachment != nil {
+		res += ", " + t.Attachment.String()
 	}
 	return res
 }
