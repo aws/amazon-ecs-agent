@@ -17,10 +17,6 @@
 
 FROM armhf/debian:jessie
 
-# allow replacing httpredir or deb mirror
-ARG APT_MIRROR=deb.debian.org
-RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
-
 # Packaged dependencies
 RUN apt-get update && apt-get install -y \
 	apparmor \
@@ -31,7 +27,6 @@ RUN apt-get update && apt-get install -y \
 	build-essential \
 	createrepo \
 	curl \
-	cmake \
 	dpkg-sig \
 	git \
 	iptables \
@@ -51,9 +46,7 @@ RUN apt-get update && apt-get install -y \
 	python-websocket \
 	xfsprogs \
 	tar \
-	vim-common \
-	--no-install-recommends \
-	&& pip install awscli==1.10.15
+	--no-install-recommends
 
 # Get lvm2 source for compiling statically
 ENV LVM2_VERSION 2.02.103
@@ -72,11 +65,11 @@ RUN cd /usr/local/lvm2 \
 # See https://git.fedorahosted.org/cgit/lvm2.git/tree/INSTALL
 
 # Install Go
-ENV GO_VERSION 1.7.5
-RUN curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-armv6l.tar.gz" \
+ENV GO_VERSION 1.7.1
+RUN curl -fsSL "https://storage.googleapis.com/golang/go${GO_VERSION}.linux-armv6l.tar.gz" \
 	| tar -xzC /usr/local
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
-ENV GOPATH /go
+ENV GOPATH /go:/go/src/github.com/docker/docker/vendor
 
 # We're building for armhf, which is ARMv7, so let's be explicit about that
 ENV GOARCH arm
@@ -126,7 +119,7 @@ RUN set -x \
 	&& rm -rf "$GOPATH"
 
 # Install notary and notary-server
-ENV NOTARY_VERSION v0.4.2
+ENV NOTARY_VERSION v0.3.0
 RUN set -x \
 	&& export GOPATH="$(mktemp -d)" \
 	&& git clone https://github.com/docker/notary.git "$GOPATH/src/github.com/docker/notary" \
@@ -170,11 +163,48 @@ RUN ./contrib/download-frozen-image-v2.sh /docker-frozen-images \
 	armhf/hello-world:latest@sha256:161dcecea0225975b2ad5f768058212c1e0d39e8211098666ffa1ac74cfb7791
 # See also "hack/make/.ensure-frozen-images" (which needs to be updated any time this list is)
 
-# Install tomlv, vndr, runc, containerd, tini, docker-proxy
-# Please edit hack/dockerfile/install-binaries.sh to update them.
-COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
-COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
-RUN /tmp/install-binaries.sh tomlv vndr runc containerd tini proxy
+# Download toml validator
+ENV TOMLV_COMMIT 9baf8a8a9f2ed20a8e54160840c492f937eeaf9a
+RUN set -x \
+	&& export GOPATH="$(mktemp -d)" \
+	&& git clone https://github.com/BurntSushi/toml.git "$GOPATH/src/github.com/BurntSushi/toml" \
+	&& (cd "$GOPATH/src/github.com/BurntSushi/toml" && git checkout -q "$TOMLV_COMMIT") \
+	&& go build -v -o /usr/local/bin/tomlv github.com/BurntSushi/toml/cmd/tomlv \
+	&& rm -rf "$GOPATH"
+
+# Install runc
+ENV RUNC_COMMIT cc29e3dded8e27ba8f65738f40d251c885030a28
+RUN set -x \
+	&& export GOPATH="$(mktemp -d)" \
+	&& git clone https://github.com/opencontainers/runc.git "$GOPATH/src/github.com/opencontainers/runc" \
+	&& cd "$GOPATH/src/github.com/opencontainers/runc" \
+	&& git checkout -q "$RUNC_COMMIT" \
+	&& make static BUILDTAGS="seccomp apparmor selinux" \
+	&& cp runc /usr/local/bin/docker-runc \
+	&& rm -rf "$GOPATH"
+
+# Install containerd
+ENV CONTAINERD_COMMIT 2545227b0357eb55e369fa0072baef9ad91cdb69
+RUN set -x \
+	&& export GOPATH="$(mktemp -d)" \
+	&& git clone https://github.com/docker/containerd.git "$GOPATH/src/github.com/docker/containerd" \
+	&& cd "$GOPATH/src/github.com/docker/containerd" \
+	&& git checkout -q "$CONTAINERD_COMMIT" \
+	&& make static \
+	&& cp bin/containerd /usr/local/bin/docker-containerd \
+	&& cp bin/containerd-shim /usr/local/bin/docker-containerd-shim \
+	&& cp bin/ctr /usr/local/bin/docker-containerd-ctr \
+	&& rm -rf "$GOPATH"
+
+ENV GRIMES_COMMIT f207601a8d19a534cc90d9e26e037e9931ccb9db
+RUN set -x \
+    && export GOPATH="$(mktemp -d)" \
+	&& git clone https://github.com/crosbymichael/grimes.git "$GOPATH/grimes" \
+	&& cd "$GOPATH/grimes" \
+	&& git checkout -q "$GRIMES_COMMIT" \
+	&& make \
+	&& cp init /usr/local/bin/docker-init \
+	&& rm -rf "$GOPATH"
 
 ENTRYPOINT ["hack/dind"]
 

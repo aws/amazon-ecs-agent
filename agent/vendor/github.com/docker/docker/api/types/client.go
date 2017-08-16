@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"net"
-	"os"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -13,20 +12,8 @@ import (
 
 // CheckpointCreateOptions holds parameters to create a checkpoint from a container
 type CheckpointCreateOptions struct {
-	CheckpointID  string
-	CheckpointDir string
-	Exit          bool
-}
-
-// CheckpointListOptions holds parameters to list checkpoints for a container
-type CheckpointListOptions struct {
-	CheckpointDir string
-}
-
-// CheckpointDeleteOptions holds parameters to delete a checkpoint from a container
-type CheckpointDeleteOptions struct {
-	CheckpointID  string
-	CheckpointDir string
+	CheckpointID string
+	Exit         bool
 }
 
 // ContainerAttachOptions holds parameters to attach to a container.
@@ -36,7 +23,6 @@ type ContainerAttachOptions struct {
 	Stdout     bool
 	Stderr     bool
 	DetachKeys string
-	Logs       bool
 }
 
 // ContainerCommitOptions holds parameters to commit changes into a container.
@@ -55,19 +41,18 @@ type ContainerExecInspect struct {
 	ContainerID string
 	Running     bool
 	ExitCode    int
-	Pid         int
 }
 
 // ContainerListOptions holds parameters to list containers with.
 type ContainerListOptions struct {
-	Quiet   bool
-	Size    bool
-	All     bool
-	Latest  bool
-	Since   string
-	Before  string
-	Limit   int
-	Filters filters.Args
+	Quiet  bool
+	Size   bool
+	All    bool
+	Latest bool
+	Since  string
+	Before string
+	Limit  int
+	Filter filters.Args
 }
 
 // ContainerLogsOptions holds parameters to filter logs with.
@@ -90,8 +75,7 @@ type ContainerRemoveOptions struct {
 
 // ContainerStartOptions holds parameters to start containers.
 type ContainerStartOptions struct {
-	CheckpointID  string
-	CheckpointDir string
+	CheckpointID string
 }
 
 // CopyToContainerOptions holds information
@@ -156,25 +140,20 @@ type ImageBuildOptions struct {
 	Memory         int64
 	MemorySwap     int64
 	CgroupParent   string
-	NetworkMode    string
 	ShmSize        int64
 	Dockerfile     string
 	Ulimits        []*units.Ulimit
-	// See the parsing of buildArgs in api/server/router/build/build_routes.go
-	// for an explaination of why BuildArgs needs to use *string instead of
-	// just a string
-	BuildArgs   map[string]*string
-	AuthConfigs map[string]AuthConfig
-	Context     io.Reader
-	Labels      map[string]string
+	BuildArgs      map[string]string
+	AuthConfigs    map[string]AuthConfig
+	Context        io.Reader
+	Labels         map[string]string
 	// squash the resulting image's layers to the parent
 	// preserves the original image and creates a new one from the parent with all
 	// the changes applied to a single layer
 	Squash bool
 	// CacheFrom specifies images that are used for matching cache. Images
 	// specified here do not need to have a valid parent chain to match cache.
-	CacheFrom   []string
-	SecurityOpt []string
+	CacheFrom []string
 }
 
 // ImageBuildResponse holds information
@@ -205,8 +184,9 @@ type ImageImportOptions struct {
 
 // ImageListOptions holds parameters to filter the list of images with.
 type ImageListOptions struct {
-	All     bool
-	Filters filters.Args
+	MatchName string
+	All       bool
+	Filters   filters.Args
 }
 
 // ImageLoadResponse returns information to the client about a load process.
@@ -270,7 +250,7 @@ func (v VersionResponse) ServerOK() bool {
 
 // NodeListOptions holds parameters to list nodes with.
 type NodeListOptions struct {
-	Filters filters.Args
+	Filter filters.Args
 }
 
 // NodeRemoveOptions holds parameters to remove nodes with.
@@ -288,19 +268,11 @@ type ServiceCreateOptions struct {
 }
 
 // ServiceCreateResponse contains the information returned to a client
-// on the creation of a new service.
+// on the  creation of a new service.
 type ServiceCreateResponse struct {
 	// ID is the ID of the created service.
 	ID string
-	// Warnings is a set of non-fatal warning messages to pass on to the user.
-	Warnings []string `json:",omitempty"`
 }
-
-// Values for RegistryAuthFrom in ServiceUpdateOptions
-const (
-	RegistryAuthFromSpec         = "spec"
-	RegistryAuthFromPreviousSpec = "previous-spec"
-)
 
 // ServiceUpdateOptions contains the options to be used for updating services.
 type ServiceUpdateOptions struct {
@@ -313,66 +285,19 @@ type ServiceUpdateOptions struct {
 	// TODO(stevvooe): Consider moving the version parameter of ServiceUpdate
 	// into this field. While it does open API users up to racy writes, most
 	// users may not need that level of consistency in practice.
-
-	// RegistryAuthFrom specifies where to find the registry authorization
-	// credentials if they are not given in EncodedRegistryAuth. Valid
-	// values are "spec" and "previous-spec".
-	RegistryAuthFrom string
 }
 
 // ServiceListOptions holds parameters to list  services with.
 type ServiceListOptions struct {
-	Filters filters.Args
+	Filter filters.Args
 }
 
 // TaskListOptions holds parameters to list  tasks with.
 type TaskListOptions struct {
-	Filters filters.Args
+	Filter filters.Args
 }
 
 // PluginRemoveOptions holds parameters to remove plugins.
 type PluginRemoveOptions struct {
 	Force bool
-}
-
-// PluginEnableOptions holds parameters to enable plugins.
-type PluginEnableOptions struct {
-	Timeout int
-}
-
-// PluginDisableOptions holds parameters to disable plugins.
-type PluginDisableOptions struct {
-	Force bool
-}
-
-// PluginInstallOptions holds parameters to install a plugin.
-type PluginInstallOptions struct {
-	Disabled              bool
-	AcceptAllPermissions  bool
-	RegistryAuth          string // RegistryAuth is the base64 encoded credentials for the registry
-	RemoteRef             string // RemoteRef is the plugin name on the registry
-	PrivilegeFunc         RequestPrivilegeFunc
-	AcceptPermissionsFunc func(PluginPrivileges) (bool, error)
-	Args                  []string
-}
-
-// SecretRequestOption is a type for requesting secrets
-type SecretRequestOption struct {
-	Source string
-	Target string
-	UID    string
-	GID    string
-	Mode   os.FileMode
-}
-
-// SwarmUnlockKeyResponse contains the response for Engine API:
-// GET /swarm/unlockkey
-type SwarmUnlockKeyResponse struct {
-	// UnlockKey is the unlock key in ASCII-armored format.
-	UnlockKey string
-}
-
-// PluginCreateOptions hold all options to plugin create.
-type PluginCreateOptions struct {
-	RepoName string
 }

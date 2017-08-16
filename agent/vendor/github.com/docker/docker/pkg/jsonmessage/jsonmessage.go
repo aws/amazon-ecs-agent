@@ -189,9 +189,13 @@ func DisplayJSONMessagesStream(in io.Reader, out io.Writer, terminalFd uintptr, 
 				if isTerminal {
 					fmt.Fprintf(out, "\n")
 				}
+			} else {
+				diff = len(ids) - line
 			}
-			diff = len(ids) - line
-			if isTerminal && diff > 0 {
+			if isTerminal {
+				// NOTE: this appears to be necessary even if
+				// diff == 0.
+				// <ESC>[{diff}A = move cursor up diff rows
 				fmt.Fprintf(out, "%c[%dA", 27, diff)
 			}
 		} else {
@@ -203,7 +207,10 @@ func DisplayJSONMessagesStream(in io.Reader, out io.Writer, terminalFd uintptr, 
 			ids = make(map[string]int)
 		}
 		err := jm.Display(out, isTerminal)
-		if jm.ID != "" && isTerminal && diff > 0 {
+		if jm.ID != "" && isTerminal {
+			// NOTE: this appears to be necessary even if
+			// diff == 0.
+			// <ESC>[{diff}B = move cursor down diff rows
 			fmt.Fprintf(out, "%c[%dB", 27, diff)
 		}
 		if err != nil {

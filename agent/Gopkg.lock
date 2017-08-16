@@ -2,10 +2,9 @@
 
 
 [[projects]]
-  branch = "master"
   name = "github.com/Azure/go-ansiterm"
   packages = [".","winterm"]
-  revision = "19f72df4d05d31cbe1c56bfc8045c96babff6c7e"
+  revision = "fa152c58bc15761d0200cb75fe958b89a9d4888e"
 
 [[projects]]
   name = "github.com/Microsoft/go-winio"
@@ -22,8 +21,8 @@
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/model/api","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/xml/xmlutil","private/util","service/cloudwatch","service/cloudwatchlogs","service/iam","service/sts"]
-  revision = "fdbcd18ca65c1deedcff224170b7d36f904f1c82"
-  version = "v1.10.26"
+  revision = "1850f427c33c2558a2118dc55c1cf95a633d7432"
+  version = "v1.10.27"
 
 [[projects]]
   name = "github.com/cihub/seelog"
@@ -39,15 +38,8 @@
 
 [[projects]]
   name = "github.com/docker/docker"
-  packages = ["api/types","api/types/blkiodev","api/types/container","api/types/filters","api/types/mount","api/types/network","api/types/registry","api/types/strslice","api/types/swarm","api/types/versions","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
-
-[[projects]]
-  name = "github.com/docker/go-connections"
-  packages = ["nat"]
-  revision = "990a1a1a70b0da4c4cb70e117971a4f0babfbf1a"
-  version = "v0.2.1"
+  packages = ["api/types/filters","api/types/mount","api/types/swarm","api/types/versions","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
+  revision = "1dbf3c65e15a2d021cc15ded9caaf6192d58970b"
 
 [[projects]]
   name = "github.com/docker/go-units"
@@ -104,12 +96,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  name = "github.com/sirupsen/logrus"
-  packages = ["."]
-  revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
-  version = "v1.0.3"
-
-[[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert","require","suite"]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
@@ -142,6 +128,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad0ffa06e8c6fafa51839fa4ec96b4c1134041be826a274d23bb927f68f35a36"
+  inputs-digest = "d029a23fcdc2add6937774fbf738e8f79b988d0607600acac25466f9c30111b6"
   solver-name = "gps-cdcl"
   solver-version = 1

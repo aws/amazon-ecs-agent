@@ -27,7 +27,6 @@
 
 		people = [
 			"aaronlehmann",
-			"akihirosuda",
 			"aluzzardi",
 			"anusha",
 			"coolljt0725",
@@ -78,8 +77,6 @@
 	# - close an issue or pull request when it's inappropriate or off-topic
 
 		people = [
-			"aboch",
-			"andrewhsu",
 			"ehazlett",
 			"mgoelzer",
 			"programmerq",
@@ -124,8 +121,8 @@
 			# and contributing to various open source projects.
 			# Be sure you don't miss her talks at a conference near you (a must-see),
 			# read her blog at https://blog.jessfraz.com (a must-read), and
-			# check out her open source projects on GitHub https://github.com/jessfraz (a must-try).
-			"jessfraz",
+			# check out her open source projects on GitHub https://github.com/jfrazelle (a must-try).
+			"jfrazelle",
 
 			# As a docs maintainer, Mary Anthony contributed greatly to the Docker
 			# docs. She wrote the Docker Contributor Guide and Getting Started
@@ -170,25 +167,10 @@
 	Email = "aaron.lehmann@docker.com"
 	GitHub = "aaronlehmann"
 
-	[people.aboch]
-	Name = "Alessandro Boch"
-	Email = "aboch@docker.com"
-	GitHub = "aboch"
-
-	[people.akihirosuda]
-	Name = "Akihiro Suda"
-	Email = "suda.akihiro@lab.ntt.co.jp"
-	GitHub = "AkihiroSuda"
-
 	[people.aluzzardi]
 	Name = "Andrea Luzzardi"
 	Email = "al@docker.com"
 	GitHub = "aluzzardi"
-
-	[people.andrewhsu]
-	Name = "Andrew Hsu"
-	Email = "andrewhsu@docker.com"
-	GitHub = "andrewhsu"
 
 	[people.anusha]
 	Name = "Anusha Ragunathan"
@@ -255,10 +237,10 @@
 	Email = "jhoward@microsoft.com"
 	GitHub = "jhowardmsft"
 
-	[people.jessfraz]
+	[people.jfrazelle]
 	Name = "Jessie Frazelle"
 	Email = "jess@linux.com"
-	GitHub = "jessfraz"
+	GitHub = "jfrazelle"
 
 	[people.justincormack]
 	Name = "Justin Cormack"

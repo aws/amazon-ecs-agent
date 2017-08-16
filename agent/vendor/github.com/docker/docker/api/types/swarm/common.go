@@ -19,9 +19,3 @@ type Annotations struct {
 	Name   string            `json:",omitempty"`
 	Labels map[string]string `json:",omitempty"`
 }
-
-// Driver represents a driver (network, logging).
-type Driver struct {
-	Name    string            `json:",omitempty"`
-	Options map[string]string `json:",omitempty"`
-}

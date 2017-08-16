@@ -27,6 +27,10 @@ import (
 )
 
 type (
+	// Archive is a type of io.ReadCloser which has two interfaces Read and Closer.
+	Archive io.ReadCloser
+	// Reader is a type of io.Reader.
+	Reader io.Reader
 	// Compression is the state represents if compressed or not.
 	Compression int
 	// WhiteoutFormat is the format of whiteouts unpacked
@@ -35,7 +39,6 @@ type (
 	TarChownOptions struct {
 		UID, GID int
 	}
-
 	// TarOptions wraps the tar options.
 	TarOptions struct {
 		IncludeFiles     []string
@@ -241,7 +244,7 @@ func (compression *Compression) Extension() string {
 }
 
 type tarWhiteoutConverter interface {
-	ConvertWrite(*tar.Header, string, os.FileInfo) (*tar.Header, error)
+	ConvertWrite(*tar.Header, string, os.FileInfo) error
 	ConvertRead(*tar.Header, string) (bool, error)
 }
 
@@ -308,7 +311,7 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	}
 
 	// if it's not a directory and has more than 1 link,
-	// it's hard linked, so set the type flag accordingly
+	// it's hardlinked, so set the type flag accordingly
 	if !fi.IsDir() && hasHardlinks(fi) {
 		// a link should have a name that it links too
 		// and that linked name should be first in the tar archive
@@ -348,24 +351,8 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	}
 
 	if ta.WhiteoutConverter != nil {
-		wo, err := ta.WhiteoutConverter.ConvertWrite(hdr, path, fi)
-		if err != nil {
+		if err := ta.WhiteoutConverter.ConvertWrite(hdr, path, fi); err != nil {
 			return err
-		}
-
-		// If a new whiteout file exists, write original hdr, then
-		// replace hdr with wo to be written after. Whiteouts should
-		// always be written after the original. Note the original
-		// hdr may have been updated to be a whiteout with returning
-		// a whiteout header
-		if wo != nil {
-			if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-				return err
-			}
-			if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-				return fmt.Errorf("tar: cannot use whiteout for non-empty file")
-			}
-			hdr = wo
 		}
 	}
 
@@ -374,10 +361,7 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	}
 
 	if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-		// We use system.OpenSequential to ensure we use sequential file
-		// access on Windows to avoid depleting the standby list.
-		// On Linux, this equates to a regular os.Open.
-		file, err := system.OpenSequential(path)
+		file, err := os.Open(path)
 		if err != nil {
 			return err
 		}
@@ -415,10 +399,8 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		}
 
 	case tar.TypeReg, tar.TypeRegA:
-		// Source is regular file. We use system.OpenFileSequential to use sequential
-		// file access to avoid depleting the standby list on Windows.
-		// On Linux, this equates to a regular os.OpenFile
-		file, err := system.OpenFileSequential(path, os.O_CREATE|os.O_WRONLY, hdrInfo.Mode())
+		// Source is regular file
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdrInfo.Mode())
 		if err != nil {
 			return err
 		}
@@ -1068,7 +1050,7 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 		return nil
 	})
 	defer func() {
-		if er := <-errC; err == nil && er != nil {
+		if er := <-errC; err != nil {
 			err = er
 		}
 	}()
@@ -1124,7 +1106,7 @@ func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, <-chan struct{}, 
 // NewTempArchive reads the content of src into a temporary file, and returns the contents
 // of that file as an archive. The archive can only be read once - as soon as reading completes,
 // the file will be deleted.
-func NewTempArchive(src io.Reader, dir string) (*TempArchive, error) {
+func NewTempArchive(src Archive, dir string) (*TempArchive, error) {
 	f, err := ioutil.TempFile(dir, "")
 	if err != nil {
 		return nil, err

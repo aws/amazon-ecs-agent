@@ -1,4 +1,4 @@
-.PHONY: all binary build cross deb help init-go-pkg-cache install manpages rpm run shell test test-docker-py test-integration-cli test-unit tgz validate win
+.PHONY: all binary build cross deb docs help init-go-pkg-cache install manpages rpm run shell test test-docker-py test-integration-cli test-unit tgz validate win
 
 # set the graph driver as the current graphdriver if not set
 DOCKER_GRAPHDRIVER := $(if $(DOCKER_GRAPHDRIVER),$(DOCKER_GRAPHDRIVER),$(shell docker info 2>&1 | grep "Storage Driver" | sed 's/.*: //'))
@@ -50,12 +50,13 @@ DOCKER_MOUNT := $(if $(DOCKER_MOUNT),$(DOCKER_MOUNT),-v /go/src/github.com/docke
 
 # enable .go-pkg-cache if DOCKER_INCREMENTAL_BINARY and DOCKER_MOUNT (i.e.DOCKER_HOST) are set
 PKGCACHE_DIR := $(if $(PKGCACHE_DIR),$(PKGCACHE_DIR),.go-pkg-cache)
-PKGCACHE_MAP := gopath:/go/pkg goroot-linux_amd64_netgo:/usr/local/go/pkg/linux_amd64_netgo
+PKGCACHE_MAP := gopath:/go/pkg vendor:/go/src/github.com/docker/docker/vendor/pkg goroot-linux_amd64_netgo:/usr/local/go/pkg/linux_amd64_netgo
 DOCKER_MOUNT := $(if $(DOCKER_INCREMENTAL_BINARY),$(DOCKER_MOUNT) $(shell echo $(PKGCACHE_MAP) | sed -E 's@([^ ]*)@-v "$(CURDIR)/$(PKGCACHE_DIR)/\1"@g'),$(DOCKER_MOUNT))
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
 DOCKER_IMAGE := docker-dev$(if $(GIT_BRANCH_CLEAN),:$(GIT_BRANCH_CLEAN))
+DOCKER_DOCS_IMAGE := docker-docs$(if $(GIT_BRANCH_CLEAN),:$(GIT_BRANCH_CLEAN))
 DOCKER_PORT_FORWARD := $(if $(DOCKER_PORT),-p "$(DOCKER_PORT)",)
 
 DOCKER_FLAGS := docker run --rm -i --privileged $(DOCKER_ENVS) $(DOCKER_MOUNT) $(DOCKER_PORT_FORWARD)
@@ -75,7 +76,7 @@ DOCKER_RUN_DOCKER := $(DOCKER_FLAGS) "$(DOCKER_IMAGE)"
 default: binary
 
 all: build ## validate all checks, build linux binaries, run all tests\ncross build non-linux binaries and generate archives
-	$(DOCKER_RUN_DOCKER) bash -c 'hack/validate/default && hack/make.sh'
+	$(DOCKER_RUN_DOCKER) hack/make.sh
 
 binary: build ## build the linux binaries
 	$(DOCKER_RUN_DOCKER) hack/make.sh binary
@@ -92,6 +93,8 @@ cross: build ## cross build the binaries for darwin, freebsd and\nwindows
 deb: build  ## build the deb packages
 	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary build-deb
 
+docs: ## build the docs
+	$(MAKE) -C docs docs
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -133,15 +136,8 @@ tgz: build ## build the archives (.zip on windows and .tgz\notherwise) containin
 	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary binary cross tgz
 
 validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor
-	$(DOCKER_RUN_DOCKER) hack/validate/all
+	$(DOCKER_RUN_DOCKER) hack/make.sh validate-dco validate-default-seccomp validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet validate-vendor
 
 win: build ## cross build the binary for windows
 	$(DOCKER_RUN_DOCKER) hack/make.sh win
 
-.PHONY: swagger-gen
-swagger-gen:
-	docker run --rm -v $(PWD):/go/src/github.com/docker/docker \
-		-w /go/src/github.com/docker/docker \
-		--entrypoint hack/generate-swagger-api.sh \
-		-e GOPATH=/go \
-		quay.io/goswagger/swagger:0.7.4

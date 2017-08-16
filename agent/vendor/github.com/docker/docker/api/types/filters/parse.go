@@ -144,9 +144,6 @@ func (filters Args) Add(name, value string) {
 func (filters Args) Del(name, value string) {
 	if _, ok := filters.fields[name]; ok {
 		delete(filters.fields[name], value)
-		if len(filters.fields[name]) == 0 {
-			delete(filters.fields, name)
-		}
 	}
 }
 
@@ -168,7 +165,7 @@ func (filters Args) MatchKVList(field string, sources map[string]string) bool {
 		return true
 	}
 
-	if len(sources) == 0 {
+	if sources == nil || len(sources) == 0 {
 		return false
 	}
 
