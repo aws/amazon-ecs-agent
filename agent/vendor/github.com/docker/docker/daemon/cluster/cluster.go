@@ -332,6 +332,7 @@ func (c *Cluster) startNewNode(conf nodeStartConfig) (*node, error) {
 		ElectionTick:       3,
 		UnlockKey:          conf.lockKey,
 		AutoLockManagers:   conf.autolock,
+		PluginGetter:       c.config.Backend.PluginGetter(),
 	})
 
 	if err != nil {
@@ -351,7 +352,7 @@ func (c *Cluster) startNewNode(conf nodeStartConfig) (*node, error) {
 	c.actualLocalAddr = actualLocalAddr // not saved
 	c.saveState(conf)
 
-	c.config.Backend.SetClusterProvider(c)
+	c.config.Backend.DaemonJoinsCluster(c)
 	go func() {
 		err := detectLockedError(n.Err(ctx))
 		if err != nil {
@@ -724,6 +725,7 @@ func (c *Cluster) Leave(force bool) error {
 	if err := c.clearState(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -751,7 +753,7 @@ func (c *Cluster) clearState() error {
 	if err := os.MkdirAll(c.root, 0700); err != nil {
 		return err
 	}
-	c.config.Backend.SetClusterProvider(nil)
+	c.config.Backend.DaemonLeavesCluster()
 	return nil
 }
 

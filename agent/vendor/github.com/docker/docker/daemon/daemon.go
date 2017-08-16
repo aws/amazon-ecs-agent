@@ -446,10 +446,26 @@ func (daemon *Daemon) registerLink(parent, child *container.Container, alias str
 	return nil
 }
 
-// SetClusterProvider sets a component for querying the current cluster state.
-func (daemon *Daemon) SetClusterProvider(clusterProvider cluster.Provider) {
+// DaemonJoinsCluster informs the daemon has joined the cluster and provides
+// the handler to query the cluster component
+func (daemon *Daemon) DaemonJoinsCluster(clusterProvider cluster.Provider) {
+	daemon.setClusterProvider(clusterProvider)
+}
+
+// DaemonLeavesCluster informs the daemon has left the cluster
+func (daemon *Daemon) DaemonLeavesCluster() {
+	// Daemon is in charge of removing the attachable networks with
+	// connected containers when the node leaves the swarm
+	daemon.clearAttachableNetworks()
+	daemon.setClusterProvider(nil)
+}
+
+// setClusterProvider sets a component for querying the current cluster state.
+func (daemon *Daemon) setClusterProvider(clusterProvider cluster.Provider) {
 	daemon.clusterProvider = clusterProvider
-	daemon.netController.SetClusterProvider(clusterProvider)
+	// call this in a goroutine to allow netcontroller handle this event async
+	// and not block if it is in the middle of talking with cluster
+	go daemon.netController.SetClusterProvider(clusterProvider)
 }
 
 // IsSwarmCompatible verifies if the current daemon
@@ -1268,6 +1284,11 @@ func (daemon *Daemon) pluginShutdown() {
 // PluginManager returns current pluginManager associated with the daemon
 func (daemon *Daemon) PluginManager() *plugin.Manager { // set up before daemon to avoid this method
 	return daemon.pluginManager
+}
+
+// PluginGetter returns current pluginStore associated with the daemon
+func (daemon *Daemon) PluginGetter() *plugin.Store {
+	return daemon.PluginStore
 }
 
 // CreateDaemonRoot creates the root for the daemon

@@ -14,7 +14,7 @@ keywords: "plugin, push"
 -->
 
 ```markdown
-Usage:  docker plugin push PLUGIN[:TAG]
+Usage:  docker plugin push [OPTIONS] PLUGIN[:TAG]
 
 Push a plugin to a registry
 
@@ -47,3 +47,4 @@ $ docker plugin push user/plugin
 * [plugin ls](plugin_ls.md)
 * [plugin rm](plugin_rm.md)
 * [plugin set](plugin_set.md)
+* [plugin upgrade](plugin_upgrade.md)

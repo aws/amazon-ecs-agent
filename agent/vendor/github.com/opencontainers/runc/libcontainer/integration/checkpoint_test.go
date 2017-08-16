@@ -89,7 +89,7 @@ func TestCheckpoint(t *testing.T) {
 		Stdout: &stdout,
 	}
 
-	err = container.Run(&pconfig)
+	err = container.Start(&pconfig)
 	stdinR.Close()
 	defer stdinW.Close()
 	if err != nil {

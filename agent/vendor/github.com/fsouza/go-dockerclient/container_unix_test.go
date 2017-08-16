@@ -15,11 +15,10 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/hashicorp/go-cleanhttp"
 )
 
 func TestExportContainerViaUnixSocket(t *testing.T) {
+	t.Parallel()
 	content := "exported container tar content"
 	var buf []byte
 	out := bytes.NewBuffer(buf)
@@ -28,7 +27,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 	endpoint := "unix://" + tempSocket
 	u, _ := parseEndpoint(endpoint, false)
 	client := Client{
-		HTTPClient:             cleanhttp.DefaultClient(),
+		HTTPClient:             defaultClient(),
 		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,
@@ -51,6 +50,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 }
 
 func TestStatsTimeoutUnixSocket(t *testing.T) {
+	t.Parallel()
 	tmpdir, err := ioutil.TempDir("", "socket")
 	if err != nil {
 		t.Fatal(err)

@@ -2,35 +2,35 @@ package specs
 
 import "os"
 
-// Spec is the base configuration for the container.
+// Spec is the base configuration for the container.  It specifies platform
+// independent configuration. This information must be included when the
+// bundle is packaged for distribution.
 type Spec struct {
-	// Version of the Open Container Runtime Specification with which the bundle complies.
+	// Version is the version of the specification that is supported.
 	Version string `json:"ociVersion"`
-	// Platform specifies the configuration's target platform.
+	// Platform is the host information for OS and Arch.
 	Platform Platform `json:"platform"`
-	// Process configures the container process.
+	// Process is the container's main process.
 	Process Process `json:"process"`
-	// Root configures the container's root filesystem.
+	// Root is the root information for the container's filesystem.
 	Root Root `json:"root"`
-	// Hostname configures the container's hostname.
+	// Hostname is the container's host name.
 	Hostname string `json:"hostname,omitempty"`
-	// Mounts configures additional mounts (on top of Root).
-	Mounts []Mount `json:"mounts,omitempty"`
-	// Hooks configures callbacks for container lifecycle events.
+	// Mounts profile configuration for adding mounts to the container's filesystem.
+	Mounts []Mount `json:"mounts"`
+	// Hooks are the commands run at various lifecycle events of the container.
 	Hooks Hooks `json:"hooks"`
-	// Annotations contains arbitrary metadata for the container.
+	// Annotations is an unstructured key value map that may be set by external tools to store and retrieve arbitrary metadata.
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Linux is platform specific configuration for Linux based containers.
-	Linux *Linux `json:"linux,omitempty" platform:"linux"`
-	// Solaris is platform specific configuration for Solaris containers.
-	Solaris *Solaris `json:"solaris,omitempty" platform:"solaris"`
+	Linux Linux `json:"linux" platform:"linux"`
 }
 
 // Process contains information to start a specific application inside the container.
 type Process struct {
 	// Terminal creates an interactive terminal for the container.
-	Terminal bool `json:"terminal,omitempty"`
+	Terminal bool `json:"terminal"`
 	// User specifies user information for the process.
 	User User `json:"user"`
 	// Args specifies the binary and arguments for the application to execute.
@@ -47,21 +47,21 @@ type Process struct {
 	// NoNewPrivileges controls whether additional privileges could be gained by processes in the container.
 	NoNewPrivileges bool `json:"noNewPrivileges,omitempty"`
 
-	// ApparmorProfile specifies the apparmor profile for the container. (this field is platform dependent)
+	// ApparmorProfile specified the apparmor profile for the container. (this field is platform dependent)
 	ApparmorProfile string `json:"apparmorProfile,omitempty" platform:"linux"`
-	// SelinuxLabel specifies the selinux context that the container process is run as. (this field is platform dependent)
+	// SelinuxProcessLabel specifies the selinux context that the container process is run as. (this field is platform dependent)
 	SelinuxLabel string `json:"selinuxLabel,omitempty" platform:"linux"`
 }
 
-// User specifies Linux/Solaris specific user and group information
-// for the container process.
+// User specifies Linux specific user and group information for the container's
+// main process.
 type User struct {
 	// UID is the user id. (this field is platform dependent)
-	UID uint32 `json:"uid" platform:"linux,solaris"`
+	UID uint32 `json:"uid,omitempty" platform:"linux"`
 	// GID is the group id. (this field is platform dependent)
-	GID uint32 `json:"gid" platform:"linux,solaris"`
+	GID uint32 `json:"gid,omitempty" platform:"linux"`
 	// AdditionalGids are additional group ids set for the container's process. (this field is platform dependent)
-	AdditionalGids []uint32 `json:"additionalGids,omitempty" platform:"linux,solaris"`
+	AdditionalGids []uint32 `json:"additionalGids,omitempty" platform:"linux"`
 }
 
 // Root contains information about the container's root filesystem on the host.
@@ -69,7 +69,7 @@ type Root struct {
 	// Path is the absolute path to the container's root filesystem.
 	Path string `json:"path"`
 	// Readonly makes the root filesystem for the container readonly before the process is executed.
-	Readonly bool `json:"readonly,omitempty"`
+	Readonly bool `json:"readonly"`
 }
 
 // Platform specifies OS and arch information for the host system that the container
@@ -169,8 +169,6 @@ const (
 	UTSNamespace = "uts"
 	// UserNamespace for isolating user and group IDs
 	UserNamespace = "user"
-	// CgroupNamespace for isolating cgroup hierarchies
-	CgroupNamespace = "cgroup"
 )
 
 // IDMapping specifies UID/GID mappings
@@ -262,7 +260,7 @@ type Memory struct {
 	// Kernel memory limit (in bytes).
 	Kernel *uint64 `json:"kernel,omitempty"`
 	// Kernel memory limit for tcp (in bytes)
-	KernelTCP *uint64 `json:"kernelTCP,omitempty"`
+	KernelTCP *uint64 `json:"kernelTCP"`
 	// How aggressive the kernel will swap memory pages. Range from 0 to 100.
 	Swappiness *uint64 `json:"swappiness,omitempty"`
 }
@@ -294,15 +292,15 @@ type Pids struct {
 // Network identification and priority configuration
 type Network struct {
 	// Set class identifier for container's network packets
-	ClassID *uint32 `json:"classID,omitempty"`
+	ClassID *uint32 `json:"classID"`
 	// Set priority of network traffic for container
 	Priorities []InterfacePriority `json:"priorities,omitempty"`
 }
 
 // Resources has container runtime resource constraints
 type Resources struct {
-	// Devices configures the device whitelist.
-	Devices []DeviceCgroup `json:"devices,omitempty"`
+	// Devices are a list of device rules for the whitelist controller
+	Devices []DeviceCgroup `json:"devices"`
 	// DisableOOMKiller disables the OOM killer for out of memory conditions
 	DisableOOMKiller *bool `json:"disableOOMKiller,omitempty"`
 	// Specify an oom_score_adj for the container.
@@ -360,51 +358,6 @@ type Seccomp struct {
 	Syscalls      []Syscall `json:"syscalls,omitempty"`
 }
 
-// Solaris contains platform specific configuration for Solaris application containers.
-type Solaris struct {
-	// SMF FMRI which should go "online" before we start the container process.
-	Milestone string `json:"milestone,omitempty"`
-	// Maximum set of privileges any process in this container can obtain.
-	LimitPriv string `json:"limitpriv,omitempty"`
-	// The maximum amount of shared memory allowed for this container.
-	MaxShmMemory string `json:"maxShmMemory,omitempty"`
-	// Specification for automatic creation of network resources for this container.
-	Anet []Anet `json:"anet,omitempty"`
-	// Set limit on the amount of CPU time that can be used by container.
-	CappedCPU *CappedCPU `json:"cappedCPU,omitempty"`
-	// The physical and swap caps on the memory that can be used by this container.
-	CappedMemory *CappedMemory `json:"cappedMemory,omitempty"`
-}
-
-// CappedCPU allows users to set limit on the amount of CPU time that can be used by container.
-type CappedCPU struct {
-	Ncpus string `json:"ncpus,omitempty"`
-}
-
-// CappedMemory allows users to set the physical and swap caps on the memory that can be used by this container.
-type CappedMemory struct {
-	Physical string `json:"physical,omitempty"`
-	Swap     string `json:"swap,omitempty"`
-}
-
-// Anet provides the specification for automatic creation of network resources for this container.
-type Anet struct {
-	// Specify a name for the automatically created VNIC datalink.
-	Linkname string `json:"linkname,omitempty"`
-	// Specify the link over which the VNIC will be created.
-	Lowerlink string `json:"lowerLink,omitempty"`
-	// The set of IP addresses that the container can use.
-	Allowedaddr string `json:"allowedAddress,omitempty"`
-	// Specifies whether allowedAddress limitation is to be applied to the VNIC.
-	Configallowedaddr string `json:"configureAllowedAddress,omitempty"`
-	// The value of the optional default router.
-	Defrouter string `json:"defrouter,omitempty"`
-	// Enable one or more types of link protection.
-	Linkprotection string `json:"linkProtection,omitempty"`
-	// Set the VNIC's macAddress
-	Macaddress string `json:"macAddress,omitempty"`
-}
-
 // Arch used for additional architectures
 type Arch string
 
@@ -422,11 +375,6 @@ const (
 	ArchMIPSEL      Arch = "SCMP_ARCH_MIPSEL"
 	ArchMIPSEL64    Arch = "SCMP_ARCH_MIPSEL64"
 	ArchMIPSEL64N32 Arch = "SCMP_ARCH_MIPSEL64N32"
-	ArchPPC         Arch = "SCMP_ARCH_PPC"
-	ArchPPC64       Arch = "SCMP_ARCH_PPC64"
-	ArchPPC64LE     Arch = "SCMP_ARCH_PPC64LE"
-	ArchS390        Arch = "SCMP_ARCH_S390"
-	ArchS390X       Arch = "SCMP_ARCH_S390X"
 )
 
 // Action taken upon Seccomp rule match

@@ -48,7 +48,7 @@ func (e *ErrorReporter) assertPass(msg string) {
 
 func (e *ErrorReporter) assertFail(msg string) {
 	if !e.failed {
-		e.t.Error("Expected failure, but got pass: %s", msg)
+		e.t.Errorf("Expected failure, but got pass: %s", msg)
 	}
 }
 
@@ -121,7 +121,7 @@ func (s *Subject) BarMethod(arg string) int {
 
 func assertEqual(t *testing.T, expected interface{}, actual interface{}) {
 	if !reflect.DeepEqual(expected, actual) {
-		t.Error("Expected %+v, but got %+v", expected, actual)
+		t.Errorf("Expected %+v, but got %+v", expected, actual)
 	}
 }
 
@@ -423,9 +423,9 @@ func TestCallAfterLoopPanic(t *testing.T) {
 
 	subject := new(Subject)
 
-	firstCall := ctrl.RecordCall(subject, "Foo", "1")
-	secondCall := ctrl.RecordCall(subject, "Foo", "2")
-	thirdCall := ctrl.RecordCall(subject, "Foo", "3")
+	firstCall := ctrl.RecordCall(subject, "FooMethod", "1")
+	secondCall := ctrl.RecordCall(subject, "FooMethod", "2")
+	thirdCall := ctrl.RecordCall(subject, "FooMethod", "3")
 
 	gomock.InOrder(firstCall, secondCall, thirdCall)
 

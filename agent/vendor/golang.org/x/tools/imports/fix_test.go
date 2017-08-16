@@ -802,6 +802,70 @@ import (
 var _ = fmt.Sprintf
 `,
 	},
+
+	{
+		name: "issue #19190 1",
+		in: `package main
+
+import (
+	"time"
+)
+
+func main() {
+	_ = snappy.Encode
+	_ = p.P
+	_ = time.Parse
+}
+`,
+		out: `package main
+
+import (
+	"time"
+
+	"code.google.com/p/snappy-go/snappy"
+	"rsc.io/p"
+)
+
+func main() {
+	_ = snappy.Encode
+	_ = p.P
+	_ = time.Parse
+}
+`,
+	},
+
+	{
+		name: "issue #19190 2",
+		in: `package main
+
+import (
+	"time"
+
+	"code.google.com/p/snappy-go/snappy"
+)
+
+func main() {
+	_ = snappy.Encode
+	_ = p.P
+	_ = time.Parse
+}
+`,
+		out: `package main
+
+import (
+	"time"
+
+	"code.google.com/p/snappy-go/snappy"
+	"rsc.io/p"
+)
+
+func main() {
+	_ = snappy.Encode
+	_ = p.P
+	_ = time.Parse
+}
+`,
+	},
 }
 
 func TestFixImports(t *testing.T) {
@@ -1536,6 +1600,57 @@ func TestGlobalImports(t *testing.T) {
 	})
 }
 
+// Tests that sibling files - other files in the same package - can provide an
+// import that may not be the default one otherwise.
+func TestSiblingImports(t *testing.T) {
+
+	// provide is the sibling file that provides the desired import.
+	const provide = `package siblingimporttest
+
+import "local/log"
+
+func LogSomething() {
+	log.Print("Something")
+}
+`
+
+	// need is the file being tested that needs the import.
+	const need = `package siblingimporttest
+
+func LogSomethingElse() {
+	log.Print("Something else")
+}
+`
+
+	// want is the expected result file
+	const want = `package siblingimporttest
+
+import "local/log"
+
+func LogSomethingElse() {
+	log.Print("Something else")
+}
+`
+
+	const pkg = "siblingimporttest"
+	const siblingFile = pkg + "/needs_import.go"
+	testConfig{
+		gopathFiles: map[string]string{
+			siblingFile:                 need,
+			pkg + "/provides_import.go": provide,
+		},
+	}.test(t, func(t *goimportTest) {
+		buf, err := Process(
+			t.gopath+"/src/"+siblingFile, []byte(need), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(buf) != want {
+			t.Errorf("wrong output.\ngot:\n%q\nwant:\n%q\n", buf, want)
+		}
+	})
+}
+
 func strSet(ss []string) map[string]bool {
 	m := make(map[string]bool)
 	for _, s := range ss {
@@ -1750,5 +1865,16 @@ func TestShouldTraverse(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("%d. shouldTraverse(%q, %q) = %v; want %v", i, tt.dir, tt.file, got, tt.want)
 		}
+	}
+}
+
+// Issue 20941: this used to panic on Windows.
+func TestProcessStdin(t *testing.T) {
+	got, err := Process("<standard input>", []byte("package main\nfunc main() {\n\tfmt.Println(123)\n}\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"fmt"`) {
+		t.Errorf("expected fmt import; got: %s", got)
 	}
 }

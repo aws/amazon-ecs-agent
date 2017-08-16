@@ -19,10 +19,10 @@ produces:
 consumes:
   - "application/json"
   - "text/plain"
-basePath: "/v1.25"
+basePath: "/v1.26"
 info:
   title: "Docker Engine API"
-  version: "1.25"
+  version: "1.26"
   x-logo:
     url: "https://docs.docker.com/images/logo-docker-main.png"
   description: |
@@ -44,7 +44,7 @@ info:
 
     The API is usually changed in each release of Docker, so API calls are versioned to ensure that clients don't break.
 
-    For Docker Engine 1.13, the API version is 1.25. To lock to this version, you prefix the URL with `/v1.25`. For example, calling `/info` is the same as calling `/v1.25/info`.
+    For Docker Engine >= 1.13.1, the API version is 1.26. To lock to this version, you prefix the URL with `/v1.26`. For example, calling `/info` is the same as calling `/v1.26/info`.
 
     Engine releases in the near future should support this version of the API, so your client will continue to work even if it is talking to a newer Engine.
 
@@ -52,10 +52,11 @@ info:
 
     The API uses an open schema model, which means server may add extra properties to responses. Likewise, the server will ignore any extra query parameters and request body properties. When you write clients, you need to ignore additional properties in responses to ensure they do not break when talking to newer Docker daemons.
 
-    This documentation is for version 1.25 of the API, which was introduced with Docker 1.13. Use this table to find documentation for previous versions of the API:
+    This documentation is for version 1.26 of the API, which was introduced with Docker 1.13.1. Use this table to find documentation for previous versions of the API:
 
     Docker version  | API version | Changes
     ----------------|-------------|---------
+    1.13.0 | [1.25](https://docs.docker.com/engine/api/v1.25/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-25-api-changes)
     1.12.x | [1.24](https://docs.docker.com/engine/api/v1.24/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-24-api-changes)
     1.11.x | [1.23](https://docs.docker.com/engine/api/v1.23/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-23-api-changes)
     1.10.x | [1.22](https://docs.docker.com/engine/api/v1.22/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-22-api-changes)
@@ -1379,6 +1380,10 @@ definitions:
             type: "array"
             items:
               $ref: "#/definitions/PluginDevice"
+      PluginReference:
+        description: "plugin remote reference used to push/pull the plugin"
+        type: "string"
+        x-nullable: false
       Config:
         description: "The config of a plugin."
         type: "object"
@@ -4417,6 +4422,10 @@ paths:
       responses:
         200:
           description: "no error"
+        400:
+          description: "Bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
         500:
           description: "server error"
           schema:
@@ -6306,7 +6315,7 @@ paths:
           schema:
             type: "object"
             properties:
-              VolumesDeleted:
+              NetworksDeleted:
                 description: "Networks that were deleted"
                 type: "array"
                 items:
@@ -6581,6 +6590,69 @@ paths:
           description: "The name of the plugin. The `:latest` tag is optional, and is the default if omitted."
           required: true
           type: "string"
+      tags: ["Plugin"]
+  /plugins/{name}/upgrade:
+    post:
+      summary: "Upgrade a plugin"
+      operationId: "PluginUpgrade"
+      responses:
+        204:
+          description: "no error"
+        404:
+          description: "plugin not installed"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      parameters:
+        - name: "name"
+          in: "path"
+          description: "The name of the plugin. The `:latest` tag is optional, and is the default if omitted."
+          required: true
+          type: "string"
+        - name: "remote"
+          in: "query"
+          description: |
+            Remote reference to upgrade to.
+
+            The `:latest` tag is optional, and is used as the default if omitted.
+          required: true
+          type: "string"
+        - name: "X-Registry-Auth"
+          in: "header"
+          description: "A base64-encoded auth configuration to use when pulling a plugin from a registry. [See the authentication section for details.](#section/Authentication)"
+          type: "string"
+        - name: "body"
+          in: "body"
+          schema:
+            type: "array"
+            items:
+              description: "Describes a permission accepted by the user upon installing the plugin."
+              type: "object"
+              properties:
+                Name:
+                  type: "string"
+                Description:
+                  type: "string"
+                Value:
+                  type: "array"
+                  items:
+                    type: "string"
+            example:
+              - Name: "network"
+                Description: ""
+                Value:
+                  - "host"
+              - Name: "mount"
+                Description: ""
+                Value:
+                  - "/data"
+              - Name: "device"
+                Description: ""
+                Value:
+                  - "/dev/cpu_dma_latency"
       tags: ["Plugin"]
   /plugins/create:
     post:
@@ -7677,4 +7749,37 @@ paths:
           required: true
           type: "string"
           description: "ID of the secret"
+      tags: ["Secret"]
+  /secrets/{id}/update:
+    post:
+      summary: "Update a Secret"
+      operationId: "SecretUpdate"
+      responses:
+        200:
+          description: "no error"
+        404:
+          description: "no such secret"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      parameters:
+        - name: "id"
+          in: "path"
+          description: "The ID of the secret"
+          type: "string"
+          required: true
+        - name: "body"
+          in: "body"
+          schema:
+            $ref: "#/definitions/SecretSpec"
+          description: "The spec of the secret to update. Currently, only the Labels field can be updated. All other fields must remain unchanged from the [SecretInspect endpoint](#operation/SecretInspect) response values."
+        - name: "version"
+          in: "query"
+          description: "The version number of the secret object being updated. This is required to avoid conflicting writes."
+          type: "integer"
+          format: "int64"
+          required: true
       tags: ["Secret"]

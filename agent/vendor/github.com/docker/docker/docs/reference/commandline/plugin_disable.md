@@ -16,7 +16,7 @@ keywords: "plugin, disable"
 # plugin disable
 
 ```markdown
-Usage:  docker plugin disable PLUGIN
+Usage:  docker plugin disable [OPTIONS] PLUGIN
 
 Disable a plugin
 
@@ -63,3 +63,4 @@ ID                  NAME                             TAG                 DESCRIP
 * [plugin push](plugin_push.md)
 * [plugin rm](plugin_rm.md)
 * [plugin set](plugin_set.md)
+* [plugin upgrade](plugin_upgrade.md)

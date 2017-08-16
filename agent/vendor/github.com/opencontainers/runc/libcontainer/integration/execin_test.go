@@ -36,7 +36,7 @@ func TestExecIn(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -51,7 +51,7 @@ func TestExecIn(t *testing.T) {
 		Stderr: buffers.Stderr,
 	}
 
-	err = container.Run(ps)
+	err = container.Start(ps)
 	ok(t, err)
 	waitProcess(ps, t)
 	stdinW.Close()
@@ -103,7 +103,7 @@ func testExecInRlimit(t *testing.T, userns bool) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -121,7 +121,7 @@ func testExecInRlimit(t *testing.T, userns bool) {
 			{Type: syscall.RLIMIT_NOFILE, Hard: 1026, Soft: 1026},
 		},
 	}
-	err = container.Run(ps)
+	err = container.Start(ps)
 	ok(t, err)
 	waitProcess(ps, t)
 
@@ -131,64 +131,6 @@ func testExecInRlimit(t *testing.T, userns bool) {
 	out := buffers.Stdout.String()
 	if limit := strings.TrimSpace(out); limit != "1026" {
 		t.Fatalf("expected rlimit to be 1026, got %s", limit)
-	}
-}
-
-func TestExecInAdditionalGroups(t *testing.T) {
-	if testing.Short() {
-		return
-	}
-
-	rootfs, err := newRootfs()
-	ok(t, err)
-	defer remove(rootfs)
-
-	config := newTemplateConfig(rootfs)
-	container, err := newContainer(config)
-	ok(t, err)
-	defer container.Destroy()
-
-	// Execute a first process in the container
-	stdinR, stdinW, err := os.Pipe()
-	ok(t, err)
-	process := &libcontainer.Process{
-		Cwd:   "/",
-		Args:  []string{"cat"},
-		Env:   standardEnvironment,
-		Stdin: stdinR,
-	}
-	err = container.Run(process)
-	stdinR.Close()
-	defer stdinW.Close()
-	ok(t, err)
-
-	var stdout bytes.Buffer
-	pconfig := libcontainer.Process{
-		Cwd:              "/",
-		Args:             []string{"sh", "-c", "id", "-Gn"},
-		Env:              standardEnvironment,
-		Stdin:            nil,
-		Stdout:           &stdout,
-		AdditionalGroups: []string{"plugdev", "audio"},
-	}
-	err = container.Run(&pconfig)
-	ok(t, err)
-
-	// Wait for process
-	waitProcess(&pconfig, t)
-
-	stdinW.Close()
-	waitProcess(process, t)
-
-	outputGroups := string(stdout.Bytes())
-
-	// Check that the groups output has the groups that we specified
-	if !strings.Contains(outputGroups, "audio") {
-		t.Fatalf("Listed groups do not contain the audio group as expected: %v", outputGroups)
-	}
-
-	if !strings.Contains(outputGroups, "plugdev") {
-		t.Fatalf("Listed groups do not contain the plugdev group as expected: %v", outputGroups)
 	}
 }
 
@@ -213,7 +155,7 @@ func TestExecInError(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer func() {
 		stdinW.Close()
@@ -231,7 +173,7 @@ func TestExecInError(t *testing.T) {
 			Env:    standardEnvironment,
 			Stdout: &out,
 		}
-		err = container.Run(unexistent)
+		err = container.Start(unexistent)
 		if err == nil {
 			t.Fatal("Should be an error")
 		}
@@ -265,7 +207,7 @@ func TestExecInTTY(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -276,14 +218,14 @@ func TestExecInTTY(t *testing.T) {
 		Args: []string{"ps"},
 		Env:  standardEnvironment,
 	}
-	console, err := ps.NewConsole(0, 0)
+	console, err := ps.NewConsole(0)
 	copy := make(chan struct{})
 	go func() {
 		io.Copy(&stdout, console)
 		close(copy)
 	}()
 	ok(t, err)
-	err = container.Run(ps)
+	err = container.Start(ps)
 	ok(t, err)
 	select {
 	case <-time.After(5 * time.Second):
@@ -322,7 +264,7 @@ func TestExecInEnvironment(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -341,7 +283,7 @@ func TestExecInEnvironment(t *testing.T) {
 		Stdout: buffers.Stdout,
 		Stderr: buffers.Stderr,
 	}
-	err = container.Run(process2)
+	err = container.Start(process2)
 	ok(t, err)
 	waitProcess(process2, t)
 
@@ -386,7 +328,7 @@ func TestExecinPassExtraFiles(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	if err != nil {
@@ -404,7 +346,7 @@ func TestExecinPassExtraFiles(t *testing.T) {
 		Stdin:      nil,
 		Stdout:     &stdout,
 	}
-	err = container.Run(inprocess)
+	err = container.Start(inprocess)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +401,7 @@ func TestExecInOomScoreAdj(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -473,7 +415,7 @@ func TestExecInOomScoreAdj(t *testing.T) {
 		Stdout: buffers.Stdout,
 		Stderr: buffers.Stderr,
 	}
-	err = container.Run(ps)
+	err = container.Start(ps)
 	ok(t, err)
 	waitProcess(ps, t)
 
@@ -514,7 +456,7 @@ func TestExecInUserns(t *testing.T) {
 		Env:   standardEnvironment,
 		Stdin: stdinR,
 	}
-	err = container.Run(process)
+	err = container.Start(process)
 	stdinR.Close()
 	defer stdinW.Close()
 	ok(t, err)
@@ -534,7 +476,7 @@ func TestExecInUserns(t *testing.T) {
 		Stdout: buffers.Stdout,
 		Stderr: os.Stderr,
 	}
-	err = container.Run(process2)
+	err = container.Start(process2)
 	ok(t, err)
 	waitProcess(process2, t)
 	stdinW.Close()
