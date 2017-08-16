@@ -294,7 +294,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		eniStatus := change.Attachments.Status.String()
 		attachments = []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: &change.Attachments.AttachmentArn,
+				AttachmentArn: &change.Attachments.AttachmentARN,
 				Status:        &eniStatus,
 			},
 		}

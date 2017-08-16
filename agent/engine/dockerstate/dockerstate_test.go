@@ -82,23 +82,23 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &api.ENIAttachment{
-		TaskArn:       "taskarn",
-		AttachmentArn: "eni1",
-		MacAddress:    "mac1",
+		TaskARN:       "taskarn",
+		AttachmentARN: "eni1",
+		MACAddress:    "mac1",
 	}
 
 	state.AddENIAttachment(attachment)
 	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 1)
 	eni, ok := state.ENIByMac("mac1")
 	assert.True(t, ok)
-	assert.Equal(t, eni.TaskArn, attachment.TaskArn)
+	assert.Equal(t, eni.TaskARN, attachment.TaskARN)
 
 	eni, ok = state.ENIByMac("non-mac")
 	assert.False(t, ok)
 	assert.Nil(t, eni)
 
 	// Remove the attachment from state
-	state.RemoveENIAttachment(attachment.MacAddress)
+	state.RemoveENIAttachment(attachment.MACAddress)
 	assert.Len(t, state.AllImageStates(), 0)
 	eni, ok = state.ENIByMac("mac1")
 	assert.False(t, ok)

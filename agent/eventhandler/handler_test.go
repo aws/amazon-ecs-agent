@@ -18,12 +18,12 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -271,27 +271,30 @@ func TestENISentStatusChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
-	timer := mock_ttime.NewMockTimer(ctrl)
 
 	task := &api.Task{
 		Arn: "taskarn",
 	}
 
 	eniAttachment := &api.ENIAttachment{
-		TaskArn:          "taskarn",
+		TaskARN:          "taskarn",
 		AttachStatusSent: false,
-		AckTimer:         timer,
+		ExpiresAt:        time.Now().Add(time.Second),
 	}
+	timeoutFunc := func() {
+		eniAttachment.AttachStatusSent = true
+	}
+	assert.NoError(t, eniAttachment.StartTimer(timeoutFunc))
 
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
 		Attachments: eniAttachment,
 		TaskArn:     "taskarn",
-		Status:      api.TaskRunning,
-		Task:        task,
+		// TODO: This should be api.TaskStatusNone
+		Status: api.TaskRunning,
+		Task:   task,
 	})
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Return(nil)
-	timer.EXPECT().Stop()
 
 	events := list.New()
 	events.PushBack(sendableTaskEvent)

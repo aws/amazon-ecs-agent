@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,29 +14,10 @@
 package api
 
 import (
-	"sync"
-
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
-
-// ENIAttachment contains the information of the eni attachment
-type ENIAttachment struct {
-	// TaskArn is the task identifier from ecs
-	TaskArn string `json:"taskarn"`
-	// AttachmentArn is the identifier for the eni attachment
-	AttachmentArn string `json:"attachmentArn"`
-	// AttachStatusSent indicates whether the attached status has been sent to backend
-	AttachStatusSent bool `json:"attachSent"`
-	// MacAddress is the mac address of eni
-	MacAddress string `json:"macAddress"`
-	// Status is the status of the eni: none/attached/detached
-	Status         ENIAttachmentStatus `json:"status"`
-	sentStatusLock sync.RWMutex
-	AckTimer       ttime.Timer
-}
 
 // ENI contains information of the eni
 type ENI struct {
@@ -121,25 +102,4 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	}
 
 	return nil
-}
-
-// IsSent checks if the eni attached status has been sent
-func (eni *ENIAttachment) IsSent() bool {
-	eni.sentStatusLock.RLock()
-	defer eni.sentStatusLock.RUnlock()
-
-	return eni.AttachStatusSent
-}
-
-// SetSentStatus marks the eni attached status has been sent
-func (eni *ENIAttachment) SetSentStatus() {
-	eni.sentStatusLock.Lock()
-	defer eni.sentStatusLock.Unlock()
-
-	eni.AttachStatusSent = true
-}
-
-// StopAckTimer stops the ack timer set on the ENI attachment
-func (eni *ENIAttachment) StopAckTimer() {
-	eni.AckTimer.Stop()
 }

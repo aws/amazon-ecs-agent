@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	eniMessageId = "123"
-	randomMAC    = "00:0a:95:9d:68:16"
-	waitTimeout  = 10
+	eniMessageId      = "123"
+	randomMAC         = "00:0a:95:9d:68:16"
+	waitTimeoutMillis = 10
 )
 
 // TestAttachENIMessageWithNoMessageId checks the validator against an
@@ -41,7 +41,7 @@ func TestAttachENIMessageWithNoMessageId(t *testing.T) {
 		ContainerInstanceArn:     aws.String(containerInstanceArn),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 		TaskArn:                  aws.String(taskArn),
-		WaitTimeoutMs:            aws.Int64(waitTimeout),
+		WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -56,7 +56,7 @@ func TestAttachENIMessageWithNoClusterArn(t *testing.T) {
 		ContainerInstanceArn:     aws.String(containerInstanceArn),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 		TaskArn:                  aws.String(taskArn),
-		WaitTimeoutMs:            aws.Int64(waitTimeout),
+		WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -71,7 +71,7 @@ func TestAttachENIMessageWithNoContainerInstanceArn(t *testing.T) {
 		ClusterArn:               aws.String(clusterName),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 		TaskArn:                  aws.String(taskArn),
-		WaitTimeoutMs:            aws.Int64(waitTimeout),
+		WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -85,7 +85,7 @@ func TestAttachENIMessageWithNoInterfaces(t *testing.T) {
 		MessageId:     aws.String(eniMessageId),
 		ClusterArn:    aws.String(clusterName),
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 	err := validateAttachTaskNetworkInterfacesMessage(message)
 	assert.Error(t, err)
@@ -111,7 +111,7 @@ func TestAttachENIMessageWithMultipleInterfaces(t *testing.T) {
 			&mockNetInterface2,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -131,7 +131,7 @@ func TestAttachENIMessageWithMissingNetworkDetails(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -152,7 +152,7 @@ func TestAttachENIMessageWithMissingMACAddress(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -176,7 +176,7 @@ func TestAttachENIMessageWithMissingTaskArn(t *testing.T) {
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	err := validateAttachTaskNetworkInterfacesMessage(message)
@@ -237,14 +237,14 @@ func TestENIAckSingleMessage(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	eniAttachHandler.handleSingleMessage(message)
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 	eniattachment, ok := taskEngineState.ENIByMac(randomMAC)
 	assert.True(t, ok)
-	assert.Equal(t, taskArn, eniattachment.TaskArn)
+	assert.Equal(t, taskArn, eniattachment.TaskARN)
 
 	select {
 	case <-eniAttachHandler.ctx.Done():
@@ -289,7 +289,7 @@ func TestENIAckForMessageIdMismatch(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	eniAttachHandler.handleSingleMessage(message)
@@ -334,7 +334,7 @@ func TestENIAckHappyPath(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
 	eniAttachHandler.messageBuffer <- message
@@ -371,13 +371,13 @@ func TestENIAckTimeout(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
-	eniAttachHandler.addENIAttachmentToState(message)
+	eniAttachHandler.addENIAttachmentToState(message, time.Now())
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 	for {
-		time.Sleep(time.Millisecond * waitTimeout)
+		time.Sleep(time.Millisecond * waitTimeoutMillis)
 		if len(taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments()) == 0 {
 			break
 		}
@@ -408,16 +408,16 @@ func TestENIAckWithinTimeout(t *testing.T) {
 			&mockNetInterface1,
 		},
 		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeout),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 	}
 
-	eniAttachHandler.addENIAttachmentToState(message)
+	eniAttachHandler.addENIAttachmentToState(message, time.Now())
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 	eniAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).ENIByMac(randomMAC)
 	assert.True(t, ok)
 	eniAttachment.SetSentStatus()
 
-	time.Sleep(time.Millisecond * waitTimeout)
+	time.Sleep(time.Millisecond * waitTimeoutMillis)
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 }
