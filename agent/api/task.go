@@ -69,7 +69,11 @@ type Task struct {
 	Containers []*Container
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
-
+	// VCPULimit is a task-level limit for compute resources. A value of 1 means that
+	// the task may access 100% of 1 vCPU on the instance
+	VCPULimit float64 `json:"CPULimit,omitempty"`
+	// MemoryLimit is a task-level limit for memory resources in bytes
+	MemoryLimit int64 `json:"Memory,omitempty"`
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler.
