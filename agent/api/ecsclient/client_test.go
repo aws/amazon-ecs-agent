@@ -666,7 +666,7 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 	})
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
-		TaskArn: "task_arn",
+		TaskARN: "task_arn",
 		Attachment: &api.ENIAttachment{
 			AttachmentARN: "eni_arn",
 			Status:        api.ENIAttached,
@@ -691,7 +691,7 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 	})
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
-		TaskArn: "task_arn",
+		TaskARN: "task_arn",
 		Status:  api.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
