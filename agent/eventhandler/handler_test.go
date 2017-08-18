@@ -38,11 +38,11 @@ func containerEventStopped(arn string) statechange.Event {
 }
 
 func taskEvent(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
+	return api.TaskStateChange{TaskARN: arn, Status: api.TaskRunning, Task: &api.Task{}}
 }
 
 func taskEventStopped(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
+	return api.TaskStateChange{TaskARN: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
 
 func TestSendsEventsOneContainer(t *testing.T) {
@@ -191,13 +191,13 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	taskEventB := taskEventStopped(taskarnB)
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-		assert.Equal(t, taskarnA, change.TaskArn)
+		assert.Equal(t, taskarnA, change.TaskARN)
 		wgAddEvent.Done()
 		wg.Done()
 	})
 
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-		assert.Equal(t, taskarnB, change.TaskArn)
+		assert.Equal(t, taskarnB, change.TaskARN)
 		wg.Done()
 	})
 
@@ -243,7 +243,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
 		assert.Equal(t, 1, len(change.Containers))
 		assert.Equal(t, taskarnB, change.Containers[0].TaskArn)
-		assert.Equal(t, taskarnB, change.TaskArn)
+		assert.Equal(t, taskarnB, change.TaskARN)
 		wg.Done()
 	})
 
@@ -288,7 +288,7 @@ func TestENISentStatusChange(t *testing.T) {
 
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
 		Attachment: eniAttachment,
-		TaskArn:    "taskarn",
+		TaskARN:    "taskarn",
 		Status:     api.TaskStatusNone,
 		Task:       task,
 	})

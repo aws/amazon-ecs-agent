@@ -104,8 +104,8 @@ func (handler *TaskHandler) flushBatch(event *api.TaskStateChange) {
 	handler.taskHandlerLock.Lock()
 	defer handler.taskHandlerLock.Unlock()
 
-	event.Containers = append(event.Containers, handler.tasksToContainerStates[event.TaskArn]...)
-	delete(handler.tasksToContainerStates, event.TaskArn)
+	event.Containers = append(event.Containers, handler.tasksToContainerStates[event.TaskARN]...)
+	delete(handler.tasksToContainerStates, event.TaskARN)
 }
 
 // Prepares a given event to be sent by adding it to the handler's appropriate

@@ -55,7 +55,7 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, testTasks .
 			if event.GetEventType() == statechange.TaskEvent {
 				taskEvent := event.(api.TaskStateChange)
 				for i, task := range testTasks {
-					if taskEvent.TaskArn != task.Arn {
+					if taskEvent.TaskARN != task.Arn {
 						continue
 					}
 					if taskEvent.Status == api.TaskRunning {
@@ -79,7 +79,7 @@ func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, testTasks .
 			if event.GetEventType() == statechange.TaskEvent {
 				taskEvent := event.(api.TaskStateChange)
 				for i, task := range testTasks {
-					if taskEvent.TaskArn == task.Arn && taskEvent.Status >= api.TaskStopped {
+					if taskEvent.TaskARN == task.Arn && taskEvent.Status >= api.TaskStopped {
 						if len(testTasks) == 1 {
 							return
 						}

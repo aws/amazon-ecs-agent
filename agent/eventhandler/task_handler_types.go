@@ -65,7 +65,7 @@ func (event *sendableEvent) taskArn() string {
 	if event.isContainerEvent {
 		return event.containerChange.TaskArn
 	}
-	return event.taskChange.TaskArn
+	return event.taskChange.TaskARN
 }
 
 func (event *sendableEvent) taskShouldBeSent() bool {

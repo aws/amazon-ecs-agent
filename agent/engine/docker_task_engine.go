@@ -338,7 +338,7 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 		return
 	}
 	event := api.TaskStateChange{
-		TaskArn: task.Arn,
+		TaskARN: task.Arn,
 		Status:  taskKnownStatus,
 		Reason:  reason,
 		Task:    task,

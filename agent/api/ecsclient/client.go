@@ -294,14 +294,14 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		eniStatus := change.Attachment.Status.String()
 		attachments = []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: &change.Attachment.AttachmentARN,
-				Status:        &eniStatus,
+				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
+				Status:        aws.String(eniStatus),
 			},
 		}
 
 		_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
-			Cluster:     &client.config.Cluster,
-			Task:        &change.TaskArn,
+			Cluster:     aws.String(client.config.Cluster),
+			Task:        aws.String(change.TaskARN),
 			Attachments: attachments,
 		})
 		if err != nil {
@@ -328,7 +328,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	req := ecs.SubmitTaskStateChangeInput{
 		Cluster: aws.String(client.config.Cluster),
-		Task:    aws.String(change.TaskArn),
+		Task:    aws.String(change.TaskARN),
 		Status:  aws.String(status),
 		Reason:  aws.String(change.Reason),
 	}

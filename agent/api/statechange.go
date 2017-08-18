@@ -49,7 +49,7 @@ type TaskStateChange struct {
 	// Attachment is the eni attachment object to send
 	Attachment *ENIAttachment
 	// TaskArn is the unique identifier for the task
-	TaskArn string
+	TaskARN string
 	// Status is the status to send
 	Status TaskStatus
 	// Reason may contain details of why the task stopped
@@ -82,7 +82,7 @@ func (c *ContainerStateChange) String() string {
 
 // String returns a human readable string representation of this object
 func (t *TaskStateChange) String() string {
-	res := fmt.Sprintf("%s -> %s", t.TaskArn, t.Status.String())
+	res := fmt.Sprintf("%s -> %s", t.TaskARN, t.Status.String())
 	if t.Task != nil {
 		res += ", Known Sent: " + t.Task.GetSentStatus().String()
 	}

@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
@@ -212,11 +214,11 @@ func TestENIAckSingleMessage(t *testing.T) {
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	ctx := context.TODO()
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
-	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
 		eniAckRequested = ackRequest
 		eniAttachHandler.stop()
 	})
@@ -253,9 +255,63 @@ func TestENIAckSingleMessage(t *testing.T) {
 	assert.Equal(t, aws.StringValue(eniAckRequested.MessageId), eniMessageId)
 }
 
-// TestENIAckForMessageIdMismatch tests for mismatched messageId's in the
+// TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer checks the ack for a single message
+// and ensures that the ENI ack expiration timer is started
+func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	manager := mock_statemanager.NewMockStateManager(ctrl)
+
+	ctx := context.TODO()
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, mockState, manager)
+
+	var eniAckRequested *ecsacs.AckRequest
+	gomock.InOrder(
+		mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+			eniAckRequested = ackRequest
+			eniAttachHandler.stop()
+		}),
+		// Sending an empty attachment results in an error in starting the time.
+		// Ensuring that statemanager.Save() is not invoked should be a strong
+		// enough check to ensure that the timer was started
+		mockState.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{}, true),
+		manager.EXPECT().Save().Return(nil).Times(0),
+	)
+	go eniAttachHandler.start()
+
+	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
+		Ec2Id:         aws.String("1"),
+		MacAddress:    aws.String(randomMAC),
+		AttachmentArn: aws.String("attachmentarn"),
+	}
+	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:            aws.String(eniMessageId),
+		ClusterArn:           aws.String(clusterName),
+		ContainerInstanceArn: aws.String(containerInstanceArn),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			&mockNetInterface1,
+		},
+		TaskArn:       aws.String(taskArn),
+		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+	}
+
+	// Expect an error starting the timer because of <=0 duration
+	err := eniAttachHandler.handleSingleMessage(message)
+	assert.Error(t, err)
+
+	select {
+	case <-eniAttachHandler.ctx.Done():
+	}
+
+	assert.Equal(t, aws.StringValue(eniAckRequested.MessageId), eniMessageId)
+}
+
+// TestENIAckForMessageIDMismatch tests for mismatched messageId's in the
 // AttachTaskNetworkInterfacesMessage and the ack
-func TestENIAckForMessageIdMismatch(t *testing.T) {
+func TestENIAckForMessageIDMismatch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -263,11 +319,11 @@ func TestENIAckForMessageIdMismatch(t *testing.T) {
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	ctx := context.TODO()
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
-	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
 		// Change MessageId
 		ackRequest.MessageId = aws.String("42")
 		eniAckRequested = ackRequest
@@ -310,11 +366,11 @@ func TestENIAckHappyPath(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
 	var eniAckRequested *ecsacs.AckRequest
-	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
 		eniAckRequested = ackRequest
 		eniAttachHandler.stop()
 	})
@@ -356,8 +412,8 @@ func TestENIAckTimeout(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
 		Ec2Id:         aws.String("1"),
 		MacAddress:    aws.String(randomMAC),
@@ -393,8 +449,8 @@ func TestENIAckWithinTimeout(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWsClient, taskEngineState, manager)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
 		Ec2Id:         aws.String("1"),
 		MacAddress:    aws.String(randomMAC),
