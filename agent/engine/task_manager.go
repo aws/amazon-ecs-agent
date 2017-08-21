@@ -412,7 +412,7 @@ func (mtask *managedTask) steadyState() bool {
 // docker completes.
 // Container changes may also prompt the task status to change as well.
 func (mtask *managedTask) progressContainers() {
-	seelog.Debug("Progressing task: %s", mtask.Task.String())
+	seelog.Debugf("Progressing task: %s", mtask.Task.String())
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
@@ -435,7 +435,7 @@ func (mtask *managedTask) progressContainers() {
 	// complete, but keep reading events as we do.. in fact, we have to for
 	// transitions to complete
 	mtask.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
-	seelog.Debug("Done transitioning all containers for task %v", mtask.Task)
+	seelog.Debugf("Done transitioning all containers for task %v", mtask.Task)
 
 	// update the task status
 	changed := mtask.UpdateStatus()
