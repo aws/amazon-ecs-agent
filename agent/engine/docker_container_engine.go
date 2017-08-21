@@ -708,11 +708,14 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				continue
 			case "restart":
 			case "resize":
-			case "destroy":
 			case "unpause":
+			case "destroy":
+				// container remove events doesn't need to be handled by ecs agent
+				// as it has already moved to stopped before this event
+				continue
+
 			// These result in us falling through to inspect the container, some
 			// out of caution, some because it's a form of state change
-
 			case "oom":
 				seelog.Infof("process within container %v died due to OOM", event.ID)
 				// "oom" can either means any process got OOM'd, but doesn't always
