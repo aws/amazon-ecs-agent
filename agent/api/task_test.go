@@ -800,3 +800,37 @@ func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 		}
 	}
 }
+
+// TestGetIDErrorPaths performs table tests on GetID with erroneous taskARNs
+func TestGetIDErrorPaths(t *testing.T) {
+	testCases := []struct {
+		arn  string
+		name string
+	}{
+		{"", "EmptyString"},
+		{"invalidArn", "InvalidARN"},
+		{"arn:aws:ecs:region:account-id:task:task-id", "IncorrectSections"},
+		{"arn:aws:ecs:region:account-id:task", "IncorrectResouceSections"},
+	}
+
+	task := Task{}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task.Arn = tc.arn
+			taskID, err := task.GetID()
+			assert.Error(t, err, "GetID should return an error")
+			assert.Empty(t, taskID, "ID should be empty")
+		})
+	}
+}
+
+// TestGetIDHappyPath validates the happy path of GetID
+func TestGetIDHappyPath(t *testing.T) {
+	task := Task{
+		Arn: "arn:aws:ecs:region:account-id:task/task-id",
+	}
+	taskID, err := task.GetID()
+	assert.NoError(t, err)
+	assert.Equal(t, "task-id", taskID)
+}

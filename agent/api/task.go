@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
@@ -39,6 +40,9 @@ const (
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+
+	arnResourceSections  = 2
+	arnResourceDelimiter = "/"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -673,4 +677,28 @@ func (t *Task) String() string {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	}
 	return res + "]"
+}
+
+// GetID is used to retrieve the taskID from taskARN
+// Reference: http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arn-syntax-ecs
+func (task *Task) GetID() (string, error) {
+	// Parse taskARN
+	parsedARN, err := arn.Parse(task.Arn)
+	if err != nil {
+		return "", errors.Wrapf(err, "task get-id: malformed taskARN: %s", task.Arn)
+	}
+
+	// Get task resource section
+	resource := parsedARN.Resource
+
+	if !strings.Contains(resource, arnResourceDelimiter) {
+		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+	}
+
+	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
+	if len(resourceSplit) != arnResourceSections {
+		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+	}
+
+	return resourceSplit[1], nil
 }
