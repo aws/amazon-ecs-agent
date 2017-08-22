@@ -173,10 +173,14 @@ func (c *Client) findAgentContainer() (string, error) {
 
 // StartAgent starts the Agent in Docker and returns the exit code from the container
 func (c *Client) StartAgent() (int, error) {
+	hostConfig, err := c.getHostConfig()
+	if err != nil {
+		return 0, err
+	}
 	container, err := c.docker.CreateContainer(godocker.CreateContainerOptions{
 		Name:       config.AgentContainerName,
 		Config:     c.getContainerConfig(),
-		HostConfig: c.getHostConfig(),
+		HostConfig: hostConfig,
 	})
 	if err != nil {
 		return 0, err
@@ -242,11 +246,16 @@ func (c *Client) loadEnvVariables() map[string]string {
 	return envVariables
 }
 
-func (c *Client) getHostConfig() *godocker.HostConfig {
+func (c *Client) getHostConfig() (*godocker.HostConfig, error) {
 	dockerEndpointAgent := defaultDockerEndpoint
 	dockerUnixSocketSourcePath, fromEnv := config.DockerUnixSocket()
 	if fromEnv {
 		dockerEndpointAgent = "/var/run/docker.sock"
+	}
+	// Get cgroup mountpoint
+	cgroupMountpoint, err := config.GetCgroupMountpoint()
+	if err != nil {
+		return nil, err
 	}
 
 	binds := []string{
@@ -255,8 +264,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
+		cgroupMountpoint + ":" + config.DefaultCgroupMountpoint,
 	}
-
 	return createHostConfig(binds)
 }
 
