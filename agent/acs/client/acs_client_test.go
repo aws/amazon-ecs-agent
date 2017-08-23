@@ -134,7 +134,6 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-
 	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().ReadMessage().AnyTimes().Return(websocket.TextMessage, []byte(sampleCredentialsMessage), nil)
 	conn.EXPECT().Close()

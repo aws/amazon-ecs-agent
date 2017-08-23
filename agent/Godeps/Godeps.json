@@ -185,6 +185,15 @@
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
 		},
 		{
+			"ImportPath": "github.com/containerd/cgroups",
+			"Rev": "c3fc2b77b568af2406f3931cf3d3f17d76736886"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd/dbus",
+			"Comment": "v14-30-g24036eb",
+			"Rev": "24036eb3df68550d24a2736c5d013f4e83366866"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Comment": "v1.0.0-3-g6d21280",
 			"Rev": "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
@@ -299,6 +308,11 @@
 			"Rev": "060d7da055ba6ec5ea7a31f116332fe5efa04ce0"
 		},
 		{
+			"ImportPath": "github.com/godbus/dbus",
+			"Comment": "v4.0.0-39-g3725288",
+			"Rev": "37252881b3a87eaa2eb04b0ff2211f54f45199ab"
+		},
+		{
 			"ImportPath": "github.com/golang/mock/gomock",
 			"Rev": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
 		},
@@ -327,8 +341,18 @@
 			"Rev": "2940d2e2e9365b4b3fec8ae24822435195f56b61"
 		},
 		{
+			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
+			"Comment": "v1.0.0-rc5-255-gd349388",
+			"Rev": "d349388c43b01b2ea695965ae561b5bddb81318f"
+		},
+		{
 			"ImportPath": "github.com/pborman/uuid",
 			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
+		},
+		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.8.0-5-gc605e28",
+			"Rev": "c605e284fe17294bda444b34710735b29d1a9d90"
 		},
 		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",

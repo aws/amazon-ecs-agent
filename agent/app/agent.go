@@ -164,6 +164,9 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
+	// TODO:
+	// 1) Feature gate ECS cgroup root init
+	// 2) Update mocks and unit tests
 
 	// Register the container instance
 	err = agent.registerContainerInstance(taskEngine, stateManager, client)

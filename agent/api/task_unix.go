@@ -22,3 +22,9 @@ const (
 func (task *Task) adjustForPlatform() {}
 
 func getCanonicalPath(path string) string { return path }
+
+// CgroupEnabled checks whether cgroups need be enabled at the task level
+func (task *Task) CgroupEnabled() bool {
+	//stub for now
+	return false
+}

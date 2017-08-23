@@ -29,6 +29,7 @@ const (
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
+	taskUnableToCreateCgroup              = "TaskStateError: Agent could not create task cgroup"
 )
 
 type acsTaskUpdate struct {
@@ -127,6 +128,10 @@ func (mtask *managedTask) overseeTask() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
 			llog.Debug("Task not steady state or terminal; progressing it")
+
+			// TODO:
+			// 1) Add platform resources setup and failure handling
+			// 2) Add new task resources provisioned state ?
 			mtask.progressContainers()
 		}
 
@@ -599,6 +604,9 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// discard events while the task is being removed from engine state
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
+
+	// TODO: Remove platform task resources
+
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()
 	mtask.engine.state.RemoveTask(mtask.Task)
