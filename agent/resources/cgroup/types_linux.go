@@ -32,5 +32,6 @@ type Spec struct {
 type Control interface {
 	Create(cgroupSpec *Spec) (cgroups.Cgroup, error)
 	Remove(cgroupPath string) error
+	Exists(cgroupPath string) bool
 	Init() error
 }
