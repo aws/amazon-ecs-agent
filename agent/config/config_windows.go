@@ -72,6 +72,7 @@ func DefaultConfig() Config {
 		MinimumImageDeletionAge:     DefaultImageDeletionAge,
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
+		TaskCPUMemLimit:             false,
 	}
 }
 
@@ -84,4 +85,7 @@ func (config *Config) platformOverrides() {
 		}
 		config.ReservedPorts = append(config.ReservedPorts, httpPort)
 	}
+
+	// ensure TaskResourceLimit is disabled
+	config.TaskCPUMemLimit = false
 }

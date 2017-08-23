@@ -288,6 +288,7 @@ func environmentConfig() (Config, error) {
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
+	taskCPUMemLimitEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT"), true)
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
@@ -341,6 +342,7 @@ func environmentConfig() (Config, error) {
 		AppArmorCapable:                  appArmorCapable,
 		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
+		TaskCPUMemLimit:                  taskCPUMemLimitEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
 		CredentialsAuditLogFile:          credentialsAuditLogFile,
 		CredentialsAuditLogDisabled:      credentialsAuditLogDisabled,
@@ -484,5 +486,5 @@ func (config *Config) validateAndOverrideBounds() error {
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, TaskCleanupWaitDuration: %v, DockerStopTimeout: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.TaskCleanupWaitDuration, config.DockerStopTimeout)
+	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, TaskCleanupWaitDuration: %v, DockerStopTimeout: %v, TaskCPUMemLimit: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.TaskCleanupWaitDuration, config.DockerStopTimeout, config.TaskCPUMemLimit)
 }

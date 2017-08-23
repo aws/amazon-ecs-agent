@@ -28,24 +28,10 @@ import (
 )
 
 func TestConfigDefault(t *testing.T) {
-	os.Unsetenv("ECS_DISABLE_METRICS")
-	os.Unsetenv("ECS_RESERVED_PORTS")
-	os.Unsetenv("ECS_RESERVED_MEMORY")
-	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
-	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
-	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST")
-	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	os.Unsetenv("ECS_AUDIT_LOGFILE")
-	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
-	os.Unsetenv("ECS_DISABLE_IMAGE_CLEANUP")
-	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
-	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
-	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+	defer setTestRegion()()
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, "/data/", cfg.DataDir, "Default datadir set incorrectly")
@@ -90,8 +76,8 @@ func TestConfigFromFile(t *testing.T) {
 	configFile := setupDockerAuthConfiguration(t, configContent)
 	defer os.Remove(configFile)
 
-	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", configFile)
-	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
+	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", configFile)()
+	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
 	config, err := fileConfig()
 	assert.NoError(t, err, "reading configuration from file failed")
@@ -126,10 +112,9 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	configFile := setupDockerAuthConfiguration(t, configContent)
 	defer os.Remove(configFile)
 
-	os.Setenv("ECS_CLUSTER", cluster)
-	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", configFile)
-	defer os.Unsetenv("ECS_CLUSTER")
-	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
+	defer setTestEnv("ECS_CLUSTER", cluster)()
+	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", configFile)()
+	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
 	config, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err, "create configuration failed")

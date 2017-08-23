@@ -45,7 +45,9 @@ const (
 	capabilityPrefix             = "com.amazonaws.ecs.capability."
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
+	capabilityTaskCPUMemLimit    = "task-cpu-mem-limit"
 	labelPrefix                  = "com.amazonaws.ecs."
+	attributePrefix              = "ecs.capability."
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -771,6 +773,7 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
+//    ecs.capability.task-cpu-mem-limit
 func (engine *DockerTaskEngine) Capabilities() []string {
 	capabilities := []string{}
 	if !engine.cfg.PrivilegedDisabled {
@@ -827,6 +830,16 @@ func (engine *DockerTaskEngine) Capabilities() []string {
 			capabilities = append(capabilities, capabilityPrefix+capabilityTaskIAMRoleNetHost)
 		} else {
 			seelog.Warn("Task IAM Role for Host Network not enabled due to unsuppported Docker version")
+		}
+	}
+
+	// TODO we also need to disable this if agent already managing older tasks
+	if engine.cfg.TaskCPUMemLimit {
+		if _, ok := supportedVersions[dockerclient.Version_1_22]; ok {
+			capabilities = append(capabilities, attributePrefix+capabilityTaskCPUMemLimit)
+		} else {
+			seelog.Warn("Task CPU + Mem Limit disabled due to unsupported Docker version")
+			engine.cfg.TaskCPUMemLimit = false
 		}
 	}
 

@@ -109,6 +109,9 @@ type Config struct {
 	// tasks with IAM Roles.
 	TaskIAMRoleEnabled bool
 
+	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
+	TaskCPUMemLimit bool
+
 	// CredentialsAuditLogFile specifies the path/filename of the audit log.
 	CredentialsAuditLogFile string
 

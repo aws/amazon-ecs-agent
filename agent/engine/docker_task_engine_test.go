@@ -40,7 +40,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-const credentialsID = "credsid"
+const (
+	credentialsID         = "credsid"
+	cpuMemLimitCapability = "ecs.capability.task-cpu-mem-limit"
+)
 
 var defaultConfig = config.DefaultConfig()
 
@@ -1004,9 +1007,31 @@ func TestCapabilities(t *testing.T) {
 		"com.amazonaws.ecs.capability.apparmor",
 	}
 
-	if !reflect.DeepEqual(capabilities, expectedCapabilities) {
-		t.Errorf("Expected capabilities %v, but got capabilities %v", expectedCapabilities, capabilities)
-	}
+	assert.Equal(t, expectedCapabilities, capabilities)
+}
+
+func TestCapabilitiesTaskResourceLimit(t *testing.T) {
+	cfg := &config.Config{TaskCPUMemLimit: true}
+	ctrl, client, _, taskEngine, _, _ := mocks(t, cfg)
+	defer ctrl.Finish()
+
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
+	client.EXPECT().SupportedVersions().Return(versionList)
+	client.EXPECT().KnownVersions().Return(versionList)
+	assert.Contains(t, taskEngine.Capabilities(), cpuMemLimitCapability)
+}
+
+func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
+	cfg := &config.Config{TaskCPUMemLimit: true}
+	ctrl, client, _, taskEngine, _, _ := mocks(t, cfg)
+	defer ctrl.Finish()
+
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_21}
+	client.EXPECT().SupportedVersions().Return(versionList)
+	client.EXPECT().KnownVersions().Return(versionList)
+
+	assert.NotContains(t, taskEngine.Capabilities(), cpuMemLimitCapability, "Docker 1.22 is required for task resource limits.")
+	assert.False(t, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be made false when we can't find the right docker.")
 }
 
 func TestCapabilitiesECR(t *testing.T) {

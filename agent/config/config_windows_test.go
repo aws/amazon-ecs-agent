@@ -15,34 +15,20 @@
 package config
 
 import (
-	"os"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigDefault(t *testing.T) {
-	os.Unsetenv("ECS_DISABLE_METRICS")
-	os.Unsetenv("ECS_RESERVED_PORTS")
-	os.Unsetenv("ECS_RESERVED_MEMORY")
-	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
-	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
-	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST")
-	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	os.Unsetenv("ECS_AUDIT_LOGFILE")
-	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
-	os.Unsetenv("ECS_DISABLE_IMAGE_CLEANUP")
-	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
-	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
-	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+	defer setTestRegion()()
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
@@ -64,8 +50,8 @@ func TestConfigDefault(t *testing.T) {
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
-	os.Unsetenv("ECS_RESERVED_PORTS")
-	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Nil(t, err)
 	assert.Equal(t, []uint16{
@@ -82,8 +68,17 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 		httpPort,
 	}, cfg.ReservedPorts)
 
-	os.Setenv("ECS_RESERVED_PORTS", "[1]")
+	defer setTestEnv("ECS_RESERVED_PORTS", "[1]")()
 	cfg, err = NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, []uint16{1, httpPort}, cfg.ReservedPorts)
+}
+
+func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_CPU_MEM_LIMIT", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.False(t, cfg.TaskCPUMemLimit)
 }
