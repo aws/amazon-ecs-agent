@@ -15,6 +15,7 @@ package handler
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -217,10 +218,13 @@ func TestENIAckSingleMessage(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
+	var ackSent sync.WaitGroup
+	ackSent.Add(1)
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		ackSent.Done()
+	})
 	gomock.InOrder(
-		mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-			assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
-		}),
 		manager.EXPECT().Save().Do(func() {
 			assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 			eniattachment, ok := taskEngineState.ENIByMac(randomMAC)
@@ -252,6 +256,7 @@ func TestENIAckSingleMessage(t *testing.T) {
 	select {
 	case <-eniAttachHandler.ctx.Done():
 	}
+	ackSent.Wait()
 }
 
 // TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer checks the ack for a single message
@@ -269,10 +274,13 @@ func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.
 
 	// Set expiresAt to a value in the past
 	expiresAt := time.Unix(time.Now().Unix()-1, 0)
+	var ackSent sync.WaitGroup
+	ackSent.Add(1)
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		ackSent.Done()
+	})
 	gomock.InOrder(
-		mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-			assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
-		}),
 		// Sending an attachment with ExpiresAt set in the past results in an
 		// error in starting the timer.
 		// Ensuring that statemanager.Save() is not invoked should be a strong
@@ -300,6 +308,7 @@ func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.
 	// Expect an error starting the timer because of <=0 duration
 	err := eniAttachHandler.handleSingleMessage(message)
 	assert.Error(t, err)
+	ackSent.Wait()
 }
 
 // TestENIAckHappyPath tests the happy path for a typical AttachTaskNetworkInterfacesMessage
@@ -314,9 +323,11 @@ func TestENIAckHappyPath(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
-	var eniAckRequested *ecsacs.AckRequest
+	var ackSent sync.WaitGroup
+	ackSent.Add(1)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		eniAckRequested = ackRequest
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		ackSent.Done()
 		eniAttachHandler.stop()
 	})
 	manager.EXPECT().Save().Return(nil).AnyTimes()
@@ -339,13 +350,11 @@ func TestENIAckHappyPath(t *testing.T) {
 	}
 
 	eniAttachHandler.messageBuffer <- message
-	eniAttachHandler.handleMessages()
 
+	ackSent.Wait()
 	select {
 	case <-eniAttachHandler.ctx.Done():
 	}
-
-	assert.Equal(t, aws.StringValue(eniAckRequested.MessageId), eniMessageId)
 }
 
 // TestENIAckTimeout tests the eni ackknowledge timeout before submit the state change
