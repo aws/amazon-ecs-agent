@@ -30,7 +30,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
 
@@ -85,6 +87,81 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
+}
+
+func discardEvents(from interface{}) func() {
+	done := make(chan bool)
+
+	go func() {
+		for {
+			ndx, _, _ := reflect.Select([]reflect.SelectCase{
+				{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(from),
+				},
+				{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(done),
+				},
+			})
+			if ndx == 1 {
+				break
+			}
+		}
+	}()
+	return func() {
+		done <- true
+	}
+}
+
+// TestDockerStateToContainerState tests convert the container status from
+// docker inspect to the status defined in agent
+func TestDockerStateToContainerState(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	testTask := createTestTask("test_task")
+	container := testTask.Containers[0]
+
+	client, err := docker.NewClientFromEnv()
+	require.NoError(t, err, "Creating go docker client failed")
+
+	containerMetadata := taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+	assert.NoError(t, containerMetadata.Error)
+
+	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
+	assert.NoError(t, containerMetadata.Error)
+	state, _ := client.InspectContainer(containerMetadata.DockerID)
+	assert.Equal(t, api.ContainerCreated, dockerStateToState(state.State))
+
+	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
+	assert.NoError(t, containerMetadata.Error)
+	state, _ = client.InspectContainer(containerMetadata.DockerID)
+	assert.Equal(t, api.ContainerRunning, dockerStateToState(state.State))
+
+	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
+	assert.NoError(t, containerMetadata.Error)
+	state, _ = client.InspectContainer(containerMetadata.DockerID)
+	assert.Equal(t, api.ContainerStopped, dockerStateToState(state.State))
+
+	// clean up the container
+	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
+	assert.NoError(t, err, "remove the created container failed")
+
+	// Start the container failed
+	testTask = createTestTask("test_task2")
+	testTask.Containers[0].EntryPoint = &[]string{"non-existed"}
+	container = testTask.Containers[0]
+	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
+	assert.NoError(t, containerMetadata.Error)
+	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
+	assert.Error(t, containerMetadata.Error)
+	state, _ = client.InspectContainer(containerMetadata.DockerID)
+	assert.Equal(t, api.ContainerStopped, dockerStateToState(state.State))
+
+	// clean up the container
+	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
+	assert.NoError(t, err, "remove the created container failed")
 }
 
 func TestHostVolumeMount(t *testing.T) {

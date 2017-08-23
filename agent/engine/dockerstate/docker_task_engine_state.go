@@ -319,18 +319,25 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 	}
 
 	if container.DockerID != "" {
+		// Update the container id to the state
+		state.idToContainer[container.DockerID] = container
 		state.idToTask[container.DockerID] = task.Arn
+
+		// Remove the previously added name mapping
+		delete(state.idToContainer, container.DockerName)
+		delete(state.idToTask, container.DockerName)
+	} else if container.DockerName != "" {
+		// Update the container name mapping to the state when the ID isn't available
+		state.idToContainer[container.DockerName] = container
+		state.idToTask[container.DockerName] = task.Arn
 	}
+
 	existingMap, exists := state.taskToID[task.Arn]
 	if !exists {
 		existingMap = make(map[string]*api.DockerContainer, len(task.Containers))
 		state.taskToID[task.Arn] = existingMap
 	}
 	existingMap[container.Container.Name] = container
-
-	if container.DockerID != "" {
-		state.idToContainer[container.DockerID] = container
-	}
 }
 
 // AddImageState adds an image.ImageState to be stored

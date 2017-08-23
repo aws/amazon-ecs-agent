@@ -475,10 +475,21 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	return metadata
 }
 
+// dockerStateToState converts the container status from docker to status recognized by the agent
+// Ref: https://github.com/fsouza/go-dockerclient/blob/fd53184a1439b6d7b82ca54c1cd9adac9a5278f2/container.go#L133
 func dockerStateToState(state docker.State) api.ContainerStatus {
 	if state.Running {
 		return api.ContainerRunning
 	}
+
+	if state.Dead {
+		return api.ContainerStopped
+	}
+
+	if state.StartedAt.IsZero() && state.Error == "" {
+		return api.ContainerCreated
+	}
+
 	return api.ContainerStopped
 }
 

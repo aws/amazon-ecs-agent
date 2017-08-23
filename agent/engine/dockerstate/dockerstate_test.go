@@ -287,3 +287,44 @@ func TestRemoveNonExistingImageState(t *testing.T) {
 		t.Error("Error removing incorrect image state")
 	}
 }
+
+// TestAddContainer tests first add container with docker name and
+// then add the container with dockerID
+func TestAddContainerNameAndID(t *testing.T) {
+	state := NewTaskEngineState()
+
+	task := &api.Task{
+		Arn: "taskArn",
+	}
+	container := &api.DockerContainer{
+		DockerName: "ecs-test-container-1",
+		Container: &api.Container{
+			Name: "test",
+		},
+	}
+	state.AddTask(task)
+	state.AddContainer(container, task)
+	containerMap, ok := state.ContainerMapByArn(task.Arn)
+	assert.True(t, ok)
+	assert.Len(t, containerMap, 1)
+
+	assert.Len(t, state.GetAllContainerIDs(), 1)
+
+	_, ok = state.ContainerByID(container.DockerName)
+	assert.True(t, ok, "container with DockerName should be added to the state")
+
+	container = &api.DockerContainer{
+		DockerName: "ecs-test-container-1",
+		DockerID:   "dockerid",
+		Container: &api.Container{
+			Name: "test",
+		},
+	}
+	state.AddContainer(container, task)
+	assert.Len(t, containerMap, 1)
+	assert.Len(t, state.GetAllContainerIDs(), 1)
+	_, ok = state.ContainerByID(container.DockerID)
+	assert.True(t, ok, "container with DockerName should be added to the state")
+	_, ok = state.ContainerByID(container.DockerName)
+	assert.False(t, ok, "container with DockerName should be added to the state")
+}

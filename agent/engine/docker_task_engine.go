@@ -252,6 +252,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 					log.Warn("Could not find matching container for expected", "name", cont.DockerName)
 				} else {
 					cont.DockerID = describedCont.ID
+					cont.Container.SetKnownStatus(dockerStateToState(describedCont.State))
 					// update mappings that need dockerid
 					engine.state.AddContainer(cont, task)
 					engine.imageManager.RecordContainerReference(cont.Container)
@@ -577,15 +578,24 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
 	}
 
+	dockerContainerName := ""
+	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
+	if !ok {
+		containerMap = make(map[string]*api.DockerContainer)
+	} else {
+		// looking for container that has docker name but not created
+		for _, v := range containerMap {
+			if v.Container.Name == container.Name {
+				dockerContainerName = v.DockerName
+				break
+			}
+		}
+	}
+
 	// Resolve HostConfig
 	// we have to do this in create, not start, because docker no longer handles
 	// merging create config with start hostconfig the same; e.g. memory limits
 	// get lost
-	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
-	if !ok {
-		containerMap = make(map[string]*api.DockerContainer)
-	}
-
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap)
 	if hcerr != nil {
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
@@ -605,28 +615,30 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	config.Labels[labelPrefix+"task-definition-version"] = task.Version
 	config.Labels[labelPrefix+"cluster"] = engine.cfg.Cluster
 
-	name := ""
-	for i := 0; i < len(container.Name); i++ {
-		c := container.Name[i]
-		if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
-			continue
+	if dockerContainerName == "" {
+		name := ""
+		for i := 0; i < len(container.Name); i++ {
+			c := container.Name[i]
+			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
+				continue
+			}
+			name += string(c)
 		}
-		name += string(c)
+
+		dockerContainerName = "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
+
+		// Pre-add the container in case we stop before the next, more useful,
+		// AddContainer call. This ensures we have a way to get the container if
+		// we die before 'createContainer' returns because we can inspect by
+		// name
+		engine.state.AddContainer(&api.DockerContainer{DockerName: dockerContainerName, Container: container}, task)
+		seelog.Infof("Created container name mapping for task %s - %s -> %s", task.Arn, container, dockerContainerName)
+		engine.saver.ForceSave()
 	}
 
-	containerName := "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
-
-	// Pre-add the container in case we stop before the next, more useful,
-	// AddContainer call. This ensures we have a way to get the container if
-	// we die before 'createContainer' returns because we can inspect by
-	// name
-	engine.state.AddContainer(&api.DockerContainer{DockerName: containerName, Container: container}, task)
-	seelog.Infof("Created container name mapping for task %s - %s -> %s", task, container, containerName)
-	engine.saver.ForceSave()
-
-	metadata := client.CreateContainer(config, hostConfig, containerName, createContainerTimeout)
+	metadata := client.CreateContainer(config, hostConfig, dockerContainerName, createContainerTimeout)
 	if metadata.DockerID != "" {
-		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: containerName, Container: container}, task)
+		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
 	return metadata

@@ -1487,3 +1487,29 @@ func TestTaskWithCircularDependency(t *testing.T) {
 	_, ok = taskEngine.(*DockerTaskEngine).managedTasks[task.Arn]
 	assert.False(t, ok, "Task should not be added to task manager for processing")
 }
+
+// TestCreateContainerOnAgentRestart tests when agent restarts it should use the
+// docker container name restored from agent state file to create the container
+func TestCreateContainerOnAgentRestart(t *testing.T) {
+	ctrl, client, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	saver := mock_statemanager.NewMockStateManager(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine.SetSaver(saver)
+	state := taskEngine.State()
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+	// Store the generated container name to state
+	state.AddContainer(&api.DockerContainer{DockerName: "docker_container_name", Container: sleepContainer}, sleepTask)
+
+	gomock.InOrder(
+		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), "docker_container_name", gomock.Any()),
+	)
+
+	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+	if metadata.Error != nil {
+		t.Error("Unexpected error", metadata.Error)
+	}
+}

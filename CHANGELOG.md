@@ -3,6 +3,7 @@
 ## UNRELEASED
 * Feature - Support for provisioning Tasks with ENIs
 * Bug - Fixed a memory leak issue when submitting the task state change [#967](https://github.com/aws/amazon-ecs-agent/pull/967)
+* Bug - Fix a race condition where a container can be created twice when agent restarts. [#939](https://github.com/aws/amazon-ecs-agent/pull/939)
 
 ## 1.14.4
 * Enhancement - Batch container state change events. [#867](https://github.com/aws/amazon-ecs-agent/pull/867)
