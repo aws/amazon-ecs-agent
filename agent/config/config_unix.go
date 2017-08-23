@@ -41,7 +41,7 @@ func DefaultConfig() Config {
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 		CNIPluginsPath:              defaultCNIPluginsPath,
 		PauseContainerTarballPath:   pauseContainerTarballPath,
-		PauseContainerTag:           PauseContainerTag,
+		PauseContainerTag:           DefaultPauseContainerTag,
 	}
 }
 

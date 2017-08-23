@@ -259,7 +259,7 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
-	pauseContainer.Image = fmt.Sprintf("%s:%s", config.PauseContainerImageName, config.PauseContainerTag)
+	pauseContainer.Image = fmt.Sprintf("%s:%s", config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)

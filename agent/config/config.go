@@ -92,13 +92,13 @@ const (
 )
 
 var (
-	// PauseContainerTag is the tag for the pause container image. The linker's load
+	// DefaultPauseContainerTag is the tag for the pause container image. The linker's load
 	// flags are used to populate this value from the Makefile
-	PauseContainerTag = ""
+	DefaultPauseContainerTag = ""
 
-	// PauseContainerImageName is the name of the pause container image. The linker's
+	// DefaultPauseContainerImageName is the name of the pause container image. The linker's
 	// load flags are used to populate this value from the Makefile
-	PauseContainerImageName = ""
+	DefaultPauseContainerImageName = ""
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
