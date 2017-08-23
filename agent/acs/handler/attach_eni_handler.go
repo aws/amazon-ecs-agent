@@ -102,13 +102,18 @@ func (handler *attachENIHandler) handleSingleMessage(message *ecsacs.AttachTaskN
 		return errors.Wrapf(err,
 			"attach eni message handler: error validating AttachTaskNetworkInterface message received from ECS")
 	}
-	if err := handler.acsClient.MakeRequest(&ecsacs.AckRequest{
-		Cluster:           message.ClusterArn,
-		ContainerInstance: message.ContainerInstanceArn,
-		MessageId:         message.MessageId,
-	}); err != nil {
-		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(message.MessageId), err)
-	}
+
+	// Send ACK
+	go func(clusterArn *string, containerInstanceArn *string, messageID *string) {
+		if err := handler.acsClient.MakeRequest(&ecsacs.AckRequest{
+			Cluster:           clusterArn,
+			ContainerInstance: containerInstanceArn,
+			MessageId:         messageID,
+		}); err != nil {
+			seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(messageID), err)
+		}
+	}(message.ClusterArn, message.ContainerInstanceArn, message.MessageId)
+
 	// Check if this is a duplicate message
 	mac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
 	if eniAttachment, ok := handler.state.ENIByMac(mac); ok {
