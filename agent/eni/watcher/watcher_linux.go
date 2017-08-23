@@ -32,6 +32,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
+const (
+	// linkTypeDevice defines the string that's expected to be the output of
+	// netlink.Link.Type() method for netlink.Device type
+	linkTypeDevice = "device"
+	// encapTypeLoopback defines the string that's set for the link.Attrs.EncapType
+	// field for localhost devices. The EncapType field defines the link
+	// encapsulation method. For localhost, it's set to "loopback"
+	encapTypeLoopback = "loopback"
+)
+
 // UdevWatcher maintains the state of attached ENIs
 // to the instance. It also has supporting elements to
 // maintain consistency and update intervals
@@ -44,16 +54,18 @@ type UdevWatcher struct {
 	events               chan *udev.UEvent
 	agentState           dockerstate.TaskEngineState
 	eniChangeEvent       chan<- statechange.Event
+	primaryMAC           string
 }
 
 // New is used to return an instance of the UdevWatcher struct
-func New(ctx context.Context, udevwrap udevwrapper.Udev,
+func New(ctx context.Context, primaryMAC string, udevwrap udevwrapper.Udev,
 	state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) *UdevWatcher {
-	return _new(ctx, netlinkwrapper.New(), udevwrap, state, stateChangeEvents)
+	return newWatcher(ctx, primaryMAC, netlinkwrapper.New(), udevwrap, state, stateChangeEvents)
 }
 
-// _new is used to nest the return of the UdevWatcher struct
-func _new(ctx context.Context,
+// newWatcher is used to nest the return of the UdevWatcher struct
+func newWatcher(ctx context.Context,
+	primaryMAC string,
 	nlWrap netlinkwrapper.NetLink,
 	udevWrap udevwrapper.Udev,
 	state dockerstate.TaskEngineState,
@@ -68,6 +80,7 @@ func _new(ctx context.Context,
 		events:         make(chan *udev.UEvent),
 		agentState:     state,
 		eniChangeEvent: stateChangeEvents,
+		primaryMAC:     primaryMAC,
 	}
 }
 
@@ -171,10 +184,18 @@ func (udevWatcher *UdevWatcher) shouldSendENIStateChange(macAddress string) (*ap
 // buildState is used to build a state of the system for reconciliation
 func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]string {
 	state := make(map[string]string)
-
 	for _, link := range links {
+		if link.Type() != linkTypeDevice {
+			// We only care about netlink.Device types. These are created
+			// by udev like 'lo' and 'eth0'. Ignore other link types
+			continue
+		}
+		if link.Attrs().EncapType == encapTypeLoopback {
+			// Ignore localhost
+			continue
+		}
 		macAddress := link.Attrs().HardwareAddr.String()
-		if macAddress != "" {
+		if macAddress != "" && macAddress != udevWatcher.primaryMAC {
 			state[macAddress] = link.Attrs().Name
 		}
 	}
@@ -188,7 +209,6 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 	for {
 		select {
 		case event := <-udevWatcher.events:
-			log.Debugf("Udev watcher event handler: received event: %s", event.String())
 			subsystem, ok := event.Env[udevSubsystem]
 			if !ok || subsystem != udevNetSubsystem {
 				continue
@@ -197,6 +217,7 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 				continue
 			}
 			if !eniUtils.IsValidNetworkDevice(event.Env[udevDevPath]) {
+				log.Debugf("Udev watcher event handler: ignoring event for invalid network device: %s", event.String())
 				continue
 			}
 			netInterface := event.Env[udevInterface]

@@ -112,6 +112,7 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 	}
 	agent.vpc = vpcID
 	agent.subnet = subnetID
+	agent.mac = mac
 	return nil, false
 }
 
@@ -157,7 +158,7 @@ func (agent *ecsAgent) startUdevWatcher(state dockerstate.TaskEngineState, state
 		return errors.Wrapf(err, "unable to create udev monitor")
 	}
 	// Create Watcher
-	eniWatcher := watcher.New(agent.ctx, udevMonitor, state, stateChangeEvents)
+	eniWatcher := watcher.New(agent.ctx, agent.mac, udevMonitor, state, stateChangeEvents)
 	if err := eniWatcher.Init(); err != nil {
 		return errors.Wrapf(err, "unable to initialize eni watcher")
 	}
