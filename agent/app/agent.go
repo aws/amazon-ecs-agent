@@ -91,6 +91,7 @@ type ecsAgent struct {
 	os                    oswrapper.OS
 	vpc                   string
 	subnet                string
+	mac                   string
 }
 
 // newAgent returns a new ecsAgent object

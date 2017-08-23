@@ -40,6 +40,7 @@ import (
 
 const (
 	randomDevice     = "eth1"
+	primaryMAC       = "00:0a:95:9d:68:61"
 	randomMAC        = "00:0a:95:9d:68:16"
 	randomDevPath    = " ../../devices/pci0000:00/0000:00:03.0/net/eth1"
 	incorrectDevPath = "../../devices/totally/wrong/net/path"
@@ -52,7 +53,11 @@ func TestWatcherInit(t *testing.T) {
 
 	ctx := context.Background()
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
-	pm, _ := net.ParseMAC(randomMAC)
+	parsedMAC, err := net.ParseMAC(randomMAC)
+	assert.NoError(t, err)
+
+	primaryMACAddr, err := net.ParseMAC("00:0a:95:9d:68:61")
+	assert.NoError(t, err)
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
@@ -62,14 +67,21 @@ func TestWatcherInit(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
 		&netlink.Device{
 			LinkAttrs: netlink.LinkAttrs{
-				HardwareAddr: pm,
+				HardwareAddr: parsedMAC,
 				Name:         randomDevice,
+			},
+		},
+		&netlink.Device{
+			LinkAttrs: netlink.LinkAttrs{
+				HardwareAddr: primaryMACAddr,
+				Name:         "lo",
+				EncapType:    "loopback",
 			},
 		},
 	}, nil)
@@ -108,7 +120,7 @@ func TestInitWithNetlinkError(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	err := watcher.Init()
 	assert.Error(t, err)
 }
@@ -124,7 +136,7 @@ func TestWatcherInitWithEmptyList(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
@@ -139,9 +151,13 @@ func TestReconcileENIs(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	pm, _ := net.ParseMAC(randomMAC)
-	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	parsedMAC, err := net.ParseMAC(randomMAC)
+	assert.NoError(t, err)
 
+	primaryMACAddr, err := net.ParseMAC("00:0a:95:9d:68:61")
+	assert.NoError(t, err)
+
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
 
@@ -153,8 +169,15 @@ func TestReconcileENIs(t *testing.T) {
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
 		&netlink.Device{
 			LinkAttrs: netlink.LinkAttrs{
-				HardwareAddr: pm,
+				HardwareAddr: parsedMAC,
 				Name:         randomDevice,
+			},
+		},
+		&netlink.Device{
+			LinkAttrs: netlink.LinkAttrs{
+				HardwareAddr: primaryMACAddr,
+				Name:         "lo",
+				EncapType:    "loopback",
 			},
 		},
 	}, nil)
@@ -167,7 +190,7 @@ func TestReconcileENIs(t *testing.T) {
 	}()
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 
 	<-done
@@ -195,7 +218,7 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 
 	select {
@@ -219,7 +242,7 @@ func TestReconcileENIsWithEmptyList(t *testing.T) {
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	watcher.reconcileOnce()
 	watcher.Stop()
 
@@ -252,12 +275,12 @@ func TestUdevAddEvent(t *testing.T) {
 	ctx := context.TODO()
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
-	pm, _ := net.ParseMAC(randomMAC)
+	parsedMAC, _ := net.ParseMAC(randomMAC)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := _new(ctx, mockNetlink, mockUdev, mockStateManager, eventChannel)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, mockUdev, mockStateManager, eventChannel)
 
 	shutdown := make(chan bool)
 	gomock.InOrder(
@@ -265,7 +288,7 @@ func TestUdevAddEvent(t *testing.T) {
 		mockNetlink.EXPECT().LinkByName(randomDevice).Return(
 			&netlink.Device{
 				LinkAttrs: netlink.LinkAttrs{
-					HardwareAddr: pm,
+					HardwareAddr: parsedMAC,
 					Name:         randomDevice,
 				},
 			}, nil),
@@ -308,7 +331,7 @@ func TestUdevSubsystemFilter(t *testing.T) {
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
 	// Create Watcher
-	watcher := _new(ctx, nil, mockUdev, nil, nil)
+	watcher := newWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
 
 	shutdown := make(chan bool)
 	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
@@ -345,7 +368,7 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 	// Create Watcher
-	watcher := _new(ctx, nil, mockUdev, nil, nil)
+	watcher := newWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
 
 	shutdown := make(chan bool)
 	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
@@ -383,7 +406,7 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
-	watcher := _new(ctx, mockNetlink, mockUdev, nil, nil)
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, mockUdev, nil, nil)
 
 	var invoked sync.WaitGroup
 	invoked.Add(1)
@@ -427,7 +450,7 @@ func TestSendENIStateChange(t *testing.T) {
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	eventChannel := make(chan statechange.Event)
 
-	watcher := _new(context.TODO(), nil, nil, mockStateManager, eventChannel)
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
 
 	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{}, true)
 
@@ -473,7 +496,7 @@ func TestShouldSendENIStateChange(t *testing.T) {
 				defer mockCtrl.Finish()
 
 				mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-				watcher := _new(context.TODO(), nil, nil, mockStateManager, nil)
+				watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
 
 				mockStateManager.EXPECT().ENIByMac(randomMAC).Return(tc.eniAttachment, tc.eniByMACExists)
 				_, ok := watcher.shouldSendENIStateChange(randomMAC)
