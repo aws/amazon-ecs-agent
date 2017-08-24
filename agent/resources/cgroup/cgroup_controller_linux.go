@@ -50,30 +50,42 @@ func (c *control) Create(cgroupSpec *Spec) (cgroups.Cgroup, error) {
 
 	// Create cgroup
 	seelog.Infof("Creating cgroup %s", cgroupSpec.Root)
-	control, err := c.New(cgroups.V1, cgroups.StaticPath(cgroupSpec.Root), cgroupSpec.Specs)
+	controller, err := c.New(cgroups.V1, cgroups.StaticPath(cgroupSpec.Root), cgroupSpec.Specs)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "cgroup create: unable to create controller")
 	}
 
-	return control, nil
+	return controller, nil
 }
 
 // Remove is used to delete the cgroup
 func (c *control) Remove(cgroupPath string) error {
 	seelog.Debugf("Removing cgroup %s", cgroupPath)
 
-	control, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
+	controller, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
 	if err != nil {
 		return errors.Wrapf(err, "cgroup remove: unable to obtain controller")
 	}
 
 	// Delete cgroup
-	err = control.Delete()
+	err = controller.Delete()
 	if err != nil {
 		return errors.Wrapf(err, "cgroup remove: unable to delete cgroup")
 	}
 	return nil
+}
+
+// Exists is used to verify the existence of a cgroup
+func (c *control) Exists(cgroupPath string) bool {
+	seelog.Debugf("Checking existence of cgroup: %s", cgroupPath)
+
+	controller, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
+	if err != nil || controller == nil {
+		return false
+	}
+
+	return true
 }
 
 // validateCgroupSpec checks the cgroup spec for valid path and specifications

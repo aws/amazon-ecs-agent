@@ -54,6 +54,16 @@ func (_mr *_MockControlRecorder) Create(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
 }
 
+func (_m *MockControl) Exists(_param0 string) bool {
+	ret := _m.ctrl.Call(_m, "Exists", _param0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockControlRecorder) Exists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exists", arg0)
+}
+
 func (_m *MockControl) Init() error {
 	ret := _m.ctrl.Call(_m, "Init")
 	ret0, _ := ret[0].(error)

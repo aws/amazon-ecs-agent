@@ -140,3 +140,43 @@ func TestRemoveErrorCase(t *testing.T) {
 
 	assert.Error(t, control.Remove(testCgroupRoot))
 }
+
+func TestExistsHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCgroup := mock_cgroups.NewMockCgroup(ctrl)
+	mockCgroupFactory := mock_factory.NewMockCgroupFactory(ctrl)
+
+	mockCgroupFactory.EXPECT().Load(gomock.Any(), gomock.Any()).Return(mockCgroup, nil)
+
+	control := newControl(mockCgroupFactory)
+
+	assert.True(t, control.Exists(testCgroupRoot))
+}
+
+func TestExistsErrorPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCgroupFactory := mock_factory.NewMockCgroupFactory(ctrl)
+
+	mockCgroupFactory.EXPECT().Load(gomock.Any(), gomock.Any()).Return(nil, errors.New("cgroups error"))
+
+	control := newControl(mockCgroupFactory)
+
+	assert.False(t, control.Exists(testCgroupRoot))
+}
+
+func TestExistsErrorPathWithLoadError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCgroupFactory := mock_factory.NewMockCgroupFactory(ctrl)
+
+	mockCgroupFactory.EXPECT().Load(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	control := newControl(mockCgroupFactory)
+
+	assert.False(t, control.Exists(testCgroupRoot))
+}
