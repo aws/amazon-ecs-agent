@@ -154,7 +154,14 @@ type Config struct {
 	// PauseContainerTarballPath is the path to the pause container tarball
 	PauseContainerTarballPath string
 
-	// PauseContainer is the tag for the pause container image
+	// PauseContainerImageName is the name for the pause container image.
+	// Setting this value to be different from the default will disable loading
+	// the image from the tarball; the referenced image must already be loaded.
+	PauseContainerImageName string
+
+	// PauseContainerTag is the tag for the pause container image.
+	// Setting this value to be different from the default will disable loading
+	// the image from the tarball; the referenced image must already be loaded.
 	PauseContainerTag string
 }
 

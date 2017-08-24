@@ -122,13 +122,13 @@ type Task struct {
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
-func (task *Task) PostUnmarshalTask(credentialsManager credentials.Manager) {
+func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform()
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
-	task.addNetworkResourceProvisioningDependency()
+	task.addNetworkResourceProvisioningDependency(cfg)
 }
 
 func (task *Task) initializeEmptyVolumes() {
@@ -243,8 +243,7 @@ func (task *Task) isNetworkModeVPC() bool {
 	return true
 }
 
-func (task *Task) addNetworkResourceProvisioningDependency() {
-	// TODO check networking mode for the task before doing this
+func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 	if !task.isNetworkModeVPC() {
 		return
 	}
@@ -259,7 +258,7 @@ func (task *Task) addNetworkResourceProvisioningDependency() {
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
-	pauseContainer.Image = fmt.Sprintf("%s:%s", config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag)
+	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)
