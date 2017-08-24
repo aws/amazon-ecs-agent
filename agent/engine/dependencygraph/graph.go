@@ -25,11 +25,13 @@ var log = logger.ForModule("dependencygraph")
 // Because a container may depend on another container being created
 // (volumes-from) or running (links) it makes sense to abstract it out
 // to each container having dependencies on another container being in any
-// perticular state set. For now, these are resolved here and support only
+// particular state set. For now, these are resolved here and support only
 // volume/link (created/run)
 
 // ValidDependencies takes a task and verifies that it is possible to allow all
-// containers within it to reach the desired status by proceeding in some order
+// containers within it to reach the desired status by proceeding in some
+// order.  ValidDependencies is called during DockerTaskEngine.AddTask to
+// verify that a startup order can exist.
 func ValidDependencies(task *api.Task) bool {
 	unresolved := make([]*api.Container, len(task.Containers))
 	resolved := make([]*api.Container, 0, len(task.Containers))
@@ -54,21 +56,12 @@ OuterLoop:
 	return true
 }
 
-func linksToContainerNames(links []string) []string {
-	names := make([]string, 0, len(links))
-	for _, link := range links {
-		name := strings.Split(link, ":")[0]
-		names = append(names, name)
-	}
-	return names
-}
-
-// DependenciesCanBeResolved verifies that it's possible to start a `target`
+// DependenciesCanBeResolved verifies that it's possible to transition a `target`
 // given a group of already handled containers, `by`. Essentially, it asks "is
 // `target` resolved by `by`". It assumes that everything in `by` has reached
 // DesiredStatus and that `target` is also trying to get there
 //
-// This function is used for verifying that a state should be resolveable, not
+// This function is used for verifying that a state should be resolvable, not
 // for actually deciding what to do. `DependenciesAreResolved` should be used for
 // that purpose instead.
 func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool {
@@ -81,13 +74,17 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 		neededVolumeContainers[i] = volume.SourceContainer
 	}
 
-	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
-		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
+	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
+		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
 }
 
-// DependenciesAreResolved validates that the `target` container can be started
-// given the current known state of the containers in `by`. If this function
-// returns true, `target` should be technically able to launch without issues
+// DependenciesAreResolved validates that the `target` container can be
+// transitioned given the current known state of the containers in `by`. If
+// this function returns true, `target` should be technically able to launch
+// without issues.
+// Transitions are between known statuses (whether the container can move to
+// the next known status), not desired statuses; the desired status typically
+// is either RUNNING or STOPPED.
 func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 	nameMap := make(map[string]*api.Container)
 	for _, cont := range by {
@@ -98,16 +95,25 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 		neededVolumeContainers[i] = volume.SourceContainer
 	}
 
-	return verifyStatusResolveable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
-		verifyStatusResolveable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
-		verifyStatusResolveable(target, nameMap, target.RunDependencies, onRunIsResolved)
+	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
+		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
+		verifyStatusResolvable(target, nameMap, target.RunDependencies, onRunIsResolved)
 }
 
-// verifyStatusResolveable validates that `target` can be resolved given that
+func linksToContainerNames(links []string) []string {
+	names := make([]string, 0, len(links))
+	for _, link := range links {
+		name := strings.Split(link, ":")[0]
+		names = append(names, name)
+	}
+	return names
+}
+
+// verifyStatusResolvable validates that `target` can be resolved given that
 // target depends on `dependencies` (which are container names) and there are
 // `existingContainers` (map from name to container). The `resolves` function
 // passed should return true if the named container is resolved.
-func verifyStatusResolveable(target *api.Container, existingContainers map[string]*api.Container, dependencies []string, resolves func(*api.Container, *api.Container) bool) bool {
+func verifyStatusResolvable(target *api.Container, existingContainers map[string]*api.Container, dependencies []string, resolves func(*api.Container, *api.Container) bool) bool {
 	targetGoal := target.GetDesiredStatus()
 	if targetGoal != api.ContainerRunning && targetGoal != api.ContainerCreated {
 		// A container can always stop, die, or reach whatever other statre it
@@ -177,8 +183,8 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 		knownStatus == api.ContainerStopped
 }
 
-// onRunIsResolved defines a relationship where a target cannot be created until
-// 'run' has reached a running state.
+// onRunIsResolved defines a relationship where a target cannot be transitioned
+// until 'run' has reached a running state. Transitions include pulling.
 func onRunIsResolved(target *api.Container, run *api.Container) bool {
 	return target.GetDesiredStatus() >= api.ContainerCreated &&
 		run.GetKnownStatus() >= api.ContainerRunning
