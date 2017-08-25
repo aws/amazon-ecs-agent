@@ -71,17 +71,13 @@ const (
 )
 
 const (
-	maxUpdateDuration     = 30 * time.Minute
 	updateDownloadTimeout = 15 * time.Minute
 )
-
-// Singleton updater
-var singleUpdater *updater
 
 // AddAgentUpdateHandlers adds the needed update handlers to perform agent
 // updates
 func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
-	singleUpdater = &updater{
+	singleUpdater := &updater{
 		acs:        cs,
 		config:     cfg,
 		fs:         os.Default,
