@@ -454,7 +454,7 @@ func (task *Task) dockerLinks(container *Container, dockerContainerMap map[strin
 
 		targetContainer, ok := dockerContainerMap[linkName]
 		if !ok {
-			return []string{}, fmt.Errorf("Link target not available: $s", linkName)
+			return []string{}, fmt.Errorf("Link target not available: %s", linkName)
 		}
 		dockerLinkArr[i] = targetContainer.DockerName + ":" + linkAlias
 	}
@@ -509,7 +509,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
 			log.Error("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
-			return []string{}, fmt.Errorf("Unable to resolve volume mounts; invalid path: %s %s; -> ", container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath)
+			return []string{}, fmt.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s", container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath)
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
