@@ -565,7 +565,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 			ContainerPath: expectedEmptyVolumeGeneratedPath2,
 		},
 	}, emptyContainer.MountPoints)
-
+	assert.Equal(t, expectedEmptyVolumeContainerImage+":"+expectedEmptyVolumeContainerTag, emptyContainer.Image, "Should have expected image")
+	assert.Equal(t, []string{expectedEmptyVolumeContainerCmd}, emptyContainer.Command, "Should have expected command")
 }
 
 func TestTaskFromACS(t *testing.T) {

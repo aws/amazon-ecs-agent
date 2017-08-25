@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/stretchr/testify/assert"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -35,9 +35,9 @@ const (
 
 	expectedEmptyVolumeContainerImage = "microsoft/windowsservercore"
 	expectedEmptyVolumeContainerTag   = "latest"
-	expectedEmptyVoluemContainerCmd   = "not-applicable"
+	expectedEmptyVolumeContainerCmd   = "not-applicable"
 
-	expectedMemorySwappinessDefault   = memorySwappinessDefault
+	expectedMemorySwappinessDefault = memorySwappinessDefault
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -116,7 +116,6 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 }
-
 
 func TestWindowsMemorySwappinessOption(t *testing.T) {
 	// Testing sending a task to windows overriding MemorySwappiness value
