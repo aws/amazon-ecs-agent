@@ -48,10 +48,12 @@ const (
 	labelPrefix                  = "com.amazonaws.ecs."
 )
 
-// DockerTaskEngine is an abstraction over the DockerGoClient so that
+// DockerTaskEngine is a state machine for managing a task and its containers
+// in ECS.
+//
+// DockerTaskEngine implements an abstraction over the DockerGoClient so that
 // it does not have to know about tasks, only containers
-// The DockerTaskEngine interacts with docker to implement a task
-// engine
+// The DockerTaskEngine interacts with Docker to implement a TaskEngine
 type DockerTaskEngine struct {
 	// implements TaskEngine
 
@@ -407,6 +409,11 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 	}
 }
 
+// handleDockerEvent is the entrypoint for task modifications originating with
+// events occurring through Docker, outside the task engine itself.
+// handleDockerEvent is responsible for taking an event that correlates to a
+// container and placing it in the context of the task to which that container
+// belongs.
 func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) bool {
 	log.Debug("Handling a docker event", "event", event)
 
@@ -467,12 +474,6 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	engine.updateTask(existingTask, task)
 
 	return nil
-}
-
-type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
-
-func tryApplyTransition(task *api.Task, container *api.Container, to api.ContainerStatus, f transitionApplyFunc) DockerContainerMetadata {
-	return f(task, container)
 }
 
 // ListTasks returns the tasks currently managed by the DockerTaskEngine
@@ -684,34 +685,9 @@ func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
 	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", updateDesiredStatus)
 }
 
-func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
-	return map[api.ContainerStatus]transitionApplyFunc{
-		api.ContainerPulled:  engine.pullContainer,
-		api.ContainerCreated: engine.createContainer,
-		api.ContainerRunning: engine.startContainer,
-		api.ContainerStopped: engine.stopContainer,
-	}
-}
-
-// applyContainerState moves the container to the given state
-func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
-	clog := log.New("task", task, "container", container)
-	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
-	if !ok {
-		clog.Crit("Container desired to transition to an unsupported state", "state", nextState.String())
-		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
-	}
-
-	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
-	if metadata.Error != nil {
-		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
-	} else {
-		clog.Debug("Transitioned container", "state", nextState.String())
-		engine.saver.Save()
-	}
-	return metadata
-}
-
+// transitionContainer calls applyContainerState, and then notifies the managed
+// task of the change.  transitionContainer is called by progressContainers and
+// by handleStoppedToRunningContainerTransition.
 func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
 	// Let docker events operate async so that we can continue to handle ACS / other requests
 	// This is safe because 'applyContainerState' will not mutate the task
@@ -730,6 +706,39 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 	}
 	engine.processTasks.RUnlock()
 }
+
+// applyContainerState moves the container to the given state by calling the
+// function defined in the transitionFunctionMap for the state
+func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
+	clog := log.New("task", task, "container", container)
+	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
+	if !ok {
+		clog.Crit("Container desired to transition to an unsupported state", "state", nextState.String())
+		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
+	}
+	metadata := transitionFunction(task, container)
+	if metadata.Error != nil {
+		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
+	} else {
+		clog.Debug("Transitioned container", "state", nextState.String())
+		engine.saver.Save()
+	}
+	return metadata
+}
+
+// transitionFunctionMap provides the logic for the simple state machine of the
+// DockerTaskEngine. Each desired state maps to a function that can be called
+// to try and move the task to that desired state.
+func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
+	return map[api.ContainerStatus]transitionApplyFunc{
+		api.ContainerPulled:  engine.pullContainer,
+		api.ContainerCreated: engine.createContainer,
+		api.ContainerRunning: engine.startContainer,
+		api.ContainerStopped: engine.stopContainer,
+	}
+}
+
+type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
 
 // State is a function primarily meant for testing usage; it is explicitly not
 // part of the TaskEngine interface and should not be relied upon.

@@ -87,7 +87,9 @@ type Container struct {
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 
 	// RunDependencies is a list of containers that must be run before
-	// this one is created
+	// this one is created.
+	// Note: Current logic requires that the containers specified here are run
+	// before this container can even be pulled.
 	RunDependencies []string
 	// 'Internal' containers are ones that are not directly specified by
 	// task definitions, but created by the agent
