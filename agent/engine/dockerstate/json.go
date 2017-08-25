@@ -15,7 +15,7 @@ package dockerstate
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -65,18 +65,18 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 	for id, container := range saved.IdToContainer {
 		taskArn, ok := saved.IdToTask[id]
 		if !ok {
-			return errors.New("Could not unmarshal state; incomplete save. There was no task for docker id " + id)
+			return fmt.Errorf("Could not unmarshal state; incomplete save. There was no task for docker id %s", id)
 		}
 		task, ok := clean.TaskByArn(taskArn)
 		if !ok {
-			return errors.New("Could not unmarshal state; incomplete save. There was no task for arn " + taskArn)
+			return fmt.Errorf("Could not unmarshal state; incomplete save. There was no task for arn %s", taskArn)
 		}
 
 		// The container.Container pointers *must* match the task's container
 		// pointers for things to operate correctly; update them here
-		taskContainer, ok := task.ContainerByName(container.Container.Name)
-		if !ok {
-			return errors.New("Could not resolve a container into a task based on name: " + task.String() + " -- " + container.String())
+		taskContainer, err := task.ContainerByName(container.Container.Name)
+		if err != nil {
+			return fmt.Errorf("Could not resolve a container into a task based on name: " + task.String() + " -- " + container.String())
 		}
 		container.Container = taskContainer
 		//pointer matching now; everyone happy
