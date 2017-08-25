@@ -87,6 +87,8 @@ type Container struct {
 
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
+	// Note: Current logic requires that the containers specified here are run
+	// before this container can even be pulled.
 	SteadyStateDependencies []string `json:"RunDependencies"`
 	// Type specifies the container type. Except the 'Normal' type, all other types
 	// are not directly specified by task definitions, but created by the agent. The

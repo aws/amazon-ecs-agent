@@ -110,7 +110,7 @@ func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		responseJSON, _ = json.Marshal(newTaskResponse(task, containerMap))
 	} else {
-		log.Warn("Could not find requsted resource: " + resourceId)
+		log.Warn("Could not find requested resource: " + resourceId)
 		responseJSON, _ = json.Marshal(&TaskResponse{})
 		status = http.StatusNotFound
 	}
@@ -148,7 +148,7 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 					task = tasks[0]
 					found = true
 				} else {
-					log.Info("Multiple tasks found for requsted dockerId: " + dockerId)
+					log.Info("Multiple tasks found for requested dockerId: " + dockerId)
 					w.WriteHeader(http.StatusBadRequest)
 					w.Write(responseJSON)
 					return

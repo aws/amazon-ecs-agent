@@ -496,13 +496,6 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	return nil
 }
 
-type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
-
-// tryApplyTransition wraps the transitionApplyFunc provided
-func tryApplyTransition(task *api.Task, container *api.Container, to api.ContainerStatus, f transitionApplyFunc) DockerContainerMetadata {
-	return f(task, container)
-}
-
 // ListTasks returns the tasks currently managed by the DockerTaskEngine
 func (engine *DockerTaskEngine) ListTasks() ([]*api.Task, error) {
 	return engine.state.AllTasks(), nil
@@ -788,33 +781,6 @@ func (engine *DockerTaskEngine) updateTask(task *api.Task, update *api.Task) {
 	log.Debug("Update was taken off the acs channel", "task", task.Arn, "status", updateDesiredStatus)
 }
 
-// transitionFunctionMap provides the logic for the simple state machine of the
-// DockerTaskEngine. Each desired state maps to a function that can be called
-// to try and move the task to that desired state.
-func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
-	return engine.containerStatusToTransitionFunction
-}
-
-// applyContainerState moves the container to the given state by calling the
-// function defined in the transitionFunctionMap for the state
-func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
-	clog := log.New("task", task, "container", container)
-	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
-	if !ok {
-		clog.Crit("Container desired to transition to an unsupported state", "state", nextState.String())
-		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
-	}
-
-	metadata := tryApplyTransition(task, container, nextState, transitionFunction)
-	if metadata.Error != nil {
-		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
-	} else {
-		clog.Debug("Transitioned container", "state", nextState.String())
-		engine.saver.Save()
-	}
-	return metadata
-}
-
 // transitionContainer calls applyContainerState, and then notifies the managed
 // task of the change.  transitionContainer is called by progressContainers and
 // by handleStoppedToRunningContainerTransition.
@@ -836,6 +802,34 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 	}
 	engine.processTasks.RUnlock()
 }
+
+// applyContainerState moves the container to the given state by calling the
+// function defined in the transitionFunctionMap for the state
+func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
+	clog := log.New("task", task, "container", container)
+	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
+	if !ok {
+		clog.Crit("Container desired to transition to an unsupported state", "state", nextState.String())
+		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
+	}
+	metadata := transitionFunction(task, container)
+	if metadata.Error != nil {
+		clog.Info("Error transitioning container", "state", nextState.String(), "error", metadata.Error)
+	} else {
+		clog.Debug("Transitioned container", "state", nextState.String())
+		engine.saver.Save()
+	}
+	return metadata
+}
+
+// transitionFunctionMap provides the logic for the simple state machine of the
+// DockerTaskEngine. Each desired state maps to a function that can be called
+// to try and move the task to that desired state.
+func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]transitionApplyFunc {
+	return engine.containerStatusToTransitionFunction
+}
+
+type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
 
 // State is a function primarily meant for testing usage; it is explicitly not
 // part of the TaskEngine interface and should not be relied upon.
