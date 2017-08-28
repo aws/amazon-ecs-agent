@@ -13,9 +13,6 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-exit
-# golint disabled until we switch to Go 1.5.  Recent versions of golint require
-# Go >= 1.5, see https://github.com/golang/lint
 export PATH="${GOPATH//://bin:}/bin:$PATH"
 
-find ecs-init -name "*.go" ! -path "*/Godeps/_workspace/*" ! -name "*_mock_test.go" | xargs -n 1 golint -min_confidence 0.3
+find ecs-init -name "*.go" ! -path "*/vendor/*" ! -name "*_mock_test.go" | xargs -n 1 golint -min_confidence 0.3
