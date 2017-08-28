@@ -30,8 +30,8 @@ func TasksEqual(lhs, rhs *api.Task) bool {
 	}
 
 	for _, left := range lhs.Containers {
-		right, ok := rhs.ContainerByName(left.Name)
-		if !ok {
+		right, err := rhs.ContainerByName(left.Name)
+		if err != nil {
 			return false
 		}
 		if !ContainersEqual(left, right) {
