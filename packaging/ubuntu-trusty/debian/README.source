@@ -1,0 +1,7 @@
+This package requires Go 1.7 which is only availible for Ubuntu Trusty from PPA.
+
+  * Install Go 1.7 (golang-1.7) from ppa:gophers/archive, see
+    https://launchpad.net/%7Egophers/+archive/ubuntu/archive?field.series_filter=trusty
+
+      add-apt-repository ppa:gophers/archive
+      apt-get install golang-1.7

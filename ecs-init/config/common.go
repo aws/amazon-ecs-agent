@@ -32,7 +32,20 @@ const (
 
 	// Used to mount /proc for agent container
 	ProcFS = "/proc"
+
+	// AgentFilename is the filename, including version number, of the agent to be downloaded.
+	AgentFilename = "ecs-agent-v1.14.4.tar"
+
+	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
+	// S3BucketMap.
+	DefaultRegionName = "default"
 )
+
+// regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
+var regionToS3BucketURL = map[string]string{
+	"cn-north-1":      "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
+	DefaultRegionName: "https://s3.amazonaws.com/amazon-ecs-agent/",
+}
 
 // AgentConfigDirectory returns the location on disk for configuration
 func AgentConfigDirectory() string {
@@ -78,14 +91,16 @@ func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"
 }
 
-// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache
-func AgentRemoteTarball() string {
-	return "https://s3.amazonaws.com/" + s3Bucket + "/ecs-agent-v1.14.1.tar"
+// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
+// by region and the agent filename is appended.
+func AgentRemoteTarball(region string) string {
+	baseURI := getBaseLocationForRegion(region)
+	return baseURI + AgentFilename
 }
 
 // AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
-func AgentRemoteTarballMD5() string {
-	return AgentRemoteTarball() + ".md5"
+func AgentRemoteTarballMD5(region string) string {
+	return AgentRemoteTarball(region) + ".md5"
 }
 
 // DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
@@ -101,4 +116,14 @@ func DockerUnixSocket() (string, bool) {
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
 	// eg: Docker daemon restart
 	return "/var/run", false
+}
+
+// getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
+func getBaseLocationForRegion(regionName string) string {
+	s3BucketURL, ok := regionToS3BucketURL[regionName]
+	if !ok {
+		return regionToS3BucketURL[DefaultRegionName]
+	}
+
+	return s3BucketURL
 }
