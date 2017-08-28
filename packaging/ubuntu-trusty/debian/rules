@@ -8,7 +8,7 @@ export DH_VERBOSE=1
 	dh $@
 
 build:
-	PATH=/usr/lib/go-1.6/bin:$(PATH) ./scripts/gobuild.sh ubuntu
+	PATH=/usr/lib/go-1.7/bin:$(PATH) ./scripts/gobuild.sh ubuntu
 
 clean:
 	dh $@

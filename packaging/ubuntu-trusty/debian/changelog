@@ -1,5 +1,12 @@
-amazon-ecs-init (1.14.0-2) trusty; urgency=low
+amazon-ecs-init (1.14.4-1) trusty; urgency=low
+
+  * Update ECS Agent version
+
+ -- Justin Haynes <jushay@amazon.com>  Wed, 22 Aug 2017 15:44:03 -0070
+
+amazon-ecs-init (1.14.3-1) trusty; urgency=low
 
   * Initial release
+    Requires Go 1.7 (golang-1.7) from ppa see README.source
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 22 Feb 2017 10:03:16 +0000

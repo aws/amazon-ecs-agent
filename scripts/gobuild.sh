@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -16,20 +16,22 @@ set -x
 set -e
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
-export GOPATH="${TOPWD}/ecs-init/Godeps/_workspace:${BUILDDIR}"
+export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
 
-version=$(cat "${TOPWD}/ecs-init/VERSION")
-git_hash=$(git rev-parse --short HEAD)
-git_dirty=false
+if [ -d "${TOPWD}/.git" ]; then
+    version=$(cat "${TOPWD}/ecs-init/VERSION")
+    git_hash=$(git rev-parse --short HEAD)
+    git_dirty=false
 
-if [[ "$(git status --porcelain)" != "" ]]; then
+    if [[ "$(git status --porcelain)" != "" ]]; then
 	git_dirty=true
-fi
+    fi
 
-VERSION_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.Version=${version}"
-GIT_HASH_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitShortHash=${git_hash}"
-GIT_DIRTY_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitDirty=${git_dirty}"
+    VERSION_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.Version=${version}"
+    GIT_HASH_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitShortHash=${git_hash}"
+    GIT_DIRTY_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitDirty=${git_dirty}"
+fi
 
 mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"

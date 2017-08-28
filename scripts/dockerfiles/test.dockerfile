@@ -1,4 +1,4 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -17,7 +17,7 @@
 # Because the Agent's tests include starting docker containers, it is necessary
 # to have both go and docker available in the testing environment.
 # It's easier to get go, so start with docker-in-docker and add go on top
-FROM golang:1.4
+FROM golang:1.7
 MAINTAINER Amazon Web Services, Inc.
 
 RUN mkdir -p /go/src/github.com/aws/

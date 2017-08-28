@@ -1,4 +1,4 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -29,7 +29,7 @@ static:
 	./scripts/gobuild.sh
 
 gotest:
-	GOPATH="$(shell pwd)/ecs-init/Godeps/_workspace:$(GOPATH)" go test -short -v -cover ./...
+	go test -short -v -cover ./...
 
 test: generate lint gotest
 
@@ -43,6 +43,7 @@ build-mock-images:
 	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
 sources.tgz:
+	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
 	tar -czf ./sources.tgz ecs-init scripts

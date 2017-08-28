@@ -54,6 +54,10 @@ type fileSizeInfo interface {
 	Size() int64
 }
 
+type instanceMetadata interface {
+	Region() (string, error)
+}
+
 // standardFS delegates to the package-level functions
 type standardFS struct{}
 
