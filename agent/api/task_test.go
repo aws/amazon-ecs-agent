@@ -202,6 +202,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 			Config: map[string]string{"foo": "bar"},
 		},
 		Ulimits: []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
+		MemorySwappiness: memorySwappinessDefault,
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
@@ -279,6 +280,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		Privileged:  true,
 		SecurityOpt: []string{"foo", "bar"},
 		VolumesFrom: []string{"dockername-c2"},
+		MemorySwappiness: memorySwappinessDefault,
 	}
 
 	assertSetStructFieldsEqual(t, expected, *hostConfig)

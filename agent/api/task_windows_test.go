@@ -16,10 +16,12 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/stretchr/testify/assert"
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -34,6 +36,8 @@ const (
 	expectedEmptyVolumeContainerImage = "microsoft/windowsservercore"
 	expectedEmptyVolumeContainerTag   = "latest"
 	expectedEmptyVoluemContainerCmd   = "not-applicable"
+
+	expectedMemorySwappinessDefault   = memorySwappinessDefault
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -98,4 +102,49 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 
 	assert.Equal(t, expectedTask.Containers, task.Containers, "Containers should be equal")
 	assert.Equal(t, expectedTask.Volumes, task.Volumes, "Volumes should be equal")
+}
+
+func TestWindowsPlatformHostConfigOverride(t *testing.T) {
+	// Testing Windows platform override for HostConfig.
+	// Expects MemorySwappiness option to be set to -1
+
+	task := &Task{}
+
+	hostConfig := &docker.HostConfig{}
+
+	task.platformHostConfigOverride(hostConfig)
+
+	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
+}
+
+
+func TestWindowsMemorySwappinessOption(t *testing.T) {
+	// Testing sending a task to windows overriding MemorySwappiness value
+	rawHostConfigInput := docker.HostConfig{}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.EqualValues(t, expectedMemorySwappinessDefault, config.MemorySwappiness)
 }
