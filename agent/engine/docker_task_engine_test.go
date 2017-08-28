@@ -636,8 +636,8 @@ func TestCreateContainerForceSave(t *testing.T) {
 			task, ok := taskEngine.state.TaskByArn(sleepTask.Arn)
 			assert.True(t, ok, "Expected task with ARN: ", sleepTask.Arn)
 			assert.NotNil(t, task, "Expected task with ARN: ", sleepTask.Arn)
-			_, ok = task.ContainerByName("sleep5")
-			assert.True(t, ok, "Expected container sleep5")
+			_, err := task.ContainerByName("sleep5")
+			assert.Nil(t, err)
 			return nil
 		}),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),

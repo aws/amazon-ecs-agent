@@ -551,8 +551,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task.PostUnmarshalTask(nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
-	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
-	assert.True(t, ok, "Should find empty volume container")
+	emptyContainer, err := task.ContainerByName(emptyHostVolumeName)
+	assert.Nil(t, err, "Should find empty volume container")
 	assert.Equal(t, 2, len(emptyContainer.MountPoints), "Should have two mount points")
 	assert.Equal(t, []MountPoint{
 		{

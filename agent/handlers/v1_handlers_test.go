@@ -251,8 +251,8 @@ func taskDiffHelper(t *testing.T, expected []*api.Task, actual TasksResponse) {
 			continue
 		}
 		for _, respCont := range respTask.Containers {
-			_, ok := task.ContainerByName(respCont.Name)
-			if !ok {
+			_, err := task.ContainerByName(respCont.Name)
+			if err != nil {
 				t.Errorf("Could not find container %v", respCont.Name)
 			}
 			if respCont.DockerId == "" {

@@ -15,7 +15,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -127,10 +126,13 @@ func (task *Task) initializeEmptyVolumes() {
 	requiredEmptyVolumes := []string{}
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
-			vol, ok := task.HostVolumeByName(mountPoint.SourceVolume)
-			if !ok {
+			vol, err := task.HostVolumeByName(mountPoint.SourceVolume)
+
+			if err != nil {
+				seelog.Debug(err.Error())
 				continue
 			}
+
 			if _, ok := vol.(*EmptyHostVolume); ok {
 				if container.RunDependencies == nil {
 					container.RunDependencies = make([]string, 0)
@@ -148,11 +150,13 @@ func (task *Task) initializeEmptyVolumes() {
 
 	// If we have required empty volumes, add an 'internal' container that handles all
 	// of them
-	_, ok := task.ContainerByName(emptyHostVolumeName)
-	if !ok {
+	_, err := task.ContainerByName(emptyHostVolumeName)
+
+	if err != nil {
 		mountPoints := make([]MountPoint, len(requiredEmptyVolumes))
 		for i, volume := range requiredEmptyVolumes {
-			// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
+			// BUG(samuelkarp) On Windows, volumes with names that differ only
+			// by case will collide
 			containerPath := getCanonicalPath(emptyvolume.ContainerPathPrefix + volume)
 			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
@@ -201,24 +205,25 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 }
 
 // ContainerByName returns the *Container for the given name
-func (task *Task) ContainerByName(name string) (*Container, bool) {
+func (task *Task) ContainerByName(name string) (*Container, error) {
 	for _, container := range task.Containers {
 		if container.Name == name {
-			return container, true
+			return container, nil
 		}
 	}
-	return nil, false
+
+	return nil, fmt.Errorf("Could not get container by name: %s", name)
 }
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
 // task. The second return value indicates the presense of that volume
-func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
+func (task *Task) HostVolumeByName(name string) (HostVolume, error) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
-			return v.Volume, true
+			return v.Volume, nil
 		}
 	}
-	return nil, false
+	return nil, fmt.Errorf("Could not get host by name: %s", name)
 }
 
 // UpdateMountPoints updates the mount points of volumes that were created
@@ -233,7 +238,8 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
 		}
 		if ok {
-			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
+			hostVolume, err := task.HostVolumeByName(mountPoint.SourceVolume)
+			if err != nil {
 				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
 					empty.HostPath = hostPath
 				}
@@ -368,10 +374,13 @@ func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struc
 func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}, error) {
 	volumeMap := make(map[string]struct{})
 	for _, m := range container.MountPoints {
-		vol, exists := task.HostVolumeByName(m.SourceVolume)
-		if !exists {
+		vol, err := task.HostVolumeByName(m.SourceVolume)
+
+		if err != nil {
+			seelog.Debug(err.Error())
 			return nil, &badVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
 		}
+
 		// you can handle most volume mount types in the HostConfig at run-time;
 		// empty mounts are created by docker at create-time (Config) so set
 		// them here.
@@ -431,7 +440,7 @@ func (task *Task) dockerLinks(container *Container, dockerContainerMap map[strin
 	for i, link := range container.Links {
 		linkParts := strings.Split(link, ":")
 		if len(linkParts) > 2 {
-			return []string{}, errors.New("Invalid link format")
+			return []string{}, fmt.Errorf("Invalid link format")
 		}
 		linkName := linkParts[0]
 		var linkAlias string
@@ -445,7 +454,7 @@ func (task *Task) dockerLinks(container *Container, dockerContainerMap map[strin
 
 		targetContainer, ok := dockerContainerMap[linkName]
 		if !ok {
-			return []string{}, errors.New("Link target not available: " + linkName)
+			return []string{}, fmt.Errorf("Link target not available: %s", linkName)
 		}
 		dockerLinkArr[i] = targetContainer.DockerName + ":" + linkAlias
 	}
@@ -472,7 +481,7 @@ func (task *Task) dockerVolumesFrom(container *Container, dockerContainerMap map
 	for i, volume := range container.VolumesFrom {
 		targetContainer, ok := dockerContainerMap[volume.SourceContainer]
 		if !ok {
-			return []string{}, errors.New("Volume target not available: " + volume.SourceContainer)
+			return []string{}, fmt.Errorf("Volume target not available: %s", volume.SourceContainer)
 		}
 		if volume.ReadOnly {
 			volumesFrom[i] = targetContainer.DockerName + ":ro"
@@ -492,14 +501,15 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 
 	binds := make([]string, len(container.MountPoints))
 	for i, mountPoint := range container.MountPoints {
-		hv, ok := task.HostVolumeByName(mountPoint.SourceVolume)
-		if !ok {
-			return []string{}, errors.New("Invalid volume referenced: " + mountPoint.SourceVolume)
+		hv, err := task.HostVolumeByName(mountPoint.SourceVolume)
+
+		if err != nil {
+			return []string{}, fmt.Errorf("Invalid volume referenced: %s", mountPoint.SourceVolume)
 		}
 
 		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
 			log.Error("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+			return []string{}, fmt.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s", container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath)
 		}
 
 		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
