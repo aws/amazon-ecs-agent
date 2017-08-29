@@ -1,0 +1,10 @@
+{
+  "Name": "CapAdd",
+  "Description": "checks that cap add works",
+  "TaskDefinition": "cap-add",
+  "Version": ">=1.14.3",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}

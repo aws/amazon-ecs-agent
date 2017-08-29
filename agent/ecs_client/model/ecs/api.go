@@ -3269,6 +3269,36 @@ func (s *Attribute) SetValue(v string) *Attribute {
 	return s
 }
 
+type Capabilities struct {
+	_ struct{} `type:"structure"`
+
+	Add []*string `locationName:"add" type:"list"`
+
+	Drop []*string `locationName:"drop" type:"list"`
+}
+
+// String returns the string representation
+func (s Capabilities) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Capabilities) GoString() string {
+	return s.String()
+}
+
+// SetAdd sets the Add field's value.
+func (s *Capabilities) SetAdd(v []*string) *Capabilities {
+	s.Add = v
+	return s
+}
+
+// SetDrop sets the Drop field's value.
+func (s *Capabilities) SetDrop(v []*string) *Capabilities {
+	s.Drop = v
+	return s
+}
+
 // A regional grouping of one or more container instances on which you can run
 // task requests. Each account receives a default cluster the first time you
 // use the Amazon ECS service, but you may also create other clusters. Clusters
@@ -3440,18 +3470,6 @@ func (s *Container) SetTaskArn(v string) *Container {
 type ContainerDefinition struct {
 	_ struct{} `type:"structure"`
 
-	// A list of Linux Capabilities to be added to the container. This parameter
-	// maps to capAdd in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
-	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
-	// and the --cap-add option to docker run.
-	CapAdd []*string `locationName:"capAdd" type:"list"`
-
-	// A list of Linux Capabilities to be dropped from the container. This parameter
-	// maps to CapDrop in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
-	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
-	// and the --cap-drop option to docker run.
-	CapDrop []*string `locationName:"capDrop" type:"list"`
-
 	// The command that is passed to the container. This parameter maps to Cmd in
 	// the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
@@ -3604,6 +3622,8 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
+	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
+
 	// The log configuration specification for the container. This parameter maps
 	// to LogConfig in the Create a container (https://docs.docker.com/reference/api/docker_remote_api_v1.19/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/reference/api/docker_remote_api_v1.19/)
@@ -3740,18 +3760,6 @@ func (s *ContainerDefinition) Validate() error {
 	return nil
 }
 
-// SetCapAdd sets the CapAdd field's value.
-func (s *ContainerDefinition) SetCapAdd(v []*string) *ContainerDefinition {
-	s.CapAdd = v
-	return s
-}
-
-// SetCapDrop sets the CapDrop field's value.
-func (s *ContainerDefinition) SetCapDrop(v []*string) *ContainerDefinition {
-	s.CapDrop = v
-	return s
-}
-
 // SetCommand sets the Command field's value.
 func (s *ContainerDefinition) SetCommand(v []*string) *ContainerDefinition {
 	s.Command = v
@@ -3833,6 +3841,12 @@ func (s *ContainerDefinition) SetImage(v string) *ContainerDefinition {
 // SetLinks sets the Links field's value.
 func (s *ContainerDefinition) SetLinks(v []*string) *ContainerDefinition {
 	s.Links = v
+	return s
+}
+
+// SetLinuxParameters sets the LinuxParameters field's value.
+func (s *ContainerDefinition) SetLinuxParameters(v *LinuxParameters) *ContainerDefinition {
+	s.LinuxParameters = v
 	return s
 }
 
@@ -5460,6 +5474,28 @@ func (s *KeyValuePair) SetName(v string) *KeyValuePair {
 // SetValue sets the Value field's value.
 func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
 	s.Value = &v
+	return s
+}
+
+type LinuxParameters struct {
+	_ struct{} `type:"structure"`
+
+	Capabilities *Capabilities `locationName:"capabilities" type:"structure"`
+}
+
+// String returns the string representation
+func (s LinuxParameters) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LinuxParameters) GoString() string {
+	return s.String()
+}
+
+// SetCapabilities sets the Capabilities field's value.
+func (s *LinuxParameters) SetCapabilities(v *Capabilities) *LinuxParameters {
+	s.Capabilities = v
 	return s
 }
 

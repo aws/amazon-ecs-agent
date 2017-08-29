@@ -1,0 +1,10 @@
+{
+  "Name": "CapDrop",
+  "Description": "checks that cap drop works",
+  "TaskDefinition": "cap-drop",
+  "Version": ">=1.14.3",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}
