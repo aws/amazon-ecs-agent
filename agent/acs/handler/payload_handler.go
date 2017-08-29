@@ -218,12 +218,21 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			apiTask.SetTaskENI(eni)
 		}
 		if task.ExecutionRoleCredentials != nil {
-			executionCredentials := credentials.TaskIAMRoleCredentials{
+			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
 				ARN:                aws.StringValue(task.Arn),
 				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials),
 			}
-			apiTask.SetTaskExecutionCredentials(&executionCredentials.IAMRoleCredentials)
-			// TODO PENG set the flag of container whether they need credentials from ecr to pull
+			err = payloadHandler.credentialsManager.SetTaskCredentials(taskExecutionCredentials)
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
+			}
+			apiTask.SetExecutionRoleCredentialsID(taskExecutionCredentials.IAMRoleCredentials.CredentialsID)
+
+			for _, container := range apiTask.Containers {
+				container.SetupExecutionRoleFlag()
+			}
 		}
 
 		validTasks = append(validTasks, apiTask)

@@ -108,10 +108,9 @@ type Task struct {
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
 
-	// roleCredentials is the credentials used by agent to perform some action
-	// in the task level, like pull image from ecr
-	roleCredentials     *credentials.IAMRoleCredentials `json:"-"`
-	roleCredentialsLock sync.RWMutex
+	// executionCredentialsID is the id of credentials used by agent to
+	// perform some action in the task level, like pull image from ecr
+	executionCredentialsID string
 
 	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
@@ -831,6 +830,22 @@ func (task *Task) GetCredentialsID() string {
 	return task.credentialsID
 }
 
+// SetExecutionRoleCredentialsID sets the ID for the task execution role credentials
+func (task *Task) SetExecutionRoleCredentialsID(id string) {
+	task.credentialsIDLock.Lock()
+	defer task.credentialsIDLock.Unlock()
+
+	task.executionCredentialsID = id
+}
+
+// GetExecutionCredentialsID gets the credentials ID for the task
+func (task *Task) GetExecutionCredentialsID() string {
+	task.credentialsIDLock.RLock()
+	defer task.credentialsIDLock.RUnlock()
+
+	return task.executionCredentialsID
+}
+
 // GetDesiredStatus gets the desired status of the task
 func (task *Task) GetDesiredStatus() TaskStatus {
 	task.desiredStatusLock.RLock()
@@ -879,35 +894,19 @@ func (task *Task) GetTaskENI() *ENI {
 	return task.ENI
 }
 
-// SetTaskExecutionCredentials sets the role credentials of the task
-func (task *Task) SetTaskExecutionCredentials(credential *credentials.IAMRoleCredentials) {
-	task.roleCredentialsLock.Lock()
-	defer task.roleCredentialsLock.Unlock()
-
-	task.roleCredentials = credential
-}
-
-// GetTaskExecutionCredentials returns the role credential of the task
-func (task *Task) GetTaskExecutionCredentials() (credentials.IAMRoleCredentials, bool) {
-	task.roleCredentialsLock.RLock()
-	defer task.roleCredentialsLock.RUnlock()
-
-	if task.roleCredentials == nil {
-		return credentials.IAMRoleCredentials{}, false
+// ShouldWaitForExecutionCredentials check if there are container waiting for the
+// credentials to progress eg: pull
+func (task *Task) ShouldWaitForExecutionCredentials() bool {
+	if task.GetDesiredStatus() == TaskStopped {
+		return false
 	}
 
-	return *task.roleCredentials, true
-}
-
-// TaskCredentialsNeedsUpdate check if there are container waiting for the
-// credentials to progress eg: pull
-func (task *Task) WaitForCredentials() bool {
 	if task.GetKnownStatus() > TaskStatusNone {
 		return false
 	}
 
 	for _, container := range task.Containers {
-		if container.GetKnownStatus() < ContainerPulled && container.IsECRCredentialsEnabled() {
+		if container.GetKnownStatus() < ContainerPulled && container.ShouldUseTaskExecutionRole() {
 			return true
 		}
 	}

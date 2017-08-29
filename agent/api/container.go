@@ -257,16 +257,22 @@ func (c *Container) SetRegistryAuthCredentials(credential *credentials.IAMRoleCr
 	return nil
 }
 
-// SetECRCredentialsEnabled sets the flag to indicate the container has its own ecr credentials
-func (c *Container) SetECRCredentialsEnabled() {
+// SetupExecutionRoleFlag will check if the container is configured to use
+// task execution role for pulling
+func (c *Container) SetupExecutionRoleFlag() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.ECRCredentialsEnabled = true
+	if c.RegistryAuthentication != nil &&
+		c.RegistryAuthentication.Type == "ecr" &&
+		c.RegistryAuthentication.ECRAuthData != nil &&
+		c.RegistryAuthentication.ECRAuthData.UseExecutionRole {
+		c.ECRCredentialsEnabled = true
+	}
 }
 
-// IsECRCredentialsEnabled returns whether this container has its own ecr credentials
-func (c *Container) IsECRCredentialsEnabled() bool {
+// ShouldUseTaskExecutionRole returns whether this container has its own ecr credentials
+func (c *Container) ShouldUseTaskExecutionRole() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
