@@ -69,15 +69,17 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, true
 	}
 
-	// Load the pause container's image from the 'disk'
-	if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
-		if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-			// If the pause container's image tarball doesn't exist or if the
-			// invocation is done for an unsupported platform, we cannot recover.
-			// Return the error as terminal for these cases
-			return err, true
+	if agent.cfg.ShouldLoadPauseContainerTarball() {
+		// Load the pause container's image from the 'disk'
+		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
+			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
+				// If the pause container's image tarball doesn't exist or if the
+				// invocation is done for an unsupported platform, we cannot recover.
+				// Return the error as terminal for these cases
+				return err, true
+			}
+			return err, false
 		}
-		return err, false
 	}
 
 	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {

@@ -23,8 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -67,14 +67,14 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
 
-	config, err := NewConfig(mockEc2Metadata)
+	cfg, err := NewConfig(mockEc2Metadata)
 	if err != nil {
 		t.Fatal("Expected no error")
 	}
-	if config.AWSRegion != "us-west-2" {
-		t.Fatal("Wrong region: " + config.AWSRegion)
+	if cfg.AWSRegion != "us-west-2" {
+		t.Fatal("Wrong region: " + cfg.AWSRegion)
 	}
-	if config.APIEndpoint != "" {
+	if cfg.APIEndpoint != "" {
 		t.Fatal("Endpoint env variable not set; endpoint should be blank")
 	}
 }
@@ -210,7 +210,7 @@ func TestInvalideValueDockerStopTimeout(t *testing.T) {
 	assert.Zero(t, conf.DockerStopTimeout)
 }
 
-func TestInvalideDockerStopTimeout(t *testing.T) {
+func TestInvalidDockerStopTimeout(t *testing.T) {
 	conf := DefaultConfig()
 	conf.DockerStopTimeout = -1 * time.Second
 

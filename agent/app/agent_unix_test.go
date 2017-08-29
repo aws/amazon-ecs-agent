@@ -426,11 +426,13 @@ func TestInitializeTaskENIDependenciesPauseLoaderError(t *testing.T) {
 				cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, loadErr),
 			)
+			cfg := config.DefaultConfig()
 			agent := &ecsAgent{
 				os:                mockOS,
 				ec2MetadataClient: mockMetadata,
 				cniClient:         cniClient,
 				pauseLoader:       mockPauseLoader,
+				cfg:               &cfg,
 			}
 			err, ok := agent.initializeTaskENIDependencies(state, taskEngine)
 			assert.Error(t, err)

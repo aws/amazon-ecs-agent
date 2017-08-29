@@ -467,7 +467,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 
 // AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
-	task.PostUnmarshalTask(engine.credentialsManager)
+	task.PostUnmarshalTask(engine.cfg, engine.credentialsManager)
 
 	engine.processTasks.Lock()
 	defer engine.processTasks.Unlock()
@@ -481,7 +481,7 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 		if dependencygraph.ValidDependencies(task) {
 			engine.startTask(task)
 		} else {
-			seelog.Errorf("Unable to progerss task with circular dependencies, task: %s", task.String())
+			seelog.Errorf("Unable to progress task with circular dependencies, task: %s", task.String())
 			task.SetKnownStatus(api.TaskStopped)
 			task.SetDesiredStatus(api.TaskStopped)
 			err := TaskDependencyError{task.Arn}

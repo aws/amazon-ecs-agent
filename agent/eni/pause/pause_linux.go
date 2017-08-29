@@ -35,7 +35,7 @@ func (*loader) LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (
 	}
 
 	return getPauseContainerImage(
-		config.PauseContainerImageName, config.PauseContainerTag, dockerClient)
+		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
 }
 
 func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSystem) error {
