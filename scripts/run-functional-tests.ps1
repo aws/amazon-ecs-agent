@@ -26,7 +26,6 @@ try {
   echo "Simple functional tests exited with ${simpletestExitCode}"
 } finally {
   cd "$cwd"
-  docker stop ecs-cred-proxy
 }
 if (${handwrittenExitCode} -ne 0) {
   exit $handwrittenExitCode

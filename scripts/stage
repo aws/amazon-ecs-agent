@@ -73,7 +73,6 @@ stage_windows_s3() {
 	cp LICENSE "${ziproot}"
 	cp out/amazon-ecs-agent.exe "${ziproot}"
 	cp -v misc/windows-deploy/*.ps1 "${ziproot}"
-	cp -v misc/windows-deploy/credentialproxy.dockerfile "${ziproot}"
 	pushd "${ziproot}"
 	zip "${zipfile}" *
 	md5sum "${zipfile}.zip" | sed 's/ .*//' > "${zip_md5}"
