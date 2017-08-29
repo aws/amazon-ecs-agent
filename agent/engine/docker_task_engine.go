@@ -246,14 +246,14 @@ func (engine *DockerTaskEngine) synchronizeState() {
 
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
-		// For containers that use ecr credentials, it needs to wait for the
-		// backend to send the credentials after restart
-		if task.WaitForCredentials() {
-			continue
-		}
-
+		// Update the registry credentials of container if needed
+		// The following situations should be taken care of:
+		// 1. Agent restart:
+		//     * task is not started, task needs to wait for credentials to pull
+		//     * task already in running state, no need to wait
+		// 2. ACS send new payload message update the task
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
-		if !ok {
+		if !ok && !task.ShouldWaitForExecutionCredentials() {
 			engine.startTask(task)
 			continue
 		}
@@ -293,25 +293,13 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				}
 			}
 		}
+		if task.ShouldWaitForExecutionCredentials() {
+			continue
+		}
+
 		engine.startTask(task)
 	}
 	engine.saver.Save()
-}
-
-// updateTaskContainerCredentials checks if the container credentials needs to be updated
-func (engine *DockerTaskEngine) updateTaskContainerCredentials(task, update *api.Task) bool {
-	if !task.WaitForCredentials() {
-		return false
-	}
-
-	credential, ok := update.GetTaskExecutionCredentials()
-	if !ok {
-		seelog.Errorf("Updage task credentials: no credentials found in the updated task: %s", update.String())
-		return false
-	}
-
-	task.SetTaskExecutionCredentials(&credential)
-	return true
 }
 
 // CheckTaskState inspects the state of all containers within a task and writes
@@ -530,14 +518,12 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 		return nil
 	}
 
+	// Tasks that are waiting for execution credentials wasn't started
 	_, ok := engine.managedTasks[task.Arn]
-	// Update the registry credentials of container if needed
-	// This could happen in two situations for tasks that has ecr credentials:
-	// (1) agent restart:
-	//    task is not started, agent needs to call start task
-	// (2) acs resend the payload message:
-	//    task is already started in the task manager, agent needs to call update task
-	if engine.updateTaskContainerCredentials(existingTask, task) && !ok {
+	if !ok {
+		seelog.Infof("engine: task received updated execution credentials, task: %s", task.String())
+		existingTask.SetDesiredStatus(task.GetDesiredStatus())
+		existingTask.SetExecutionRoleCredentialsID(task.GetExecutionCredentialsID())
 		engine.startTask(existingTask)
 		return nil
 	}
@@ -623,9 +609,15 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	}
 
 	// Set up the credentials for pull from ecr if necessary
-	credential, ok := task.GetTaskExecutionCredentials()
-	if ok && container.IsECRCredentialsEnabled() {
-		container.SetRegistryAuthCredentials(&credential)
+	if container.ShouldUseTaskExecutionRole() {
+		credential, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
+		if !ok {
+			seelog.Infof("Acquiring ecr credentials from credential manager failed, container: %s, task: %s", container.String(), task.String())
+			return DockerContainerMetadata{Error: CannotPullECRContainerError{errors.New("Acquiring ecr credentials failed, credentials not existed in credential manager")}}
+		}
+
+		iamCredentials := credential.GetIAMRoleCredentials()
+		container.SetRegistryAuthCredentials(&iamCredentials)
 		// Clean up the ecr pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(&credentials.IAMRoleCredentials{})
 	}

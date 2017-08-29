@@ -57,6 +57,14 @@ type IAMRoleCredentials struct {
 type TaskIAMRoleCredentials struct {
 	ARN                string
 	IAMRoleCredentials IAMRoleCredentials
+	lock               sync.RWMutex
+}
+
+func (role *TaskIAMRoleCredentials) GetIAMRoleCredentials() IAMRoleCredentials {
+	role.lock.RLock()
+	defer role.lock.RUnlock()
+
+	return role.IAMRoleCredentials
 }
 
 // GenerateCredentialsEndpointRelativeURI generates the relative URI for the
