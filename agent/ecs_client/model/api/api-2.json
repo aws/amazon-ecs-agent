@@ -971,6 +971,13 @@
       "type":"integer",
       "box":true
     },
+    "Capabilities":{
+      "type":"structure",
+      "members":{
+        "add":{"shape":"StringList"},
+        "drop":{"shape":"StringList"}
+      }
+    },
     "ClientException":{
       "type":"structure",
       "members":{
@@ -1050,6 +1057,7 @@
         "dnsSearchDomains":{"shape":"StringList"},
         "extraHosts":{"shape":"HostEntryList"},
         "dockerSecurityOptions":{"shape":"StringList"},
+        "linuxParameters":{"shape":"LinuxParameters"},
         "dockerLabels":{"shape":"DockerLabelsMap"},
         "ulimits":{"shape":"UlimitList"},
         "logConfiguration":{"shape":"LogConfiguration"}
@@ -1414,6 +1422,12 @@
         "STANDARD",
         "SERVERLESS"
       ]
+    },
+    "LinuxParameters":{
+      "type":"structure",
+      "members":{
+        "capabilities":{"shape":"Capabilities"}
+      }
     },
     "ListAttributesRequest":{
       "type":"structure",
