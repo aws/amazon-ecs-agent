@@ -305,7 +305,8 @@
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
-			"Rev": "c933ed18bef34ec2955de03de8ef9a3bb996e3df"
+			"Comment": "docker-1.9/go-1.4-421-g98edf3e",
+			"Rev": "98edf3edfae6a6500fecc69d2bcccf1302544004"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
