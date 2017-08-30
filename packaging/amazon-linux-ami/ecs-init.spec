@@ -31,7 +31,7 @@ Requires:       docker >= 1.6.0, docker <= 17.03.2ce
 Requires:       upstart
 Requires:       iptables
 Requires:       procps
-Requires(post): docker >= 1.6.0
+Requires:       dhclient
 
 Provides:       bundled(docker)
 Provides:       bundled(golang(github.com/docker/docker/pkg/archive))
@@ -53,6 +53,7 @@ Provides:       bundled(golang(github.com/cihub/seelog))
 %global	conf_dir %{_sysconfdir}/ecs
 %global cache_dir %{_localstatedir}/cache/ecs
 %global data_dir %{_sharedstatedir}/ecs/data
+%global dhclient_dir %{_sharedstatedir}/ecs/dhclient
 %global man_dir %{_mandir}/man1
 %global rpmstate_dir /var/run
 %global running_semaphore %{rpmstate_dir}/ecs-init.was-running
@@ -75,6 +76,7 @@ mkdir -p $RPM_BUILD_ROOT/%{bin_dir}
 mkdir -p $RPM_BUILD_ROOT/%{conf_dir}
 mkdir -p $RPM_BUILD_ROOT/%{cache_dir}
 mkdir -p $RPM_BUILD_ROOT/%{data_dir}
+mkdir -p $RPM_BUILD_ROOT/%{dhclient_dir}
 mkdir -p $RPM_BUILD_ROOT/%{man_dir}
 
 install %{SOURCE1} $RPM_BUILD_ROOT/%{init_dir}/ecs.conf
@@ -95,6 +97,7 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/state
 %ghost %{cache_dir}/ecs-agent.tar
 %{cache_dir}/state
 %dir %{data_dir}
+%ghost %{dhclient_dir}
 
 %clean
 rm scripts/amazon-ecs-init.1.gz
