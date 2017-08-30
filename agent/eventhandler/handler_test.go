@@ -27,22 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func containerEvent(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
-}
-
-func containerEventStopped(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
-}
-
-func taskEvent(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
-}
-
-func taskEventStopped(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
-}
-
 func TestSendsEventsOneContainer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -263,4 +247,20 @@ func TestShouldBeSent(t *testing.T) {
 	if !sendableEvent.containerShouldBeSent() {
 		t.Error("Container should be sent if it's the first try")
 	}
+}
+
+func containerEvent(arn string) statechange.Event {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
+}
+
+func containerEventStopped(arn string) statechange.Event {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
+}
+
+func taskEvent(arn string) statechange.Event {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
+}
+
+func taskEventStopped(arn string) statechange.Event {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
