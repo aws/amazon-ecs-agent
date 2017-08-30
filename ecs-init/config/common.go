@@ -76,6 +76,12 @@ func AgentDataDirectory() string {
 	return directoryPrefix + "/var/lib/ecs/data"
 }
 
+// AgentDHClientLeasesDirectory returns the location on disk where dhclient
+// leases information is tracked for ENIs attached to tasks
+func AgentDHClientLeasesDirectory() string {
+	return directoryPrefix + "/var/lib/ecs/dhclient"
+}
+
 // CacheDirectory returns the location on disk where Agent images should be cached
 func CacheDirectory() string {
 	return directoryPrefix + "/var/cache/ecs"

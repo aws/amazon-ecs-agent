@@ -28,6 +28,12 @@ import (
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
+const (
+	// dockerClientAPIVersion specifies the minimum docker client API version
+	// required by ECS Init
+	dockerClientAPIVersion = "1.15"
+)
+
 type dockerclient interface {
 	ListImages(opts godocker.ListImagesOptions) ([]godocker.APIImages, error)
 	LoadImage(opts godocker.LoadImageOptions) error
@@ -60,7 +66,7 @@ func newDockerClient(dockerClientFactory dockerClientFactory, pingBackoff backof
 		dockerUnixSocketSourcePath = "/var/run/docker.sock"
 	}
 	client, err := dockerClientFactory.NewVersionedClient(
-		config.UnixSocketPrefix+dockerUnixSocketSourcePath, "1.15")
+		config.UnixSocketPrefix+dockerUnixSocketSourcePath, dockerClientAPIVersion)
 	if err != nil {
 		return nil, err
 	}
