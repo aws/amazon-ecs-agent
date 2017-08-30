@@ -613,6 +613,7 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 	}
 	assert.Equal(t, "credsid", addedTask.GetExecutionCredentialsID(), "task execution role credentials id mismatch")
 
+	// Verify the credentials in the payload message was stored in the credentials manager
 	iamRoleCredentials, ok := credentialsManager.GetTaskCredentials("credsid")
 	assert.True(t, ok, "execution role credentials not found in credentials manager")
 	assert.Equal(t, credentialsRoleArn, iamRoleCredentials.IAMRoleCredentials.RoleArn)

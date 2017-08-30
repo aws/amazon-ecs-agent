@@ -253,8 +253,12 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		//     * task already in running state, no need to wait
 		// 2. ACS send new payload message update the task
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
-		if !ok && !task.ShouldWaitForExecutionCredentials() {
-			engine.startTask(task)
+		if !ok {
+			if task.ShouldWaitForExecutionCredentials() {
+				seelog.Info("Skipping start task, waiting for execution role: %s", task.String())
+			} else {
+				engine.startTask(task)
+			}
 			continue
 		}
 		for _, cont := range conts {
@@ -518,12 +522,11 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 		return nil
 	}
 
-	// Tasks that are waiting for execution credentials wasn't started
+	// Start task that is waitng for the execution role credentials
 	_, ok := engine.managedTasks[task.Arn]
 	if !ok {
-		seelog.Infof("engine: task received updated execution credentials, task: %s", task.String())
 		existingTask.SetDesiredStatus(task.GetDesiredStatus())
-		existingTask.SetExecutionRoleCredentialsID(task.GetExecutionCredentialsID())
+		seelog.Infof("Task received updated execution credentials, task: %s", task.Arn)
 		engine.startTask(existingTask)
 		return nil
 	}
@@ -608,18 +611,18 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		return metadata
 	}
 
-	// Set up the credentials for pull from ecr if necessary
-	if container.ShouldUseTaskExecutionRole() {
-		credential, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
+	// Set the credentials for pull from ecr if necessary
+	if container.ShouldPullWithExecutionRole() {
+		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
 			seelog.Infof("Acquiring ecr credentials from credential manager failed, container: %s, task: %s", container.String(), task.String())
-			return DockerContainerMetadata{Error: CannotPullECRContainerError{errors.New("Acquiring ecr credentials failed, credentials not existed in credential manager")}}
+			return DockerContainerMetadata{Error: CannotPullECRContainerError{errors.New("engine ecr credentials acquisition: not found in credential manager")}}
 		}
 
-		iamCredentials := credential.GetIAMRoleCredentials()
-		container.SetRegistryAuthCredentials(&iamCredentials)
+		iamCredentials := executionCredentials.GetIAMRoleCredentials()
+		container.SetRegistryAuthCredentials(iamCredentials)
 		// Clean up the ecr pull credentials after pulling
-		defer container.SetRegistryAuthCredentials(&credentials.IAMRoleCredentials{})
+		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)

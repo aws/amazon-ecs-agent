@@ -218,6 +218,9 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			apiTask.SetTaskENI(eni)
 		}
 		if task.ExecutionRoleCredentials != nil {
+			// The payload message contains execution credentials for the task.
+			// Add the credentials to the crednentials manager and set the
+			// task executionCredentials id.
 			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
 				ARN:                aws.StringValue(task.Arn),
 				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials),
@@ -229,10 +232,6 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 				continue
 			}
 			apiTask.SetExecutionRoleCredentialsID(taskExecutionCredentials.IAMRoleCredentials.CredentialsID)
-
-			for _, container := range apiTask.Containers {
-				container.SetupExecutionRoleFlag()
-			}
 		}
 
 		validTasks = append(validTasks, apiTask)

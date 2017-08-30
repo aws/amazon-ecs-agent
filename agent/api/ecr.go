@@ -14,6 +14,8 @@
 package api
 
 import (
+	"sync"
+
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 )
 
@@ -26,9 +28,26 @@ type RegistryAuthenticationData struct {
 
 // ECRAuthData is the authentication details for ECR specifying the region, registryID, and possible endpoint override
 type ECRAuthData struct {
-	EndpointOverride string                         `json:"endpointOverride"`
-	Region           string                         `json:"region"`
-	RegistryID       string                         `json:"registryId"`
-	UseExecutionRole bool                           `json:"useExecutionRole"`
-	PullCredentials  credentials.IAMRoleCredentials `json:"-"`
+	EndpointOverride string `json:"endpointOverride"`
+	Region           string `json:"region"`
+	RegistryID       string `json:"registryId"`
+	UseExecutionRole bool   `json:"useExecutionRole"`
+	pullCredentials  credentials.IAMRoleCredentials
+	lock             sync.RWMutex
+}
+
+// GetPullCredentials returns the pull credentials in the auth
+func (auth *ECRAuthData) GetPullCredentials() credentials.IAMRoleCredentials {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	return auth.pullCredentials
+}
+
+// SetPullCredentials sets the credentials to pull from ecr in the auth
+func (auth *ECRAuthData) SetPullCredentials(creds credentials.IAMRoleCredentials) {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	auth.pullCredentials = creds
 }

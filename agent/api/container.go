@@ -62,7 +62,6 @@ type Container struct {
 	Overrides              ContainerOverrides          `json:"overrides"`
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
-	ECRCredentialsEnabled  bool                        `json:"ecrCredentialsEnabled"`
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
@@ -241,42 +240,31 @@ func (c *Container) GetKnownExitCode() *int {
 }
 
 // SetRegistryAuthCredentials will set the credentials for pulling image from ecr
-func (c *Container) SetRegistryAuthCredentials(credential *credentials.IAMRoleCredentials) error {
+func (c *Container) SetRegistryAuthCredentials(credential credentials.IAMRoleCredentials) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if c.RegistryAuthentication == nil || c.RegistryAuthentication.ECRAuthData == nil {
-		return fmt.Errorf("Container: set ecr pull credentials failed, no registry auth data for container")
+		return fmt.Errorf("ecr pull credentials: no registry auth data for container")
 	}
 
 	if !c.RegistryAuthentication.ECRAuthData.UseExecutionRole {
-		return fmt.Errorf("Container: set ecr pull credentials failed, using task level credentials is disabled")
+		return fmt.Errorf("ecr pull credentials: using task level credentials is disabled")
 	}
 
-	c.RegistryAuthentication.ECRAuthData.PullCredentials = *credential
+	c.RegistryAuthentication.ECRAuthData.SetPullCredentials(credential)
 	return nil
 }
 
-// SetupExecutionRoleFlag will check if the container is configured to use
-// task execution role for pulling
-func (c *Container) SetupExecutionRoleFlag() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if c.RegistryAuthentication != nil &&
-		c.RegistryAuthentication.Type == "ecr" &&
-		c.RegistryAuthentication.ECRAuthData != nil &&
-		c.RegistryAuthentication.ECRAuthData.UseExecutionRole {
-		c.ECRCredentialsEnabled = true
-	}
-}
-
-// ShouldUseTaskExecutionRole returns whether this container has its own ecr credentials
-func (c *Container) ShouldUseTaskExecutionRole() bool {
+// ShouldPullWithExecutionRole returns whether this container has its own ecr credentials
+func (c *Container) ShouldPullWithExecutionRole() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.ECRCredentialsEnabled
+	return c.RegistryAuthentication != nil &&
+		c.RegistryAuthentication.Type == "ecr" &&
+		c.RegistryAuthentication.ECRAuthData != nil &&
+		c.RegistryAuthentication.ECRAuthData.UseExecutionRole
 }
 
 // String returns a human readable string representation of this object

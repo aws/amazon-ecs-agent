@@ -55,12 +55,12 @@ func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, erro
 	}
 
 	if authData.UseExecutionRole {
-		if authData.PullCredentials == (credentials.IAMRoleCredentials{}) {
-			return &ecrClient{}, fmt.Errorf("Container are set to use execution credentials, but the credentials is not set in auth data")
+		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
+			return &ecrClient{}, fmt.Errorf("Container are set to use execution credentials, but the credentials is empty")
 		}
-		creds := awscreds.NewStaticCredentials(authData.PullCredentials.AccessKeyID,
-			authData.PullCredentials.SecretAccessKey,
-			authData.PullCredentials.SessionToken)
+		creds := awscreds.NewStaticCredentials(authData.GetPullCredentials().AccessKeyID,
+			authData.GetPullCredentials().SecretAccessKey,
+			authData.GetPullCredentials().SessionToken)
 		cfg = cfg.WithCredentials(creds)
 	}
 
