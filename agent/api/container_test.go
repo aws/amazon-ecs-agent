@@ -153,7 +153,6 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase.container.SetupExecutionRoleFlag()
-		assert.Equal(t, testCase.result, testCase.container.ShouldUseTaskExecutionRole(), testCase.msg)
+		assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
 	}
 }

@@ -20,11 +20,11 @@ import (
 )
 
 type Cache interface {
-	// fetch a value from cache, returns nil, false on miss
+	// Get fetches a value from cache, returns nil, false on miss
 	Get(key string) (Value, bool)
-	// sets a value in cache. overrites any existing value
+	// Set sets a value in cache. overrites any existing value
 	Set(key string, value Value)
-	// deletes the value from the cache
+	// Delete deletes the value from the cache
 	Delete(key string)
 }
 
@@ -53,6 +53,7 @@ type lruCache struct {
 	ttl       time.Duration
 }
 
+// Get returns the value associated with the key
 func (lru *lruCache) Get(key string) (Value, bool) {
 	lru.Lock()
 	defer lru.Unlock()
@@ -73,6 +74,7 @@ func (lru *lruCache) Get(key string) (Value, bool) {
 	return entry.value, true
 }
 
+// Set sets the key-value pair in the cache
 func (lru *lruCache) Set(key string, value Value) {
 	lru.Lock()
 	defer lru.Unlock()
@@ -82,6 +84,7 @@ func (lru *lruCache) Set(key string, value Value) {
 	lru.purgeSize()
 }
 
+// Delete removes the entry associated with the key from cache
 func (lru *lruCache) Delete(key string) {
 	lru.Lock()
 	defer lru.Unlock()

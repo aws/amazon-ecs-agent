@@ -214,7 +214,7 @@ func TestGetAuthConfigNoAuthData(t *testing.T) {
 	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
-func TestISTokenValid(t *testing.T) {
+func TestIsTokenValid(t *testing.T) {
 	provider := ecrAuthProvider{}
 
 	var testAuthTimes = []struct {
@@ -235,7 +235,7 @@ func TestISTokenValid(t *testing.T) {
 			ExpiresAt:          aws.Time(time.Now().Add(testCase.expireIn)),
 		}
 
-		actual := provider.ISTokenValid(testAuthData)
+		actual := provider.IsTokenValid(testAuthData)
 		assert.Equal(t, testCase.expected, actual,
 			fmt.Sprintf("Expected IsTokenValid to be %t, got %t: for expiraing at %s", testCase.expected, actual, testCase.expireIn))
 	}
@@ -265,7 +265,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 		},
 	}
 	key := cacheKey{
-		rolearn:          authData.PullCredentials.RoleArn,
+		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,
@@ -353,7 +353,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 		},
 	}
 	key := cacheKey{
-		rolearn:          authData.PullCredentials.RoleArn,
+		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,
@@ -395,7 +395,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		},
 	}
 	key := cacheKey{
-		rolearn:          authData.PullCredentials.RoleArn,
+		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,

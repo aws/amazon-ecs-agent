@@ -1005,43 +1005,71 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 		msg    string
 	}{
 		{&Task{
+			// Container configured to use execution role to pull and hasn't
+			// been pulled will need to wait for the credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
-					ECRCredentialsEnabled: true,
-					KnownStatusUnsafe:     ContainerStatusNone,
+					RegistryAuthentication: &RegistryAuthenticationData{
+						Type: "ecr",
+						ECRAuthData: &ECRAuthData{
+							UseExecutionRole: true,
+						},
+					},
+					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
 		}, true, "task needs credentials to pull container"},
 		{&Task{
+			// Container configured to not use execution role to pull and hasn't
+			// been pulled don't need to wait for the credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
-					ECRCredentialsEnabled: false,
-					KnownStatusUnsafe:     ContainerStatusNone,
+					RegistryAuthentication: &RegistryAuthenticationData{
+						Type: "ecr",
+						ECRAuthData: &ECRAuthData{
+							UseExecutionRole: false,
+						},
+					},
+					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
 		}, false, "no containe require credentials to pull, no need to wait for credentials"},
 		{&Task{
+			// Container configured to not use execution role to pull and has
+			// been pulled don't need to wait for the credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
-					ECRCredentialsEnabled: true,
-					KnownStatusUnsafe:     ContainerPulled,
+					RegistryAuthentication: &RegistryAuthenticationData{
+						Type: "ecr",
+						ECRAuthData: &ECRAuthData{
+							UseExecutionRole: true,
+						},
+					},
+					KnownStatusUnsafe: ContainerPulled,
 				},
 			},
 		}, false, "container require credentials has been pulled, no need to wait for credentials"},
 		{&Task{
+			// Task desired status is set to stopped  don't need to wait for the credentials
 			KnownStatusUnsafe:   TaskStatusNone,
 			DesiredStatusUnsafe: TaskStopped,
 			Containers: []*Container{
 				{
-					ECRCredentialsEnabled: true,
-					KnownStatusUnsafe:     ContainerStatusNone,
+					RegistryAuthentication: &RegistryAuthenticationData{
+						Type: "ecr",
+						ECRAuthData: &ECRAuthData{
+							UseExecutionRole: true,
+						},
+					},
+					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
 		}, false, "task require credentials but desired to stop, no need to wait for credentials"},
 		{&Task{
+			// Task status is greater than none, don't need to wait for credentials
 			KnownStatusUnsafe: TaskRunning,
 		}, false, "task is already running, no need to wait for credentials"},
 	}

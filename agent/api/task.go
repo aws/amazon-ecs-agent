@@ -897,16 +897,15 @@ func (task *Task) GetTaskENI() *ENI {
 // ShouldWaitForExecutionCredentials check if there are container waiting for the
 // credentials to progress eg: pull
 func (task *Task) ShouldWaitForExecutionCredentials() bool {
-	if task.GetDesiredStatus() == TaskStopped {
-		return false
-	}
-
-	if task.GetKnownStatus() > TaskStatusNone {
+	if task.GetDesiredStatus() == TaskStopped || task.GetKnownStatus() > TaskStatusNone {
+		// If task known status is not none, it means all the containers has been created
+		// If the task desired status is stopped, no container needs to be pulled
 		return false
 	}
 
 	for _, container := range task.Containers {
-		if container.GetKnownStatus() < ContainerPulled && container.ShouldUseTaskExecutionRole() {
+		if container.GetKnownStatus() < ContainerPulled &&
+			container.ShouldPullWithExecutionRole() {
 			return true
 		}
 	}

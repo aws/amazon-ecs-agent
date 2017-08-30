@@ -1995,7 +1995,6 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 		},
 	}
 	container := testTask.Containers[0]
-	container.SetupExecutionRoleFlag()
 
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(credentials.TaskIAMRoleCredentials{
 		ARN:                "",
@@ -2005,7 +2004,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
 		func(image string, auth *api.RegistryAuthenticationData) {
 			assert.Equal(t, container.Image, image)
-			assert.Equal(t, auth.ECRAuthData.PullCredentials, executionRoleCredentials)
+			assert.Equal(t, auth.ECRAuthData.GetPullCredentials(), executionRoleCredentials)
 		}).Return(DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(container.Image)
@@ -2051,7 +2050,6 @@ func TestNotTranistionTaskUseExectionRole(t *testing.T) {
 			UseExecutionRole: true,
 		},
 	}
-	testTask.Containers[0].SetupExecutionRoleFlag()
 
 	dockerTaskEngine.synchronizeState()
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]

@@ -43,12 +43,14 @@ type ecrClient struct {
 	sdkClient ECRSDK
 }
 
+// NewECRClient creates a ecrclient used to get docker auth from ecr
 func NewECRClient(sdkClient ECRSDK) ECRClient {
 	return &ecrClient{
 		sdkClient: sdkClient,
 	}
 }
 
+// GetAuthorizationToken calls the ecr api to get the docker auth for the specified registry
 func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error) {
 	log.Debugf("Calling GetAuthorizationToken for %q", registryId)
 
