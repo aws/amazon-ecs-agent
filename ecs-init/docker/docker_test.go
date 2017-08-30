@@ -277,6 +277,10 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	if !capSysAdminFound {
 		t.Errorf("Missing %s from host config capabilities", CapSysAdmin)
 	}
+
+	if hostCfg.Init != true {
+		t.Error("Incorrect host config. Expected Init to be true")
+	}
 }
 
 func expectKey(key string, input map[string]struct{}, t *testing.T) {

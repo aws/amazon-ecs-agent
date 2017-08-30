@@ -262,6 +262,7 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
 		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
+		Init:        true,
 	}
 }
 
