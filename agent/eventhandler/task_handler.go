@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -53,6 +54,10 @@ type TaskHandler struct {
 	// * taskToEvents
 	// * tasksToContainerStates
 	taskHandlerLock sync.RWMutex
+
+	// statesaver is a statemanager which may be used to save any
+	// changes to a task or container's SentStatus
+	statesaver statemanager.Saver
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
@@ -61,6 +66,7 @@ func NewTaskHandler() *TaskHandler {
 		tasksToEvents:          make(map[string]*eventList),
 		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
 		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
+		statesaver:             statemanager.NewNoopStateManager(),
 	}
 }
 
@@ -190,7 +196,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 					if event.containerChange.Container != nil {
 						event.containerChange.Container.SetSentStatus(event.containerChange.Status)
 					}
-					statesaver.Save()
+					handler.statesaver.Save()
 					seelog.Debug("TaskHandler, Submitted container state change")
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)
@@ -206,7 +212,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 					if event.taskChange.Task != nil {
 						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					}
-					statesaver.Save()
+					handler.statesaver.Save()
 					seelog.Debug("TaskHandler, Submitted task state change")
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)

@@ -390,7 +390,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager, taskHandler)
+	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		CredentialProvider:            agent.credentialProvider,
