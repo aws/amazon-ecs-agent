@@ -1967,3 +1967,93 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 
 	wg.Wait()
 }
+
+// TestTaskUseExecutionRolePullECRImage tests the agent will use the execution role
+// credentials to pull from ecr repository
+func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
+	ctrl, client, _, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	credentialsID := "execution role"
+	accessKeyID := "akid"
+	secretAccessKey := "sakid"
+	sessionToken := "token"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID:   credentialsID,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
+
+	testTask := testdata.LoadTask("sleep5")
+	// Configure the task and container to use execution role
+	testTask.SetExecutionRoleCredentialsID(credentialsID)
+	testTask.Containers[0].RegistryAuthentication = &api.RegistryAuthenticationData{
+		Type: "ecr",
+		ECRAuthData: &api.ECRAuthData{
+			UseExecutionRole: true,
+		},
+	}
+	container := testTask.Containers[0]
+	container.SetupExecutionRoleFlag()
+
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(credentials.TaskIAMRoleCredentials{
+		ARN:                "",
+		IAMRoleCredentials: executionRoleCredentials,
+	}, true)
+
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
+		func(image string, auth *api.RegistryAuthenticationData) {
+			assert.Equal(t, container.Image, image)
+			assert.Equal(t, auth.ECRAuthData.PullCredentials, executionRoleCredentials)
+		}).Return(DockerContainerMetadata{})
+	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(container.Image)
+
+	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+}
+
+// TestTasktionRoleOnRestart tests the agent will process the task recorded in
+// the state file on restart
+func TestNewTaskTransitionOnRestart(t *testing.T) {
+	ctrl, _, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+	state := dockerTaskEngine.State()
+
+	testTask := testdata.LoadTask("sleep5")
+	// add the task to the state to simulate the agent restored the state on restart
+	state.AddTask(testTask)
+	// Set the task to be stopped so that the process can done quickly
+	testTask.SetDesiredStatus(api.TaskStopped)
+
+	dockerTaskEngine.synchronizeState()
+	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
+	assert.True(t, ok, "task wasnot started")
+}
+
+// TestNotTranistionTaskUseExectionRole tests on agent restart task requires execution
+// role credentials shouldnot be started
+func TestNotTranistionTaskUseExectionRole(t *testing.T) {
+	ctrl, _, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+	state := dockerTaskEngine.State()
+
+	testTask := testdata.LoadTask("sleep5")
+	// add the task to the state to simulate the agent restored the state on restart
+	state.AddTask(testTask)
+	testTask.Containers[0].RegistryAuthentication = &api.RegistryAuthenticationData{
+		Type: "ecr",
+		ECRAuthData: &api.ECRAuthData{
+			UseExecutionRole: true,
+		},
+	}
+	testTask.Containers[0].SetupExecutionRoleFlag()
+
+	dockerTaskEngine.synchronizeState()
+	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
+	assert.False(t, ok, "task require credentials shouldnot be started on agent restart")
+}
