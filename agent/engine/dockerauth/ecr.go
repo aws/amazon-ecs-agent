@@ -44,12 +44,10 @@ type ecrAuthProvider struct {
 }
 
 const (
-	tokenCacheSize   = 100
 	roundtripTimeout = 5 * time.Second
 	// MinimumJitterDuration is the minimum duration to mark the credentials
 	// as expired before it's actually expired
 	MinimumJitterDuration = 30 * time.Minute
-	tokenCacheTTL         = 12 * time.Hour
 	proxyEndpointScheme   = "https://"
 )
 
@@ -60,9 +58,9 @@ func (key *cacheKey) String() string {
 
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
 // credentials for pulling from Amazon EC2 Container Registry
-func NewECRAuthProvider(ecrFactory ecr.ECRFactory) DockerAuthProvider {
+func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuthProvider {
 	return &ecrAuthProvider{
-		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
+		tokenCache: cache,
 		factory:    ecrFactory,
 	}
 }
@@ -86,9 +84,8 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	// add the roleARN as part of the cache key so that docker auth for
 	// containers pull with the same role can be cached
 	if !utils.ZeroOrNil(authData.GetPullCredentials()) {
-		key.roleARN = authData.GetPullCredentials().RoleArn
+		key.rolearn = authData.GetPullCredentials().RoleArn
 	}
-
 	authProvider.cacheLock.RLock()
 	defer authProvider.cacheLock.RUnlock()
 
