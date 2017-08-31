@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 * Feature - Support for provisioning Tasks with ENIs
+* Enhancement - Retry failed container image pull operations.
 * Bug - Fixed a memory leak issue when submitting the task state change [#967](https://github.com/aws/amazon-ecs-agent/pull/967)
 
 ## 1.14.4
