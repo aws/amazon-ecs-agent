@@ -37,6 +37,8 @@ import (
 const (
 	testToken         = "testToken"
 	testProxyEndpoint = "testProxyEndpoint"
+	tokenCacheSize    = 100
+	tokenCacheTTL     = 12 * time.Hour
 )
 
 func TestNewAuthProviderECRAuth(t *testing.T) {
@@ -44,7 +46,7 @@ func TestNewAuthProviderECRAuth(t *testing.T) {
 	defer ctrl.Finish()
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	provider := NewECRAuthProvider(factory)
+	provider := NewECRAuthProvider(factory, async.NewLRUCache(tokenCacheSize, tokenCacheTTL))
 	_, ok := provider.(*ecrAuthProvider)
 	assert.True(t, ok, "Should have returned ecrAuthProvider")
 }
@@ -260,10 +262,11 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
-		PullCredentials: credentials.IAMRoleCredentials{
-			RoleArn: "arn:aws:iam::123456789012:role/test",
-		},
 	}
+	authData.SetPullCredentials(credentials.IAMRoleCredentials{
+		RoleArn: "arn:aws:iam::123456789012:role/test",
+	})
+
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
@@ -348,10 +351,11 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
-		PullCredentials: credentials.IAMRoleCredentials{
-			RoleArn: "arn:aws:iam::123456789012:role/test",
-		},
 	}
+	authData.SetPullCredentials(credentials.IAMRoleCredentials{
+		RoleArn: "arn:aws:iam::123456789012:role/test",
+	})
+
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
@@ -390,10 +394,11 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
-		PullCredentials: credentials.IAMRoleCredentials{
-			RoleArn: "arn:aws:iam::123456789012:role/test",
-		},
 	}
+	authData.SetPullCredentials(credentials.IAMRoleCredentials{
+		RoleArn: "arn:aws:iam::123456789012:role/test",
+	})
+
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
 		region:           authData.Region,
