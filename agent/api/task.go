@@ -526,12 +526,15 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
+	task.platformHostConfigOverride(hostConfig)
+
 	// Determine if network mode should be overridden and override it if needed
 	ok, networkMode := task.shouldOverrideNetworkMode(container, dockerContainerMap)
 	if !ok {
 		return hostConfig, nil
 	}
 	hostConfig.NetworkMode = networkMode
+
 	return hostConfig, nil
 }
 
