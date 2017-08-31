@@ -15,7 +15,14 @@ PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container
+# Variable to determine branch/tag of amazon-ecs-cni-plugins
+ECS_CNI_REPOSITORY_REVISION=master
+
+# Variable to override cni repository location
+ECS_CNI_REPOSITORY_SRC_DIR=$(shell pwd)/amazon-ecs-cni-plugins
+
+
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container get-cni-sources cni-plugins
 
 all: docker
 
@@ -42,14 +49,14 @@ build-in-docker:
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
-docker: certs build-in-docker pause-container-release
+docker: certs build-in-docker pause-container-release cni-plugins
 	@cd scripts && ./create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
 
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
-docker-release: pause-container-release
+docker-release: pause-container-release cni-plugins
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run --net=none \
 	  -e TARGET_OS="${TARGET_OS}" \
@@ -112,6 +119,18 @@ pause-container-release: pause-container
 	mkdir -p "$(shell pwd)/out"
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(shell pwd)/out/${PAUSE_CONTAINER_TARBALL}"
 
+get-cni-sources:
+	@git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION)
+
+cni-plugins:
+	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
+	@docker run --rm --net=none \
+		-v "$(shell pwd)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
+		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
+		"amazon/amazon-ecs-build-cniplugins:make"
+
+	@echo "Built amazon-ecs-cni-plugins successfully."
+
 run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -race -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
@@ -139,7 +158,7 @@ fluentd:
 image-cleanup-test-images:
 	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS)
 
-get-deps:
+get-deps: get-cni-sources
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
@@ -150,7 +169,8 @@ clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
-	rm -f out/amazon-ecs-agent out/amazon-ecs-agent.exe &> /dev/null
+	rm -rf out/*
+	rm -rf $(shell pwd)/amazon-ecs-cni-plugins
 	rm -rf agent/Godeps/_workspace/pkg/
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
