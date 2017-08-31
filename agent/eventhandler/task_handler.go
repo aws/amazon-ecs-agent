@@ -55,18 +55,18 @@ type TaskHandler struct {
 	// * tasksToContainerStates
 	taskHandlerLock sync.RWMutex
 
-	// statesaver is a statemanager which may be used to save any
+	// stateSaver is a statemanager which may be used to save any
 	// changes to a task or container's SentStatus
-	statesaver statemanager.Saver
+	stateSaver statemanager.Saver
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
-func NewTaskHandler() *TaskHandler {
+func NewTaskHandler(stateManager statemanager.Saver) *TaskHandler {
 	return &TaskHandler{
 		tasksToEvents:          make(map[string]*eventList),
 		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
 		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
-		statesaver:             statemanager.NewNoopStateManager(),
+		stateSaver:             stateManager,
 	}
 }
 
@@ -196,7 +196,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 					if event.containerChange.Container != nil {
 						event.containerChange.Container.SetSentStatus(event.containerChange.Status)
 					}
-					handler.statesaver.Save()
+					handler.stateSaver.Save()
 					seelog.Debug("TaskHandler, Submitted container state change")
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)
@@ -212,7 +212,7 @@ func (handler *TaskHandler) SubmitTaskEvents(taskEvents *eventList, client api.E
 					if event.taskChange.Task != nil {
 						event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 					}
-					handler.statesaver.Save()
+					handler.stateSaver.Save()
 					seelog.Debug("TaskHandler, Submitted task state change")
 					backoff.Reset()
 					taskEvents.events.Remove(eventToSubmit)
