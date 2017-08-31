@@ -1,6 +1,7 @@
 #Changelog
 
 ## Unreleased
+* Feature - Support pulling from ecr with specified IAM role in task definition
 * Bug - Fixed a bug where a task can be blocked in creating state. [#1048](https://github.com/aws/amazon-ecs-agent/pull/1048)
 * Bug - Fixed dynamic HostPort in container metadata. [#1052](https://github.com/aws/amazon-ecs-agent/pull/1052)
 

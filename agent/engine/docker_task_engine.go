@@ -604,13 +604,6 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		return DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
 	}
 
-	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
-
-	// Don't add internal images(created by ecs-agent) into imagemanger state
-	if container.IsInternal() {
-		return metadata
-	}
-
 	// Set the credentials for pull from ecr if necessary
 	if container.ShouldPullWithExecutionRole() {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
@@ -626,6 +619,11 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
+
+	// Don't add internal images(created by ecs-agent) into imagemanger state
+	if container.IsInternal() {
+		return metadata
+	}
 
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
