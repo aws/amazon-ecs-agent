@@ -84,7 +84,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	// add the roleARN as part of the cache key so that docker auth for
 	// containers pull with the same role can be cached
 	if !utils.ZeroOrNil(authData.GetPullCredentials()) {
-		key.rolearn = authData.GetPullCredentials().RoleArn
+		key.roleARN = authData.GetPullCredentials().RoleArn
 	}
 	authProvider.cacheLock.RLock()
 	defer authProvider.cacheLock.RUnlock()
