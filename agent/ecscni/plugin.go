@@ -107,6 +107,7 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 // constructNetworkConfig creates configuration for eni, ipam and bridge plugin
 func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkConfigList, error) {
 	_, dst, err := net.ParseCIDR(TaskIAMRoleEndpoint)
+	_, returnRoute, err := net.ParseCIDR(ecsSubnet)
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +121,9 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		IPV4Routes: []*types.Route{
 			{
 				Dst: *dst,
+			},
+			{
+				Dst: *returnRoute,
 			},
 		},
 	}
