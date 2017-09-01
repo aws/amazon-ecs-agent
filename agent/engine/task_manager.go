@@ -606,9 +606,9 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	mtask.engine.state.RemoveTask(mtask.Task)
 	eni := mtask.Task.GetTaskENI()
 	if eni == nil {
-		seelog.Debug("No eni associated with task: [%s]", mtask.Task.String())
+		seelog.Debugf("No eni associated with task: [%s]", mtask.Task.String())
 	} else {
-		seelog.Debug("Removing the eni from agent state, task: [%s]", mtask.Task.String())
+		seelog.Debugf("Removing the eni from agent state, task: [%s]", mtask.Task.String())
 		mtask.engine.state.RemoveENIAttachment(eni.MacAddress)
 	}
 	seelog.Debugf("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
