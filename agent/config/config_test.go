@@ -96,6 +96,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")
 	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")
 	os.Setenv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")
+	os.Setenv("ECS_ENABLE_CONTAINER_METADATA", "true")
+	os.Setenv("ECS_HOST_DATA_DIR", "/etc/ecs/")
 
 	conf, err := environmentConfig()
 	assert.Nil(t, err)
@@ -116,12 +118,14 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
+	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
 
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
 	assert.Equal(t, 2, conf.NumImagesToDeletePerCycle)
 	assert.Equal(t, "testing", conf.InstanceAttributes["my_attribute"])
 	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
+	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost)
 }
 
 func TestTrimWhitespace(t *testing.T) {

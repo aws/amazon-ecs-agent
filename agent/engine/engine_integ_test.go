@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -82,8 +83,10 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	state := dockerstate.NewTaskEngineState()
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	metadataManager := containermetadata.NewManager(dockerClient, cfg)
+
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager)
 	taskEngine.Init(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
