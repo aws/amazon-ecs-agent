@@ -131,7 +131,7 @@ func TestContainerNextState(t *testing.T) {
 		expectedTransitionPossible   bool
 	}{
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running
-		// The exptected next status is Pulled
+		// The expected next status is Pulled
 		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerPulled, true, true},
 		// NONE -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is Pulled
@@ -158,7 +158,7 @@ func TestContainerNextState(t *testing.T) {
 		// actionable, when desired is STOPPED
 		{api.ContainerPulled, api.ContainerStopped, api.ContainerStopped, false, true},
 		// CREATED -> RUNNING transition is allowed and actionable, when desired is Running
-		// The exptected next status is Running
+		// The expected next status is Running
 		{api.ContainerCreated, api.ContainerRunning, api.ContainerRunning, true, true},
 		// CREATED -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is Running
@@ -176,7 +176,7 @@ func TestContainerNextState(t *testing.T) {
 		// actionable, when desired is STOPPED
 		{api.ContainerCreated, api.ContainerStopped, api.ContainerStopped, false, true},
 		// RUNNING -> STOPPED transition is allowed and actionable, when desired is Running
-		// The exptected next status is STOPPED
+		// The expected next status is STOPPED
 		{api.ContainerRunning, api.ContainerStopped, api.ContainerStopped, true, true},
 		// RUNNING -> RUNNING transition is not allowed and not actionable,
 		// when desired is Running
@@ -243,6 +243,59 @@ func TestContainerNextState(t *testing.T) {
 				assert.Equal(t, tc.expectedTransitionPossible, possible, "Mismatch for expected action possible")
 			})
 		}
+	}
+}
+
+func TestContainerNextStateWithDependencies(t *testing.T) {
+	testCases := []struct {
+		containerCurrentStatus       api.ContainerStatus
+		containerDesiredStatus       api.ContainerStatus
+		dependencyCurrentStatus      api.ContainerStatus
+		expectedContainerStatus      api.ContainerStatus
+		expectedTransitionActionable bool
+		expectedTransitionPossible   bool
+	}{
+		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is None
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, false},
+		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, false},
+		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
+		// The expected next status is Pulled
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerRunning, api.ContainerPulled, true, true},
+		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Stopped
+		// The expected next status is Pulled
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStopped, api.ContainerPulled, true, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s to %s Transition",
+			tc.containerCurrentStatus.String(), tc.containerDesiredStatus.String()), func(t *testing.T) {
+			dependencyName := "dependency"
+			container := &api.Container{
+				DesiredStatusUnsafe:     tc.containerDesiredStatus,
+				KnownStatusUnsafe:       tc.containerCurrentStatus,
+				SteadyStateDependencies: []string{dependencyName},
+			}
+			dependency := &api.Container{
+				Name:              dependencyName,
+				KnownStatusUnsafe: tc.dependencyCurrentStatus,
+			}
+			task := &managedTask{
+				Task: &api.Task{
+					Containers: []*api.Container{
+						container,
+						dependency,
+					},
+					DesiredStatusUnsafe: api.TaskRunning,
+				},
+			}
+			nextStatus, actionRequired, possible := task.containerNextState(container)
+			assert.Equal(t, tc.expectedContainerStatus, nextStatus,
+				"Expected next state [%s] != Retrieved next state [%s]",
+				tc.expectedContainerStatus.String(), nextStatus.String())
+			assert.Equal(t, tc.expectedTransitionActionable, actionRequired, "transition actionable")
+			assert.Equal(t, tc.expectedTransitionPossible, possible, "transition possible")
+		})
 	}
 }
 

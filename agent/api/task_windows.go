@@ -18,10 +18,15 @@ package api
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (
 	portBindingHostIP = ""
+
+	//memorySwappinessDefault is the expected default value for this platform
+	memorySwappinessDefault = -1
 )
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
@@ -49,4 +54,20 @@ func (task *Task) downcaseAllVolumePaths() {
 
 func getCanonicalPath(path string) string {
 	return filepath.Clean(strings.ToLower(path))
+}
+
+// platformHostConfigOverride provides an entry point to set up default HostConfig options to be
+// passed to Docker API.
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
+	task.overrideDefaultMemorySwappiness(hostConfig);
+}
+
+// overrideDefaultMemorySwappiness Overrides the value of MemorySwappiness to -1
+// Version 1.12.x of Docker for Windows would ignore the unsupported option MemorySwappiness.
+// Version 17.03.x will cause an error if any value other than -1 is passed in for MemorySwappiness.
+// This bug is not noticed when no value is passed in. However, the go-dockerclient client version
+// we are using removed the json option omitempty causing this parameter to default to 0 if empty.
+// https://github.com/fsouza/go-dockerclient/commit/72342f96fabfa614a94b6ca57d987eccb8a836bf
+func (task *Task) overrideDefaultMemorySwappiness(hostConfig *docker.HostConfig) {
+	hostConfig.MemorySwappiness = memorySwappinessDefault
 }
