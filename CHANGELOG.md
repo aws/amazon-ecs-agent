@@ -1,5 +1,8 @@
 # Changelog
 
+## UNRELEASED
+* Feature - Support for provisioning Tasks with ENIs
+
 ## 1.14.4
 * Enhancement - Batch container state change events. [#867](https://github.com/aws/amazon-ecs-agent/pull/867)
 * Enhancement - Improve the error message when reserved memory is larger than the available memory. [#897](https://github.com/aws/amazon-ecs-agent/pull/897)
