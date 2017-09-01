@@ -1,5 +1,5 @@
 {
-  "family": "ecsftest-cap-drop",
+  "family": "ecsftest-add-drop-capabilities",
   "containerDefinitions": [{
     "image": "127.0.0.1:51670/ubuntu:latest",
     "name": "exit",
@@ -7,9 +7,10 @@
     "memory": 10,
     "linuxParameters": {
       "capabilities": {
+        "add": ["SYS_ADMIN"],
         "drop": ["MKNOD"]
       }
     },
-    "command": ["sh", "-c", "capsh --print | grep \"cap_mknod\" && exit 1 || exit 42"]
+    "command": ["sh", "-c", "if capsh --print | grep -q \"cap_sys_admin\" && ! capsh --print | grep -q \"cap_mknod\"; then exit 42; else exit 1; fi"]
   }]
 }
