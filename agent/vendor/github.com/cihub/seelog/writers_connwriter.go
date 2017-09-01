@@ -44,7 +44,7 @@ type connWriter struct {
 
 // Creates writer to the address addr on the network netName.
 // Connection will be opened on each write if reconnectOnMsg = true
-func newConnWriter(netName string, addr string, reconnectOnMsg bool) *connWriter {
+func NewConnWriter(netName string, addr string, reconnectOnMsg bool) *connWriter {
 	newWriter := new(connWriter)
 
 	newWriter.net = netName

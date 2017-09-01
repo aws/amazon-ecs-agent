@@ -35,7 +35,7 @@ type formattedWriter struct {
 	formatter *formatter
 }
 
-func newFormattedWriter(writer io.Writer, formatter *formatter) (*formattedWriter, error) {
+func NewFormattedWriter(writer io.Writer, formatter *formatter) (*formattedWriter, error) {
 	if formatter == nil {
 		return nil, errors.New("formatter can not be nil")
 	}

@@ -1,0 +1,30 @@
+
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#  name = "github.com/x/y"
+#  version = "2.4.0"
+
+# versions later than this commit break logrus imports
+[[override]]
+  name = "github.com/Azure/go-ansiterm"
+  revision = "fa152c58bc15761d0200cb75fe958b89a9d4888e"
+
+[[override]]
+  name = "github.com/docker/docker"
+  revision = "1dbf3c65e15a2d021cc15ded9caaf6192d58970b"
