@@ -183,7 +183,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream := eventstream.NewEventStream(
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
 
@@ -390,7 +390,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, stateManager, taskHandler)
+	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		CredentialProvider:            agent.credentialProvider,

@@ -16,19 +16,10 @@ package eventhandler
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/cihub/seelog"
 )
 
-var log = logger.ForModule("eventhandler")
-
-// statesaver is a package-wise statemanager which may be used to save any
-// changes to a task or container's SentStatus
-var statesaver statemanager.Saver = statemanager.NewNoopStateManager()
-
-func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, saver statemanager.Saver, eventhandler *TaskHandler) {
-	statesaver = saver
-
+func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, eventhandler *TaskHandler) {
 	for {
 		stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -37,12 +28,12 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, save
 			case event, ok := <-stateChangeEvents:
 				if !ok {
 					stateChangeEvents = nil
-					log.Error("Unable to handle state change event. The events channel is closed")
+					seelog.Error("Unable to handle state change event. The events channel is closed")
 					break
 				}
 				err := eventhandler.AddStateChangeEvent(event, client)
 				if err != nil {
-					log.Error("Handler unable to add state change event", "err", err, "event", event)
+					seelog.Errorf("Handler unable to add state change event %v: %v", event, err)
 				}
 			}
 		}

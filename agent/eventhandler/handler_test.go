@@ -22,33 +22,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-func containerEvent(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
-}
-
-func containerEventStopped(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
-}
-
-func taskEvent(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
-}
-
-func taskEventStopped(arn string) statechange.Event {
-	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
-}
-
 func TestSendsEventsOneContainer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 	taskarn := "taskarn"
 
 	var wg sync.WaitGroup
@@ -77,8 +63,9 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 	taskarn := "taskarn"
 
 	var wg sync.WaitGroup
@@ -101,8 +88,9 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 
 	completeStateChange := make(chan bool, concurrentEventCalls+1)
 	var wg sync.WaitGroup
@@ -137,8 +125,9 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 	taskarn := "taskarn"
 
 	var wg sync.WaitGroup
@@ -169,8 +158,9 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 	taskarnA := "taskarnA"
 	taskarnB := "taskarnB"
 
@@ -215,8 +205,9 @@ func TestSendsEventsDedupe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
 
-	handler := NewTaskHandler()
+	handler := NewTaskHandler(stateManager)
 	taskarnA := "taskarnA"
 	taskarnB := "taskarnB"
 
@@ -263,4 +254,20 @@ func TestShouldBeSent(t *testing.T) {
 	if !sendableEvent.containerShouldBeSent() {
 		t.Error("Container should be sent if it's the first try")
 	}
+}
+
+func containerEvent(arn string) statechange.Event {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
+}
+
+func containerEventStopped(arn string) statechange.Event {
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
+}
+
+func taskEvent(arn string) statechange.Event {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskRunning, Task: &api.Task{}}
+}
+
+func taskEventStopped(arn string) statechange.Event {
+	return api.TaskStateChange{TaskArn: arn, Status: api.TaskStopped, Task: &api.Task{}}
 }
