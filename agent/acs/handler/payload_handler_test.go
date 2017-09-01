@@ -47,7 +47,7 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	ctx := context.Background()
 	buffer := newPayloadRequestHandler(
@@ -94,7 +94,7 @@ func TestHandlePayloadMessageAddTaskError(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	// Return error from AddTask
 	taskEngine.EXPECT().AddTask(gomock.Any()).Return(fmt.Errorf("oops")).Times(2)
@@ -150,7 +150,8 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	defer ctrl.Finish()
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	stateManager := mock_statemanager.NewMockStateManager(ctrl)
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	// Save added task in the addedTask variable
@@ -160,7 +161,6 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	}).Times(1)
 
 	// State manager returns error on save
-	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	stateManager.EXPECT().Save().Return(fmt.Errorf("oops"))
 
 	ctx := context.Background()
@@ -206,7 +206,7 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
@@ -277,7 +277,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	var addedTask *api.Task
@@ -391,7 +391,8 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	stateManager := statemanager.NewNoopStateManager()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	var tasksAddedToEngine []*api.Task
 	taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task *api.Task) {
@@ -415,7 +416,6 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	stateManager := statemanager.NewNoopStateManager()
 	buffer := newPayloadRequestHandler(
 		ctx,
 		taskEngine,
@@ -451,7 +451,7 @@ func TestPayloadBufferHandler(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var addedTask *api.Task
@@ -517,7 +517,7 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	// The payload message in the test consists of two tasks, record both of them in
 	// the order in which they were added
@@ -696,7 +696,7 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	ctx := context.Background()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler()
+	taskHandler := eventhandler.NewTaskHandler(stateManager)
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	var addedTask *api.Task
