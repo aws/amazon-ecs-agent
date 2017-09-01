@@ -174,6 +174,11 @@ type Config struct {
 	// must be specified in decimal-octet form and also specify the subnet
 	// size (e.g., "169.254.172.42/22").
 	OverrideAWSVPCLocalIPv4Address string
+
+	// AWSVPCAdditionalLocalRoutes allows the specification of routing table
+	// entries that will be added in the task's network namespace via the
+	// instance bridge interface rather than via the ENI.
+	AWSVPCAdditionalLocalRoutes []string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

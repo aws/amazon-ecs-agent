@@ -53,24 +53,24 @@ func (_mr *_MockCNIClientRecorder) Capabilities(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Capabilities", arg0)
 }
 
-func (_m *MockCNIClient) CleanupNS(_param0 *ecscni.Config) error {
-	ret := _m.ctrl.Call(_m, "CleanupNS", _param0)
+func (_m *MockCNIClient) CleanupNS(_param0 *ecscni.Config, _param1 []string) error {
+	ret := _m.ctrl.Call(_m, "CleanupNS", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockCNIClientRecorder) CleanupNS(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0)
+func (_mr *_MockCNIClientRecorder) CleanupNS(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0, arg1)
 }
 
-func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config) error {
-	ret := _m.ctrl.Call(_m, "SetupNS", _param0)
+func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config, _param1 []string) error {
+	ret := _m.ctrl.Call(_m, "SetupNS", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockCNIClientRecorder) SetupNS(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetupNS", arg0)
+func (_mr *_MockCNIClientRecorder) SetupNS(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetupNS", arg0, arg1)
 }
 
 func (_m *MockCNIClient) Version(_param0 string) (string, error) {

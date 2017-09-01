@@ -328,7 +328,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			State: docker.State{Pid: 23},
 		}, nil),
 		// Then setting up the pause container network namespace
-		mockCNIClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nil),
 
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
@@ -395,7 +395,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		ID:    containerID,
 		State: docker.State{Pid: 23},
 	}, nil)
-	mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
+	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer(containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
 
 	exitCode := 0
@@ -1275,7 +1275,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 				ID:    pauseContainerID,
 				State: docker.State{Pid: 123},
 			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nil),
 	)
 
 	// For the other container
@@ -1312,7 +1312,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 		ID:    pauseContainerID,
 		State: docker.State{Pid: 123},
 	}, nil)
-	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
+	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: pauseContainerID})
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
@@ -1453,7 +1453,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 			ID:    containerID,
 			State: docker.State{Pid: containerPid},
 		}, nil),
-		mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().StopContainer(containerID, stopContainerTimeout).Return(DockerContainerMetadata{}),
 	)
 

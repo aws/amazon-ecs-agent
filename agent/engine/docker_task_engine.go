@@ -680,7 +680,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
-	err = engine.cniClient.SetupNS(cniConfig)
+	err = engine.cniClient.SetupNS(cniConfig, engine.cfg.AWSVPCAdditionalLocalRoutes)
 	if err != nil {
 		seelog.Errorf("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
@@ -703,7 +703,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 		return errors.Wrapf(err, "engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(cniConfig)
+	return engine.cniClient.CleanupNS(cniConfig, engine.cfg.AWSVPCAdditionalLocalRoutes)
 }
 
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {

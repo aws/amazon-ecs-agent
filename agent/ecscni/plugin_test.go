@@ -26,7 +26,8 @@ func TestSetupNS(t *testing.T) {
 		mockResult.EXPECT().String().Return(""),
 	)
 
-	err := ecscniClient.SetupNS(&Config{})
+	additionalRoutes := []string{"169.254.172.1/32", "10.11.12.13/32"}
+	err := ecscniClient.SetupNS(&Config{}, additionalRoutes)
 	assert.NoError(t, err)
 }
 
@@ -40,7 +41,8 @@ func TestCleanupNS(t *testing.T) {
 
 	libcniClient.EXPECT().DelNetworkList(gomock.Any(), gomock.Any()).Return(nil)
 
-	err := ecscniClient.CleanupNS(&Config{})
+	additionalRoutes := []string{"169.254.172.1/32", "10.11.12.13/32"}
+	err := ecscniClient.CleanupNS(&Config{}, additionalRoutes)
 	assert.NoError(t, err)
 }
 
@@ -60,7 +62,8 @@ func TestConstructNetworkConfig(t *testing.T) {
 		BlockInstanceMetdata: true,
 	}
 
-	networkConfigList, err := ecscniClient.(*cniClient).constructNetworkConfig(config)
+	additionalRoutes := []string{"169.254.172.1/32", "10.11.12.13/32"}
+	networkConfigList, err := ecscniClient.(*cniClient).constructNetworkConfig(config, additionalRoutes)
 	assert.NoError(t, err, "construct cni plugins configuration failed")
 
 	bridgeConfig := &BridgeConfig{}
