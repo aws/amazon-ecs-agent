@@ -75,6 +75,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 	for {
 		tcsError := startTelemetrySession(params, statsEngine)
 		if tcsError == nil || tcsError == io.EOF {
+			seelog.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		} else {
 			log.Infof("Error from tcs; backing off: %v", tcsError)
@@ -89,7 +90,6 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 		log.Errorf("Unable to discover poll endpoint: ", err)
 		return err
 	}
-	log.Debugf("Connecting to TCS endpoint %v", tcsEndpoint)
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
 	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
@@ -123,6 +123,7 @@ func startSession(url string, cfg *config.Config, credentialProvider *credential
 		log.Errorf("Error connecting to TCS: %v", err.Error())
 		return err
 	}
+	log.Info("Connected to TCS endpoint")
 	return client.Serve()
 }
 

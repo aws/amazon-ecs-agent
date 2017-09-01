@@ -132,6 +132,7 @@ type ClientServerImpl struct {
 // 'MakeRequest' can be made after calling this, but responss will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
+	seelog.Debugf("Establishing a Websocket connection to %s", cs.URL)
 	cs.writeLock.Lock()
 	defer cs.writeLock.Unlock()
 	parsedURL, err := url.Parse(cs.URL)
@@ -287,7 +288,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 			cs.handleMessage(message)
 
 		case permissibleCloseCode(err):
-			seelog.Infof("Connection closed for a valid reason: %s", err)
+			seelog.Debugf("Connection closed for a valid reason: %s", err)
 			return io.EOF
 
 		default:
