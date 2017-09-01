@@ -200,6 +200,7 @@ func (acsSession *session) Start() error {
 			if shouldReconnectWithoutBackoff(acsError) {
 				// If ACS closed the connection, there's no need to backoff,
 				// reconnect immediately
+				seelog.Info("ACS Websocket connection closed for a valid reason")
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
 			} else {
@@ -293,6 +294,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
+	seelog.Info("Connected to ACS endpoint")
+
 	acsSession.resources.connectedToACS()
 
 	backoffResetTimer := time.AfterFunc(
