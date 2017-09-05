@@ -401,11 +401,11 @@ func newSessionResources(credentialsProvider *credentials.Credentials) sessionRe
 
 // acsWsURL returns the websocket url for ACS given the endpoint
 func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.TaskEngine, acsSessionState sessionState) string {
-	acsUrl := endpoint
+	acsURL := endpoint
 	if endpoint[len(endpoint)-1] != '/' {
-		acsUrl += "/"
+		acsURL += "/"
 	}
-	acsUrl += "ws"
+	acsURL += "ws"
 	query := url.Values{}
 	query.Set("clusterArn", cluster)
 	query.Set("containerInstanceArn", containerInstanceArn)
@@ -416,7 +416,7 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 		query.Set("dockerVersion", "DockerVersion: "+dockerVersion)
 	}
 	query.Set(sendCredentialsURLParameterName, acsSessionState.getSendCredentialsURLParameter())
-	return acsUrl + "?" + query.Encode()
+	return acsURL + "?" + query.Encode()
 }
 
 // newDisconnectionTimer creates a new time object, with a callback to
