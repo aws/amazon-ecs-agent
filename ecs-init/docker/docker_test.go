@@ -227,6 +227,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE=true", envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true", envVariables, t)
+	expectKey("ECS_ENABLE_TASK_ENI=true", envVariables, t)
 
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
@@ -234,8 +235,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 
 	hostCfg := opts.HostConfig
 
-	if len(hostCfg.Binds) != 5 {
-		t.Errorf("Expected exactly 5 elements to be in Binds, but was %d", len(hostCfg.Binds))
+	if len(hostCfg.Binds) != 9 {
+		t.Errorf("Expected exactly 9 elements to be in Binds, but was %d", len(hostCfg.Binds))
 	}
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
@@ -247,9 +248,38 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.AgentDataDirectory()+":/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
+	expectKey(config.ProcFS+":"+hostProcDir+":ro", binds, t)
+	expectKey(config.AgentDHClientLeasesDirectory()+":"+dhclientLeasesLocation, binds, t)
+	expectKey(dhclientLibDir+":"+dhclientLibDir+":ro", binds, t)
+	expectKey(dhclientExecutableDir+":"+dhclientExecutableDir+":ro", binds, t)
 
 	if hostCfg.NetworkMode != networkMode {
 		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)
+	}
+
+	if len(hostCfg.CapAdd) != 2 {
+		t.Error("Mismatch detected in added host config capabilities")
+	}
+
+	capNetAdminFound := false
+	capSysAdminFound := false
+	for _, cap := range hostCfg.CapAdd {
+		if cap == CapNetAdmin {
+			capNetAdminFound = true
+		}
+		if cap == CapSysAdmin {
+			capSysAdminFound = true
+		}
+	}
+	if !capNetAdminFound {
+		t.Errorf("Missing %s from host config capabilities", CapNetAdmin)
+	}
+	if !capSysAdminFound {
+		t.Errorf("Missing %s from host config capabilities", CapSysAdmin)
+	}
+
+	if hostCfg.Init != true {
+		t.Error("Incorrect host config. Expected Init to be true")
 	}
 }
 
