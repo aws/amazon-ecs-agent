@@ -18,6 +18,8 @@ package api
 import (
 	"path/filepath"
 	"strings"
+
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -49,4 +51,9 @@ func (task *Task) downcaseAllVolumePaths() {
 
 func getCanonicalPath(path string) string {
 	return filepath.Clean(strings.ToLower(path))
+}
+
+// platformHostConfigOverride to override platform specific feature sets
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
+	// Placeholder
 }

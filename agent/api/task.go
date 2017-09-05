@@ -432,6 +432,8 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
+	task.platformHostConfigOverride(hostConfig)
+
 	return hostConfig, nil
 }
 
