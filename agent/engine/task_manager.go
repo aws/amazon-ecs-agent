@@ -29,7 +29,7 @@ const (
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
-	taskUnableToCreateCgroup              = "TaskStateError: Agent could not create task cgroup"
+	taskUnableToCreatePlatformResources   = "TaskStateError: Agent could not create task's platform resources"
 )
 
 type acsTaskUpdate struct {
@@ -130,8 +130,13 @@ func (mtask *managedTask) overseeTask() {
 			llog.Debug("Task not steady state or terminal; progressing it")
 
 			// TODO:
-			// 1) Add platform resources setup and failure handling
-			// 2) Add new task resources provisioned state ?
+			// 1) Add new task resources provisioned state ?
+			err := mtask.SetupPlatformResources()
+			if err != nil {
+				seelog.Criticalf("Unable to setup task platform resources: %v", err)
+				mtask.SetDesiredStatus(api.TaskStopped)
+				mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
+			}
 			mtask.progressContainers()
 		}
 
@@ -608,6 +613,10 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	mtask.engine.sweepTask(mtask.Task)
 
 	// TODO: Remove platform task resources
+	err := mtask.CleanupPlatformResources()
+	if err != nil {
+		seelog.Warnf("Unable to cleanup platform resources: %v", err)
+	}
 
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()

@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -59,7 +59,7 @@ func getCanonicalPath(path string) string {
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
 // passed to Docker API.
 func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
-	task.overrideDefaultMemorySwappiness(hostConfig);
+	task.overrideDefaultMemorySwappiness(hostConfig)
 }
 
 // overrideDefaultMemorySwappiness Overrides the value of MemorySwappiness to -1

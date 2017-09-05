@@ -874,6 +874,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 			},
 		},
 	})
+
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
 	container := mTask.Containers[0]
