@@ -189,7 +189,6 @@ func (c *Client) StartAgent() (int, error) {
 }
 
 func (c *Client) getContainerConfig() *godocker.Config {
-
 	// default environment variables
 	envVariables := map[string]string{
 		"ECS_LOGFILE":                           logDir + "/" + config.AgentLogFile,
@@ -200,7 +199,11 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_AVAILABLE_LOGGING_DRIVERS":         `["json-file","syslog","awslogs"]`,
 		"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
-		"ECS_ENABLE_TASK_ENI":                   "true",
+	}
+
+	// merge in platform-specific environment variables
+	for envKey, envValue := range getPlatformSpecificEnvVariables() {
+		envVariables[envKey] = envValue
 	}
 
 	// merge in user-supplied environment variables
@@ -252,18 +255,9 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
-		config.ProcFS + ":" + hostProcDir + readOnly,
-		config.AgentDHClientLeasesDirectory() + ":" + dhclientLeasesLocation,
-		dhclientLibDir + ":" + dhclientLibDir + readOnly,
-		dhclientExecutableDir + ":" + dhclientExecutableDir + readOnly,
 	}
-	return &godocker.HostConfig{
-		Binds:       binds,
-		NetworkMode: networkMode,
-		UsernsMode:  usernsMode,
-		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
-		Init:        true,
-	}
+
+	return createHostConfig(binds)
 }
 
 // StopAgent stops the Agent in docker if one is running
