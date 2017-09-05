@@ -13,3 +13,5 @@ _bin/
 *.sublime-*
 .DS_Store
 /misc/windows-iam/devcon*
+/misc/pause-container/pause
+/amazon-ecs-cni-plugins

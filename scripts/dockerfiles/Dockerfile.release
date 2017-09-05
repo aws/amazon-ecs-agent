@@ -1,4 +1,4 @@
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,11 @@ FROM amazon/amazon-ecs-scratch:make
 
 COPY out/amazon-ecs-agent /agent
 COPY ["LICENSE", "NOTICE", "/"]
+
+COPY out/amazon-ecs-pause.tar /images/amazon-ecs-pause.tar
+
+# Copy our cni plugins ecs-eni, ecs-ipam and ecs-bridge
+COPY out/cni-plugins /amazon-ecs-cni-plugins
 
 # Copy our bundled certs to the first place go will check: see
 # https://golang.org/src/pkg/crypto/x509/root_unix.go

@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -79,6 +80,7 @@ type session struct {
 	deregisterInstanceEventStream   *eventstream.EventStream
 	taskEngine                      engine.TaskEngine
 	ecsClient                       api.ECSClient
+	state                           dockerstate.TaskEngineState
 	stateManager                    statemanager.StateManager
 	credentialsManager              rolecredentials.Manager
 	taskHandler                     *eventhandler.TaskHandler
@@ -135,6 +137,7 @@ func NewSession(ctx context.Context,
 	containerInstanceArn string,
 	credentialsProvider *credentials.Credentials,
 	ecsClient api.ECSClient,
+	taskEngineState dockerstate.TaskEngineState,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
@@ -150,6 +153,7 @@ func NewSession(ctx context.Context,
 		containerInstanceARN:            containerInstanceArn,
 		credentialsProvider:             credentialsProvider,
 		ecsClient:                       ecsClient,
+		state:                           taskEngineState,
 		stateManager:                    stateManager,
 		taskEngine:                      taskEngine,
 		credentialsManager:              credentialsManager,
@@ -221,7 +225,7 @@ func (acsSession *session) Start() error {
 				}
 			}
 		case <-acsSession.ctx.Done():
-			seelog.Debugf("context done")
+			seelog.Debugf("ACS session context cancelled")
 			return acsSession.ctx.Err()
 		}
 
@@ -263,6 +267,20 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 	defer refreshCredsHandler.stop()
 
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
+
+	// Add handler to ack ENI attach message
+	eniAttachHandler := newAttachENIHandler(
+		acsSession.ctx,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.state,
+		acsSession.stateManager,
+	)
+	eniAttachHandler.start()
+	defer eniAttachHandler.stop()
+
+	client.AddRequestHandler(eniAttachHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
 	payloadHandler := newPayloadRequestHandler(

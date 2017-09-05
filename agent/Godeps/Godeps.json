@@ -185,9 +185,43 @@
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
 		},
 		{
+			"ImportPath": "github.com/containernetworking/cni/libcni",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/invoke",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types/020",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types/current",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/version",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Comment": "v1.0.0-3-g6d21280",
 			"Rev": "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
+		},
+		{
+			"ImportPath": "github.com/deniswernert/udev",
+			"Rev": "82fe5be8ca5f7d8255cc838723687f61bb175120"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/api/types/filters",
@@ -331,6 +365,11 @@
 			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
 		},
 		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.8.0-3-gbfd5150",
+			"Rev": "bfd5150e4e41705ded2129ec33379de1cb90b513"
+		},
+		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
 			"Comment": "v1.0.0",
 			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -349,6 +388,18 @@
 			"ImportPath": "github.com/stretchr/testify/suite",
 			"Comment": "v1.1.3-19-gd77da35",
 			"Rev": "d77da356e56a7428ad25149ca77381849a6a5232"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "fe3b5664d23a11b52ba59bece4ff29c52772a56b"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink/nl",
+			"Rev": "fe3b5664d23a11b52ba59bece4ff29c52772a56b"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netns",
+			"Rev": "54f0e4339ce73702a0607f49922aaa1e749b418d"
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",

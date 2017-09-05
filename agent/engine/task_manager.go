@@ -330,7 +330,7 @@ func (mtask *managedTask) handleStoppedToRunningContainerTransition(status api.C
 	llog := log.New("task", mtask.Task)
 	containerKnownStatus := container.GetKnownStatus()
 	if status <= containerKnownStatus && containerKnownStatus == api.ContainerStopped {
-		if status == api.ContainerRunning {
+		if status.IsRunning() {
 			// If the container becomes running after we've stopped it (possibly
 			// because we got an error running it and it ran anyways), the first time
 			// update it to 'known running' so that it will be driven back to stopped
@@ -504,12 +504,14 @@ func (mtask *managedTask) containerNextState(container *api.Container) (api.Cont
 	var nextState api.ContainerStatus
 	if container.DesiredTerminal() {
 		nextState = api.ContainerStopped
-		if containerKnownStatus != api.ContainerRunning {
+		// It's not enough to just check if container is in steady state here
+		// we should really check if >= RUNNING <= STOPPED
+		if !container.IsRunning() {
 			// If it's not currently running we do not need to do anything to make it become stopped.
 			return nextState, false, true
 		}
 	} else {
-		nextState = containerKnownStatus + 1
+		nextState = container.GetNextKnownStateProgression()
 	}
 	return nextState, true, true
 }
@@ -602,7 +604,14 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()
 	mtask.engine.state.RemoveTask(mtask.Task)
-	seelog.Debug("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
+	eni := mtask.Task.GetTaskENI()
+	if eni == nil {
+		seelog.Debugf("No eni associated with task: [%s]", mtask.Task.String())
+	} else {
+		seelog.Debugf("Removing the eni from agent state, task: [%s]", mtask.Task.String())
+		mtask.engine.state.RemoveENIAttachment(eni.MacAddress)
+	}
+	seelog.Debugf("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
 	delete(mtask.engine.managedTasks, mtask.Arn)
 	handleCleanupDone <- struct{}{}
 	mtask.engine.processTasks.Unlock()

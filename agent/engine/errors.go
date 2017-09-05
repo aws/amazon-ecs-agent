@@ -281,3 +281,17 @@ func (err CannotListContainersError) Error() string {
 func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
 }
+
+// ContainerNetworkingError indicates any error when dealing with the network
+// namespace of container
+type ContainerNetworkingError struct {
+	fromError error
+}
+
+func (err ContainerNetworkingError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err ContainerNetworkingError) ErrorName() string {
+	return "ContainerNetworkingError"
+}

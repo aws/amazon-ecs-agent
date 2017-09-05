@@ -41,9 +41,16 @@ func TestDoStartHappyPath(t *testing.T) {
 	discoverEndpointsInvoked.Add(1)
 	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
 
+	// These calls are expected to happen, but cannot be ordered as they are
+	// invoked via go routines, which will lead to occasional test failues
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
+		// Ensures that the test waits until acs session has bee started
+		discoverEndpointsInvoked.Done()
+	}).Return("poll-endpoint", nil)
+	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
@@ -54,11 +61,6 @@ func TestDoStartHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
-		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
-			// Ensures that the test waits until acs session has bee started
-			discoverEndpointsInvoked.Done()
-		}).Return("poll-endpoint", nil),
-		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes(),
 	)
 
 	cfg := config.DefaultConfig()

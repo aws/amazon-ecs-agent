@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -36,13 +37,17 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-const clusterName = "some-cluster"
+const (
+	clusterName          = "some-cluster"
+	containerInstanceARN = "container-instance1"
+)
+
+var capabilities []*ecs.Attribute
 
 func setup(t *testing.T) (*gomock.Controller,
 	*mock_credentials.MockManager,
@@ -90,7 +95,6 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -136,7 +140,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		ec2MetadataClient:     ec2MetadataClient,
 		stateManagerFactory:   stateManagerFactory,
@@ -184,7 +187,9 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	gomock.InOrder(
+		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
@@ -198,8 +203,8 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
-		credentialProvider: defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:       dockerClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -241,7 +246,6 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -296,7 +300,6 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -351,7 +354,6 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -386,7 +388,6 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -422,7 +423,6 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: saveableOptionFactory,
@@ -463,7 +463,6 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                   ctx,
 		cfg:                   &cfg,
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		dockerClient:          dockerClient,
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
@@ -512,18 +511,16 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, capabilities).Return(containerInstanceARN, nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(containerInstanceARN, nil),
 	)
 	cfg := config.DefaultConfig()
 	cfg.Cluster = clusterName
@@ -533,11 +530,12 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.NoError(t, err)
 }
 
@@ -545,18 +543,16 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, capabilities).Return(
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", awserr.New("", api.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
@@ -568,11 +564,12 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -581,18 +578,16 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, capabilities).Return(
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
 
@@ -604,11 +599,12 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -617,18 +613,16 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, capabilities).Return(
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", errors.New("error")),
 	)
 
@@ -640,11 +634,12 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.True(t, isTranisent(err))
 }
@@ -653,18 +648,16 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-	containerInstanceARN := "container-instance1"
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance("", capabilities).Return(containerInstanceARN, nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(containerInstanceARN, nil),
 		stateManager.EXPECT().Save(),
 	)
 
@@ -676,10 +669,11 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, containerInstanceARN, agent.containerInstanceARN)
 }
@@ -688,18 +682,17 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-
 	retriableError := utils.NewRetriableError(utils.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance("", capabilities).Return("", retriableError),
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", retriableError),
 	)
 
 	cfg := config.DefaultConfig()
@@ -710,10 +703,11 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.True(t, isTranisent(err))
 }
@@ -722,18 +716,17 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-
 	cannotRetryError := utils.NewRetriableError(utils.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance("", capabilities).Return("", cannotRetryError),
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", cannotRetryError),
 	)
 
 	cfg := config.DefaultConfig()
@@ -744,10 +737,11 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }
@@ -756,17 +750,16 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	mockDockerClient := engine.NewMockDockerClient(ctrl)
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	capabilities := []string{""}
-
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		taskEngine.EXPECT().Capabilities().Return(capabilities),
-		client.EXPECT().RegisterContainerInstance("", capabilities).Return(
+		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
+		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
 
@@ -778,10 +771,11 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
+		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
 
-	err := agent.registerContainerInstance(taskEngine, stateManager, client)
+	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
 }

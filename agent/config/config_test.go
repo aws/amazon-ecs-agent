@@ -23,8 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -67,14 +67,14 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
 
-	config, err := NewConfig(mockEc2Metadata)
+	cfg, err := NewConfig(mockEc2Metadata)
 	if err != nil {
 		t.Fatal("Expected no error")
 	}
-	if config.AWSRegion != "us-west-2" {
-		t.Fatal("Wrong region: " + config.AWSRegion)
+	if cfg.AWSRegion != "us-west-2" {
+		t.Fatal("Wrong region: " + cfg.AWSRegion)
 	}
-	if config.APIEndpoint != "" {
+	if cfg.APIEndpoint != "" {
 		t.Fatal("Endpoint env variable not set; endpoint should be blank")
 	}
 }
@@ -96,6 +96,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")
 	os.Setenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")
 	os.Setenv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")
+	os.Setenv("ECS_ENABLE_TASK_ENI", "true")
 
 	conf, err := environmentConfig()
 	assert.Nil(t, err)
@@ -116,6 +117,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
+	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
@@ -208,7 +210,7 @@ func TestInvalideValueDockerStopTimeout(t *testing.T) {
 	assert.Zero(t, conf.DockerStopTimeout)
 }
 
-func TestInvalideDockerStopTimeout(t *testing.T) {
+func TestInvalidDockerStopTimeout(t *testing.T) {
 	conf := DefaultConfig()
 	conf.DockerStopTimeout = -1 * time.Second
 

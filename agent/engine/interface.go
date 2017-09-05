@@ -34,7 +34,7 @@ type TaskEngine interface {
 	// StateChangeEvents will provide information about tasks that have been previously
 	// executed. Specifically, it will provide information when they reach
 	// running or stopped, as well as providing portbinding and other metadata
-	StateChangeEvents() <-chan statechange.Event
+	StateChangeEvents() chan statechange.Event
 	SetSaver(statemanager.Saver)
 
 	// AddTask adds a new task to the task engine and manages its container's
@@ -48,9 +48,6 @@ type TaskEngine interface {
 	GetTaskByArn(string) (*api.Task, bool)
 
 	Version() (string, error)
-	// Capabilities returns an array of capabilities this task engine has, which
-	// should model what it can execute.
-	Capabilities() []string
 
 	json.Marshaler
 	json.Unmarshaler

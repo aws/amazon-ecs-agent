@@ -43,6 +43,8 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
 	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
 	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
+	os.Unsetenv("ECS_ENABLE_TASK_ENI")
+	os.Unsetenv("ECS_CNI_PLUGINS_PATH")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Nil(t, err)
@@ -56,6 +58,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver}, cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
+	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
@@ -64,6 +67,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
+	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
@@ -76,7 +80,9 @@ func TestConfigFromFile(t *testing.T) {
     "email":"email"
   }
 }`
-	configContent := fmt.Sprintf(`{
+	testPauseImageName := "pause-image-name"
+	testPauseTag := "pause-image-tag"
+	content := fmt.Sprintf(`{
   "Cluster": "%s",
   "EngineAuthType": "%s",
   "EngineAuthData": %s,
@@ -84,22 +90,26 @@ func TestConfigFromFile(t *testing.T) {
   "TaskIAMRoleEnabled": true,
   "InstanceAttributes": {
     "attribute1": "value1"
-  }
-}`, cluster, dockerAuthType, dockerAuth)
+  },
+  "PauseContainerImageName":"%s",
+  "PauseContainerTag":"%s"
+}`, cluster, dockerAuthType, dockerAuth, testPauseImageName, testPauseTag)
 
-	configFile := setupDockerAuthConfiguration(t, configContent)
+	configFile := setupDockerAuthConfiguration(t, content)
 	defer os.Remove(configFile)
 
 	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", configFile)
 	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
 
-	config, err := fileConfig()
+	cfg, err := fileConfig()
 	assert.NoError(t, err, "reading configuration from file failed")
 
-	assert.Equal(t, cluster, config.Cluster, "cluster name not as expected from file")
-	assert.Equal(t, dockerAuthType, config.EngineAuthType, "docker auth type not as expected from file")
-	assert.Equal(t, dockerAuth, string(config.EngineAuthData.Contents()), "docker auth data not as expected from file")
-	assert.Equal(t, map[string]string{"attribute1": "value1"}, config.InstanceAttributes)
+	assert.Equal(t, cluster, cfg.Cluster, "cluster name not as expected from file")
+	assert.Equal(t, dockerAuthType, cfg.EngineAuthType, "docker auth type not as expected from file")
+	assert.Equal(t, dockerAuth, string(cfg.EngineAuthData.Contents()), "docker auth data not as expected from file")
+	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
+	assert.Equal(t, testPauseImageName, cfg.PauseContainerImageName, "should read PauseContainerImageName")
+	assert.Equal(t, testPauseTag, cfg.PauseContainerTag, "should read PauseContainerTag")
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge
@@ -138,6 +148,16 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	assert.Equal(t, dockerAuthType, config.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(config.EngineAuthData.Contents()), "docker auth data not as expected from file")
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, config.InstanceAttributes)
+}
+
+func TestShouldLoadPauseContainerTarball(t *testing.T) {
+	cfg := DefaultConfig()
+	assert.True(t, cfg.ShouldLoadPauseContainerTarball(), "should load tarball by default")
+	cfg.PauseContainerTag = "foo!"
+	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if tag differs")
+	cfg = DefaultConfig()
+	cfg.PauseContainerImageName = "foo!"
+	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if image name differs")
 }
 
 // setupDockerAuthConfiguration create a temp file store the configuration

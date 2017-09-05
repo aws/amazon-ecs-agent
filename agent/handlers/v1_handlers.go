@@ -66,7 +66,7 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
 	containers := []ContainerResponse{}
 	for containerName, container := range containerMap {
-		if container.Container.IsInternal {
+		if container.Container.IsInternal() {
 			continue
 		}
 		containers = append(containers, ContainerResponse{container.DockerID, container.DockerName, containerName})

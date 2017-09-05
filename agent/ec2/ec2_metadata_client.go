@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@ package ec2
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -28,6 +29,9 @@ const (
 	SecurityCrednetialsResource               = "iam/security-credentials/"
 	InstanceIdentityDocumentResource          = "instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
+	MacResource                               = "mac"
+	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
+	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 )
 
 const (
@@ -57,6 +61,9 @@ type EC2MetadataClient interface {
 	GetMetadata(string) (string, error)
 	GetDynamicData(string) (string, error)
 	InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
+	VPCID(mac string) (string, error)
+	SubnetID(mac string) (string, error)
+	PrimaryENIMAC() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -112,4 +119,22 @@ func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (ec2metadata.EC2Insta
 // GetMetadata returns the metadata from instance metadata service specified by the path
 func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
 	return c.client.GetMetadata(path)
+}
+
+// PrimaryENIMAC returns the MAC address for the primary
+// network interface of the instance
+func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
+	return c.client.GetMetadata(MacResource)
+}
+
+// VPCID returns the VPC id for the network interface, given
+// its mac address
+func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
+	return c.client.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
+}
+
+// SubnetID returns the subnet id for the network interface,
+// given its mac address
+func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
+	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
 }

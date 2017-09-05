@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,6 +50,7 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 		t.Error("Empty state should have no image states")
 	}
 
+	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 0)
 	task, ok := state.TaskByShortID("test")
 	if assert.Empty(t, ok, "Empty state should have no tasks") {
 		assert.Empty(t, task, "Empty state should have no tasks")
@@ -74,6 +76,33 @@ func TestAddTask(t *testing.T) {
 	if task.Arn != "test" {
 		t.Error("Wrong task retrieved")
 	}
+}
+
+func TestAddRemoveENIAttachment(t *testing.T) {
+	state := NewTaskEngineState()
+
+	attachment := &api.ENIAttachment{
+		TaskARN:       "taskarn",
+		AttachmentARN: "eni1",
+		MACAddress:    "mac1",
+	}
+
+	state.AddENIAttachment(attachment)
+	assert.Len(t, state.(*DockerTaskEngineState).AllENIAttachments(), 1)
+	eni, ok := state.ENIByMac("mac1")
+	assert.True(t, ok)
+	assert.Equal(t, eni.TaskARN, attachment.TaskARN)
+
+	eni, ok = state.ENIByMac("non-mac")
+	assert.False(t, ok)
+	assert.Nil(t, eni)
+
+	// Remove the attachment from state
+	state.RemoveENIAttachment(attachment.MACAddress)
+	assert.Len(t, state.AllImageStates(), 0)
+	eni, ok = state.ENIByMac("mac1")
+	assert.False(t, ok)
+	assert.Nil(t, eni)
 }
 
 func TestTwophaseAddContainer(t *testing.T) {

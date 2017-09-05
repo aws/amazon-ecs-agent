@@ -13,6 +13,11 @@
 
 package api
 
+import (
+	"errors"
+	"strings"
+)
+
 const (
 	// TaskStatusNone is the zero state of a task; this task has been received but no further progress has completed
 	TaskStatusNone TaskStatus = iota
@@ -24,6 +29,8 @@ const (
 	TaskRunning
 	// TaskStopped represents a task in which all containers are stopped
 	TaskStopped
+	// TaskZombie is an "impossible" state that is used as the maximum
+	TaskZombie
 )
 
 // TaskStatus is an enumeration of valid states in the task lifecycle
@@ -46,7 +53,7 @@ func (ts TaskStatus) String() string {
 	return "NONE"
 }
 
-// Mapping task status in the agent to that in the backend
+// BackendStatus maps the internal task status in the agent to that in the backend
 func (ts *TaskStatus) BackendStatus() string {
 	switch *ts {
 	case TaskRunning:
@@ -65,14 +72,14 @@ func (ts *TaskStatus) BackendRecognized() bool {
 }
 
 // ContainerStatus maps the task status to the corresponding container status
-func (ts *TaskStatus) ContainerStatus() ContainerStatus {
+func (ts *TaskStatus) ContainerStatus(steadyState ContainerStatus) ContainerStatus {
 	switch *ts {
 	case TaskStatusNone:
 		return ContainerStatusNone
 	case TaskCreated:
 		return ContainerCreated
 	case TaskRunning:
-		return ContainerRunning
+		return steadyState
 	case TaskStopped:
 		return ContainerStopped
 	}
@@ -82,4 +89,42 @@ func (ts *TaskStatus) ContainerStatus() ContainerStatus {
 // Terminal returns true if the Task status is STOPPED
 func (ts TaskStatus) Terminal() bool {
 	return ts == TaskStopped
+}
+
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded TaskStatus data
+func (ts *TaskStatus) UnmarshalJSON(b []byte) error {
+	if strings.ToLower(string(b)) == "null" {
+		*ts = TaskStatusNone
+		return nil
+	}
+	if b[0] != '"' || b[len(b)-1] != '"' {
+		*ts = TaskStatusNone
+		return errors.New("TaskStatus must be a string or null")
+	}
+	strStatus := string(b[1 : len(b)-1])
+	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
+	if strStatus == "UNKNOWN" {
+		*ts = TaskStatusNone
+		return nil
+	}
+	if strStatus == "DEAD" {
+		*ts = TaskStopped
+		return nil
+	}
+
+	stat, ok := taskStatusMap[strStatus]
+	if !ok {
+		*ts = TaskStatusNone
+		return errors.New("Unrecognized TaskStatus")
+	}
+	*ts = stat
+	return nil
+}
+
+// MarshalJSON overrides the logic for JSON-encoding the TaskStatus type
+func (ts *TaskStatus) MarshalJSON() ([]byte, error) {
+	if ts == nil {
+		return nil, nil
+	}
+	return []byte(`"` + ts.String() + `"`), nil
 }

@@ -17,6 +17,7 @@
 package engine
 
 import (
+	io "io"
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
@@ -58,16 +59,6 @@ func (_m *MockTaskEngine) AddTask(_param0 *api.Task) error {
 
 func (_mr *_MockTaskEngineRecorder) AddTask(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTask", arg0)
-}
-
-func (_m *MockTaskEngine) Capabilities() []string {
-	ret := _m.ctrl.Call(_m, "Capabilities")
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-func (_mr *_MockTaskEngineRecorder) Capabilities() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Capabilities")
 }
 
 func (_m *MockTaskEngine) Disable() {
@@ -137,9 +128,9 @@ func (_mr *_MockTaskEngineRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockTaskEngine) StateChangeEvents() <-chan statechange.Event {
+func (_m *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 	ret := _m.ctrl.Call(_m, "StateChangeEvents")
-	ret0, _ := ret[0].(<-chan statechange.Event)
+	ret0, _ := ret[0].(chan statechange.Event)
 	return ret0
 }
 
@@ -261,6 +252,16 @@ func (_m *MockDockerClient) ListContainers(_param0 bool, _param1 time.Duration) 
 
 func (_mr *_MockDockerClientRecorder) ListContainers(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0, arg1)
+}
+
+func (_m *MockDockerClient) LoadImage(_param0 io.Reader, _param1 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) LoadImage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0, arg1)
 }
 
 func (_m *MockDockerClient) PullImage(_param0 string, _param1 *api.RegistryAuthenticationData) DockerContainerMetadata {

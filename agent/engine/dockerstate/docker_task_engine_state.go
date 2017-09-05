@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/cihub/seelog"
 )
 
 var log = logger.ForModule("dockerstate")
@@ -50,6 +51,12 @@ type TaskEngineState interface {
 	AddContainer(container *api.DockerContainer, task *api.Task)
 	// AddImageState adds an image.ImageState to be stored
 	AddImageState(imageState *image.ImageState)
+	// AddENIAttachment adds an eni attachment from acs to be stored
+	AddENIAttachment(eni *api.ENIAttachment)
+	// RemoveENIAttachment removes an eni attachment to stop tracking
+	RemoveENIAttachment(mac string)
+	// ENIByMac returns the specific ENIAttachment of the given mac address
+	ENIByMac(mac string) (*api.ENIAttachment, bool)
 	// RemoveTask removes a task from the state
 	RemoveTask(task *api.Task)
 	// Reset resets all the fileds in the state
@@ -76,11 +83,12 @@ type TaskEngineState interface {
 type DockerTaskEngineState struct {
 	lock sync.RWMutex
 
-	tasks         map[string]*api.Task                       // taskarn -> api.Task
-	idToTask      map[string]string                          // DockerId -> taskarn
-	taskToID      map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
-	idToContainer map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
-	imageStates   map[string]*image.ImageState
+	tasks          map[string]*api.Task                       // taskarn -> api.Task
+	idToTask       map[string]string                          // DockerId -> taskarn
+	taskToID       map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
+	idToContainer  map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
+	eniAttachments map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
+	imageStates    map[string]*image.ImageState
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -103,6 +111,7 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.taskToID = make(map[string]map[string]*api.DockerContainer)
 	state.idToContainer = make(map[string]*api.DockerContainer)
 	state.imageStates = make(map[string]*image.ImageState)
+	state.eniAttachments = make(map[string]*api.ENIAttachment)
 }
 
 // Reset resets all the states
@@ -142,6 +151,66 @@ func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
 		allImageStates = append(allImageStates, imageState)
 	}
 	return allImageStates
+}
+
+// AllENIAttachments returns all the enis managed by ecs on the instance
+func (state *DockerTaskEngineState) AllENIAttachments() []*api.ENIAttachment {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allENIAttachmentsUnsafe()
+}
+
+func (state *DockerTaskEngineState) allENIAttachmentsUnsafe() []*api.ENIAttachment {
+	var allENIAttachments []*api.ENIAttachment
+	for _, v := range state.eniAttachments {
+		allENIAttachments = append(allENIAttachments, v)
+	}
+
+	return allENIAttachments
+}
+
+// ENIByMac returns the eni object that match the give mac address
+func (state *DockerTaskEngineState) ENIByMac(mac string) (*api.ENIAttachment, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	eni, ok := state.eniAttachments[mac]
+	return eni, ok
+}
+
+// AddENIAttachment adds the eni into the state
+func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *api.ENIAttachment) {
+	if eniAttachment == nil {
+		log.Debug("Cannot add empty eni attachment information")
+		return
+	}
+
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	if _, ok := state.eniAttachments[eniAttachment.MACAddress]; !ok {
+		state.eniAttachments[eniAttachment.MACAddress] = eniAttachment
+	} else {
+		seelog.Debugf("Duplicate eni attachment information: %v", eniAttachment)
+	}
+
+}
+
+// RemoveENIAttachment removes the eni from state and stop managing
+func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
+	if mac == "" {
+		log.Debug("Cannot remove empty eni attachment information")
+		return
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	if _, ok := state.eniAttachments[mac]; ok {
+		delete(state.eniAttachments, mac)
+	} else {
+		seelog.Debugf("Delete non-existed eni attachment: %v", mac)
+	}
 }
 
 // GetAllContainerIDs returns all of the Container Ids

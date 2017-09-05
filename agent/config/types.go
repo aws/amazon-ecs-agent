@@ -119,6 +119,10 @@ type Config struct {
 	// tasks with IAM Roles when networkMode is set to 'host'
 	TaskIAMRoleEnabledForNetworkHost bool
 
+	// TaskENIEnabled specifies if the Agent is capable of launching task within
+	// defined EC2 networks
+	TaskENIEnabled bool
+
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
 	ImageCleanupDisabled bool
@@ -143,6 +147,22 @@ type Config struct {
 
 	// Set if clients validate ssl certificates. Used mainly for testing
 	AcceptInsecureCert bool `json:"-"`
+
+	// CNIPluginsPath is the path for the cni plugins
+	CNIPluginsPath string
+
+	// PauseContainerTarballPath is the path to the pause container tarball
+	PauseContainerTarballPath string
+
+	// PauseContainerImageName is the name for the pause container image.
+	// Setting this value to be different from the default will disable loading
+	// the image from the tarball; the referenced image must already be loaded.
+	PauseContainerImageName string
+
+	// PauseContainerTag is the tag for the pause container image.
+	// Setting this value to be different from the default will disable loading
+	// the image from the tarball; the referenced image must already be loaded.
+	PauseContainerTag string
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

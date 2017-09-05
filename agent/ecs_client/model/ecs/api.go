@@ -3205,6 +3205,74 @@ func (c *ECS) UpdateServiceWithContext(ctx aws.Context, input *UpdateServiceInpu
 	return out, req.Send()
 }
 
+type Attachment struct {
+	_ struct{} `type:"structure"`
+
+	Details []*KeyValuePair `locationName:"details" type:"list"`
+
+	Id *string `locationName:"id" type:"string"`
+
+	Type *string `locationName:"type" type:"string"`
+}
+
+// String returns the string representation
+func (s Attachment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Attachment) GoString() string {
+	return s.String()
+}
+
+// SetDetails sets the Details field's value.
+func (s *Attachment) SetDetails(v []*KeyValuePair) *Attachment {
+	s.Details = v
+	return s
+}
+
+// SetId sets the Id field's value.
+func (s *Attachment) SetId(v string) *Attachment {
+	s.Id = &v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *Attachment) SetType(v string) *Attachment {
+	s.Type = &v
+	return s
+}
+
+type AttachmentStateChange struct {
+	_ struct{} `type:"structure"`
+
+	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
+
+	Status *string `locationName:"status" type:"string"`
+}
+
+// String returns the string representation
+func (s AttachmentStateChange) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachmentStateChange) GoString() string {
+	return s.String()
+}
+
+// SetAttachmentArn sets the AttachmentArn field's value.
+func (s *AttachmentStateChange) SetAttachmentArn(v string) *AttachmentStateChange {
+	s.AttachmentArn = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *AttachmentStateChange) SetStatus(v string) *AttachmentStateChange {
+	s.Status = &v
+	return s
+}
+
 // The attributes applicable to a container instance when it is registered.
 type Attribute struct {
 	_ struct{} `type:"structure"`
@@ -3266,6 +3334,44 @@ func (s *Attribute) SetTargetType(v string) *Attribute {
 // SetValue sets the Value field's value.
 func (s *Attribute) SetValue(v string) *Attribute {
 	s.Value = &v
+	return s
+}
+
+type AwsVpcParameters struct {
+	_ struct{} `type:"structure"`
+
+	Role *string `locationName:"role" type:"string"`
+
+	SecurityGroups []*string `locationName:"securityGroups" type:"list"`
+
+	Subnets []*string `locationName:"subnets" type:"list"`
+}
+
+// String returns the string representation
+func (s AwsVpcParameters) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AwsVpcParameters) GoString() string {
+	return s.String()
+}
+
+// SetRole sets the Role field's value.
+func (s *AwsVpcParameters) SetRole(v string) *AwsVpcParameters {
+	s.Role = &v
+	return s
+}
+
+// SetSecurityGroups sets the SecurityGroups field's value.
+func (s *AwsVpcParameters) SetSecurityGroups(v []*string) *AwsVpcParameters {
+	s.SecurityGroups = v
+	return s
+}
+
+// SetSubnets sets the Subnets field's value.
+func (s *AwsVpcParameters) SetSubnets(v []*string) *AwsVpcParameters {
+	s.Subnets = v
 	return s
 }
 
@@ -3899,6 +4005,8 @@ type ContainerInstance struct {
 	// this value is NULL.
 	AgentUpdateStatus *string `locationName:"agentUpdateStatus" type:"string" enum:"AgentUpdateStatus"`
 
+	Attachments []*Attachment `locationName:"attachments" type:"list"`
+
 	// The attributes set for the container instance by the Amazon ECS container
 	// agent at instance registration.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
@@ -3958,6 +4066,12 @@ func (s *ContainerInstance) SetAgentConnected(v bool) *ContainerInstance {
 // SetAgentUpdateStatus sets the AgentUpdateStatus field's value.
 func (s *ContainerInstance) SetAgentUpdateStatus(v string) *ContainerInstance {
 	s.AgentUpdateStatus = &v
+	return s
+}
+
+// SetAttachments sets the Attachments field's value.
+func (s *ContainerInstance) SetAttachments(v []*Attachment) *ContainerInstance {
+	s.Attachments = v
 	return s
 }
 
@@ -4224,6 +4338,8 @@ type CreateServiceInput struct {
 	// access from the load balancer.
 	LoadBalancers []*LoadBalancer `locationName:"loadBalancers" type:"list"`
 
+	NetworkParameters *NetworkParameters `locationName:"networkParameters" type:"structure"`
+
 	PlacementConstraints []*PlacementConstraint `locationName:"placementConstraints" type:"list"`
 
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
@@ -4312,6 +4428,12 @@ func (s *CreateServiceInput) SetLaunchType(v string) *CreateServiceInput {
 // SetLoadBalancers sets the LoadBalancers field's value.
 func (s *CreateServiceInput) SetLoadBalancers(v []*LoadBalancer) *CreateServiceInput {
 	s.LoadBalancers = v
+	return s
+}
+
+// SetNetworkParameters sets the NetworkParameters field's value.
+func (s *CreateServiceInput) SetNetworkParameters(v *NetworkParameters) *CreateServiceInput {
+	s.NetworkParameters = v
 	return s
 }
 
@@ -6381,6 +6503,28 @@ func (s *NetworkBinding) SetProtocol(v string) *NetworkBinding {
 	return s
 }
 
+type NetworkParameters struct {
+	_ struct{} `type:"structure"`
+
+	AwsvpcParameters *AwsVpcParameters `locationName:"awsvpcParameters" type:"structure"`
+}
+
+// String returns the string representation
+func (s NetworkParameters) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s NetworkParameters) GoString() string {
+	return s.String()
+}
+
+// SetAwsvpcParameters sets the AwsvpcParameters field's value.
+func (s *NetworkParameters) SetAwsvpcParameters(v *AwsVpcParameters) *NetworkParameters {
+	s.AwsvpcParameters = v
+	return s
+}
+
 type PlacementConstraint struct {
 	_ struct{} `type:"structure"`
 
@@ -6929,6 +7073,8 @@ type RunTaskInput struct {
 
 	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
 
+	NetworkParameters *NetworkParameters `locationName:"networkParameters" type:"structure"`
+
 	// A list of container overrides in JSON format that specify the name of a container
 	// in the specified task definition and the overrides it should receive. You
 	// can override the default command for a container (that is specified in the
@@ -7009,6 +7155,12 @@ func (s *RunTaskInput) SetGroup(v string) *RunTaskInput {
 // SetLaunchType sets the LaunchType field's value.
 func (s *RunTaskInput) SetLaunchType(v string) *RunTaskInput {
 	s.LaunchType = &v
+	return s
+}
+
+// SetNetworkParameters sets the NetworkParameters field's value.
+func (s *RunTaskInput) SetNetworkParameters(v *NetworkParameters) *RunTaskInput {
+	s.NetworkParameters = v
 	return s
 }
 
@@ -7316,6 +7468,8 @@ type StartTaskInput struct {
 
 	Group *string `locationName:"group" type:"string"`
 
+	NetworkParameters *NetworkParameters `locationName:"networkParameters" type:"structure"`
+
 	// A list of container overrides in JSON format that specify the name of a container
 	// in the specified task definition and the overrides it should receive. You
 	// can override the default command for a container (that is specified in the
@@ -7387,6 +7541,12 @@ func (s *StartTaskInput) SetContainerInstances(v []*string) *StartTaskInput {
 // SetGroup sets the Group field's value.
 func (s *StartTaskInput) SetGroup(v string) *StartTaskInput {
 	s.Group = &v
+	return s
+}
+
+// SetNetworkParameters sets the NetworkParameters field's value.
+func (s *StartTaskInput) SetNetworkParameters(v *NetworkParameters) *StartTaskInput {
+	s.NetworkParameters = v
 	return s
 }
 
@@ -7627,6 +7787,8 @@ func (s *SubmitContainerStateChangeOutput) SetAcknowledgment(v string) *SubmitCo
 type SubmitTaskStateChangeInput struct {
 	_ struct{} `type:"structure"`
 
+	Attachments []*AttachmentStateChange `locationName:"attachments" type:"list"`
+
 	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts
 	// the task.
 	Cluster *string `locationName:"cluster" type:"string"`
@@ -7652,6 +7814,12 @@ func (s SubmitTaskStateChangeInput) String() string {
 // GoString returns the string representation
 func (s SubmitTaskStateChangeInput) GoString() string {
 	return s.String()
+}
+
+// SetAttachments sets the Attachments field's value.
+func (s *SubmitTaskStateChangeInput) SetAttachments(v []*AttachmentStateChange) *SubmitTaskStateChangeInput {
+	s.Attachments = v
+	return s
 }
 
 // SetCluster sets the Cluster field's value.
@@ -7711,6 +7879,8 @@ func (s *SubmitTaskStateChangeOutput) SetAcknowledgment(v string) *SubmitTaskSta
 type Task struct {
 	_ struct{} `type:"structure"`
 
+	Attachments []*Attachment `locationName:"attachments" type:"list"`
+
 	// The Amazon Resource Name (ARN) of the of the cluster that hosts the task.
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
@@ -7766,6 +7936,12 @@ func (s Task) String() string {
 // GoString returns the string representation
 func (s Task) GoString() string {
 	return s.String()
+}
+
+// SetAttachments sets the Attachments field's value.
+func (s *Task) SetAttachments(v []*Attachment) *Task {
+	s.Attachments = v
+	return s
 }
 
 // SetClusterArn sets the ClusterArn field's value.

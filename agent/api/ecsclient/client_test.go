@@ -37,7 +37,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
-const configuredCluster = "mycluster"
+const (
+	configuredCluster = "mycluster"
+	iid               = "instanceIdentityDocument"
+	iidSignature      = "signature"
+)
+
+var (
+	iidResponse          = []byte(iid)
+	iidSignatureResponse = []byte(iidSignature)
+)
 
 func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, additionalAttributes map[string]string) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
 	client := NewECSClient(credentials.AnonymousCredentials,
@@ -54,6 +63,10 @@ func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, a
 
 type containerSubmitInputMatcher struct {
 	ecs.SubmitContainerStateChangeInput
+}
+
+type taskSubmitInputMatcher struct {
+	ecs.SubmitTaskStateChangeInput
 }
 
 func strptr(s string) *string { return &s }
@@ -81,6 +94,33 @@ func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 }
 
 func (lhs *containerSubmitInputMatcher) String() string {
+	return fmt.Sprintf("%+v", *lhs)
+}
+
+func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
+	rhs := x.(*ecs.SubmitTaskStateChangeInput)
+
+	if !(equal(lhs.Cluster, rhs.Cluster) &&
+		equal(lhs.Task, rhs.Task) &&
+		equal(lhs.Status, rhs.Status) &&
+		equal(lhs.Reason, rhs.Reason) &&
+		equal(len(lhs.Attachments), len(rhs.Attachments))) {
+		return false
+	}
+
+	if len(lhs.Attachments) != 0 {
+		for i, _ := range lhs.Attachments {
+			if !(equal(lhs.Attachments[i].Status, rhs.Attachments[i].Status) &&
+				equal(lhs.Attachments[i].AttachmentArn, rhs.Attachments[i].AttachmentArn)) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (lhs *taskSubmitInputMatcher) String() string {
 	return fmt.Sprintf("%+v", *lhs)
 }
 
@@ -256,43 +296,47 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
-	capabilities := []string{"capability1", "capability2"}
+	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.os-type": api.OSType,
 	}
-	for i := range capabilities {
-		expectedAttributes[capabilities[i]] = ""
+	for i := range fakeCapabilities {
+		expectedAttributes[fakeCapabilities[i]] = ""
 	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
 
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil)
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil)
-	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-		assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
-		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
-		assert.Equal(t, "instanceIdentityDocument", *req.InstanceIdentityDocument, "Wrong IID")
-		assert.Equal(t, "signature", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-		assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
-		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
-		assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
-		assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-		assert.Equal(t, 3, len(req.Attributes), "Wrong number of Attributes")
-		reqAttributes := func() map[string]string {
-			rv := make(map[string]string, len(req.Attributes))
-			for i := range req.Attributes {
-				rv[*req.Attributes[i].Name] = aws.StringValue(req.Attributes[i].Value)
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
+			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
+			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+			// "ecs.os-type" and the 2 that we specified as additionalAttributes
+			assert.Equal(t, 3, len(req.Attributes), "Wrong number of Attributes")
+			reqAttributes := func() map[string]string {
+				rv := make(map[string]string, len(req.Attributes))
+				for i := range req.Attributes {
+					rv[*req.Attributes[i].Name] = aws.StringValue(req.Attributes[i].Value)
+				}
+				return rv
+			}()
+			for k, v := range reqAttributes {
+				assert.Contains(t, expectedAttributes, k)
+				assert.Equal(t, expectedAttributes[k], v)
 			}
-			return rv
-		}()
-		for k, v := range reqAttributes {
-			assert.Contains(t, expectedAttributes, k)
-			assert.Equal(t, expectedAttributes[k], v)
-		}
-	}).Return(&ecs.RegisterContainerInstanceOutput{
-		ContainerInstance: &ecs.ContainerInstance{
-			ContainerInstanceArn: aws.String("registerArn"),
-			Attributes:           buildAttributeList(capabilities, expectedAttributes),
-		}},
-		nil)
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes),
+			}},
+			nil),
+	)
 
 	arn, err := client.RegisterContainerInstance("arn:test", capabilities)
 	if err != nil {
@@ -312,37 +356,41 @@ func TestRegisterContainerInstance(t *testing.T) {
 	}
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
 
-	capabilities := []string{"capability1", "capability2"}
+	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               api.OSType,
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
 
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil)
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil)
-	mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-		assert.Nil(t, req.ContainerInstanceArn)
-		assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
-		assert.Equal(t, "instanceIdentityDocument", *req.InstanceIdentityDocument, "Wrong IID")
-		assert.Equal(t, "signature", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-		assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
-		resource, ok := findResource(req.TotalResources, "PORTS_UDP")
-		assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
-		assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-		assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
-		for i := range req.Attributes {
-			if strings.Contains(*req.Attributes[i].Name, "capability") {
-				assert.Contains(t, capabilities, *req.Attributes[i].Name)
-			} else {
-				assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			assert.Nil(t, req.ContainerInstanceArn)
+			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
+			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+			// 3 from expectedAttributes and 2 from additionalAttributes
+			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			for i := range req.Attributes {
+				if strings.Contains(*req.Attributes[i].Name, "capability") {
+					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
+				} else {
+					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
+				}
 			}
-		}
-	}).Return(&ecs.RegisterContainerInstanceOutput{
-		ContainerInstance: &ecs.ContainerInstance{
-			ContainerInstanceArn: aws.String("registerArn"),
-			Attributes:           buildAttributeList(capabilities, expectedAttributes)}},
-		nil)
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
+			nil),
+	)
 
 	arn, err := client.RegisterContainerInstance("", capabilities)
 	assert.NoError(t, err)
@@ -366,9 +414,10 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	client.(*APIECSClient).SetSDK(mockSDK)
 	client.(*APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
 
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil)
-	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil)
-
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+	)
 	_, err := client.RegisterContainerInstance("", nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
@@ -404,8 +453,14 @@ func TestRegisterBlankCluster(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+
 	// Test the special 'empty cluster' behavior of creating 'default'
-	client := NewECSClient(credentials.AnonymousCredentials, &config.Config{Cluster: "", AWSRegion: "us-east-1"}, mockEC2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{
+			Cluster:   "",
+			AWSRegion: "us-east-1",
+		},
+		mockEC2Metadata)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 
@@ -424,10 +479,10 @@ func TestRegisterBlankCluster(t *testing.T) {
 			if *req.Cluster != config.DefaultClusterName {
 				t.Errorf("Wrong cluster: %v", *req.Cluster)
 			}
-			if *req.InstanceIdentityDocument != "instanceIdentityDocument" {
+			if *req.InstanceIdentityDocument != iid {
 				t.Errorf("Wrong IID: %v", *req.InstanceIdentityDocument)
 			}
-			if *req.InstanceIdentityDocumentSignature != "signature" {
+			if *req.InstanceIdentityDocumentSignature != iidSignature {
 				t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
 			}
 		}).Return(&ecs.RegisterContainerInstanceOutput{
@@ -588,4 +643,56 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	if telemetryEndpoint != pollEndpoint {
 		t.Errorf("Mismatch in poll endpoint: %s", endpoint)
 	}
+}
+
+// TestSubmitTaskStateChangeWithAttachments tests the SubmitTaskStateChange API
+// also send the Attachment Status
+func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster: aws.String(configuredCluster),
+			Task:    aws.String("task_arn"),
+			Attachments: []*ecs.AttachmentStateChange{
+				{
+					AttachmentArn: aws.String("eni_arn"),
+					Status:        aws.String("ATTACHED"),
+				},
+			},
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskARN: "task_arn",
+		Attachment: &api.ENIAttachment{
+			AttachmentARN: "eni_arn",
+			Status:        api.ENIAttached,
+		},
+	})
+	assert.NoError(t, err, "Unable to submit task state change with attachments")
+}
+
+//
+func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster: aws.String(configuredCluster),
+			Task:    aws.String("task_arn"),
+			Reason:  aws.String(""),
+			Status:  aws.String("RUNNING"),
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskARN: "task_arn",
+		Status:  api.TaskRunning,
+	})
+	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }

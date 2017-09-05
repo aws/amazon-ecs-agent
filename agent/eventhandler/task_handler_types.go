@@ -14,8 +14,9 @@
 package eventhandler
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"sync"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
 // a state change that may have a container and, optionally, a task event to
@@ -64,7 +65,7 @@ func (event *sendableEvent) taskArn() string {
 	if event.isContainerEvent {
 		return event.containerChange.TaskArn
 	}
-	return event.taskChange.TaskArn
+	return event.taskChange.TaskARN
 }
 
 func (event *sendableEvent) taskShouldBeSent() bool {
@@ -81,6 +82,18 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 		return false // redundant event
 	}
 	return true
+}
+
+func (event *sendableEvent) taskAttachmentShouldBeSent() bool {
+	event.lock.RLock()
+	defer event.lock.RUnlock()
+	if event.isContainerEvent {
+		return false
+	}
+	tevent := event.taskChange
+	return tevent.Status == api.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
+		tevent.Attachment != nil && // Task has attachment records
+		!tevent.Attachment.IsSent() // Task status hasn't already been sent
 }
 
 func (event *sendableEvent) containerShouldBeSent() bool {
