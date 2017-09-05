@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	log "github.com/cihub/seelog"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 func StartMetricsSession(params TelemetrySessionParams) {
 	disabled, err := params.isTelemetryDisabled()
 	if err != nil {
-		log.Warnf("Error getting telemetry config: %v", err)
+		seelog.Warnf("Error getting telemetry config: %v", err)
 		return
 	}
 
@@ -53,16 +53,16 @@ func StartMetricsSession(params TelemetrySessionParams) {
 		statsEngine := stats.NewDockerStatsEngine(params.Cfg, params.DockerClient, params.ContainerChangeEventStream)
 		err := statsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster, params.ContainerInstanceArn)
 		if err != nil {
-			log.Warnf("Error initializing metrics engine: %v", err)
+			seelog.Warnf("Error initializing metrics engine: %v", err)
 			return
 		}
 		err = StartSession(params, statsEngine)
 		if err != nil {
-			log.Warnf("Error starting metrics session with backend: %v", err)
+			seelog.Warnf("Error starting metrics session with backend: %v", err)
 			return
 		}
 	} else {
-		log.Info("Metric collection disabled")
+		seelog.Info("Metric collection disabled")
 	}
 }
 
@@ -78,7 +78,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 			seelog.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		} else {
-			log.Infof("Error from tcs; backing off: %v", tcsError)
+			seelog.Infof("Error from tcs; backing off: %v", tcsError)
 			params.time().Sleep(backoff.Duration())
 		}
 	}
@@ -87,7 +87,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	tcsEndpoint, err := params.ECSClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
-		log.Errorf("Unable to discover poll endpoint: ", err)
+		seelog.Errorf("Unable to discover poll endpoint: %v", err)
 		return err
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
@@ -112,7 +112,7 @@ func startSession(url string, cfg *config.Config, credentialProvider *credential
 	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 		// Close the connection if there haven't been any messages received from backend
 		// for a long time.
-		log.Debug("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
+		seelog.Debug("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
 		client.Disconnect()
 	})
 	defer timer.Stop()
@@ -120,17 +120,17 @@ func startSession(url string, cfg *config.Config, credentialProvider *credential
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	err = client.Connect()
 	if err != nil {
-		log.Errorf("Error connecting to TCS: %v", err.Error())
+		seelog.Errorf("Error connecting to TCS: %v", err.Error())
 		return err
 	}
-	log.Info("Connected to TCS endpoint")
+	seelog.Info("Connected to TCS endpoint")
 	return client.Serve()
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.
 func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 	return func(*ecstcs.HeartbeatMessage) {
-		log.Debug("Received HeartbeatMessage from tcs")
+		seelog.Debug("Received HeartbeatMessage from tcs")
 		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
@@ -139,7 +139,7 @@ func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 // the ack each time it processes a metric message.
 func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 	return func(*ecstcs.AckPublishMetric) {
-		log.Debug("Received AckPublishMetric from tcs")
+		seelog.Debug("Received AckPublishMetric from tcs")
 		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
