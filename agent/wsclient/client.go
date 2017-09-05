@@ -204,12 +204,15 @@ func (cs *ClientServerImpl) Connect() error {
 	return nil
 }
 
+// IsReady gives a boolean response that informs the caller if the websocket
+// connection is fully established.
 func (cs *ClientServerImpl) IsReady() bool {
 	cs.writeLock.Lock()
 	defer cs.writeLock.Unlock()
 	return cs.conn != nil
 }
 
+// SetConnection passes a websocket connection object into the client.
 func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
 	cs.conn = conn
 }
@@ -247,6 +250,7 @@ func (cs *ClientServerImpl) AddRequestHandler(f RequestHandler) {
 	cs.RequestHandlers[firstArgTypeStr] = f
 }
 
+// SetAnyRequestHandler passes a RequestHandler object into the client.
 func (cs *ClientServerImpl) SetAnyRequestHandler(f RequestHandler) {
 	cs.AnyRequestHandler = f
 }
