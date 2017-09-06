@@ -47,6 +47,7 @@ func DefaultConfig() Config {
 		PauseContainerTarballPath:   pauseContainerTarballPath,
 		PauseContainerImageName:     DefaultPauseContainerImageName,
 		PauseContainerTag:           DefaultPauseContainerTag,
+		AWSVPCBlockInstanceMetdata:  false,
 	}
 }
 

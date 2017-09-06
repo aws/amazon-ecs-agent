@@ -380,3 +380,11 @@ func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
 		t.Errorf("Wrong value for NumImagesToDeletePerCycle: %v", cfg.NumImagesToDeletePerCycle)
 	}
 }
+
+func TestAWSVPCBlockInstanceMetadata(t *testing.T) {
+	os.Setenv("ECS_AWSVPC_BLOCK_IMDS", "true")
+	defer os.Unsetenv("ECS_AWSVPC_BLOCK_IMDS")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.AWSVPCBlockInstanceMetdata)
+}
