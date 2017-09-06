@@ -1340,47 +1340,53 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 }
 
 func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
-	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
-	defer ctrl.Finish()
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			config := defaultConfig
+			config.AWSVPCBlockInstanceMetdata = blockIMDS
+			ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &config)
+			defer ctrl.Finish()
 
-	testTask := testdata.LoadTask("sleep5")
-	testTask.SetTaskENI(&api.ENI{
-		ID: "TestBuildCNIConfigFromTaskContainer",
-		IPV4Addresses: []*api.ENIIPV4Address{
-			{
-				Primary: true,
-				Address: ipv4,
-			},
-		},
-		MacAddress: mac,
-		IPV6Addresses: []*api.ENIIPV6Address{
-			{
-				Address: ipv6,
-			},
-		},
-	})
-	container := &api.Container{
-		Name: "container",
+			testTask := testdata.LoadTask("sleep5")
+			testTask.SetTaskENI(&api.ENI{
+				ID: "TestBuildCNIConfigFromTaskContainer",
+				IPV4Addresses: []*api.ENIIPV4Address{
+					{
+						Primary: true,
+						Address: ipv4,
+					},
+				},
+				MacAddress: mac,
+				IPV6Addresses: []*api.ENIIPV6Address{
+					{
+						Address: ipv6,
+					},
+				},
+			})
+			container := &api.Container{
+				Name: "container",
+			}
+			taskEngine.(*DockerTaskEngine).state.AddContainer(&api.DockerContainer{
+				Container:  container,
+				DockerName: dockerContainerName,
+			}, testTask)
+
+			dockerClient.EXPECT().InspectContainer(dockerContainerName, gomock.Any()).Return(&docker.Container{
+				ID:    containerID,
+				State: docker.State{Pid: containerPid},
+			}, nil)
+
+			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+			assert.NoError(t, err)
+			assert.Equal(t, containerID, cniConfig.ContainerID)
+			assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+			assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+			assert.Equal(t, mac, cniConfig.ENIMACAddress)
+			assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
+			assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
+			assert.Equal(t, blockIMDS, cniConfig.BlockInstanceMetdata)
+		})
 	}
-	taskEngine.(*DockerTaskEngine).state.AddContainer(&api.DockerContainer{
-		Container:  container,
-		DockerName: dockerContainerName,
-	}, testTask)
-
-	dockerClient.EXPECT().InspectContainer(dockerContainerName, gomock.Any()).Return(&docker.Container{
-		ID:    containerID,
-		State: docker.State{Pid: containerPid},
-	}, nil)
-
-	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
-	assert.NoError(t, err)
-
-	assert.Equal(t, containerID, cniConfig.ContainerID)
-	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
-	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-	assert.Equal(t, mac, cniConfig.ENIMACAddress)
-	assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
-	assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
 }
 
 func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {

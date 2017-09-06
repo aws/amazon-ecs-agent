@@ -107,6 +107,9 @@ type ENIConfig struct {
 	IPV6Address string `json:"ipv6-address, omitempty"`
 	// MacAddress is the mac address of eni
 	MACAddress string `json:"mac"`
+	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
+	// blocked
+	BlockInstanceMetdata bool `json:"block-instance-metadata"`
 }
 
 // Config contains all the information to set up the container namespace using
@@ -134,4 +137,7 @@ type Config struct {
 	IPAMV4Address string
 	// ID is the information associate with ip in ipam
 	ID string
+	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
+	// blocked
+	BlockInstanceMetdata bool
 }
