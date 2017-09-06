@@ -136,12 +136,13 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 
 	eniConf := ENIConfig{
-		Type:        ECSENIPluginName,
-		CNIVersion:  client.cniVersion,
-		ENIID:       cfg.ENIID,
-		IPV4Address: cfg.ENIIPV4Address,
-		MACAddress:  cfg.ENIMACAddress,
-		IPV6Address: cfg.ENIIPV6Address,
+		Type:                 ECSENIPluginName,
+		CNIVersion:           client.cniVersion,
+		ENIID:                cfg.ENIID,
+		IPV4Address:          cfg.ENIIPV4Address,
+		MACAddress:           cfg.ENIMACAddress,
+		IPV6Address:          cfg.ENIIPV6Address,
+		BlockInstanceMetdata: cfg.BlockInstanceMetdata,
 	}
 
 	bridgeConfBytes, err := json.Marshal(bridgeConf)

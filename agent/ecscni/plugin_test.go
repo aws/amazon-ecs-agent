@@ -50,13 +50,14 @@ func TestConstructNetworkConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
 
 	config := &Config{
-		ENIID:          "eni-12345678",
-		ContainerID:    "containerid12",
-		ContainerPID:   "pid",
-		ENIIPV4Address: "172.31.21.40",
-		ENIIPV6Address: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:  "02:7b:64:49:b1:40",
-		BridgeName:     "bridge-test1",
+		ENIID:                "eni-12345678",
+		ContainerID:          "containerid12",
+		ContainerPID:         "pid",
+		ENIIPV4Address:       "172.31.21.40",
+		ENIIPV6Address:       "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		ENIMACAddress:        "02:7b:64:49:b1:40",
+		BridgeName:           "bridge-test1",
+		BlockInstanceMetdata: true,
 	}
 
 	networkConfigList, err := ecscniClient.(*cniClient).constructNetworkConfig(config)
@@ -81,6 +82,7 @@ func TestConstructNetworkConfig(t *testing.T) {
 	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
 	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
 	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
+	assert.True(t, eniConfig.BlockInstanceMetdata)
 }
 
 func TestCNIPluginVersion(t *testing.T) {

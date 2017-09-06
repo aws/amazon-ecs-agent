@@ -712,6 +712,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
+	cfg.BlockInstanceMetdata = engine.cfg.AWSVPCBlockInstanceMetdata
 
 	return cfg, nil
 }
