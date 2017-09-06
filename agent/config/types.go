@@ -163,6 +163,10 @@ type Config struct {
 	// Setting this value to be different from the default will disable loading
 	// the image from the tarball; the referenced image must already be loaded.
 	PauseContainerTag string
+
+	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
+	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true
+	AWSVPCBlockInstanceMetdata bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

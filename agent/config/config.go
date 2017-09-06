@@ -325,6 +325,7 @@ func environmentConfig() (Config, error) {
 	}
 
 	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
+	awsVPCBlockInstanceMetadata := utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false)
 
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
 	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
@@ -377,6 +378,7 @@ func environmentConfig() (Config, error) {
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   cniPluginsPath,
+		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
 	}, err
 }
 
