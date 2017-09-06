@@ -244,6 +244,39 @@ func TestSendsEventsDedupe(t *testing.T) {
 	wg.Wait()
 }
 
+// TestCleanupTaskEventAfterSubmit tests the map of task event is removed after
+// calling submittaskstatechange
+func TestCleanupTaskEventAfterSubmit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateManager := statemanager.NewNoopStateManager()
+	client := mock_api.NewMockECSClient(ctrl)
+
+	handler := NewTaskHandler(stateManager)
+	taskarn := "taskarn"
+	taskarn2 := "taskarn2"
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	taskEvent1 := taskEvent(taskarn)
+	taskEvent2 := taskEvent(taskarn)
+	taskEvent3 := taskEvent(taskarn2)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(
+		func(change api.TaskStateChange) {
+			wg.Done()
+		}).Times(3)
+
+	handler.AddStateChangeEvent(taskEvent1, client)
+	handler.AddStateChangeEvent(taskEvent2, client)
+	handler.AddStateChangeEvent(taskEvent3, client)
+
+	wg.Wait()
+	assert.Len(t, handler.tasksToEvents, 0)
+}
+
 func TestShouldBeSent(t *testing.T) {
 	sendableEvent := newSendableContainerEvent(api.ContainerStateChange{
 		Status: api.ContainerStopped,

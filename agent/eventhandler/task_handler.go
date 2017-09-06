@@ -114,10 +114,12 @@ func (handler *TaskHandler) flushBatch(event *api.TaskStateChange) {
 	delete(handler.tasksToContainerStates, event.TaskARN)
 }
 
-// Prepares a given event to be sent by adding it to the handler's appropriate
-// eventList
+// addEvent prepares a given event to be sent by adding it to the handler's appropriate
+// eventList and remove the entry in tasksToEvents map
 func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient) {
-	seelog.Info("TaskHandler, Adding event: ", change)
+	handler.taskHandlerLock.Lock()
+	defer handler.taskHandlerLock.Unlock()
+	seelog.Infof("TaskHandler, Adding event: %s", change.String())
 
 	taskEvents := handler.getTaskEventList(change)
 
@@ -131,14 +133,12 @@ func (handler *TaskHandler) addEvent(change *sendableEvent, client api.ECSClient
 		taskEvents.sending = true
 		go handler.SubmitTaskEvents(taskEvents, client)
 	}
+
+	delete(handler.tasksToEvents, change.taskArn())
 }
 
-// getTaskEventList gets the eventList from taskToEvent map, and reduces the
-// scope of the taskToEventsLock to just this function
+// getTaskEventList gets the eventList from taskToEvent map
 func (handler *TaskHandler) getTaskEventList(change *sendableEvent) (taskEvents *eventList) {
-	handler.taskHandlerLock.Lock()
-	defer handler.taskHandlerLock.Unlock()
-
 	taskEvents, ok := handler.tasksToEvents[change.taskArn()]
 	if !ok {
 		seelog.Debug("TaskHandler, collecting events for new task ", change)
