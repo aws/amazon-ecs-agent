@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -32,8 +32,8 @@ import (
 type CNIClient interface {
 	Version(string) (string, error)
 	Capabilities(string) ([]string, error)
-	SetupNS(*Config, []string) error
-	CleanupNS(*Config, []string) error
+	SetupNS(*Config) error
+	CleanupNS(*Config) error
 }
 
 // cniClient is the client to call plugin and setup the network
@@ -60,14 +60,14 @@ func NewClient(cfg *Config) CNIClient {
 
 // SetupNS will set up the namespace of container, including create the bridge
 // and the veth pair, move the eni to container namespace, setup the routes
-func (client *cniClient) SetupNS(cfg *Config, additionalLocalRoutes []string) error {
+func (client *cniClient) SetupNS(cfg *Config) error {
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 		IfName:      defaultEthName,
 	}
 
-	netConfigList, err := client.constructNetworkConfig(cfg, additionalLocalRoutes)
+	netConfigList, err := client.constructNetworkConfig(cfg)
 	if err != nil {
 		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for confirguring namespace")
 	}
@@ -86,14 +86,14 @@ func (client *cniClient) SetupNS(cfg *Config, additionalLocalRoutes []string) er
 
 // CleanupNS will clean up the container namespace, including remove the veth
 // pair, release the ip address in ipam
-func (client *cniClient) CleanupNS(cfg *Config, additionalLocalRoutes []string) error {
+func (client *cniClient) CleanupNS(cfg *Config) error {
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 		IfName:      defaultEthName,
 	}
 
-	netConfigList, err := client.constructNetworkConfig(cfg, additionalLocalRoutes)
+	netConfigList, err := client.constructNetworkConfig(cfg)
 	if err != nil {
 		return errors.Wrap(err, "cni invocation: Failed to construct network configuration to clean up namespace")
 	}
@@ -105,27 +105,19 @@ func (client *cniClient) CleanupNS(cfg *Config, additionalLocalRoutes []string) 
 }
 
 // constructNetworkConfig creates configuration for eni, ipam and bridge plugin
-func (client *cniClient) constructNetworkConfig(cfg *Config, additionalLocalRoutes []string) (*libcni.NetworkConfigList, error) {
+func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkConfigList, error) {
 	_, dst, err := net.ParseCIDR(TaskIAMRoleEndpoint)
 
-	var routes []*types.Route
-
-	routes = append(routes,
-		&types.Route{
+	routes := []*cnitypes.Route{
+		{
 			Dst: *dst,
 		},
-	)
+	}
 
-	for _, destination := range additionalLocalRoutes {
-		_, route, err := net.ParseCIDR(destination)
-		if err != nil {
-			// If we're passed an unparsable network, we'll log an error but
-			// continue processing.
-			seelog.Errorf("Unable to parse destination %s: %s", destination, err)
-			continue
-		}
+	for _, route := range cfg.AdditionalLocalRoutes {
 		seelog.Debugf("Adding an additional route for %s", route)
-		routes = append(routes, &types.Route{ Dst: *route })
+		ipNetRoute := (net.IPNet)(route)
+		routes = append(routes, &cnitypes.Route{Dst: ipNetRoute})
 	}
 
 	ipamConf := IPAMConfig{
@@ -134,7 +126,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config, additionalLocalRout
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
 		ID:          cfg.ID,
-		IPV4Routes: routes,
+		IPV4Routes:  routes,
 	}
 
 	bridgeName := defaultBridgeName
@@ -165,7 +157,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config, additionalLocalRout
 	}
 	plugins := []*libcni.NetworkConfig{
 		&libcni.NetworkConfig{
-			Network: &types.NetConf{
+			Network: &cnitypes.NetConf{
 				Type: ECSBridgePluginName,
 			},
 			Bytes: bridgeConfBytes,
@@ -178,7 +170,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config, additionalLocalRout
 		return nil, err
 	}
 	plugins = append(plugins, &libcni.NetworkConfig{
-		Network: &types.NetConf{
+		Network: &cnitypes.NetConf{
 			Type: ECSENIPluginName,
 		},
 		Bytes: eniConfBytes,

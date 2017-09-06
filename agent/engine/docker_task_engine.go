@@ -680,7 +680,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
-	err = engine.cniClient.SetupNS(cniConfig, engine.cfg.AWSVPCAdditionalLocalRoutes)
+	err = engine.cniClient.SetupNS(cniConfig)
 	if err != nil {
 		seelog.Errorf("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
 		return DockerContainerMetadata{
@@ -703,7 +703,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 		return errors.Wrapf(err, "engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(cniConfig, engine.cfg.AWSVPCAdditionalLocalRoutes)
+	return engine.cniClient.CleanupNS(cniConfig)
 }
 
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
@@ -712,8 +712,14 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 		return nil, errors.Wrapf(err, "engine: build cni configuration from taskfailed")
 	}
 
-	if engine.cfg.OverrideAWSVPCLocalIPv4Address != "" {
+	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
+		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&
+		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.Mask) != 0 {
 		cfg.IPAMV4Address = engine.cfg.OverrideAWSVPCLocalIPv4Address
+	}
+
+	if len(engine.cfg.AWSVPCAdditionalLocalRoutes) != 0 {
+		cfg.AdditionalLocalRoutes = engine.cfg.AWSVPCAdditionalLocalRoutes
 	}
 
 	// Get the pid of container

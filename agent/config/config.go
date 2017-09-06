@@ -218,7 +218,8 @@ func fileConfig() (Config, error) {
 
 	err = json.Unmarshal(data, &cfg)
 	if err != nil {
-		seelog.Errorf("Error reading cfg json data, err %v", err)
+		seelog.Criticalf("Error reading cfg json data, err %v", err)
+		return cfg, err
 	}
 
 	// Handle any deprecated keys correctly here
@@ -293,6 +294,7 @@ func environmentConfig() (Config, error) {
 	}
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
