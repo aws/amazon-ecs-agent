@@ -23,8 +23,6 @@ import (
 )
 
 const (
-	portBindingHostIP = ""
-
 	//memorySwappinessDefault is the expected default value for this platform
 	memorySwappinessDefault = -1
 )
