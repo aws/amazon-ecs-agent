@@ -292,11 +292,6 @@ func (engine *DockerStatsEngine) addContainer(dockerID string) {
 		return
 	}
 
-	if err != nil {
-		seelog.Debugf("Could not get name for container, ignoring, err: %v, id: %s", err, dockerID)
-		return
-	}
-
 	// Check if this container is already being watched.
 	_, taskExists := engine.tasksToContainers[task.Arn]
 	if taskExists {
