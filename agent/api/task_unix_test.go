@@ -202,6 +202,24 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }
 
+// TestPlatformHostConfigOverride validates the platform host config overrides
+func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
+	task := &Task{
+		Arn:         invalidTaskArn,
+		VCPULimit:   float64(taskVCPULimit),
+		MemoryLimit: int64(taskMemoryLimit),
+		Containers: []*Container{
+			{
+				Name: "c1",
+			},
+		},
+	}
+
+	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	assert.Error(t, err)
+	assert.Empty(t, dockerHostConfig)
+}
+
 // TestCgroupEnabledAll validates the happy path for cgroup enabled
 func TestCgroupEnabledAll(t *testing.T) {
 	task := &Task{
