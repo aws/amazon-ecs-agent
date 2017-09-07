@@ -158,13 +158,11 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	assert.True(t, ok, "Could not get port bindings")
 	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
 	assert.Equal(t, "10", bindings[0].HostPort, "Wrong hostport")
-	assert.Equal(t, portBindingHostIP, bindings[0].HostIP, "Wrong hostIP")
 
 	bindings, ok = config.PortBindings["20/udp"]
 	assert.True(t, ok, "Could not get port bindings")
 	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
 	assert.Equal(t, "20", bindings[0].HostPort, "Wrong hostport")
-	assert.Equal(t, portBindingHostIP, bindings[0].HostIP, "Wrong hostIP")
 }
 
 func TestDockerHostConfigVolumesFrom(t *testing.T) {
