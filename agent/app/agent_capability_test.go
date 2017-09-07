@@ -47,11 +47,12 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
-		PrivilegedDisabled:      false,
-		SELinuxCapable:          true,
-		AppArmorCapable:         true,
-		TaskENIEnabled:          true,
-		TaskCleanupWaitDuration: config.DefaultConfig().TaskCleanupWaitDuration,
+		PrivilegedDisabled:         false,
+		SELinuxCapable:             true,
+		AppArmorCapable:            true,
+		TaskENIEnabled:             true,
+		AWSVPCBlockInstanceMetdata: true,
+		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
 	gomock.InOrder(
@@ -85,10 +86,15 @@ func TestCapabilities(t *testing.T) {
 			&ecs.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		&ecs.Attribute{
-			Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
-			Value: aws.String("v1"),
-		})
+		[]*ecs.Attribute{
+			{
+				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+				Value: aws.String("v1"),
+			},
+			{
+				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
+			},
+		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
