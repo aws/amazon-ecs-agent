@@ -23,12 +23,13 @@ import (
 )
 
 const (
-	capabilityPrefix             = "com.amazonaws.ecs.capability."
-	capabilityTaskIAMRole        = "task-iam-role"
-	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
-	attributePrefix              = "ecs.capability."
-	taskENIAttributeSuffix       = "task-eni"
-	cniPluginVersionSuffix       = "cni-plugin-version"
+	capabilityPrefix                            = "com.amazonaws.ecs.capability."
+	capabilityTaskIAMRole                       = "task-iam-role"
+	capabilityTaskIAMRoleNetHost                = "task-iam-role-network-host"
+	attributePrefix                             = "ecs.capability."
+	taskENIAttributeSuffix                      = "task-eni"
+	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
+	cniPluginVersionSuffix                      = "cni-plugin-version"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -49,7 +50,8 @@ const (
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
-//    ecs.capability.task-eni.0.1.0
+//    ecs.capability.task-eni
+//    ecs.capability.task-eni-block-instance-metadata
 func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	var capabilities []*ecs.Attribute
 
@@ -122,6 +124,14 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 			return capabilities
 		}
 		capabilities = append(capabilities, taskENIVersionAttribute)
+	}
+
+	if agent.cfg.AWSVPCBlockInstanceMetdata {
+		// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
+		// indicating the same
+		capabilities = append(capabilities, &ecs.Attribute{
+			Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
+		})
 	}
 
 	return capabilities
