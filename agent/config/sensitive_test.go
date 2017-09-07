@@ -22,10 +22,10 @@ import (
 )
 
 func TestSensitiveRawMessageImplements(t *testing.T) {
-	var _ fmt.Stringer = SensitiveRawMessage{}
-	var _ fmt.GoStringer = SensitiveRawMessage{}
-	var _ json.Marshaler = SensitiveRawMessage{}
-	var _ json.Unmarshaler = &SensitiveRawMessage{}
+	assert.Implements(t, (*fmt.Stringer)(nil), SensitiveRawMessage{})
+	assert.Implements(t, (*fmt.GoStringer)(nil), SensitiveRawMessage{})
+	assert.Implements(t, (*json.Marshaler)(nil), SensitiveRawMessage{})
+	assert.Implements(t, (*json.Unmarshaler)(nil), &SensitiveRawMessage{})
 }
 
 func TestSensitiveRawMessage(t *testing.T) {

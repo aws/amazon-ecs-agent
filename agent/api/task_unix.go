@@ -42,7 +42,7 @@ const (
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.memoryCPULimitsEnabledLock.Lock()
 	defer task.memoryCPULimitsEnabledLock.Unlock()
-	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit
+	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
 func getCanonicalPath(path string) string { return path }

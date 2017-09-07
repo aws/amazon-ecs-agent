@@ -76,6 +76,7 @@ func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
+	defaultConfig.TaskCPUMemLimit = config.ExplicitlyDisabled
 	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
@@ -1238,7 +1239,6 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
-
 	eventStream := make(chan DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
 

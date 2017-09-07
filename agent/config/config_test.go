@@ -101,9 +101,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
-	assert.True(t, conf.TaskCPUMemLimit, "Wrong value for TaskCPUMemLimit")
-	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 
+	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
 	assert.Equal(t, 2, conf.NumImagesToDeletePerCycle)
@@ -305,7 +304,8 @@ func TestTaskResourceLimitsOverride(t *testing.T) {
 	defer setTestEnv("ECS_ENABLE_TASK_CPU_MEM_LIMIT", "false")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.False(t, cfg.TaskCPUMemLimit, "Task resource limits should be overridden to false")
+	assert.False(t, cfg.TaskCPUMemLimit.Enabled(), "Task cpu and memory limits should be overridden to false")
+	assert.Equal(t, ExplicitlyDisabled, cfg.TaskCPUMemLimit, "Task cpu and memory limits should be explicitly set")
 }
 
 func TestAWSVPCBlockInstanceMetadata(t *testing.T) {

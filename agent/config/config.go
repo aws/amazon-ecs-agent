@@ -311,7 +311,19 @@ func environmentConfig() (Config, error) {
 	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
-	taskCPUMemLimitEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT"), true)
+
+	var taskCPUMemLimitEnabled Conditional
+	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
+
+	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
+	// We can do this by checking against the ParseBool default
+	if taskCPUMemLimitConfigString != "" {
+		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
+			taskCPUMemLimitEnabled = ExplicitlyEnabled
+		} else {
+			taskCPUMemLimitEnabled = ExplicitlyDisabled
+		}
+	}
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)

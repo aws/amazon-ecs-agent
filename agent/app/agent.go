@@ -195,7 +195,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Conditionally create '/ecs' cgroup root
 	// TODO: Ensure that this feature is enabled only when
 	// the cgroup mountpoint is accessible to the agent
-	if agent.cfg.TaskCPUMemLimit {
+	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
@@ -401,7 +401,12 @@ func (agent *ecsAgent) registerContainerInstance(
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
 	}
-	capabilities := append(agent.capabilities(), additionalAttributes...)
+
+	agentCapabilities, err := agent.capabilities()
+	if err != nil {
+		return err
+	}
+	capabilities := append(agentCapabilities, additionalAttributes...)
 
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
