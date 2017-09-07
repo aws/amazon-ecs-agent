@@ -126,7 +126,7 @@ func newAgent(
 		return nil, err
 	}
 
-	return &ecsAgent{
+	agent := &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
 		cfg:               cfg,
@@ -143,7 +143,10 @@ func newAgent(
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
 		os: oswrapper.New(),
-	}, nil
+	}
+
+	agent.initPlatformResources()
+	return agent, nil
 }
 
 // printVersion prints the ECS Agent version string
@@ -188,9 +191,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	// TODO:
-	// 1) Feature gate ECS cgroup root init
-	// 2) Update mocks and unit tests
+
+	err = agent.setupPlatformResources()
+	if err != nil {
+		log.Criticalf("Unable to setup platform resources: %v", err)
+		return exitcodes.ExitTerminal
+	}
 
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled

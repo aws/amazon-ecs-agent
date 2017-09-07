@@ -37,6 +37,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -180,6 +182,19 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until acs session has bee started
+			discoverEndpointsInvoked.Done()
+		}).Return("poll-endpoint", nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes(),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until telemetry session has bee started
+			discoverEndpointsInvoked.Done()
+		}).Return("telemetry-endpoint", nil),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
+			"tele-endpoint", nil).AnyTimes(),
+		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
+			engine.ListContainersResponse{}).AnyTimes(),
 	)
 
 	cfg := config.DefaultConfig()
@@ -445,3 +460,114 @@ func TestInitializeTaskENIDependenciesPauseLoaderError(t *testing.T) {
 // platform independent and we would be able to wrap it in a factory interface
 // so that we can mock the factory and test the initialization code path for
 // cases where udev monitor initialization fails as well
+
+func TestDoStartCgroupInitErrorTerminal(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+	setControl(mockControl)
+
+	dockerClient.EXPECT().Version().AnyTimes()
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+
+	gomock.InOrder(
+		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
+		mockControl.EXPECT().Init().Return(errors.New("cgroup init error")),
+	)
+
+	cfg := config.DefaultConfig()
+	// Enable Task CPU Mem Limits
+	cfg.TaskCPUMemLimit = true
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dockerClient:       dockerClient,
+	}
+
+	status := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+
+	assert.Equal(t, exitcodes.ExitTerminal, status)
+}
+
+func TestDoStartHappyPathWithECSPrefixExists(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+	setControl(mockControl)
+
+	var discoverEndpointsInvoked sync.WaitGroup
+	discoverEndpointsInvoked.Add(2)
+	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+
+	dockerClient.EXPECT().Version().AnyTimes()
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+
+	gomock.InOrder(
+		mockControl.EXPECT().Exists(gomock.Any()).Return(true),
+		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
+		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
+		imageManager.EXPECT().SetSaver(gomock.Any()),
+		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
+		state.EXPECT().AllImageStates().Return(nil),
+		state.EXPECT().AllTasks().Return(nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until acs session has bee started
+			discoverEndpointsInvoked.Done()
+		}).Return("poll-endpoint", nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes(),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until telemetry session has bee started
+			discoverEndpointsInvoked.Done()
+		}).Return("telemetry-endpoint", nil),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
+			"tele-endpoint", nil).AnyTimes(),
+		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
+			engine.ListContainersResponse{}).AnyTimes(),
+	)
+
+	cfg := config.DefaultConfig()
+	// Enable Task CPU Mem Limits
+	cfg.TaskCPUMemLimit = true
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dockerClient:       dockerClient,
+	}
+
+	go agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+
+	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
+	// invoked. These are used as proxies to indicate that acs and tcs handlers'
+	// NewSession call has been invoked
+	discoverEndpointsInvoked.Wait()
+}
+
+func TestSetControl(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+
+	setControl(mockControl)
+	assert.Equal(t, mockControl, control)
+}

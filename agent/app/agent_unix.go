@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -26,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -176,4 +178,39 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
+}
+
+// control is here to help create the cgroup root '/ecs' when
+// the feature is enabled. It also aids in unit testing
+var control cgroup.Control
+
+// initPlatformResources initializes platform resource controllers
+// Currently it helps initialize cgroup
+func (agent *ecsAgent) initPlatformResources() {
+	if agent.cfg.TaskCPUMemLimit {
+		setControl(cgroup.New())
+	}
+}
+
+// setupPlatformResources helps set up the platform resource controllers
+// Currently used to setup '/ecs' cgroup
+func (agent *ecsAgent) setupPlatformResources() error {
+	if agent.cfg.TaskCPUMemLimit {
+		return setupTaskCgroupPrefix()
+	}
+	return nil
+}
+
+// setupTaskCgroupPrefix creates the '/ecs' cgroup
+func setupTaskCgroupPrefix() error {
+	if control.Exists(config.DefaultTaskCgroupPrefix) {
+		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)
+		return nil
+	}
+	return control.Init()
+}
+
+// setControl sets the cgroup controller
+func setControl(controller cgroup.Control) {
+	control = controller
 }
