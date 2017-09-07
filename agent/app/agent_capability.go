@@ -124,14 +124,15 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 			return capabilities
 		}
 		capabilities = append(capabilities, taskENIVersionAttribute)
-	}
+		// We only care about AWSVPCBlockInstanceMetdata if Task ENI is enabled
+		if agent.cfg.AWSVPCBlockInstanceMetdata {
+			// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
+			// indicating the same
+			capabilities = append(capabilities, &ecs.Attribute{
+				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
+			})
+		}
 
-	if agent.cfg.AWSVPCBlockInstanceMetdata {
-		// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
-		// indicating the same
-		capabilities = append(capabilities, &ecs.Attribute{
-			Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
-		})
 	}
 
 	return capabilities
