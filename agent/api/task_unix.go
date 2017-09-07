@@ -16,7 +16,7 @@
 package api
 
 import (
-	"strings"
+	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -42,11 +42,10 @@ func getCanonicalPath(path string) string { return path }
 
 // CgroupEnabled checks whether cgroups need be enabled at the task level
 func (task *Task) CgroupEnabled() bool {
-	// TODO: check for more conditions
+	// TODO: check for more conditions including config
 	// CPU + Mem -> true
 	// CPU -> true
 	// Mem -> false
-	// !CPU || !Mem -> false
 	if !utils.ZeroOrNil(task.VCPULimit) {
 		return true
 	}
@@ -61,7 +60,7 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id")
 	}
 
-	cgroupRoot := strings.Join([]string{config.DefaultTaskCgroupPrefix, taskID}, sepForwardSlash)
+	cgroupRoot := filepath.Join(config.DefaultTaskCgroupPrefix, taskID)
 	return cgroupRoot, nil
 }
 
@@ -73,6 +72,8 @@ func (task *Task) BuildLinuxResourceSpec() specs.LinuxResources {
 		taskCPUPeriod := uint64(defaultCPUPeriod)
 		taskCPUQuota := int64(task.VCPULimit * defaultCPUPeriod)
 
+		// TODO: DefaultCPUPeriod only permits 10VCPUs.
+		// Adaptive calculation of CPUPeriod required for further support
 		linuxResourceSpec.CPU = &specs.LinuxCPU{
 			Quota:  &taskCPUQuota,
 			Period: &taskCPUPeriod,
@@ -90,22 +91,23 @@ func (task *Task) BuildLinuxResourceSpec() specs.LinuxResources {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	// Override cgroup parent
-	task.overrideCgroupParent(hostConfig)
+	return task.overrideCgroupParent(hostConfig)
 }
 
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
-func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) {
+func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
 	if !task.CgroupEnabled() {
-		return
+		return nil
 	}
 
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
 		seelog.Debugf("Unable to obtain task cgroup root: %v", err)
-		return
+		return errors.Wrap(err, "task cgroup override: unable to obtain cgroup root")
 	}
 	hostConfig.CgroupParent = cgroupRoot
+	return nil
 }

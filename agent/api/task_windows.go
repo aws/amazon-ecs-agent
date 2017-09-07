@@ -58,8 +58,9 @@ func getCanonicalPath(path string) string {
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
 // passed to Docker API.
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
+	return nil
 }
 
 // overrideDefaultMemorySwappiness Overrides the value of MemorySwappiness to -1

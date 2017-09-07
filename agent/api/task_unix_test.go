@@ -166,8 +166,8 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	}
 
 	hostConfig := &docker.HostConfig{}
-	task.overrideCgroupParent(hostConfig)
 
+	assert.NoError(t, task.overrideCgroupParent(hostConfig))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }
@@ -182,8 +182,8 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 	}
 
 	hostConfig := &docker.HostConfig{}
-	task.overrideCgroupParent(hostConfig)
 
+	assert.Error(t, task.overrideCgroupParent(hostConfig))
 	assert.Empty(t, hostConfig.CgroupParent)
 }
 
@@ -196,8 +196,8 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 	}
 
 	hostConfig := &docker.HostConfig{}
-	task.platformHostConfigOverride(hostConfig)
 
+	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }
