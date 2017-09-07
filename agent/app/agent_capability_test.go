@@ -275,3 +275,67 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]
 	assert.False(t, ok, "task-iam-role capability set for unsupported docker version")
 }
+
+func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := engine.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JSONFileDriver,
+		},
+		TaskENIEnabled:             false,
+		AWSVPCBlockInstanceMetdata: true,
+	}
+
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
+	)
+
+	expectedCapabilityNames := []string{
+		"com.amazonaws.ecs.capability.privileged-container",
+		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
+		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
+		"com.amazonaws.ecs.capability.logging-driver.json-file",
+	}
+
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedCapabilityNames {
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		cniClient:          cniClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+	}
+	capabilities := agent.capabilities()
+
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	}
+
+	for _, capability := range capabilities {
+		if aws.StringValue(capability.Name) == "ecs.capability.task-eni-block-instance-metadata" {
+			t.Errorf("%s capability found when Task ENI is disabled in the config", taskENIBlockInstanceMetadataAttributeSuffix)
+		}
+	}
+}

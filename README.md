@@ -177,7 +177,7 @@ configure them as something other than the defaults.
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | `false` |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | `/amazon-ecs-cni-plugins` |
-| `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to Instance Metdata for Tasks started with `awsvpc` network mode | `false` | `false`|
+| `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | `false`|
 
 ### Persistence
 
