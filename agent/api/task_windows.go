@@ -54,6 +54,6 @@ func getCanonicalPath(path string) string {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {
-	// Placeholder
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+	return nil
 }

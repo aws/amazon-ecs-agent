@@ -432,7 +432,10 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	task.platformHostConfigOverride(hostConfig)
+	err = task.platformHostConfigOverride(hostConfig)
+	if err != nil {
+		return nil, &HostConfigError{err.Error()}
+	}
 
 	return hostConfig, nil
 }
