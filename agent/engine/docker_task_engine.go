@@ -553,23 +553,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		return DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
 	}
 
-	var metadata DockerContainerMetadata
-	imagePullBackoff := utils.NewSimpleBackoff(250*time.Millisecond, time.Second, 0.20, 1.5)
-	_ = utils.RetryNWithBackoff(imagePullBackoff, 10, func() error {
-		metadata = engine.client.PullImage(container.Image, container.RegistryAuthentication)
-		if container.IsInternal() {
-			// "internal" containers are created by the agent and we don't expect to actually pull them
-			return nil
-		}
-		if imagePullError, ok := metadata.Error.(CannotPullContainerError); ok {
-			seelog.Warnf("When pulling %s: %s", container.Image, imagePullError)
-			return imagePullError
-		} else {
-			// If the pull fails with something other than CannotPullContainerError, or if it is successful, we stop
-			// retrying
-			return nil
-		}
-	})
+	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
 
 	// Don't add internal images(created by ecs-agent) into imagemanger state
 	if container.IsInternal() {

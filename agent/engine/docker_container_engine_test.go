@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/stretchr/testify/require"
 )
 
 // xContainerShortTimeout is a short duration intended to be used by the
@@ -90,15 +91,16 @@ func TestPullImageOutputTimeout(t *testing.T) {
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time)
-	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout)
-	testTime.EXPECT().After(pullImageTimeout)
+	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout).MinTimes(1)
+	testTime.EXPECT().After(pullImageTimeout).MinTimes(1)
 	wait := sync.WaitGroup{}
 	wait.Add(1)
+	// multiple invocations will happen due to retries, but all should timeout
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
 		pullBeginTimeout <- time.Now()
 		wait.Wait()
 		// Don't return, verify timeout happens
-	})
+	}).Times(maximumPullRetries) // expected number of retries
 
 	metadata := client.PullImage("image", nil)
 	if metadata.Error == nil {
@@ -159,9 +161,7 @@ func TestPullImage(t *testing.T) {
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Return(nil)
 
 	metadata := client.PullImage("image", nil)
-	if metadata.Error != nil {
-		t.Error("Expected pull to succeed")
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullImageTag(t *testing.T) {
@@ -172,9 +172,7 @@ func TestPullImageTag(t *testing.T) {
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:mytag"}, gomock.Any()).Return(nil)
 
 	metadata := client.PullImage("image:mytag", nil)
-	if metadata.Error != nil {
-		t.Error("Expected pull to succeed")
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullImageDigest(t *testing.T) {
@@ -188,9 +186,7 @@ func TestPullImageDigest(t *testing.T) {
 	).Return(nil)
 
 	metadata := client.PullImage("image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", nil)
-	if metadata.Error != nil {
-		t.Error("Expected pull to succeed")
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullEmptyvolumeImage(t *testing.T) {
@@ -203,19 +199,13 @@ func TestPullEmptyvolumeImage(t *testing.T) {
 		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(nil, errors.New("Does not exist")),
 		mockDocker.EXPECT().ImportImage(gomock.Any()).Do(func(x interface{}) {
 			req := x.(docker.ImportImageOptions)
-			if req.Repository != emptyvolume.Image {
-				t.Fatal("Expected empty volume repository")
-			}
-			if req.Tag != emptyvolume.Tag {
-				t.Fatal("Expected empty volume repository")
-			}
+			require.Equal(t, emptyvolume.Image, req.Repository, "expected empty volume repository")
+			require.Equal(t, emptyvolume.Tag, req.Tag, "expected empty volume tag")
 		}),
 	)
 
 	metadata := client.PullImage(emptyvolume.Image+":"+emptyvolume.Tag, nil)
-	if metadata.Error != nil {
-		t.Error(metadata.Error)
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullExistingEmptyvolumeImage(t *testing.T) {
@@ -229,9 +219,7 @@ func TestPullExistingEmptyvolumeImage(t *testing.T) {
 	)
 
 	metadata := client.PullImage(emptyvolume.Image+":"+emptyvolume.Tag, nil)
-	if metadata.Error != nil {
-		t.Error(metadata.Error)
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullImageECRSuccess(t *testing.T) {
@@ -285,9 +273,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	).Return(nil)
 
 	metadata := client.PullImage(image, authData)
-	if metadata.Error != nil {
-		t.Error("Expected pull to succeed")
-	}
+	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullImageECRAuthFail(t *testing.T) {
@@ -322,12 +308,11 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	image := imageEndpoint + "/myimage:tag"
 
 	ecrClientFactory.EXPECT().GetClient(region, endpointOverride).Return(ecrClient)
+	// no retries for this error
 	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(nil, errors.New("test error"))
 
 	metadata := client.PullImage(image, authData)
-	if metadata.Error == nil {
-		t.Error("Expected pull to fail")
-	}
+	assert.Error(t, metadata.Error, "expected pull to fail")
 }
 
 func TestCreateContainerTimeout(t *testing.T) {
@@ -344,12 +329,8 @@ func TestCreateContainerTimeout(t *testing.T) {
 		// Don't return, verify timeout happens
 	})
 	metadata := client.CreateContainer(config.Config, nil, config.Name, xContainerShortTimeout)
-	if metadata.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, metadata.Error, "expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName())
 	wait.Done()
 }
 

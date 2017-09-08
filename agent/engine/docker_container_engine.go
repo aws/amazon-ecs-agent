@@ -16,13 +16,12 @@ package engine
 import (
 	"archive/tar"
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -31,9 +30,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/cihub/seelog"
 
+	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -71,6 +71,13 @@ const (
 	// StatsInactivityTimeout controls the amount of time we hold open a
 	// connection to the Docker daemon waiting for stats data
 	StatsInactivityTimeout = 5 * time.Second
+
+	// retry settings for pulling images
+	maximumPullRetries        = 10
+	minimumPullRetryDelay     = 250 * time.Millisecond
+	maximumPullRetryDelay     = 1 * time.Second
+	pullRetryDelayMultiplier  = 1.5
+	pullRetryJitterMultiplier = 0.2
 )
 
 // DockerClient interface to make testing it easier
@@ -218,23 +225,48 @@ func (dg *dockerGoClient) time() ttime.Time {
 }
 
 func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
+	// TODO Switch to just using context.WithDeadline and get rid of this funky code
 	timeout := dg.time().After(pullImageTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
 
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.pullImage(image, authData) }()
+	go func() {
+		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay, maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
+		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries, func() error {
+			err := dg.pullImage(image, authData)
+			if err != nil {
+				seelog.Warnf("Failed to pull image %s: %s", image, err.Error())
+			}
+			return err
+		})
+		response <- DockerContainerMetadata{Error: wrapPullErrorAsEngineError(err)}
+	}()
 	select {
 	case resp := <-response:
 		return resp
 	case <-timeout:
+		cancel()
 		return DockerContainerMetadata{Error: &DockerTimeoutError{pullImageTimeout, "pulled"}}
 	}
 }
 
-func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
+func wrapPullErrorAsEngineError(err error) engineError {
+	var retErr engineError
+	if err != nil {
+		engErr, ok := err.(engineError)
+		if !ok {
+			engErr = CannotPullContainerError{err}
+		}
+		retErr = engErr
+	}
+	return retErr
+}
+
+func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenticationData) engineError {
 	log.Debug("Pulling image", "image", image)
 	client, err := dg.dockerClient()
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
+		return CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
 	// Special case; this image is not one that should be pulled, but rather
@@ -242,14 +274,14 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	if image == emptyvolume.Image+":"+emptyvolume.Tag {
 		scratchErr := dg.createScratchImageIfNotExists()
 		if scratchErr != nil {
-			return DockerContainerMetadata{Error: &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + scratchErr.Error()}}
+			return &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + scratchErr.Error()}
 		}
-		return DockerContainerMetadata{}
+		return nil
 	}
 
 	authConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotPullContainerError{err}}
+		return wrapPullErrorAsEngineError(err)
 	}
 
 	pullDebugOut, pullWriter := io.Pipe()
@@ -314,20 +346,20 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		break
 	case pullErr := <-pullFinished:
 		if pullErr != nil {
-			return DockerContainerMetadata{Error: CannotPullContainerError{pullErr}}
+			return CannotPullContainerError{pullErr}
 		}
-		return DockerContainerMetadata{}
+		return nil
 	case <-timeout:
-		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}}
+		return &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}
 	}
 	log.Debug("Pull began for image", "image", image)
 	defer log.Debug("Pull completed for image", "image", image)
 
 	err = <-pullFinished
 	if err != nil {
-		return DockerContainerMetadata{Error: CannotPullContainerError{err}}
+		return CannotPullContainerError{err}
 	}
-	return DockerContainerMetadata{}
+	return nil
 }
 
 func (dg *dockerGoClient) createScratchImageIfNotExists() error {

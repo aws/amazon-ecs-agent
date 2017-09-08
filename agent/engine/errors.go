@@ -204,6 +204,11 @@ func (err CannotPullECRContainerError) ErrorName() string {
 	return "CannotPullECRContainerError"
 }
 
+// Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
+func (err CannotPullECRContainerError) Retry() bool {
+	return false
+}
+
 // CannotCreateContainerError indicates any error when trying to create a container
 type CannotCreateContainerError struct {
 	fromError error
