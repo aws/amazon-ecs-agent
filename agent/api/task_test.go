@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -151,8 +152,11 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	assert.Nil(t, err)
+	cfg := config.DefaultConfig()
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	if err != nil {
+		t.Error(err)
+	}
 
 	bindings, ok := config.PortBindings["10/tcp"]
 	assert.True(t, ok, "Could not get port bindings")
@@ -180,8 +184,11 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
-	assert.Nil(t, err)
+	cfg := config.DefaultConfig()
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), &cfg)
+	if err != nil {
+		t.Fatal("Error creating config: ", err)
+	}
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -222,8 +229,11 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	assert.Nil(t, configErr)
+	cfg := config.DefaultConfig()
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
 
 	expectedOutput := rawHostConfigInput
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
@@ -266,8 +276,11 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	assert.Nil(t, configErr)
+	cfg := config.DefaultConfig()
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
 
 	expected := docker.HostConfig{
 		Privileged:       true,
@@ -332,8 +345,11 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 				},
 			},
 		}
-		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
-		assert.Error(t, err)
+		cfg := config.DefaultConfig()
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), &cfg)
+		if err == nil {
+			t.Fatal("Expected error, was none for: " + badHostConfig)
+		}
 	}
 }
 

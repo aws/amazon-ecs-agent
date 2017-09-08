@@ -591,7 +591,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		containerMap = make(map[string]*api.DockerContainer)
 	}
 
-	hostConfig, hcerr := task.DockerHostConfig(container, containerMap)
+	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, engine.cfg)
 	if hcerr != nil {
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
 	}

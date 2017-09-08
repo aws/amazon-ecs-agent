@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -696,7 +697,9 @@ func TestCleanupTask(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	cfg := config.DefaultConfig()
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
@@ -742,7 +745,9 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	cfg := config.DefaultConfig()
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
@@ -800,7 +805,9 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	cfg := config.DefaultConfig()
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
@@ -846,7 +853,9 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	cfg := config.DefaultConfig()
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,

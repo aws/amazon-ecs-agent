@@ -498,11 +498,11 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
-	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
+	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap, cfg)
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &HostConfigError{err.Error()}
@@ -535,9 +535,11 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig)
-	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+	if cfg.TaskCPUMemLimit {
+		err = task.platformHostConfigOverride(hostConfig)
+		if err != nil {
+			return nil, &HostConfigError{err.Error()}
+		}
 	}
 
 	// Determine if network mode should be overridden and override it if needed
