@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -39,6 +40,8 @@ import (
 
 const (
 	dockerDefaultTag = "latest"
+	// imageNameFormat is the name of a image may look like: repo:tag
+	imageNameFormat = "%s:%s"
 )
 
 // Timelimits for docker operations enforced above docker
@@ -271,7 +274,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 
 	// Special case; this image is not one that should be pulled, but rather
 	// should be created locally if necessary
-	if image == emptyvolume.Image+":"+emptyvolume.Tag {
+	if image == fmt.Sprintf(imageNameFormat, emptyvolume.Image, emptyvolume.Tag) {
 		scratchErr := dg.createScratchImageIfNotExists()
 		if scratchErr != nil {
 			return CreateEmptyVolumeError{scratchErr}

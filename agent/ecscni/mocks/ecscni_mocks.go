@@ -63,6 +63,16 @@ func (_mr *_MockCNIClientRecorder) CleanupNS(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0)
 }
 
+func (_m *MockCNIClient) ReleaseIPResource(_param0 *ecscni.Config) error {
+	ret := _m.ctrl.Call(_m, "ReleaseIPResource", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockCNIClientRecorder) ReleaseIPResource(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseIPResource", arg0)
+}
+
 func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config) error {
 	ret := _m.ctrl.Call(_m, "SetupNS", _param0)
 	ret0, _ := ret[0].(error)

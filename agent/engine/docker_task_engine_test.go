@@ -397,6 +397,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	}, nil)
 	mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer(containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
+	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil).MaxTimes(1)
 
 	exitCode := 0
 	// And then docker reports that sleep died, as sleep is wont to do
@@ -1315,6 +1316,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: pauseContainerID})
+	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 

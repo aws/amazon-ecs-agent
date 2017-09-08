@@ -151,6 +151,7 @@ func (mtask *managedTask) overseeTask() {
 		llog.Debug("Marking done for this sequence", "seqnum", mtask.StopSequenceNumber)
 		mtask.engine.taskStopGroup.Done(mtask.StopSequenceNumber)
 	}
+	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
 	mtask.cleanupTask(mtask.engine.cfg.TaskCleanupWaitDuration)
 }
@@ -333,7 +334,7 @@ func (mtask *managedTask) releaseIPInIPAM() {
 
 	err := mtask.engine.releaseIPInIPAM(mtask.Task)
 	if err != nil {
-		seelog.Infof("Releasing the ip in IPAM failed, task: [%s], err: %v", mtask.Task.Arn, err)
+		seelog.Warnf("Releasing the ip in IPAM failed, task: [%s], err: %v", mtask.Task.Arn, err)
 	}
 }
 
