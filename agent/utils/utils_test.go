@@ -14,6 +14,7 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -97,21 +98,68 @@ func TestRetryWithBackoff(t *testing.T) {
 	_time = mocktime
 	defer func() { _time = &ttime.DefaultTime{} }()
 
-	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(3)
-	counter := 3
-	RetryWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
-		if counter == 0 {
-			return nil
-		}
-		counter--
-		return errors.New("err")
+	t.Run("retries", func(t *testing.T) {
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(3)
+		counter := 3
+		RetryWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+			if counter == 0 {
+				return nil
+			}
+			counter--
+			return errors.New("err")
+		})
+		assert.Equal(t, 0, counter, "Counter didn't go to 0; didn't get retried enough")
 	})
-	assert.Equal(t, 0, counter, "Counter didn't go to 0; didn't get retried enough")
 
-	// no sleeps
-	RetryWithBackoff(NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
-		return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
+	t.Run("no retries", func(t *testing.T) {
+		// no sleeps
+		RetryWithBackoff(NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
+			return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
+		})
 	})
+}
+
+func TestRetryWithBackoffCtx(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mocktime := mock_ttime.NewMockTime(ctrl)
+	_time = mocktime
+	defer func() { _time = &ttime.DefaultTime{} }()
+
+	t.Run("retries", func(t *testing.T) {
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(3)
+		counter := 3
+		RetryWithBackoffCtx(context.TODO(), NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+			if counter == 0 {
+				return nil
+			}
+			counter--
+			return errors.New("err")
+		})
+		assert.Equal(t, 0, counter, "Counter didn't go to 0; didn't get retried enough")
+	})
+
+	t.Run("no retries", func(t *testing.T) {
+		// no sleeps
+		RetryWithBackoffCtx(context.TODO(), NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
+			return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
+		})
+	})
+
+	t.Run("cancel context", func(t *testing.T) {
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
+		counter := 2
+		ctx, cancel := context.WithCancel(context.TODO())
+		RetryWithBackoffCtx(ctx, NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+			counter--
+			if counter == 0 {
+				cancel()
+			}
+			return errors.New("err")
+		})
+		assert.Equal(t, 0, counter, "Counter not 0; went the wrong number of times")
+	})
+
 }
 
 func TestRetryNWithBackoff(t *testing.T) {
@@ -121,29 +169,83 @@ func TestRetryNWithBackoff(t *testing.T) {
 	_time = mocktime
 	defer func() { _time = &ttime.DefaultTime{} }()
 
-	// 2 tries, 1 sleep
-	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(1)
-	counter := 3
-	err := RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 2, func() error {
-		counter--
-		return errors.New("err")
-	})
-	assert.Equal(t, 1, counter, "Should have stopped after two tries")
-	assert.Error(t, err)
-
-	// 3 tries, 2 sleeps
-	mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
-	counter = 3
-	err = RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
-		counter--
-		if counter == 0 {
-			return nil
-		}
-		return errors.New("err")
+	t.Run("count exceeded", func(t *testing.T) {
+		// 2 tries, 1 sleep
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(1)
+		counter := 3
+		err := RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 2, func() error {
+			counter--
+			return errors.New("err")
+		})
+		assert.Equal(t, 1, counter, "Should have stopped after two tries")
+		assert.Error(t, err)
 	})
 
-	assert.Equal(t, 0, counter)
-	assert.Nil(t, err)
+	t.Run("retry succeeded", func(t *testing.T) {
+		// 3 tries, 2 sleeps
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
+		counter := 3
+		err := RetryNWithBackoff(NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
+			counter--
+			if counter == 0 {
+				return nil
+			}
+			return errors.New("err")
+		})
+		assert.Equal(t, 0, counter)
+		assert.NoError(t, err)
+	})
+}
+
+func TestRetryNWithBackoffCtx(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mocktime := mock_ttime.NewMockTime(ctrl)
+	_time = mocktime
+	defer func() { _time = &ttime.DefaultTime{} }()
+
+	t.Run("count exceeded", func(t *testing.T) {
+		// 2 tries, 1 sleep
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(1)
+		counter := 3
+		err := RetryNWithBackoffCtx(context.TODO(), NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 2, func() error {
+			counter--
+			return errors.New("err")
+		})
+		assert.Equal(t, 1, counter, "Should have stopped after two tries")
+		assert.Error(t, err)
+	})
+
+	t.Run("retry succeeded", func(t *testing.T) {
+		// 3 tries, 2 sleeps
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
+		counter := 3
+		err := RetryNWithBackoffCtx(context.TODO(), NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
+			counter--
+			if counter == 0 {
+				return nil
+			}
+			return errors.New("err")
+		})
+		assert.Equal(t, 0, counter)
+		assert.NoError(t, err)
+	})
+
+	t.Run("cancel context", func(t *testing.T) {
+		// 2 tries, 2 sleeps
+		mocktime.EXPECT().Sleep(100 * time.Millisecond).Times(2)
+		counter := 3
+		ctx, cancel := context.WithCancel(context.TODO())
+		err := RetryNWithBackoffCtx(ctx, NewSimpleBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5, func() error {
+			counter--
+			if counter == 1 {
+				cancel()
+			}
+			return errors.New("err")
+		})
+		assert.Equal(t, 1, counter, "Should have stopped after two tries")
+		assert.Error(t, err)
+	})
 }
 
 func TestParseBool(t *testing.T) {
