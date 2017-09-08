@@ -26,7 +26,7 @@ var control cgroup.Control
 
 // SetupPlatformResources sets up platform level resources
 func (mtask *managedTask) SetupPlatformResources() error {
-	if mtask.Task.CgroupEnabled() {
+	if mtask.engine.cfg.TaskCPUMemLimit {
 		setControl(cgroup.New())
 		return mtask.setupCgroup()
 	}
@@ -35,7 +35,7 @@ func (mtask *managedTask) SetupPlatformResources() error {
 
 // CleanupPlatformResources cleans up platform level resources
 func (mtask *managedTask) CleanupPlatformResources() error {
-	if mtask.Task.CgroupEnabled() {
+	if mtask.engine.cfg.TaskCPUMemLimit {
 		return mtask.cleanupCgroup()
 	}
 	return nil
@@ -55,7 +55,10 @@ func (mtask *managedTask) setupCgroup() error {
 		return nil
 	}
 
-	linuxResourceSpec := mtask.Task.BuildLinuxResourceSpec()
+	linuxResourceSpec, err := mtask.Task.BuildLinuxResourceSpec()
+	if err != nil {
+		return errors.Wrapf(err, "mtask setup cgroup: unable to build resource spec")
+	}
 
 	cgroupSpec := cgroup.Spec{
 		Root:  cgroupRoot,
@@ -64,7 +67,7 @@ func (mtask *managedTask) setupCgroup() error {
 
 	cgrp, err := control.Create(&cgroupSpec)
 	if err != nil {
-		return errors.Wrapf(err, "mtask setup cgroup: unable to create cgroup:  %s", cgroupRoot)
+		return errors.Wrapf(err, "mtask setup cgroup: unable to create cgroup at %s", cgroupRoot)
 	}
 
 	// NOTE: This should be impossible
@@ -87,7 +90,7 @@ func (mtask *managedTask) cleanupCgroup() error {
 
 	err = control.Remove(cgroupRoot)
 	if err != nil {
-		return errors.Wrapf(err, "mtask cleanup cgroup: unable to remove cgroup: %s", cgroupRoot)
+		return errors.Wrapf(err, "mtask cleanup cgroup: unable to remove cgroup at %s", cgroupRoot)
 	}
 
 	return nil

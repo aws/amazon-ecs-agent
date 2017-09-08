@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
@@ -39,8 +40,12 @@ const (
 // TestSetupPlatformResourcesWithCgroupDisabled checks if platform resources
 // can be setup without errors when task cgroups are disabled
 func TestSetupPlatformResourcesWithCgroupDisabled(t *testing.T) {
+	cfg := config.DefaultConfig()
 	mtask := managedTask{
 		Task: testdata.LoadTask("sleep5"),
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
+		},
 	}
 
 	assert.NoError(t, mtask.SetupPlatformResources())
@@ -49,8 +54,12 @@ func TestSetupPlatformResourcesWithCgroupDisabled(t *testing.T) {
 // TestCleanupPlatformResourcesCgroupDisabled checks if platform resources
 // can be cleaned up without errors when task cgroups are disabled
 func TestCleanupPlatformResourcesCgroupDisabled(t *testing.T) {
+	cfg := config.DefaultConfig()
 	mtask := managedTask{
 		Task: testdata.LoadTask("sleep5"),
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
+		},
 	}
 
 	assert.NoError(t, mtask.CleanupPlatformResources())
@@ -65,8 +74,12 @@ func TestCleanupPlatformResourcesCgroupEnabled(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	mtask := managedTask{
 		Task: testdata.LoadTask("sleep5TaskCgroup"),
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
+		},
 	}
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(nil)
@@ -102,9 +115,13 @@ func TestCleanupCgroupWithInvalidTaskArn(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	mtask := managedTask{
 		Task: &api.Task{
 			Arn: invalidTaskArn,
+		},
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
 		},
 	}
 
@@ -121,8 +138,12 @@ func TestCleanupCgroupWitRemoveError(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	mtask := managedTask{
 		Task: testdata.LoadTask("sleep5TaskCgroup"),
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
+		},
 	}
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(errors.New("cgroups remove error"))
@@ -140,8 +161,12 @@ func TestSetupCgroupHappyPath(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	mtask := managedTask{
 		Task: testdata.LoadTask("sleep5TaskCgroup"),
+		engine: &DockerTaskEngine{
+			cfg: &cfg,
+		},
 	}
 
 	gomock.InOrder(
@@ -149,8 +174,7 @@ func TestSetupCgroupHappyPath(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(mockCgroup, nil),
 	)
 
-	err := mtask.setupCgroup()
-	assert.NoError(t, err)
+	assert.NoError(t, mtask.setupCgroup())
 }
 
 // TestSetupCgroupInvalidTaskARN attempts to setup a task cgroup for tasks with
@@ -159,17 +183,37 @@ func TestSetupCgroupInvalidTaskARN(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
-	setControl(mockControl)
-
 	mtask := managedTask{
 		Task: &api.Task{
 			Arn: invalidTaskArn,
 		},
 	}
 
-	err := mtask.setupCgroup()
-	assert.Error(t, err, "invalid taskARN")
+	assert.Error(t, mtask.setupCgroup())
+}
+func TestSetupCgroupInvalidMemConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+	setControl(mockControl)
+
+	mtask := managedTask{
+		Task: &api.Task{
+			Arn: validTaskArn,
+			Containers: []*api.Container{
+				{
+					Name:   "C1",
+					Memory: uint(1024),
+				},
+			},
+			MemoryLimit: int64(512),
+		},
+	}
+
+	mockControl.EXPECT().Exists(gomock.Any()).Return(false)
+
+	assert.Error(t, mtask.setupCgroup())
 }
 
 // TestSetupCgroupExists validates the path when task cgroup already exists
@@ -256,7 +300,9 @@ func TestCleanupTaskWithCgroupHappyPath(t *testing.T) {
 
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
@@ -307,7 +353,9 @@ func TestCleanupTaskWithCgroupError(t *testing.T) {
 
 	setControl(mockControl)
 
+	cfg := config.Config{TaskCPUMemLimit: true}
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,

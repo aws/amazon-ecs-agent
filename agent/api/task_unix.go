@@ -29,23 +29,13 @@ import (
 const (
 	portBindingHostIP = "0.0.0.0"
 	defaultCPUPeriod  = 100000 // 100ms
+	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
+	defaultCPUShare = 2
 )
 
 func (task *Task) adjustForPlatform() {}
 
 func getCanonicalPath(path string) string { return path }
-
-// CgroupEnabled checks whether cgroups need be enabled at the task level
-func (task *Task) CgroupEnabled() bool {
-	// TODO: check for more conditions including config
-	// CPU + Mem -> true
-	// CPU -> true
-	// Mem -> false
-	if !utils.ZeroOrNil(task.VCPULimit) {
-		return true
-	}
-	return false
-}
 
 // BuildCgroupRoot helps build the task cgroup prefix
 // Example: /ecs/task-id
@@ -60,7 +50,7 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup
-func (task *Task) BuildLinuxResourceSpec() specs.LinuxResources {
+func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
 	if !(utils.ZeroOrNil(task.VCPULimit)) {
@@ -73,16 +63,38 @@ func (task *Task) BuildLinuxResourceSpec() specs.LinuxResources {
 			Quota:  &taskCPUQuota,
 			Period: &taskCPUPeriod,
 		}
+	} else {
+		taskCPUShares := uint64(0)
+		for _, container := range task.Containers {
+			if !(utils.ZeroOrNil(container.CPU)) {
+				taskCPUShares += uint64(container.CPU)
+			} else {
+				taskCPUShares += uint64(defaultCPUShare)
+			}
+		}
+
+		linuxResourceSpec.CPU = &specs.LinuxCPU{
+			Shares: &taskCPUShares,
+		}
 	}
 
+	// If task memory limit is not present, cgroup parent memory is not set
+	// If task memory limit is set, ensure that no container
+	// of this task has a greater request
 	if !(utils.ZeroOrNil(task.MemoryLimit)) {
 		taskMemoryLimit := int64(task.MemoryLimit)
+		for _, container := range task.Containers {
+			containerMemoryLimit := int64(container.Memory)
+			if !(utils.ZeroOrNil(containerMemoryLimit)) && containerMemoryLimit > taskMemoryLimit {
+				return specs.LinuxResources{}, errors.New("task resource spec builder: invalid memory configuration")
+			}
+		}
 		linuxResourceSpec.Memory = &specs.LinuxMemory{
 			Limit: &taskMemoryLimit,
 		}
 	}
 
-	return linuxResourceSpec
+	return linuxResourceSpec, nil
 }
 
 // platformHostConfigOverride to override platform specific feature sets
@@ -94,10 +106,6 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
-	if !task.CgroupEnabled() {
-		return nil
-	}
-
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
 		seelog.Debugf("Unable to obtain task cgroup root: %v", err)

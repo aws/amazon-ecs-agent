@@ -18,6 +18,7 @@ package api
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -91,8 +92,9 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 		},
 	}
 
-	linuxResourceSpec := task.BuildLinuxResourceSpec()
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
 
+	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
 }
 
@@ -112,8 +114,79 @@ func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 		},
 	}
 
-	linuxResourceSpec := task.BuildLinuxResourceSpec()
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
 
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// TestBuildLinuxResourceSpecWithoutTaskCPULimits validates behavior of CPU Shares
+func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
+	task := &Task{
+		Arn: validTaskArn,
+		Containers: []*Container{
+			{
+				Name: "C1",
+			},
+		},
+	}
+	expectedCPUShares := uint64(defaultCPUShare)
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Shares: &expectedCPUShares,
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits validates behavior of CPU Shares
+func TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits(t *testing.T) {
+	task := &Task{
+		Arn: validTaskArn,
+		Containers: []*Container{
+			{
+				Name: "C1",
+				CPU:  uint(512),
+			},
+		},
+	}
+	expectedCPUShares := uint64(512)
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Shares: &expectedCPUShares,
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// TestBuildLinuxResourceSpecInvalidMem validates the linux resource spec builder
+func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
+	taskMemoryLimit := int64(taskMemoryLimit)
+
+	task := &Task{
+		Arn:         validTaskArn,
+		VCPULimit:   float64(taskVCPULimit),
+		MemoryLimit: taskMemoryLimit,
+		Containers: []*Container{
+			{
+				Name:   "C1",
+				Memory: uint(2048),
+			},
+		},
+	}
+
+	expectedLinuxResourceSpec := specs.LinuxResources{}
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
+
+	assert.Error(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
 }
 
@@ -175,45 +248,9 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		},
 	}
 
-	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	cfg := &config.Config{TaskCPUMemLimit: true}
+
+	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), cfg)
 	assert.Error(t, err)
 	assert.Empty(t, dockerHostConfig)
-}
-
-// TestCgroupEnabledAll validates the happy path for cgroup enabled
-func TestCgroupEnabledAll(t *testing.T) {
-	task := &Task{
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: int64(taskMemoryLimit),
-	}
-
-	assert.True(t, task.CgroupEnabled())
-}
-
-// TestCgroupEnabledPartial validates the happy path for partial resource limits
-func TestCgroupEnabledPartial(t *testing.T) {
-	task := &Task{
-		VCPULimit: float64(taskVCPULimit),
-	}
-
-	assert.True(t, task.CgroupEnabled())
-}
-
-// TestCgroupDisabled validates the cgroup disabled path
-func TestCgroupDisabled(t *testing.T) {
-	task := &Task{
-		Arn: validTaskArn,
-	}
-
-	assert.False(t, task.CgroupEnabled())
-}
-
-// TestCgroupDisabledMem validates the cgroup disabled path
-func TestCgroupDisabledMem(t *testing.T) {
-	task := &Task{
-		Arn:         validTaskArn,
-		MemoryLimit: int64(taskMemoryLimit),
-	}
-
-	assert.False(t, task.CgroupEnabled())
 }

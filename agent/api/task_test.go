@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -149,7 +150,8 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	cfg := config.DefaultConfig()
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,7 +182,8 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
+	cfg := config.DefaultConfig()
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), &cfg)
 	if err != nil {
 		t.Fatal("Error creating config: ", err)
 	}
@@ -223,7 +226,8 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	cfg := config.DefaultConfig()
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -270,7 +274,8 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	cfg := config.DefaultConfig()
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -299,7 +304,8 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 				},
 			},
 		}
-		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
+		cfg := config.DefaultConfig()
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), &cfg)
 		if err == nil {
 			t.Fatal("Expected error, was none for: " + badHostConfig)
 		}
