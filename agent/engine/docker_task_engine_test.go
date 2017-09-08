@@ -1839,7 +1839,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 // TestCreateContainerOnAgentRestart tests when agent restarts it should use the
 // docker container name restored from agent state file to create the container
 func TestCreateContainerOnAgentRestart(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 
@@ -1903,4 +1903,65 @@ func TestPullNormalImage(t *testing.T) {
 
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+}
+
+// TestMetadataFileUpdatedAgentRestart checks whether metadataManager.Update(...) is
+// invoked in the path DockerTaskEngine.Init() -> .synchronizeState() -> .updateMetadataFile(...)
+// for the following case:
+// agent starts, container created, metadata file created, agent restarted, container recovered
+// during task engine init, metadata file updated
+func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
+
+	conf := &defaultConfig
+	conf.ContainerMetadataEnabled = true
+
+	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager := mocks(t, conf)
+	saver := mock_statemanager.NewMockStateManager(ctrl)
+	defer ctrl.Finish()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled, "ContainerMetadataEnabled set to false.")
+
+	taskEngine.SetSaver(saver)
+	state := taskEngine.State()
+	task := testdata.LoadTask("sleep5")
+
+	container, _ := task.ContainerByName("sleep5")
+	assert.False(t, container.MetadataFileUpdated)
+
+	dockerContainer := &api.DockerContainer{DockerID: containerID, Container: container}
+
+	expectedTaskARN := task.Arn
+	expectedDockerID := dockerContainer.DockerID
+	expectedContainerName := container.Name
+
+	state.AddContainer(dockerContainer, task)
+
+	client.EXPECT().Version()
+	eventStream := make(chan DockerContainerChangeEvent)
+	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+	saver.EXPECT().Save().AnyTimes()
+
+	metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(dockerID string, taskARN string, containerName string) {
+		assert.Equal(t, expectedTaskARN, taskARN)
+		assert.Equal(t, expectedContainerName, containerName)
+		assert.Equal(t, expectedDockerID, dockerID)
+		wg.Done()
+	})
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+	defer cancel()
+	defer taskEngine.Disable()
+
+	wg.Wait()
 }

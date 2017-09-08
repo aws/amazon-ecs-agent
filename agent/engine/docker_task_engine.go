@@ -274,6 +274,10 @@ func (engine *DockerTaskEngine) synchronizeState() {
 					}
 				} else {
 					engine.imageManager.RecordContainerReference(cont.Container)
+					if engine.cfg.ContainerMetadataEnabled && !cont.Container.IsMetadataFileUpdated() {
+						go engine.updateMetadataFile(task, cont)
+					}
+
 				}
 				if currentState > cont.Container.GetKnownStatus() {
 					cont.Container.SetKnownStatus(currentState)
@@ -708,6 +712,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			if err != nil {
 				seelog.Errorf("Update metadata file failed for container %s of task %s: %v", container, task, err)
 			} else {
+				container.SetMetadataFileUpdated()
 				seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
 			}
 		}()
@@ -946,4 +951,14 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 	}
 
 	return false
+}
+
+func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
+	err := engine.metadataManager.Update(cont.DockerID, task.Arn, cont.Container.Name)
+	if err != nil {
+		seelog.Errorf("Update metadata file failed for container %s of task %s: %v", cont.Container, task, err)
+	} else {
+		cont.Container.SetMetadataFileUpdated()
+		seelog.Debugf("Updated metadata file for container %s of task %s", cont.Container, task)
+	}
 }

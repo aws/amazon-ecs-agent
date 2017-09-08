@@ -123,6 +123,10 @@ type Container struct {
 	// handled properly so that the state storage continues to work.
 	SentStatusUnsafe ContainerStatus `json:"SentStatus"`
 
+	// MetadataUpdated is set to true when we have completed updating the
+	// metadata file
+	MetadataFileUpdated bool `json:"metadataFileUpdated"`
+
 	knownExitCode     *int
 	KnownPortBindings []PortBinding
 
@@ -316,4 +320,18 @@ func (c *Container) IsInternal() bool {
 // or RESOURCES_PROVISIONED. It returns false otherwise
 func (c *Container) IsRunning() bool {
 	return c.GetKnownStatus().IsRunning()
+}
+
+func (c *Container) IsMetadataFileUpdated() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.MetadataFileUpdated
+}
+
+func (c *Container) SetMetadataFileUpdated() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.MetadataFileUpdated = true
 }

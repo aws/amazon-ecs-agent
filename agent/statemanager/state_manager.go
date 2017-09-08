@@ -49,6 +49,7 @@ const (
 	//   c) Add 'SteadyStateStatus' field to 'Container' struct
 	//   d) Add 'ENIAttachments' struct
 	//   e) Deprecate 'SteadyStateDependencies' in favor of 'TransitionDependencySet'
+	//	 f) Add 'MetadataUpdated' field to 'api.Container'
 	ECSDataVersion = 6
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
