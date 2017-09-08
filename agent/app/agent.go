@@ -108,7 +108,7 @@ func newAgent(
 		return nil, err
 	}
 
-	return &ecsAgent{
+	agent := &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
 		cfg:               cfg,
@@ -119,7 +119,10 @@ func newAgent(
 		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
-	}, nil
+	}
+
+	agent.initPlatformResources()
+	return agent, nil
 }
 
 // printVersion prints the ECS Agent version string
@@ -164,9 +167,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		log.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	// TODO:
-	// 1) Feature gate ECS cgroup root init
-	// 2) Update mocks and unit tests
+
+	err = agent.setupPlatformResources()
+	if err != nil {
+		log.Criticalf("Unable to setup platform resources: %v", err)
+		return exitcodes.ExitTerminal
+	}
 
 	// Register the container instance
 	err = agent.registerContainerInstance(taskEngine, stateManager, client)
