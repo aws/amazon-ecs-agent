@@ -34,6 +34,7 @@ type CNIClient interface {
 	Capabilities(string) ([]string, error)
 	SetupNS(*Config) error
 	CleanupNS(*Config) error
+	ReleaseIPResource(*Config) error
 }
 
 // cniClient is the client to call plugin and setup the network
@@ -67,15 +68,15 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 		IfName:      defaultEthName,
 	}
 
-	netConfigList, err := client.constructNetworkConfig(cfg)
+	networkConfigList, err := client.createNetworkConfig(cfg, client.createBridgeConfigWithIPAM)
 	if err != nil {
-		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for confirguring namespace")
+		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for configuring namespace")
 	}
 
 	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
-	result, err := client.libcni.AddNetworkList(netConfigList, cns)
+	result, err := client.libcni.AddNetworkList(networkConfigList, cns)
 	if err != nil {
 		return err
 	}
@@ -84,8 +85,32 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 	return nil
 }
 
+// ReleaseIPResource marks the ip available in the ipam db
+func (client *cniClient) ReleaseIPResource(cfg *Config) error {
+	cns := &libcni.RuntimeConf{
+		ContainerID: cfg.ContainerID,
+		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
+		IfName:      defaultEthName,
+	}
+
+	ipamConfig, err := client.createIPAMConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	networkConfigList := &libcni.NetworkConfigList{
+		CNIVersion: client.cniVersion,
+		Plugins:    []*libcni.NetworkConfig{ipamConfig},
+	}
+
+	seelog.Debugf("Releaseing the ip resource from ipam db, id: [%s], ip: [%s]", cfg.ID, cfg.IPAMV4Address)
+	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
+	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
+	return client.libcni.DelNetworkList(networkConfigList, cns)
+}
+
 // CleanupNS will clean up the container namespace, including remove the veth
-// pair, release the ip address in ipam
+// pair and stop the dhclient
 func (client *cniClient) CleanupNS(cfg *Config) error {
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
@@ -93,19 +118,21 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 		IfName:      defaultEthName,
 	}
 
-	netConfigList, err := client.constructNetworkConfig(cfg)
+	// clean up the network namespace is separte from releasing the ip from ipam
+	networkConfigList, err := client.createNetworkConfig(cfg, client.createBridgeConfig)
 	if err != nil {
-		return errors.Wrap(err, "cni invocation: Failed to construct network configuration to clean up namespace")
+		return errors.Wrap(err, "cni invocation: Failed to construct network configuration for namespace cleanup")
 	}
 
 	seelog.Debugf("Starting clean up the container namespace: %s", cfg.ContainerID)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
-	return client.libcni.DelNetworkList(netConfigList, cns)
+	return client.libcni.DelNetworkList(networkConfigList, cns)
 }
 
-// constructNetworkConfig creates configuration for eni, ipam and bridge plugin
-func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkConfigList, error) {
+// createBridgeConfigWithIPAM creates the config of brdige for ADD command, where
+// bridge plugin acquires the ip and route information from ipam
+func (client *cniClient) createBridgeConfigWithIPAM(cfg *Config) (*libcni.NetworkConfig, error) {
 	_, dst, err := net.ParseCIDR(TaskIAMRoleEndpoint)
 
 	routes := []*cnitypes.Route{
@@ -140,6 +167,48 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		IPAM:       ipamConf,
 	}
 
+	bridgeConfBytes, err := json.Marshal(bridgeConf)
+	if err != nil {
+		seelog.Errorf("Marshal bridge configuration failed, error: %v", err)
+		return nil, err
+	}
+	networkConfig := &libcni.NetworkConfig{
+		Network: &types.NetConf{
+			Type: ECSBridgePluginName,
+		},
+		Bytes: bridgeConfBytes,
+	}
+
+	return networkConfig, nil
+}
+
+func (client *cniClient) createBridgeConfig(cfg *Config) (*libcni.NetworkConfig, error) {
+	bridgeName := defaultBridgeName
+	if cfg.BridgeName != "" {
+		bridgeName = cfg.BridgeName
+	}
+	bridgeConf := BridgeConfig{
+		Type:       ECSBridgePluginName,
+		CNIVersion: client.cniVersion,
+		BridgeName: bridgeName,
+	}
+
+	bridgeConfBytes, err := json.Marshal(bridgeConf)
+	if err != nil {
+		seelog.Errorf("Marshal bridge configuration failed, error: %v", err)
+		return nil, err
+	}
+	networkConfig := &libcni.NetworkConfig{
+		Network: &types.NetConf{
+			Type: ECSBridgePluginName,
+		},
+		Bytes: bridgeConfBytes,
+	}
+
+	return networkConfig, nil
+}
+
+func (client *cniClient) createtENIConfig(cfg *Config) (*libcni.NetworkConfig, error) {
 	eniConf := ENIConfig{
 		Type:                 ECSENIPluginName,
 		CNIVersion:           client.cniVersion,
@@ -150,37 +219,70 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		BlockInstanceMetdata: cfg.BlockInstanceMetdata,
 	}
 
-	bridgeConfBytes, err := json.Marshal(bridgeConf)
-	if err != nil {
-		seelog.Errorf("Marshal bridge configuration failed, error: %v", err)
-		return nil, err
-	}
-	plugins := []*libcni.NetworkConfig{
-		&libcni.NetworkConfig{
-			Network: &cnitypes.NetConf{
-				Type: ECSBridgePluginName,
-			},
-			Bytes: bridgeConfBytes,
-		},
-	}
-
 	eniConfBytes, err := json.Marshal(eniConf)
 	if err != nil {
 		seelog.Errorf("Marshal eni configuration error: %v", err)
 		return nil, err
 	}
-	plugins = append(plugins, &libcni.NetworkConfig{
+
+	networkConfig := &libcni.NetworkConfig{
 		Network: &cnitypes.NetConf{
 			Type: ECSENIPluginName,
 		},
 		Bytes: eniConfBytes,
-	})
-
-	netconf := &libcni.NetworkConfigList{
-		CNIVersion: client.cniVersion,
-		Plugins:    plugins,
 	}
-	return netconf, nil
+
+	return networkConfig, nil
+}
+
+func (client *cniClient) createIPAMConfig(cfg *Config) (*libcni.NetworkConfig, error) {
+	ipam := IPAMConfig{
+		Type:        ECSIPAMPluginName,
+		CNIVersion:  client.cniVersion,
+		IPV4Subnet:  client.subnet,
+		IPV4Address: cfg.IPAMV4Address,
+		ID:          cfg.ID,
+	}
+	ipamConfig := IPAMNetworkConfig{
+		Name:       ECSIPAMPluginName,
+		CNIVersion: client.cniVersion,
+		IPAM:       ipam,
+	}
+
+	ipamConfigBytes, err := json.Marshal(ipamConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Marshal ipam plugin configuration failed")
+	}
+
+	networkConfig := &libcni.NetworkConfig{
+		Network: &types.NetConf{
+			Type: ECSIPAMPluginName,
+		},
+		Bytes: ipamConfigBytes,
+	}
+
+	return networkConfig, nil
+}
+
+// createAddNetworkConfig creates the configuration for invoking plugins
+func (client *cniClient) createNetworkConfig(cfg *Config, bridgeConfigFunc func(*Config) (*libcni.NetworkConfig, error)) (*libcni.NetworkConfigList, error) {
+	bridgeConfig, err := bridgeConfigFunc(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	eniConfig, err := client.createtENIConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	pluginConfigs := []*libcni.NetworkConfig{bridgeConfig, eniConfig}
+	networkConfigList := &libcni.NetworkConfigList{
+		CNIVersion: client.cniVersion,
+		Plugins:    pluginConfigs,
+	}
+
+	return networkConfigList, nil
 }
 
 // Version returns the version of the plugin

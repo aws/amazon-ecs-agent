@@ -48,6 +48,13 @@ const (
 	CapabilityAWSVPCNetworkingMode = "awsvpc-network-mode"
 )
 
+//IPAMNetworkConfig is the config format accepted by the plugin
+type IPAMNetworkConfig struct {
+	Name       string     `json:"name,omitempty"`
+	CNIVersion string     `json:"cniVersion,omitempty"`
+	IPAM       IPAMConfig `json:"ipam"`
+}
+
 // IPAMConfig contains all the information needed to invoke the ipam plugin
 type IPAMConfig struct {
 	// Type is the cni plugin name

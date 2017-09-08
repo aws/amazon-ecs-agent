@@ -690,6 +690,17 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	}
 }
 
+// releaseIPInIPAM marks the ip avaialble in the ipam db
+func (engine *DockerTaskEngine) releaseIPInIPAM(task *api.Task) error {
+	seelog.Infof("Releasing ip in the ipam, task: %s", task.Arn)
+	cfg, err := task.BuildCNIConfig()
+	if err != nil {
+		return errors.Wrapf(err, "engine: build cni configuration from task failed")
+	}
+
+	return engine.cniClient.ReleaseIPResource(cfg)
+}
+
 // cleanupPauseContainerNetwork will clean up the network namespace of pause container
 func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, container *api.Container) error {
 	seelog.Infof("Task [%s]: Cleaning up the network namespace", task.String())
@@ -705,7 +716,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
 	cfg, err := task.BuildCNIConfig()
 	if err != nil {
-		return nil, errors.Wrapf(err, "engine: build cni configuration from taskfailed")
+		return nil, errors.Wrapf(err, "engine: build cni configuration from task failed")
 	}
 
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
