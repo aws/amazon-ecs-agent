@@ -139,6 +139,7 @@ func (agent *TestAgent) StartAgent() error {
 		Env: []string{
 			"ECS_CLUSTER=" + Cluster,
 			"ECS_DATADIR=/data",
+			"ECS_HOST_DATA_DIR=" + agent.TestDir,
 			"ECS_LOGLEVEL=debug",
 			"ECS_LOGFILE=/log/integ_agent.log",
 			"ECS_BACKEND_HOST=" + os.Getenv("ECS_BACKEND_HOST"),
