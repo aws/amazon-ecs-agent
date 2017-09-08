@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -54,6 +55,6 @@ func getCanonicalPath(path string) string {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig, cfg *config.Config) error {
 	return nil
 }

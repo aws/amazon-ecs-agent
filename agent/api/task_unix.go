@@ -98,9 +98,12 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig, cfg *config.Config) error {
 	// Override cgroup parent
-	return task.overrideCgroupParent(hostConfig)
+	if cfg.TaskCPUMemLimit {
+		return task.overrideCgroupParent(hostConfig)
+	}
+	return nil
 }
 
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
