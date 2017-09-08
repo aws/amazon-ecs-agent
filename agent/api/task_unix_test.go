@@ -268,8 +268,9 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 	}
 
 	hostConfig := &docker.HostConfig{}
+	cfg := &config.Config{TaskCPUMemLimit: true}
 
-	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
+	assert.NoError(t, task.platformHostConfigOverride(hostConfig, cfg))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }

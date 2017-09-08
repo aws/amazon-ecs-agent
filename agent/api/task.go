@@ -535,11 +535,9 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	if cfg.TaskCPUMemLimit {
-		err = task.platformHostConfigOverride(hostConfig)
-		if err != nil {
-			return nil, &HostConfigError{err.Error()}
-		}
+	err = task.platformHostConfigOverride(hostConfig, cfg)
+	if err != nil {
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	// Determine if network mode should be overridden and override it if needed
