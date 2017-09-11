@@ -194,7 +194,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	eventStream <- DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
 		DockerContainerMetadata: DockerContainerMetadata{
-			DockerID: "containerId",
+			DockerID: containerID,
 			ExitCode: &exitCode,
 		},
 	}
@@ -302,16 +302,16 @@ func TestContainerMetadataEnabledHappyPath(t *testing.T) {
 					eventStream <- createDockerEvent(api.ContainerCreated)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer("containerId", startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
 			func(id string, timeout time.Duration) {
 				createStartEventsReported.Add(1)
 				go func() {
 					eventStream <- createDockerEvent(api.ContainerRunning)
 					createStartEventsReported.Done()
 				}()
-			}).Return(DockerContainerMetadata{DockerID: "containerId"})
+			}).Return(DockerContainerMetadata{DockerID: containerID})
 		metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	}
 
@@ -589,7 +589,7 @@ func TestContainerMetadataEnabledErrorPath(t *testing.T) {
 // when the steady state for the pause container is set to RESOURCES_PROVISIONED and
 // the steady state for the normal container is set to RUNNING
 func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
-	ctrl, client, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1580,8 +1580,8 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 		"Task engine should not be able to perform concurrent pulling for version < 1.11.1")
 }
 
-func TestPauseContainerHappyPath(t *testing.T) {
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
+func TestPauseContaienrHappyPath(t *testing.T) {
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1692,7 +1692,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			config := defaultConfig
 			config.AWSVPCBlockInstanceMetdata = blockIMDS
-			ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &config)
+			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, &config)
 			defer ctrl.Finish()
 
 			testTask := testdata.LoadTask("sleep5")
@@ -1738,7 +1738,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 }
 
 func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
-	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
@@ -1760,7 +1760,7 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 // TestStopPauseContainerCleanupCalled tests when stopping the pause container
 // its network namespace should be cleaned up first
 func TestStopPauseContainerCleanupCalled(t *testing.T) {
-	ctrl, dockerClient, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)

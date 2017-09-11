@@ -958,6 +958,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 }
 
 func TestCleanupTaskENIs(t *testing.T) {
+	cfg := config.DefaultConfig()
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -966,6 +967,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskEngine := &DockerTaskEngine{
+		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
 		client:       mockClient,
