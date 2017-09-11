@@ -28,16 +28,16 @@ all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
 # everything every time
-gobuild:
+gobuild: get-deps
 	./scripts/build false
 
 # Basic go build
-static:
+static: get-deps
 	./scripts/build
 
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
 # directory
-build-in-docker:
+build-in-docker: get-deps
 	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
 	@docker run --net=none \
 	  -e TARGET_OS="${TARGET_OS}" \
@@ -103,7 +103,7 @@ run-functional-tests: testnnp test-registry
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
 
 testnnp:
-	cd misc/testnnp; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/testnnp $(MFLAGS)
 
 pause-container:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
@@ -112,17 +112,24 @@ pause-container:
 		-v "$(shell pwd)/misc/pause-container/buildPause:/usr/src/buildPause" \
 		"amazon/amazon-ecs-build-pause-bin:make"
 
-	cd misc/pause-container; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/pause-container $(MFLAGS)
 	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
 	mkdir -p "$(shell pwd)/out"
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(shell pwd)/out/${PAUSE_CONTAINER_TARBALL}"
 
-get-cni-sources:
-	@git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION)
+get-cni-sources: .cni-sources-stamp
 
-cni-plugins:
+.cni-sources-stamp:
+	if [ -d amazon-ecs-cni-plugins/plugins ]; then \
+		cd amazon-ecs-cni-plugins && git fetch && git checkout $(ECS_CNI_REPOSITORY_REVISION) ; \
+	else \
+		git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION) ; \
+	fi
+	touch .cni-sources-stamp
+
+cni-plugins: get-deps
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	@docker run --rm --net=none \
 		-v "$(shell pwd)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
@@ -135,35 +142,37 @@ run-integ-tests: test-registry gremlin
 	. ./scripts/shared_env && go test -race -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
 netkitten:
-	cd misc/netkitten; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/netkitten $(MFLAGS)
 
 volumes-test:
-	cd misc/volumes-test; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
 .PHONY: squid awscli fluentd
 squid:
-	cd misc/squid; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/squid $(MFLAGS)
 
 gremlin:
-	cd misc/gremlin; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/gremlin $(MFLAGS)
 
 awscli:
-	cd misc/awscli; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/awscli $(MFLAGS)
 
 fluentd:
-	cd misc/fluentd; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/fluentd $(MFLAGS)
 
 image-cleanup-test-images:
-	cd misc/image-cleanup-test-images; $(MAKE) $(MFLAGS)
+	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
 
-get-deps: get-cni-sources
+.get-deps-stamp:
 	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	go get golang.org/x/tools/cmd/goimports
+	touch .get-deps-stamp
 
+get-deps: get-cni-sources .get-deps-stamp
 
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
@@ -177,3 +186,4 @@ clean:
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
+	-rm -f .get-deps-stamp .cni-sources-stamp

@@ -15,3 +15,4 @@ _bin/
 /misc/windows-iam/devcon*
 /misc/pause-container/pause
 /amazon-ecs-cni-plugins
+*-stamp
