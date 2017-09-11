@@ -661,7 +661,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
+	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
 		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
 		if mderr != nil {
 			seelog.Errorf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
@@ -702,7 +702,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	// Performs this in the background to avoid delaying container start
 	// TODO: Add a state to the api.Container for the status of the metadata file (Whether it needs update) and
 	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
-	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal {
+	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
 		go func() {
 			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
 			if err != nil {
