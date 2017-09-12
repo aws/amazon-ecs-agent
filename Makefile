@@ -19,7 +19,7 @@ PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 ECS_CNI_REPOSITORY_REVISION=master
 
 # Variable to override cni repository location
-ECS_CNI_REPOSITORY_SRC_DIR=$(shell pwd)/amazon-ecs-cni-plugins
+ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 
 
 .PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container get-cni-sources cni-plugins
@@ -43,8 +43,8 @@ build-in-docker: get-deps
 	  -e TARGET_OS="${TARGET_OS}" \
 	  -e LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
 	  -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE)" \
-	  -v "$(shell pwd)/out:/out" \
-	  -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" \
+	  -v "$(PWD)/out:/out" \
+	  -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" \
 	  "amazon/amazon-ecs-agent-build:make"
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
@@ -60,10 +60,10 @@ docker-release: pause-container-release cni-plugins
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run --net=none \
 	  -e TARGET_OS="${TARGET_OS}" \
-	  -v "$(shell pwd)/out:/out" \
+	  -v "$(PWD)/out:/out" \
 	  -e LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
 	  -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE)" \
-	  -v "$(shell pwd):/src/amazon-ecs-agent" \
+	  -v "$(PWD):/src/amazon-ecs-agent" \
 	  "amazon/amazon-ecs-agent-cleanbuild:make"
 
 # Release packages our agent into a "scratch" based dockerfile
@@ -97,7 +97,7 @@ test-registry: netkitten volumes-test squid awscli image-cleanup-test-images flu
 test-in-docker:
 	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
 	# Privileged needed for docker-in-docker so integ tests pass
-	docker run --net=none -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
+	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: testnnp test-registry
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
@@ -108,16 +108,16 @@ testnnp:
 pause-container:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
 	@docker run --net=none \
-		-v "$(shell pwd)/misc/pause-container:/out" \
-		-v "$(shell pwd)/misc/pause-container/buildPause:/usr/src/buildPause" \
+		-v "$(PWD)/misc/pause-container:/out" \
+		-v "$(PWD)/misc/pause-container/buildPause:/usr/src/buildPause" \
 		"amazon/amazon-ecs-build-pause-bin:make"
 
 	$(MAKE) -C misc/pause-container $(MFLAGS)
 	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
-	mkdir -p "$(shell pwd)/out"
-	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(shell pwd)/out/${PAUSE_CONTAINER_TARBALL}"
+	mkdir -p "$(PWD)/out"
+	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
 
 get-cni-sources: .cni-sources-stamp
 
@@ -132,7 +132,7 @@ get-cni-sources: .cni-sources-stamp
 cni-plugins: get-deps
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	@docker run --rm --net=none \
-		-v "$(shell pwd)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
+		-v "$(PWD)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-cniplugins:make"
 
@@ -179,7 +179,7 @@ clean:
 	docker ps > /dev/null
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/*
-	rm -rf $(shell pwd)/amazon-ecs-cni-plugins
+	rm -rf $(PWD)/amazon-ecs-cni-plugins
 	rm -rf agent/Godeps/_workspace/pkg/
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
