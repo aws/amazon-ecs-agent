@@ -127,15 +127,16 @@ get-cni-sources: .cni-sources-stamp
 	else \
 		git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION) ; \
 	fi
+	mkdir -p amazon-ecs-cni-plugins/bin/plugins
 	touch .cni-sources-stamp
 
 cni-plugins: get-deps
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
-	@docker run --rm --net=none \
+	mkdir -p out/cni-plugins
+	docker run --rm --net=none \
 		-v "$(PWD)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-cniplugins:make"
-
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 run-integ-tests: test-registry gremlin
