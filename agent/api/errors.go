@@ -46,7 +46,8 @@ type NamedError interface {
 	ErrorName() string
 }
 
-// NamedError is a wrapper type for 'error' which adds an optional name and provides a symetric marshal/unmarshal
+// DefaultNamedError is a wrapper type for 'error' which adds an optional name and provides a symmetric
+// marshal/unmarshal
 type DefaultNamedError struct {
 	Err  string `json:"error"`
 	Name string `json:"name"`

@@ -274,7 +274,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	if image == emptyvolume.Image+":"+emptyvolume.Tag {
 		scratchErr := dg.createScratchImageIfNotExists()
 		if scratchErr != nil {
-			return &api.DefaultNamedError{Name: "CreateEmptyVolumeError", Err: "Could not create empty volume " + scratchErr.Error()}
+			return CreateEmptyVolumeError{scratchErr}
 		}
 		return nil
 	}
