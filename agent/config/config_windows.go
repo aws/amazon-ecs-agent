@@ -87,7 +87,7 @@ func (cfg *Config) platformOverrides() {
 	}
 
 	// ensure TaskResourceLimit is disabled
-	config.TaskCPUMemLimit = false
+	cfg.TaskCPUMemLimit = false
 }
 
 // platformString returns platform-specific config data that can be serialized
