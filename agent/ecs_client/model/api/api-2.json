@@ -87,6 +87,20 @@
         }
       ]
     },
+    "DeleteAttributes":{
+      "name":"DeleteAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DeleteAttributesRequest"},
+      "output":{"shape":"DeleteAttributesResponse"},
+      "errors":[
+        {"shape":"ClusterNotFoundException"},
+        {"shape":"TargetNotFoundException"},
+        {"shape":"InvalidParameterException"}
+      ]
+    },
     "DeleteCluster":{
       "name":"DeleteCluster",
       "http":{
@@ -378,6 +392,19 @@
         }
       ]
     },
+    "ListAttributes":{
+      "name":"ListAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ListAttributesRequest"},
+      "output":{"shape":"ListAttributesResponse"},
+      "errors":[
+        {"shape":"ClusterNotFoundException"},
+        {"shape":"InvalidParameterException"}
+      ]
+    },
     "ListClusters":{
       "name":"ListClusters",
       "http":{
@@ -563,6 +590,21 @@
           "shape":"InvalidParameterException",
           "exception":true
         }
+      ]
+    },
+    "PutAttributes":{
+      "name":"PutAttributes",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PutAttributesRequest"},
+      "output":{"shape":"PutAttributesResponse"},
+      "errors":[
+        {"shape":"ClusterNotFoundException"},
+        {"shape":"TargetNotFoundException"},
+        {"shape":"AttributeLimitExceededException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "RegisterContainerInstance":{
@@ -801,6 +843,21 @@
         }
       ]
     },
+    "UpdateContainerInstancesState":{
+      "name":"UpdateContainerInstancesState",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"UpdateContainerInstancesStateRequest"},
+      "output":{"shape":"UpdateContainerInstancesStateResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"},
+        {"shape":"ClusterNotFoundException"}
+      ]
+    },
     "UpdateService":{
       "name":"UpdateService",
       "http":{
@@ -850,6 +907,33 @@
         "FAILED"
       ]
     },
+    "Attachment":{
+      "type":"structure",
+      "members":{
+        "id":{"shape":"String"},
+        "type":{"shape":"String"},
+        "details":{"shape":"AttachmentDetails"}
+      }
+    },
+    "AttachmentDetails":{
+      "type":"list",
+      "member":{"shape":"KeyValuePair"}
+    },
+    "AttachmentStateChange":{
+      "type":"structure",
+      "members":{
+        "attachmentArn":{"shape":"String"},
+        "status":{"shape":"String"}
+      }
+    },
+    "AttachmentStateChanges":{
+      "type":"list",
+      "member":{"shape":"AttachmentStateChange"}
+    },
+    "Attachments":{
+      "type":"list",
+      "member":{"shape":"Attachment"}
+    },
     "Attribute":{
       "type":"structure",
       "required":["name"],
@@ -869,6 +953,14 @@
     "Attributes":{
       "type":"list",
       "member":{"shape":"Attribute"}
+    },
+    "AwsVpcParameters":{
+      "type":"structure",
+      "members":{
+        "role":{"shape":"String"},
+        "subnets":{"shape":"StringList"},
+        "securityGroups":{"shape":"StringList"}
+      }
     },
     "Boolean":{"type":"boolean"},
     "BoxedBoolean":{
@@ -982,7 +1074,8 @@
         "pendingTasksCount":{"shape":"Integer"},
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
-        "registeredAt":{"shape":"Timestamp"}
+        "registeredAt":{"shape":"Timestamp"},
+        "attachments":{"shape":"Attachments"}
       }
     },
     "ContainerInstanceStatus":{
@@ -1059,7 +1152,8 @@
         "role":{"shape":"String"},
         "deploymentConfiguration":{"shape":"DeploymentConfiguration"},
         "placementConstraints":{"shape":"PlacementConstraints"},
-        "placementStrategy":{"shape":"PlacementStrategies"}
+        "placementStrategy":{"shape":"PlacementStrategies"},
+        "networkParameters":{"shape":"NetworkParameters"}
       }
     },
     "CreateServiceResponse":{
@@ -1520,6 +1614,12 @@
         "none"
       ]
     },
+    "NetworkParameters":{
+      "type":"structure",
+      "members":{
+        "awsvpcParameters":{"shape":"AwsVpcParameters"}
+      }
+    },
     "NoUpdateAvailableException":{
       "type":"structure",
       "members":{
@@ -1660,7 +1760,8 @@
         "placementConstraints":{"shape":"PlacementConstraints"},
         "placementStrategy":{"shape":"PlacementStrategies"},
         "launchType":{"shape":"LaunchType"},
-        "roleArn":{"shape":"String"}
+        "roleArn":{"shape":"String"},
+        "networkParameters":{"shape":"NetworkParameters"}
       }
     },
     "RunTaskResponse":{
@@ -1747,7 +1848,8 @@
         "overrides":{"shape":"TaskOverride"},
         "containerInstances":{"shape":"StringList"},
         "startedBy":{"shape":"String"},
-        "group":{"shape":"String"}
+        "group":{"shape":"String"},
+        "networkParameters":{"shape":"NetworkParameters"}
       }
     },
     "StartTaskResponse":{
@@ -1802,7 +1904,8 @@
         "task":{"shape":"String"},
         "status":{"shape":"String"},
         "reason":{"shape":"String"},
-        "containers":{"shape":"ContainerStateChanges"}
+        "containers":{"shape":"ContainerStateChanges"},
+        "attachments":{"shape":"AttachmentStateChanges"}
       }
     },
     "SubmitTaskStateChangeResponse":{
@@ -1840,7 +1943,8 @@
         "stoppedAt":{"shape":"Timestamp"},
         "group":{"shape":"String"},
         "launchType":{"shape":"LaunchType"},
-        "roleArn":{"shape":"String"}
+        "roleArn":{"shape":"String"},
+        "attachments":{"shape":"Attachments"}
       }
     },
     "TaskDefinition":{

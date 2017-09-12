@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -39,10 +38,8 @@ const (
 	ecsMaxReasonLength    = 255
 	pollEndpointCacheSize = 1
 	pollEndpointCacheTTL  = 20 * time.Minute
-	RoundtripTimeout      = 5 * time.Second
+	roundtripTimeout      = 5 * time.Second
 )
-
-var log = logger.ForModule("api client")
 
 // APIECSClient implements ECSClient
 type APIECSClient struct {
@@ -54,11 +51,16 @@ type APIECSClient struct {
 	pollEndpoinCache        async.Cache
 }
 
-func NewECSClient(credentialProvider *credentials.Credentials, config *config.Config, ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+// NewECSClient creates a new ECSClient interface object
+func NewECSClient(
+	credentialProvider *credentials.Credentials,
+	config *config.Config,
+	ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, config.AcceptInsecureCert)
+	ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}
@@ -91,14 +93,19 @@ func (client *APIECSClient) SetSubmitStateChangeSDK(sdk api.ECSSubmitStateSDK) {
 func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 	resp, err := client.standardClient.CreateCluster(&ecs.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
-		log.Crit("Could not register", "err", err)
+		seelog.Criticalf("Could not create cluster: %v", err)
 		return "", err
 	}
-	log.Info("Created a cluster!", "clusterName", clusterName)
+	seelog.Infof("Created a cluster named: %s", clusterName)
 	return *resp.Cluster.ClusterName, nil
 }
 
-func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []string) (string, error) {
+// RegisterContainerInstance calculates the appropriate resources, creates
+// the default cluster if necessary, and returns the registered
+// ContainerInstanceARN if successful. Supplying a non-empty container
+// instance ARN allows a container instance to update its registered
+// resources.
+func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -123,7 +130,7 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes)
 }
 
-func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []string) (string, error) {
+func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -141,19 +148,15 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		}
 	}
 	// Standard attributes are included with all registrations.
-	for _, attribute := range attributes {
-		registrationAttributes = append(registrationAttributes, &ecs.Attribute{
-			Name: aws.String(attribute),
-		})
-	}
-	for _, attribute := range client.getAdditionalAttributes() {
-		registrationAttributes = append(registrationAttributes, attribute)
-	}
+	registrationAttributes = append(registrationAttributes, attributes...)
+
+	// Add additional attributes such as the os type
+	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
 	registerRequest.Attributes = registrationAttributes
-	instanceIdentityDoc, err := client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
 	iidRetrieved := true
+	instanceIdentityDoc, err := client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
 	if err != nil {
-		log.Error("Unable to get instance identity document", "err", err)
+		seelog.Errorf("Unable to get instance identity document: %v", err)
 		iidRetrieved = false
 		instanceIdentityDoc = ""
 	}
@@ -163,7 +166,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	if iidRetrieved {
 		instanceIdentitySignature, err = client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource)
 		if err != nil {
-			log.Error("Unable to get instance identity signature", "err", err)
+			seelog.Errorf("Unable to get instance identity signature: %v", err)
 		}
 	}
 
@@ -209,7 +212,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		seelog.Errorf("Could not register: %v", err)
 		return "", err
 	}
-	log.Info("Registered!")
+	seelog.Info("Registered container instance with cluster!")
 	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
 	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
 }
@@ -257,7 +260,7 @@ func getCpuAndMemory() (int64, int64) {
 	if err == nil {
 		mem = memInfo.MemTotal / 1024 / 1024 // MiB
 	} else {
-		log.Error("Unable to get memory info", "err", err)
+		seelog.Errorf("Unable getting memory info: %v", err)
 	}
 
 	cpu := runtime.NumCPU() * 1024
@@ -266,7 +269,7 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{{
+	return []*ecs.Attribute{&ecs.Attribute{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(api.OSType),
 	}}
@@ -284,13 +287,39 @@ func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
 }
 
 func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) error {
+	// Submit attachment state change
+	if change.Attachment != nil {
+		var attachments []*ecs.AttachmentStateChange
+
+		eniStatus := change.Attachment.Status.String()
+		attachments = []*ecs.AttachmentStateChange{
+			{
+				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
+				Status:        aws.String(eniStatus),
+			},
+		}
+
+		_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecs.SubmitTaskStateChangeInput{
+			Cluster:     aws.String(client.config.Cluster),
+			Task:        aws.String(change.TaskARN),
+			Attachments: attachments,
+		})
+		if err != nil {
+			seelog.Warnf("Could not submit an attachment state change: %v", err)
+			return err
+		}
+
+		return nil
+	}
+
+	// Submit task state change
 	if change.Status == api.TaskStatusNone {
-		log.Warn("SubmitTaskStateChange called with an invalid change", "change", change)
-		return errors.New("SubmitTaskStateChange called with an invalid change")
+		seelog.Warnf("SubmitTaskStateChange called with an invalid change: %s", change.String())
+		return errors.New("ecs api client: SubmitTaskStateChange called with an invalid change")
 	}
 
 	if change.Status != api.TaskRunning && change.Status != api.TaskStopped {
-		log.Debug("Not submitting unsupported upstream task state", "state", change.Status.String())
+		seelog.Debugf("Not submitting unsupported upstream task state: %s", change.Status.String())
 		// Not really an error
 		return nil
 	}
@@ -299,7 +328,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	req := ecs.SubmitTaskStateChangeInput{
 		Cluster: aws.String(client.config.Cluster),
-		Task:    aws.String(change.TaskArn),
+		Task:    aws.String(change.TaskARN),
 		Status:  aws.String(status),
 		Reason:  aws.String(change.Reason),
 	}
@@ -313,7 +342,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&req)
 	if err != nil {
-		log.Warn("Could not submit a task state change", "err", err)
+		seelog.Warnf("Could not submit task state change: [%s]: %v", change.String(), err)
 		return err
 	}
 
@@ -385,7 +414,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 		stat = "STOPPED"
 	}
 	if stat != "STOPPED" && stat != "RUNNING" {
-		log.Info("Not submitting not supported upstream container state", "state", stat)
+		seelog.Infof("Not submitting unsupported upstream container state: %s", stat)
 		return nil
 	}
 	req.Status = &stat
@@ -410,7 +439,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 
 	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&req)
 	if err != nil {
-		log.Warn("Could not submit a container state change", "change", change, "err", err)
+		seelog.Warnf("Could not submit container state change: [%s]: %v", change.String(), err)
 		return err
 	}
 	return nil

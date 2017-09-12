@@ -317,6 +317,9 @@ func TestCustomAttributesWithMaxOptions(t *testing.T) {
 		v := "val" + strconv.Itoa(i)
 		assert.Equal(t, v, attribMap[k], "Values should match")
 	}
+
+	_, ok := attribMap["ecs.os-type"]
+	assert.True(t, ok, "OS attribute not found")
 }
 
 // waitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs

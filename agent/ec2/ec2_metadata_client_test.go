@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -26,6 +27,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+)
+
+const (
+	testRoleName = "test-role"
+	mac          = "01:23:45:67:89:ab"
+	vpcID        = "vpc-1234"
+	subnetID     = "subnet-1234"
+	iidRegion    = "us-east-1"
 )
 
 func makeTestRoleCredentials() ec2.RoleCredentials {
@@ -43,10 +53,6 @@ func makeTestRoleCredentials() ec2.RoleCredentials {
 func ignoreError(v interface{}, _ error) interface{} {
 	return v
 }
-
-const (
-	testRoleName = "test-role"
-)
 
 var testInstanceIdentityDoc = ec2metadata.EC2InstanceIdentityDocument{
 	PrivateIP:        "172.1.1.1",
@@ -87,7 +93,8 @@ func TestDefaultCredentials(t *testing.T) {
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	mockGetter.EXPECT().GetMetadata(ec2.SecurityCrednetialsResource).Return(testRoleName, nil)
-	mockGetter.EXPECT().GetMetadata(ec2.SecurityCrednetialsResource+testRoleName).Return(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte)), nil)
+	mockGetter.EXPECT().GetMetadata(ec2.SecurityCrednetialsResource+testRoleName).Return(
+		string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte)), nil)
 
 	credentials, err := testClient.DefaultCredentials()
 	if err != nil {
@@ -109,12 +116,8 @@ func TestGetInstanceIdentityDoc(t *testing.T) {
 	mockGetter.EXPECT().GetInstanceIdentityDocument().Return(testInstanceIdentityDoc, nil)
 
 	doc, err := testClient.InstanceIdentityDocument()
-	if err != nil {
-		t.Fatal("Expected to be able to get doc")
-	}
-	if doc.Region != "us-east-1" {
-		t.Error("Wrong region; expected us-east-1 but got " + doc.Region)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, iidRegion, doc.Region)
 }
 
 func TestErrorPropogatesUp(t *testing.T) {
@@ -124,10 +127,53 @@ func TestErrorPropogatesUp(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().GetInstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("Something broke"))
+	mockGetter.EXPECT().GetInstanceIdentityDocument().Return(
+		ec2metadata.EC2InstanceIdentityDocument{},
+		errors.New("Something broke"))
 
 	_, err := testClient.InstanceIdentityDocument()
-	if err == nil {
-		t.Fatal("Expected error to result")
-	}
+	assert.Error(t, err)
+}
+
+func TestPrimaryMAC(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(ec2.MacResource).Return(mac, nil)
+
+	macResponse, err := testClient.PrimaryENIMAC()
+	assert.NoError(t, err)
+	assert.Equal(t, mac, macResponse)
+}
+
+func TestVPCID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		fmt.Sprintf(ec2.VPCIDResourceFormat, mac)).Return(vpcID, nil)
+
+	vpcIDResponse, err := testClient.VPCID(mac)
+	assert.NoError(t, err)
+	assert.Equal(t, vpcID, vpcIDResponse)
+}
+
+func TestSubnetID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		fmt.Sprintf(ec2.SubnetIDResourceFormat, mac)).Return(subnetID, nil)
+	subnetIDResponse, err := testClient.SubnetID(mac)
+	assert.NoError(t, err)
+	assert.Equal(t, subnetID, subnetIDResponse)
 }

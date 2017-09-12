@@ -118,6 +118,16 @@ func (_mr *_MockClientRecorder) ListContainers(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListContainers", arg0)
 }
 
+func (_m *MockClient) LoadImage(_param0 go_dockerclient.LoadImageOptions) error {
+	ret := _m.ctrl.Call(_m, "LoadImage", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientRecorder) LoadImage(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LoadImage", arg0)
+}
+
 func (_m *MockClient) Ping() error {
 	ret := _m.ctrl.Call(_m, "Ping")
 	ret0, _ := ret[0].(error)

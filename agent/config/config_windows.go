@@ -76,16 +76,22 @@ func DefaultConfig() Config {
 	}
 }
 
-func (config *Config) platformOverrides() {
+func (cfg *Config) platformOverrides() {
 	// Enabling task IAM roles for Windows requires the credential proxy to run on port 80,
 	// so we reserve this port by default when that happens.
-	if config.TaskIAMRoleEnabled {
-		if config.ReservedPorts == nil {
-			config.ReservedPorts = []uint16{}
+	if cfg.TaskIAMRoleEnabled {
+		if cfg.ReservedPorts == nil {
+			cfg.ReservedPorts = []uint16{}
 		}
-		config.ReservedPorts = append(config.ReservedPorts, httpPort)
+		cfg.ReservedPorts = append(cfg.ReservedPorts, httpPort)
 	}
 
 	// ensure TaskResourceLimit is disabled
 	config.TaskCPUMemLimit = false
+}
+
+// platformString returns platform-specific config data that can be serialized
+// to string for debugging
+func (cfg *Config) platformString() string {
+	return ""
 }

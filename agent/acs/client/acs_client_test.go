@@ -33,7 +33,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const sampleCredentialsMessage = `
+const (
+	sampleCredentialsMessage = `
 {
   "type": "IAMRoleCredentialsMessage",
   "message": {
@@ -51,6 +52,29 @@ const sampleCredentialsMessage = `
   }
 }
 `
+	sampleAttachENIMessage = `
+{
+  "type": "AttachTaskNetworkInterfacesMessage",
+  "message": {
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "task",
+    "elasticNetworkInterfaces":[{
+      "attachmentArn": "attach_arn",
+      "ec2Id": "eni_id",
+      "ipv4Addresses":[{
+        "primary": true,
+        "privateAddress": "ipv4"
+      }],
+      "ipv6Addresses":[{
+        "address": "ipv6"
+      }],
+      "macAddress": "mac"
+    }]
+  }
+}
+`
+)
 
 const (
 	TestClusterArn  = "arn:aws:ec2:123:container/cluster:123456"
@@ -310,4 +334,50 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 
 	server := httptest.NewTLSServer(handler)
 	return server, serverChan, requestsChan, errChan, nil
+}
+
+func TestAttachENIHandlerCalled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+	defer cs.Close()
+
+	conn.EXPECT().ReadMessage().AnyTimes().Return(websocket.TextMessage, []byte(sampleAttachENIMessage), nil)
+	conn.EXPECT().Close()
+
+	messageChannel := make(chan *ecsacs.AttachTaskNetworkInterfacesMessage)
+	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
+		messageChannel <- message
+	}
+
+	cs.AddRequestHandler(reqHandler)
+
+	go cs.Serve()
+
+	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:  aws.String("123"),
+		ClusterArn: aws.String("default"),
+		TaskArn:    aws.String("task"),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{AttachmentArn: aws.String("attach_arn"),
+				Ec2Id: aws.String("eni_id"),
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String("ipv4"),
+					},
+				},
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String("ipv6"),
+					},
+				},
+				MacAddress: aws.String("mac"),
+			},
+		},
+	}
+
+	assert.Equal(t, <-messageChannel, expectedMessage)
 }

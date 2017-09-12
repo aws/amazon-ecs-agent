@@ -28,12 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const dockerIDPrefix = "dockerid-"
+
 func strptr(s string) *string { return &s }
 
 func dockerMap(task *Task) map[string]*DockerContainer {
 	m := make(map[string]*DockerContainer)
 	for _, c := range task.Containers {
-		m[c.Name] = &DockerContainer{DockerID: "dockerid-" + c.Name, DockerName: "dockername-" + c.Name, Container: c}
+		m[c.Name] = &DockerContainer{DockerID: dockerIDPrefix + c.Name, DockerName: "dockername-" + c.Name, Container: c}
 	}
 	return m
 }
@@ -150,9 +152,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	bindings, ok := config.PortBindings["10/tcp"]
 	assert.True(t, ok, "Could not get port bindings")
@@ -181,9 +181,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
-	if err != nil {
-		t.Fatal("Error creating config: ", err)
-	}
+	assert.Nil(t, err)
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -201,7 +199,8 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
-		Ulimits: []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
+		Ulimits:          []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
+		MemorySwappiness: memorySwappinessDefault,
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
@@ -224,12 +223,9 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	}
 
 	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expectedOutput := rawHostConfigInput
-
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
 
@@ -271,17 +267,54 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	}
 
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
-		Privileged:  true,
-		SecurityOpt: []string{"foo", "bar"},
-		VolumesFrom: []string{"dockername-c2"},
+		Privileged:       true,
+		SecurityOpt:      []string{"foo", "bar"},
+		VolumesFrom:      []string{"dockername-c2"},
+		MemorySwappiness: memorySwappinessDefault,
 	}
 
 	assertSetStructFieldsEqual(t, expected, *hostConfig)
+}
+
+func TestDockerHostConfigPauseContainer(t *testing.T) {
+	testTask := &Task{
+		ENI: &ENI{
+			ID: "eniID",
+		},
+		Containers: []*Container{
+			&Container{
+				Name: "c1",
+			},
+			&Container{
+				Name: emptyHostVolumeName,
+				Type: ContainerEmptyHostVolume,
+			},
+			&Container{
+				Name: PauseContainerName,
+				Type: ContainerCNIPause,
+			},
+		},
+	}
+
+	// Verify that the network mode is set to "container:<pause-container-docker-id>"
+	// for a non empty volume, non pause container
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, config.NetworkMode)
+
+	// Verify that the network mode is not set to "none"  for the
+	// empty volume container
+	config, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, networkModeNone, config.NetworkMode)
+
+	// Verify that the network mode is set to "none" for the pause container
+	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, networkModeNone, config.NetworkMode)
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
@@ -300,9 +333,7 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 			},
 		}
 		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
-		if err == nil {
-			t.Fatal("Expected error, was none for: " + badHostConfig)
-		}
+		assert.Error(t, err)
 	}
 }
 
@@ -548,7 +579,7 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
-	task.PostUnmarshalTask(nil)
+	task.PostUnmarshalTask(nil, nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
@@ -563,7 +594,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 			ContainerPath: expectedEmptyVolumeGeneratedPath2,
 		},
 	}, emptyContainer.MountPoints)
-
+	assert.Equal(t, expectedEmptyVolumeContainerImage+":"+expectedEmptyVolumeContainerTag, emptyContainer.Image, "Should have expected image")
+	assert.Equal(t, []string{expectedEmptyVolumeContainerCmd}, emptyContainer.Command, "Should have expected command")
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -782,8 +814,187 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "task status should be updated when essential containers are stopped while not all the other containers are running")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should be updated when essential containers are stopped while not all the other containers are running")
+	assert.Equal(t, TaskCreated, newStatus)
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+}
+
+// TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned
+// tests when there is one essential container is stopped while other container status are prior to
+// ResourcesProvisioned, the task status should be updated.
+func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerStopped,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe:       ContainerCreated,
+				Essential:               true,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
+			},
+		},
+	}
+
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus)
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+}
+
+// TestGetEarliestTaskStatusForContainersEmptyTask verifies that
+// `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
+// a task with no contianers
+func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
+	testTask := &Task{}
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+}
+
+// TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
+// `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
+// a task with contianers that do not have the `KnownStatusUnsafe` field set
+func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{},
+			&Container{},
+		},
+	}
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+}
+
+func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+		},
+	}
+
+	// Since a container is still in CREATED state, the earliest known status
+	// for the task based on its container statuses must be `TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// Ensure that both containers are RUNNING, which means that the earliest known status
+	// for the task based on its container statuses must be `TaskRunning`
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+}
+
+func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+			&Container{
+				KnownStatusUnsafe:       ContainerRunning,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
+			},
+		},
+	}
+
+	// Since a container is still in CREATED state, the earliest known status
+	// for the task based on its container statuses must be `TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	// Even if all containers transition to RUNNING, the earliest known status
+	// for the task based on its container statuses would still be `TaskCreated`
+	// as one of the containers has RESOURCES_PROVISIONED as its steady state
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// All of the containers in the task have reached their steady state. Ensure
+	// that the earliest known status for the task based on its container states
+	// is now `TaskRunning`
+	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+}
+
+func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+			},
+		},
+	}
+
+	// One of the containers is in CREATED state, expect task to be updated
+	// to TaskCreated
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers are in RUNNING state, expect task to be updated
+	// to TaskRunning
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+}
+
+func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
+	resourcesProvisioned := ContainerResourcesProvisioned
+	testTask := &Task{
+		KnownStatusUnsafe: TaskStatusNone,
+		Containers: []*Container{
+			&Container{
+				KnownStatusUnsafe: ContainerCreated,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe: ContainerRunning,
+				Essential:         true,
+			},
+			&Container{
+				KnownStatusUnsafe:       ContainerRunning,
+				Essential:               true,
+				SteadyStateStatusUnsafe: &resourcesProvisioned,
+			},
+		},
+	}
+
+	// One of the containers is in CREATED state, expect task to be updated
+	// to TaskCreated
+	newStatus := testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers are in RUNNING state, but one of the containers
+	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
+	// updated to TaskRunning
+	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+
+	// All of the containers have reached their steady states, expect the task
+	// to be updated to `TaskRunning`
+	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	newStatus = testTask.updateTaskKnownStatus()
+	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
 }
 
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
@@ -833,4 +1044,22 @@ func TestGetIDHappyPath(t *testing.T) {
 	taskID, err := task.GetID()
 	assert.NoError(t, err)
 	assert.Equal(t, "task-id", taskID)
+}
+
+// TestTaskGetENI tests the eni can be correctly acquired by calling GetTaskENI
+func TestTaskGetENI(t *testing.T) {
+	enisOfTask := &ENI{
+		ID: "id",
+	}
+	testTask := &Task{
+		ENI: enisOfTask,
+	}
+
+	eni := testTask.GetTaskENI()
+	assert.NotNil(t, eni)
+	assert.Equal(t, "id", eni.ID)
+
+	testTask.ENI = nil
+	eni = testTask.GetTaskENI()
+	assert.Nil(t, eni)
 }

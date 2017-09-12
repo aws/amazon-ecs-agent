@@ -24,10 +24,11 @@ import (
 // These bits of information should be enough to reconstruct the entire
 // DockerTaskEngine state
 type savedState struct {
-	Tasks         []*api.Task
-	IdToContainer map[string]*api.DockerContainer `json:"IdToContainer"` // DockerId -> api.DockerContainer
-	IdToTask      map[string]string               `json:"IdToTask"`      // DockerId -> taskarn
-	ImageStates   []*image.ImageState
+	Tasks          []*api.Task
+	IdToContainer  map[string]*api.DockerContainer `json:"IdToContainer"` // DockerId -> api.DockerContainer
+	IdToTask       map[string]string               `json:"IdToTask"`      // DockerId -> taskarn
+	ImageStates    []*image.ImageState
+	ENIAttachments []*api.ENIAttachment `json:enis`
 }
 
 func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
@@ -35,10 +36,11 @@ func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 	toSave = savedState{
-		Tasks:         state.allTasks(),
-		IdToContainer: state.idToContainer,
-		IdToTask:      state.idToTask,
-		ImageStates:   state.allImageStates(),
+		Tasks:          state.allTasks(),
+		IdToContainer:  state.idToContainer,
+		IdToTask:       state.idToTask,
+		ImageStates:    state.allImageStates(),
+		ENIAttachments: state.allENIAttachmentsUnsafe(),
 	}
 	return json.Marshal(toSave)
 }
@@ -81,7 +83,10 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 		container.Container = taskContainer
 		//pointer matching now; everyone happy
 		clean.AddContainer(container, task)
+	}
 
+	for _, eniAttachment := range saved.ENIAttachments {
+		clean.AddENIAttachment(eniAttachment)
 	}
 
 	*state = *clean

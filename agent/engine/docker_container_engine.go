@@ -44,7 +44,13 @@ const (
 // Timelimits for docker operations enforced above docker
 const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
-	ListContainersTimeout   = 10 * time.Minute
+	ListContainersTimeout = 10 * time.Minute
+	// LoadImageTimeout is the timeout for the LoadImage API. It's set
+	// to much lower value than pullImageTimeout as it involves loading
+	// image from either a file or STDIN
+	// calls involved.
+	// TODO: Benchmark and re-evaluate this value
+	LoadImageTimeout        = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 4 * time.Minute
 	startContainerTimeout   = 3 * time.Minute
@@ -126,6 +132,7 @@ type DockerClient interface {
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value should be provided for the request.
 	RemoveImage(string, time.Duration) error
+	LoadImage(io.Reader, time.Duration) error
 }
 
 // DockerGoClient wraps the underlying go-dockerclient library.
@@ -708,11 +715,14 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				continue
 			case "restart":
 			case "resize":
-			case "destroy":
 			case "unpause":
+			case "destroy":
+				// container remove events doesn't need to be handled by ecs agent
+				// as it has already moved to stopped before this event
+				continue
+
 			// These result in us falling through to inspect the container, some
 			// out of caution, some because it's a form of state change
-
 			case "oom":
 				seelog.Infof("process within container %v died due to OOM", event.ID)
 				// "oom" can either means any process got OOM'd, but doesn't always
@@ -866,6 +876,8 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	return stats, nil
 }
 
+// RemoveImage invokes github.com/fsouza/go-dockerclient.Client's
+// RemoveImage API with a timeout
 func (dg *dockerGoClient) RemoveImage(imageName string, imageRemovalTimeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), imageRemovalTimeout)
 	defer cancel()
@@ -886,4 +898,32 @@ func (dg *dockerGoClient) removeImage(imageName string) error {
 		return err
 	}
 	return client.RemoveImage(imageName)
+}
+
+// LoadImage invokes loads an image from an input stream, with a specified timeout
+func (dg *dockerGoClient) LoadImage(inputStream io.Reader, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	response := make(chan error, 1)
+	go func() {
+		response <- dg.loadImage(docker.LoadImageOptions{
+			InputStream: inputStream,
+			Context:     ctx,
+		})
+	}()
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		return &DockerTimeoutError{timeout, "loading image"}
+	}
+}
+
+func (dg *dockerGoClient) loadImage(opts docker.LoadImageOptions) error {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return err
+	}
+	return client.LoadImage(opts)
 }

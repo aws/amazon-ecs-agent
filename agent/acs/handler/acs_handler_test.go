@@ -34,6 +34,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -72,6 +73,18 @@ const (
             "volumesFrom": []
           }
         ],
+        "elasticNetworkInterfaces":[{
+                "attachmentArn": "eni_attach_arn",
+                "ec2Id": "eni_id",
+                "ipv4Addresses":[{
+                    "primary": true,
+                    "privateAddress": "ipv4"
+                }],
+                "ipv6Addresses": [{
+                    "address": "ipv6"
+                }],
+                "macAddress": "mac"
+        }],
         "roleCredentials": {
           "credentialsId": "credsId",
           "accessKeyId": "accessKeyId",
@@ -923,6 +936,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			"myArn",
 			credentials.AnonymousCredentials,
 			ecsClient,
+			dockerstate.NewTaskEngineState(),
 			stateManager,
 			taskEngine,
 			credentialsManager,

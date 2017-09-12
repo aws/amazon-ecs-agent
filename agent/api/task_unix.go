@@ -15,8 +15,16 @@
 
 package api
 
+import (
+	"github.com/fsouza/go-dockerclient"
+)
+
 const (
 	portBindingHostIP = "0.0.0.0"
+
+	//memorySwappinessDefault is the expected default value for this platform. This is used in task_windows.go
+	//and is maintained here for unix default. Also used for testing
+	memorySwappinessDefault = 0
 )
 
 func (task *Task) adjustForPlatform() {}
@@ -28,3 +36,5 @@ func (task *Task) CgroupEnabled() bool {
 	//stub for now
 	return false
 }
+
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) {}

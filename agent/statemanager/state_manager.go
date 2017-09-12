@@ -29,26 +29,33 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
-// EcsDataVersion is the current version of saved data. Any backwards or
-// forwards incompatible changes to the data-format should increment this number
-// and retain the ability to read old data versions.
-// Version changes:
-// 1) initial
-// 2)
-//   a) Add 'ACSSeqNum' top level field (backwards compatible; technically
-//      forwards compatible but could cause resource constraint violations)
-//   b) remove 'DEAD', 'UNKNOWN' state from ever being marshalled (backward and
-//      forward compatible)
-// 3) Add 'Protocol' field to 'portMappings' and 'KnownPortBindings'
-// 4) Add 'DockerConfig' struct
-// 5) Add 'ImageStates' struct as part of ImageManager
-const EcsDataVersion = 5
+const (
+	// ECSDataVersion is the current version of saved data. Any backwards or
+	// forwards incompatible changes to the data-format should increment this number
+	// and retain the ability to read old data versions.
+	// Version changes:
+	// 1) initial
+	// 2)
+	//   a) Add 'ACSSeqNum' top level field (backwards compatible; technically
+	//      forwards compatible but could cause resource constraint violations)
+	//   b) remove 'DEAD', 'UNKNOWN' state from ever being marshalled (backward and
+	//      forward compatible)
+	// 3) Add 'Protocol' field to 'portMappings' and 'KnownPortBindings'
+	// 4) Add 'DockerConfig' struct
+	// 5) Add 'ImageStates' struct as part of ImageManager
+	// 6)
+	//   a) Refactor 'Internal' field in 'api.Container' to 'Type' enum
+	//   b) Add 'ContainerResourcesProvisioned' as a new 'ContainerStatus' enum
+	//   c) Add 'SteadyStateStatus' field to 'Container' struct
+	//   d) Add 'ENIAttachments' struct
+	ECSDataVersion = 6
 
-// Filename in the ECS_DATADIR
-const ecsDataFile = "ecs_agent_data.json"
+	// ecsDataFile specifies the filename in the ECS_DATADIR
+	ecsDataFile = "ecs_agent_data.json"
 
-// How frequently to flush to disk
-const minSaveInterval = 10 * time.Second
+	// minSaveInterval specifies how frequently to flush to disk
+	minSaveInterval = 10 * time.Second
+)
 
 var log = logger.ForModule("statemanager")
 
@@ -129,7 +136,7 @@ func NewStateManager(cfg *config.Config, options ...Option) (StateManager, error
 
 	state := &state{
 		Data:    make(saveableState),
-		Version: EcsDataVersion,
+		Version: ECSDataVersion,
 	}
 	manager := &basicStateManager{
 		statePath: cfg.DataDir,
@@ -197,7 +204,7 @@ func (manager *basicStateManager) ForceSave() error {
 	defer manager.savingLock.Unlock()
 	log.Info("Saving state!")
 	s := manager.state
-	s.Version = EcsDataVersion
+	s.Version = ECSDataVersion
 
 	data, err := json.Marshal(s)
 	if err != nil {
@@ -264,9 +271,9 @@ func (manager *basicStateManager) dryRun(data []byte) error {
 		log.Crit("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
 		return err
 	}
-	if tmps.Version > EcsDataVersion {
+	if tmps.Version > ECSDataVersion {
 		strversion := strconv.Itoa(tmps.Version)
-		return errors.New("Unsupported data format: Version " + strversion + " not " + strconv.Itoa(EcsDataVersion))
+		return errors.New("Unsupported data format: Version " + strversion + " not " + strconv.Itoa(ECSDataVersion))
 	}
 	return nil
 }

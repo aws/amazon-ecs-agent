@@ -44,6 +44,9 @@ const (
 	// AgentCredentialsPort is used to serve the credentials for tasks.
 	AgentCredentialsPort = 51679
 
+	// defaultConfigFileName is the default (json-formatted) config file
+	defaultConfigFileName = "/etc/ecs_container_agent/config.json"
+
 	// DefaultClusterName is the name of the default cluster.
 	DefaultClusterName = "default"
 
@@ -80,13 +83,32 @@ const (
 	// minimumNumImagesToDeletePerCycle specifies the minimum number of images that to be deleted when
 	// performing image cleanup.
 	minimumNumImagesToDeletePerCycle = 1
+
+	// defaultCNIPluginsPath is the default path where cni binaries are located
+	defaultCNIPluginsPath = "/amazon-ecs-cni-plugins"
+
+	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
+	DefaultMinSupportedCNIVersion = "0.3.0"
+
+	// pauseContainerTarball is the path to the pause container tarball
+	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+)
+
+var (
+	// DefaultPauseContainerImageName is the name of the pause container image. The linker's
+	// load flags are used to populate this value from the Makefile
+	DefaultPauseContainerImageName = ""
+
+	// DefaultPauseContainerTag is the tag for the pause container image. The linker's load
+	// flags are used to populate this value from the Makefile
+	DefaultPauseContainerTag = ""
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
 // zero values present in the left that are not present in the right will be
 // overridden
-func (lhs *Config) Merge(rhs Config) *Config {
-	left := reflect.ValueOf(lhs).Elem()
+func (cfg *Config) Merge(rhs Config) *Config {
+	left := reflect.ValueOf(cfg).Elem()
 	right := reflect.ValueOf(&rhs).Elem()
 
 	for i := 0; i < left.NumField(); i++ {
@@ -96,7 +118,7 @@ func (lhs *Config) Merge(rhs Config) *Config {
 		}
 	}
 
-	return lhs //make it chainable
+	return cfg //make it chainable
 }
 
 // complete returns true if all fields of the config are populated / nonzero
@@ -151,7 +173,7 @@ func (cfg *Config) checkMissingAndDepreciated() error {
 	return nil
 }
 
-// trimWhitespace trims whitespace from all string config values with the
+// trimWhitespace trims whitespace from all string cfg values with the
 // `trim` tag
 func (cfg *Config) trimWhitespace() {
 	cfgElem := reflect.ValueOf(cfg).Elem()
@@ -177,33 +199,33 @@ func (cfg *Config) trimWhitespace() {
 }
 
 func fileConfig() (Config, error) {
-	config_file := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), "/etc/ecs_container_agent/config.json")
-	config := Config{}
+	fileName := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName)
+	cfg := Config{}
 
-	file, err := os.Open(config_file)
+	file, err := os.Open(fileName)
 	if err != nil {
-		return config, nil
+		return cfg, nil
 	}
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		seelog.Errorf("Unable to read config file, err %v", err)
-		return config, err
+		seelog.Errorf("Unable to read cfg file, err %v", err)
+		return cfg, err
 	}
 	if strings.TrimSpace(string(data)) == "" {
 		// empty file, not an error
-		return config, nil
+		return cfg, nil
 	}
 
-	err = json.Unmarshal(data, &config)
+	err = json.Unmarshal(data, &cfg)
 	if err != nil {
-		seelog.Errorf("Error reading config json data, err %v", err)
+		seelog.Errorf("Error reading cfg json data, err %v", err)
 	}
 
 	// Handle any deprecated keys correctly here
-	if utils.ZeroOrNil(config.Cluster) && !utils.ZeroOrNil(config.ClusterArn) {
-		config.Cluster = config.ClusterArn
+	if utils.ZeroOrNil(cfg.Cluster) && !utils.ZeroOrNil(cfg.ClusterArn) {
+		cfg.Cluster = cfg.ClusterArn
 	}
-	return config, nil
+	return cfg, nil
 }
 
 // environmentConfig reads the given configs from the environment and attempts
@@ -286,6 +308,7 @@ func environmentConfig() (Config, error) {
 	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
 	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
 	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
+	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 	taskCPUMemLimitEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT"), true)
@@ -301,6 +324,9 @@ func environmentConfig() (Config, error) {
 	if numImagesToDeletePerCycleEnvVal != "" && err != nil {
 		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
 	}
+
+	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
+	awsVPCBlockInstanceMetadata := utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false)
 
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
 	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
@@ -341,6 +367,7 @@ func environmentConfig() (Config, error) {
 		SELinuxCapable:                   seLinuxCapable,
 		AppArmorCapable:                  appArmorCapable,
 		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
+		TaskENIEnabled:                   taskENIEnabled,
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
 		TaskCPUMemLimit:                  taskCPUMemLimitEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
@@ -352,6 +379,8 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:             imageCleanupInterval,
 		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
 		InstanceAttributes:               instanceAttributes,
+		CNIPluginsPath:                   cniPluginsPath,
+		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
 	}, err
 }
 
@@ -441,17 +470,17 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 
 // validateAndOverrideBounds performs validation over members of the Config struct
 // and check the value against the minimum required value.
-func (config *Config) validateAndOverrideBounds() error {
-	err := config.checkMissingAndDepreciated()
+func (cfg *Config) validateAndOverrideBounds() error {
+	err := cfg.checkMissingAndDepreciated()
 	if err != nil {
 		return err
 	}
 
-	if config.DockerStopTimeout < minimumDockerStopTimeout {
-		return fmt.Errorf("Invalid negative DockerStopTimeout: %v", config.DockerStopTimeout.String())
+	if cfg.DockerStopTimeout < minimumDockerStopTimeout {
+		return fmt.Errorf("Invalid negative DockerStopTimeout: %v", cfg.DockerStopTimeout.String())
 	}
 	var badDrivers []string
-	for _, driver := range config.AvailableLoggingDrivers {
+	for _, driver := range cfg.AvailableLoggingDrivers {
 		_, ok := dockerclient.LoggingDriverMinimumVersion[driver]
 		if !ok {
 			badDrivers = append(badDrivers, string(driver))
@@ -463,28 +492,53 @@ func (config *Config) validateAndOverrideBounds() error {
 
 	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
 	// print a warning and override it
-	if config.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
-		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), config.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
-		config.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
+	if cfg.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
+		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
+		cfg.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
-	if config.ImageCleanupInterval < minimumImageCleanupInterval {
-		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), config.ImageCleanupInterval, minimumImageCleanupInterval)
-		config.ImageCleanupInterval = DefaultImageCleanupTimeInterval
+	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
+		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
+		cfg.ImageCleanupInterval = DefaultImageCleanupTimeInterval
 	}
 
-	if config.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
-		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, config.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
-		config.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
+	if cfg.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
+		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
+		cfg.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
 	}
 
-	config.platformOverrides()
+	cfg.platformOverrides()
 
 	return nil
 }
 
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
-func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, TaskCleanupWaitDuration: %v, DockerStopTimeout: %v, TaskCPUMemLimit: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.TaskCleanupWaitDuration, config.DockerStopTimeout, config.TaskCPUMemLimit)
+func (cfg *Config) String() string {
+	return fmt.Sprintf(
+		"Cluster: %v, "+
+			" Region: %v, "+
+			" DataDir: %v,"+
+			" Checkpoint: %v, "+
+			"AuthType: %v, "+
+			"UpdatesEnabled: %v, "+
+			"DisableMetrics: %v, "+
+			"ReservedMem: %v, "+
+			"TaskCleanupWaitDuration: %v, "+
+			"DockerStopTimeout: %v"+
+			"TaskCPUMemLimit: %v"+
+			"%s",
+		cfg.Cluster,
+		cfg.AWSRegion,
+		cfg.DataDir,
+		cfg.Checkpoint,
+		cfg.EngineAuthType,
+		cfg.UpdatesEnabled,
+		cfg.DisableMetrics,
+		cfg.ReservedMemory,
+		cfg.TaskCleanupWaitDuration,
+		cfg.DockerStopTimeout,
+		cfg.TaskCPUMemLimit,
+		cfg.platformString(),
+	)
 }

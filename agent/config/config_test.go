@@ -22,8 +22,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -80,6 +80,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")()
 	defer setTestEnv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")()
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
+	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
 
 	conf, err := environmentConfig()
 	assert.Nil(t, err)
@@ -101,6 +102,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
 	assert.True(t, conf.TaskCPUMemLimit, "Wrong value for TaskCPUMemLimit")
+	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
@@ -177,7 +179,7 @@ func TestInvalideValueDockerStopTimeout(t *testing.T) {
 	assert.Zero(t, conf.DockerStopTimeout)
 }
 
-func TestInvalideDockerStopTimeout(t *testing.T) {
+func TestInvalidDockerStopTimeout(t *testing.T) {
 	conf := DefaultConfig()
 	conf.DockerStopTimeout = -1 * time.Second
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with negative DockerStopTimeout")
@@ -304,6 +306,14 @@ func TestTaskResourceLimitsOverride(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit, "Task resource limits should be overridden to false")
+}
+
+func TestAWSVPCBlockInstanceMetadata(t *testing.T) {
+	defer setTestEnv("ECS_AWSVPC_BLOCK_IMDS", "true")()
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.AWSVPCBlockInstanceMetdata)
 }
 
 func setTestRegion() func() {

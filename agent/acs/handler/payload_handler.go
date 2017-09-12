@@ -205,6 +205,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
 		}
+
+		// Adding the eni information to the task struct
+		if len(task.ElasticNetworkInterfaces) != 0 {
+			eni, err := api.ENIFromACS(task.ElasticNetworkInterfaces)
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
+			}
+
+			apiTask.SetTaskENI(eni)
+		}
 		validTasks = append(validTasks, apiTask)
 	}
 	// Add 'stop' transitions first to allow seqnum ordering to work out
@@ -287,7 +299,7 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 
 	// Only need to stop the task; it brings down the containers too.
 	taskEvent := api.TaskStateChange{
-		TaskArn: *task.Arn,
+		TaskARN: *task.Arn,
 		Status:  api.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
 	}

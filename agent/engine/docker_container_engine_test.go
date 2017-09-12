@@ -948,3 +948,30 @@ func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
 	metadata := client.containerMetadata("id")
 	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
 }
+
+func TestLoadImageHappyPath(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
+
+	err := client.LoadImage(nil, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestLoadImageTimeoutError(t *testing.T) {
+	mockDocker, client, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().LoadImage(gomock.Any()).Do(func(x interface{}) {
+		wait.Wait()
+	})
+
+	err := client.LoadImage(nil, time.Millisecond)
+	assert.Error(t, err)
+	_, ok := err.(*DockerTimeoutError)
+	assert.True(t, ok)
+	wait.Done()
+}

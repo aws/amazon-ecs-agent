@@ -87,6 +87,39 @@ func (_mr *_MockEC2MetadataClientRecorder) InstanceIdentityDocument() *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InstanceIdentityDocument")
 }
 
+func (_m *MockEC2MetadataClient) PrimaryENIMAC() (string, error) {
+	ret := _m.ctrl.Call(_m, "PrimaryENIMAC")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) PrimaryENIMAC() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrimaryENIMAC")
+}
+
+func (_m *MockEC2MetadataClient) SubnetID(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "SubnetID", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) SubnetID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SubnetID", arg0)
+}
+
+func (_m *MockEC2MetadataClient) VPCID(_param0 string) (string, error) {
+	ret := _m.ctrl.Call(_m, "VPCID", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEC2MetadataClientRecorder) VPCID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VPCID", arg0)
+}
+
 // Mock of HttpClient interface
 type MockHttpClient struct {
 	ctrl     *gomock.Controller

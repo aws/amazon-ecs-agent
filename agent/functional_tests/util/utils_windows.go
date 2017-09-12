@@ -63,7 +63,6 @@ func init() {
 }
 
 // RunAgent launches the agent and returns an object which may be used to reference it.
-
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
 

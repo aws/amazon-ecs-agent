@@ -66,7 +66,7 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
 	containers := []ContainerResponse{}
 	for containerName, container := range containerMap {
-		if container.Container.IsInternal {
+		if container.Container.IsInternal() {
 			continue
 		}
 		containers = append(containers, ContainerResponse{container.DockerID, container.DockerName, containerName})
@@ -110,7 +110,7 @@ func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		responseJSON, _ = json.Marshal(newTaskResponse(task, containerMap))
 	} else {
-		log.Warn("Could not find requsted resource: " + resourceId)
+		log.Warn("Could not find requested resource: " + resourceId)
 		responseJSON, _ = json.Marshal(&TaskResponse{})
 		status = http.StatusNotFound
 	}
@@ -148,7 +148,7 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 					task = tasks[0]
 					found = true
 				} else {
-					log.Info("Multiple tasks found for requsted dockerId: " + dockerId)
+					log.Info("Multiple tasks found for requested dockerId: " + dockerId)
 					w.WriteHeader(http.StatusBadRequest)
 					w.Write(responseJSON)
 					return
