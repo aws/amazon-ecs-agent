@@ -347,9 +347,10 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 
 	client := engine.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
-	client.EXPECT().SupportedVersions().Return(versionList)
-	client.EXPECT().KnownVersions().Return(versionList)
-
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -379,9 +380,10 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 
 	client := engine.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	client.EXPECT().SupportedVersions().Return(versionList)
-	client.EXPECT().KnownVersions().Return(versionList)
-
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
