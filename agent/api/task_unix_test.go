@@ -262,15 +262,15 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverride(t *testing.T) {
 	task := &Task{
-		Arn:         validTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: int64(taskMemoryLimit),
+		Arn:             validTaskArn,
+		VCPULimit:       float64(taskVCPULimit),
+		MemoryLimit:     int64(taskMemoryLimit),
+		memoryCPULimits: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
-	cfg := &config.Config{TaskCPUMemLimit: true}
 
-	assert.NoError(t, task.platformHostConfigOverride(hostConfig, cfg))
+	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }
@@ -278,9 +278,10 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 	task := &Task{
-		Arn:         invalidTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: int64(taskMemoryLimit),
+		Arn:             invalidTaskArn,
+		VCPULimit:       float64(taskVCPULimit),
+		MemoryLimit:     int64(taskMemoryLimit),
+		memoryCPULimits: true,
 		Containers: []*Container{
 			{
 				Name: "c1",
@@ -288,9 +289,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		},
 	}
 
-	cfg := &config.Config{TaskCPUMemLimit: true}
-
-	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), cfg)
+	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
 	assert.Error(t, err)
 	assert.Empty(t, dockerHostConfig)
 }

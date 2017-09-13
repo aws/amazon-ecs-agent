@@ -152,8 +152,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	cfg := config.DefaultConfig()
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
 	if err != nil {
 		t.Error(err)
 	}
@@ -184,8 +183,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 		},
 	}
 
-	cfg := config.DefaultConfig()
-	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), &cfg)
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
 	if err != nil {
 		t.Fatal("Error creating config: ", err)
 	}
@@ -229,8 +227,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		},
 	}
 
-	cfg := config.DefaultConfig()
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -276,8 +273,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	cfg := config.DefaultConfig()
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), &cfg)
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
@@ -345,8 +341,7 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 				},
 			},
 		}
-		cfg := config.DefaultConfig()
-		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), &cfg)
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
 		if err == nil {
 			t.Fatal("Expected error, was none for: " + badHostConfig)
 		}
@@ -595,7 +590,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
-	task.PostUnmarshalTask(nil, nil)
+	cfg := config.Config{TaskCPUMemLimit: true}
+	task.PostUnmarshalTask(nil, &cfg)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)

@@ -125,6 +125,10 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI     *ENI
 	eniLock sync.RWMutex
+
+	// memoryCPULimits to determine if task supports CPU, memory limits
+	memoryCPULimits     bool
+	memoryCPULimitsLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -133,7 +137,7 @@ type Task struct {
 func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.adjustForPlatform()
+	task.adjustForPlatform(cfg)
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
@@ -498,11 +502,13 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
-	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap, cfg)
+func (task *Task) DockerHostConfig(
+	container *Container,
+	dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
+	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, cfg *config.Config) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &HostConfigError{err.Error()}
@@ -535,7 +541,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig, cfg)
+	err = task.platformHostConfigOverride(hostConfig)
 	if err != nil {
 		return nil, &HostConfigError{err.Error()}
 	}

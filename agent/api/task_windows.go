@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/derekparker/delve/pkg/config"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -30,7 +31,11 @@ const (
 )
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
-func (task *Task) adjustForPlatform() {
+func (task *Task) adjustForPlatform(cfg *config.Config) {
+	task.platformAttributesLock.Lock()
+	task.cgroupEnabled = cfg.TaskCPUMemLimit
+	task.platformAttributesLock.Unlock()
+
 	task.downcaseAllVolumePaths()
 }
 

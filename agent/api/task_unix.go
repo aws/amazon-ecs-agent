@@ -34,11 +34,16 @@ const (
 	memorySwappinessDefault = 0
 	sepForwardSlash         = "/"
 	defaultCPUPeriod        = 100000 // 100ms
+	maxTaskVCPULimit        = 10     // 10 VCPUs limit
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
 	defaultCPUShare = 2
 )
 
-func (task *Task) adjustForPlatform() {}
+func (task *Task) adjustForPlatform(cfg *config.Config) {
+	task.memoryCPULimitsLock.Lock()
+	defer task.memoryCPULimitsLock.Unlock()
+	task.memoryCPULimits = cfg.TaskCPUMemLimit
+}
 
 func getCanonicalPath(path string) string { return path }
 
@@ -47,7 +52,7 @@ func getCanonicalPath(path string) string { return path }
 func (task *Task) BuildCgroupRoot() (string, error) {
 	taskID, err := task.GetID()
 	if err != nil {
-		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id")
+		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from taskARN: %s", task.Arn)
 	}
 
 	cgroupRoot := filepath.Join(config.DefaultTaskCgroupPrefix, taskID)
@@ -58,7 +63,10 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
-	if !(utils.ZeroOrNil(task.VCPULimit)) {
+	if !utils.ZeroOrNil(task.VCPULimit) {
+		if task.VCPULimit > maxTaskVCPULimit {
+			return specs.LinuxResources{}, errors.New("task resource spec builder: unsupported CPU limits")
+		}
 		taskCPUPeriod := uint64(defaultCPUPeriod)
 		taskCPUQuota := int64(task.VCPULimit * defaultCPUPeriod)
 
@@ -69,13 +77,16 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 			Period: &taskCPUPeriod,
 		}
 	} else {
-		taskCPUShares := uint64(0)
+		var taskCPUShares uint64
 		for _, container := range task.Containers {
-			if !(utils.ZeroOrNil(container.CPU)) {
+			if !utils.ZeroOrNil(container.CPU) {
 				taskCPUShares += uint64(container.CPU)
-			} else {
-				taskCPUShares += uint64(defaultCPUShare)
 			}
+		}
+
+		if utils.ZeroOrNil(taskCPUShares) {
+			// Set default CPU shares
+			taskCPUShares = defaultCPUShare
 		}
 
 		linuxResourceSpec.CPU = &specs.LinuxCPU{
@@ -86,11 +97,11 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	// If task memory limit is not present, cgroup parent memory is not set
 	// If task memory limit is set, ensure that no container
 	// of this task has a greater request
-	if !(utils.ZeroOrNil(task.MemoryLimit)) {
+	if !utils.ZeroOrNil(task.MemoryLimit) {
 		taskMemoryLimit := int64(task.MemoryLimit)
 		for _, container := range task.Containers {
 			containerMemoryLimit := int64(container.Memory)
-			if !(utils.ZeroOrNil(containerMemoryLimit)) && containerMemoryLimit > taskMemoryLimit {
+			if !utils.ZeroOrNil(containerMemoryLimit) && containerMemoryLimit > taskMemoryLimit {
 				return specs.LinuxResources{}, errors.New("task resource spec builder: invalid memory configuration")
 			}
 		}
@@ -103,22 +114,23 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig, cfg *config.Config) error {
+func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	// Override cgroup parent
-	if cfg.TaskCPUMemLimit {
-		return task.overrideCgroupParent(hostConfig)
-	}
-	return nil
+	return task.overrideCgroupParent(hostConfig)
 }
 
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
-	cgroupRoot, err := task.BuildCgroupRoot()
-	if err != nil {
-		seelog.Debugf("Unable to obtain task cgroup root: %v", err)
-		return errors.Wrap(err, "task cgroup override: unable to obtain cgroup root")
+	task.memoryCPULimitsLock.RLock()
+	defer task.memoryCPULimitsLock.RUnlock()
+	if task.memoryCPULimits {
+		cgroupRoot, err := task.BuildCgroupRoot()
+		if err != nil {
+			seelog.Debugf("Unable to obtain task cgroup root for task %s: %v", task.Arn, err)
+			return errors.Wrapf(err, "task cgroup override: unable to obtain cgroup root for task: %s", task.Arn)
+		}
+		hostConfig.CgroupParent = cgroupRoot
 	}
-	hostConfig.CgroupParent = cgroupRoot
 	return nil
 }

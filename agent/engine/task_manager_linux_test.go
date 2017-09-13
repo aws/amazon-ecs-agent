@@ -287,8 +287,8 @@ func TestSetControl(t *testing.T) {
 	assert.Equal(t, mockControl, control)
 }
 
-// Cgroup Cleanup Tests
-
+// TestCleanupTaskWithCgroupHappyPath validates the task cgroup happy path
+// cleanup
 func TestCleanupTaskWithCgroupHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -342,6 +342,7 @@ func TestCleanupTaskWithCgroupHappyPath(t *testing.T) {
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
+// TestCleanupTaskWithCgroupError validates cgroup remove error path
 func TestCleanupTaskWithCgroupError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
