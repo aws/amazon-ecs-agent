@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
 const (
@@ -343,6 +344,16 @@ func environmentConfig() (Config, error) {
 		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
 	}
 
+	var additionalLocalRoutes []cnitypes.IPNet
+	additionalLocalRoutesEnv := os.Getenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES")
+	if additionalLocalRoutesEnv != "" {
+		err := json.Unmarshal([]byte(additionalLocalRoutesEnv), &additionalLocalRoutes)
+		if err != nil {
+			seelog.Warnf("Invalid format for ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES, expected a json array of CIDRs: %v", err)
+			errs = append(errs, err)
+		}
+	}
+
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
 	} else {
@@ -381,6 +392,7 @@ func environmentConfig() (Config, error) {
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   cniPluginsPath,
 		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
+		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
 	}, err
 }
 

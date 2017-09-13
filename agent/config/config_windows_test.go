@@ -25,6 +25,8 @@ import (
 )
 
 func TestConfigDefault(t *testing.T) {
+	os.Setenv("AWS_DEFAULT_REGION", "foo-bar-1")
+	defer os.Unsetenv("AWS_DEFAULT_REGION")
 	os.Unsetenv("ECS_DISABLE_METRICS")
 	os.Unsetenv("ECS_RESERVED_PORTS")
 	os.Unsetenv("ECS_RESERVED_MEMORY")
@@ -42,7 +44,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
@@ -64,10 +66,12 @@ func TestConfigDefault(t *testing.T) {
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
+	os.Setenv("AWS_DEFAULT_REGION", "foo-bar-1")
+	defer os.Unsetenv("AWS_DEFAULT_REGION")
 	os.Unsetenv("ECS_RESERVED_PORTS")
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, []uint16{
 		DockerReservedPort,
 		DockerReservedSSLPort,

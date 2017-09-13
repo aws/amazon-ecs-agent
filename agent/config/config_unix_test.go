@@ -29,6 +29,8 @@ import (
 )
 
 func TestConfigDefault(t *testing.T) {
+	os.Setenv("AWS_DEFAULT_REGION", "foo-bar-1")
+	defer os.Unsetenv("AWS_DEFAULT_REGION")
 	os.Unsetenv("ECS_DISABLE_METRICS")
 	os.Unsetenv("ECS_RESERVED_PORTS")
 	os.Unsetenv("ECS_RESERVED_MEMORY")
@@ -49,7 +51,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_AWSVPC_BLOCK_IMDS")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, "/data/", cfg.DataDir, "Default datadir set incorrectly")
