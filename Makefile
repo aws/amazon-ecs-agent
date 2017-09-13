@@ -28,16 +28,16 @@ all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
 # everything every time
-gobuild: get-deps
+gobuild:
 	./scripts/build false
 
 # Basic go build
-static: get-deps
+static:
 	./scripts/build
 
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
 # directory
-build-in-docker: get-deps
+build-in-docker:
 	@docker build -f scripts/dockerfiles/Dockerfile.build -t "amazon/amazon-ecs-agent-build:make" .
 	@docker run --net=none \
 	  -e TARGET_OS="${TARGET_OS}" \
@@ -119,21 +119,15 @@ pause-container-release: pause-container
 	mkdir -p "$(PWD)/out"
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
 
-get-cni-sources: .cni-sources-stamp
+get-cni-sources:
+	git submodule update --init --checkout
 
-.cni-sources-stamp:
-	if [ -d amazon-ecs-cni-plugins/plugins ]; then \
-		cd amazon-ecs-cni-plugins && git fetch && git checkout $(ECS_CNI_REPOSITORY_REVISION) ; \
-	else \
-		git clone https://github.com/aws/amazon-ecs-cni-plugins.git --branch $(ECS_CNI_REPOSITORY_REVISION) ; \
-	fi
-	mkdir -p amazon-ecs-cni-plugins/bin/plugins
-	touch .cni-sources-stamp
-
-cni-plugins: get-deps
+cni-plugins: get-cni-sources
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	mkdir -p out/cni-plugins
 	docker run --rm --net=none \
+		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short HEAD) \
+		-e GIT_PORCELAIN=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l) \
 		-v "$(PWD)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-cniplugins:make"
@@ -173,18 +167,18 @@ image-cleanup-test-images:
 	go get golang.org/x/tools/cmd/goimports
 	touch .get-deps-stamp
 
-get-deps: get-cni-sources .get-deps-stamp
+get-deps: .get-deps-stamp
 
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/*
-	rm -rf $(PWD)/amazon-ecs-cni-plugins
+	$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	rm -rf agent/Godeps/_workspace/pkg/
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-rm -f .get-deps-stamp .cni-sources-stamp
+	-rm -f .get-deps-stamp
