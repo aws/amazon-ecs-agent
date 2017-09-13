@@ -300,7 +300,7 @@ func environmentConfig() (Config, error) {
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
 	err = loggingDriverDecoder.Decode(&availableLoggingDrivers)
-	// EOF means the string was blank as opposed to UnexepctedEof which means an
+	// EOF means the string was blank as opposed to UnexpectedEof which means an
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
@@ -330,15 +330,15 @@ func environmentConfig() (Config, error) {
 	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
 	awsVPCBlockInstanceMetadata := utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false)
 
-	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
-	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
 	var instanceAttributes map[string]string
-
-	err = attributeDecoder.Decode(&instanceAttributes)
-	if err != io.EOF && err != nil {
-		err := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash")
-		seelog.Warn(err)
-		errs = append(errs, err)
+	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
+	err = json.Unmarshal([]byte(instanceAttributesEnv), &instanceAttributes)
+	if instanceAttributesEnv != "" {
+		if err != nil {
+			wrappedErr := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash: %v", err)
+			seelog.Error(wrappedErr)
+			errs = append(errs, wrappedErr)
+		}
 	}
 	for attributeKey, attributeValue := range instanceAttributes {
 		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
@@ -349,7 +349,7 @@ func environmentConfig() (Config, error) {
 	if additionalLocalRoutesEnv != "" {
 		err := json.Unmarshal([]byte(additionalLocalRoutesEnv), &additionalLocalRoutes)
 		if err != nil {
-			seelog.Warnf("Invalid format for ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES, expected a json array of CIDRs: %v", err)
+			seelog.Errorf("Invalid format for ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES, expected a json array of CIDRs: %v", err)
 			errs = append(errs, err)
 		}
 	}
