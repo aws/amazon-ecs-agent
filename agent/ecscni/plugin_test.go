@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_cnitypes"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +27,11 @@ func TestSetupNS(t *testing.T) {
 		mockResult.EXPECT().String().Return(""),
 	)
 
-	err := ecscniClient.SetupNS(&Config{})
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+	err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
 	assert.NoError(t, err)
 }
 
@@ -40,7 +45,11 @@ func TestCleanupNS(t *testing.T) {
 
 	libcniClient.EXPECT().DelNetworkList(gomock.Any(), gomock.Any()).Return(nil)
 
-	err := ecscniClient.CleanupNS(&Config{})
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+	err = ecscniClient.CleanupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
 	assert.NoError(t, err)
 }
 
@@ -49,15 +58,21 @@ func TestCleanupNS(t *testing.T) {
 func TestConstructNetworkConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
 
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+
 	config := &Config{
-		ENIID:                "eni-12345678",
-		ContainerID:          "containerid12",
-		ContainerPID:         "pid",
-		ENIIPV4Address:       "172.31.21.40",
-		ENIIPV6Address:       "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:        "02:7b:64:49:b1:40",
-		BridgeName:           "bridge-test1",
-		BlockInstanceMetdata: true,
+		ENIID:                 "eni-12345678",
+		ContainerID:           "containerid12",
+		ContainerPID:          "pid",
+		ENIIPV4Address:        "172.31.21.40",
+		ENIIPV6Address:        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		ENIMACAddress:         "02:7b:64:49:b1:40",
+		BridgeName:            "bridge-test1",
+		BlockInstanceMetdata:  true,
+		AdditionalLocalRoutes: additionalRoutes,
 	}
 
 	networkConfigList, err := ecscniClient.(*cniClient).constructNetworkConfig(config)
@@ -67,12 +82,13 @@ func TestConstructNetworkConfig(t *testing.T) {
 	eniConfig := &ENIConfig{}
 	for _, plugin := range networkConfigList.Plugins {
 		var err error
-		if plugin.Network.Type == ECSBridgePluginName {
+		switch plugin.Network.Type {
+		case ECSBridgePluginName:
 			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == ECSENIPluginName {
+		case ECSENIPluginName:
 			err = json.Unmarshal(plugin.Bytes, eniConfig)
 		}
-		assert.NoError(t, err, "unmarshal config from bytes failed")
+		assert.NoError(t, err, "unmarshal config from bytes failed for plugin %s\n%s", plugin.Network.Type, string(plugin.Bytes))
 	}
 
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)

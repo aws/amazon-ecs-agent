@@ -17,6 +17,7 @@
 package engine
 
 import (
+	context0 "context"
 	io "io"
 	time "time"
 
@@ -180,7 +181,7 @@ func (_m *MockDockerClient) EXPECT() *_MockDockerClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDockerClient) ContainerEvents(_param0 context.Context) (<-chan DockerContainerChangeEvent, error) {
+func (_m *MockDockerClient) ContainerEvents(_param0 context0.Context) (<-chan DockerContainerChangeEvent, error) {
 	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)
 	ret0, _ := ret[0].(<-chan DockerContainerChangeEvent)
 	ret1, _ := ret[1].(error)
@@ -304,7 +305,7 @@ func (_mr *_MockDockerClientRecorder) StartContainer(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
 }
 
-func (_m *MockDockerClient) Stats(_param0 string, _param1 context.Context) (<-chan *go_dockerclient.Stats, error) {
+func (_m *MockDockerClient) Stats(_param0 string, _param1 context0.Context) (<-chan *go_dockerclient.Stats, error) {
 	ret := _m.ctrl.Call(_m, "Stats", _param0, _param1)
 	ret0, _ := ret[0].(<-chan *go_dockerclient.Stats)
 	ret1, _ := ret[1].(error)

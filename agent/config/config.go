@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
 const (
@@ -218,7 +219,8 @@ func fileConfig() (Config, error) {
 
 	err = json.Unmarshal(data, &cfg)
 	if err != nil {
-		seelog.Errorf("Error reading cfg json data, err %v", err)
+		seelog.Criticalf("Error reading cfg json data, err %v", err)
+		return cfg, err
 	}
 
 	// Handle any deprecated keys correctly here
@@ -293,11 +295,12 @@ func environmentConfig() (Config, error) {
 	}
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
 	var availableLoggingDrivers []dockerclient.LoggingDriver
 	err = loggingDriverDecoder.Decode(&availableLoggingDrivers)
-	// EOF means the string was blank as opposed to UnexepctedEof which means an
+	// EOF means the string was blank as opposed to UnexpectedEof which means an
 	// invalid parse
 	// Blank is not a warning; we have sane defaults
 	if err != io.EOF && err != nil {
@@ -327,18 +330,28 @@ func environmentConfig() (Config, error) {
 	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
 	awsVPCBlockInstanceMetadata := utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false)
 
-	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
-	attributeDecoder := json.NewDecoder(strings.NewReader(instanceAttributesEnv))
 	var instanceAttributes map[string]string
-
-	err = attributeDecoder.Decode(&instanceAttributes)
-	if err != io.EOF && err != nil {
-		err := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash")
-		seelog.Warn(err)
-		errs = append(errs, err)
+	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
+	err = json.Unmarshal([]byte(instanceAttributesEnv), &instanceAttributes)
+	if instanceAttributesEnv != "" {
+		if err != nil {
+			wrappedErr := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash: %v", err)
+			seelog.Error(wrappedErr)
+			errs = append(errs, wrappedErr)
+		}
 	}
 	for attributeKey, attributeValue := range instanceAttributes {
 		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
+	}
+
+	var additionalLocalRoutes []cnitypes.IPNet
+	additionalLocalRoutesEnv := os.Getenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES")
+	if additionalLocalRoutesEnv != "" {
+		err := json.Unmarshal([]byte(additionalLocalRoutesEnv), &additionalLocalRoutes)
+		if err != nil {
+			seelog.Errorf("Invalid format for ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES, expected a json array of CIDRs: %v", err)
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {
@@ -379,6 +392,7 @@ func environmentConfig() (Config, error) {
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   cniPluginsPath,
 		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
+		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
 	}, err
 }
 

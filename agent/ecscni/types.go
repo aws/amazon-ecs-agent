@@ -14,7 +14,7 @@
 package ecscni
 
 import (
-	"github.com/containernetworking/cni/pkg/types"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
 const (
@@ -59,11 +59,11 @@ type IPAMConfig struct {
 	// IPV4Subnet is the ip address range managed by ipam
 	IPV4Subnet string `json:"ipv4-subnet,omitempty"`
 	// IPV4Address is the ip address to deal with(assign or release) in ipam
-	IPV4Address string `json:"ipv4-address,omitempty"`
+	IPV4Address *cnitypes.IPNet `json:"ipv4-address,omitempty"`
 	// IPV4Gateway is the gateway returned by ipam, defalut the '.1' in the subnet
 	IPV4Gateway string `json:"ipv4-gateway,omitempty"`
 	// IPV4Routes is the route to added in the containerr namespace
-	IPV4Routes []*types.Route `json:"ipv4-routes,omitempty"`
+	IPV4Routes []*cnitypes.Route `json:"ipv4-routes,omitempty"`
 }
 
 // BridgeConfig contains all the information needed to invoke the bridge plugin
@@ -134,10 +134,12 @@ type Config struct {
 	// BridgeName is the name used to create the bridge
 	BridgeName string
 	// IPAMV4Address is the ipv4 used to assign from ipam
-	IPAMV4Address string
+	IPAMV4Address *cnitypes.IPNet
 	// ID is the information associate with ip in ipam
 	ID string
 	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
 	// blocked
 	BlockInstanceMetdata bool
+	// AdditionalLocalRoutes specifies additional routes to be added to the task namespace
+	AdditionalLocalRoutes []cnitypes.IPNet
 }

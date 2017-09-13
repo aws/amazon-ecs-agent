@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -107,8 +107,17 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 // constructNetworkConfig creates configuration for eni, ipam and bridge plugin
 func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkConfigList, error) {
 	_, dst, err := net.ParseCIDR(TaskIAMRoleEndpoint)
-	if err != nil {
-		return nil, err
+
+	routes := []*cnitypes.Route{
+		{
+			Dst: *dst,
+		},
+	}
+
+	for _, route := range cfg.AdditionalLocalRoutes {
+		seelog.Debugf("Adding an additional route for %s", route)
+		ipNetRoute := (net.IPNet)(route)
+		routes = append(routes, &cnitypes.Route{Dst: ipNetRoute})
 	}
 
 	ipamConf := IPAMConfig{
@@ -117,11 +126,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
 		ID:          cfg.ID,
-		IPV4Routes: []*types.Route{
-			{
-				Dst: *dst,
-			},
-		},
+		IPV4Routes:  routes,
 	}
 
 	bridgeName := defaultBridgeName
@@ -152,7 +157,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 	}
 	plugins := []*libcni.NetworkConfig{
 		&libcni.NetworkConfig{
-			Network: &types.NetConf{
+			Network: &cnitypes.NetConf{
 				Type: ECSBridgePluginName,
 			},
 			Bytes: bridgeConfBytes,
@@ -165,7 +170,7 @@ func (client *cniClient) constructNetworkConfig(cfg *Config) (*libcni.NetworkCon
 		return nil, err
 	}
 	plugins = append(plugins, &libcni.NetworkConfig{
-		Network: &types.NetConf{
+		Network: &cnitypes.NetConf{
 			Type: ECSENIPluginName,
 		},
 		Bytes: eniConfBytes,

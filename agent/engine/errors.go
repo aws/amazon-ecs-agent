@@ -204,6 +204,28 @@ func (err CannotPullECRContainerError) ErrorName() string {
 	return "CannotPullECRContainerError"
 }
 
+// Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
+func (err CannotPullECRContainerError) Retry() bool {
+	return false
+}
+
+type CreateEmptyVolumeError struct {
+	fromError error
+}
+
+func (err CreateEmptyVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CreateEmptyVolumeError) ErrorName() string {
+	return "CreateEmptyVolumeError"
+}
+
+// Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
+func (err CreateEmptyVolumeError) Retry() bool {
+	return false
+}
+
 // CannotCreateContainerError indicates any error when trying to create a container
 type CannotCreateContainerError struct {
 	fromError error

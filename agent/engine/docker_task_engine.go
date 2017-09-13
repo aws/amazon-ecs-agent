@@ -707,6 +707,17 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "engine: build cni configuration from taskfailed")
 	}
+
+	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
+		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&
+		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.Mask) != 0 {
+		cfg.IPAMV4Address = engine.cfg.OverrideAWSVPCLocalIPv4Address
+	}
+
+	if len(engine.cfg.AWSVPCAdditionalLocalRoutes) != 0 {
+		cfg.AdditionalLocalRoutes = engine.cfg.AWSVPCAdditionalLocalRoutes
+	}
+
 	// Get the pid of container
 	containers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
