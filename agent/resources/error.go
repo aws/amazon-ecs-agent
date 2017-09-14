@@ -13,17 +13,19 @@
 
 package resources
 
-import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
-)
+// UnsupportedPlatformError indicates an error on unsupported platforms
+type UnsupportedPlatformError struct {
+	error
+}
 
-// Resource interface to interact with platform level resource constructs
-// Resource is exposed as a platform agnostic abstraction
-type Resource interface {
-	// Init is used to initialize the resource
-	Init() error
-	// Setup sets up the resource
-	Setup(task *api.Task) error
-	// Cleanup removes the resource
-	Cleanup(task *api.Task) error
+// UnsupportedPlatform returns true if the error is of UnsupportedPlatformError
+// type
+func UnsupportedPlatform(err error) bool {
+	_, ok := err.(UnsupportedPlatformError)
+	return ok
+}
+
+// NewUnsupportedPlatformError creates a new UnsupportedPlatformError object
+func NewUnsupportedPlatformError(err error) UnsupportedPlatformError {
+	return UnsupportedPlatformError{err}
 }

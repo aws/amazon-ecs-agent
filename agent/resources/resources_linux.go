@@ -23,63 +23,63 @@ import (
 	"github.com/pkg/errors"
 )
 
-// resource to implement the Resources interface
-type resources struct {
+// cgroupWrapper implements the Resource interface
+type cgroupWrapper struct {
 	control cgroup.Control
 }
 
-// New is used to return an object of the resources
-func New() Resources {
+// New is used to return an object that implements the Resource interface
+func New() Resource {
 	return newResources(cgroup.New())
 }
 
-func newResources(control cgroup.Control) Resources {
-	return &resources{
+func newResources(control cgroup.Control) Resource {
+	return &cgroupWrapper{
 		control: control,
 	}
 }
 
-// Init is used to initialize the resources
-func (r *resources) Init() error {
-	return r.cgroupInit()
+// Init is used to initialize the resource
+func (c *cgroupWrapper) Init() error {
+	return c.cgroupInit()
 }
 
-// Setup sets up the resources
-func (r *resources) Setup(task *api.Task) error {
-	return r.setupCgroup(task)
+// Setup sets up the resource
+func (c *cgroupWrapper) Setup(task *api.Task) error {
+	return c.setupCgroup(task)
 }
 
-// Cleanup removes the resources
-func (r *resources) Cleanup(task *api.Task) error {
-	return r.cleanupCgroup(task)
+// Cleanup removes the resource
+func (c *cgroupWrapper) Cleanup(task *api.Task) error {
+	return c.cleanupCgroup(task)
 }
 
 // cgroupInit is used to create the root '/ecs/ cgroup
-func (r *resources) cgroupInit() error {
-	if r.control.Exists(config.DefaultTaskCgroupPrefix) {
+func (c *cgroupWrapper) cgroupInit() error {
+	if c.control.Exists(config.DefaultTaskCgroupPrefix) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)
 		return nil
 	}
-	return r.control.Init()
+	return c.control.Init()
 }
 
 // setupCgroup is used to create the task cgroup
-func (r *resources) setupCgroup(task *api.Task) error {
+func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
-		return errors.Wrap(err, "resources: setup cgroup: unable to determine cgroup root")
+		return errors.Wrap(err, "resource: setup cgroup: unable to determine cgroup root")
 	}
 
 	seelog.Debugf("Setting up cgroup at: %s", cgroupRoot)
 
-	if r.control.Exists(cgroupRoot) {
+	if c.control.Exists(cgroupRoot) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", cgroupRoot)
 		return nil
 	}
 
 	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
 	if err != nil {
-		return errors.Wrap(err, "resources: setup cgroup: unable to build resource spec")
+		return errors.Wrap(err, "resource: setup cgroup: unable to build resource spec")
 	}
 
 	cgroupSpec := cgroup.Spec{
@@ -87,32 +87,32 @@ func (r *resources) setupCgroup(task *api.Task) error {
 		Specs: &linuxResourceSpec,
 	}
 
-	cgrp, err := r.control.Create(&cgroupSpec)
+	cgrp, err := c.control.Create(&cgroupSpec)
 	if err != nil {
-		return errors.Wrapf(err, "resources: setup cgroup: unable to create cgroup at %s", cgroupRoot)
+		return errors.Wrapf(err, "resource: setup cgroup: unable to create cgroup at %s", cgroupRoot)
 	}
 
 	// NOTE: This should be impossible
 	if cgrp == nil {
 		seelog.Criticalf("Invalid cgroup creation at %s", cgroupRoot)
-		return errors.New("resources: setup cgroup: invalid cgroup object")
+		return errors.New("resource: setup cgroup: invalid cgroup object")
 	}
 
 	return nil
 }
 
 // cleanupCgroup is used to remove the task cgroup
-func (r *resources) cleanupCgroup(task *api.Task) error {
+func (c *cgroupWrapper) cleanupCgroup(task *api.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
-		return errors.Wrap(err, "resources: cleanup cgroup: unable to determine cgroup root")
+		return errors.Wrap(err, "resource: cleanup cgroup: unable to determine cgroup root")
 	}
 
 	seelog.Debugf("Cleaning up cgroup at: %s", cgroupRoot)
 
-	err = r.control.Remove(cgroupRoot)
+	err = c.control.Remove(cgroupRoot)
 	if err != nil {
-		return errors.Wrapf(err, "resources: cleanup cgroup: unable to remove cgroup at %s", cgroupRoot)
+		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s", cgroupRoot)
 	}
 
 	return nil

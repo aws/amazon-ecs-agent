@@ -93,7 +93,7 @@ type ecsAgent struct {
 	vpc                   string
 	subnet                string
 	mac                   string
-	resources             resources.Resources
+	resource              resources.Resource
 }
 
 // newAgent returns a new ecsAgent object
@@ -144,8 +144,8 @@ func newAgent(
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
-		os:        oswrapper.New(),
-		resources: resources.New(),
+		os:       oswrapper.New(),
+		resource: resources.New(),
 	}, nil
 }
 
@@ -194,8 +194,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit {
-		err = agent.resources.Init()
-		if err != nil {
+		err = agent.resource.Init()
+		if err != nil || resources.UnsupportedPlatform(err) {
 			log.Criticalf("Unable to setup platform resources: %v", err)
 			return exitcodes.ExitTerminal
 		}

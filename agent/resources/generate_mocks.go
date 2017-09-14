@@ -13,17 +13,4 @@
 
 package resources
 
-import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
-)
-
-// Resource interface to interact with platform level resource constructs
-// Resource is exposed as a platform agnostic abstraction
-type Resource interface {
-	// Init is used to initialize the resource
-	Init() error
-	// Setup sets up the resource
-	Setup(task *api.Task) error
-	// Cleanup removes the resource
-	Cleanup(task *api.Task) error
-}
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/resources Resource mock_resources/mock_resource.go

@@ -87,7 +87,7 @@ type managedTask struct {
 	_time     ttime.Time
 	_timeOnce sync.Once
 
-	resources resources.Resources
+	resource resources.Resource
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -99,7 +99,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		engine:         engine,
-		resources:      resources.New(),
+		resource:       resources.New(),
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -134,8 +134,8 @@ func (mtask *managedTask) overseeTask() {
 			llog.Debug("Task not steady state or terminal; progressing it")
 
 			if mtask.engine.cfg.TaskCPUMemLimit {
-				err := mtask.resources.Setup(mtask.Task)
-				if err != nil {
+				err := mtask.resource.Setup(mtask.Task)
+				if err != nil || resources.UnsupportedPlatform(err) {
 					seelog.Criticalf("Unable to setup task platform resources: %v", err)
 					mtask.SetDesiredStatus(api.TaskStopped)
 					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
@@ -617,8 +617,8 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	mtask.engine.sweepTask(mtask.Task)
 
 	if mtask.engine.cfg.TaskCPUMemLimit {
-		err := mtask.resources.Cleanup(mtask.Task)
-		if err != nil {
+		err := mtask.resource.Cleanup(mtask.Task)
+		if err != nil || resources.UnsupportedPlatform(err) {
 			seelog.Warnf("Unable to cleanup platform resources: %v", err)
 		}
 	}
