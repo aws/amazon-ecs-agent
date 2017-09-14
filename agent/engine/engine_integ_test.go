@@ -89,6 +89,7 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	}, credentialsManager
 }
 
+/*
 func discardEvents(from interface{}) func() {
 	done := make(chan bool)
 
@@ -113,7 +114,7 @@ func discardEvents(from interface{}) func() {
 		done <- true
 	}
 }
-
+*/
 // TestDockerStateToContainerState tests convert the container status from
 // docker inspect to the status defined in agent
 func TestDockerStateToContainerState(t *testing.T) {
