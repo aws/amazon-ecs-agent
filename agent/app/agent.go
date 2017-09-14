@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -92,6 +93,7 @@ type ecsAgent struct {
 	vpc                   string
 	subnet                string
 	mac                   string
+	resources             resources.Resources
 }
 
 // newAgent returns a new ecsAgent object
@@ -126,7 +128,7 @@ func newAgent(
 		return nil, err
 	}
 
-	agent := &ecsAgent{
+	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
 		cfg:               cfg,
@@ -142,11 +144,9 @@ func newAgent(
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
-		os: oswrapper.New(),
-	}
-
-	agent.initPlatformResources()
-	return agent, nil
+		os:        oswrapper.New(),
+		resources: resources.New(),
+	}, nil
 }
 
 // printVersion prints the ECS Agent version string
@@ -192,10 +192,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
-	err = agent.setupPlatformResources()
-	if err != nil {
-		log.Criticalf("Unable to setup platform resources: %v", err)
-		return exitcodes.ExitTerminal
+	// Conditionally create '/ecs' cgroup root
+	if agent.cfg.TaskCPUMemLimit {
+		err = agent.resources.Init()
+		if err != nil {
+			log.Criticalf("Unable to setup platform resources: %v", err)
+			return exitcodes.ExitTerminal
+		}
 	}
 
 	var vpcSubnetAttributes []*ecs.Attribute

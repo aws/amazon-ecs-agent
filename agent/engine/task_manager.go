@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 )
@@ -85,6 +86,8 @@ type managedTask struct {
 
 	_time     ttime.Time
 	_timeOnce sync.Once
+
+	resources resources.Resources
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -96,6 +99,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		engine:         engine,
+		resources:      resources.New(),
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -129,13 +133,13 @@ func (mtask *managedTask) overseeTask() {
 			// able to move some containers along.
 			llog.Debug("Task not steady state or terminal; progressing it")
 
-			// TODO:
-			// 1) Add new task resources provisioned state ?
-			err := mtask.SetupPlatformResources()
-			if err != nil {
-				seelog.Criticalf("Unable to setup task platform resources: %v", err)
-				mtask.SetDesiredStatus(api.TaskStopped)
-				mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
+			if mtask.engine.cfg.TaskCPUMemLimit {
+				err := mtask.resources.Setup(mtask.Task)
+				if err != nil {
+					seelog.Criticalf("Unable to setup task platform resources: %v", err)
+					mtask.SetDesiredStatus(api.TaskStopped)
+					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
+				}
 			}
 			mtask.progressContainers()
 		}
@@ -612,10 +616,11 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
 
-	// TODO: Remove platform task resources
-	err := mtask.CleanupPlatformResources()
-	if err != nil {
-		seelog.Warnf("Unable to cleanup platform resources: %v", err)
+	if mtask.engine.cfg.TaskCPUMemLimit {
+		err := mtask.resources.Cleanup(mtask.Task)
+		if err != nil {
+			seelog.Warnf("Unable to cleanup platform resources: %v", err)
+		}
 	}
 
 	// Now remove ourselves from the global state and cleanup channels

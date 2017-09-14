@@ -32,9 +32,9 @@ const (
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
-	task.platformAttributesLock.Lock()
-	task.cgroupEnabled = cfg.TaskCPUMemLimit
-	task.platformAttributesLock.Unlock()
+	task.memoryCPULimitsLock.Lock()
+	task.memoryCPULimits = cfg.TaskCPUMemLimit
+	task.memoryCPULimitsLock.Unlock()
 
 	task.downcaseAllVolumePaths()
 }
