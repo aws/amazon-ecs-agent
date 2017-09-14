@@ -232,9 +232,10 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 // TestOverrideCgroupParent validates the cgroup parent override
 func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	task := &Task{
-		Arn:         validTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: int64(taskMemoryLimit),
+		Arn:             validTaskArn,
+		VCPULimit:       float64(taskVCPULimit),
+		MemoryLimit:     int64(taskMemoryLimit),
+		memoryCPULimits: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -248,9 +249,10 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 // cgroup parent update
 func TestOverrideCgroupParentErrorPath(t *testing.T) {
 	task := &Task{
-		Arn:         invalidTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: int64(taskMemoryLimit),
+		Arn:             invalidTaskArn,
+		VCPULimit:       float64(taskVCPULimit),
+		MemoryLimit:     int64(taskMemoryLimit),
+		memoryCPULimits: true,
 	}
 
 	hostConfig := &docker.HostConfig{}

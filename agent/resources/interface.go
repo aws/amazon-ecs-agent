@@ -1,5 +1,3 @@
-// +build !linux,windows
-
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,14 +11,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine
+package resources
 
-// SetupPlatformResources sets up platform level resources
-func (mtask *managedTask) SetupPlatformResources() error {
-	return nil
-}
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api"
+)
 
-// CleanupPlatformResources cleans up platform level resources
-func (mtask *managedTask) CleanupPlatformResources() error {
-	return nil
+// Resources interface to interact with platform level resource constructs
+type Resources interface {
+	// Init is used to initialize the resources
+	Init() error
+	// Setup sets up the resources
+	Setup(task *api.Task) error
+	// Cleanup removes the resources
+	Cleanup(task *api.Task) error
 }
