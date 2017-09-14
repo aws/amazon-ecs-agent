@@ -75,6 +75,7 @@ func DefaultConfig() Config {
 		MinimumImageDeletionAge:     DefaultImageDeletionAge,
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
+		ContainerMetadataEnabled:    false,
 	}
 }
 

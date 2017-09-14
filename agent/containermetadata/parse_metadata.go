@@ -121,12 +121,13 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
-			ipv4Address := containerNetwork.IPAddress
-			network := Network{NetworkMode: networkMode, IPv4Address: ipv4Address}
+			ipv4Addresses := []string{containerNetwork.IPAddress}
+			network := Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
 			networkList = append(networkList, network)
 		}
 	} else {
-		network := Network{NetworkMode: networkModeFromHostConfig, IPv4Address: ipv4AddressFromSettings}
+		ipv4Addresses := []string{ipv4AddressFromSettings}
+		network := Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
 		networkList = append(networkList, network)
 	}
 

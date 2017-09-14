@@ -49,6 +49,7 @@ func DefaultConfig() Config {
 		PauseContainerImageName:     DefaultPauseContainerImageName,
 		PauseContainerTag:           DefaultPauseContainerTag,
 		AWSVPCBlockInstanceMetdata:  false,
+		ContainerMetadataEnabled:    false,
 	}
 }
 
