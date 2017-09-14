@@ -19,6 +19,7 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestCreate is the mainline case for metadata create
@@ -47,16 +48,9 @@ func TestCreate(t *testing.T) {
 	}
 	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
 
-	if err != nil {
-		t.Error("Got unexpected error: " + err.Error())
-	}
-
-	if len(mockConfig.Env) != 1 {
-		t.Error("Unexpected number of environment variables in config: ", len(mockConfig.Env))
-	}
-	if len(mockHostConfig.Binds) != 1 {
-		t.Error("Unexpected number of binds in host config: ", len(mockHostConfig.Binds))
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(mockConfig.Env), "Unexpected number of environment variables in config")
+	assert.Equal(t, 1, len(mockHostConfig.Binds), "Unexpected number of binds in host config")
 }
 
 // TestUpdate is mainline case for metadata update
@@ -90,7 +84,6 @@ func TestUpdate(t *testing.T) {
 		mockFile.EXPECT().Close().Return(nil),
 	)
 	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
-	if err != nil {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+
+	assert.NoError(t, err)
 }

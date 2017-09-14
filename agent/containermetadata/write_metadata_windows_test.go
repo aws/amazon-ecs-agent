@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestWriteOpenFileFail checks case where open file fails and does not return a NotExist error
@@ -38,12 +39,11 @@ func TestWriteOpenFileFail(t *testing.T) {
 	)
 
 	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
-	if err.Error() != "does exist" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+
+	expectErrorMessage := "does exist"
+
+	assert.Error(t, err)
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
 // TestWriteFileWrtieFail checks case where we fail to write to file
@@ -63,10 +63,9 @@ func TestWriteFileWriteFail(t *testing.T) {
 	)
 
 	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
-	if err.Error() != "write fail" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+
+	expectErrorMessage := "write fail"
+
+	assert.Error(t, err)
+	assert.Equal(t, expectErrorMessage, err.Error())
 }

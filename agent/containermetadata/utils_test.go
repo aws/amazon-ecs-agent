@@ -16,6 +16,7 @@ package containermetadata
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -30,7 +31,5 @@ func TestGetTaskIDFailDueToInvalidID(t *testing.T) {
 	_, err := getTaskIDfromARN(mockTaskARN)
 	expectErrorMessage := fmt.Sprintf("get task ARN: cannot find TaskID for TaskARN %s", mockTaskARN)
 
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }

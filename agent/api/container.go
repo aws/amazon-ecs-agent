@@ -123,7 +123,7 @@ type Container struct {
 	// handled properly so that the state storage continues to work.
 	SentStatusUnsafe ContainerStatus `json:"SentStatus"`
 
-	// MetadataUpdated is set to true when we have completed updating the
+	// MetadataFileUpdated is set to true when we have completed updating the
 	// metadata file
 	MetadataFileUpdated bool `json:"metadataFileUpdated"`
 

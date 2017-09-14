@@ -151,7 +151,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.NoError(t, err, "should marshal additional local routes")
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))
 	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
-	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost)
+	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost, "Wrong value for DataDirOnHost")
+	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
 }
 
 func TestTrimWhitespace(t *testing.T) {

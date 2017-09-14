@@ -25,6 +25,7 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -54,9 +55,7 @@ func TestSetContainerInstanceARN(t *testing.T) {
 
 	newManager := &metadataManager{}
 	newManager.SetContainerInstanceARN(mockARN)
-	if newManager.containerInstanceARN != mockARN {
-		t.Error("Got unexpected container instance ARN: " + newManager.containerInstanceARN)
-	}
+	assert.Equal(t, mockARN, newManager.containerInstanceARN)
 }
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path
@@ -71,9 +70,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
 	expectErrorMessage := fmt.Sprintf("container metadata create for task %s container %s: get metdata file path of task %s container %s: get task ARN: invalid TaskARN %s", mockTaskARN, mockContainerName, mockTaskARN, mockContainerName, mockTaskARN)
 
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
 // TestCreateMkdirAllFail checks case when MkdirAll call fails
@@ -94,9 +91,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
 	expectErrorMessage := fmt.Sprintf("creating metadata directory for task %s: err", mockTaskARN)
 
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
 // TestUpdateInspectFail checks case when Inspect call fails
@@ -115,11 +110,7 @@ func TestUpdateInspectFail(t *testing.T) {
 	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
 	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
 
-	if err == nil {
-		t.Error("Expected inspect error to result in update fail")
-	} else if err.Error() != "Inspect fail" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Error(t, err, "Expected inspect error to result in update fail")
 }
 
 // TestUpdateNotRunningFail checks case where container is not running
@@ -145,13 +136,11 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
 	expectErrorMessage := fmt.Sprintf("container metadata update for task %s container %s: container not running or invalid", mockTaskARN, mockContainerName)
 
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
-// TestCleanMalformedFilepath checks case where ARN is invalid
-func TestCleanMalformedFilepath(t *testing.T) {
+// TestMalformedFilepath checks case where ARN is invalid
+func TestMalformedFilepath(t *testing.T) {
 	_, _, _, _, done := managerSetup(t)
 	defer done()
 
@@ -161,13 +150,11 @@ func TestCleanMalformedFilepath(t *testing.T) {
 	err := newManager.Clean(mockTaskARN)
 	expectErrorMessage := fmt.Sprintf("clean task %s: get task ARN: invalid TaskARN invalidARN", mockTaskARN)
 
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
-// TestClean is the mainline case for metadata create
-func TestClean(t *testing.T) {
+// TestHappyPath is the mainline case for metadata create
+func TestHappyPath(t *testing.T) {
 	_, _, mockOS, _, done := managerSetup(t)
 	defer done()
 
@@ -181,7 +168,6 @@ func TestClean(t *testing.T) {
 		mockOS.EXPECT().RemoveAll(gomock.Any()).Return(nil),
 	)
 	err := newManager.Clean(mockTaskARN)
-	if err != nil {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+
+	assert.NoError(t, err)
 }

@@ -72,18 +72,21 @@ func (mr *MockCNIClientMockRecorder) CleanupNS(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupNS", reflect.TypeOf((*MockCNIClient)(nil).CleanupNS), arg0)
 }
 
-func (_m *MockCNIClient) ReleaseIPResource(_param0 *ecscni.Config) error {
-	ret := _m.ctrl.Call(_m, "ReleaseIPResource", _param0)
+// ReleaseIPResource mocks base method
+func (m *MockCNIClient) ReleaseIPResource(arg0 *ecscni.Config) error {
+	ret := m.ctrl.Call(m, "ReleaseIPResource", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockCNIClientRecorder) ReleaseIPResource(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseIPResource", arg0)
+// ReleaseIPResource indicates an expected call of ReleaseIPResource
+func (mr *MockCNIClientMockRecorder) ReleaseIPResource(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseIPResource", reflect.TypeOf((*MockCNIClient)(nil).ReleaseIPResource), arg0)
 }
 
-func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config) error {
-	ret := _m.ctrl.Call(_m, "SetupNS", _param0)
+// SetupNS mocks base method
+func (m *MockCNIClient) SetupNS(arg0 *ecscni.Config) error {
+	ret := m.ctrl.Call(m, "SetupNS", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

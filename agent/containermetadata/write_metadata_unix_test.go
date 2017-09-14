@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestWriteTempFileFail checks case where temp file cannot be made
@@ -36,12 +37,10 @@ func TestWriteTempFileFail(t *testing.T) {
 	)
 
 	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
-	if err.Error() != "temp file fail" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	expectErrorMessage := "temp file fail"
+
+	assert.Error(t, err)
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
 // TestWriteFileWriteFail checks case where write to file fails
@@ -61,12 +60,10 @@ func TestWriteFileWriteFail(t *testing.T) {
 	)
 
 	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
-	if err.Error() != "write fail" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	expectErrorMessage := "write fail"
+
+	assert.Error(t, err)
+	assert.Equal(t, expectErrorMessage, err.Error())
 }
 
 // TestWriteChmodFail checks case where chmod fails
@@ -87,10 +84,8 @@ func TestWriteChmodFail(t *testing.T) {
 	)
 
 	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
-	if err.Error() != "chmod fail" {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	expectErrorMessage := "chmod fail"
+
+	assert.Error(t, err)
+	assert.Equal(t, expectErrorMessage, err.Error())
 }

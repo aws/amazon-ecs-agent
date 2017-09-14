@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func writeSetup(t *testing.T) (*mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
@@ -44,7 +45,5 @@ func TestWriteInvalidARN(t *testing.T) {
 	expectErrorMessage := fmt.Sprintf("write to metadata file for task %s container %s: get metdata file path of task %s container %s: get task ARN: invalid TaskARN %s", mockTaskARN, mockContainerName, mockTaskARN, mockContainerName, mockTaskARN)
 
 	err := writeToMetadataFile(nil, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
-	if err.Error() != expectErrorMessage {
-		t.Error("Got unexpected error: " + err.Error())
-	}
+	assert.Equal(t, expectErrorMessage, err.Error())
 }

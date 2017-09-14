@@ -21,7 +21,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
 	docker "github.com/fsouza/go-dockerclient"

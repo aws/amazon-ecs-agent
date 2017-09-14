@@ -101,7 +101,10 @@ type DockerTaskEngine struct {
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient, credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream, imageManager ImageManager, state dockerstate.TaskEngineState, metadataManager containermetadata.Manager) *DockerTaskEngine {
+func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
+	credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream,
+	imageManager ImageManager, state dockerstate.TaskEngineState,
+	metadataManager containermetadata.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
