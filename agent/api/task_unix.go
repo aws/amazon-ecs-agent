@@ -64,8 +64,10 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
 	if !utils.ZeroOrNil(task.VCPULimit) {
-		if task.VCPULimit > maxTaskVCPULimit {
-			return specs.LinuxResources{}, errors.New("task resource spec builder: unsupported CPU limits")
+		if task.VCPULimit > maxTaskVCPULimit || task.VCPULimit < 0 {
+			return specs.LinuxResources{},
+				errors.Errorf("task resource spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
+					task.VCPULimit, maxTaskVCPULimit)
 		}
 		taskCPUPeriod := uint64(defaultCPUPeriod)
 		taskCPUQuota := int64(task.VCPULimit * defaultCPUPeriod)
