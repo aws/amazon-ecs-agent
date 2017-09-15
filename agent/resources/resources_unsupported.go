@@ -1,4 +1,4 @@
-// +build windows
+// +build !linux
 
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,10 +16,7 @@
 package resources
 
 import (
-	"runtime"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/pkg/errors"
 )
 
 // unimplementedResource implements the Resource interface
@@ -32,21 +29,15 @@ func New() Resource {
 
 // Init is used to initialize the resource
 func (r *unimplementedResource) Init() error {
-	return NewUnsupportedPlatformError(errors.Errorf(
-		"resource init: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return nil
 }
 
 // Setup sets up the resource
 func (r *unimplementedResource) Setup(task *api.Task) error {
-	return NewUnsupportedPlatformError(errors.Errorf(
-		"resource setup: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return nil
 }
 
 // Cleanup removes the resource
 func (r *unimplementedResource) Cleanup(task *api.Task) error {
-	return NewUnsupportedPlatformError(errors.Errorf(
-		"resource cleanup: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return nil
 }

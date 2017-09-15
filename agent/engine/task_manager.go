@@ -133,10 +133,11 @@ func (mtask *managedTask) overseeTask() {
 			// able to move some containers along.
 			llog.Debug("Task not steady state or terminal; progressing it")
 
+			// TODO: Add new resource provisioned state ?
 			if mtask.engine.cfg.TaskCPUMemLimit {
 				err := mtask.resource.Setup(mtask.Task)
-				if err != nil || resources.UnsupportedPlatform(err) {
-					seelog.Criticalf("Unable to setup task platform resources: %v", err)
+				if err != nil {
+					seelog.Criticalf("Unable to setup platform resources for task %s: %v", mtask.Task.Arn, err)
 					mtask.SetDesiredStatus(api.TaskStopped)
 					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
 				}
@@ -618,8 +619,8 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	if mtask.engine.cfg.TaskCPUMemLimit {
 		err := mtask.resource.Cleanup(mtask.Task)
-		if err != nil || resources.UnsupportedPlatform(err) {
-			seelog.Warnf("Unable to cleanup platform resources: %v", err)
+		if err != nil {
+			seelog.Warnf("Unable to cleanup platform resources for task %s: %v", mtask.Task.Arn, err)
 		}
 	}
 

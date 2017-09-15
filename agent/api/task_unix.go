@@ -36,13 +36,13 @@ const (
 	defaultCPUPeriod        = 100000 // 100ms
 	maxTaskVCPULimit        = 10     // 10 VCPUs limit
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
-	defaultCPUShare = 2
+	minimumCPUShare = 2
 )
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {
-	task.memoryCPULimitsLock.Lock()
-	defer task.memoryCPULimitsLock.Unlock()
-	task.memoryCPULimits = cfg.TaskCPUMemLimit
+	task.memoryCPULimitsEnabledLock.Lock()
+	defer task.memoryCPULimitsEnabledLock.Unlock()
+	task.memoryCPULimitsEnabled = cfg.TaskCPUMemLimit
 }
 
 func getCanonicalPath(path string) string { return path }
@@ -63,6 +63,7 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
+	// If task level CPU limits are requested, set CPU quota + CPU period
 	if !utils.ZeroOrNil(task.VCPULimit) {
 		if task.VCPULimit > maxTaskVCPULimit || task.VCPULimit < 0 {
 			return specs.LinuxResources{},
@@ -79,6 +80,8 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 			Period: &taskCPUPeriod,
 		}
 	} else {
+		// If task level CPU limits are missing,
+		// aggregate container CPU shares when present
 		var taskCPUShares uint64
 		for _, container := range task.Containers {
 			if !utils.ZeroOrNil(container.CPU) {
@@ -86,9 +89,11 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 			}
 		}
 
+		// If there are are no CPU limits at task or container level,
+		// default task CPU shares
 		if utils.ZeroOrNil(taskCPUShares) {
 			// Set default CPU shares
-			taskCPUShares = defaultCPUShare
+			taskCPUShares = minimumCPUShare
 		}
 
 		linuxResourceSpec.CPU = &specs.LinuxCPU{
@@ -104,7 +109,9 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 		for _, container := range task.Containers {
 			containerMemoryLimit := int64(container.Memory)
 			if !utils.ZeroOrNil(containerMemoryLimit) && containerMemoryLimit > taskMemoryLimit {
-				return specs.LinuxResources{}, errors.New("task resource spec builder: invalid memory configuration")
+				return specs.LinuxResources{},
+					errors.Errorf("task resource spec builder: container memory limit(%d) greater than task memory limit(%d)",
+						containerMemoryLimit, taskMemoryLimit)
 			}
 		}
 		linuxResourceSpec.Memory = &specs.LinuxMemory{
@@ -124,9 +131,9 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
-	task.memoryCPULimitsLock.RLock()
-	defer task.memoryCPULimitsLock.RUnlock()
-	if task.memoryCPULimits {
+	task.memoryCPULimitsEnabledLock.RLock()
+	defer task.memoryCPULimitsEnabledLock.RUnlock()
+	if task.memoryCPULimitsEnabled {
 		cgroupRoot, err := task.BuildCgroupRoot()
 		if err != nil {
 			seelog.Debugf("Unable to obtain task cgroup root for task %s: %v", task.Arn, err)

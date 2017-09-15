@@ -195,8 +195,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit {
 		err = agent.resource.Init()
-		if err != nil || resources.UnsupportedPlatform(err) {
-			log.Criticalf("Unable to setup platform resources: %v", err)
+		if err != nil {
+			log.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
 			return exitcodes.ExitTerminal
 		}
 	}

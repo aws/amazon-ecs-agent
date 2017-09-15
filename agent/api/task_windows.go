@@ -32,10 +32,6 @@ const (
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
-	task.memoryCPULimitsLock.Lock()
-	task.memoryCPULimits = cfg.TaskCPUMemLimit
-	task.memoryCPULimitsLock.Unlock()
-
 	task.downcaseAllVolumePaths()
 }
 

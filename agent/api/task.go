@@ -126,9 +126,9 @@ type Task struct {
 	ENI     *ENI
 	eniLock sync.RWMutex
 
-	// memoryCPULimits to determine if task supports CPU, memory limits
-	memoryCPULimits     bool
-	memoryCPULimitsLock sync.RWMutex
+	// memoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	memoryCPULimitsEnabled     bool
+	memoryCPULimitsEnabledLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been

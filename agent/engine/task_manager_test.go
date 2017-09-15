@@ -931,7 +931,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		Task:           testdata.LoadTask("sleep5"),
+		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
@@ -984,7 +984,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		Task:           testdata.LoadTask("sleep5"),
+		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),

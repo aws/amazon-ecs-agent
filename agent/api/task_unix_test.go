@@ -169,7 +169,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 			},
 		},
 	}
-	expectedCPUShares := uint64(defaultCPUShare)
+	expectedCPUShares := uint64(minimumCPUShare)
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Shares: &expectedCPUShares,
@@ -232,10 +232,10 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 // TestOverrideCgroupParent validates the cgroup parent override
 func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	task := &Task{
-		Arn:             validTaskArn,
-		VCPULimit:       float64(taskVCPULimit),
-		MemoryLimit:     int64(taskMemoryLimit),
-		memoryCPULimits: true,
+		Arn:                    validTaskArn,
+		VCPULimit:              float64(taskVCPULimit),
+		MemoryLimit:            int64(taskMemoryLimit),
+		memoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -249,10 +249,10 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 // cgroup parent update
 func TestOverrideCgroupParentErrorPath(t *testing.T) {
 	task := &Task{
-		Arn:             invalidTaskArn,
-		VCPULimit:       float64(taskVCPULimit),
-		MemoryLimit:     int64(taskMemoryLimit),
-		memoryCPULimits: true,
+		Arn:                    invalidTaskArn,
+		VCPULimit:              float64(taskVCPULimit),
+		MemoryLimit:            int64(taskMemoryLimit),
+		memoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -264,10 +264,10 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverride(t *testing.T) {
 	task := &Task{
-		Arn:             validTaskArn,
-		VCPULimit:       float64(taskVCPULimit),
-		MemoryLimit:     int64(taskMemoryLimit),
-		memoryCPULimits: true,
+		Arn:                    validTaskArn,
+		VCPULimit:              float64(taskVCPULimit),
+		MemoryLimit:            int64(taskMemoryLimit),
+		memoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -280,10 +280,10 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 	task := &Task{
-		Arn:             invalidTaskArn,
-		VCPULimit:       float64(taskVCPULimit),
-		MemoryLimit:     int64(taskMemoryLimit),
-		memoryCPULimits: true,
+		Arn:                    invalidTaskArn,
+		VCPULimit:              float64(taskVCPULimit),
+		MemoryLimit:            int64(taskMemoryLimit),
+		memoryCPULimitsEnabled: true,
 		Containers: []*Container{
 			{
 				Name: "c1",
