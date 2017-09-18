@@ -80,6 +80,14 @@ func (lru *lruCache) Set(key string, value Value) {
 	defer lru.Unlock()
 
 	lru.cache[key] = &entry{value: value, added: time.Now()}
+
+	// Remove from the evict list if existed
+	for element := lru.evictList.Front(); element != nil; element = element.Next() {
+		if key == element.Value {
+			lru.evictList.Remove(element)
+		}
+	}
+
 	lru.evictList.PushBack(key)
 	lru.purgeSize()
 }
@@ -88,6 +96,14 @@ func (lru *lruCache) Set(key string, value Value) {
 func (lru *lruCache) Delete(key string) {
 	lru.Lock()
 	defer lru.Unlock()
+
+	var next *list.Element
+	for element := lru.evictList.Front(); element != nil; element = next {
+		next = element.Next()
+		if element.Value == key {
+			lru.evictList.Remove(element)
+		}
+	}
 
 	delete(lru.cache, key)
 }

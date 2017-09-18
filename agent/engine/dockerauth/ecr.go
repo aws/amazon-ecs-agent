@@ -73,7 +73,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	}
 
 	// First try to get the token from cache, if the token does not exist,
-	// then call ecr api to get the new token
+	// then call ECR api to get the new token
 	key := cacheKey{
 		region:           authData.Region,
 		endpointOverride: authData.EndpointOverride,
@@ -93,7 +93,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	if ok {
 		cachedToken, ok := token.(*ecrapi.AuthorizationData)
 		if !ok {
-			log.Warnf("Reading ecr credentials from cache failed, image: %s", image)
+			log.Warnf("Reading ECR credentials from cache failed, image: %s", image)
 		} else if authProvider.IsTokenValid(cachedToken) {
 			return extractToken(cachedToken)
 		} else {
@@ -141,7 +141,7 @@ func extractToken(authData *ecrapi.AuthorizationData) (docker.AuthConfiguration,
 	}, nil
 }
 
-// Ensure token is still within it's expiration window. We early expire to allow
+// IsTokenValid checks the token is still within it's expiration window. We early expire to allow
 // for timing in calls and add jitter to avoid refreshing all of the tokens at once.
 func (authProvider *ecrAuthProvider) IsTokenValid(authData *ecrapi.AuthorizationData) bool {
 	if authData == nil || authData.ExpiresAt == nil {

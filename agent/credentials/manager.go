@@ -60,7 +60,7 @@ type TaskIAMRoleCredentials struct {
 	lock               sync.RWMutex
 }
 
-// GetIAMRoleCredentials returns the iamrole credentials in the task iam role struct
+// GetIAMRoleCredentials returns the IAM role credentials in the task IAM role struct
 func (role *TaskIAMRoleCredentials) GetIAMRoleCredentials() IAMRoleCredentials {
 	role.lock.RLock()
 	defer role.lock.RUnlock()

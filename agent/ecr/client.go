@@ -43,7 +43,7 @@ type ecrClient struct {
 	sdkClient ECRSDK
 }
 
-// NewECRClient creates a ecrclient used to get docker auth from ecr
+// NewECRClient creates an ECR client used to get docker auth from ECR
 func NewECRClient(sdkClient ECRSDK) ECRClient {
 	return &ecrClient{
 		sdkClient: sdkClient,
@@ -63,7 +63,7 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 	}
 
 	if len(output.AuthorizationData) != 1 {
-		return nil, fmt.Errorf("Unexpected number of results in AuthorizationData (%d)", len(output.AuthorizationData))
+		return nil, fmt.Errorf("unexpected number of results in AuthorizationData (%d)", len(output.AuthorizationData))
 	}
 	return output.AuthorizationData[0], nil
 }
