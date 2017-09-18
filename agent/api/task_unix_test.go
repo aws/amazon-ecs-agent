@@ -17,6 +17,7 @@ package api
 
 import (
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
@@ -119,8 +120,8 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 		MemoryLimit: taskMemoryLimit,
 	}
 
-	expectedTaskCPUQuota := int64(taskVCPULimit * defaultCPUPeriod)
-	expectedTaskCPUPeriod := uint64(defaultCPUPeriod)
+	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Quota:  &expectedTaskCPUQuota,
@@ -144,8 +145,8 @@ func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 		VCPULimit: float64(taskVCPULimit),
 	}
 
-	expectedTaskCPUQuota := int64(taskVCPULimit * defaultCPUPeriod)
-	expectedTaskCPUPeriod := uint64(defaultCPUPeriod)
+	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Quota:  &expectedTaskCPUQuota,

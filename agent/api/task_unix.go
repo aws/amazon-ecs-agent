@@ -17,6 +17,7 @@ package api
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -31,10 +32,9 @@ const (
 
 	//memorySwappinessDefault is the expected default value for this platform. This is used in task_windows.go
 	//and is maintained here for unix default. Also used for testing
-	memorySwappinessDefault = 0
-	sepForwardSlash         = "/"
-	defaultCPUPeriod        = 100000 // 100ms
-	maxTaskVCPULimit        = 10     // 10 VCPUs limit
+	defaultCPUPeriod = 100 * time.Millisecond // 100ms
+	// With a 100ms CPU period, we can express 0.01 vCPU to 10 vCPUs
+	maxTaskVCPULimit = 10
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
 	minimumCPUShare = 2
 )
@@ -55,8 +55,7 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from taskARN: %s", task.Arn)
 	}
 
-	cgroupRoot := filepath.Join(config.DefaultTaskCgroupPrefix, taskID)
-	return cgroupRoot, nil
+	return filepath.Join(config.DefaultTaskCgroupPrefix, taskID), nil
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup
@@ -70,8 +69,8 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 				errors.Errorf("task resource spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
 					task.VCPULimit, maxTaskVCPULimit)
 		}
-		taskCPUPeriod := uint64(defaultCPUPeriod)
-		taskCPUQuota := int64(task.VCPULimit * defaultCPUPeriod)
+		taskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+		taskCPUQuota := int64(task.VCPULimit * float64(taskCPUPeriod))
 
 		// TODO: DefaultCPUPeriod only permits 10VCPUs.
 		// Adaptive calculation of CPUPeriod required for further support
