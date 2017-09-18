@@ -199,7 +199,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		// under the '/ecs' cgroup root. If we are unable to create this
 		// cgroup, the agent should exit with a terminal error.
 		if err != nil {
-			log.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
+			seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
 			return exitcodes.ExitTerminal
 		}
 	}

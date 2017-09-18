@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/derekparker/delve/pkg/config"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
