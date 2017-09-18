@@ -54,7 +54,7 @@ func getCanonicalPath(path string) string { return path }
 func (task *Task) BuildCgroupRoot() (string, error) {
 	taskID, err := task.GetID()
 	if err != nil {
-		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from taskARN: %s", task.Arn)
+		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
 	}
 
 	return filepath.Join(config.DefaultTaskCgroupPrefix, taskID), nil
@@ -106,17 +106,16 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	// If task memory limit is set, ensure that no container
 	// of this task has a greater request
 	if !utils.ZeroOrNil(task.MemoryLimit) {
-		taskMemoryLimit := int64(task.MemoryLimit)
 		for _, container := range task.Containers {
 			containerMemoryLimit := int64(container.Memory)
-			if !utils.ZeroOrNil(containerMemoryLimit) && containerMemoryLimit > taskMemoryLimit {
+			if containerMemoryLimit > task.MemoryLimit {
 				return specs.LinuxResources{},
 					errors.Errorf("task resource spec builder: container memory limit(%d) greater than task memory limit(%d)",
-						containerMemoryLimit, taskMemoryLimit)
+						containerMemoryLimit, task.MemoryLimit)
 			}
 		}
 		linuxResourceSpec.Memory = &specs.LinuxMemory{
-			Limit: &taskMemoryLimit,
+			Limit: &task.MemoryLimit,
 		}
 	}
 

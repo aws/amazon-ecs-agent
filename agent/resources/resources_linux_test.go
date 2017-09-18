@@ -39,8 +39,10 @@ func TestInitHappyPath(t *testing.T) {
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 
-	mockControl.EXPECT().Exists(gomock.Any()).Return(false)
-	mockControl.EXPECT().Init().Return(nil)
+	gomock.InOrder(
+		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
+		mockControl.EXPECT().Init().Return(nil),
+	)
 
 	resource := newResources(mockControl)
 	assert.NoError(t, resource.Init())
@@ -64,8 +66,10 @@ func TestInitErrorPath(t *testing.T) {
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 
-	mockControl.EXPECT().Exists(gomock.Any()).Return(false)
-	mockControl.EXPECT().Init().Return(errors.New("cgroup init error"))
+	gomock.InOrder(
+		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
+		mockControl.EXPECT().Init().Return(errors.New("cgroup init error")),
+	)
 
 	resource := newResources(mockControl)
 	assert.Error(t, resource.Init())

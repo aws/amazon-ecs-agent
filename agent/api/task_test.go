@@ -153,9 +153,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	bindings, ok := config.PortBindings["10/tcp"]
 	assert.True(t, ok, "Could not get port bindings")
@@ -184,9 +182,8 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	}
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
-	if err != nil {
-		t.Fatal("Error creating config: ", err)
-	}
+	assert.Nil(t, err)
+
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -228,9 +225,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	}
 
 	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expectedOutput := rawHostConfigInput
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
@@ -274,9 +269,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	}
 
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
 		Privileged:       true,
@@ -342,9 +335,7 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 			},
 		}
 		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask))
-		if err == nil {
-			t.Fatal("Expected error, was none for: " + badHostConfig)
-		}
+		assert.Error(t, err)
 	}
 }
 
