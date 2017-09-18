@@ -143,6 +143,8 @@ func TestCapabilitiesECR(t *testing.T) {
 	_, ok := capMap["com.amazonaws.ecs.capability.ecr-auth"]
 	assert.True(t, ok, "Could not find ECR capability when expected; got capabilities %v", capabilities)
 
+	_, ok = capMap["ecs.capability.execution-role-ecr-pull"]
+	assert.True(t, ok, "Could not find ECR execution pull capability when expected; got capabilities %v", capabilities)
 }
 
 func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {

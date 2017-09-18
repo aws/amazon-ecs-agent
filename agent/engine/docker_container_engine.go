@@ -65,7 +65,7 @@ const (
 	inspectContainerTimeout = 30 * time.Second
 	removeImageTimeout      = 3 * time.Minute
 
-	// Parameters for caching the docker auth for ecr
+	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
 	tokenCacheTTL  = 12 * time.Hour
 

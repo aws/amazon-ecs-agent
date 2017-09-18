@@ -108,9 +108,9 @@ type Task struct {
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
 
-	// executionCredentialsID is the id of credentials used by agent to
-	// perform some action in the task level, like pull image from ecr
-	executionCredentialsID string
+	// ExecutionCredentialsID is the ID of credentials that are used by agent to
+	// perform some action at the task level, such as pulling image from ECR
+	ExecutionCredentialsID string `json:"executionCredentialsID"`
 
 	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
@@ -835,7 +835,7 @@ func (task *Task) SetExecutionRoleCredentialsID(id string) {
 	task.credentialsIDLock.Lock()
 	defer task.credentialsIDLock.Unlock()
 
-	task.executionCredentialsID = id
+	task.ExecutionCredentialsID = id
 }
 
 // GetExecutionCredentialsID gets the credentials ID for the task
@@ -843,7 +843,7 @@ func (task *Task) GetExecutionCredentialsID() string {
 	task.credentialsIDLock.RLock()
 	defer task.credentialsIDLock.RUnlock()
 
-	return task.executionCredentialsID
+	return task.ExecutionCredentialsID
 }
 
 // GetDesiredStatus gets the desired status of the task
@@ -895,10 +895,10 @@ func (task *Task) GetTaskENI() *ENI {
 }
 
 // ShouldWaitForExecutionCredentials check if there are container waiting for the
-// credentials to progress eg: pull
+// credentials to progress, for example: to pull image from ECR
 func (task *Task) ShouldWaitForExecutionCredentials() bool {
 	if task.GetDesiredStatus() == TaskStopped || task.GetKnownStatus() > TaskStatusNone {
-		// If task known status is not none, it means all the containers has been created
+		// If task known status is not none, it means all the containers have been created
 		// If the task desired status is stopped, no container needs to be pulled
 		return false
 	}

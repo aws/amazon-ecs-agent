@@ -53,6 +53,7 @@ const (
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
 //    ecs.capability.task-eni
 //    ecs.capability.task-eni-block-instance-metadata
+//    ecs.capability.execution-role-ecr-pull
 func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	var capabilities []*ecs.Attribute
 
@@ -91,6 +92,7 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
 	}
 
 	if agent.cfg.TaskIAMRoleEnabled {

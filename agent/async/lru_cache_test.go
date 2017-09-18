@@ -33,6 +33,30 @@ func TestLRUSimple(t *testing.T) {
 	baz, ok := lru.Get("fooz")
 	assert.False(t, ok)
 	assert.Nil(t, baz)
+
+	lru.Delete("foo")
+	bar, ok = lru.Get("foo")
+	assert.False(t, ok)
+	assert.Nil(t, bar)
+}
+
+func TestLRUSetDelete(t *testing.T) {
+	lru := NewLRUCache(10, time.Minute)
+
+	lru.Set("foo", "bar")
+	bar, ok := lru.Get("foo")
+	assert.True(t, ok)
+	assert.Equal(t, bar, "bar")
+
+	lru.Set("foo", "bar2")
+	bar, ok = lru.Get("foo")
+	assert.True(t, ok)
+	assert.Equal(t, bar, "bar2")
+
+	lru.Delete("foo")
+	bar, ok = lru.Get("foo")
+	assert.False(t, ok)
+	assert.Nil(t, bar)
 }
 
 func TestLRUTTlPurge(t *testing.T) {

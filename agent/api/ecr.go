@@ -44,7 +44,7 @@ func (auth *ECRAuthData) GetPullCredentials() credentials.IAMRoleCredentials {
 	return auth.pullCredentials
 }
 
-// SetPullCredentials sets the credentials to pull from ecr in the auth
+// SetPullCredentials sets the credentials to pull from ECR in the auth
 func (auth *ECRAuthData) SetPullCredentials(creds credentials.IAMRoleCredentials) {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()

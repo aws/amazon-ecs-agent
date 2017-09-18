@@ -1005,8 +1005,8 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 		msg    string
 	}{
 		{&Task{
-			// Container configured to use execution role to pull and hasn't
-			// been pulled will need to wait for the credentials
+			// Container configured to use execution role to pull but havenot
+			// been pulled yet will need to wait for the credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
@@ -1019,10 +1019,10 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
-		}, true, "task needs credentials to pull container"},
+		}, true, "the task needs credentials to pull container"},
 		{&Task{
-			// Container configured to not use execution role to pull and hasn't
-			// been pulled don't need to wait for the credentials
+			// Container does not use execution role to pull, so it doesnot
+			// need to wait for credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
@@ -1035,10 +1035,10 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
-		}, false, "no containe require credentials to pull, no need to wait for credentials"},
+		}, false, "no containers require credentials to pull, so there is no need to wait for credentials"},
 		{&Task{
-			// Container configured to not use execution role to pull and has
-			// been pulled don't need to wait for the credentials
+			// Container uses execution role to pull, but the image has been pulled,
+			// so there is no need to wait for the credentials
 			KnownStatusUnsafe: TaskStatusNone,
 			Containers: []*Container{
 				{
@@ -1051,9 +1051,10 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 					KnownStatusUnsafe: ContainerPulled,
 				},
 			},
-		}, false, "container require credentials has been pulled, no need to wait for credentials"},
+		}, false, "the container that require credentials has already been pulled, so there is no need to wait for credentials"},
 		{&Task{
-			// Task desired status is set to stopped  don't need to wait for the credentials
+			// Container uses execution role to pull, but the task desired status is set to stopped
+			// so there is no need to wait for the credentials
 			KnownStatusUnsafe:   TaskStatusNone,
 			DesiredStatusUnsafe: TaskStopped,
 			Containers: []*Container{
@@ -1067,7 +1068,11 @@ func TestShouldWaitForExecutionCredentials(t *testing.T) {
 					KnownStatusUnsafe: ContainerStatusNone,
 				},
 			},
-		}, false, "task require credentials but desired to stop, no need to wait for credentials"},
+		}, false, "the container requires credentials, but the task desired status is set to stop, so there is no need to wait for credentials"},
+		{&Task{
+			// Task status is greater than none, don't need to wait for credentials
+			KnownStatusUnsafe: TaskPulled,
+		}, false, "task is already pulled, no need to wait for credentials"},
 		{&Task{
 			// Task status is greater than none, don't need to wait for credentials
 			KnownStatusUnsafe: TaskRunning,

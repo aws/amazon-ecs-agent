@@ -20,14 +20,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
+// ECRFactory defines the interface to produce an ECR SDK client
 type ECRFactory interface {
 	GetClient(*api.ECRAuthData) (ECRClient, error)
 }
@@ -55,8 +56,8 @@ func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, erro
 	}
 
 	if authData.UseExecutionRole {
-		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
-			return &ecrClient{}, fmt.Errorf("Container are set to use execution credentials, but the credentials is empty")
+		if utils.ZeroOrNil(authData.GetPullCredentials()) {
+			return &ecrClient{}, fmt.Errorf("container uses execution credentials, but the credentials are empty")
 		}
 		creds := awscreds.NewStaticCredentials(authData.GetPullCredentials().AccessKeyID,
 			authData.GetPullCredentials().SecretAccessKey,

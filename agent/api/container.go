@@ -239,24 +239,15 @@ func (c *Container) GetKnownExitCode() *int {
 	return c.knownExitCode
 }
 
-// SetRegistryAuthCredentials will set the credentials for pulling image from ecr
-func (c *Container) SetRegistryAuthCredentials(credential credentials.IAMRoleCredentials) error {
+// SetRegistryAuthCredentials sets the credentials for pulling image from ECR
+func (c *Container) SetRegistryAuthCredentials(credential credentials.IAMRoleCredentials) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.RegistryAuthentication == nil || c.RegistryAuthentication.ECRAuthData == nil {
-		return fmt.Errorf("ecr pull credentials: no registry auth data for container")
-	}
-
-	if !c.RegistryAuthentication.ECRAuthData.UseExecutionRole {
-		return fmt.Errorf("ecr pull credentials: using task level credentials is disabled")
-	}
-
 	c.RegistryAuthentication.ECRAuthData.SetPullCredentials(credential)
-	return nil
 }
 
-// ShouldPullWithExecutionRole returns whether this container has its own ecr credentials
+// ShouldPullWithExecutionRole returns whether this container has its own ECR credentials
 func (c *Container) ShouldPullWithExecutionRole() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
