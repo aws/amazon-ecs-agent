@@ -73,7 +73,8 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 	}
 
 	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
-		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
+		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve) &&
+		verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
 }
 
 // DependenciesAreResolved validates that the `target` container can be
@@ -199,6 +200,11 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	return knownStatus == api.ContainerCreated ||
 		knownStatus == volume.GetSteadyStateStatus() ||
 		knownStatus == api.ContainerStopped
+}
+
+func onSteadyStateCanResolve(target *api.Container, run *api.Container) bool {
+	return target.GetDesiredStatus() >= api.ContainerCreated &&
+		run.GetDesiredStatus() >= run.GetSteadyStateStatus()
 }
 
 // onSteadyStateIsResolved defines a relationship where a target cannot be
