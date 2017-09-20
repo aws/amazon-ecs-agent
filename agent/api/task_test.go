@@ -581,7 +581,7 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
-	cfg := config.Config{TaskCPUMemLimit: false}
+	cfg := config.Config{}
 	task.PostUnmarshalTask(&cfg, nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -65,61 +64,88 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
 	// If task level CPU limits are requested, set CPU quota + CPU period
-	if !utils.ZeroOrNil(task.VCPULimit) {
-		if task.VCPULimit > maxTaskVCPULimit || task.VCPULimit < 0 {
-			return specs.LinuxResources{},
-				errors.Errorf("task resource spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
-					task.VCPULimit, maxTaskVCPULimit)
+	// Else set CPU shares
+	if task.VCPULimit > 0 {
+		linuxCPUSpec, err := task.buildExplicitLinuxCPUSpec()
+		if err != nil {
+			return specs.LinuxResources{}, err
 		}
-		taskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
-		taskCPUQuota := int64(task.VCPULimit * float64(taskCPUPeriod))
-
-		// TODO: DefaultCPUPeriod only permits 10VCPUs.
-		// Adaptive calculation of CPUPeriod required for further support
-		linuxResourceSpec.CPU = &specs.LinuxCPU{
-			Quota:  &taskCPUQuota,
-			Period: &taskCPUPeriod,
-		}
+		linuxResourceSpec.CPU = &linuxCPUSpec
 	} else {
-		// If task level CPU limits are missing,
-		// aggregate container CPU shares when present
-		var taskCPUShares uint64
-		for _, container := range task.Containers {
-			if !utils.ZeroOrNil(container.CPU) {
-				taskCPUShares += uint64(container.CPU)
-			}
-		}
-
-		// If there are are no CPU limits at task or container level,
-		// default task CPU shares
-		if utils.ZeroOrNil(taskCPUShares) {
-			// Set default CPU shares
-			taskCPUShares = minimumCPUShare
-		}
-
-		linuxResourceSpec.CPU = &specs.LinuxCPU{
-			Shares: &taskCPUShares,
-		}
+		linuxCPUSpec := task.buildImplicitLinuxCPUSpec()
+		linuxResourceSpec.CPU = &linuxCPUSpec
 	}
 
 	// If task memory limit is not present, cgroup parent memory is not set
 	// If task memory limit is set, ensure that no container
 	// of this task has a greater request
-	if !utils.ZeroOrNil(task.MemoryLimit) {
-		for _, container := range task.Containers {
-			containerMemoryLimit := int64(container.Memory)
-			if containerMemoryLimit > task.MemoryLimit {
-				return specs.LinuxResources{},
-					errors.Errorf("task resource spec builder: container memory limit(%d) greater than task memory limit(%d)",
-						containerMemoryLimit, task.MemoryLimit)
-			}
+	if task.MemoryLimit > 0 {
+		linuxMemorySpec, err := task.buildLinuxMemorySpec()
+		if err != nil {
+			return specs.LinuxResources{}, err
 		}
-		linuxResourceSpec.Memory = &specs.LinuxMemory{
-			Limit: &task.MemoryLimit,
-		}
+		linuxResourceSpec.Memory = &linuxMemorySpec
 	}
 
 	return linuxResourceSpec, nil
+}
+
+// buildExplicitLinuxCPUSpec builds CPU spec when task CPU limits are
+// explicitly requested
+func (task *Task) buildExplicitLinuxCPUSpec() (specs.LinuxCPU, error) {
+	if task.VCPULimit > maxTaskVCPULimit {
+		return specs.LinuxCPU{},
+			errors.Errorf("task CPU spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
+				task.VCPULimit, maxTaskVCPULimit)
+	}
+	taskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	taskCPUQuota := int64(task.VCPULimit * float64(taskCPUPeriod))
+
+	// TODO: DefaultCPUPeriod only permits 10VCPUs.
+	// Adaptive calculation of CPUPeriod required for further support
+	return specs.LinuxCPU{
+		Quota:  &taskCPUQuota,
+		Period: &taskCPUPeriod,
+	}, nil
+}
+
+// buildImplicitLinuxCPUSpec builds the implicit task CPU spec when
+// task CPU and memory limit feature is enabled
+func (task *Task) buildImplicitLinuxCPUSpec() specs.LinuxCPU {
+	// If task level CPU limits are missing,
+	// aggregate container CPU shares when present
+	var taskCPUShares uint64
+	for _, container := range task.Containers {
+		if container.CPU > 0 {
+			taskCPUShares += uint64(container.CPU)
+		}
+	}
+
+	// If there are are no CPU limits at task or container level,
+	// default task CPU shares
+	if taskCPUShares == 0 {
+		// Set default CPU shares
+		taskCPUShares = minimumCPUShare
+	}
+
+	return specs.LinuxCPU{
+		Shares: &taskCPUShares,
+	}
+}
+
+// buildLinuxMemorySpec validates and builds the task memory spec
+func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
+	for _, container := range task.Containers {
+		containerMemoryLimit := int64(container.Memory)
+		if containerMemoryLimit > task.MemoryLimit {
+			return specs.LinuxMemory{},
+				errors.Errorf("task memory spec builder: container memory limit(%d) greater than task memory limit(%d)",
+					containerMemoryLimit, task.MemoryLimit)
+		}
+	}
+	return specs.LinuxMemory{
+		Limit: &task.MemoryLimit,
+	}, nil
 }
 
 // platformHostConfigOverride to override platform specific feature sets
