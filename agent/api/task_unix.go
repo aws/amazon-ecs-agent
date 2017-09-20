@@ -43,7 +43,7 @@ const (
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.memoryCPULimitsEnabledLock.Lock()
 	defer task.memoryCPULimitsEnabledLock.Unlock()
-	task.memoryCPULimitsEnabled = cfg.TaskCPUMemLimit
+	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit
 }
 
 func getCanonicalPath(path string) string { return path }
@@ -159,7 +159,7 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
 	task.memoryCPULimitsEnabledLock.RLock()
 	defer task.memoryCPULimitsEnabledLock.RUnlock()
-	if task.memoryCPULimitsEnabled {
+	if task.MemoryCPULimitsEnabled {
 		cgroupRoot, err := task.BuildCgroupRoot()
 		if err != nil {
 			seelog.Debugf("Unable to obtain task cgroup root for task %s: %v", task.Arn, err)

@@ -126,8 +126,8 @@ type Task struct {
 	ENI     *ENI
 	eniLock sync.RWMutex
 
-	// memoryCPULimitsEnabled to determine if task supports CPU, memory limits
-	memoryCPULimitsEnabled     bool
+	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
 	memoryCPULimitsEnabledLock sync.RWMutex
 }
 

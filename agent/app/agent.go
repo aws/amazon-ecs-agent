@@ -193,6 +193,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Conditionally create '/ecs' cgroup root
+	// TODO: Ensure that this feature is enabled only when
+	// the cgroup mountpoint is accessible to the agent
 	if agent.cfg.TaskCPUMemLimit {
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed

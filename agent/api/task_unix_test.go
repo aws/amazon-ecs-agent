@@ -236,7 +236,7 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 		Arn:                    validTaskArn,
 		VCPULimit:              float64(taskVCPULimit),
 		MemoryLimit:            int64(taskMemoryLimit),
-		memoryCPULimitsEnabled: true,
+		MemoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -253,7 +253,7 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 		Arn:                    invalidTaskArn,
 		VCPULimit:              float64(taskVCPULimit),
 		MemoryLimit:            int64(taskMemoryLimit),
-		memoryCPULimitsEnabled: true,
+		MemoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -268,7 +268,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 		Arn:                    validTaskArn,
 		VCPULimit:              float64(taskVCPULimit),
 		MemoryLimit:            int64(taskMemoryLimit),
-		memoryCPULimitsEnabled: true,
+		MemoryCPULimitsEnabled: true,
 	}
 
 	hostConfig := &docker.HostConfig{}
@@ -284,7 +284,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		Arn:                    invalidTaskArn,
 		VCPULimit:              float64(taskVCPULimit),
 		MemoryLimit:            int64(taskMemoryLimit),
-		memoryCPULimitsEnabled: true,
+		MemoryCPULimitsEnabled: true,
 		Containers: []*Container{
 			{
 				Name: "c1",
