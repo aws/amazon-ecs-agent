@@ -140,10 +140,14 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.SteadyStateDependencies == nil {
-					container.SteadyStateDependencies = make([]string, 0)
+				if container.TransitionDependencySet.ContainerDependencies == nil {
+					container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 				}
-				container.SteadyStateDependencies = append(container.SteadyStateDependencies, emptyHostVolumeName)
+				container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+					Container:       emptyHostVolumeName,
+					SatisfiedStatus: ContainerRunning,
+					DependentStatus: ContainerCreated,
+				})
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
