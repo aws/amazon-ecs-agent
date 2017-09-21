@@ -248,33 +248,94 @@ func TestContainerNextState(t *testing.T) {
 
 func TestContainerNextStateWithDependencies(t *testing.T) {
 	testCases := []struct {
+		name                         string
 		containerCurrentStatus       api.ContainerStatus
 		containerDesiredStatus       api.ContainerStatus
+		containerDependentStatus     api.ContainerStatus
 		dependencyCurrentStatus      api.ContainerStatus
+		dependencySatisfiedStatus    api.ContainerStatus
 		expectedContainerStatus      api.ContainerStatus
 		expectedTransitionActionable bool
 		expectedTransitionPossible   bool
 	}{
-		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is None
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, false},
+		// NONE -> RUNNING transition is not allowed and not actionable, when pull depends on create and dependency is None
+		{
+			name: "pull depends on created, dependency is none",
+			containerCurrentStatus:       api.ContainerStatusNone,
+			containerDesiredStatus:       api.ContainerRunning,
+			containerDependentStatus:     api.ContainerPulled,
+			dependencyCurrentStatus:      api.ContainerStatusNone,
+			dependencySatisfiedStatus:    api.ContainerCreated,
+			expectedContainerStatus:      api.ContainerStatusNone,
+			expectedTransitionActionable: false,
+			expectedTransitionPossible:   false,
+		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, false},
+		{
+			name: "pull depends on running, dependency is created",
+			containerCurrentStatus:       api.ContainerStatusNone,
+			containerDesiredStatus:       api.ContainerRunning,
+			containerDependentStatus:     api.ContainerPulled,
+			dependencyCurrentStatus:      api.ContainerCreated,
+			dependencySatisfiedStatus:    api.ContainerRunning,
+			expectedContainerStatus:      api.ContainerStatusNone,
+			expectedTransitionActionable: false,
+			expectedTransitionPossible:   false,
+		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
 		// The expected next status is Pulled
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerRunning, api.ContainerPulled, true, true},
+		{
+			name: "pull depends on running, dependency is running, next status is pulled",
+			containerCurrentStatus:       api.ContainerStatusNone,
+			containerDesiredStatus:       api.ContainerRunning,
+			containerDependentStatus:     api.ContainerPulled,
+			dependencyCurrentStatus:      api.ContainerRunning,
+			dependencySatisfiedStatus:    api.ContainerRunning,
+			expectedContainerStatus:      api.ContainerPulled,
+			expectedTransitionActionable: true,
+			expectedTransitionPossible:   true,
+		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Stopped
 		// The expected next status is Pulled
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStopped, api.ContainerPulled, true, true},
+		{
+			name: "pull depends on running, dependency is stopped, next status is pulled",
+			containerCurrentStatus:       api.ContainerStatusNone,
+			containerDesiredStatus:       api.ContainerRunning,
+			containerDependentStatus:     api.ContainerPulled,
+			dependencyCurrentStatus:      api.ContainerStopped,
+			dependencySatisfiedStatus:    api.ContainerRunning,
+			expectedContainerStatus:      api.ContainerPulled,
+			expectedTransitionActionable: true,
+			expectedTransitionPossible:   true,
+		},
+		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is None and
+		// dependent status is Running
+		{
+			name: "create depends on running, dependency is none, next status is pulled",
+			containerCurrentStatus:       api.ContainerStatusNone,
+			containerDesiredStatus:       api.ContainerRunning,
+			containerDependentStatus:     api.ContainerCreated,
+			dependencyCurrentStatus:      api.ContainerStatusNone,
+			dependencySatisfiedStatus:    api.ContainerRunning,
+			expectedContainerStatus:      api.ContainerPulled,
+			expectedTransitionActionable: true,
+			expectedTransitionPossible:   true,
+		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%s to %s Transition",
-			tc.containerCurrentStatus.String(), tc.containerDesiredStatus.String()), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			dependencyName := "dependency"
 			container := &api.Container{
-				DesiredStatusUnsafe:     tc.containerDesiredStatus,
-				KnownStatusUnsafe:       tc.containerCurrentStatus,
-				SteadyStateDependencies: []string{dependencyName},
+				DesiredStatusUnsafe: tc.containerDesiredStatus,
+				KnownStatusUnsafe:   tc.containerCurrentStatus,
+				TransitionDependencySet: api.TransitionDependencySet{
+					ContainerDependencies: []api.ContainerDependency{{
+						Container:       dependencyName,
+						DependentStatus: tc.containerDependentStatus,
+						SatisfiedStatus: tc.dependencySatisfiedStatus,
+					}},
+				},
 			}
 			dependency := &api.Container{
 				Name:              dependencyName,
