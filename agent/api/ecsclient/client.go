@@ -180,10 +180,17 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 			mem, client.config.ReservedMemory)
 	}
 
+	remainingCpu := cpu - int64(client.config.ReservedCpu)
+	if remainingCpu < 0 {
+		return "", fmt.Errorf(
+			"api register-container-instance: reserved cpu is higher than available cpu on the host, total cpu: %d, reserved: %d",
+			cpu, client.config.ReservedCpu)
+	}
+
 	cpuResource := ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         &integerStr,
-		IntegerValue: &cpu,
+		IntegerValue: &remainingCpu,
 	}
 	memResource := ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),

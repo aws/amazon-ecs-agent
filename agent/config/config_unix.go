@@ -30,6 +30,7 @@ func DefaultConfig() Config {
 		DataDir:                     "/data/",
 		DisableMetrics:              false,
 		ReservedMemory:              0,
+		ReservedCpu:                 0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:           DefaultDockerStopTimeout,

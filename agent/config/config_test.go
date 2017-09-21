@@ -82,7 +82,8 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 func TestEnvironmentConfig(t *testing.T) {
 	os.Setenv("ECS_CLUSTER", "myCluster")
 	os.Setenv("ECS_RESERVED_PORTS_UDP", "[42,99]")
-	os.Setenv("ECS_RESERVED_MEMORY", "20")
+	os.Setenv("ECS_RESERVED_MEMORY", "4")
+	os.Setenv("ECS_RESERVED_CPU", "20")
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", "60s")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")
 	os.Setenv("ECS_SELINUX_CAPABLE", "true")
@@ -103,7 +104,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, 2, len(conf.ReservedPortsUDP))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(99))
-	assert.Equal(t, uint16(20), conf.ReservedMemory)
+	assert.Equal(t, uint32(4), conf.ReservedMemory)
+	assert.Equal(t, uint32(20), conf.ReservedCpu)
 
 	expectedDuration, _ := time.ParseDuration("60s")
 	assert.Equal(t, expectedDuration, conf.DockerStopTimeout)
@@ -218,19 +220,19 @@ func TestInvalideDockerStopTimeout(t *testing.T) {
 	}
 }
 
-func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
+func TestInvalidFormatParseEnvVariableUint32(t *testing.T) {
 	os.Setenv("FOO", "foo")
-	var16 := parseEnvVariableUint16("FOO")
-	if var16 != 0 {
-		t.Error("Expected 0 from parseEnvVariableUint16 for invalid Uint16 format")
+	var32 := parseEnvVariableUint32("FOO")
+	if var32 != 0 {
+		t.Error("Expected 0 from parseEnvVariableUint32 for invalid Uint32 format")
 	}
 }
 
-func TestValidFormatParseEnvVariableUint16(t *testing.T) {
+func TestValidFormatParseEnvVariableUint32(t *testing.T) {
 	os.Setenv("FOO", "1")
-	var16 := parseEnvVariableUint16("FOO")
-	if var16 != 1 {
-		t.Errorf("Unexpected value parsed in parseEnvVariableUint16. Expected %d, got %d", 1, var16)
+	var32 := parseEnvVariableUint32("FOO")
+	if var32 != 1 {
+		t.Errorf("Unexpected value parsed in parseEnvVariableUint32. Expected %d, got %d", 1, var32)
 	}
 }
 
@@ -303,6 +305,34 @@ func TestReservedMemory(t *testing.T) {
 	// reserved memory, which is 0.
 	if cfg.ReservedMemory != 1 {
 		t.Errorf("Wrong value for ReservedMemory. Expected %d, got %d", 1, cfg.ReservedMemory)
+	}
+}
+
+func TestInvalidReservedCpu(t *testing.T) {
+	os.Setenv("ECS_RESERVED_CPU", "-1")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// reserved cpu, which is 0.
+	if cfg.ReservedCpu != 0 {
+		t.Error("Wrong value for ReservedCpu", cfg.ReservedCpu)
+	}
+}
+
+func TestReservedCpu(t *testing.T) {
+	os.Setenv("ECS_RESERVED_CPU", "1")
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// If an invalid value is set, the config should pick up the default value for
+	// reserved cpu, which is 0.
+	if cfg.ReservedCpu != 1 {
+		t.Errorf("Wrong value for ReservedCpu. Expected %d, got %d", 1, cfg.ReservedCpu)
 	}
 }
 
