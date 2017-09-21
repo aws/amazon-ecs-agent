@@ -359,7 +359,31 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	client := NewECSClient(credentials.AnonymousCredentials,
 		&config.Config{Cluster: configuredCluster,
 			AWSRegion:      "us-east-1",
-			ReservedMemory: uint16(mem) + 1,
+			ReservedMemory: uint32(mem) + 1,
+		}, mockEC2Metadata)
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(mockCtrl)
+	client.(*APIECSClient).SetSDK(mockSDK)
+	client.(*APIECSClient).SetSubmitStateChangeSDK(mockSubmitStateSDK)
+
+	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil)
+	mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil)
+
+	_, err := client.RegisterContainerInstance("", nil)
+	assert.Error(t, err, "Register resource with negative value should cause registration fail")
+}
+
+// TestRegisterContainerInstanceWithNegativeCpuResource tests the registeration should fail with negative CPU resource
+func TestRegisterContainerInstanceWithNegativeCpuResource(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	cpu, _ := getCpuAndMemory()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{Cluster: configuredCluster,
+			AWSRegion:   "us-east-1",
+			ReservedCpu: uint32(cpu) + 1,
 		}, mockEC2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(mockCtrl)

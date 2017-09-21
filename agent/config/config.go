@@ -260,7 +260,8 @@ func environmentConfig() (Config, error) {
 
 	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
 
-	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
+	reservedMemory := parseEnvVariableUint32("ECS_RESERVED_MEMORY")
+	reservedCpu := parseEnvVariableUint32("ECS_RESERVED_CPU")
 
 	var dockerStopTimeout time.Duration
 	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
@@ -335,6 +336,7 @@ func environmentConfig() (Config, error) {
 		UpdateDownloadDir:                updateDownloadDir,
 		DisableMetrics:                   disableMetrics,
 		ReservedMemory:                   reservedMemory,
+		ReservedCpu:                      reservedCpu,
 		AvailableLoggingDrivers:          availableLoggingDrivers,
 		PrivilegedDisabled:               privilegedDisabled,
 		SELinuxCapable:                   seLinuxCapable,
@@ -353,18 +355,18 @@ func environmentConfig() (Config, error) {
 	}, err
 }
 
-func parseEnvVariableUint16(envVar string) uint16 {
+func parseEnvVariableUint32(envVar string) uint32 {
 	envVal := os.Getenv(envVar)
-	var var16 uint16
+	var var32 uint32
 	if envVal != "" {
 		var64, err := strconv.ParseUint(envVal, 10, 16)
 		if err != nil {
 			seelog.Warnf("Invalid format for \""+envVar+"\" environment variable; expected unsigned integer. err %v", err)
 		} else {
-			var16 = uint16(var64)
+			var32 = uint32(var64)
 		}
 	}
-	return var16
+	return var32
 }
 
 func parseEnvVariableDuration(envVar string) time.Duration {
@@ -484,5 +486,5 @@ func (config *Config) validateAndOverrideBounds() error {
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (config *Config) String() string {
-	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, TaskCleanupWaitDuration: %v, DockerStopTimeout: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.TaskCleanupWaitDuration, config.DockerStopTimeout)
+	return fmt.Sprintf("Cluster: %v, Region: %v, DataDir: %v, Checkpoint: %v, AuthType: %v, UpdatesEnabled: %v, DisableMetrics: %v, ReservedMem: %v, ReservedCpu: %v, TaskCleanupWaitDuration: %v, DockerStopTimeout: %v", config.Cluster, config.AWSRegion, config.DataDir, config.Checkpoint, config.EngineAuthType, config.UpdatesEnabled, config.DisableMetrics, config.ReservedMemory, config.ReservedCpu, config.TaskCleanupWaitDuration, config.DockerStopTimeout)
 }
