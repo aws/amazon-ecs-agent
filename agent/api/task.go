@@ -255,10 +255,14 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		if container.SteadyStateDependencies == nil {
-			container.SteadyStateDependencies = make([]string, 0)
+		if container.TransitionDependencySet.ContainerDependencies == nil {
+			container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 		}
-		container.SteadyStateDependencies = append(container.SteadyStateDependencies, PauseContainerName)
+		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+			Container:       PauseContainerName,
+			SatisfiedStatus: ContainerRunning,
+			DependentStatus: ContainerPulled,
+		})
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
