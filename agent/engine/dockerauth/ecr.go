@@ -17,7 +17,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -40,7 +39,6 @@ type cacheKey struct {
 type ecrAuthProvider struct {
 	tokenCache async.Cache
 	factory    ecr.ECRFactory
-	cacheLock  sync.RWMutex
 }
 
 const (
@@ -69,7 +67,7 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	authData *api.ECRAuthData) (docker.AuthConfiguration, error) {
 	if authData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: miissing container auth data")
+		return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: missing container auth data")
 	}
 
 	// First try to get the token from cache, if the token does not exist,
@@ -86,22 +84,40 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	if !utils.ZeroOrNil(authData.GetPullCredentials()) {
 		key.roleARN = authData.GetPullCredentials().RoleArn
 	}
-	authProvider.cacheLock.RLock()
-	defer authProvider.cacheLock.RUnlock()
 
+	// Try to get the auth config from cache
+	auth := authProvider.getAuthConfigFromCache(key)
+	if auth != nil {
+		return *auth, nil
+	}
+
+	// Get the auth config from ECR
+	return authProvider.getAuthConfigFromECR(image, key, authData)
+}
+
+// getAuthconfigFromCache retrieves the token from cache
+func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *docker.AuthConfiguration {
 	token, ok := authProvider.tokenCache.Get(key.String())
 	if ok {
 		cachedToken, ok := token.(*ecrapi.AuthorizationData)
 		if !ok {
-			log.Warnf("Reading ECR credentials from cache failed, image: %s", image)
+			log.Warnf("Reading ECR credentials from cache failed")
 		} else if authProvider.IsTokenValid(cachedToken) {
-			return extractToken(cachedToken)
+			auth, err := extractToken(cachedToken)
+			if err != nil {
+				log.Errorf("Extract docker auth from cache failed, err: %v", err)
+			}
+			return &auth
 		} else {
 			// Remove invalid token from cache
 			authProvider.tokenCache.Delete(key.String())
 		}
 	}
+	return nil
+}
 
+// getAuthConfigFromECR calls the ECR API to get docker auth config
+func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *api.ECRAuthData) (docker.AuthConfiguration, error) {
 	// Create ECR client to get the token
 	client, err := authProvider.factory.GetClient(authData)
 	if err != nil {
@@ -125,7 +141,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
 		return extractToken(ecrAuthData)
 	}
-	return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: no AuthorizationToken found for %s", image)
+	return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: AuthorizationData is malformed")
 }
 
 func extractToken(authData *ecrapi.AuthorizationData) (docker.AuthConfiguration, error) {

@@ -253,12 +253,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		//     * task already in running state, no need to wait
 		// 2. ACS send new payload message update the task
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
-		if !ok {
-			if task.ShouldWaitForExecutionCredentials() {
-				seelog.Info("Skipping start task, waiting for execution role: %s", task.String())
-			} else {
-				engine.startTask(task)
-			}
+		if !ok && task.ShouldWaitForExecutionCredentials() {
+			seelog.Info("Skipping start task, waiting for execution role: %s", task.String())
 			continue
 		}
 		for _, cont := range conts {

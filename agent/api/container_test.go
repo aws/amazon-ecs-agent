@@ -134,14 +134,14 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 		result    bool
 		msg       string
 	}{
-		{&Container{}, false, "the container doesnot use ECR, so it shouldnot require credentials"},
+		{&Container{}, false, "the container does not use ECR, so it should not require credentials"},
 		{&Container{
 			RegistryAuthentication: &RegistryAuthenticationData{Type: "non-ecr"},
-		}, false, "the container doesnot use ECR, so it shouldnot require credentials"},
+		}, false, "the container does not use ECR, so it should not require credentials"},
 		{&Container{
 			RegistryAuthentication: &RegistryAuthenticationData{
 				Type: "ecr"},
-		}, false, "the container uses ecr, but it doesnot require execution role credentials"},
+		}, false, "the container uses ecr, but it does not require execution role credentials"},
 		{&Container{
 			RegistryAuthentication: &RegistryAuthenticationData{
 				Type: "ecr",
@@ -149,7 +149,7 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 					UseExecutionRole: true,
 				},
 			},
-		}, true, "the container use ECR and require execution role credentials"},
+		}, true, "the container uses ECR and require execution role credentials"},
 	}
 
 	for _, testCase := range testCases {
