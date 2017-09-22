@@ -115,6 +115,11 @@ func (agent *TestAgent) StopAgent() error {
 }
 
 func (agent *TestAgent) StartAgent() error {
+	if agent.Options != nil {
+		for k, v := range agent.Options.ExtraEnvironment {
+			os.Setenv(k, v)
+		}
+	}
 	agentInvoke := exec.Command(".\\agent.exe")
 	if TestDirectory := os.Getenv("ECS_WINDOWS_TEST_DIR"); TestDirectory != "" {
 		agentInvoke.Dir = TestDirectory
@@ -130,6 +135,11 @@ func (agent *TestAgent) StartAgent() error {
 }
 
 func (agent *TestAgent) Cleanup() {
+	if agent.Options != nil {
+		for k, _ := range agent.Options.ExtraEnvironment {
+			os.Unsetenv(k)
+		}
+	}
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Amazon\ECS Agent\State File`, registry.ALL_ACCESS)
 	if err != nil {
 		return

@@ -61,7 +61,8 @@ func DefaultConfig() Config {
 		},
 		ReservedPortsUDP: []uint16{},
 		DataDir:          dataDir,
-		// DataDirOnHost is identical to DataDir for Windows because we do not run on a container
+		// DataDirOnHost is identical to DataDir for Windows because we do not
+		// run as a container
 		DataDirOnHost: dataDir,
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,

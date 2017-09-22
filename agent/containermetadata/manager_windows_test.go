@@ -15,7 +15,6 @@
 package containermetadata
 
 import (
-	"errors"
 	"testing"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -35,9 +34,7 @@ func TestCreate(t *testing.T) {
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(nil),
-		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("err")),
-		mockOS.EXPECT().IsNotExist(gomock.Any()).Return(true),
-		mockOS.EXPECT().Create(gomock.Any()).Return(mockFile, nil),
+		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
 		mockFile.EXPECT().Sync().Return(nil),
 		mockFile.EXPECT().Close().Return(nil),

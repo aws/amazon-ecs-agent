@@ -31,6 +31,12 @@ const (
 	inspectContainerTimeout     = 30 * time.Second
 	metadataFile                = "ecs-container-metadata.json"
 	metadataPerm                = 0644
+	// MetadataInitial is the initial state of the metadata file which
+	// contains metadata provided by the ECS Agent
+	MetadataInitial = "INITIAL"
+	// MetadataReady is the final state of the metadata file which indicates
+	// it has acquired all the data it needs (Currently from the Agent and Docker)
+	MetadataReady = "READY"
 )
 
 // MetadataStatus specifies the current update status of the metadata file.
@@ -41,15 +47,6 @@ const (
 // In the future the metadata may require multiple stages of update and these
 // statuses should amended/appended accordingly.
 type MetadataStatus string
-
-const (
-	// MetadataInitial is the initial state of the metadata file which
-	// contains metadata provided by the ECS Agent
-	MetadataInitial = "INITIAL"
-	// MetadataReady is the final state of the metadata file which indicates
-	// it has acquired all the data it needs (Currently from the Agent and Docker)
-	MetadataReady = "READY"
-)
 
 // Manager is an interface that allows us to abstract away the metadata
 // operations

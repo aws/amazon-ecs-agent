@@ -343,7 +343,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	if engine.cfg.ContainerMetadataEnabled {
 		err := engine.metadataManager.Clean(task.Arn)
 		if err != nil {
-			seelog.Errorf("Clean task metadata failed for task %s: %v", task, err)
+			seelog.Warnf("Clean task metadata failed for task %s: %v", task, err)
 		}
 	}
 	engine.saver.Save()
@@ -671,7 +671,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
 		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
 		if mderr != nil {
-			seelog.Errorf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
+			seelog.Warnf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
 		}
 	}
 
@@ -713,7 +713,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 		go func() {
 			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
 			if err != nil {
-				seelog.Errorf("Update metadata file failed for container %s of task %s: %v", container, task, err)
+				seelog.Warnf("Update metadata file failed for container %s of task %s: %v", container, task, err)
 			} else {
 				container.SetMetadataFileUpdated()
 				seelog.Debugf("Updated metadata file for container %s of task %s", container, task)

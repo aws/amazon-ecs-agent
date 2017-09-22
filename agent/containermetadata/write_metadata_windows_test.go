@@ -35,7 +35,6 @@ func TestWriteOpenFileFail(t *testing.T) {
 
 	gomock.InOrder(
 		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, mockOpenErr),
-		mockOS.EXPECT().IsNotExist(mockOpenErr).Return(false),
 	)
 
 	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)

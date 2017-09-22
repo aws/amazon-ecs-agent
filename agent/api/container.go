@@ -322,6 +322,8 @@ func (c *Container) IsRunning() bool {
 	return c.GetKnownStatus().IsRunning()
 }
 
+// IsMetadataFileUpdated() returns true if the metadata file has been once the
+// metadata file is ready and will no longer change
 func (c *Container) IsMetadataFileUpdated() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -329,6 +331,7 @@ func (c *Container) IsMetadataFileUpdated() bool {
 	return c.MetadataFileUpdated
 }
 
+// SetMetadataFileUpdated sets the container's MetadataFileUpdated status to true
 func (c *Container) SetMetadataFileUpdated() {
 	c.lock.Lock()
 	defer c.lock.Unlock()

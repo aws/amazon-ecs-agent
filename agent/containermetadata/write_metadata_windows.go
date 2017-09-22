@@ -51,17 +51,12 @@ func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, d
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	file, err := osWrap.OpenFile(metadataFileName, os.O_WRONLY, metadataPerm)
+	file, err := osWrap.OpenFile(metadataFileName, os.O_WRONLY|os.O_CREATE, metadataPerm)
 	if err != nil {
-		// Retry if file does not exist
-		if osWrap.IsNotExist(err) {
-			file, err = osWrap.Create(metadataFileName)
-		}
-		if err != nil {
-			return err
-		}
+		return err
 	}
 	defer file.Close()
+
 	_, err = file.Write(data)
 	if err != nil {
 		return err
