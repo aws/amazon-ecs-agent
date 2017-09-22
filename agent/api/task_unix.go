@@ -76,9 +76,8 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 		linuxResourceSpec.CPU = &linuxCPUSpec
 	}
 
-	// If task memory limit is not present, cgroup parent memory is not set
-	// If task memory limit is set, ensure that no container
-	// of this task has a greater request
+	// Validate and build task memory spec
+	// NOTE: task memory specifications are optional
 	if task.MemoryLimit > 0 {
 		linuxMemorySpec, err := task.buildLinuxMemorySpec()
 		if err != nil {
@@ -135,6 +134,9 @@ func (task *Task) buildImplicitLinuxCPUSpec() specs.LinuxCPU {
 
 // buildLinuxMemorySpec validates and builds the task memory spec
 func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
+	// If task memory limit is not present, cgroup parent memory is not set
+	// If task memory limit is set, ensure that no container
+	// of this task has a greater request
 	for _, container := range task.Containers {
 		containerMemoryLimit := int64(container.Memory)
 		if containerMemoryLimit > task.MemoryLimit {
