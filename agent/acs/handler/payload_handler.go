@@ -219,7 +219,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 		}
 		if task.ExecutionRoleCredentials != nil {
 			// The payload message contains execution credentials for the task.
-			// Add the credentials to the crednentials manager and set the
+			// Add the credentials to the credentials manager and set the
 			// task executionCredentials id.
 			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
 				ARN:                aws.StringValue(task.Arn),

@@ -135,7 +135,6 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
-
 	}
 
 	return capabilities

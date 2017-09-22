@@ -48,7 +48,7 @@ func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 	}
 }
 
-// GetClient returns the correct region and endpoint aware client
+// GetClient creates the ECR SDK client based on the authdata
 func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, error) {
 	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(factory.httpClient)
 	if authData.EndpointOverride != "" {
