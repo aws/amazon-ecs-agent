@@ -33,7 +33,7 @@ const (
 	emptyVolumeContainerPath2         = `C:\my\empty-volume-2`
 	expectedEmptyVolumeGeneratedPath2 = `c:\ecs-empty-volume\` + emptyVolumeName2
 
-	expectedEmptyVolumeContainerImage = "microsoft/windowsservercore"
+	expectedEmptyVolumeContainerImage = "microsoft/nanoserver"
 	expectedEmptyVolumeContainerTag   = "latest"
 	expectedEmptyVolumeContainerCmd   = "not-applicable"
 

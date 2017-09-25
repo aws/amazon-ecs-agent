@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -508,6 +509,16 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+	switch container.Type {
+	case api.ContainerCNIPause:
+		// ContainerCNIPause image are managed at startup
+		return DockerContainerMetadata{}
+	case api.ContainerEmptyHostVolume:
+		// ContainerEmptyHostVolume image is either local (must be imported) or remote (must be pulled)
+		if emptyvolume.LocalImage {
+			return engine.client.ImportLocalEmptyVolumeImage()
+		}
+	}
 	if engine.enableConcurrentPull {
 		seelog.Infof("Pulling container %v concurrently. Task: %v", container, task)
 		return engine.concurrentPull(task, container)
