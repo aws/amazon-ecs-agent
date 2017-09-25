@@ -48,6 +48,7 @@ const (
 	//   b) Add 'ContainerResourcesProvisioned' as a new 'ContainerStatus' enum
 	//   c) Add 'SteadyStateStatus' field to 'Container' struct
 	//   d) Add 'ENIAttachments' struct
+	//   e) Deprecate 'SteadyStateDependencies' in favor of 'TransitionDependencySet'
 	ECSDataVersion = 6
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
