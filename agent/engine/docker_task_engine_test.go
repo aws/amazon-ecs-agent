@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
@@ -285,7 +286,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	client.EXPECT().PullImage(sleepContainer.Image, nil).Return(DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil)
-	client.EXPECT().PullImage(pauseContainer.Image, nil).Return(DockerContainerMetadata{})
 
 	gomock.InOrder(
 		// Ensure that the pause container is created first
@@ -1233,7 +1233,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 		"Task engine should not be able to perform concurrent pulling for version < 1.11.1")
 }
 
-func TestPauseContaienrHappyPath(t *testing.T) {
+func TestPauseContainerHappyPath(t *testing.T) {
 	ctrl, dockerClient, mockTime, taskEngine, _, imageManager := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
@@ -1261,7 +1261,6 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	pauseContainerID := "pauseContainerID"
 	// Pause container will be launched first
 	gomock.InOrder(
-		dockerClient.EXPECT().PullImage(gomock.Any(), nil).Return(DockerContainerMetadata{}),
 		dockerClient.EXPECT().CreateContainer(
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(config *docker.Config, x, y, z interface{}) {
@@ -1514,4 +1513,47 @@ func TestCreateContainerOnAgentRestart(t *testing.T) {
 	if metadata.Error != nil {
 		t.Error("Unexpected error", metadata.Error)
 	}
+}
+
+func TestPullCNIImage(t *testing.T) {
+	ctrl, _, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	defer ctrl.Finish()
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+
+	container := &api.Container{
+		Type: api.ContainerCNIPause,
+	}
+	task := &api.Task{
+		Containers: []*api.Container{container},
+	}
+	metadata := taskEngine.pullContainer(task, container)
+	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+}
+
+func TestPullNormalImage(t *testing.T) {
+	ctrl, client, _, privateTaskEngine, _, imageManager := mocks(t, &config.Config{})
+	defer ctrl.Finish()
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	saver := mock_statemanager.NewMockStateManager(ctrl)
+	taskEngine.SetSaver(saver)
+
+	imageName := "image"
+	container := &api.Container{
+		Type:  api.ContainerNormal,
+		Image: imageName,
+	}
+	task := &api.Task{
+		Containers: []*api.Container{container},
+	}
+	imageState := &image.ImageState{
+		Image: &image.Image{ImageID: "id"},
+	}
+
+	client.EXPECT().PullImage(imageName, nil)
+	imageManager.EXPECT().RecordContainerReference(container)
+	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState)
+	saver.EXPECT().Save()
+
+	metadata := taskEngine.pullContainer(task, container)
+	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
 }

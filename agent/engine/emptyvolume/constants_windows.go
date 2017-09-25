@@ -21,4 +21,5 @@ const (
 	Tag                 = "latest"
 	ContainerPathPrefix = `C:\ecs-empty-volume\`
 	Command             = "not-applicable"
+	LocalImage          = false
 )

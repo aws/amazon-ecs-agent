@@ -102,6 +102,9 @@ type DockerClient interface {
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 
+	// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
+	ImportLocalEmptyVolumeImage() DockerContainerMetadata
+
 	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
 	// should be provided for the request.
 	CreateContainer(*docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
@@ -272,16 +275,6 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		return CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
-	// Special case; this image is not one that should be pulled, but rather
-	// should be created locally if necessary
-	if image == fmt.Sprintf(imageNameFormat, emptyvolume.Image, emptyvolume.Tag) {
-		scratchErr := dg.createScratchImageIfNotExists()
-		if scratchErr != nil {
-			return CreateEmptyVolumeError{scratchErr}
-		}
-		return nil
-	}
-
 	authConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
 		return wrapPullErrorAsEngineError(err)
@@ -365,6 +358,27 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	return nil
 }
 
+// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
+func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata {
+	timeout := dg.time().After(pullImageTimeout)
+
+	response := make(chan DockerContainerMetadata, 1)
+	go func() {
+		err := dg.createScratchImageIfNotExists()
+		var wrapped engineError
+		if err != nil {
+			wrapped = CreateEmptyVolumeError{err}
+		}
+		response <- DockerContainerMetadata{Error: wrapped}
+	}()
+	select {
+	case resp := <-response:
+		return resp
+	case <-timeout:
+		return DockerContainerMetadata{Error: &DockerTimeoutError{pullImageTimeout, "pulled"}}
+	}
+}
+
 func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 	client, err := dg.dockerClient()
 	if err != nil {
@@ -376,6 +390,7 @@ func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 
 	_, err = client.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
 	if err == nil {
+		seelog.Debug("Empty volume image is already present, skipping import")
 		// Already exists; assume that it's okay to use it
 		return nil
 	}
@@ -388,6 +403,7 @@ func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 		writer.Close()
 	}()
 
+	seelog.Debug("Importing empty volume image")
 	// Create it from an empty tarball
 	err = client.ImportImage(docker.ImportImageOptions{
 		Repository:  emptyvolume.Image,
