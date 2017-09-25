@@ -17,7 +17,7 @@
 package emptyvolume
 
 const (
-	Image               = "microsoft/windowsservercore"
+	Image               = "microsoft/nanoserver"
 	Tag                 = "latest"
 	ContainerPathPrefix = `C:\ecs-empty-volume\`
 	Command             = "not-applicable"
