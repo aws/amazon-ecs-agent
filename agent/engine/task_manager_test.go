@@ -331,7 +331,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
 				TransitionDependencySet: api.TransitionDependencySet{
 					ContainerDependencies: []api.ContainerDependency{{
-						Container:       dependencyName,
+						ContainerName:   dependencyName,
 						DependentStatus: tc.containerDependentStatus,
 						SatisfiedStatus: tc.dependencySatisfiedStatus,
 					}},

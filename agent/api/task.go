@@ -144,7 +144,7 @@ func (task *Task) initializeEmptyVolumes() {
 					container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 				}
 				container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
-					Container:       emptyHostVolumeName,
+					ContainerName:   emptyHostVolumeName,
 					SatisfiedStatus: ContainerRunning,
 					DependentStatus: ContainerCreated,
 				})
@@ -259,7 +259,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 			container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 		}
 		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
-			Container:       PauseContainerName,
+			ContainerName:   PauseContainerName,
 			SatisfiedStatus: ContainerRunning,
 			DependentStatus: ContainerPulled,
 		})

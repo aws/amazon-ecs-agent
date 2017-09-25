@@ -257,7 +257,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTask.Containers[0].TransitionDependencySet.ContainerDependencies = []api.ContainerDependency{
 		{
-			Container:       "pause",
+			ContainerName:   "pause",
 			SatisfiedStatus: api.ContainerRunning,
 			DependentStatus: api.ContainerPulled,
 		}}
