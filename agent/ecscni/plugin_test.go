@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_cnitypes"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
+	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -22,15 +23,24 @@ func TestSetupNS(t *testing.T) {
 
 	mockResult := mock_types.NewMockResult(ctrl)
 
-	gomock.InOrder(
-		libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(mockResult, nil),
-		mockResult.EXPECT().String().Return(""),
-	)
-
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
+
+	gomock.InOrder(
+		libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(mockResult, nil).Do(func(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) {
+			assert.Len(t, net.Plugins, 2, "expected 2 plugins for SetupNS")
+			bridgePlugin := net.Plugins[0]
+			assert.Equal(t, ECSBridgePluginName, bridgePlugin.Network.Type, "first plugin should be bridge")
+			var bridgeConfig BridgeConfig
+			err := json.Unmarshal(bridgePlugin.Bytes, &bridgeConfig)
+			assert.NoError(t, err, "unmarshal BridgeConfig")
+			assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+		}),
+		mockResult.EXPECT().String().Return(""),
+	)
+
 	err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
 	assert.NoError(t, err)
 }
