@@ -3375,36 +3375,6 @@ func (s *AwsVpcParameters) SetSubnets(v []*string) *AwsVpcParameters {
 	return s
 }
 
-type Capabilities struct {
-	_ struct{} `type:"structure"`
-
-	Add []*string `locationName:"add" type:"list"`
-
-	Drop []*string `locationName:"drop" type:"list"`
-}
-
-// String returns the string representation
-func (s Capabilities) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s Capabilities) GoString() string {
-	return s.String()
-}
-
-// SetAdd sets the Add field's value.
-func (s *Capabilities) SetAdd(v []*string) *Capabilities {
-	s.Add = v
-	return s
-}
-
-// SetDrop sets the Drop field's value.
-func (s *Capabilities) SetDrop(v []*string) *Capabilities {
-	s.Drop = v
-	return s
-}
-
 // A regional grouping of one or more container instances on which you can run
 // task requests. Each account receives a default cluster the first time you
 // use the Amazon ECS service, but you may also create other clusters. Clusters
@@ -3728,6 +3698,8 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
+	// Linux-specific modifications that are applied to the container, such as Linux
+	// KernelCapabilities.
 	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
 
 	// The log configuration specification for the container. This parameter maps
@@ -5564,6 +5536,71 @@ func (s *HostVolumeProperties) SetSourcePath(v string) *HostVolumeProperties {
 	return s
 }
 
+// The Linux capabilities for the container that are added to or dropped from
+// the default configuration provided by Docker. For more information on the
+// default capabilities and the non-default available capabilities, see Runtime
+// privilege and Linux capabilities (https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities)
+// in the Docker run reference. For more detailed information on these Linux
+// capabilities, see the capabilities(7) (http://man7.org/linux/man-pages/man7/capabilities.7.html)
+// Linux manual page.
+type KernelCapabilities struct {
+	_ struct{} `type:"structure"`
+
+	// The Linux capabilities for the container that have been added to the default
+	// configuration provided by Docker. This parameter maps to CapAdd in the Create
+	// a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
+	// and the --cap-add option to docker run (https://docs.docker.com/engine/reference/run/).
+	//
+	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
+	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
+	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
+	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
+	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
+	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
+	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
+	// "WAKE_ALARM"
+	Add []*string `locationName:"add" type:"list"`
+
+	// The Linux capabilities for the container that have been removed from the
+	// default configuration provided by Docker. This parameter maps to CapDrop
+	// in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
+	// and the --cap-drop option to docker run (https://docs.docker.com/engine/reference/run/).
+	//
+	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
+	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
+	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
+	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
+	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
+	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
+	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
+	// "WAKE_ALARM"
+	Drop []*string `locationName:"drop" type:"list"`
+}
+
+// String returns the string representation
+func (s KernelCapabilities) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s KernelCapabilities) GoString() string {
+	return s.String()
+}
+
+// SetAdd sets the Add field's value.
+func (s *KernelCapabilities) SetAdd(v []*string) *KernelCapabilities {
+	s.Add = v
+	return s
+}
+
+// SetDrop sets the Drop field's value.
+func (s *KernelCapabilities) SetDrop(v []*string) *KernelCapabilities {
+	s.Drop = v
+	return s
+}
+
 // A key and value pair object.
 type KeyValuePair struct {
 	_ struct{} `type:"structure"`
@@ -5599,10 +5636,13 @@ func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
 	return s
 }
 
+// Linux-specific options that are applied to the container, such as Linux KernelCapabilities.
 type LinuxParameters struct {
 	_ struct{} `type:"structure"`
 
-	Capabilities *Capabilities `locationName:"capabilities" type:"structure"`
+	// The Linux capabilities for the container that are added to or dropped from
+	// the default configuration provided by Docker.
+	Capabilities *KernelCapabilities `locationName:"capabilities" type:"structure"`
 }
 
 // String returns the string representation
@@ -5616,7 +5656,7 @@ func (s LinuxParameters) GoString() string {
 }
 
 // SetCapabilities sets the Capabilities field's value.
-func (s *LinuxParameters) SetCapabilities(v *Capabilities) *LinuxParameters {
+func (s *LinuxParameters) SetCapabilities(v *KernelCapabilities) *LinuxParameters {
 	s.Capabilities = v
 	return s
 }

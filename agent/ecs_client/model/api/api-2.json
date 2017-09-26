@@ -971,13 +971,6 @@
       "type":"integer",
       "box":true
     },
-    "Capabilities":{
-      "type":"structure",
-      "members":{
-        "add":{"shape":"StringList"},
-        "drop":{"shape":"StringList"}
-      }
-    },
     "ClientException":{
       "type":"structure",
       "members":{
@@ -1409,6 +1402,13 @@
       },
       "exception":true
     },
+    "KernelCapabilities":{
+      "type":"structure",
+      "members":{
+        "add":{"shape":"StringList"},
+        "drop":{"shape":"StringList"}
+      }
+    },
     "KeyValuePair":{
       "type":"structure",
       "members":{
@@ -1426,7 +1426,7 @@
     "LinuxParameters":{
       "type":"structure",
       "members":{
-        "capabilities":{"shape":"Capabilities"}
+        "capabilities":{"shape":"KernelCapabilities"}
       }
     },
     "ListAttributesRequest":{
