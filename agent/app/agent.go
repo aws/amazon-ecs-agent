@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -92,6 +93,7 @@ type ecsAgent struct {
 	vpc                   string
 	subnet                string
 	mac                   string
+	resource              resources.Resource
 }
 
 // newAgent returns a new ecsAgent object
@@ -142,7 +144,8 @@ func newAgent(
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
-		os: oswrapper.New(),
+		os:       oswrapper.New(),
+		resource: resources.New(),
 	}, nil
 }
 
@@ -188,9 +191,20 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	// TODO:
-	// 1) Feature gate ECS cgroup root init
-	// 2) Update mocks and unit tests
+
+	// Conditionally create '/ecs' cgroup root
+	// TODO: Ensure that this feature is enabled only when
+	// the cgroup mountpoint is accessible to the agent
+	if agent.cfg.TaskCPUMemLimit {
+		err = agent.resource.Init()
+		// When task CPU and memory limits are enabled, all tasks are placed
+		// under the '/ecs' cgroup root.
+		// TODO: Make this fatal only when explicitly enabled
+		if err != nil {
+			seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
+			return exitcodes.ExitTerminal
+		}
+	}
 
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled

@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/cihub/seelog"
 )
@@ -29,7 +30,7 @@ const (
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
-	taskUnableToCreateCgroup              = "TaskStateError: Agent could not create task cgroup"
+	taskUnableToCreatePlatformResources   = "TaskStateError: Agent could not create task's platform resources"
 )
 
 type acsTaskUpdate struct {
@@ -85,6 +86,8 @@ type managedTask struct {
 
 	_time     ttime.Time
 	_timeOnce sync.Once
+
+	resource resources.Resource
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -96,6 +99,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		engine:         engine,
+		resource:       resources.New(),
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -129,9 +133,16 @@ func (mtask *managedTask) overseeTask() {
 			// able to move some containers along.
 			llog.Debug("Task not steady state or terminal; progressing it")
 
-			// TODO:
-			// 1) Add platform resources setup and failure handling
-			// 2) Add new task resources provisioned state ?
+			// TODO: Add new resource provisioned state ?
+			if mtask.engine.cfg.TaskCPUMemLimit {
+				err := mtask.resource.Setup(mtask.Task)
+				if err != nil {
+					seelog.Criticalf("Unable to setup platform resources for task %s: %v", mtask.Task.Arn, err)
+					mtask.SetDesiredStatus(api.TaskStopped)
+					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
+				}
+				// TODO: Add log to indicate successful setup of platform resources
+			}
 			mtask.progressContainers()
 		}
 
@@ -607,7 +618,12 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
 
-	// TODO: Remove platform task resources
+	if mtask.engine.cfg.TaskCPUMemLimit {
+		err := mtask.resource.Cleanup(mtask.Task)
+		if err != nil {
+			seelog.Warnf("Unable to cleanup platform resources for task %s: %v", mtask.Task.Arn, err)
+		}
+	}
 
 	// Now remove ourselves from the global state and cleanup channels
 	mtask.engine.processTasks.Lock()

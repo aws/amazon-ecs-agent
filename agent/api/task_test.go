@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -182,6 +183,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
 	assert.Nil(t, err)
+
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -579,7 +581,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
-	task.PostUnmarshalTask(nil, nil)
+	cfg := config.Config{}
+	task.PostUnmarshalTask(&cfg, nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)

@@ -125,6 +125,10 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI     *ENI
 	eniLock sync.RWMutex
+
+	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
+	memoryCPULimitsEnabledLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -133,7 +137,7 @@ type Task struct {
 func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.adjustForPlatform()
+	task.adjustForPlatform(cfg)
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
@@ -498,7 +502,9 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) DockerHostConfig(
+	container *Container,
+	dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
 }
 
@@ -535,7 +541,10 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	task.platformHostConfigOverride(hostConfig)
+	err = task.platformHostConfigOverride(hostConfig)
+	if err != nil {
+		return nil, &HostConfigError{err.Error()}
+	}
 
 	// Determine if network mode should be overridden and override it if needed
 	ok, networkMode := task.shouldOverrideNetworkMode(container, dockerContainerMap)
