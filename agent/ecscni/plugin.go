@@ -94,7 +94,7 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 		IfName:      defaultEthName,
 	}
 
-	// clean up the network namespace is separate from releasing the ip from ipam
+	// clean up the network namespace is separate from releasing the IP from IPAM
 	networkConfigList, err := client.createNetworkConfig(cfg, client.createBridgeNetworkConfigWithoutIPAM)
 	if err != nil {
 		return errors.Wrap(err, "cni invocation: failed to construct network configuration for namespace cleanup")
@@ -151,8 +151,8 @@ func (client *cniClient) createNetworkConfig(cfg *Config, bridgeConfigFunc func(
 	return networkConfigList, nil
 }
 
-// createBridgeNetworkConfigWithIPAM creates the config of brdige for ADD command, where
-// bridge plugin acquires the ip and route information from ipam
+// createBridgeNetworkConfigWithIPAM creates the config of bridge for ADD command, where
+// bridge plugin acquires the IP and route information from IPAM
 func (client *cniClient) createBridgeNetworkConfigWithIPAM(cfg *Config) (*libcni.NetworkConfig, error) {
 	// Create the bridge config first
 	bridgeConfig := client.createBridgeConfig(cfg)
@@ -168,6 +168,7 @@ func (client *cniClient) createBridgeNetworkConfigWithIPAM(cfg *Config) (*libcni
 	return client.constructNetworkConfig(bridgeConfig, ECSBridgePluginName)
 }
 
+// createBridgeNetworkConfigWithoutIPAM creates the config of the bridge for removal
 func (client *cniClient) createBridgeNetworkConfigWithoutIPAM(cfg *Config) (*libcni.NetworkConfig, error) {
 	return client.constructNetworkConfig(client.createBridgeConfig(cfg), ECSBridgePluginName)
 }
@@ -240,17 +241,24 @@ func (client *cniClient) createIPAMConfig(cfg *Config) (IPAMConfig, error) {
 		return IPAMConfig{}, err
 	}
 
+	routes := []*cnitypes.Route{
+		{
+			Dst: *dst,
+		},
+	}
+	for _, route := range cfg.AdditionalLocalRoutes {
+		seelog.Debugf("Adding an additional route for %s", route)
+		ipNetRoute := (net.IPNet)(route)
+		routes = append(routes, &cnitypes.Route{Dst: ipNetRoute})
+	}
+
 	ipamConfig := IPAMConfig{
 		Type:        ECSIPAMPluginName,
 		CNIVersion:  client.cniVersion,
 		IPV4Subnet:  client.subnet,
 		IPV4Address: cfg.IPAMV4Address,
 		ID:          cfg.ID,
-		IPV4Routes: []*cnitypes.Route{
-			{
-				Dst: *dst,
-			},
-		},
+		IPV4Routes:  routes,
 	}
 
 	return ipamConfig, nil
