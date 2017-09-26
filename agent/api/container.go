@@ -258,6 +258,12 @@ func (c *Container) ShouldPullWithExecutionRole() bool {
 		c.RegistryAuthentication.ECRAuthData.UseExecutionRole
 }
 
+// ShouldWaitForExecutionCredentials checks whether this container needs to wait for
+// credentials to pull form ECR
+func (c *Container) ShouldWaitForExecutionCredentials() bool {
+	return c.GetKnownStatus() < ContainerPulled && c.ShouldPullWithExecutionRole()
+}
+
 // String returns a human readable string representation of this object
 func (c *Container) String() string {
 	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image,
