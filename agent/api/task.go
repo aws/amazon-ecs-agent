@@ -260,7 +260,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		}
 		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
 			ContainerName:   PauseContainerName,
-			SatisfiedStatus: ContainerRunning,
+			SatisfiedStatus: ContainerResourcesProvisioned,
 			DependentStatus: ContainerPulled,
 		})
 	}
