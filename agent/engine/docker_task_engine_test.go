@@ -255,7 +255,12 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.Containers[0].SteadyStateDependencies = []string{"pause"}
+	sleepTask.Containers[0].TransitionDependencySet.ContainerDependencies = []api.ContainerDependency{
+		{
+			ContainerName:   "pause",
+			SatisfiedStatus: api.ContainerRunning,
+			DependentStatus: api.ContainerPulled,
+		}}
 	sleepContainer := sleepTask.Containers[0]
 
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and

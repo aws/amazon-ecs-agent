@@ -85,11 +85,22 @@ type Container struct {
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 
+	// TransitionDependencySet is a set of dependencies that must be satisfied
+	// in order for this container to transition.  Each transition dependency
+	// specifies a resource upon which the transition is dependent, a status
+	// that depends on the resource, and the state of the dependency that
+	// satisfies.
+	TransitionDependencySet TransitionDependencySet `json:"TransitionDependencySet"`
+
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
 	// Note: Current logic requires that the containers specified here are run
 	// before this container can even be pulled.
+	//
+	// Deprecated: Use TransitionDependencySet instead. SteadyStateDependencies is retained for compatibility with old
+	// state files.
 	SteadyStateDependencies []string `json:"RunDependencies"`
+
 	// Type specifies the container type. Except the 'Normal' type, all other types
 	// are not directly specified by task definitions, but created by the agent. The
 	// JSON tag is retained as this field's previous name 'IsInternal' for maintaining

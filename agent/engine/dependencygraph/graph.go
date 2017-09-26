@@ -73,7 +73,8 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 	}
 
 	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
-		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve)
+		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve) &&
+		verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
 }
 
 // DependenciesAreResolved validates that the `target` container can be
@@ -95,7 +96,8 @@ func DependenciesAreResolved(target *api.Container, by []*api.Container) bool {
 
 	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) &&
 		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) &&
-		verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved)
+		verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) &&
+		verifyTransitionDependenciesResolved(target, nameMap)
 }
 
 func linksToContainerNames(links []string) []string {
@@ -129,6 +131,46 @@ func verifyStatusResolvable(target *api.Container, existingContainers map[string
 		}
 	}
 	return true
+}
+
+func verifyTransitionDependenciesResolved(target *api.Container, existingContainers map[string]*api.Container) bool {
+	targetGoal := target.GetDesiredStatus()
+	if targetGoal >= api.ContainerStopped {
+		// A container can always stop, die, or reach whatever other state it
+		// wants regardless of what dependencies it has
+		return true
+	}
+
+	for _, containerDependency := range target.TransitionDependencySet.ContainerDependencies {
+		maybeResolves, exists := existingContainers[containerDependency.ContainerName]
+		if !exists {
+			return false
+		}
+		if !resolvesContainerTransitionDependency(target, maybeResolves, containerDependency) {
+			return false
+		}
+	}
+	return true
+}
+
+func resolvesContainerTransitionDependency(target *api.Container, resource *api.Container, dependency api.ContainerDependency) bool {
+	targetDesired := target.GetDesiredStatus()
+	if targetDesired < dependency.DependentStatus {
+		// not trying to reach dependent status
+		return true
+	}
+	targetKnown := target.GetKnownStatus()
+	if targetKnown >= dependency.DependentStatus {
+		// already satisfied
+		return true
+	}
+	targetNext := targetKnown + 1
+	if targetNext < dependency.DependentStatus {
+		// next status is not the dependent status, so proceed
+		return true
+	}
+	resourceKnown := resource.GetKnownStatus()
+	return resourceKnown >= dependency.SatisfiedStatus
 }
 
 func linkCanResolve(target *api.Container, link *api.Container) bool {
@@ -199,6 +241,11 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	return knownStatus == api.ContainerCreated ||
 		knownStatus == volume.GetSteadyStateStatus() ||
 		knownStatus == api.ContainerStopped
+}
+
+func onSteadyStateCanResolve(target *api.Container, run *api.Container) bool {
+	return target.GetDesiredStatus() >= api.ContainerCreated &&
+		run.GetDesiredStatus() >= run.GetSteadyStateStatus()
 }
 
 // onSteadyStateIsResolved defines a relationship where a target cannot be

@@ -140,10 +140,14 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.SteadyStateDependencies == nil {
-					container.SteadyStateDependencies = make([]string, 0)
+				if container.TransitionDependencySet.ContainerDependencies == nil {
+					container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 				}
-				container.SteadyStateDependencies = append(container.SteadyStateDependencies, emptyHostVolumeName)
+				container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+					ContainerName:   emptyHostVolumeName,
+					SatisfiedStatus: ContainerRunning,
+					DependentStatus: ContainerCreated,
+				})
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -251,10 +255,14 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		if container.SteadyStateDependencies == nil {
-			container.SteadyStateDependencies = make([]string, 0)
+		if container.TransitionDependencySet.ContainerDependencies == nil {
+			container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
 		}
-		container.SteadyStateDependencies = append(container.SteadyStateDependencies, PauseContainerName)
+		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+			ContainerName:   PauseContainerName,
+			SatisfiedStatus: ContainerResourcesProvisioned,
+			DependentStatus: ContainerPulled,
+		})
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName

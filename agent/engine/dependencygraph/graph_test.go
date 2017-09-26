@@ -444,3 +444,126 @@ func assertResolved(f func(target *api.Container, dep *api.Container) bool, targ
 		assert.Equal(t, expectedResolved, resolved)
 	}
 }
+
+func TestTransitionDependenciesResolved(t *testing.T) {
+	testcases := []struct {
+		Name             string
+		TargetKnown      api.ContainerStatus
+		TargetDesired    api.ContainerStatus
+		DependencyKnown  api.ContainerStatus
+		DependentStatus  api.ContainerStatus
+		SatisfiedStatus  api.ContainerStatus
+		ExpectedResolved bool
+	}{
+		{
+			Name:             "Nothing running, pull depends on running",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerStatusNone,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerRunning,
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "Nothing running, pull depends on resources provisioned",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerStatusNone,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerResourcesProvisioned,
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "Nothing running, create depends on running",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerStatusNone,
+			DependentStatus:  api.ContainerCreated,
+			SatisfiedStatus:  api.ContainerRunning,
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "Dependency created, pull depends on running",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerCreated,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerRunning,
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "Dependency created, pull depends on resources provisioned",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerCreated,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerResourcesProvisioned,
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "Dependency running, pull depends on running",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerRunning,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerRunning,
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "Dependency running, pull depends on resources provisioned",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerRunning,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerResourcesProvisioned,
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "Dependency resources provisioned, pull depends on resources provisioned",
+			TargetKnown:      api.ContainerStatusNone,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerResourcesProvisioned,
+			DependentStatus:  api.ContainerPulled,
+			SatisfiedStatus:  api.ContainerResourcesProvisioned,
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "Dependency running, create depends on created",
+			TargetKnown:      api.ContainerPulled,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerRunning,
+			DependentStatus:  api.ContainerCreated,
+			SatisfiedStatus:  api.ContainerCreated,
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "Target running, create depends on running",
+			TargetKnown:      api.ContainerRunning,
+			TargetDesired:    api.ContainerRunning,
+			DependencyKnown:  api.ContainerRunning,
+			DependentStatus:  api.ContainerRunning,
+			SatisfiedStatus:  api.ContainerCreated,
+			ExpectedResolved: true,
+		},
+		// Note: Not all possible situations are tested here.  The only situations tested here are ones that are
+		// expected to reasonably happen at the time this code was written.  Other behavior is not expected to occur,
+		// so it is not tested.
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			containerDependency := api.ContainerDependency{
+				DependentStatus: tc.DependentStatus,
+				SatisfiedStatus: tc.SatisfiedStatus,
+			}
+			target := &api.Container{
+				KnownStatusUnsafe:   tc.TargetKnown,
+				DesiredStatusUnsafe: tc.TargetDesired,
+			}
+			dep := &api.Container{
+				KnownStatusUnsafe: tc.DependencyKnown,
+			}
+			resolved := resolvesContainerTransitionDependency(target, dep, containerDependency)
+			assert.Equal(t, tc.ExpectedResolved, resolved)
+		})
+	}
+}
