@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
+	"github.com/containerd/cgroups"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
@@ -154,23 +155,6 @@ func TestSetupCgroupCreateError(t *testing.T) {
 	assert.Error(t, resource.Setup(task))
 }
 
-func TestSetupCgroupCreateNil(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockControl := mock_cgroup.NewMockControl(ctrl)
-
-	task := testdata.LoadTask("sleep5TaskCgroup")
-
-	gomock.InOrder(
-		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
-	)
-
-	resource := newResources(mockControl)
-	assert.Error(t, resource.Setup(task))
-}
-
 func TestCleanupHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -211,4 +195,18 @@ func TestCleanupInvalidTaskARN(t *testing.T) {
 
 	resource := newResources(mockControl)
 	assert.Error(t, resource.Cleanup(task))
+}
+
+func TestCleanupCgroupDeletedError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+
+	task := testdata.LoadTask("sleep5TaskCgroup")
+
+	mockControl.EXPECT().Remove(gomock.Any()).Return(cgroups.ErrCgroupDeleted)
+
+	resource := newResources(mockControl)
+	assert.NoError(t, resource.Cleanup(task))
 }

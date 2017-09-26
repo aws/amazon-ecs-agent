@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/cihub/seelog"
+	"github.com/containerd/cgroups"
 	"github.com/pkg/errors"
 )
 
@@ -87,16 +88,9 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 		Specs: &linuxResourceSpec,
 	}
 
-	cgrp, err := c.control.Create(&cgroupSpec)
+	_, err = c.control.Create(&cgroupSpec)
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to create cgroup at %s for task: %s", cgroupRoot, task.Arn)
-	}
-
-	// NOTE: This should be impossible
-	// cgrp is an interface and it should never be nil when err == nil
-	if cgrp == nil {
-		seelog.Criticalf("Invalid cgroup creation at %s", cgroupRoot)
-		return errors.Errorf("resource: setup cgroup: invalid cgroup object created for task: %s", task.Arn)
 	}
 
 	return nil
@@ -112,9 +106,13 @@ func (c *cgroupWrapper) cleanupCgroup(task *api.Task) error {
 	seelog.Debugf("Cleaning up cgroup at: %s for task: %s", cgroupRoot, task.Arn)
 
 	err = c.control.Remove(cgroupRoot)
+	// Explicitly handle cgroup deleted error
 	if err != nil {
+		if err == cgroups.ErrCgroupDeleted {
+			seelog.Warnf("Cgroup at %s has already been removed for task %s: %v", cgroupRoot, task.Arn, err)
+			return nil
+		}
 		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s for task: %s", cgroupRoot, task.Arn)
 	}
-
 	return nil
 }

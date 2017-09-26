@@ -198,8 +198,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.TaskCPUMemLimit {
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed
-		// under the '/ecs' cgroup root. If we are unable to create this
-		// cgroup, the agent should exit with a terminal error.
+		// under the '/ecs' cgroup root.
+		// TODO: Make this fatal only when explicitly enabled
 		if err != nil {
 			seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
 			return exitcodes.ExitTerminal

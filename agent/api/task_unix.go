@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -102,6 +101,11 @@ func (task *Task) buildExplicitLinuxCPUSpec() (specs.LinuxCPU, error) {
 
 	// TODO: DefaultCPUPeriod only permits 10VCPUs.
 	// Adaptive calculation of CPUPeriod required for further support
+	// (samuelkarp) The largest available EC2 instance in terms of CPU count is a x1.32xlarge,
+	// with 128 vCPUs. If we assume a fixed evaluation period of 100ms (100000us),
+	// we'd need a quota of 12800000us, which is longer than the maximum of 1000000.
+	// For 128 vCPUs, we'd probably need something like a 1ms (1000us - the minimum)
+	// evaluation period, an 128000us quota in order to stay within the min/max limits.
 	return specs.LinuxCPU{
 		Quota:  &taskCPUQuota,
 		Period: &taskCPUPeriod,
@@ -164,7 +168,6 @@ func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
 	if task.MemoryCPULimitsEnabled {
 		cgroupRoot, err := task.BuildCgroupRoot()
 		if err != nil {
-			seelog.Debugf("Unable to obtain task cgroup root for task %s: %v", task.Arn, err)
 			return errors.Wrapf(err, "task cgroup override: unable to obtain cgroup root for task: %s", task.Arn)
 		}
 		hostConfig.CgroupParent = cgroupRoot
