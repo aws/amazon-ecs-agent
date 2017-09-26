@@ -141,6 +141,7 @@ func (mtask *managedTask) overseeTask() {
 					mtask.SetDesiredStatus(api.TaskStopped)
 					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
 				}
+				// TODO: Add log to indicate successful setup of platform resources
 			}
 			mtask.progressContainers()
 		}
