@@ -1120,6 +1120,8 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 
 	region := "eu-west-1"
 	registryID := "1234567890"
+	imageEndpoint := "registry.endpoint"
+	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
@@ -1139,25 +1141,21 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecrapi.AuthorizationData{
-			ProxyEndpoint:      aws.String("https://"),
+			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(4)
+	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(3)
 
-	metadata := client.PullImage("image1", authData)
+	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage("image2", authData)
+	metadata = client.PullImage(image+"2", authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage("image3", authData)
-	assert.NoError(t, metadata.Error, "Expected pull to succeed")
-
-	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage("image4", authData)
+	metadata = client.PullImage(image+"3", authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -1172,6 +1170,8 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 
 	region := "eu-west-1"
 	registryID := "1234567890"
+	imageEndpoint := "registry.endpoint"
+	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
 	authData := &api.RegistryAuthenticationData{
 		Type: "ecr",
@@ -1191,13 +1191,13 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecrapi.AuthorizationData{
-			ProxyEndpoint:      aws.String("https://"),
+			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
 	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
-	metadata := client.PullImage("image1", authData)
+	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry but with different role
@@ -1207,10 +1207,10 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecrapi.AuthorizationData{
-			ProxyEndpoint:      aws.String("https://"),
+			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	metadata = client.PullImage("image1", authData)
+	metadata = client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }

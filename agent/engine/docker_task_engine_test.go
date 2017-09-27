@@ -2031,27 +2031,3 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
 	assert.True(t, ok, "task wasnot started")
 }
-
-// TestNotTranistionTaskUseExectionRole tests on agent restart task requires execution
-// role credentials shouldnot be started
-func TestNotTranistionTaskUseExectionRole(t *testing.T) {
-	ctrl, _, _, taskEngine, _, _ := mocks(t, &defaultConfig)
-	defer ctrl.Finish()
-
-	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
-	state := dockerTaskEngine.State()
-
-	testTask := testdata.LoadTask("sleep5")
-	// add the task to the state to simulate the agent restored the state on restart
-	state.AddTask(testTask)
-	testTask.Containers[0].RegistryAuthentication = &api.RegistryAuthenticationData{
-		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
-			UseExecutionRole: true,
-		},
-	}
-
-	dockerTaskEngine.synchronizeState()
-	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
-	assert.False(t, ok, "tasks that require credentials should not be started on agent restart")
-}

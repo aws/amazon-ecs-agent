@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -56,7 +56,7 @@ func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, erro
 	}
 
 	if authData.UseExecutionRole {
-		if utils.ZeroOrNil(authData.GetPullCredentials()) {
+		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
 			return &ecrClient{}, fmt.Errorf("container uses execution credentials, but the credentials are empty")
 		}
 		creds := awscreds.NewStaticCredentials(authData.GetPullCredentials().AccessKeyID,

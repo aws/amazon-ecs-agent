@@ -67,7 +67,8 @@ const (
 
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
-	tokenCacheTTL  = 12 * time.Hour
+	// tokenCacheTTL is the default ttl of the docker auth for ECR
+	tokenCacheTTL = 12 * time.Hour
 
 	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work
