@@ -46,7 +46,12 @@ type clientServer struct {
 // New returns a client/server to bidirectionally communicate with the backend.
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials, statsEngine stats.Engine, publishMetricsInterval time.Duration) wsclient.ClientServer {
+func New(url string,
+	cfg *config.Config,
+	credentialProvider *credentials.Credentials,
+	statsEngine stats.Engine,
+	publishMetricsInterval time.Duration,
+	rwTimeout time.Duration) wsclient.ClientServer {
 	cs := &clientServer{
 		statsEngine:            statsEngine,
 		publishTicker:          nil,
@@ -58,6 +63,7 @@ func New(url string, cfg *config.Config, credentialProvider *credentials.Credent
 	cs.ServiceError = &tcsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
 	cs.TypeDecoder = NewTCSDecoder()
+	cs.RWTimeout = rwTimeout
 	return cs
 }
 
@@ -67,11 +73,11 @@ func New(url string, cfg *config.Config, credentialProvider *credentials.Credent
 func (cs *clientServer) Serve() error {
 	seelog.Debug("TCS client starting websocket poll loop")
 	if !cs.IsReady() {
-		return fmt.Errorf("Websocket not ready for connections")
+		return fmt.Errorf("tcs client: websocket not ready for connections")
 	}
 
 	if cs.statsEngine == nil {
-		return fmt.Errorf("uninitialized stats engine")
+		return fmt.Errorf("tcs client: uninitialized stats engine")
 	}
 
 	// Start the timer function to publish metrics to the backend.

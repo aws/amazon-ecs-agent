@@ -16,7 +16,6 @@ package utils
 import (
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -24,7 +23,7 @@ import (
 
 // GetMockServer retuns a mock websocket server that can be started up as TLS or not.
 // TODO replace with gomock
-func GetMockServer(t *testing.T, closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
+func GetMockServer(closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string)
 	requestsChan := make(chan string)
 	errChan := make(chan error)

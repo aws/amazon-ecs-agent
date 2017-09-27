@@ -40,6 +40,7 @@ const (
 	testMessageId              = "testMessageId"
 	testCluster                = "default"
 	testContainerInstance      = "containerInstance"
+	rwTimeout                  = time.Second
 )
 
 type mockStatsEngine struct{}
@@ -97,7 +98,12 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
-	conn.EXPECT().ReadMessage().AnyTimes().Return(1, []byte(`{"type":"AckPublishMetric","message":{}}`), nil)
+	// Messages should be read from the connection at least once
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Return(1,
+		[]byte(`{"type":"AckPublishMetric","message":{}}`), nil).MinTimes(1)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
 	handledPayload := make(chan *ecstcs.AckPublishMetric)
@@ -119,6 +125,8 @@ func TestPublishMetricsRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(2)
 	conn.EXPECT().Close()
 	// TODO: should use explicit values
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any())
@@ -201,7 +209,8 @@ func testCS(conn *mock_wsclient.MockWebsocketConn) wsclient.ClientServer {
 		AWSRegion:          "us-east-1",
 		AcceptInsecureCert: true,
 	}
-	cs := New("localhost:443", cfg, testCreds, &mockStatsEngine{}, testPublishMetricsInterval).(*clientServer)
+	cs := New("localhost:443", cfg, testCreds, &mockStatsEngine{},
+		testPublishMetricsInterval, rwTimeout).(*clientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -216,7 +225,9 @@ func TestCloseClientServer(t *testing.T) {
 	cs := testCS(conn)
 
 	gomock.InOrder(
+		conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil),
 		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()),
+		conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil),
 		conn.EXPECT().Close(),
 	)
 

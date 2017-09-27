@@ -38,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -47,6 +48,9 @@ const (
 
 	// wsConnectTimeout specifies the default connection timeout to the backend.
 	wsConnectTimeout = 30 * time.Second
+
+	// wsHandshakeTimeout specifies the default handshake timeout for the websocket client
+	wsHandshakeTimeout = wsConnectTimeout
 
 	// readBufSize is the size of the read buffer for the ws connection.
 	readBufSize = 4096
@@ -77,6 +81,8 @@ type WebsocketConn interface {
 	WriteMessage(messageType int, data []byte) error
 	ReadMessage() (messageType int, data []byte, err error)
 	Close() error
+	SetWriteDeadline(t time.Time) error
+	SetReadDeadline(t time.Time) error
 }
 
 // RequestHandler would be func(*ecsacs.T for T in ecsacs.*) to be more proper, but it needs
@@ -98,6 +104,7 @@ type ClientServer interface {
 	SetConnection(conn WebsocketConn)
 	Disconnect(...interface{}) error
 	Serve() error
+	SetReadDeadline(t time.Time) error
 	io.Closer
 }
 
@@ -121,8 +128,11 @@ type ClientServerImpl struct {
 	AnyRequestHandler RequestHandler
 	// URL is the full url to the backend, including path, querystring, and so on.
 	URL string
+	// RWTimeout is the duration used for setting read and write deadlines
+	// for the websocket connection
+	RWTimeout time.Duration
 	// writeLock needed to ensure that only one routine is writing to the socket
-	writeLock sync.Mutex
+	writeLock sync.RWMutex
 	ClientServer
 	ServiceError
 	TypeDecoder
@@ -133,8 +143,6 @@ type ClientServerImpl struct {
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
 	seelog.Debugf("Establishing a Websocket connection to %s", cs.URL)
-	cs.writeLock.Lock()
-	defer cs.writeLock.Unlock()
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
 		return err
@@ -170,11 +178,12 @@ func (cs *ClientServerImpl) Connect() error {
 	}
 
 	dialer := websocket.Dialer{
-		ReadBufferSize:  readBufSize,
-		WriteBufferSize: writeBufSize,
-		TLSClientConfig: tlsConfig,
-		Proxy:           http.ProxyFromEnvironment,
-		NetDial:         timeoutDialer.Dial,
+		ReadBufferSize:   readBufSize,
+		WriteBufferSize:  writeBufSize,
+		TLSClientConfig:  tlsConfig,
+		Proxy:            http.ProxyFromEnvironment,
+		NetDial:          timeoutDialer.Dial,
+		HandshakeTimeout: wsHandshakeTimeout,
 	}
 
 	websocketConn, httpResponse, err := dialer.Dial(parsedURL.String(), request.Header)
@@ -198,23 +207,38 @@ func (cs *ClientServerImpl) Connect() error {
 			}
 		}
 		seelog.Warnf("Error creating a websocket client: %v", err)
-		return fmt.Errorf(string(resp) + ", " + err.Error())
+		return errors.Wrapf(err, "websocket client: unable to dial %s response: %s",
+			parsedURL.Host, string(resp))
 	}
+
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
+
 	cs.conn = websocketConn
+	seelog.Debugf("Established a Websocket connection to %s", cs.URL)
 	return nil
 }
 
 // IsReady gives a boolean response that informs the caller if the websocket
 // connection is fully established.
 func (cs *ClientServerImpl) IsReady() bool {
-	cs.writeLock.Lock()
-	defer cs.writeLock.Unlock()
+	cs.writeLock.RLock()
+	defer cs.writeLock.RUnlock()
+
 	return cs.conn != nil
 }
 
-// SetConnection passes a websocket connection object into the client.
+// SetConnection passes a websocket connection object into the client. This is used only in
+// testing and should be avoided in non-test code.
 func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
 	cs.conn = conn
+}
+
+// SetReadDeadline sets the read deadline for the websocket connection
+// A read timeout results in an io error if there are any outstanding reads
+// that exceed the deadline
+func (cs *ClientServerImpl) SetReadDeadline(t time.Time) error {
+	return cs.conn.SetReadDeadline(t)
 }
 
 // Disconnect disconnects the connection
@@ -222,11 +246,17 @@ func (cs *ClientServerImpl) Disconnect(...interface{}) error {
 	cs.writeLock.Lock()
 	defer cs.writeLock.Unlock()
 
-	if cs.conn != nil {
-		return cs.conn.Close()
+	if cs.conn == nil {
+		return fmt.Errorf("websocker client: no connection to close")
 	}
 
-	return fmt.Errorf("No Connection to close")
+	// Close() in turn results in a an internal flushFrame() call in gorilla
+	// as the close frame needs to be sent to the server. Set the deadline
+	// for that as well.
+	if err := cs.conn.SetWriteDeadline(time.Now().Add(cs.RWTimeout)); err != nil {
+		seelog.Warnf("Unable to set write deadline for websocket connection: %v for %s", err, cs.URL)
+	}
+	return cs.conn.Close()
 }
 
 // AddRequestHandler adds a request handler to this client.
@@ -272,6 +302,14 @@ func (cs *ClientServerImpl) MakeRequest(input interface{}) error {
 func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 	cs.writeLock.Lock()
 	defer cs.writeLock.Unlock()
+
+	// This is just future proofing. Ignore the error as the gorilla websocket
+	// library returns 'nil' anyway for SetWriteDeadline
+	// https://github.com/gorilla/websocket/blob/master/conn.go#L761
+	if err := cs.conn.SetWriteDeadline(time.Now().Add(cs.RWTimeout)); err != nil {
+		seelog.Warnf("Unable to set write deadline for websocket connection: %v for %s", err, cs.URL)
+	}
+
 	return cs.conn.WriteMessage(websocket.TextMessage, send)
 }
 
@@ -279,16 +317,19 @@ func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 // messages from an active connection.
 func (cs *ClientServerImpl) ConsumeMessages() error {
 	for {
+		// Ignore errors when setting the read deadline as any connection
+		// related errors would be caught by ReadMessage as well
+		if err := cs.SetReadDeadline(time.Now().Add(cs.RWTimeout)); err != nil {
+			seelog.Warnf("Unable to set read deadline for websocket connection: %v for %s", err, cs.URL)
+		}
 		messageType, message, err := cs.conn.ReadMessage()
 
 		switch {
-
 		case err == nil:
 			if messageType != websocket.TextMessage {
 				// maybe not fatal though, we'll try to process it anyways
 				seelog.Errorf("Unexpected messageType: %v", messageType)
 			}
-			seelog.Debug("Got a message from websocket")
 			cs.handleMessage(message)
 
 		case permissibleCloseCode(err):
@@ -296,7 +337,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 			return io.EOF
 
 		default:
-			//Unexpected error occurred
+			// Unexpected error occurred
 			seelog.Errorf("Error getting message from ws backend: error: [%v], message: [%s], messageType: [%v] ", err, message, messageType)
 			return err
 		}

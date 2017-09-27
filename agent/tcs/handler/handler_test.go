@@ -82,7 +82,7 @@ func TestFormatURL(t *testing.T) {
 func TestStartSession(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, serverChan, requestChan, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server, serverChan, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
 	server.StartTLS()
 	defer server.Close()
 	if err != nil {
@@ -143,7 +143,7 @@ func TestStartSession(t *testing.T) {
 func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, serverChan, _, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server, serverChan, _, serverErr, err := wsmock.GetMockServer(closeWS)
 	server.StartTLS()
 	defer server.Close()
 	if err != nil {
@@ -183,7 +183,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
-	server, _, requestChan, serverErr, err := wsmock.GetMockServer(t, closeWS)
+	server, _, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
 	server.StartTLS()
 	defer server.Close()
 	if err != nil {

@@ -246,19 +246,13 @@ func (acsSession *session) startSessionOnce() error {
 	client := acsSession.resources.createACSClient(url, acsSession.agentConfig)
 	defer client.Close()
 
-	// Start inactivity timer for closing the connection
-	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
-	defer timer.Stop()
-
-	return acsSession.startACSSession(client, timer)
+	return acsSession.startACSSession(client)
 }
 
 // startACSSession starts a session with ACS. It adds request handlers for various
 // kinds of messages expected from ACS. It returns on server disconnection or when
 // the context is cancelled
-func (acsSession *session) startACSSession(client wsclient.ClientServer, timer ttime.Timer) error {
-	// Any message from the server resets the disconnect timeout
-	client.SetAnyRequestHandler(anyMessageHandler(timer))
+func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	cfg := acsSession.agentConfig
 
 	refreshCredsHandler := newRefreshCredentialsHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
@@ -313,6 +307,11 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer, timer t
 		return err
 	}
 	seelog.Info("Connected to ACS endpoint")
+	// Start inactivity timer for closing the connection
+	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
+	// Any message from the server resets the disconnect timeout
+	client.SetAnyRequestHandler(anyMessageHandler(timer, client))
+	defer timer.Stop()
 
 	acsSession.resources.connectedToACS()
 
@@ -377,7 +376,7 @@ func (acsSession *session) heartbeatJitter() time.Duration {
 
 // createACSClient creates the ACS Client using the specified URL
 func (acsResources *acsSessionResources) createACSClient(url string, cfg *config.Config) wsclient.ClientServer {
-	return acsclient.New(url, cfg, acsResources.credentialsProvider)
+	return acsclient.New(url, cfg, acsResources.credentialsProvider, heartbeatTimeout+heartbeatJitter)
 }
 
 // connectedToACS records a successful connection to ACS
@@ -424,9 +423,8 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
 	timer := time.AfterFunc(utils.AddJitter(timeout, jitter), func() {
 		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
-		closeErr := client.Close()
-		if closeErr != nil {
-			seelog.Warnf("Error disconnecting: %v", closeErr)
+		if err := client.Close(); err != nil {
+			seelog.Warnf("Error disconnecting: %v", err)
 		}
 	})
 
@@ -435,9 +433,15 @@ func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, 
 
 // anyMessageHandler handles any server message. Any server message means the
 // connection is active and thus the heartbeat disconnect should not occur
-func anyMessageHandler(timer ttime.Timer) func(interface{}) {
+func anyMessageHandler(timer ttime.Timer, client wsclient.ClientServer) func(interface{}) {
 	return func(interface{}) {
-		seelog.Debug("ACS activity occured")
+		seelog.Debug("ACS activity occurred")
+		// Reset read deadline as there's activity on the channel
+		if err := client.SetReadDeadline(time.Now().Add(heartbeatTimeout + heartbeatJitter)); err != nil {
+			seelog.Warn("Unable to extend read deadline for ACS connection: %v", err)
+		}
+
+		// Reset heearbeat timer
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
 }
