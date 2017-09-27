@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/async"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -81,7 +82,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	// If the container is using execution role credentials to pull,
 	// add the roleARN as part of the cache key so that docker auth for
 	// containers pull with the same role can be cached
-	if !utils.ZeroOrNil(authData.GetPullCredentials()) {
+	if authData.GetPullCredentials() != (credentials.IAMRoleCredentials{}) {
 		key.roleARN = authData.GetPullCredentials().RoleArn
 	}
 

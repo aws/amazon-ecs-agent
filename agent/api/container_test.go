@@ -135,24 +135,91 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 		msg       string
 	}{
 		{&Container{}, false, "the container does not use ECR, so it should not require credentials"},
-		{&Container{
-			RegistryAuthentication: &RegistryAuthenticationData{Type: "non-ecr"},
-		}, false, "the container does not use ECR, so it should not require credentials"},
-		{&Container{
-			RegistryAuthentication: &RegistryAuthenticationData{
-				Type: "ecr"},
-		}, false, "the container uses ecr, but it does not require execution role credentials"},
-		{&Container{
-			RegistryAuthentication: &RegistryAuthenticationData{
-				Type: "ecr",
-				ECRAuthData: &ECRAuthData{
-					UseExecutionRole: true,
+		{
+			&Container{
+				RegistryAuthentication: &RegistryAuthenticationData{Type: "non-ecr"},
+			},
+			false,
+			"the container does not use ECR, so it should not require credentials",
+		},
+		{
+			&Container{
+				RegistryAuthentication: &RegistryAuthenticationData{Type: "ecr"},
+			},
+			false, "the container uses ECR, but it does not require execution role credentials",
+		},
+		{
+			&Container{
+				RegistryAuthentication: &RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &ECRAuthData{
+						UseExecutionRole: true,
+					},
 				},
 			},
-		}, true, "the container uses ECR and require execution role credentials"},
+			true,
+			"the container uses ECR and require execution role credentials",
+		},
 	}
 
 	for _, testCase := range testCases {
 		assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
+	}
+}
+
+func TestContainerShouldWaitForExecutionCredentials(t *testing.T) {
+	testCases := []struct {
+		container *Container
+		result    bool
+		msg       string
+	}{
+		{
+			&Container{KnownStatusUnsafe: ContainerStatusNone},
+			false,
+			"container does not use ECR, it does not need to wait for credentials to pull",
+		},
+		{
+			&Container{
+				KnownStatusUnsafe: ContainerStatusNone,
+				RegistryAuthentication: &RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &ECRAuthData{
+						UseExecutionRole: true,
+					},
+				}},
+			true,
+			"container has not been pulled and use execution credentials should wait for credentials",
+		},
+		{
+			&Container{
+				KnownStatusUnsafe: ContainerPulled,
+				RegistryAuthentication: &RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			},
+			false,
+			"container that uses execution credentials but has already been pulled does not need to wait for credentials",
+		},
+		{
+			&Container{
+				KnownStatusUnsafe:   ContainerStatusNone,
+				DesiredStatusUnsafe: ContainerStopped,
+				RegistryAuthentication: &RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			},
+			false,
+			"container that uses execution credentials but desired to stopped does not need to wait for credentials",
+		},
+	}
+
+	for _, testCase := range testCases {
+		assert.Equal(t, testCase.result, testCase.container.ShouldWaitForExecutionCredentials(), testCase.msg)
 	}
 }

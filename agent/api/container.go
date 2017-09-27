@@ -261,7 +261,9 @@ func (c *Container) ShouldPullWithExecutionRole() bool {
 // ShouldWaitForExecutionCredentials checks whether this container needs to wait for
 // credentials to pull form ECR
 func (c *Container) ShouldWaitForExecutionCredentials() bool {
-	return c.GetKnownStatus() < ContainerPulled && c.ShouldPullWithExecutionRole()
+	return c.GetKnownStatus() < ContainerPulled &&
+		c.ShouldPullWithExecutionRole() &&
+		c.GetDesiredStatus() != ContainerStopped
 }
 
 // String returns a human readable string representation of this object

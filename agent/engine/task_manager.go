@@ -524,13 +524,14 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 type containerTransitionFunc func(container *api.Container, nextStatus api.ContainerStatus)
 
 // containerNextState determines the next state a container should go to.
-// It returns: The state it should transition to, a bool indicating whether any
-// action is required, and a bool indicating whether a known status change is
-// possible.
+// It returns a transition struct including the information:
+// * container state it should transition to,
+// * a bool indicating whether any action is required
+// * a string indicate why this transition can't happend
 //
-// 'Stopped, false, true' -> "You can move it to known stopped, but you don't have to call a transition function"
-// 'Running, true, true' -> "You can move it to running and you need to call the transition function"
-// 'None, false, false' -> "This should not be moved; it has unresolved dependencies or is complete; no knownstatus change"
+// 'Stopped, false, ""' -> "You can move it to known stopped, but you don't have to call a transition function"
+// 'Running, true, ""' -> "You can move it to running and you need to call the transition function"
+// 'None, false, containerDependencyNotResolved' -> "This should not be moved; it has unresolved dependencies;"
 //
 // Next status is determined by whether the known and desired statuses are
 // equal, the next numerically greater (iota-wise) status, and whether
@@ -572,7 +573,7 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 		if !container.IsRunning() {
 			// If it's not currently running we do not need to do anything to make it become stopped.
 			return &containerTransition{
-				nextState:      api.ContainerStatusNone,
+				nextState:      nextState,
 				actionRequired: false,
 			}
 		}
