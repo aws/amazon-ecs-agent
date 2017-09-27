@@ -30,9 +30,6 @@ const (
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
-	containerWaitForCredentialsPull       = "container transition: container is waiting for credentials to pull"
-	containerDependencyNotResolved        = "container transition: container dependencies is not resolved"
-	containerTransitioned                 = "container transition: container status is greater than disired status"
 )
 
 type acsTaskUpdate struct {
@@ -53,7 +50,7 @@ type acsTransition struct {
 type containerTransition struct {
 	nextState      api.ContainerStatus
 	actionRequired bool
-	reason         string
+	reason         error
 }
 
 // managedTask is a type that is meant to manage the lifecycle of a task.
@@ -474,9 +471,9 @@ func (mtask *managedTask) progressContainers() {
 
 // waitForExecutionCredentialsFromACS checks if the container that can't be transitioned
 // was caused by waiting for credentials and start waiting
-func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []string) bool {
+func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bool {
 	for _, reason := range reasons {
-		if reason == containerWaitForCredentialsPull {
+		if reason == dependencygraph.ExecutionCredentialsNotResolved {
 			seelog.Debugf("Waiting for credentials to pull from ECR, task: %s", mtask.Task.String())
 
 			maxWait := make(chan bool, 1)
@@ -496,13 +493,13 @@ func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []string) b
 
 // startContainerTransitions steps through each container in the task and calls
 // the passed transition function when a transition should occur.
-func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]api.ContainerStatus, []string) {
+func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]api.ContainerStatus, []error) {
 	anyCanTransition := false
-	var reasons []string
+	var reasons []error
 	transitions := make(map[string]api.ContainerStatus)
 	for _, cont := range mtask.Containers {
 		transition := mtask.containerNextState(cont)
-		if transition.reason != "" {
+		if transition.reason != nil {
 			// container can't be transitioned
 			reasons = append(reasons, transition.reason)
 			continue
@@ -544,24 +541,15 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
-			reason:         containerTransitioned,
+			reason:         dependencygraph.ContainerTransitioned,
 		}
 	}
-	if !dependencygraph.DependenciesAreResolved(container, mtask.Containers) {
-		seelog.Debug("Can not apply state to container yet; dependencies unresolved, container: %s, task: %s", container.String(), mtask.Task.Arn)
+	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers, mtask.Task.GetExecutionCredentialsID(), mtask.engine.credentialsManager); err != nil {
+		seelog.Debug("Can not apply state to container yet; dependencies unresolved, container: %s, task: %s, err: %v", container.String(), mtask.Task.Arn, err)
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
-			reason:         containerDependencyNotResolved,
-		}
-	}
-
-	// verify the credentials required to pull from ECR is available
-	if container.ShouldWaitForExecutionCredentials() && !mtask.engine.isCredentialsResolved(mtask.Task.GetExecutionCredentialsID()) {
-		return &containerTransition{
-			nextState:      api.ContainerStatusNone,
-			actionRequired: false,
-			reason:         containerWaitForCredentialsPull,
+			reason:         err,
 		}
 	}
 

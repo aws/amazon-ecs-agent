@@ -894,24 +894,6 @@ func (task *Task) GetTaskENI() *ENI {
 	return task.ENI
 }
 
-// ShouldWaitForExecutionCredentials check if there are container waiting for the
-// credentials to progress, for example: to pull image from ECR
-func (task *Task) ShouldWaitForExecutionCredentials() bool {
-	if task.GetDesiredStatus() == TaskStopped || task.GetKnownStatus() > TaskStatusNone {
-		// If task known status is not none, it means all the containers have been created
-		// If the task desired status is stopped, no container needs to be pulled
-		return false
-	}
-
-	for _, container := range task.Containers {
-		if container.ShouldWaitForExecutionCredentials() {
-			return true
-		}
-	}
-
-	return false
-}
-
 // String returns a human readable string representation of this object
 func (task *Task) String() string {
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",

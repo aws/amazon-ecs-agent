@@ -977,9 +977,3 @@ func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.Doc
 		seelog.Debugf("Updated metadata file for container %s of task %s", cont.Container.Name, task.Arn)
 	}
 }
-
-// isCredentialsResolved checks if the specified credentials is available in credentials manager
-func (engine *DockerTaskEngine) isCredentialsResolved(id string) bool {
-	_, ok := engine.credentialsManager.GetTaskCredentials(id)
-	return ok
-}

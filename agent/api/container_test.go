@@ -163,63 +163,8 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
-	}
-}
-
-func TestContainerShouldWaitForExecutionCredentials(t *testing.T) {
-	testCases := []struct {
-		container *Container
-		result    bool
-		msg       string
-	}{
-		{
-			&Container{KnownStatusUnsafe: ContainerStatusNone},
-			false,
-			"container does not use ECR, it does not need to wait for credentials to pull",
-		},
-		{
-			&Container{
-				KnownStatusUnsafe: ContainerStatusNone,
-				RegistryAuthentication: &RegistryAuthenticationData{
-					Type: "ecr",
-					ECRAuthData: &ECRAuthData{
-						UseExecutionRole: true,
-					},
-				}},
-			true,
-			"container has not been pulled and use execution credentials should wait for credentials",
-		},
-		{
-			&Container{
-				KnownStatusUnsafe: ContainerPulled,
-				RegistryAuthentication: &RegistryAuthenticationData{
-					Type: "ecr",
-					ECRAuthData: &ECRAuthData{
-						UseExecutionRole: true,
-					},
-				},
-			},
-			false,
-			"container that uses execution credentials but has already been pulled does not need to wait for credentials",
-		},
-		{
-			&Container{
-				KnownStatusUnsafe:   ContainerStatusNone,
-				DesiredStatusUnsafe: ContainerStopped,
-				RegistryAuthentication: &RegistryAuthenticationData{
-					Type: "ecr",
-					ECRAuthData: &ECRAuthData{
-						UseExecutionRole: true,
-					},
-				},
-			},
-			false,
-			"container that uses execution credentials but desired to stopped does not need to wait for credentials",
-		},
-	}
-
-	for _, testCase := range testCases {
-		assert.Equal(t, testCase.result, testCase.container.ShouldWaitForExecutionCredentials(), testCase.msg)
+		t.Run(fmt.Sprintf("Container: %", testCase.container.String()), func(t *testing.T) {
+			assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
+		})
 	}
 }

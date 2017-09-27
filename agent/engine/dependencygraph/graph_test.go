@@ -116,8 +116,8 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 			},
 		},
 	}
-	resolved := DependenciesAreResolved(task.Containers[0], task.Containers)
-	assert.True(t, resolved, "One container should resolve trivially")
+	err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil)
+	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
 	php := steadyStateContainer("php", []string{"db"}, []string{}, api.ContainerRunning, api.ContainerRunning)
@@ -133,29 +133,29 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 		},
 	}
 
-	resolved = DependenciesAreResolved(php, task.Containers)
-	assert.False(t, resolved, "Shouldn't be resolved; db isn't running")
+	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	assert.Error(t, err, "Shouldn't be resolved; db isn't running")
 
-	resolved = DependenciesAreResolved(db, task.Containers)
-	assert.False(t, resolved, "Shouldn't be resolved; dbdatavolume isn't created")
+	err = DependenciesAreResolved(db, task.Containers, "", nil)
+	assert.Error(t, err, "Shouldn't be resolved; dbdatavolume isn't created")
 
-	resolved = DependenciesAreResolved(dbdata, task.Containers)
-	assert.True(t, resolved, "data volume with no deps should resolve")
+	err = DependenciesAreResolved(dbdata, task.Containers, "", nil)
+	assert.NoError(t, err, "data volume with no deps should resolve")
 
 	dbdata.KnownStatusUnsafe = api.ContainerCreated
-	resolved = DependenciesAreResolved(php, task.Containers)
-	assert.False(t, resolved, "Php shouldn't run, db is not created")
+	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	assert.Error(t, err, "Php shouldn't run, db is not created")
 
 	db.KnownStatusUnsafe = api.ContainerCreated
-	resolved = DependenciesAreResolved(php, task.Containers)
-	assert.False(t, resolved, "Php shouldn't run, db is not running")
+	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	assert.Error(t, err, "Php shouldn't run, db is not running")
 
-	resolved = DependenciesAreResolved(db, task.Containers)
-	assert.True(t, resolved, "db should be resolved, dbdata volume is Created")
+	err = DependenciesAreResolved(db, task.Containers, "", nil)
+	assert.NoError(t, err, "db should be resolved, dbdata volume is Created")
 	db.KnownStatusUnsafe = api.ContainerRunning
 
-	resolved = DependenciesAreResolved(php, task.Containers)
-	assert.True(t, resolved, "Php should resolve")
+	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	assert.NoError(t, err, "Php should resolve")
 }
 
 func TestRunDependencies(t *testing.T) {
@@ -171,15 +171,15 @@ func TestRunDependencies(t *testing.T) {
 	}
 	task := &api.Task{Containers: []*api.Container{c1, c2}}
 
-	assert.False(t, DependenciesAreResolved(c2, task.Containers), "Dependencies should not be resolved")
+	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should not be resolved")
 	task.Containers[1].SetDesiredStatus(api.ContainerRunning)
-	assert.False(t, DependenciesAreResolved(c2, task.Containers), "Dependencies should not be resolved")
+	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should not be resolved")
 
 	task.Containers[0].KnownStatusUnsafe = api.ContainerRunning
-	assert.True(t, DependenciesAreResolved(c2, task.Containers), "Dependencies should be resolved")
+	assert.NoError(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should be resolved")
 
 	task.Containers[1].SetDesiredStatus(api.ContainerCreated)
-	assert.True(t, DependenciesAreResolved(c1, task.Containers), "Dependencies should be resolved")
+	assert.NoError(t, DependenciesAreResolved(c1, task.Containers, "", nil), "Dependencies should be resolved")
 }
 
 func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *testing.T) {
@@ -205,12 +205,12 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 			continue
 		}
 		container.SteadyStateDependencies = []string{"pause"}
-		resolved := DependenciesAreResolved(container, task.Containers)
-		assert.False(t, resolved, "Shouldn't be resolved; pause isn't running")
+		err := DependenciesAreResolved(container, task.Containers, "", nil)
+		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 
-	resolved := DependenciesAreResolved(pause, task.Containers)
-	assert.True(t, resolved, "Pause container's dependencies should be resolved")
+	err := DependenciesAreResolved(pause, task.Containers, "", nil)
+	assert.NoError(t, err, "Pause container's dependencies should be resolved")
 
 	// Transition pause container to RUNNING
 	pause.KnownStatusUnsafe = api.ContainerRunning
@@ -223,14 +223,14 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 		}
 		// Assert that dependencies remain unresolved until the pause container reaches
 		// RESOURCES_PROVISIONED
-		resolved = DependenciesAreResolved(container, task.Containers)
-		assert.False(t, resolved, "Shouldn't be resolved; pause isn't running")
+		err = DependenciesAreResolved(container, task.Containers, "", nil)
+		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 	pause.KnownStatusUnsafe = api.ContainerResourcesProvisioned
 	// Dependecies should be resolved now that the 'pause' container has
 	// transitioned into RESOURCES_PROVISIONED
-	resolved = DependenciesAreResolved(php, task.Containers)
-	assert.True(t, resolved, "Php should resolve")
+	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	assert.NoError(t, err, "Php should resolve")
 }
 
 func TestVolumeCanResolve(t *testing.T) {
