@@ -554,11 +554,21 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 	})
 
 	var ackRequested *ecsacs.AckRequest
-	tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		ackRequested = ackRequest
-		tester.cancel()
-	})
+	var executionCredentialsAckRequested *ecsacs.IAMRoleCredentialsAckRequest
+	gomock.InOrder(
+		tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
+			executionCredentialsAckRequested = ackRequest
+		}),
+		tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+			ackRequested = ackRequest
+			tester.cancel()
+		}),
+	)
+	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, clusterName, containerInstanceArn, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
+	defer refreshCredsHandler.clearAcks()
+	refreshCredsHandler.start()
 
+	tester.payloadHandler.refreshHandler = refreshCredsHandler
 	go tester.payloadHandler.start()
 	taskArn := "t1"
 	credentialsExpiration := "expiration"
@@ -603,6 +613,8 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 	assert.Equal(t, credentialsSecretKey, iamRoleCredentials.IAMRoleCredentials.SecretAccessKey)
 	assert.Equal(t, credentialsSessionToken, iamRoleCredentials.IAMRoleCredentials.SessionToken)
 	assert.Equal(t, credentialsID, iamRoleCredentials.IAMRoleCredentials.CredentialsID)
+	assert.Equal(t, credentialsID, *executionCredentialsAckRequested.CredentialsId)
+	assert.Equal(t, payloadMessageId, *executionCredentialsAckRequested.MessageId)
 }
 
 // validateTaskAndCredentials compares a task and a credentials ack object

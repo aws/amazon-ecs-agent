@@ -269,25 +269,36 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 		}
 
 		// Generate an ack request for the credentials in the task, if the
-		// task is associated with an IAM Role
-		taskCredentialsId := task.GetCredentialsID()
-		if taskCredentialsId == "" {
-			// CredentialsId not set for task, no need to ack.
-			continue
-		}
+		// task is associated with an IAM role or the exectuion role
+		taskCredentialsID := task.GetCredentialsID()
+		taskExecutionCredentialsID := task.GetExecutionCredentialsID()
 
-		creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(taskCredentialsId)
-		if !ok {
-			seelog.Errorf("Credentials could not be retrieved for task: %s", task.Arn)
-			allTasksOK = false
-		} else {
-			credentialsAcks = append(credentialsAcks, &ecsacs.IAMRoleCredentialsAckRequest{
-				MessageId:     payload.MessageId,
-				Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
-				CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
-			})
+		if taskCredentialsID != "" {
+			creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(taskCredentialsID)
+			if !ok {
+				seelog.Errorf("Credentials could not be retrieved for task: %s", task.Arn)
+				allTasksOK = false
+			} else {
+				credentialsAcks = append(credentialsAcks, &ecsacs.IAMRoleCredentialsAckRequest{
+					MessageId:     payload.MessageId,
+					Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
+					CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
+				})
+			}
 		}
-
+		if taskExecutionCredentialsID != "" {
+			creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(taskExecutionCredentialsID)
+			if !ok {
+				seelog.Errorf("Execution credentials could not be retrieved for task: %s", task.Arn)
+				allTasksOK = false
+			} else {
+				credentialsAcks = append(credentialsAcks, &ecsacs.IAMRoleCredentialsAckRequest{
+					MessageId:     payload.MessageId,
+					Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
+					CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
+				})
+			}
+		}
 	}
 	return credentialsAcks, allTasksOK
 }
