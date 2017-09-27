@@ -305,7 +305,7 @@ func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 
 	// This is just future proofing. Ignore the error as the gorilla websocket
 	// library returns 'nil' anyway for SetWriteDeadline
-	// https://github.com/gorilla/websocket/blob/master/conn.go#L761
+	// https://github.com/gorilla/websocket/blob/4201258b820c74ac8e6922fc9e6b52f71fe46f8d/conn.go#L761
 	if err := cs.conn.SetWriteDeadline(time.Now().Add(cs.RWTimeout)); err != nil {
 		seelog.Warnf("Unable to set write deadline for websocket connection: %v for %s", err, cs.URL)
 	}
