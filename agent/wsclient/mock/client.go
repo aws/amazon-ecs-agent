@@ -17,6 +17,8 @@
 package mock_wsclient
 
 import (
+	time "time"
+
 	wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -130,6 +132,16 @@ func (_mr *_MockClientServerRecorder) SetConnection(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetConnection", arg0)
 }
 
+func (_m *MockClientServer) SetReadDeadline(_param0 time.Time) error {
+	ret := _m.ctrl.Call(_m, "SetReadDeadline", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientServerRecorder) SetReadDeadline(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReadDeadline", arg0)
+}
+
 func (_m *MockClientServer) WriteMessage(_param0 []byte) error {
 	ret := _m.ctrl.Call(_m, "WriteMessage", _param0)
 	ret0, _ := ret[0].(error)
@@ -181,6 +193,26 @@ func (_m *MockWebsocketConn) ReadMessage() (int, []byte, error) {
 
 func (_mr *_MockWebsocketConnRecorder) ReadMessage() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadMessage")
+}
+
+func (_m *MockWebsocketConn) SetReadDeadline(_param0 time.Time) error {
+	ret := _m.ctrl.Call(_m, "SetReadDeadline", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockWebsocketConnRecorder) SetReadDeadline(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReadDeadline", arg0)
+}
+
+func (_m *MockWebsocketConn) SetWriteDeadline(_param0 time.Time) error {
+	ret := _m.ctrl.Call(_m, "SetWriteDeadline", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockWebsocketConnRecorder) SetWriteDeadline(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetWriteDeadline", arg0)
 }
 
 func (_m *MockWebsocketConn) WriteMessage(_param0 int, _param1 []byte) error {

@@ -20,14 +20,13 @@ package acsclient
 
 import (
 	"errors"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/cihub/seelog"
 )
-
-var log = logger.ForModule("acs client")
 
 // clientServer implements ClientServer for acs.
 type clientServer struct {
@@ -37,7 +36,7 @@ type clientServer struct {
 // New returns a client/server to bidirectionally communicate with ACS
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials) wsclient.ClientServer {
+func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials, rwTimeout time.Duration) wsclient.ClientServer {
 	cs := &clientServer{}
 	cs.URL = url
 	cs.CredentialProvider = credentialProvider
@@ -45,6 +44,7 @@ func New(url string, cfg *config.Config, credentialProvider *credentials.Credent
 	cs.ServiceError = &acsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
 	cs.TypeDecoder = NewACSDecoder()
+	cs.RWTimeout = rwTimeout
 	return cs
 }
 
@@ -52,9 +52,9 @@ func New(url string, cfg *config.Config, credentialProvider *credentials.Credent
 // AddRequestHandler). All request handlers should be added prior to making this
 // call as unhandled requests will be discarded.
 func (cs *clientServer) Serve() error {
-	log.Debug("Starting websocket poll loop")
+	seelog.Debug("ACS client starting websocket poll loop")
 	if !cs.IsReady() {
-		return errors.New("Websocket not ready for connections")
+		return errors.New("acs client: websocket not ready for connections")
 	}
 	return cs.ConsumeMessages()
 }

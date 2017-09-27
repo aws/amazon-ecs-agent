@@ -804,9 +804,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
 	go func() {
-		timer := newDisconnectionTimer(mockWsClient, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
-		defer timer.Stop()
-		acsSession.startACSSession(mockWsClient, timer)
+		acsSession.startACSSession(mockWsClient)
 	}()
 
 	// Wait for connection to be closed. If the connection is not closed
@@ -1060,11 +1058,9 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
-	timer := newDisconnectionTimer(mockWsClient, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
-	defer timer.Stop()
 	go func() {
 		for i := 0; i < 10; i++ {
-			acsSession.startACSSession(mockWsClient, timer)
+			acsSession.startACSSession(mockWsClient)
 		}
 		cancel()
 	}()

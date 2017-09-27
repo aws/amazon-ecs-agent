@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
 )
@@ -35,8 +36,8 @@ const (
 	defaultPublishMetricsInterval = 20 * time.Second
 
 	// The maximum time to wait between heartbeats without disconnecting
-	defaultHeartbeatTimeout            = 5 * time.Minute
-	defaultHeartbeatJitter             = 3 * time.Minute
+	defaultHeartbeatTimeout            = 1 * time.Minute
+	defaultHeartbeatJitter             = 1 * time.Minute
 	deregisterContainerInstanceHandler = "TCSDeregisterContainerInstanceHandler"
 )
 
@@ -94,10 +95,15 @@ func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engi
 	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine, defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval, params.DeregisterInstanceEventStream)
 }
 
-func startSession(url string, cfg *config.Config, credentialProvider *credentials.Credentials,
-	statsEngine stats.Engine, heartbeatTimeout, heartbeatJitter, publishMetricsInterval time.Duration,
+func startSession(url string,
+	cfg *config.Config,
+	credentialProvider *credentials.Credentials,
+	statsEngine stats.Engine,
+	heartbeatTimeout, heartbeatJitter,
+	publishMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream) error {
-	client := tcsclient.New(url, cfg, credentialProvider, statsEngine, publishMetricsInterval)
+	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
+		publishMetricsInterval, defaultHeartbeatTimeout+defaultHeartbeatJitter)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
@@ -112,7 +118,7 @@ func startSession(url string, cfg *config.Config, credentialProvider *credential
 	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 		// Close the connection if there haven't been any messages received from backend
 		// for a long time.
-		seelog.Debug("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
+		seelog.Info("TCS Connection hasn't had a heartbeat or an ack message in too long of a timeout; disconnecting")
 		client.Disconnect()
 	})
 	defer timer.Stop()
@@ -124,6 +130,7 @@ func startSession(url string, cfg *config.Config, credentialProvider *credential
 		return err
 	}
 	seelog.Info("Connected to TCS endpoint")
+	client.SetAnyRequestHandler(anyMessageHandler(client))
 	return client.Serve()
 }
 
@@ -141,6 +148,18 @@ func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 	return func(*ecstcs.AckPublishMetric) {
 		seelog.Debug("Received AckPublishMetric from tcs")
 		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+	}
+}
+
+// anyMessageHandler handles any server message. Any server message means the
+// connection is active
+func anyMessageHandler(client wsclient.ClientServer) func(interface{}) {
+	return func(interface{}) {
+		seelog.Trace("TCS activity occured")
+		// Reset read deadline as there's activity on the channel
+		if err := client.SetReadDeadline(time.Now().Add(defaultHeartbeatTimeout + defaultHeartbeatJitter)); err != nil {
+			seelog.Warnf("Unable to extend read deadline for TCS connection: %v", err)
+		}
 	}
 }
 

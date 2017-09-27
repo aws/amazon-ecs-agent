@@ -17,7 +17,9 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -29,6 +31,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const dockerEndpoint = "/var/run/docker.sock"
@@ -40,30 +43,37 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, requests, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, requests, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	defer mockServer.Close()
 
+	var waitForRequests sync.WaitGroup
+	waitForRequests.Add(1)
+
+	go func() {
+		for i := 0; i < 20; i++ {
+			<-requests
+		}
+		waitForRequests.Done()
+	}()
 	req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
 
 	cs := getClientServer(mockServer.URL)
-	cs.Connect()
+	require.NoError(t, cs.Connect())
 
 	executeTenRequests := func() {
 		for i := 0; i < 10; i++ {
-			cs.MakeRequest(&req)
+			assert.NoError(t, cs.MakeRequest(&req))
 		}
 	}
 
 	// Make requests from two separate routines to try and force a
 	// concurrent write
 	go executeTenRequests()
-	executeTenRequests()
+	go executeTenRequests()
 
 	t.Log("Waiting for all 20 requests to succeed")
-	for i := 0; i < 20; i++ {
-		<-requests
-	}
+	waitForRequests.Wait()
 }
 
 // TestProxyVariableCustomValue ensures that a user is able to override the
@@ -72,13 +82,13 @@ func TestProxyVariableCustomValue(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, _, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	defer mockServer.Close()
 
 	testString := "Custom no proxy string"
 	os.Setenv("NO_PROXY", testString)
-	getClientServer(mockServer.URL).Connect()
+	require.NoError(t, getClientServer(mockServer.URL).Connect())
 
 	assert.Equal(t, os.Getenv("NO_PROXY"), testString, "NO_PROXY should match user-supplied variable")
 }
@@ -89,7 +99,7 @@ func TestProxyVariableDefaultValue(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, _, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	defer mockServer.Close()
 
@@ -108,10 +118,10 @@ func TestHandleMessagePermissibleCloseCode(t *testing.T) {
 	defer close(closeWS)
 
 	messageError := make(chan error)
-	mockServer, _, _, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	cs := getClientServer(mockServer.URL)
-	cs.Connect()
+	require.NoError(t, cs.Connect())
 
 	go func() {
 		messageError <- cs.ConsumeMessages()
@@ -128,10 +138,10 @@ func TestHandleMessageUnexpectedCloseCode(t *testing.T) {
 	defer close(closeWS)
 
 	messageError := make(chan error)
-	mockServer, _, _, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	cs := getClientServer(mockServer.URL)
-	cs.Connect()
+	require.NoError(t, cs.Connect())
 
 	go func() {
 		messageError <- cs.ConsumeMessages()
@@ -147,12 +157,12 @@ func TestHandleNonHTTPSEndpoint(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, requests, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, requests, _, _ := utils.GetMockServer(closeWS)
 	mockServer.Start()
 	defer mockServer.Close()
 
 	cs := getClientServer(mockServer.URL)
-	cs.Connect()
+	require.NoError(t, cs.Connect())
 
 	req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
 	cs.MakeRequest(&req)
@@ -167,7 +177,7 @@ func TestHandleIncorrectURLScheme(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, _, _, _ := utils.GetMockServer(t, closeWS)
+	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 	defer mockServer.Close()
 
@@ -213,5 +223,6 @@ func getClientServer(url string) *ClientServerImpl {
 		},
 		CredentialProvider: credentials.AnonymousCredentials,
 		TypeDecoder:        BuildTypeDecoder(types),
+		RWTimeout:          time.Second,
 	}
 }
