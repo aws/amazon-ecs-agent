@@ -48,6 +48,9 @@ const (
 	// without disconnecting
 	heartbeatTimeout = 1 * time.Minute
 	heartbeatJitter  = 1 * time.Minute
+	// wsRWTimeout is the duration of read and write deadline for the
+	// websocket connection
+	wsRWTimeout = 2*heartbeatTimeout + heartbeatJitter
 
 	inactiveInstanceReconnectDelay = 1 * time.Hour
 
@@ -376,7 +379,7 @@ func (acsSession *session) heartbeatJitter() time.Duration {
 
 // createACSClient creates the ACS Client using the specified URL
 func (acsResources *acsSessionResources) createACSClient(url string, cfg *config.Config) wsclient.ClientServer {
-	return acsclient.New(url, cfg, acsResources.credentialsProvider, heartbeatTimeout+heartbeatJitter)
+	return acsclient.New(url, cfg, acsResources.credentialsProvider, wsRWTimeout)
 }
 
 // connectedToACS records a successful connection to ACS
@@ -437,11 +440,11 @@ func anyMessageHandler(timer ttime.Timer, client wsclient.ClientServer) func(int
 	return func(interface{}) {
 		seelog.Debug("ACS activity occurred")
 		// Reset read deadline as there's activity on the channel
-		if err := client.SetReadDeadline(time.Now().Add(heartbeatTimeout + heartbeatJitter)); err != nil {
-			seelog.Warn("Unable to extend read deadline for ACS connection: %v", err)
+		if err := client.SetReadDeadline(time.Now().Add(wsRWTimeout)); err != nil {
+			seelog.Warnf("Unable to extend read deadline for ACS connection: %v", err)
 		}
 
-		// Reset heearbeat timer
+		// Reset hearbeat timer
 		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
 }

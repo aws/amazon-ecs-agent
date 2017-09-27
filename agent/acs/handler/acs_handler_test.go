@@ -803,9 +803,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
 	}
-	go func() {
-		acsSession.startACSSession(mockWsClient)
-	}()
+	go acsSession.startACSSession(mockWsClient)
 
 	// Wait for connection to be closed. If the connection is not closed
 	// due to inactivity, the test will time out
