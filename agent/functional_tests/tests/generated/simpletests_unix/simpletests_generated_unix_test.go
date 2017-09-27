@@ -37,7 +37,7 @@ func TestAddAndDropCapabilities(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.14.3")
+	agent.RequireVersion(">=1.0.0")
 
 	td, err := GetTaskDefinition("add-drop-capabilities")
 	if err != nil {
