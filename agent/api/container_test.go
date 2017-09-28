@@ -163,7 +163,7 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Run(fmt.Sprintf("Container: %", testCase.container.String()), func(t *testing.T) {
+		t.Run(fmt.Sprintf("Container: %s", testCase.container.String()), func(t *testing.T) {
 			assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
 		})
 	}

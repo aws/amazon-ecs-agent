@@ -23,11 +23,15 @@ import (
 )
 
 var (
+	// ExecutionCredentialsNotResolved is the error where a container needs to wait for
+	// credentials before it can process by agent
 	ExecutionCredentialsNotResolved = errors.New("dependency graph: container execution credentials not available")
-	VolumesDependencyNotResolved    = errors.New("dependency graph: container volume dependency not resolved")
-	LinksDependencyNotResolved      = errors.New("dependency graph: container links dependency not resolved")
+	// TransitionDependencyNotResolved is the error where a dependent container isn't in expected state
 	TransitionDependencyNotResolved = errors.New("dependency graph: dependent container not in expected state")
-	ContainerTransitioned           = errors.New("container transition: container status is greater than disired status")
+	// ContainerTransitioned is the error where the container status is bigger than desired status
+	ContainerTransitioned        = errors.New("container transition: container status is greater than desired status")
+	volumesDependencyNotResolved = errors.New("dependency graph: container volume dependency not resolved")
+	linksDependencyNotResolved   = errors.New("dependency graph: container links dependency not resolved")
 )
 
 // Because a container may depend on another container being created
@@ -108,11 +112,11 @@ func DependenciesAreResolved(target *api.Container,
 	}
 
 	if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
-		return VolumesDependencyNotResolved
+		return volumesDependencyNotResolved
 	}
 
 	if !verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) {
-		return LinksDependencyNotResolved
+		return linksDependencyNotResolved
 	}
 
 	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) ||
@@ -139,7 +143,7 @@ func linksToContainerNames(links []string) []string {
 func executionCredentialsResolved(target *api.Container, id string, manager credentials.Manager) bool {
 	if target.GetKnownStatus() >= api.ContainerPulled ||
 		!target.ShouldPullWithExecutionRole() ||
-		target.GetDesiredStatus() == api.ContainerStopped {
+		target.GetDesiredStatus() >= api.ContainerStopped {
 		return true
 	}
 

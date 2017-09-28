@@ -202,39 +202,6 @@ func TestPullImageDigest(t *testing.T) {
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
-func TestPullEmptyvolumeImage(t *testing.T) {
-	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	// The special emptyvolume image leads to a create, not pull
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(nil, errors.New("Does not exist")),
-		mockDocker.EXPECT().ImportImage(gomock.Any()).Do(func(x interface{}) {
-			req := x.(docker.ImportImageOptions)
-			require.Equal(t, emptyvolume.Image, req.Repository, "expected empty volume repository")
-			require.Equal(t, emptyvolume.Tag, req.Tag, "expected empty volume tag")
-		}),
-	)
-
-	metadata := client.PullImage(emptyvolume.Image+":"+emptyvolume.Tag, nil)
-	assert.NoError(t, metadata.Error, "Expected pull to succeed")
-}
-
-func TestPullExistingEmptyvolumeImage(t *testing.T) {
-	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	// The special emptyvolume image leads to a create only if it doesn't exist
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(&docker.Image{}, nil),
-	)
-
-	metadata := client.PullImage(emptyvolume.Image+":"+emptyvolume.Tag, nil)
-	assert.NoError(t, metadata.Error, "Expected pull to succeed")
-}
-
 func TestPullImageECRSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -329,7 +296,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 }
 
 func TestImportLocalEmptyVolumeImage(t *testing.T) {
-	mockDocker, client, testTime, done := dockerClientSetup(t)
+	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create, not pull
@@ -348,7 +315,7 @@ func TestImportLocalEmptyVolumeImage(t *testing.T) {
 }
 
 func TestImportLocalEmptyVolumeImageExisting(t *testing.T) {
-	mockDocker, client, testTime, done := dockerClientSetup(t)
+	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create only if it doesn't exist
