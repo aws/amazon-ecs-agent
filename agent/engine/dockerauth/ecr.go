@@ -43,10 +43,10 @@ type ecrAuthProvider struct {
 }
 
 const (
-	roundtripTimeout = 5 * time.Second
 	// MinimumJitterDuration is the minimum duration to mark the credentials
 	// as expired before it's actually expired
 	MinimumJitterDuration = 30 * time.Minute
+	roundtripTimeout      = 5 * time.Second
 	proxyEndpointScheme   = "https://"
 )
 
@@ -99,20 +99,22 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 // getAuthconfigFromCache retrieves the token from cache
 func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *docker.AuthConfiguration {
 	token, ok := authProvider.tokenCache.Get(key.String())
-	if ok {
-		cachedToken, ok := token.(*ecrapi.AuthorizationData)
-		if !ok {
-			log.Warnf("Reading ECR credentials from cache failed")
-		} else if authProvider.IsTokenValid(cachedToken) {
-			auth, err := extractToken(cachedToken)
-			if err != nil {
-				log.Errorf("Extract docker auth from cache failed, err: %v", err)
-			}
-			return &auth
-		} else {
-			// Remove invalid token from cache
-			authProvider.tokenCache.Delete(key.String())
+	if !ok {
+		return nil
+	}
+
+	cachedToken, ok := token.(*ecrapi.AuthorizationData)
+	if !ok {
+		log.Warnf("Reading ECR credentials from cache failed")
+	} else if authProvider.IsTokenValid(cachedToken) {
+		auth, err := extractToken(cachedToken)
+		if err != nil {
+			log.Errorf("Extract docker auth from cache failed, err: %v", err)
 		}
+		return &auth
+	} else {
+		// Remove invalid token from cache
+		authProvider.tokenCache.Delete(key.String())
 	}
 	return nil
 }
@@ -134,6 +136,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
 	}
 
+	// Verify the auth data has the correct format for ECR
 	if ecrAuthData.ProxyEndpoint != nil &&
 		strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(ecrAuthData.ProxyEndpoint)) &&
 		ecrAuthData.AuthorizationToken != nil {

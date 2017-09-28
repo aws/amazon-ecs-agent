@@ -46,7 +46,7 @@ type acsTransition struct {
 	desiredStatus api.TaskStatus
 }
 
-// transition defines the struct for a container to transition
+// containerTransition defines the struct for a container to transition
 type containerTransition struct {
 	nextState      api.ContainerStatus
 	actionRequired bool
@@ -449,8 +449,10 @@ func (mtask *managedTask) progressContainers() {
 			transitionChangeContainer <- container.Name
 		})
 
-	if !anyCanTransition && !mtask.waitForExecutionCredentialsFromACS(reasons) {
-		mtask.onContainersUnableToTransitionState()
+	if !anyCanTransition {
+		if !mtask.waitForExecutionCredentialsFromACS(reasons) {
+			mtask.onContainersUnableToTransitionState()
+		}
 		return
 	}
 
@@ -481,7 +483,7 @@ func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bo
 				maxWait <- true
 			})
 			// Have a timeout in case we missed the acs message but the credentials
-			// was already in the credentials manager
+			// were already in the credentials manager
 			if !mtask.waitEvent(maxWait) {
 				timer.Stop()
 			}
@@ -524,7 +526,7 @@ type containerTransitionFunc func(container *api.Container, nextStatus api.Conta
 // It returns a transition struct including the information:
 // * container state it should transition to,
 // * a bool indicating whether any action is required
-// * a string indicate why this transition can't happend
+// * an error indicate why this transition can't happend
 //
 // 'Stopped, false, ""' -> "You can move it to known stopped, but you don't have to call a transition function"
 // 'Running, true, ""' -> "You can move it to running and you need to call the transition function"
