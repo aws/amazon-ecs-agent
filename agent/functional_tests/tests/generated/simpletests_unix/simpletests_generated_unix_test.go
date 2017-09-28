@@ -27,6 +27,46 @@ import (
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 )
 
+// TestAddAndDropCapabilities checks that adding and dropping Linux capabilities work
+func TestAddAndDropCapabilities(t *testing.T) {
+
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.0.0")
+
+	td, err := GetTaskDefinition("add-drop-capabilities")
+	if err != nil {
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	testTasks, err := agent.StartMultipleTasks(t, td, 1)
+	if err != nil {
+		t.Fatalf("Could not start task: %v", err)
+	}
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatalf("Could not parse timeout: %#v", err)
+	}
+
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+			t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+		}
+
+		defer agent.SweepTask(testTask)
+	}
+
+}
+
 // TestDataVolume Check that basic data volumes work
 func TestDataVolume(t *testing.T) {
 
