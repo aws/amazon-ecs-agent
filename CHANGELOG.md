@@ -3,7 +3,9 @@
 ## UNRELEASED
 * Feature - Support for provisioning Tasks with ENIs
 * Bug - Fixed a bug where unsupported Docker API client versions could be registered
-[#1014](https://github.com/aws/amazon-ecs-agent/pull/1014)
+  [#1014](https://github.com/aws/amazon-ecs-agent/pull/1014)
+* Enhancement - Support `init` process in containers by adding support for Docker remote API client version 1.25
+  [#996](https://github.com/aws/amazon-ecs-agent/pull/996)
 
 ## 1.14.5
 * Enhancement - Retry failed container image pull operations [#975](https://github.com/aws/amazon-ecs-agent/pull/975)

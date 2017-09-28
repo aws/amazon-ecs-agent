@@ -38,6 +38,7 @@ func getAgentVersions() []DockerVersion {
 		Version_1_22,
 		Version_1_23,
 		Version_1_24,
+		Version_1_25,
 	}
 }
 
