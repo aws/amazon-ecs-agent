@@ -3,7 +3,9 @@
 ## UNRELEASED
 * Feature - Support for provisioning Tasks with ENIs
 * Enhancement - Retry failed container image pull operations [#975](https://github.com/aws/amazon-ecs-agent/pull/975)
-* Enhancement - Set read and write timeouts for websocket connectons [#993](https://github.com/aws/amazon-ecs-agent/pull/993) 
+* Enhancement - Set read and write timeouts for websocket connectons [#993](https://github.com/aws/amazon-ecs-agent/pull/993)
+* Enhancement - Add support for the SumoLogic Docker log driver plugin
+  [#992](https://github.com/aws/amazon-ecs-agent/pull/992) 
 * Bug - Fixed a memory leak issue when submitting the task state change [#967](https://github.com/aws/amazon-ecs-agent/pull/967)
 * Bug - Fixed a race condition where a container can be created twice when agent restarts. [#939](https://github.com/aws/amazon-ecs-agent/pull/939)
 * Bug - Fixed an issue where `microsoft/windowsservercore:latest` was not
