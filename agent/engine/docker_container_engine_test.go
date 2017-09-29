@@ -582,7 +582,7 @@ func TestContainerEvents(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
-		if anEvent.DockerID != "cid3"+strconv.Itoa(i) {
+		if anEvent.DockerID != "cid30" && anEvent.DockerID != "cid31" {
 			t.Error("Wrong container id: " + anEvent.DockerID)
 		}
 		if anEvent.Status != api.ContainerStopped {
