@@ -27,7 +27,7 @@ Source1:        ecs.conf
 
 BuildRequires:  golang >= 1.7
 
-Requires:       docker = 17.03.2ce
+Requires:       docker >= 17.03.2ce
 Requires:       upstart
 Requires:       iptables
 Requires:       procps
