@@ -149,10 +149,6 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
-* UNRELEASED
-- Add functionality for running the Agent with --init flag 
-- Mount /proc directory for Agent to access network namespace of containers for Task ENI feature
-- Add functionality for running the Agent with NET_ADMIN and SYS_ADMIN capabilities
 * Wed Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
 - Cache Agent version 1.14.4
 - Add support for Docker 17.03.2ce
