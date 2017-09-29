@@ -338,7 +338,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 
 		default:
 			// Unexpected error occurred
-			seelog.Errorf("Error getting message from ws backend: error: [%v], message: [%s], messageType: [%v] ", err, message, messageType)
+			seelog.Errorf("Error getting message from ws backend: error: [%v], messageType: [%v] ", err, messageType)
 			return err
 		}
 
@@ -413,8 +413,8 @@ func websocketScheme(httpScheme string) (string, error) {
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650
 func permissibleCloseCode(err error) bool {
 	return websocket.IsCloseError(err,
-		websocket.CloseNormalClosure,
-		websocket.CloseAbnormalClosure,
-		websocket.CloseGoingAway,
-		websocket.CloseInternalServerErr)
+		websocket.CloseNormalClosure,     // websocket error code 1000
+		websocket.CloseAbnormalClosure,   // websocket error code 1006
+		websocket.CloseGoingAway,         // websocket error code 1001
+		websocket.CloseInternalServerErr) // websocket error code 1011
 }
