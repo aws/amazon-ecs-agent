@@ -42,6 +42,8 @@ const (
 	dockerDefaultTag = "latest"
 	// imageNameFormat is the name of a image may look like: repo:tag
 	imageNameFormat = "%s:%s"
+	// the buffer size will ensure agent doesn't miss any event from docker
+	dockerEventBufferSize = 100
 )
 
 // Timelimits for docker operations enforced above docker
@@ -718,17 +720,24 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	if err != nil {
 		return nil, err
 	}
+	dockerEvents := make(chan *docker.APIEvents, dockerEventBufferSize)
 	events := make(chan *docker.APIEvents)
+	buffer := NewInfiniteBuffer()
 
-	err = client.AddEventListener(events)
+	err = client.AddEventListener(dockerEvents)
 	if err != nil {
 		log.Error("Unable to add a docker event listener", "err", err)
 		return nil, err
 	}
 	go func() {
 		<-ctx.Done()
-		client.RemoveEventListener(events)
+		client.RemoveEventListener(dockerEvents)
 	}()
+
+	// Cache the event from go docker client
+	go buffer.Serve(dockerEvents)
+	// Read the buffered events and send to task engine
+	go buffer.Consume(events)
 
 	changedContainers := make(chan DockerContainerChangeEvent)
 
