@@ -18,6 +18,12 @@ import (
 	"sync"
 )
 
+const (
+	containerTypeEvent = "container"
+)
+
+var ignoredDockerEvents = []string{"rename", "kill", "destroy", "pause", "exec_create", "exec_start", "top", "attach", "export", "pull", "push", "tag", "untag", "import", "delete"}
+
 // InfiniteBuffer defines an unlimited buffer, where it reads from
 // input channel and write to output channel.
 type InfiniteBuffer struct {
@@ -44,10 +50,20 @@ func (buffer *InfiniteBuffer) Serve(events chan *docker.APIEvents) {
 
 // Write writes the event into the buffer
 func (buffer *InfiniteBuffer) Write(event *docker.APIEvents) {
+	if event.ID == "" || event.Type != containerTypeEvent {
+		return
+	}
+
+	// Ignore events not interested
+	for _, ignoredEvent := range ignoredDockerEvents {
+		if event.Status == ignoredEvent {
+			return
+		}
+	}
+
 	buffer.lock.Lock()
 	defer buffer.lock.Unlock()
 
-	// TODO filter the event type
 	buffer.events = append(buffer.events, event)
 	if buffer.empty {
 		buffer.empty = false
