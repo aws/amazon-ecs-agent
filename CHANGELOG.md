@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 * Feature - Support for provisioning Tasks with ENIs
+
+## 1.14.5
 * Enhancement - Retry failed container image pull operations [#975](https://github.com/aws/amazon-ecs-agent/pull/975)
 * Enhancement - Set read and write timeouts for websocket connectons [#993](https://github.com/aws/amazon-ecs-agent/pull/993)
 * Enhancement - Add support for the SumoLogic Docker log driver plugin
@@ -11,6 +13,7 @@
 * Bug - Fixed an issue where `microsoft/windowsservercore:latest` was not
   pulled on Windows under certain conditions.
   [#990](https://github.com/aws/amazon-ecs-agent/pull/990)
+* Bug - Fixed an issue where task IAM role credentials could be logged to disk. [#998](https://github.com/aws/amazon-ecs-agent/pull/998)
 
 ## 1.14.4
 * Enhancement - Batch container state change events. [#867](https://github.com/aws/amazon-ecs-agent/pull/867)
