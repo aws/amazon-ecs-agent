@@ -1,3 +1,9 @@
+amazon-ecs-init (1.14.5-1) trusty; urgency=low
+
+  * Update ECS Agent version
+
+ -- Justin Haynes <jushay@amazon.com>  Fri, 29 Sep 2017 17:36:34 -0070
+
 amazon-ecs-init (1.14.4-1) trusty; urgency=low
 
   * Update ECS Agent version
