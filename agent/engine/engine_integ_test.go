@@ -56,6 +56,7 @@ func createTestTask(arn string) *api.Task {
 
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 	return cfg
 }
 

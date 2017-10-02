@@ -91,7 +91,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		state.EXPECT().AllTasks().Return(nil),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -184,7 +184,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		state.EXPECT().AllTasks().Return(nil),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.TaskENIEnabled = true
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -428,7 +428,7 @@ func TestInitializeTaskENIDependenciesPauseLoaderError(t *testing.T) {
 				cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, loadErr),
 			)
-			cfg := config.DefaultConfig()
+			cfg := getTestConfig()
 			agent := &ecsAgent{
 				os:                mockOS,
 				ec2MetadataClient: mockMetadata,
@@ -452,7 +452,6 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
-
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
@@ -489,8 +488,6 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	)
 
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = true
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -508,6 +505,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
 	// invoked. These are used as proxies to indicate that acs and tcs handlers'
 	// NewSession call has been invoked
+
 	discoverEndpointsInvoked.Wait()
 }
 
@@ -527,8 +525,8 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 
 	mockResource.EXPECT().Init().Return(errors.New("cgroup init error"))
 
-	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = true
+	cfg := getTestConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines

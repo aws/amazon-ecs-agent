@@ -45,6 +45,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
+	assert.Equal(t, DefaultEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be DefaultEnabled")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, defaultCredentialsAuditLogFile, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
@@ -73,6 +74,7 @@ func TestConfigFromFile(t *testing.T) {
   "EngineAuthData": %s,
   "DataDir": "/var/run/ecs_agent",
   "TaskIAMRoleEnabled": true,
+  "TaskCPUMemLimit": true,
   "InstanceAttributes": {
     "attribute1": "value1"
   },
@@ -95,6 +97,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
 	assert.Equal(t, testPauseImageName, cfg.PauseContainerImageName, "should read PauseContainerImageName")
 	assert.Equal(t, testPauseTag, cfg.PauseContainerTag, "should read PauseContainerTag")
+	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be explicitly enabled")
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge

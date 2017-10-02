@@ -47,6 +47,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
+	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -80,5 +81,5 @@ func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.False(t, cfg.TaskCPUMemLimit)
+	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
 }

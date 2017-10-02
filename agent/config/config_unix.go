@@ -50,6 +50,7 @@ func DefaultConfig() Config {
 		PauseContainerImageName:     DefaultPauseContainerImageName,
 		PauseContainerTag:           DefaultPauseContainerTag,
 		AWSVPCBlockInstanceMetdata:  false,
+		TaskCPUMemLimit:             DefaultEnabled,
 	}
 }
 

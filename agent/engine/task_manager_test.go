@@ -698,7 +698,7 @@ func TestCleanupTask(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
@@ -746,7 +746,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
@@ -806,7 +806,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
@@ -854,7 +854,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
@@ -919,7 +919,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
@@ -969,8 +969,8 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = true
+	cfg := getTestConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
@@ -1022,8 +1022,8 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = true
+	cfg := getTestConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 
 	taskEngine := &DockerTaskEngine{
 		cfg:          &cfg,
@@ -1064,4 +1064,10 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().Cleanup(gomock.Any()).Return(errors.New("resource cleanup error"))
 	mTask.cleanupTask(taskStoppedDuration)
+}
+
+func getTestConfig() config.Config {
+	cfg := config.DefaultConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	return cfg
 }

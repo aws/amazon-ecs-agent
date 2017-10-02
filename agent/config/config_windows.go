@@ -72,7 +72,7 @@ func DefaultConfig() Config {
 		MinimumImageDeletionAge:     DefaultImageDeletionAge,
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
-		TaskCPUMemLimit:             false,
+		TaskCPUMemLimit:             ExplicitlyDisabled,
 	}
 }
 
@@ -87,7 +87,7 @@ func (cfg *Config) platformOverrides() {
 	}
 
 	// ensure TaskResourceLimit is disabled
-	cfg.TaskCPUMemLimit = false
+	cfg.TaskCPUMemLimit = ExplicitlyDisabled
 }
 
 // platformString returns platform-specific config data that can be serialized

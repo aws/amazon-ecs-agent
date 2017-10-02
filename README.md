@@ -178,6 +178,7 @@ configure them as something other than the defaults.
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | `false` |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | `/amazon-ecs-cni-plugins` |
 | `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | `false`|
+| `ECS_ENABLE_TASK_CPU_MEM_LIMIT` | `true` | Whether to enable task-level cpu and memory limits | `true` | `false` |
 
 ### Persistence
 

@@ -134,7 +134,7 @@ func (mtask *managedTask) overseeTask() {
 			llog.Debug("Task not steady state or terminal; progressing it")
 
 			// TODO: Add new resource provisioned state ?
-			if mtask.engine.cfg.TaskCPUMemLimit {
+			if mtask.engine.cfg.TaskCPUMemLimit.Enabled() {
 				err := mtask.resource.Setup(mtask.Task)
 				if err != nil {
 					seelog.Criticalf("Unable to setup platform resources for task %s: %v", mtask.Task.Arn, err)
@@ -618,7 +618,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
 
-	if mtask.engine.cfg.TaskCPUMemLimit {
+	if mtask.engine.cfg.TaskCPUMemLimit.Enabled() {
 		err := mtask.resource.Cleanup(mtask.Task)
 		if err != nil {
 			seelog.Warnf("Unable to cleanup platform resources for task %s: %v", mtask.Task.Arn, err)

@@ -14,7 +14,6 @@
 package config
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -110,7 +109,7 @@ type Config struct {
 	TaskIAMRoleEnabled bool
 
 	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
-	TaskCPUMemLimit bool
+	TaskCPUMemLimit Conditional
 
 	// CredentialsAuditLogFile specifies the path/filename of the audit log.
 	CredentialsAuditLogFile string
@@ -170,43 +169,4 @@ type Config struct {
 	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
 	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true
 	AWSVPCBlockInstanceMetdata bool
-}
-
-// SensitiveRawMessage is a struct to store some data that should not be logged
-// or printed.
-// This struct is a Stringer which will not print its contents with 'String'.
-// It is a json.Marshaler and json.Unmarshaler and will present its actual
-// contents in plaintext when read/written from/to json.
-type SensitiveRawMessage struct {
-	contents json.RawMessage
-}
-
-// NewSensitiveRawMessage returns a new encapsulated json.RawMessage or nil if
-// the data is empty. It cannot be accidentally logged via .String/.GoString/%v/%#v
-func NewSensitiveRawMessage(data json.RawMessage) *SensitiveRawMessage {
-	if len(data) == 0 {
-		return nil
-	}
-	return &SensitiveRawMessage{contents: data}
-}
-
-func (data SensitiveRawMessage) String() string {
-	return "[redacted]"
-}
-
-func (data SensitiveRawMessage) GoString() string {
-	return "[redacted]"
-}
-
-func (data SensitiveRawMessage) Contents() json.RawMessage {
-	return data.contents
-}
-
-func (data SensitiveRawMessage) MarshalJSON() ([]byte, error) {
-	return data.contents, nil
-}
-
-func (data *SensitiveRawMessage) UnmarshalJSON(jsonData []byte) error {
-	data.contents = json.RawMessage(jsonData)
-	return nil
 }

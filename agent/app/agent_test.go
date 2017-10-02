@@ -87,7 +87,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 			nil, errors.New("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -132,7 +132,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 			nil, errors.New("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -166,7 +166,8 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 			"", utils.NewAttributeError("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -196,7 +197,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 			"", errors.New("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -218,7 +219,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
 	iid := ec2metadata.EC2InstanceIdentityDocument{
@@ -265,7 +266,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
 	iid := ec2metadata.EC2InstanceIdentityDocument{
@@ -319,7 +320,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	cfg.Cluster = "default"
 	ec2InstanceID := "inst-1"
@@ -371,7 +372,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
@@ -405,7 +406,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	defer ctrl.Finish()
 
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
@@ -440,7 +441,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
 	iid := ec2metadata.EC2InstanceIdentityDocument{
@@ -479,7 +480,7 @@ func TestSetClusterInConfigMismatch(t *testing.T) {
 	clusterNamesInConfig := []string{"", "foo"}
 	for _, clusterNameInConfig := range clusterNamesInConfig {
 		t.Run(fmt.Sprintf("cluster in config is '%s'", clusterNameInConfig), func(t *testing.T) {
-			cfg := config.DefaultConfig()
+			cfg := getTestConfig()
 			cfg.Cluster = ""
 			agent := &ecsAgent{cfg: &cfg}
 			err := agent.setClusterInConfig("bar")
@@ -489,7 +490,7 @@ func TestSetClusterInConfigMismatch(t *testing.T) {
 }
 
 func TestSetClusterInConfig(t *testing.T) {
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	agent := &ecsAgent{cfg: &cfg}
 	err := agent.setClusterInConfig(clusterName)
@@ -522,7 +523,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(containerInstanceARN, nil),
 	)
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -556,7 +557,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 			"", awserr.New("", api.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -591,7 +592,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 			"", utils.NewAttributeError("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -626,7 +627,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 			"", errors.New("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -661,7 +662,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		stateManager.EXPECT().Save(),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -695,7 +696,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", retriableError),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -729,7 +730,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", cannotRetryError),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -763,7 +764,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 			"", utils.NewAttributeError("error")),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -778,4 +779,10 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
 	assert.False(t, isTranisent(err))
+}
+
+func getTestConfig() config.Config {
+	cfg := config.DefaultConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	return cfg
 }
