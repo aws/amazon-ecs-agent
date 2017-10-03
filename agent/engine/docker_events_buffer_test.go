@@ -27,7 +27,7 @@ func TestProduceConsume(t *testing.T) {
 	consumer := make(chan *docker.APIEvents)
 
 	// Start the process of producer and consumer
-	go buffer.Serve(producer)
+	go buffer.StartListening(producer)
 	go buffer.Consume(consumer)
 
 	// writing multiple events to the buffer
@@ -52,15 +52,15 @@ func TestIgnoreEvents(t *testing.T) {
 	consumer := make(chan *docker.APIEvents)
 
 	// Start the process of producer and consumer
-	go buffer.Serve(producer)
+	go buffer.StartListening(producer)
 	go buffer.Consume(consumer)
 
 	// event with empty ID
 	producer <- &docker.APIEvents{Type: containerTypeEvent, Status: "stop"}
 	// event with wrong type
 	producer <- &docker.APIEvents{ID: "id", Status: "stop", Type: "image"}
-	for _, event := range ignoredDockerEvents {
-		producer <- &docker.APIEvents{ID: "id", Type: containerTypeEvent, Status: event}
+	for _, event := range containerEvents {
+		producer <- &docker.APIEvents{ID: "id", Type: containerTypeEvent, Status: event + "invalid"}
 	}
 
 	buffer.lock.Lock()

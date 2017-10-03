@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	steadyStateTaskVerifyInterval         = 10 * time.Minute
+	steadyStateTaskVerifyInterval         = 5 * time.Minute
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
