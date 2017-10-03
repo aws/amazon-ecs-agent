@@ -19,55 +19,56 @@ import (
 )
 
 const (
+	// TODO  add support for filter in go-dockerclient
 	containerTypeEvent = "container"
 )
 
-var ignoredDockerEvents = []string{"rename", "kill", "destroy", "pause", "exec_create", "exec_start", "top", "attach", "export", "pull", "push", "tag", "untag", "import", "delete"}
+var containerEvents = []string{"create", "start", "stop", "die", "restart", "oom"}
 
 // InfiniteBuffer defines an unlimited buffer, where it reads from
 // input channel and write to output channel.
 type InfiniteBuffer struct {
-	events   []*docker.APIEvents
-	empty    bool
-	waitDone chan struct{}
-	count    int
-	lock     sync.RWMutex
+	events       []*docker.APIEvents
+	empty        bool
+	waitForEvent sync.WaitGroup
+	count        int
+	lock         sync.RWMutex
 }
 
 // NewInfiniteBuffer returns an InfiniteBuffer object
 func NewInfiniteBuffer() *InfiniteBuffer {
-	return &InfiniteBuffer{
-		waitDone: make(chan struct{}),
-	}
+	return &InfiniteBuffer{}
 }
 
-// Serve starts reading from the input channel and writes to the buffer
-func (buffer *InfiniteBuffer) Serve(events chan *docker.APIEvents) {
+// StartListening starts reading from the input channel and writes to the buffer
+func (buffer *InfiniteBuffer) StartListening(events chan *docker.APIEvents) {
 	for event := range events {
-		go buffer.Write(event)
+		go buffer.CopyEvents(event)
 	}
 }
 
-// Write writes the event into the buffer
-func (buffer *InfiniteBuffer) Write(event *docker.APIEvents) {
+// CopyEvents copies the event into the buffer
+func (buffer *InfiniteBuffer) CopyEvents(event *docker.APIEvents) {
 	if event.ID == "" || event.Type != containerTypeEvent {
 		return
 	}
 
-	// Ignore events not interested
-	for _, ignoredEvent := range ignoredDockerEvents {
-		if event.Status == ignoredEvent {
+	// Only add the events agent is interested
+	for _, containerEvent := range containerEvents {
+		if event.Status == containerEvent {
+			buffer.lock.Lock()
+			defer buffer.lock.Unlock()
+
+			buffer.events = append(buffer.events, event)
+			// Check if there is consumer waiting for events
+			if buffer.empty {
+				buffer.empty = false
+
+				// Unblock the consumer
+				buffer.waitForEvent.Done()
+			}
 			return
 		}
-	}
-
-	buffer.lock.Lock()
-	defer buffer.lock.Unlock()
-
-	buffer.events = append(buffer.events, event)
-	if buffer.empty {
-		buffer.empty = false
-		buffer.waitDone <- struct{}{}
 	}
 }
 
@@ -77,15 +78,17 @@ func (buffer *InfiniteBuffer) Consume(in chan<- *docker.APIEvents) {
 		buffer.lock.Lock()
 
 		if len(buffer.events) == 0 {
+			// Mark the buffer as empty and start waiting for events
 			buffer.empty = true
+			buffer.waitForEvent.Add(1)
 			buffer.lock.Unlock()
-			// wait event
-			<-buffer.waitDone
+			buffer.waitForEvent.Wait()
 		} else {
 			event := buffer.events[0]
 			buffer.events = buffer.events[1:]
 			buffer.lock.Unlock()
 
+			// Send event to the buffer listener
 			in <- event
 		}
 	}

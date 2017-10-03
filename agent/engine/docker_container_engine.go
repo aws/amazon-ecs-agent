@@ -735,7 +735,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	}()
 
 	// Cache the event from go docker client
-	go buffer.Serve(dockerEvents)
+	go buffer.StartListening(dockerEvents)
 	// Read the buffered events and send to task engine
 	go buffer.Consume(events)
 
