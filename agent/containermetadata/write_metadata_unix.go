@@ -27,6 +27,7 @@ import (
 
 const (
 	mountPoint = "/opt/ecs/metadata"
+	tempFile   = "temp_metadata_file"
 )
 
 // createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig
@@ -51,7 +52,7 @@ func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, d
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	temp, err := ioutilWrap.TempFile(metadataFileDir, "temp_metadata_file")
+	temp, err := ioutilWrap.TempFile(metadataFileDir, tempFile)
 	if err != nil {
 		return err
 	}

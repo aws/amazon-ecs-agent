@@ -114,13 +114,7 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadataAtContainerCreate(taskARN, containerName)
-	data, err := json.MarshalIndent(metadata, "", "\t")
-	if err != nil {
-		return fmt.Errorf("create metadata for task %s container %s: %v", taskARN, containerName, err)
-	}
-
-	// Write the metadata to file
-	err = writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
+	err = manager.marshalAndWrite(metadata, taskARN, containerName)
 	if err != nil {
 		return err
 	}
@@ -148,12 +142,11 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadata(dockerContainer, taskARN, containerName)
-	data, err := json.MarshalIndent(metadata, "", "\t")
+	err = manager.marshalAndWrite(metadata, taskARN, containerName)
 	if err != nil {
-		return fmt.Errorf("update metadata for task %s container %s: %v", taskARN, containerName, err)
+		return err
 	}
-
-	return writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
+	return nil
 }
 
 // Clean removes the metadata files of all containers associated with a task
@@ -163,4 +156,19 @@ func (manager *metadataManager) Clean(taskARN string) error {
 		return fmt.Errorf("clean task %s: %v", taskARN, err)
 	}
 	return manager.osWrap.RemoveAll(metadataPath)
+}
+
+func (manager *metadataManager) marshalAndWrite(metadata Metadata, taskARN string, containerName string) error {
+	data, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return fmt.Errorf("create metadata for task %s container %s: %v", taskARN, containerName, err)
+	}
+
+	// Write the metadata to file
+	err = writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
