@@ -74,7 +74,7 @@ type Task struct {
 	Volumes []TaskVolume `json:"volumes"`
 	// Cpu is a task-level limit for compute resources. A value of 1 means that
 	// the task may access 100% of 1 vCPU on the instance
-	Cpu float64 `json:"CPULimit,omitempty"`
+	Cpu float64 `json:"Cpu,omitempty"`
 	// Memory is a task-level limit for memory resources in bytes
 	Memory int64 `json:"Memory,omitempty"`
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
@@ -701,7 +701,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
-
 	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {

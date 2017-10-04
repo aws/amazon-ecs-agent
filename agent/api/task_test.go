@@ -610,6 +610,9 @@ func TestTaskFromACS(t *testing.T) {
 	boolptr := func(b bool) *bool {
 		return &b
 	}
+	floatptr := func(f float64) *float64 {
+		return &f
+	}
 	// Testing type conversions, bleh. At least the type conversion itself
 	// doesn't look this messy.
 	taskFromAcs := ecsacs.Task{
@@ -672,6 +675,8 @@ func TestTaskFromACS(t *testing.T) {
 			SecretAccessKey: strptr("OhhSecret"),
 			SessionToken:    strptr("sessionToken"),
 		},
+		Cpu:    floatptr(2.0),
+		Memory: intptr(512),
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
@@ -728,25 +733,15 @@ func TestTaskFromACS(t *testing.T) {
 			},
 		},
 		StartSequenceNumber: 42,
+		Cpu:                 2.0,
+		Memory:              512,
 	}
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-	if err != nil {
-		t.Fatalf("Should be able to handle acs task: %v", err)
-	}
-	if !reflect.DeepEqual(task.Containers, expectedTask.Containers) {
-		t.Fatal("Containers should be equal")
-	}
-	if !reflect.DeepEqual(task.Volumes, expectedTask.Volumes) {
-		t.Fatal("Volumes should be equal")
-	}
-	if !reflect.DeepEqual(task.StartSequenceNumber, expectedTask.StartSequenceNumber) {
-		t.Fatal("StartSequenceNumber should be equal")
-	}
-	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
-		t.Fatal("StopSequenceNumber should be equal")
-	}
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedTask, task)
 }
 
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
