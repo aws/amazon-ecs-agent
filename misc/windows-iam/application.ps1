@@ -11,7 +11,9 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-$gateway = (Get-WMIObject -Class Win32_IP4RouteTable | Where { $_.Destination -eq '0.0.0.0' -and $_.Mask -eq '0.0.0.0' } | Sort-Object Metric1 | Select NextHop).NextHop
-$ifIndex = (Get-NetAdapter -InterfaceDescription "Hyper-V Virtual Ethernet*" | Sort-Object | Select ifIndex).ifIndex
-route -p add 169.254.170.2 mask 255.255.255.255 0.0.0.0
-New-NetRoute -DestinationPrefix 169.254.169.254/32 -InterfaceIndex $ifindex -NextHop $gateway
+$CREDENTIAL_ADDRESS = "169.254.170.2"
+$EC2_METADATA_ADDRESS = "169.254.169.254"
+[string]$gateway = (Get-WMIObject -Class Win32_IP4RouteTable | Where { $_.Destination -eq '0.0.0.0' -and $_.Mask -eq '0.0.0.0' } | Sort-Object Metric1 | Select NextHop).NextHop
+[int]$ifIndex = (Get-NetAdapter -InterfaceDescription "Hyper-V Virtual Ethernet*" | Sort-Object | Select -First 1).ifIndex
+New-NetRoute -DestinationPrefix "$($CREDENTIAL_ADDRESS)/32" -InterfaceIndex $ifindex -NextHop $gateway
+New-NetRoute -DestinationPrefix "$($EC2_METADATA_ADDRESS)/32" -InterfaceIndex $ifindex -NextHop $gateway
