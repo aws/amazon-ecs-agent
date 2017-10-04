@@ -18,10 +18,10 @@ package watcher
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/deniswernert/udev"
 	"github.com/golang/mock/gomock"
@@ -63,6 +63,7 @@ func TestWatcherInit(t *testing.T) {
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
 		MACAddress:       randomMAC,
 		AttachStatusSent: false,
+		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 	})
 	eventChannel := make(chan statechange.Event)
 
@@ -164,6 +165,7 @@ func TestReconcileENIs(t *testing.T) {
 	taskEngineState.AddENIAttachment(&api.ENIAttachment{
 		MACAddress:       randomMAC,
 		AttachStatusSent: false,
+		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 	})
 
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
@@ -293,7 +295,7 @@ func TestUdevAddEvent(t *testing.T) {
 				},
 			}, nil),
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&api.ENIAttachment{}, true),
+			&api.ENIAttachment{ExpiresAt: time.Unix(time.Now().Unix()+10, 0)}, true),
 	)
 
 	// Spin off event handler
@@ -452,7 +454,9 @@ func TestSendENIStateChange(t *testing.T) {
 
 	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
 
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{}, true)
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+		ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
+	}, true)
 
 	go watcher.sendENIStateChange(randomMAC)
 
@@ -462,46 +466,49 @@ func TestSendENIStateChange(t *testing.T) {
 	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
 }
 
-func TestShouldSendENIStateChange(t *testing.T) {
-	testCases := []struct {
-		eniAttachment     *api.ENIAttachment
-		eniByMACExists    bool
-		expectStateChange bool
-	}{
-		{
-			&api.ENIAttachment{},
-			true,
-			true,
-		},
-		{
+func TestSendENIStateChangeUnmanaged(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false)
+	assert.Error(t, watcher.sendENIStateChange(randomMAC))
+}
+
+func TestSendENIStateChangeAlreadySent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+		AttachStatusSent: true,
+		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+		MACAddress:       randomMAC,
+	}, true)
+
+	assert.Error(t, watcher.sendENIStateChange(randomMAC))
+}
+
+func TestSendENIStateChangeExpired(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
+
+	gomock.InOrder(
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
 			&api.ENIAttachment{
-				AttachStatusSent: true,
-			},
-			true,
-			false,
-		},
-		{
-			&api.ENIAttachment{},
-			false,
-			false,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(
-			fmt.Sprintf("return %t when exists is %t and sent is %s",
-				tc.expectStateChange, tc.eniByMACExists, tc.eniAttachment.Status.String()),
-			func(t *testing.T) {
+				AttachStatusSent: false,
+				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
+				MACAddress:       randomMAC,
+			}, true),
+		mockStateManager.EXPECT().RemoveENIAttachment(randomMAC),
+	)
 
-				mockCtrl := gomock.NewController(t)
-				defer mockCtrl.Finish()
-
-				mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-				watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
-
-				mockStateManager.EXPECT().ENIByMac(randomMAC).Return(tc.eniAttachment, tc.eniByMACExists)
-				_, ok := watcher.shouldSendENIStateChange(randomMAC)
-				assert.Equal(t, tc.expectStateChange, ok)
-			})
-	}
-
+	assert.Error(t, watcher.sendENIStateChange(randomMAC))
 }

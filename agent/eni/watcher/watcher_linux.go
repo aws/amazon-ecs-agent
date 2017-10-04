@@ -139,46 +139,46 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 
 	// Add new interfaces next
 	for mac, _ := range currentState {
-		udevWatcher.sendENIStateChange(mac)
+		if err := udevWatcher.sendENIStateChange(mac); err != nil {
+			log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
+		}
 	}
 	return nil
 }
 
 // sendENIStateChange handles the eni event from udev or reconcile phase
-func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) {
-	eniAttachment, ok := udevWatcher.shouldSendENIStateChange(mac)
-	if ok {
-		go func(eni *api.ENIAttachment) {
-			eni.Status = api.ENIAttached
-			log.Infof("Emitting ENI change event for: %v", eni)
-			udevWatcher.eniChangeEvent <- api.TaskStateChange{
-				TaskARN:    eni.TaskARN,
-				Attachment: eni,
-			}
-		}(eniAttachment)
-	}
-}
-
-// shouldSendENIStateChange checks whether this eni is managed by ecs
-// and if its status should be sent to backend
-func (udevWatcher *UdevWatcher) shouldSendENIStateChange(macAddress string) (*api.ENIAttachment, bool) {
-	if macAddress == "" {
-		log.Warn("ENI state manager: device with empty mac address")
-		return nil, false
+func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
+	if mac == "" {
+		return errors.New("udev watcher send ENI state change: empty mac address")
 	}
 	// check if this is an eni required by a task
-	eni, ok := udevWatcher.agentState.ENIByMac(macAddress)
+	eni, ok := udevWatcher.agentState.ENIByMac(mac)
 	if !ok {
-		log.Infof("ENI state manager: eni not managed by ecs: %s", macAddress)
-		return nil, false
+		return errors.Errorf("udev watcher send ENI state change: eni not managed by ecs: %s", mac)
 	}
-
 	if eni.IsSent() {
-		log.Infof("ENI state manager: eni attach status has already sent: %s", macAddress)
-		return eni, false
+		return errors.Errorf("udev watcher send ENI state change: eni status already sent: %s", eni.String())
+	}
+	if eni.HasExpired() {
+		// Agent is aware of the ENI, but we decide not to ack it
+		// as it's ack timeout has expired
+		udevWatcher.agentState.RemoveENIAttachment(eni.MACAddress)
+		return errors.Errorf(
+			"udev watcher send ENI state change: eni status expired, no longer tracking it: %s",
+			eni.String())
 	}
 
-	return eni, true
+	// We found an ENI, which has the expiration time set in future and
+	// needs to be acknowledged as having been 'attached' to the Instance
+	go func(eni *api.ENIAttachment) {
+		eni.Status = api.ENIAttached
+		log.Infof("Emitting ENI change event for: %s", eni.String())
+		udevWatcher.eniChangeEvent <- api.TaskStateChange{
+			TaskARN:    eni.TaskARN,
+			Attachment: eni,
+		}
+	}(eni)
+	return nil
 }
 
 // buildState is used to build a state of the system for reconciliation
@@ -227,7 +227,9 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 				log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
 				continue
 			}
-			udevWatcher.sendENIStateChange(macAddress)
+			if err := udevWatcher.sendENIStateChange(macAddress); err != nil {
+				log.Warnf("Udev watcher event-handler: unable to send state change: %v", err)
+			}
 		case <-udevWatcher.ctx.Done():
 			log.Info("Stopping udev event handler")
 			// Send the shutdown signal and close the connection

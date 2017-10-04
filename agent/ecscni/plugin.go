@@ -124,7 +124,7 @@ func (client *cniClient) ReleaseIPResource(cfg *Config) error {
 		Plugins:    []*libcni.NetworkConfig{ipamConfig},
 	}
 
-	seelog.Debugf("Releasing the ip resource from ipam db, id: [%s], ip: [%s]", cfg.ID, cfg.IPAMV4Address)
+	seelog.Debugf("Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	return client.libcni.DelNetworkList(networkConfigList, cns)

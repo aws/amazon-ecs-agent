@@ -68,3 +68,26 @@ func TestStartTimerErrorWhenExpiresAtIsInThePast(t *testing.T) {
 	}
 	assert.Error(t, attachment.StartTimer(func() {}))
 }
+
+func TestHasExpired(t *testing.T) {
+	for _, tc := range []struct {
+		expiresAt int64
+		expected  bool
+		name      string
+	}{
+		{time.Now().Unix() - 1, true, "expiresAt in past returns true"},
+		{time.Now().Unix() + 10, false, "expiresAt in future returns false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			attachment := &ENIAttachment{
+				TaskARN:          taskARN,
+				AttachmentARN:    attachmentARN,
+				AttachStatusSent: attachSent,
+				MACAddress:       mac,
+				Status:           ENIAttachmentNone,
+				ExpiresAt:        time.Unix(tc.expiresAt, 0),
+			}
+			assert.Equal(t, tc.expected, attachment.HasExpired())
+		})
+	}
+}

@@ -277,20 +277,6 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 	assert.Len(t, handler.tasksToEvents, 0)
 }
 
-func TestShouldBeSent(t *testing.T) {
-	sendableEvent := newSendableContainerEvent(api.ContainerStateChange{
-		Status: api.ContainerStopped,
-	})
-
-	if sendableEvent.taskShouldBeSent() {
-		t.Error("Container event should not be sent as a task")
-	}
-
-	if !sendableEvent.containerShouldBeSent() {
-		t.Error("Container should be sent if it's the first try")
-	}
-}
-
 func containerEvent(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
 }
