@@ -90,6 +90,15 @@ func (eni *ENIAttachment) StopAckTimer() {
 	eni.ackTimer.Stop()
 }
 
+// HasExpired returns true if the ENI attachment object has exceeded the
+// threshold for notifying the backend of the attachment
+func (eni *ENIAttachment) HasExpired() bool {
+	eni.guard.RLock()
+	defer eni.guard.RUnlock()
+
+	return time.Now().After(eni.ExpiresAt)
+}
+
 // String returns a string representation of the ENI Attachment
 func (eni *ENIAttachment) String() string {
 	eni.guard.RLock()

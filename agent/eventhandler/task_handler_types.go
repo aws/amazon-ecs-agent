@@ -93,6 +93,7 @@ func (event *sendableEvent) taskAttachmentShouldBeSent() bool {
 	tevent := event.taskChange
 	return tevent.Status == api.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
 		tevent.Attachment != nil && // Task has attachment records
+		!tevent.Attachment.HasExpired() && // ENI attachment ack timestamp hasn't expired
 		!tevent.Attachment.IsSent() // Task status hasn't already been sent
 }
 
