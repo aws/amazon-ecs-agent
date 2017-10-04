@@ -26,7 +26,7 @@ import (
 )
 
 func TestPullEmptyVolumeImage(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)

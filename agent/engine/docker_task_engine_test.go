@@ -1863,7 +1863,7 @@ func TestCreateContainerOnAgentRestart(t *testing.T) {
 }
 
 func TestPullCNIImage(t *testing.T) {
-	ctrl, _, _, privateTaskEngine, _, _ := mocks(t, &config.Config{})
+	ctrl, _, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 
@@ -1878,7 +1878,7 @@ func TestPullCNIImage(t *testing.T) {
 }
 
 func TestPullNormalImage(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, imageManager := mocks(t, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)

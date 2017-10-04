@@ -334,8 +334,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/mock/gomock",
-			"Comment": "v1.0.0-17-g18f6dd1",
-			"Rev": "18f6dd13ccdd227b8ebc546ca95cd62a02f3970c"
+			"Rev": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
