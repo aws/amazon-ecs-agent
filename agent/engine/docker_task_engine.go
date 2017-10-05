@@ -343,7 +343,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	if engine.cfg.ContainerMetadataEnabled {
 		err := engine.metadataManager.Clean(task.Arn)
 		if err != nil {
-			seelog.Warnf("Clean task metadata failed for task %s: %v", task, err)
+			seelog.Warnf("Clean task metadata failed for task %s: %v", task.Arn, err)
 		}
 	}
 	engine.saver.Save()

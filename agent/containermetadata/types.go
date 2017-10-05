@@ -15,12 +15,63 @@ package containermetadata
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
+
+const (
+	// MetadataInitial is the initial state of the metadata file which
+	// contains metadata provided by the ECS Agent
+	MetadataInitialText = "INITIAL"
+	// MetadataReady is the final state of the metadata file which indicates
+	// it has acquired all the data it needs (Currently from the Agent and Docker)
+	MetadataReadyText = "READY"
+)
+
+const (
+	MetadataInitial MetadataStatus = iota
+	MetadataReady
+)
+
+// MetadataStatus specifies the current update status of the metadata file.
+// The purpose of this status is for users to check if the metadata file has
+// reached the stage they need before they read the rest of the file to avoid
+// race conditions (Since the final stage will need to be after the container
+// starts up
+// In the future the metadata may require multiple stages of update and these
+// statuses should amended/appended accordingly.
+type MetadataStatus int32
+
+func (status MetadataStatus) MarshalText() (text []byte, err error) {
+	switch status {
+	case MetadataInitial:
+		text = []byte(MetadataInitialText)
+	case MetadataReady:
+		text = []byte(MetadataReadyText)
+	default:
+		return nil, fmt.Errorf("failed marshalling MetadataStatus %v", status)
+	}
+	return
+}
+
+func (status *MetadataStatus) UnmarshalText(text []byte) error {
+	var err error
+	t := string(text)
+
+	switch t {
+	case MetadataInitialText:
+		*status = MetadataInitial
+	case MetadataReadyText:
+		*status = MetadataReady
+	default:
+		return fmt.Errorf("failed unmarshalling MetadataStatus %s", text)
+	}
+	return err
+}
 
 // DockerMetadataClient is a wrapper for the docker interface functions we need
 // We use this as a dummy type to be able to pass in engine.DockerClient to

@@ -32,6 +32,8 @@ func TestParseContainerCreate(t *testing.T) {
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
 
+	expectedStatus := string(MetadataInitial)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -42,7 +44,7 @@ func TestParseContainerCreate(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "INITIAL", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 }
 
 func TestParseHasNoContainer(t *testing.T) {
@@ -50,6 +52,8 @@ func TestParseHasNoContainer(t *testing.T) {
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
+
+	expectedStatus := string(MetadataReady)
 
 	newManager := &metadataManager{
 		cluster:              mockCluster,
@@ -61,7 +65,7 @@ func TestParseHasNoContainer(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, metadata.dockerContainerMetadata.containerID, "", "Expected empty container metadata")
 	assert.Equal(t, metadata.dockerContainerMetadata.dockerContainerName, "", "Expected empty container metadata")
 	assert.Equal(t, metadata.dockerContainerMetadata.imageID, "", "Expected empty container metadata")
@@ -77,6 +81,8 @@ func TestParseHasConfig(t *testing.T) {
 	mockConfig := &docker.Config{Image: "image"}
 	mockContainer := &docker.Container{Config: mockConfig}
 
+	expectedStatus := string(MetadataReady)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -87,7 +93,7 @@ func TestParseHasConfig(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, metadata.dockerContainerMetadata.imageName, "image", "Expected nonempty imageID")
 }
 
@@ -104,6 +110,8 @@ func TestParseHasHostConfigPortBindsError(t *testing.T) {
 	mockHostConfig := &docker.HostConfig{PortBindings: mockPorts}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig}
 
+	expectedStatus := string(MetadataReady)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -114,7 +122,7 @@ func TestParseHasHostConfigPortBindsError(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, len(metadata.dockerContainerMetadata.ports), 0, "Expected empty list of ports")
 }
 
@@ -131,6 +139,8 @@ func TestParseHasHostConfigPortBindsNoError(t *testing.T) {
 	mockHostConfig := &docker.HostConfig{PortBindings: mockPorts}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig}
 
+	expectedStatus := string(MetadataReady)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -141,7 +151,7 @@ func TestParseHasHostConfigPortBindsNoError(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, len(metadata.dockerContainerMetadata.ports), 1, "Expected empty list of ports")
 }
 
@@ -155,6 +165,8 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	mockNetworkSettings := &docker.NetworkSettings{IPAddress: "0.0.0.0"}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig, NetworkSettings: mockNetworkSettings}
 
+	expectedStatus := string(MetadataReady)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -165,7 +177,7 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, len(metadata.dockerContainerMetadata.networkInfo.networks), 1, "Expected one network")
 }
 
@@ -182,6 +194,8 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig, NetworkSettings: mockNetworkSettings}
 
+	expectedStatus := string(MetadataReady)
+
 	newManager := &metadataManager{
 		cluster:              mockCluster,
 		containerInstanceARN: mockContainerInstanceARN,
@@ -192,6 +206,6 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	assert.Equal(t, metadata.taskMetadata.containerName, mockContainerName, "Expcted container name "+mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskARN, mockTaskARN, "Expcted task ARN "+mockTaskARN)
 	assert.Equal(t, metadata.containerInstanceARN, mockContainerInstanceARN, "Expcted container instance ARN "+mockContainerInstanceARN)
-	assert.Equal(t, string(metadata.metadataStatus), "READY", "Expected status "+MetadataInitial)
+	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
 	assert.Equal(t, len(metadata.dockerContainerMetadata.networkInfo.networks), 2, "Expected two networks")
 }
