@@ -115,7 +115,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		}
 	}
 
-	// TODO we also need to disable this if agent already managing older tasks
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		if _, ok := supportedVersions[dockerclient.Version_1_22]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTaskCPUMemLimit)

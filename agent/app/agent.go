@@ -193,16 +193,17 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Conditionally create '/ecs' cgroup root
-	// TODO: Ensure that this feature is enabled only when
-	// the cgroup mountpoint is accessible to the agent
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
-		// TODO: Make this fatal only when explicitly enabled
 		if err != nil {
-			seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
-			return exitcodes.ExitTerminal
+			if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
+				seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
+				return exitcodes.ExitTerminal
+			}
+			seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
+			agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 		}
 	}
 
@@ -280,18 +281,24 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 		credentialsManager, containerChangeEventStream, imageManager, state)
 
-	// previousState is used to verify that our current runtime configuration is
+	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
-	previousState, err := agent.newStateManager(previousTaskEngine, &previousCluster,
+	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
 		&previousContainerInstanceArn, &previousEC2InstanceID)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
 	}
 
-	err = previousState.Load()
+	err = previousStateManager.Load()
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
+		return nil, "", err
+	}
+
+	err = agent.checkCompatibility(previousTaskEngine)
+	if err != nil {
+		seelog.Criticalf("Error checking compatibility with previously saved state: %v", err)
 		return nil, "", err
 	}
 
