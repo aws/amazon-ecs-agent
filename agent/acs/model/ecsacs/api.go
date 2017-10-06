@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -59,6 +59,8 @@ type AttachTaskNetworkInterfacesMessage struct {
 	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
@@ -181,6 +183,8 @@ type ECRAuthData struct {
 	Region *string `locationName:"region" type:"string"`
 
 	RegistryId *string `locationName:"registryId" type:"string"`
+
+	UseExecutionRole *bool `locationName:"useExecutionRole" type:"boolean"`
 }
 
 // String returns the string representation
@@ -345,6 +349,8 @@ type IAMRoleCredentialsMessage struct {
 	MessageId *string `locationName:"messageId" type:"string"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+
+	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
 }
@@ -638,11 +644,17 @@ type Task struct {
 
 	Containers []*Container `locationName:"containers" type:"list"`
 
+	Cpu *float64 `locationName:"cpu" type:"double"`
+
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
 
+	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
+
 	Family *string `locationName:"family" type:"string"`
+
+	Memory *int64 `locationName:"memory" type:"integer"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
 

@@ -115,9 +115,9 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 	taskMemoryLimit := int64(taskMemoryLimit)
 
 	task := &Task{
-		Arn:         validTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: taskMemoryLimit,
+		Arn:    validTaskArn,
+		Cpu:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
 	}
 
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
@@ -141,8 +141,8 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 // TestBuildLinuxResourceSpecCPU validates the linux resource spec builder
 func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 	task := &Task{
-		Arn:       validTaskArn,
-		VCPULimit: float64(taskVCPULimit),
+		Arn: validTaskArn,
+		Cpu: float64(taskVCPULimit),
 	}
 
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
@@ -212,9 +212,9 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 	taskMemoryLimit := int64(taskMemoryLimit)
 
 	task := &Task{
-		Arn:         validTaskArn,
-		VCPULimit:   float64(taskVCPULimit),
-		MemoryLimit: taskMemoryLimit,
+		Arn:    validTaskArn,
+		Cpu:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
 		Containers: []*Container{
 			{
 				Name:   "C1",
@@ -234,8 +234,8 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	task := &Task{
 		Arn:                    validTaskArn,
-		VCPULimit:              float64(taskVCPULimit),
-		MemoryLimit:            int64(taskMemoryLimit),
+		Cpu:                    float64(taskVCPULimit),
+		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
 
@@ -251,8 +251,8 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 func TestOverrideCgroupParentErrorPath(t *testing.T) {
 	task := &Task{
 		Arn:                    invalidTaskArn,
-		VCPULimit:              float64(taskVCPULimit),
-		MemoryLimit:            int64(taskMemoryLimit),
+		Cpu:                    float64(taskVCPULimit),
+		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
 
@@ -266,8 +266,8 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 func TestPlatformHostConfigOverride(t *testing.T) {
 	task := &Task{
 		Arn:                    validTaskArn,
-		VCPULimit:              float64(taskVCPULimit),
-		MemoryLimit:            int64(taskMemoryLimit),
+		Cpu:                    float64(taskVCPULimit),
+		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
 
@@ -282,8 +282,8 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 	task := &Task{
 		Arn:                    invalidTaskArn,
-		VCPULimit:              float64(taskVCPULimit),
-		MemoryLimit:            int64(taskMemoryLimit),
+		Cpu:                    float64(taskVCPULimit),
+		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 		Containers: []*Container{
 			{

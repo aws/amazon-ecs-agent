@@ -537,8 +537,8 @@ func (cfg *Config) String() string {
 			"DisableMetrics: %v, "+
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
-			"DockerStopTimeout: %v"+
-			"TaskCPUMemLimit: %v"+
+			"DockerStopTimeout: %v, "+
+			"TaskCPUMemLimit: %v, "+
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,

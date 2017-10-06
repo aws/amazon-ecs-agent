@@ -64,7 +64,7 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 
 	// If task level CPU limits are requested, set CPU quota + CPU period
 	// Else set CPU shares
-	if task.VCPULimit > 0 {
+	if task.Cpu > 0 {
 		linuxCPUSpec, err := task.buildExplicitLinuxCPUSpec()
 		if err != nil {
 			return specs.LinuxResources{}, err
@@ -77,7 +77,7 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 
 	// Validate and build task memory spec
 	// NOTE: task memory specifications are optional
-	if task.MemoryLimit > 0 {
+	if task.Memory > 0 {
 		linuxMemorySpec, err := task.buildLinuxMemorySpec()
 		if err != nil {
 			return specs.LinuxResources{}, err
@@ -91,13 +91,13 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 // buildExplicitLinuxCPUSpec builds CPU spec when task CPU limits are
 // explicitly requested
 func (task *Task) buildExplicitLinuxCPUSpec() (specs.LinuxCPU, error) {
-	if task.VCPULimit > maxTaskVCPULimit {
+	if task.Cpu > maxTaskVCPULimit {
 		return specs.LinuxCPU{},
 			errors.Errorf("task CPU spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
-				task.VCPULimit, maxTaskVCPULimit)
+				task.Cpu, maxTaskVCPULimit)
 	}
 	taskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
-	taskCPUQuota := int64(task.VCPULimit * float64(taskCPUPeriod))
+	taskCPUQuota := int64(task.Cpu * float64(taskCPUPeriod))
 
 	// TODO: DefaultCPUPeriod only permits 10VCPUs.
 	// Adaptive calculation of CPUPeriod required for further support
@@ -143,14 +143,14 @@ func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
 	// of this task has a greater request
 	for _, container := range task.Containers {
 		containerMemoryLimit := int64(container.Memory)
-		if containerMemoryLimit > task.MemoryLimit {
+		if containerMemoryLimit > task.Memory {
 			return specs.LinuxMemory{},
 				errors.Errorf("task memory spec builder: container memory limit(%d) greater than task memory limit(%d)",
-					containerMemoryLimit, task.MemoryLimit)
+					containerMemoryLimit, task.Memory)
 		}
 	}
 	return specs.LinuxMemory{
-		Limit: &task.MemoryLimit,
+		Limit: &task.Memory,
 	}, nil
 }
 
