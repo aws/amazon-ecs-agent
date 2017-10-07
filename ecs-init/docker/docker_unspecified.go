@@ -16,20 +16,34 @@
 package docker
 
 import (
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
 // getPlatformSpecificEnvVariables gets a map of environment variable key-value
 // pairs to set in the Agent's container config
+// The ECS_ENABLE_TASK_ENI flag is only set for Amazon Linux AMI
 func getPlatformSpecificEnvVariables() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"ECS_ENABLE_TASK_ENI": "true",
+	}
 }
 
 // createHostConfig creates the host config for the ECS Agent container
+// It mounts dhclient executable, leases and pid file directories when built
+// for Amazon Linux AMI
 func createHostConfig(binds []string) *godocker.HostConfig {
+	binds = append(binds,
+		config.ProcFS+":"+hostProcDir+readOnly,
+		config.AgentDHClientLeasesDirectory()+":"+dhclientLeasesLocation,
+		dhclientLibDir+":"+dhclientLibDir+readOnly,
+		dhclientExecutableDir+":"+dhclientExecutableDir+readOnly)
+
 	return &godocker.HostConfig{
 		Binds:       binds,
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
+		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
+		Init:        true,
 	}
 }
