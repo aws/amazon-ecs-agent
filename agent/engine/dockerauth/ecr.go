@@ -106,10 +106,16 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *docke
 	cachedToken, ok := token.(*ecrapi.AuthorizationData)
 	if !ok {
 		log.Warnf("Reading ECR credentials from cache failed")
-	} else if authProvider.IsTokenValid(cachedToken) {
+		return nil
+	}
+
+	if authProvider.IsTokenValid(cachedToken) {
 		auth, err := extractToken(cachedToken)
 		if err != nil {
 			log.Errorf("Extract docker auth from cache failed, err: %v", err)
+			// Remove invalid token from cache
+			authProvider.tokenCache.Delete(key.String())
+			return nil
 		}
 		return &auth
 	} else {
@@ -145,7 +151,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
 		return extractToken(ecrAuthData)
 	}
-	return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: AuthorizationData is malformed")
+	return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
 }
 
 func extractToken(authData *ecrapi.AuthorizationData) (docker.AuthConfiguration, error) {

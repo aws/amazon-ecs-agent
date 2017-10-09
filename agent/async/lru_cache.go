@@ -82,7 +82,7 @@ func (lru *lruCache) Set(key string, value Value) {
 	lru.cache[key] = &entry{value: value, added: time.Now()}
 
 	// Remove from the evict list if an entry already existed
-	lru.removeExisted(key)
+	lru.removeFromEvictList(key)
 
 	lru.evictList.PushBack(key)
 	lru.purgeSize()
@@ -93,7 +93,7 @@ func (lru *lruCache) Delete(key string) {
 	lru.Lock()
 	defer lru.Unlock()
 
-	lru.removeExisted(key)
+	lru.removeFromEvictList(key)
 	delete(lru.cache, key)
 }
 
@@ -107,12 +107,13 @@ func (lru *lruCache) updateAccessed(key string) {
 	}
 }
 
-func (lru *lruCache) removeExisted(key string) {
+func (lru *lruCache) removeFromEvictList(key string) {
 	var next *list.Element
 	for element := lru.evictList.Front(); element != nil; element = next {
 		next = element.Next()
 		if element.Value == key {
 			lru.evictList.Remove(element)
+			break
 		}
 	}
 

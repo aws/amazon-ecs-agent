@@ -422,3 +422,57 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
 }
+
+func TestExtractECRTokenError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	factory := mock_ecr.NewMockECRFactory(ctrl)
+	ecrClient := mock_ecr.NewMockECRClient(ctrl)
+	mockCache := mock_async.NewMockCache(ctrl)
+
+	provider := ecrAuthProvider{
+		factory:    factory,
+		tokenCache: mockCache,
+	}
+	username := "test_user"
+	password := "test_passwd"
+
+	proxyEndpoint := "proxy"
+	testAuthData := &ecrapi.AuthorizationData{
+		ProxyEndpoint: aws.String(proxyEndpointScheme + proxyEndpoint),
+		// This will makes the extract fail
+		AuthorizationToken: aws.String("-"),
+		ExpiresAt:          aws.Time(time.Now().Add(1 * time.Hour)),
+	}
+	authData := &api.ECRAuthData{
+		Region:           "us-west-2",
+		RegistryID:       "0123456789012",
+		EndpointOverride: "my.endpoint",
+	}
+	authData.SetPullCredentials(credentials.IAMRoleCredentials{
+		RoleArn: "arn:aws:iam::123456789012:role/test",
+	})
+
+	key := cacheKey{
+		roleARN:          authData.GetPullCredentials().RoleArn,
+		region:           authData.Region,
+		registryID:       authData.RegistryID,
+		endpointOverride: authData.EndpointOverride,
+	}
+
+	dockerAuthData := &ecrapi.AuthorizationData{
+		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
+		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
+	}
+
+	mockCache.EXPECT().Get(key.String()).Return(testAuthData, true)
+	mockCache.EXPECT().Delete(key.String())
+	factory.EXPECT().GetClient(authData).Return(ecrClient, nil)
+	ecrClient.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(dockerAuthData, nil)
+	mockCache.EXPECT().Set(key.String(), dockerAuthData)
+
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	assert.NoError(t, err)
+	assert.Equal(t, username, authconfig.Username)
+	assert.Equal(t, password, authconfig.Password)
+}

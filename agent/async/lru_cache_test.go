@@ -93,7 +93,7 @@ func TestLRUSizePurge(t *testing.T) {
 	assert.Nil(t, bar)
 }
 
-func TestLRUCacheConcurrency(t *testing.T) {
+func BenchmarkLRUCacheConcurrency(b *testing.B) {
 	// prime a cache with %80 size
 	size := 10000
 	lru := NewLRUCache(size/80, 30*time.Minute)

@@ -23,15 +23,15 @@ import (
 )
 
 var (
-	// ExecutionCredentialsNotResolved is the error where a container needs to wait for
+	// UnableTransitionExecutionCredentialsNotResolved is the error where a container needs to wait for
 	// credentials before it can process by agent
-	ExecutionCredentialsNotResolved = errors.New("dependency graph: container execution credentials not available")
-	// TransitionDependencyNotResolved is the error where a dependent container isn't in expected state
-	TransitionDependencyNotResolved = errors.New("dependency graph: dependent container not in expected state")
-	// ContainerTransitioned is the error where the container status is bigger than desired status
-	ContainerTransitioned        = errors.New("container transition: container status is greater than desired status")
-	volumesDependencyNotResolved = errors.New("dependency graph: container volume dependency not resolved")
-	linksDependencyNotResolved   = errors.New("dependency graph: container links dependency not resolved")
+	UnableTransitionExecutionCredentialsNotResolved = errors.New("dependency graph: container execution credentials not available")
+	// UnableTransitionTransitionDependencyNotResolved is the error where a dependent container isn't in expected state
+	UnableTransitionTransitionDependencyNotResolved = errors.New("dependency graph: dependent container not in expected state")
+	// UnableTransitionContainerPassedDesiredStatus is the error where the container status is bigger than desired status
+	UnableTransitionContainerPassedDesiredStatus = errors.New("container transition: container status is equal or greater than desired status")
+	unableTransitionVolumesDependencyNotResolved = errors.New("dependency graph: container volume dependency not resolved")
+	unableTranstionLinksDependencyNotResolved    = errors.New("dependency graph: container links dependency not resolved")
 )
 
 // Because a container may depend on another container being created
@@ -102,6 +102,10 @@ func DependenciesAreResolved(target *api.Container,
 	by []*api.Container,
 	id string,
 	manager credentials.Manager) error {
+	if !executionCredentialsResolved(target, id, manager) {
+		return UnableTransitionExecutionCredentialsNotResolved
+	}
+
 	nameMap := make(map[string]*api.Container)
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
@@ -112,20 +116,16 @@ func DependenciesAreResolved(target *api.Container,
 	}
 
 	if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
-		return volumesDependencyNotResolved
+		return unableTransitionVolumesDependencyNotResolved
 	}
 
 	if !verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) {
-		return linksDependencyNotResolved
+		return unableTranstionLinksDependencyNotResolved
 	}
 
 	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) ||
 		!verifyTransitionDependenciesResolved(target, nameMap) {
-		return TransitionDependencyNotResolved
-	}
-
-	if !executionCredentialsResolved(target, id, manager) {
-		return ExecutionCredentialsNotResolved
+		return UnableTransitionTransitionDependencyNotResolved
 	}
 
 	return nil

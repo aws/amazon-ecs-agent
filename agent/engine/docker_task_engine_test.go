@@ -1971,7 +1971,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 // TestTaskUseExecutionRolePullECRImage tests the agent will use the execution role
 // credentials to pull from an ECR repository
 func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
-	ctrl, client, _, taskEngine, credentialsManager, imageManager := mocks(t, &defaultConfig)
+	ctrl, client, _, taskEngine, credentialsManager, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	credentialsID := "execution role"
@@ -2015,7 +2015,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 // TestNewTasktionRoleOnRestart tests the agent will process the task recorded in
 // the state file on restart
 func TestNewTaskTransitionOnRestart(t *testing.T) {
-	ctrl, _, _, taskEngine, _, _ := mocks(t, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
