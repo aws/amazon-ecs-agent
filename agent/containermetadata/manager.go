@@ -122,23 +122,19 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("container metadata update for task %s container %s: container not running or invalid", taskARN, containerName)
+		return fmt.Errorf("container metadata update for contiainer %s in task %s: container not running or invalid", containerName, taskARN)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
 	metadata := manager.parseMetadata(dockerContainer, taskARN, containerName)
-	err = manager.marshalAndWrite(metadata, taskARN, containerName)
-	if err != nil {
-		return err
-	}
-	return nil
+	return manager.marshalAndWrite(metadata, taskARN, containerName)
 }
 
 // Clean removes the metadata files of all containers associated with a task
 func (manager *metadataManager) Clean(taskARN string) error {
 	metadataPath, err := getTaskMetadataDir(taskARN, manager.dataDir)
 	if err != nil {
-		return fmt.Errorf("clean task %s: %v", taskARN, err)
+		return fmt.Errorf("clean task metadata: unable to get metadata directory for task %s: %v", taskARN, err)
 	}
 	return manager.osWrap.RemoveAll(metadataPath)
 }
@@ -146,14 +142,9 @@ func (manager *metadataManager) Clean(taskARN string) error {
 func (manager *metadataManager) marshalAndWrite(metadata Metadata, taskARN string, containerName string) error {
 	data, err := json.MarshalIndent(metadata, "", "\t")
 	if err != nil {
-		return fmt.Errorf("create metadata for task %s container %s: %v", taskARN, containerName, err)
+		return fmt.Errorf("create metadata for container %s in task %s: failed to marshal metadata: %v", containerName, taskARN, err)
 	}
 
 	// Write the metadata to file
-	err = writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
 }

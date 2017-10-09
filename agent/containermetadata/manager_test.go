@@ -16,7 +16,6 @@ package containermetadata
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
@@ -68,9 +67,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 
 	newManager := &metadataManager{}
 	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
-	expectErrorMessage := fmt.Sprintf("container metadata create for task %s container %s: get metdata file path of task %s container %s: get task ARN: invalid TaskARN %s", mockTaskARN, mockContainerName, mockTaskARN, mockContainerName, mockTaskARN)
-
-	assert.Equal(t, expectErrorMessage, err.Error())
+	assert.Error(t, err)
 }
 
 // TestCreateMkdirAllFail checks case when MkdirAll call fails
@@ -89,9 +86,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 		osWrap: mockOS,
 	}
 	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
-	expectErrorMessage := fmt.Sprintf("creating metadata directory for task %s: err", mockTaskARN)
-
-	assert.Equal(t, expectErrorMessage, err.Error())
+	assert.Error(t, err)
 }
 
 // TestUpdateInspectFail checks case when Inspect call fails
@@ -134,9 +129,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 
 	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
 	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
-	expectErrorMessage := fmt.Sprintf("container metadata update for task %s container %s: container not running or invalid", mockTaskARN, mockContainerName)
-
-	assert.Equal(t, expectErrorMessage, err.Error())
+	assert.Error(t, err)
 }
 
 // TestMalformedFilepath checks case where ARN is invalid
@@ -148,9 +141,7 @@ func TestMalformedFilepath(t *testing.T) {
 
 	newManager := &metadataManager{}
 	err := newManager.Clean(mockTaskARN)
-	expectErrorMessage := fmt.Sprintf("clean task %s: get task ARN: invalid TaskARN invalidARN", mockTaskARN)
-
-	assert.Equal(t, expectErrorMessage, err.Error())
+	assert.Error(t, err)
 }
 
 // TestHappyPath is the mainline case for metadata create
@@ -168,6 +159,5 @@ func TestHappyPath(t *testing.T) {
 		mockOS.EXPECT().RemoveAll(gomock.Any()).Return(nil),
 	)
 	err := newManager.Clean(mockTaskARN)
-
 	assert.NoError(t, err)
 }
