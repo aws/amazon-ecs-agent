@@ -719,16 +719,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		}
 	}
 
-	// Set up the task credentials from payload message
-	if envelope.RoleCredentials != nil {
-		seelog.Debugf("Received task with credentials, setting task execution credentials, task: %s", task.String())
-		task.SetTaskCredentials(credentials.IAMRoleCredentials{
-			RoleArn:         envelope.RoleCredentials.RoleArn,
-			AccessKeyID:     envelope.RoleCredentials.AccessKeyId,
-			SecretAccessKey: envelope.RoleCredentials.SecretAccessKey,
-			SessionToken:    envelope.RoleCredentials.SessionToken,
-		})
-	}
 	return task, nil
 }
 

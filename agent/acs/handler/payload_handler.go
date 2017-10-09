@@ -142,7 +142,7 @@ func (payloadHandler *payloadRequestHandler) handleMessages() {
 // today. In the future, it could be used for doing more interesting things.
 func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs.PayloadMessage) error {
 	if aws.StringValue(payload.MessageId) == "" {
-		seelog.Criticalf("Recieved a payload with no message id, payload: %v", payload)
+		seelog.Criticalf("Received a payload with no message id")
 		return fmt.Errorf("received a payload with no message id")
 	}
 	seelog.Debugf("Received payload message, message id: %s", aws.StringValue(payload.MessageId))
@@ -150,12 +150,12 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	// save the state of tasks we know about after passing them to the task engine
 	err := payloadHandler.saver.Save()
 	if err != nil {
-		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err, *payload.MessageId)
+		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err, aws.StringValue(payload.MessageId))
 		// Don't ack; maybe we can save it in the future.
-		return fmt.Errorf("error saving state for payload message, with messageId: %s", *payload.MessageId)
+		return fmt.Errorf("error saving state for payload message, with messageId: %s", aws.StringValue(payload.MessageId))
 	}
 	if !allTasksHandled {
-		return fmt.Errorf("all tasks not handled")
+		return fmt.Errorf("did not handle all tasks")
 	}
 
 	go func() {
@@ -268,38 +268,35 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			allTasksOK = false
 		}
 
-		// Generate an ack request for the credentials in the task, if the
-		// task is associated with an IAM role or the exectuion role
-		taskCredentialsID := task.GetCredentialsID()
-		ack, err := payloadHandler.ackCredentials(payload.MessageId, taskCredentialsID)
-		if err != nil {
-			allTasksOK = false
-			seelog.Errorf("ACK task role credentials failed for task: %s, err: %v", task.Arn, err)
-		}
-		if ack != nil {
+		ackCredentials := func(id string, description string) {
+			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)
+			if err != nil {
+				allTasksOK = false
+				seelog.Errorf("Failed to acknowledge %s credentials for task: %s, err: %v", description, task.String(), err)
+				return
+			}
 			credentialsAcks = append(credentialsAcks, ack)
 		}
 
-		taskExecutionCredentialsID := task.GetExecutionCredentialsID()
-		ack, err = payloadHandler.ackCredentials(payload.MessageId, taskExecutionCredentialsID)
-		if err != nil {
-			allTasksOK = false
-			seelog.Errorf("ACK task execution role credentials failed for task: %s, err: %v", task.Arn, err)
+		// Generate an ack request for the credentials in the task, if the
+		// task is associated with an IAM role or the exectuion role
+		taskCredentialsID := task.GetCredentialsID()
+		if taskCredentialsID != "" {
+			ackCredentials(taskCredentialsID, "task iam role")
 		}
-		if ack != nil {
-			credentialsAcks = append(credentialsAcks, ack)
+
+		taskExecutionCredentialsID := task.GetExecutionCredentialsID()
+		if taskExecutionCredentialsID != "" {
+			ackCredentials(taskExecutionCredentialsID, "task execution role")
 		}
 	}
 	return credentialsAcks, allTasksOK
 }
 
 func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, credentialsID string) (*ecsacs.IAMRoleCredentialsAckRequest, error) {
-	if credentialsID == "" {
-		return nil, nil
-	}
 	creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
-		return nil, fmt.Errorf("execution credentials could not be retrieved")
+		return nil, fmt.Errorf("credentials could not be retrieved")
 	} else {
 		return &ecsacs.IAMRoleCredentialsAckRequest{
 			MessageId:     messageID,

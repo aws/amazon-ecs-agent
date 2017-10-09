@@ -25,8 +25,11 @@ import (
 )
 
 const (
+	// waitForPullCredentialsTimeout is the timeout agent trying to wait for pull
+	// credentials from acs, after the timeout it will check the credentials manager
+	// and start processing the task or start another round of waiting
+	waitForPullCredentialsTimeout         = 1 * time.Minute
 	steadyStateTaskVerifyInterval         = 5 * time.Minute
-	waitForCredentialsPullTimeout         = 1 * time.Minute
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
@@ -475,11 +478,11 @@ func (mtask *managedTask) progressContainers() {
 // was caused by waiting for credentials and start waiting
 func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bool {
 	for _, reason := range reasons {
-		if reason == dependencygraph.ExecutionCredentialsNotResolved {
+		if reason == dependencygraph.UnableTransitionExecutionCredentialsNotResolved {
 			seelog.Debugf("Waiting for credentials to pull from ECR, task: %s", mtask.Task.String())
 
 			maxWait := make(chan bool, 1)
-			timer := mtask.time().AfterFunc(waitForCredentialsPullTimeout, func() {
+			timer := mtask.time().AfterFunc(waitForPullCredentialsTimeout, func() {
 				maxWait <- true
 			})
 			// Have a timeout in case we missed the acs message but the credentials
@@ -538,12 +541,22 @@ type containerTransitionFunc func(container *api.Container, nextStatus api.Conta
 func (mtask *managedTask) containerNextState(container *api.Container) *containerTransition {
 	containerKnownStatus := container.GetKnownStatus()
 	containerDesiredStatus := container.GetDesiredStatus()
-	if containerKnownStatus >= containerDesiredStatus {
-		seelog.Debug("Container transitioned, desired status: %s, container: %s", containerDesiredStatus, container.String())
+
+	if containerKnownStatus == containerDesiredStatus {
+		seelog.Debugf("Container at desired status, desired status: %s, container: %s", containerDesiredStatus, container.String())
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
-			reason:         dependencygraph.ContainerTransitioned,
+			reason:         dependencygraph.UnableTransitionContainerPassedDesiredStatus,
+		}
+	}
+
+	if containerKnownStatus > containerDesiredStatus {
+		seelog.Debugf("Container transitioned, desired status: %s, container: %s", containerDesiredStatus, container.String())
+		return &containerTransition{
+			nextState:      api.ContainerStatusNone,
+			actionRequired: false,
+			reason:         dependencygraph.UnableTransitionContainerPassedDesiredStatus,
 		}
 	}
 	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers, mtask.Task.GetExecutionCredentialsID(), mtask.engine.credentialsManager); err != nil {
