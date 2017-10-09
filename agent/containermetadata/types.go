@@ -59,9 +59,7 @@ func (status MetadataStatus) MarshalText() (text []byte, err error) {
 }
 
 func (status *MetadataStatus) UnmarshalText(text []byte) error {
-	var err error
 	t := string(text)
-
 	switch t {
 	case MetadataInitialText:
 		*status = MetadataInitial
@@ -70,7 +68,7 @@ func (status *MetadataStatus) UnmarshalText(text []byte) error {
 	default:
 		return fmt.Errorf("failed unmarshalling MetadataStatus %s", text)
 	}
-	return err
+	return nil
 }
 
 // DockerMetadataClient is a wrapper for the docker interface functions we need

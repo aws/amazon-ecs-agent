@@ -662,7 +662,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		// we die before 'createContainer' returns because we can inspect by
 		// name
 		engine.state.AddContainer(&api.DockerContainer{DockerName: dockerContainerName, Container: container}, task)
-		seelog.Infof("Created container name mapping for task %s - %s -> %s", task.Arn, container, dockerContainerName)
+		seelog.Infof("Created container name mapping for task %s - %s -> %s", task.Arn, container.Name, dockerContainerName)
 		engine.saver.ForceSave()
 	}
 
@@ -671,7 +671,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
 		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
 		if mderr != nil {
-			seelog.Warnf("Create metadata failed for container %s of task %s: %v", container, task, mderr)
+			seelog.Warnf("Create metadata failed for container %s of task %s: %v", container.Name, task.Arn, mderr)
 		}
 	}
 
@@ -679,7 +679,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
 	}
-	seelog.Infof("Created docker container for task %s: %s -> %s", task, container, metadata.DockerID)
+	seelog.Infof("Created docker container for task %s: %s -> %s", task.Arn, container.Name, metadata.DockerID)
 	return metadata
 }
 
@@ -713,11 +713,11 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 		go func() {
 			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
 			if err != nil {
-				seelog.Warnf("Update metadata file failed for container %s of task %s: %v", container, task, err)
-			} else {
-				container.SetMetadataFileUpdated()
-				seelog.Debugf("Updated metadata file for container %s of task %s", container, task)
+				seelog.Warnf("Update metadata file failed for container %s of task %s: %v", container.Name, task.Arn, err)
+				return
 			}
+			container.SetMetadataFileUpdated()
+			seelog.Debugf("Updated metadata file for container %s of task %s", container.Name, task.Arn)
 		}()
 	}
 	return dockerContainerMD
@@ -959,9 +959,9 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
 	err := engine.metadataManager.Update(cont.DockerID, task.Arn, cont.Container.Name)
 	if err != nil {
-		seelog.Errorf("Update metadata file failed for container %s of task %s: %v", cont.Container, task, err)
+		seelog.Errorf("Update metadata file failed for container %s of task %s: %v", cont.Container.Name, task.Arn, err)
 	} else {
 		cont.Container.SetMetadataFileUpdated()
-		seelog.Debugf("Updated metadata file for container %s of task %s", cont.Container, task)
+		seelog.Debugf("Updated metadata file for container %s of task %s", cont.Container.Name, task.Arn)
 	}
 }
