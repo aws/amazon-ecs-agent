@@ -179,8 +179,8 @@ configure them as something other than the defaults.
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | Not applicable |
 | `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | Not applicable |
 | `ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES` | `["10.0.15.0/24"]` | In `awsvpc` network mode, traffic to these prefixes will be routed via the host bridge instead of the task ENI | `[]` | Not applicable |
-| `ECS_ENABLE_CONTAINER_METADATA` | `<true|false>` | Whether to enable creation of a metadata file in the containers. If enabled the agent will inject a file with the container's various metadata and the user can access the container's metadata internally by accessing the environment variable $ECS_CONTAINER_METADATA_FILE. | `false` | `false` |
-| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the Agent is run in a container. We do not use this value in Windows because the Agent is not run on a container in Windows. | `/var/lib/ecs` | `Not used` |
+| `ECS_ENABLE_CONTAINER_METADATA` | `true` | When `true`, the agent will create a file describing the container's metadata and the file can be located and consumed by using the container enviornment variable `$ECS_CONTAINER_METADATA_FILE` | `false` | `false` |
+| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. | `/var/lib/ecs` | `Not used` |
 
 ### Persistence
 
