@@ -47,6 +47,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	ecs_service "github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/cihub/seelog"
 )
 
@@ -242,7 +244,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Register the container instance
 	err = agent.registerContainerInstance(stateManager, client, vpcSubnetAttributes)
 	if err != nil {
-		if isTranisent(err) {
+		if isTransient(err) {
 			return exitcodes.ExitError
 		}
 		return exitcodes.ExitTerminal
@@ -424,6 +426,10 @@ func (agent *ecsAgent) registerContainerInstance(
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
+			return err
+		}
+		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecs_service.ErrCodeInvalidParameterException {
+			seelog.Critical("Instance registration attempt with an invalid parameter")
 			return err
 		}
 		if _, ok := err.(utils.AttributeError); ok {

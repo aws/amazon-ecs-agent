@@ -396,7 +396,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
@@ -431,7 +431,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
@@ -571,7 +571,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
 }
 
 func TestReregisterContainerInstanceAttributeError(t *testing.T) {
@@ -606,7 +606,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
 }
 
 func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
@@ -641,7 +641,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.True(t, isTranisent(err))
+	assert.True(t, isTransient(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *testing.T) {
@@ -709,7 +709,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.True(t, isTranisent(err))
+	assert.True(t, isTransient(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryError(t *testing.T) {
@@ -743,7 +743,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
 }
 
 func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError(t *testing.T) {
@@ -777,5 +777,36 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
 	assert.Error(t, err)
-	assert.False(t, isTranisent(err))
+	assert.False(t, isTransient(err))
+}
+
+func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+	dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+
+	gomock.InOrder(
+		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
+		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
+			"", awserr.New("InvalidParameterException", "", nil)),
+	)
+
+	cfg := config.DefaultConfig()
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		dockerClient:       dockerClient,
+	}
+
+	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }

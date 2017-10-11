@@ -344,7 +344,8 @@
       "output":{"shape":"RegisterContainerInstanceResponse"},
       "errors":[
         {"shape":"ServerException"},
-        {"shape":"ClientException"}
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"},
       ]
     },
     "RegisterTaskDefinition":{

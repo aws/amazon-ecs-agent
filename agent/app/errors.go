@@ -18,8 +18,8 @@ type transientError struct {
 	error
 }
 
-// isTranisent returns true if the error is transient
-func isTranisent(err error) bool {
+// isTransient returns true if the error is transient
+func isTransient(err error) bool {
 	_, ok := err.(transientError)
 	return ok
 }
