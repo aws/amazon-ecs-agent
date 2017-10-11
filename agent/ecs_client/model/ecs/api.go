@@ -260,90 +260,6 @@ func (c *ECS) CreateServiceWithContext(ctx aws.Context, input *CreateServiceInpu
 	return out, req.Send()
 }
 
-const opCreateServiceLinkedRole = "CreateServiceLinkedRole"
-
-// CreateServiceLinkedRoleRequest generates a "aws/request.Request" representing the
-// client's request for the CreateServiceLinkedRole operation. The "output" return
-// value can be used to capture response data after the request's "Send" method
-// is called.
-//
-// See CreateServiceLinkedRole for usage and error information.
-//
-// Creating a request object using this method should be used when you want to inject
-// custom logic into the request's lifecycle using a custom handler, or if you want to
-// access properties on the request object before or after sending the request. If
-// you just want the service response, call the CreateServiceLinkedRole method directly
-// instead.
-//
-// Note: You must call the "Send" method on the returned request object in order
-// to execute the request.
-//
-//    // Example sending a request using the CreateServiceLinkedRoleRequest method.
-//    req, resp := client.CreateServiceLinkedRoleRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
-func (c *ECS) CreateServiceLinkedRoleRequest(input *CreateServiceLinkedRoleInput) (req *request.Request, output *CreateServiceLinkedRoleOutput) {
-	op := &request.Operation{
-		Name:       opCreateServiceLinkedRole,
-		HTTPMethod: "POST",
-		HTTPPath:   "/",
-	}
-
-	if input == nil {
-		input = &CreateServiceLinkedRoleInput{}
-	}
-
-	output = &CreateServiceLinkedRoleOutput{}
-	req = c.newRequest(op, input, output)
-	return
-}
-
-// CreateServiceLinkedRole API operation for Amazon EC2 Container Service.
-//
-// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
-// with awserr.Error's Code and Message methods to get detailed information about
-// the error.
-//
-// See the AWS API reference guide for Amazon EC2 Container Service's
-// API operation CreateServiceLinkedRole for usage and error information.
-//
-// Returned Error Codes:
-//   * ErrCodeServerException "ServerException"
-//   These errors are usually caused by a server issue.
-//
-//   * ErrCodeClientException "ClientException"
-//   These errors are usually caused by a client action, such as using an action
-//   or resource on behalf of a user that doesn't have permission to use the action
-//   or resource, or specifying an identifier that is not valid.
-//
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   The specified parameter is invalid. Review the available parameters for the
-//   API request.
-//
-func (c *ECS) CreateServiceLinkedRole(input *CreateServiceLinkedRoleInput) (*CreateServiceLinkedRoleOutput, error) {
-	req, out := c.CreateServiceLinkedRoleRequest(input)
-	return out, req.Send()
-}
-
-// CreateServiceLinkedRoleWithContext is the same as CreateServiceLinkedRole with the addition of
-// the ability to pass a context and additional request options.
-//
-// See CreateServiceLinkedRole for details on how to use this API operation.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) CreateServiceLinkedRoleWithContext(ctx aws.Context, input *CreateServiceLinkedRoleInput, opts ...request.Option) (*CreateServiceLinkedRoleOutput, error) {
-	req, out := c.CreateServiceLinkedRoleRequest(input)
-	req.SetContext(ctx)
-	req.ApplyOptions(opts...)
-	return out, req.Send()
-}
-
 const opDeleteAttributes = "DeleteAttributes"
 
 // DeleteAttributesRequest generates a "aws/request.Request" representing the
@@ -4049,18 +3965,18 @@ type ContainerDefinition struct {
 
 	// The image used to start a container. This string is passed directly to the
 	// Docker daemon. Images in the Docker Hub registry are available by default.
-	// Other repositories are specified with either repository-url/image:tag or
-	// repository-url/image@digest. Up to 255 letters (uppercase and lowercase),
-	// numbers, hyphens, underscores, colons, periods, forward slashes, and number
-	// signs are allowed. This parameter maps to Image in the Create a container
-	// (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// Other repositories are specified with repository-url/image:tag. Up to 255
+	// letters (uppercase and lowercase), numbers, hyphens, underscores, colons,
+	// periods, forward slashes, and number signs are allowed. This parameter maps
+	// to Image in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
 	// and the IMAGE parameter of docker run (https://docs.docker.com/engine/reference/run/).
 	//
-	//    * Images in Amazon ECR repositories can be specified by either using the
-	//    full registry/repository:tag or registry/repository@digest. For example,
-	//    012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>:latest
-	//    or 012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>@sha256:94afd1f2e64d908bc90dbca0035a5b567EXAMPLE.
+	// Amazon ECS task definitions currently only support tags as image identifiers
+	// within a specified repository (and not sha256 digests).
+	//
+	//    * Images in Amazon ECR repositories use the full registry and repository
+	//    URI (for example, 012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>).
 	//
 	//
 	//    * Images in official repositories on Docker Hub use a single name (for
@@ -4090,8 +4006,6 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
-	// Linux-specific modifications that are applied to the container, such as Linux
-	// KernelCapabilities.
 	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
 
 	// The log configuration specification for the container. This parameter maps
@@ -4479,7 +4393,6 @@ type ContainerInstance struct {
 	// The number of tasks on the container instance that are in the PENDING status.
 	PendingTasksCount *int64 `locationName:"pendingTasksCount" type:"integer"`
 
-	// The Unix timestamp for when the container instance was registered.
 	RegisteredAt *time.Time `locationName:"registeredAt" type:"timestamp" timestampFormat:"unix"`
 
 	// For most resource types, this parameter describes the registered resources
@@ -4624,8 +4537,6 @@ type ContainerOverride struct {
 	// name.
 	Command []*string `locationName:"command" type:"list"`
 
-	// The number of cpu units reserved for the container, instead of the default
-	// value from the task definition. You must also specify a container name.
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
 	// The environment variables to send to the container. You can add new environment
@@ -4634,19 +4545,12 @@ type ContainerOverride struct {
 	// You must also specify a container name.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
 
-	// The hard limit (in MiB) of memory to present to the container, instead of
-	// the default value from the task definition. If your container attempts to
-	// exceed the memory specified here, the container is killed. You must also
-	// specify a container name.
 	Memory *int64 `locationName:"memory" type:"integer"`
 
-	// The soft limit (in MiB) of memory to reserve for the container, instead of
-	// the default value from the task definition. You must also specify a container
-	// name.
 	MemoryReservation *int64 `locationName:"memoryReservation" type:"integer"`
 
 	// The name of the container that receives the override. This parameter is required
-	// if any override is specified.
+	// if a command or environment variable is specified.
 	Name *string `locationName:"name" type:"string"`
 }
 
@@ -4825,18 +4729,18 @@ type CreateServiceInput struct {
 	// After you create a service, the load balancer name or target group ARN, container
 	// name, and container port specified in the service definition are immutable.
 	//
-	// For Classic Load Balancers, this object must contain the load balancer name,
-	// the container name (as it appears in a container definition), and the container
-	// port to access from the load balancer. When a task from this service is placed
-	// on a container instance, the container instance is registered with the load
-	// balancer specified here.
+	// For Elastic Load Balancing Classic load balancers, this object must contain
+	// the load balancer name, the container name (as it appears in a container
+	// definition), and the container port to access from the load balancer. When
+	// a task from this service is placed on a container instance, the container
+	// instance is registered with the load balancer specified here.
 	//
-	// For Application Load Balancers and Network Load Balancers, this object must
-	// contain the load balancer target group ARN, the container name (as it appears
-	// in a container definition), and the container port to access from the load
-	// balancer. When a task from this service is placed on a container instance,
-	// the container instance and port combination is registered as a target in
-	// the target group specified here.
+	// For Elastic Load Balancing Application load balancers, this object must contain
+	// the load balancer target group ARN, the container name (as it appears in
+	// a container definition), and the container port to access from the load balancer.
+	// When a task from this service is placed on a container instance, the container
+	// instance and port combination is registered as a target in the target group
+	// specified here.
 	LoadBalancers []*LoadBalancer `locationName:"loadBalancers" type:"list"`
 
 	NetworkConfiguration *NetworkConfiguration `locationName:"networkConfiguration" type:"structure"`
@@ -4849,8 +4753,6 @@ type CreateServiceInput struct {
 	// The placement strategy objects to use for tasks in your service. You can
 	// specify a maximum of 5 strategy rules per service.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
-
-	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The name or full Amazon Resource Name (ARN) of the IAM role that allows Amazon
 	// ECS to make calls to your load balancer on your behalf. This parameter is
@@ -4964,12 +4866,6 @@ func (s *CreateServiceInput) SetPlacementStrategy(v []*PlacementStrategy) *Creat
 	return s
 }
 
-// SetPlatformVersion sets the PlatformVersion field's value.
-func (s *CreateServiceInput) SetPlatformVersion(v string) *CreateServiceInput {
-	s.PlatformVersion = &v
-	return s
-}
-
 // SetRole sets the Role field's value.
 func (s *CreateServiceInput) SetRole(v string) *CreateServiceInput {
 	s.Role = &v
@@ -4986,34 +4882,6 @@ func (s *CreateServiceInput) SetServiceName(v string) *CreateServiceInput {
 func (s *CreateServiceInput) SetTaskDefinition(v string) *CreateServiceInput {
 	s.TaskDefinition = &v
 	return s
-}
-
-type CreateServiceLinkedRoleInput struct {
-	_ struct{} `type:"structure"`
-}
-
-// String returns the string representation
-func (s CreateServiceLinkedRoleInput) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s CreateServiceLinkedRoleInput) GoString() string {
-	return s.String()
-}
-
-type CreateServiceLinkedRoleOutput struct {
-	_ struct{} `type:"structure"`
-}
-
-// String returns the string representation
-func (s CreateServiceLinkedRoleOutput) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s CreateServiceLinkedRoleOutput) GoString() string {
-	return s.String()
 }
 
 type CreateServiceOutput struct {
@@ -5276,8 +5144,6 @@ type Deployment struct {
 	// The number of tasks in the deployment that are in the PENDING status.
 	PendingCount *int64 `locationName:"pendingCount" type:"integer"`
 
-	PlatformVersion *string `locationName:"platformVersion" type:"string"`
-
 	// The number of tasks in the deployment that are in the RUNNING status.
 	RunningCount *int64 `locationName:"runningCount" type:"integer"`
 
@@ -5331,12 +5197,6 @@ func (s *Deployment) SetNetworkConfiguration(v *NetworkConfiguration) *Deploymen
 // SetPendingCount sets the PendingCount field's value.
 func (s *Deployment) SetPendingCount(v int64) *Deployment {
 	s.PendingCount = &v
-	return s
-}
-
-// SetPlatformVersion sets the PlatformVersion field's value.
-func (s *Deployment) SetPlatformVersion(v string) *Deployment {
-	s.PlatformVersion = &v
 	return s
 }
 
@@ -5431,7 +5291,7 @@ type DeregisterContainerInstanceInput struct {
 	// of that task, on a different container instance if possible.
 	//
 	// Any containers in orphaned service tasks that are registered with a Classic
-	// Load Balancer or an Application Load Balancer target group are deregistered,
+	// load balancer or an Application load balancer target group are deregistered,
 	// and they will begin connection draining according to the settings on the
 	// load balancer or target group.
 	Force *bool `locationName:"force" type:"boolean"`
@@ -6112,46 +5972,11 @@ func (s *HostVolumeProperties) SetSourcePath(v string) *HostVolumeProperties {
 	return s
 }
 
-// The Linux capabilities for the container that are added to or dropped from
-// the default configuration provided by Docker. For more information on the
-// default capabilities and the non-default available capabilities, see Runtime
-// privilege and Linux capabilities (https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities)
-// in the Docker run reference. For more detailed information on these Linux
-// capabilities, see the capabilities(7) (http://man7.org/linux/man-pages/man7/capabilities.7.html)
-// Linux manual page.
 type KernelCapabilities struct {
 	_ struct{} `type:"structure"`
 
-	// The Linux capabilities for the container that have been added to the default
-	// configuration provided by Docker. This parameter maps to CapAdd in the Create
-	// a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
-	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
-	// and the --cap-add option to docker run (https://docs.docker.com/engine/reference/run/).
-	//
-	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
-	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
-	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
-	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
-	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
-	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
-	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
-	// "WAKE_ALARM"
 	Add []*string `locationName:"add" type:"list"`
 
-	// The Linux capabilities for the container that have been removed from the
-	// default configuration provided by Docker. This parameter maps to CapDrop
-	// in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
-	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
-	// and the --cap-drop option to docker run (https://docs.docker.com/engine/reference/run/).
-	//
-	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
-	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
-	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
-	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
-	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
-	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
-	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
-	// "WAKE_ALARM"
 	Drop []*string `locationName:"drop" type:"list"`
 }
 
@@ -6212,12 +6037,9 @@ func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
 	return s
 }
 
-// Linux-specific options that are applied to the container, such as Linux KernelCapabilities.
 type LinuxParameters struct {
 	_ struct{} `type:"structure"`
 
-	// The Linux capabilities for the container that are added to or dropped from
-	// the default configuration provided by Docker.
 	Capabilities *KernelCapabilities `locationName:"capabilities" type:"structure"`
 }
 
@@ -6575,13 +6397,13 @@ type ListServicesInput struct {
 	// is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The maximum number of service results returned by ListServices in paginated
-	// output. When this parameter is used, ListServices only returns maxResults
-	// results in a single page along with a nextToken response element. The remaining
-	// results of the initial request can be seen by sending another ListServices
-	// request with the returned nextToken value. This value can be between 1 and
-	// 10. If this parameter is not used, then ListServices returns up to 10 results
-	// and a nextToken value if applicable.
+	// The maximum number of container instance results returned by ListServices
+	// in paginated output. When this parameter is used, ListServices only returns
+	// maxResults results in a single page along with a nextToken response element.
+	// The remaining results of the initial request can be seen by sending another
+	// ListServices request with the returned nextToken value. This value can be
+	// between 1 and 10. If this parameter is not used, then ListServices returns
+	// up to 10 results and a nextToken value if applicable.
 	MaxResults *int64 `locationName:"maxResults" type:"integer"`
 
 	// The nextToken value returned from a previous paginated ListServices request
@@ -7047,7 +6869,7 @@ type LoadBalancer struct {
 	// mapping.
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
-	// The name of a load balancer.
+	// The name of a Classic load balancer.
 	LoadBalancerName *string `locationName:"loadBalancerName" type:"string"`
 
 	// The full Amazon Resource Name (ARN) of the Elastic Load Balancing target
@@ -7438,15 +7260,13 @@ type PortMapping struct {
 	// and your container automatically receives a port in the ephemeral port range
 	// for your container instance operating system and Docker version.
 	//
-	// The default ephemeral port range for Docker version 1.6.0 and later is listed
-	// on the instance under /proc/sys/net/ipv4/ip_local_port_range; if this kernel
-	// parameter is unavailable, the default ephemeral port range of 49153 to 65535
+	// The default ephemeral port range is 49153 to 65535, and this range is used
+	// for Docker versions prior to 1.6.0. For Docker version 1.6.0 and later, the
+	// Docker daemon tries to read the ephemeral port range from /proc/sys/net/ipv4/ip_local_port_range;
+	// if this kernel parameter is unavailable, the default ephemeral port range
 	// is used. You should not attempt to specify a host port in the ephemeral port
-	// range as these are reserved for automatic assignment. In general, ports below
-	// 32768 are outside of the ephemeral port range.
-	//
-	// The default ephemeral port range of 49153 to 65535 will always be used for
-	// Docker versions prior to 1.6.0.
+	// range, because these are reserved for automatic assignment. In general, ports
+	// below 32768 are outside of the ephemeral port range.
 	//
 	// The default reserved ports are 22 for SSH, the Docker ports 2375 and 2376,
 	// and the Amazon ECS container agent ports 51678 and 51679. Any host port that
@@ -7713,6 +7533,8 @@ type RegisterTaskDefinitionInput struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	ExecutionRoleArn *string `locationName:"executionRoleArn" type:"string"`
+
 	// You must specify a family for a task definition, which allows you to track
 	// multiple versions of the same task definition. The family is used as a name
 	// for your task definition. Up to 255 letters (uppercase and lowercase), numbers,
@@ -7802,6 +7624,12 @@ func (s *RegisterTaskDefinitionInput) SetContainerDefinitions(v []*ContainerDefi
 // SetCpu sets the Cpu field's value.
 func (s *RegisterTaskDefinitionInput) SetCpu(v int64) *RegisterTaskDefinitionInput {
 	s.Cpu = &v
+	return s
+}
+
+// SetExecutionRoleArn sets the ExecutionRoleArn field's value.
+func (s *RegisterTaskDefinitionInput) SetExecutionRoleArn(v string) *RegisterTaskDefinitionInput {
+	s.ExecutionRoleArn = &v
 	return s
 }
 
@@ -7975,8 +7803,6 @@ type RunTaskInput struct {
 	// of 5 strategy rules per task.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
 
-	PlatformVersion *string `locationName:"platformVersion" type:"string"`
-
 	// An optional tag specified when a task is started. For example if you automatically
 	// trigger a task to run a batch process job, you could apply a unique identifier
 	// for that job to your task with the startedBy parameter. You can then identify
@@ -8066,12 +7892,6 @@ func (s *RunTaskInput) SetPlacementStrategy(v []*PlacementStrategy) *RunTaskInpu
 	return s
 }
 
-// SetPlatformVersion sets the PlatformVersion field's value.
-func (s *RunTaskInput) SetPlatformVersion(v string) *RunTaskInput {
-	s.PlatformVersion = &v
-	return s
-}
-
 // SetStartedBy sets the StartedBy field's value.
 func (s *RunTaskInput) SetStartedBy(v string) *RunTaskInput {
 	s.StartedBy = &v
@@ -8158,8 +7978,6 @@ type Service struct {
 
 	// The placement strategy that determines how tasks for the service are placed.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
-
-	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The Amazon Resource Name (ARN) of the IAM role associated with the service
 	// that allows the Amazon ECS container agent to register container instances
@@ -8263,12 +8081,6 @@ func (s *Service) SetPlacementConstraints(v []*PlacementConstraint) *Service {
 // SetPlacementStrategy sets the PlacementStrategy field's value.
 func (s *Service) SetPlacementStrategy(v []*PlacementStrategy) *Service {
 	s.PlacementStrategy = v
-	return s
-}
-
-// SetPlatformVersion sets the PlatformVersion field's value.
-func (s *Service) SetPlatformVersion(v string) *Service {
-	s.PlatformVersion = &v
 	return s
 }
 
@@ -8383,6 +8195,8 @@ type StartTaskInput struct {
 	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
+	Properties []*KeyValuePair `locationName:"properties" type:"list"`
+
 	// An optional tag specified when a task is started. For example if you automatically
 	// trigger a task to run a batch process job, you could apply a unique identifier
 	// for that job to your task with the startedBy parameter. You can then identify
@@ -8460,6 +8274,12 @@ func (s *StartTaskInput) SetNetworkConfiguration(v *NetworkConfiguration) *Start
 // SetOverrides sets the Overrides field's value.
 func (s *StartTaskInput) SetOverrides(v *TaskOverride) *StartTaskInput {
 	s.Overrides = v
+	return s
+}
+
+// SetProperties sets the Properties field's value.
+func (s *StartTaskInput) SetProperties(v []*KeyValuePair) *StartTaskInput {
+	s.Properties = v
 	return s
 }
 
@@ -8705,6 +8525,12 @@ type SubmitTaskStateChangeInput struct {
 
 	Containers []*ContainerStateChange `locationName:"containers" type:"list"`
 
+	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp" timestampFormat:"unix"`
+
+	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp" timestampFormat:"unix"`
+
+	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The reason for the state change request.
 	Reason *string `locationName:"reason" type:"string"`
 
@@ -8761,6 +8587,24 @@ func (s *SubmitTaskStateChangeInput) SetCluster(v string) *SubmitTaskStateChange
 // SetContainers sets the Containers field's value.
 func (s *SubmitTaskStateChangeInput) SetContainers(v []*ContainerStateChange) *SubmitTaskStateChangeInput {
 	s.Containers = v
+	return s
+}
+
+// SetExecutionStoppedAt sets the ExecutionStoppedAt field's value.
+func (s *SubmitTaskStateChangeInput) SetExecutionStoppedAt(v time.Time) *SubmitTaskStateChangeInput {
+	s.ExecutionStoppedAt = &v
+	return s
+}
+
+// SetPullStartedAt sets the PullStartedAt field's value.
+func (s *SubmitTaskStateChangeInput) SetPullStartedAt(v time.Time) *SubmitTaskStateChangeInput {
+	s.PullStartedAt = &v
+	return s
+}
+
+// SetPullStoppedAt sets the PullStoppedAt field's value.
+func (s *SubmitTaskStateChangeInput) SetPullStoppedAt(v time.Time) *SubmitTaskStateChangeInput {
+	s.PullStoppedAt = &v
 	return s
 }
 
@@ -8835,8 +8679,6 @@ type Task struct {
 
 	// One or more container overrides.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
-
-	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The Unix timestamp for when the task was started (the task transitioned from
 	// the PENDING state to the RUNNING state).
@@ -8933,12 +8775,6 @@ func (s *Task) SetOverrides(v *TaskOverride) *Task {
 	return s
 }
 
-// SetPlatformVersion sets the PlatformVersion field's value.
-func (s *Task) SetPlatformVersion(v string) *Task {
-	s.PlatformVersion = &v
-	return s
-}
-
 // SetStartedAt sets the StartedAt field's value.
 func (s *Task) SetStartedAt(v time.Time) *Task {
 	s.StartedAt = &v
@@ -8992,6 +8828,8 @@ type TaskDefinition struct {
 	ContainerDefinitions []*ContainerDefinition `locationName:"containerDefinitions" type:"list"`
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
+
+	ExecutionRoleArn *string `locationName:"executionRoleArn" type:"string"`
 
 	// The family of your task definition, used as the definition name.
 	Family *string `locationName:"family" type:"string"`
@@ -9059,6 +8897,12 @@ func (s *TaskDefinition) SetContainerDefinitions(v []*ContainerDefinition) *Task
 // SetCpu sets the Cpu field's value.
 func (s *TaskDefinition) SetCpu(v int64) *TaskDefinition {
 	s.Cpu = &v
+	return s
+}
+
+// SetExecutionRoleArn sets the ExecutionRoleArn field's value.
+func (s *TaskDefinition) SetExecutionRoleArn(v string) *TaskDefinition {
+	s.ExecutionRoleArn = &v
 	return s
 }
 
@@ -9168,6 +9012,8 @@ type TaskOverride struct {
 	// One or more container overrides sent to a task.
 	ContainerOverrides []*ContainerOverride `locationName:"containerOverrides" type:"list"`
 
+	ExecutionRoleArn *string `locationName:"executionRoleArn" type:"string"`
+
 	// The Amazon Resource Name (ARN) of the IAM role that containers in this task
 	// can assume. All containers in this task are granted the permissions that
 	// are specified in this role.
@@ -9187,6 +9033,12 @@ func (s TaskOverride) GoString() string {
 // SetContainerOverrides sets the ContainerOverrides field's value.
 func (s *TaskOverride) SetContainerOverrides(v []*ContainerOverride) *TaskOverride {
 	s.ContainerOverrides = v
+	return s
+}
+
+// SetExecutionRoleArn sets the ExecutionRoleArn field's value.
+func (s *TaskOverride) SetExecutionRoleArn(v string) *TaskOverride {
+	s.ExecutionRoleArn = &v
 	return s
 }
 
