@@ -120,6 +120,10 @@ func TestEnvironmentConfig(t *testing.T) {
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	os.Setenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	defer os.Unsetenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES")
+	os.Setenv("ECS_ENABLE_CONTAINER_METADATA", "true")
+	os.Setenv("ECS_HOST_DATA_DIR", "/etc/ecs/")
+	defer os.Unsetenv("ECS_ENABLE_CONTAINER_METADATA")
+	defer os.Unsetenv("ECS_HOST_DATA_DIR")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -146,6 +150,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	serializedAdditionalLocalRoutesJSON, err := json.Marshal(conf.AWSVPCAdditionalLocalRoutes)
 	assert.NoError(t, err, "should marshal additional local routes")
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))
+	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
+	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost, "Wrong value for DataDirOnHost")
+	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
 }
 
 func TestTrimWhitespace(t *testing.T) {

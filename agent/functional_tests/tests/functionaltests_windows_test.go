@@ -186,3 +186,40 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 
 }
+
+// TestMetadataServiceValidator Tests that the metadata file can be accessed from the
+// container using the ECS_CONTAINER_METADATA_FILE environment variables
+func TestMetadataServiceValidator(t *testing.T) {
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_CONTAINER_METADATA": "true",
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverride := make(map[string]string)
+	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverride["$$$NETWORK_MODE$$$"] = ""
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "mdservice-validator-windows", tdOverride)
+	if err != nil {
+		t.Fatalf("Error starting mdservice-validator-windows: %v", err)
+	}
+
+	// clean up
+	err = task.WaitStopped(2 * time.Minute)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	containerID, err := agent.ResolveTaskDockerID(task, "mdservice-validator-windows")
+	if err != nil {
+		t.Fatalf("Error resolving docker id for container in task: %v", err)
+	}
+
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerID)
+	require.NoError(t, err, "Could not inspect container for task")
+
+	exitCode := containerMetaData.State.ExitCode
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}

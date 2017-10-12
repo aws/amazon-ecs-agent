@@ -49,6 +49,7 @@ func TestConfigDefault(t *testing.T) {
 	os.Unsetenv("ECS_ENABLE_TASK_ENI")
 	os.Unsetenv("ECS_CNI_PLUGINS_PATH")
 	os.Unsetenv("ECS_AWSVPC_BLOCK_IMDS")
+	os.Unsetenv("ECS_HOST_DATA_DIR")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
@@ -73,6 +74,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
 	assert.False(t, cfg.AWSVPCBlockInstanceMetdata, "AWSVPCBlockInstanceMetdata default is incorrectly set")
+	assert.Equal(t, "/var/lib/ecs", cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file

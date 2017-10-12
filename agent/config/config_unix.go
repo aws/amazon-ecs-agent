@@ -32,6 +32,7 @@ func DefaultConfig() Config {
 		ReservedPorts:               []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
 		ReservedPortsUDP:            []uint16{},
 		DataDir:                     "/data/",
+		DataDirOnHost:               "/var/lib/ecs",
 		DisableMetrics:              false,
 		ReservedMemory:              0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver},
@@ -48,6 +49,7 @@ func DefaultConfig() Config {
 		PauseContainerImageName:     DefaultPauseContainerImageName,
 		PauseContainerTag:           DefaultPauseContainerTag,
 		AWSVPCBlockInstanceMetdata:  false,
+		ContainerMetadataEnabled:    false,
 	}
 }
 

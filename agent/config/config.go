@@ -353,6 +353,8 @@ func environmentConfig() (Config, error) {
 			errs = append(errs, err)
 		}
 	}
+	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
+	dataDirOnHost := os.Getenv("ECS_HOST_DATA_DIR")
 
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
@@ -393,6 +395,8 @@ func environmentConfig() (Config, error) {
 		CNIPluginsPath:                   cniPluginsPath,
 		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
 		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
+		ContainerMetadataEnabled:         containerMetadataEnabled,
+		DataDirOnHost:                    dataDirOnHost,
 	}, err
 }
 

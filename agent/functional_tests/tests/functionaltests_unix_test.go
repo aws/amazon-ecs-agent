@@ -636,3 +636,27 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
+
+// TestMetadataServiceValidator Tests that the metadata file can be accessed from the
+// container using the ECS_CONTAINER_METADATA_FILE environment variables
+func TestMetadataServiceValidator(t *testing.T) {
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_CONTAINER_METADATA": "true",
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	task, err := agent.StartTask(t, "mdservice-validator-unix")
+	require.NoError(t, err, "Register task definition failed")
+	defer task.Stop()
+
+	// clean up
+	err = task.WaitStopped(2 * time.Minute)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}

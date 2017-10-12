@@ -17,7 +17,7 @@
 package engine
 
 import (
-	context "context"
+	context0 "context"
 	io "io"
 	time "time"
 
@@ -28,7 +28,7 @@ import (
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
-	context0 "golang.org/x/net/context"
+	context "golang.org/x/net/context"
 )
 
 // Mock of TaskEngine interface
@@ -81,7 +81,7 @@ func (_mr *_MockTaskEngineRecorder) GetTaskByArn(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskByArn", arg0)
 }
 
-func (_m *MockTaskEngine) Init(_param0 context0.Context) error {
+func (_m *MockTaskEngine) Init(_param0 context.Context) error {
 	ret := _m.ctrl.Call(_m, "Init", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -113,7 +113,7 @@ func (_mr *_MockTaskEngineRecorder) MarshalJSON() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarshalJSON")
 }
 
-func (_m *MockTaskEngine) MustInit(_param0 context0.Context) {
+func (_m *MockTaskEngine) MustInit(_param0 context.Context) {
 	_m.ctrl.Call(_m, "MustInit", _param0)
 }
 
@@ -181,7 +181,7 @@ func (_m *MockDockerClient) EXPECT() *_MockDockerClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDockerClient) ContainerEvents(_param0 context.Context) (<-chan DockerContainerChangeEvent, error) {
+func (_m *MockDockerClient) ContainerEvents(_param0 context0.Context) (<-chan DockerContainerChangeEvent, error) {
 	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)
 	ret0, _ := ret[0].(<-chan DockerContainerChangeEvent)
 	ret1, _ := ret[1].(error)
@@ -315,7 +315,7 @@ func (_mr *_MockDockerClientRecorder) StartContainer(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainer", arg0, arg1)
 }
 
-func (_m *MockDockerClient) Stats(_param0 string, _param1 context.Context) (<-chan *go_dockerclient.Stats, error) {
+func (_m *MockDockerClient) Stats(_param0 string, _param1 context0.Context) (<-chan *go_dockerclient.Stats, error) {
 	ret := _m.ctrl.Call(_m, "Stats", _param0, _param1)
 	ret0, _ := ret[0].(<-chan *go_dockerclient.Stats)
 	ret1, _ := ret[1].(error)
@@ -434,7 +434,7 @@ func (_mr *_MockImageManagerRecorder) SetSaver(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSaver", arg0)
 }
 
-func (_m *MockImageManager) StartImageCleanupProcess(_param0 context0.Context) {
+func (_m *MockImageManager) StartImageCleanupProcess(_param0 context.Context) {
 	_m.ctrl.Call(_m, "StartImageCleanupProcess", _param0)
 }
 

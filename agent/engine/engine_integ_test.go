@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -81,40 +82,16 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	state := dockerstate.NewTaskEngineState()
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	metadataManager := containermetadata.NewManager(dockerClient, cfg)
+
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state)
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager)
 	taskEngine.Init(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
 }
 
-/*
-func discardEvents(from interface{}) func() {
-	done := make(chan bool)
-
-	go func() {
-		for {
-			ndx, _, _ := reflect.Select([]reflect.SelectCase{
-				{
-					Dir:  reflect.SelectRecv,
-					Chan: reflect.ValueOf(from),
-				},
-				{
-					Dir:  reflect.SelectRecv,
-					Chan: reflect.ValueOf(done),
-				},
-			})
-			if ndx == 1 {
-				break
-			}
-		}
-	}()
-	return func() {
-		done <- true
-	}
-}
-*/
 // TestDockerStateToContainerState tests convert the container status from
 // docker inspect to the status defined in agent
 func TestDockerStateToContainerState(t *testing.T) {
