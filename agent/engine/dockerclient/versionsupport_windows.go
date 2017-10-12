@@ -18,14 +18,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 )
 
-const MinDockerAPIWindows = Version_1_24
+const minDockerAPIVersion = Version_1_24
 
 // GetClient will replace some versions of Docker on Windows. We need this because
 // agent assumes that it can always call older versions of the docker API.
 func (f *factory) GetClient(version DockerVersion) (dockeriface.Client, error) {
 	for _, v := range getWindowsReplaceableVersions() {
 		if v == version {
-			version = MinDockerAPIWindows
+			version = minDockerAPIVersion
 			break
 		}
 	}
@@ -48,10 +48,10 @@ func getWindowsReplaceableVersions() []DockerVersion {
 
 // getAgentVersions for Windows should return all of the replaceable versions plus additional versions
 func getAgentVersions() []DockerVersion {
-	return append(getWindowsReplaceableVersions(), MinDockerAPIWindows)
+	return append(getWindowsReplaceableVersions(), minDockerAPIVersion)
 }
 
 // getDefaultVersion returns agent's default version of the Docker API
 func getDefaultVersion() DockerVersion {
-	return MinDockerAPIWindows
+	return minDockerAPIVersion
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 func TestGetClientCached(t *testing.T) {
@@ -29,7 +30,8 @@ func TestGetClientCached(t *testing.T) {
 
 	newVersionedClient = func(endpoint, version string) (dockeriface.Client, error) {
 		mockClient := mock_dockeriface.NewMockClient(ctrl)
-		mockClient.EXPECT().Ping()
+		mockClient.EXPECT().Version().Return(&docker.Env{}, nil).AnyTimes()
+		mockClient.EXPECT().Ping().AnyTimes()
 		return mockClient, nil
 	}
 

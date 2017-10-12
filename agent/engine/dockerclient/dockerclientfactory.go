@@ -14,13 +14,23 @@
 package dockerclient
 
 import (
-	"errors"
-
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 )
 
+const (
+	// minAPIVersionKey is the docker.Env key for min API version
+	// This is supported in Docker API versions >=1.25
+	// https://docs.docker.com/engine/api/version-history/#v125-api-changes
+	minAPIVersionKey = "MinAPIVersion"
+	// apiVersionKey is the docker.Env key for API version
+	apiVersionKey    = "ApiVersion"
+	// zeroPatch is a string to append patch number zero if the major minor version lacks it
+	zeroPatch = ".0"
+)
 // Factory provides a collection of docker remote clients that include a
 // recommended client version as well as a set of alternative supported
 // docker clients.
@@ -110,19 +120,71 @@ func (f *factory) getClient(version DockerVersion) (dockeriface.Client, error) {
 // findDockerVersions loops over all known API versions and finds which ones
 // are supported by the docker daemon on the host
 func findDockerVersions(endpoint string) map[DockerVersion]dockeriface.Client {
+	// if the client version returns a MinAPIVersion and APIVersion, then use it to return
+	// all the Docker clients between MinAPIVersion and APIVersion, else try pinging
+	// the clients in getKnownAPIVersions
+	var minAPIVersion, apiVersion string
+	// get a Docker client with the default supported version
+	client, err := newVersionedClient(endpoint, string(minDockerAPIVersion))
+	if err == nil {
+		clientVersion, err := client.Version()
+		if err == nil {
+			// check if the docker.Env obj has MinAPIVersion key
+			if clientVersion.Exists(minAPIVersionKey) {
+				minAPIVersion = clientVersion.Get(minAPIVersionKey)
+			}
+			// check if the docker.Env obj has APIVersion key
+			if clientVersion.Exists(apiVersionKey) {
+				apiVersion = clientVersion.Get(apiVersionKey)
+			}
+		}
+	}
+
 	clients := make(map[DockerVersion]dockeriface.Client)
 	for _, version := range getKnownAPIVersions() {
-		client, err := newVersionedClient(endpoint, string(version))
+		dockerClient, err := getDockerClientForVersion(endpoint, string(version), minAPIVersion, apiVersion)
 		if err != nil {
-			log.Infof("Error while creating client: %v", err)
+			log.Infof("Unable to get Docker client for version %s: %v", version, err)
 			continue
 		}
-
-		err = client.Ping()
-		if err != nil {
-			log.Infof("Failed to ping with Docker version %s: %v", version, err)
-		}
-		clients[version] = client
+		clients[version] = dockerClient
 	}
 	return clients
+}
+
+func getDockerClientForVersion(
+	endpoint string,
+	version string,
+	minAPIVersion string,
+	apiVersion string) (dockeriface.Client, error) {
+	if (minAPIVersion != "" && apiVersion != "") {
+		// Adding patch number zero to Docker versions to reuse the existing semver
+		// comparator
+		// TODO: remove this logic later when non-semver comparator is implemented
+		versionWithPatch := version + zeroPatch
+		lessThanMinCheck := "<" + minAPIVersion + zeroPatch
+		moreThanMaxCheck := ">" + apiVersion + zeroPatch
+		minVersionCheck, err := utils.Version(versionWithPatch).Matches(lessThanMinCheck)
+		if err != nil {
+			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get min version: %s", minAPIVersion)
+		}
+		maxVersionCheck, err := utils.Version(versionWithPatch).Matches(moreThanMaxCheck)
+		if err != nil {
+			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get max version: %s", apiVersion)
+		}
+		// do not add the version when it is less than min api version or greater
+		// than api version
+		if minVersionCheck || maxVersionCheck {
+			return nil, errors.Errorf("version detection using MinAPIVersion: unsupported version: %s", version)
+		}
+	}
+	client, err := newVersionedClient(endpoint, string(version))
+	if err != nil {
+		return nil, errors.Wrapf(err, "version detection check: unable to create Docker client for version: %s", version)
+	}
+	err = client.Ping()
+	if err != nil {
+		return nil, errors.Wrapf(err, "version detection check: failed to ping with Docker version: %s", string(version))
+	}
+	return client, nil
 }

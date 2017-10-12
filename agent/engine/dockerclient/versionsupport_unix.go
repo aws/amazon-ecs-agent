@@ -18,6 +18,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 )
 
+const (
+	// minDockerAPIVersion is the min Docker API version supported by agent
+	minDockerAPIVersion = Version_1_17
+)
 // GetClient on linux will simply return the cached client from the map
 func (f *factory) GetClient(version DockerVersion) (dockeriface.Client, error) {
 	return f.getClient(version)
