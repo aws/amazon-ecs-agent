@@ -122,13 +122,14 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
 	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
+	expectedTaskMemory := taskMemoryLimit * bytesPerMegabyte
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Quota:  &expectedTaskCPUQuota,
 			Period: &expectedTaskCPUPeriod,
 		},
 		Memory: &specs.LinuxMemory{
-			Limit: &taskMemoryLimit,
+			Limit: &expectedTaskMemory,
 		},
 	}
 

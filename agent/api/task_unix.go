@@ -37,6 +37,8 @@ const (
 	maxTaskVCPULimit = 10
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
 	minimumCPUShare = 2
+
+	bytesPerMegabyte = 1024 * 1024
 )
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {
@@ -149,8 +151,11 @@ func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
 					containerMemoryLimit, task.Memory)
 		}
 	}
+
+	// Kernel expects memory to be expressed in bytes
+	memoryBytes := task.Memory * bytesPerMegabyte
 	return specs.LinuxMemory{
-		Limit: &task.Memory,
+		Limit: &memoryBytes,
 	}, nil
 }
 
