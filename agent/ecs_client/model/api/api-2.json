@@ -345,7 +345,7 @@
       "errors":[
         {"shape":"ServerException"},
         {"shape":"ClientException"},
-        {"shape":"InvalidParameterException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "RegisterTaskDefinition":{
