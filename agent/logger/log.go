@@ -25,7 +25,7 @@ const (
 	LOGLEVEL_ENV_VAR = "ECS_LOGLEVEL"
 	LOGFILE_ENV_VAR  = "ECS_LOGFILE"
 
-	DEFAULT_LOGLEVEL = "debug"
+	DEFAULT_LOGLEVEL = "info"
 )
 
 var logfile string
