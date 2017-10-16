@@ -38,6 +38,9 @@ const (
 
 	v1CredentialsEndpointRelativeURIFormat = "%s?" + CredentialsIDQueryParameterName + "=%s"
 	v2CredentialsEndpointRelativeURIFormat = "%s/%s"
+
+	ApplicationRoleType = "TaskApplication"
+	ExecutionRoleType   = "TaskExecution"
 )
 
 // IAMRoleCredentials is used to save credentials sent by ACS
@@ -51,6 +54,7 @@ type IAMRoleCredentials struct {
 	// while marshalling/unmarshalling this field in the agent. The agent just echo's
 	// whatever is sent by the backend.
 	Expiration string `json:"Expiration"`
+	RoleType   string `json:"RoleType"`
 }
 
 // TaskIAMRoleCredentials wraps the task arn and the credentials object for the same
@@ -85,7 +89,7 @@ type credentialsManager struct {
 
 // IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
 // api.IAMRoleCredentials
-func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials) IAMRoleCredentials {
+func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleType string) IAMRoleCredentials {
 	return IAMRoleCredentials{
 		CredentialsID:   aws.StringValue(roleCredentials.CredentialsId),
 		SessionToken:    aws.StringValue(roleCredentials.SessionToken),
@@ -93,6 +97,7 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials) IAMRo
 		AccessKeyID:     aws.StringValue(roleCredentials.AccessKeyId),
 		SecretAccessKey: aws.StringValue(roleCredentials.SecretAccessKey),
 		Expiration:      aws.StringValue(roleCredentials.Expiration),
+		RoleType:        roleType,
 	}
 }
 

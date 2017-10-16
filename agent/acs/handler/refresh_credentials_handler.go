@@ -127,9 +127,11 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		seelog.Errorf("Task not found in the engine for the arn in credentials message, arn: %s, messageId: %s", taskArn, messageId)
 		return fmt.Errorf("Task not found in the engine for the arn in credentials message, arn: %s", taskArn)
 	}
+
+	roleType := aws.StringValue(message.RoleType)
 	taskCredentials := credentials.TaskIAMRoleCredentials{
 		ARN:                taskArn,
-		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials),
+		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
 	}
 	err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
 	if err != nil {

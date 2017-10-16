@@ -93,6 +93,7 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
 	if agent.cfg.TaskIAMRoleEnabled {

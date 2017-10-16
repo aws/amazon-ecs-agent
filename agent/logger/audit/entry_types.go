@@ -24,7 +24,9 @@ import (
 )
 
 const (
-	getCredentialsEventType = "GetCredentials"
+	getCredentialsEventType                = "GetCredentials"
+	getCredentialsTaskApplicationEventType = "GetCredentialsTaskApplication"
+	getCredentialsTaskExecutionEventType   = "GetCredentialsTaskExecution"
 
 	// getCredentialsAuditLogVersion is the version of the audit log
 	// For version '1', the fields are:
@@ -34,7 +36,7 @@ const (
 	// 4. url
 	// 5. user agent
 	// 6. arn for the entity associated with credentials
-	// 7. event type ('GetCredentials')
+	// 7. event type ('GetCredentials{TaskApplication, TaskExecution}')
 	// 8. version
 	// 9. cluster
 	// 10. container instance arn
@@ -50,9 +52,16 @@ type commonAuditLogEntryFields struct {
 	arn          string
 }
 
-// GetCredentialsEventType is the type for a GetCredentials request
-func GetCredentialsEventType() string {
-	return getCredentialsEventType
+// GetCredentialsTaskIAMRoleEventType is the type for a GetCredentials request
+func GetCredentialsEventType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return getCredentialsTaskApplicationEventType
+	case credentials.ExecutionRoleType:
+		return getCredentialsTaskApplicationEventType
+	default:
+		return getCredentialsEventType
+	}
 }
 
 func (c *commonAuditLogEntryFields) string() string {
@@ -91,6 +100,22 @@ func constructCommonAuditLogEntryFields(r request.LogRequest, httpResponseCode i
 func constructAuditLogEntryByType(eventType string, cluster string, containerInstanceArn string) string {
 	switch eventType {
 	case getCredentialsEventType:
+		fields := &getCredentialsAuditLogEntryFields{
+			eventType:            eventType,
+			version:              getCredentialsAuditLogVersion,
+			cluster:              populateField(cluster),
+			containerInstanceArn: populateField(containerInstanceArn),
+		}
+		return fields.string()
+	case getCredentialsTaskApplicationEventType:
+		fields := &getCredentialsAuditLogEntryFields{
+			eventType:            eventType,
+			version:              getCredentialsAuditLogVersion,
+			cluster:              populateField(cluster),
+			containerInstanceArn: populateField(containerInstanceArn),
+		}
+		return fields.string()
+	case getCredentialsTaskExecutionEventType:
 		fields := &getCredentialsAuditLogEntryFields{
 			eventType:            eventType,
 			version:              getCredentialsAuditLogVersion,

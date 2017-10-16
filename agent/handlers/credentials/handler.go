@@ -120,14 +120,14 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 func credentialsV1V2RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger, idFunc func(*http.Request) string, apiVersion int) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credentialsID := idFunc(r)
-		jsonResponse, arn, errorMessage, err := processCredentialsV1V2Request(credentialsManager, r, credentialsID, apiVersion)
+		jsonResponse, arn, roleType, errorMessage, err := processCredentialsV1V2Request(credentialsManager, r, credentialsID, apiVersion)
 		if err != nil {
 			jsonMsg, _ := json.Marshal(errorMessage)
-			writeCredentialsV1V2RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(), arn, auditLogger, jsonMsg)
+			writeCredentialsV1V2RequestResponse(w, r, errorMessage.httpErrorCode, audit.GetCredentialsEventType(roleType), arn, auditLogger, jsonMsg)
 			return
 		}
 
-		writeCredentialsV1V2RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(), arn, auditLogger, jsonResponse)
+		writeCredentialsV1V2RequestResponse(w, r, http.StatusOK, audit.GetCredentialsEventType(roleType), arn, auditLogger, jsonResponse)
 	}
 }
 
@@ -153,7 +153,7 @@ func writeCredentialsV1V2RequestResponse(w http.ResponseWriter, r *http.Request,
 }
 
 // processCredentialsV1V2Request returns the response json containing credentials for the credentials id in the request
-func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *http.Request, credentialsID string, apiVersion int) ([]byte, string, *errorMessage, error) {
+func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *http.Request, credentialsID string, apiVersion int) ([]byte, string, string, *errorMessage, error) {
 	errPrefix := fmt.Sprintf("CredentialsV%dRequest: ", apiVersion)
 	if credentialsID == "" {
 		errText := errPrefix + "No ID in the request"
@@ -163,7 +163,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
-		return nil, "", msg, errors.New(errText)
+		return nil, "", "", msg, errors.New(errText)
 	}
 
 	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
@@ -175,7 +175,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
-		return nil, "", msg, errors.New(errText)
+		return nil, "", "", msg, errors.New(errText)
 	}
 
 	if utils.ZeroOrNil(credentials) {
@@ -187,7 +187,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 			Message:       errText,
 			httpErrorCode: http.StatusServiceUnavailable,
 		}
-		return nil, "", msg, errors.New(errText)
+		return nil, "", "", msg, errors.New(errText)
 	}
 
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
@@ -199,11 +199,11 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 			Message:       "Internal server error",
 			httpErrorCode: http.StatusInternalServerError,
 		}
-		return nil, "", msg, errors.New(errText)
+		return nil, "", "", msg, errors.New(errText)
 	}
 
 	//Success
-	return credentialsJSON, credentials.ARN, nil, nil
+	return credentialsJSON, credentials.ARN, credentials.IAMRoleCredentials.RoleType, nil, nil
 }
 
 func writeJSONToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte) {

@@ -33,7 +33,10 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 		SecretAccessKey: aws.String("OhhSecret"),
 		SessionToken:    aws.String("sessionToken"),
 	}
-	credentials := IAMRoleCredentialsFromACS(acsCredentials)
+
+	roleType := "roleType"
+
+	credentials := IAMRoleCredentialsFromACS(acsCredentials, roleType)
 	expectedCredentials := IAMRoleCredentials{
 		CredentialsID:   "credsId",
 		AccessKeyID:     "keyId",
@@ -41,6 +44,7 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 		RoleArn:         "roleArn",
 		SecretAccessKey: "OhhSecret",
 		SessionToken:    "sessionToken",
+		RoleType:        "roleType",
 	}
 	assert.Equal(t, credentials, expectedCredentials, "Mismatch between expected and constructed credentials")
 }

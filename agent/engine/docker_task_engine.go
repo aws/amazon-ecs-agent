@@ -46,6 +46,7 @@ const (
 	// DockerDefaultEndpoint is the default value for the Docker endpoint
 	DockerDefaultEndpoint = "unix:///var/run/docker.sock"
 	labelPrefix           = "com.amazonaws.ecs."
+	logAuthExecutionRole  = "ExecutionRole"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -683,6 +684,13 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap)
 	if hcerr != nil {
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+	}
+
+	if container.LogsAuthStrategy == logAuthExecutionRole {
+		hcerr = task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
+		if hcerr != nil {
+			return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+		}
 	}
 
 	config, err := task.DockerConfig(container)

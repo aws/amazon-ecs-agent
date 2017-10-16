@@ -63,6 +63,8 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
+	LogsAuthStrategy string
+
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 
