@@ -30,7 +30,7 @@ source $(dirname "${0}")/publishing-common.sh
 TARGET_OS_LIST=${SUPPORTED_OSES[@]}
 
 usage() {
-	echo "Usage: ${0} -b BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
+	echo "Usage: ${0} -a ARTIFACT_BUCKET -t SOURCE_BUCKET -k SSH_KEY -s SECURITY_GROUP -i IAM_ROLE [OPTIONS]"
 	echo
 	echo "This script stages a new version of the Amazon EC2 Container Agent"
 	echo "built on a freshly-launched EC2 instance."
