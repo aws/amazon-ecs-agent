@@ -1,17 +1,17 @@
 # Changelog
 
-## UNRELEASED
-* Feature - Support for provisioning Tasks with ENIs
-* Enhancement - Support `init` process in containers by adding support for Docker remote API client version 1.25
-  [#996](https://github.com/aws/amazon-ecs-agent/pull/996)
-* Enhancement - Enable 'none' logging driver capability by default 
-  [#1041](https://github.com/aws/amazon-ecs-agent/pull/1041) 
-* Bug - Fixed a bug where tasks that fail to pull containers can cause the
-  agent to fail to restore properly after a restart.
-  [#1033](https://github.com/aws/amazon-ecs-agent/pull/1033)
-* Bug - Fixed a bug where unsupported Docker API client versions could be registered
+## 1.15.0
+* Feature - Support for provisioning tasks with ENIs.
+* Feature - Support for `--init` Docker run flag. [#996](https://github.com/aws/amazon-ecs-agent/pull/996)
+* Feature - Introduces container level metadata. [#981](https://github.com/aws/amazon-ecs-agent/pull/981)
+* Enhancement - Enable 'none' logging driver capability by default.
+  [#1041](https://github.com/aws/amazon-ecs-agent/pull/1041)
+* Bug - Fixed a bug where tasks that fail to pull containers can cause the agent
+  to fail to restore properly after a restart. [#1033](https://github.com/aws/amazon-ecs-agent/pull/1033)
+* Bug - Fixed default logging level issue. [#1016](https://github.com/aws/amazon-ecs-agent/pull/1016)
+* Bug - Fixed a bug where unsupported Docker API client versions could be registered.
   [#1014](https://github.com/aws/amazon-ecs-agent/pull/1014)
-* Bug - Fixed a bug where non-essential container state changes were sometimes not submitted
+* Bug - Fixed a bug where non-essential container state changes were sometimes not submitted.
   [#1026](https://github.com/aws/amazon-ecs-agent/pull/1026) 
 
 ## 1.14.5
