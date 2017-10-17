@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.14.5
-Release:        1%{?dist}
+Version:        1.15.0
+Release:        4%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -152,6 +152,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
+- Cache Agent version 1.15.0
+- Add 'none' logging driver to ECS agent's config
 * Fri Sep 29 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
 - Cache Agent version 1.14.5
 * Wed Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1

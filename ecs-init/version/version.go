@@ -18,10 +18,10 @@
 package version
 
 // Version is the version of the ecs-init
-var Version string = "1.14.5"
+var Version string = "1.15.0"
 
 // GitDirty indicates the cleanliness of the git repo when this ecs-init was built
 var GitDirty string = "true"
 
 // GitShortHash is the short hash of this ecs-init build
-var GitShortHash string = "98bbe0a"
+var GitShortHash string = "91b54f7"
