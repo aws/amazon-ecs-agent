@@ -130,6 +130,8 @@ type Container struct {
 
 	Links []*string `locationName:"links" type:"list"`
 
+	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
+
 	Memory *int64 `locationName:"memory" type:"integer"`
 
 	MountPoints []*MountPoint `locationName:"mountPoints" type:"list"`

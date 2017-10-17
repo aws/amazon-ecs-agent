@@ -260,6 +260,89 @@ func (c *ECS) CreateServiceWithContext(ctx aws.Context, input *CreateServiceInpu
 	return out, req.Send()
 }
 
+const opCreateServiceLinkedRole = "CreateServiceLinkedRole"
+
+// CreateServiceLinkedRoleRequest generates a "aws/request.Request" representing the
+// client's request for the CreateServiceLinkedRole operation. The "output" return
+// value will be populated with the request's response once the request complets
+// successfuly.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See CreateServiceLinkedRole for more information on using the CreateServiceLinkedRole
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//
+//    // Example sending a request using the CreateServiceLinkedRoleRequest method.
+//    req, resp := client.CreateServiceLinkedRoleRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+func (c *ECS) CreateServiceLinkedRoleRequest(input *CreateServiceLinkedRoleInput) (req *request.Request, output *CreateServiceLinkedRoleOutput) {
+	op := &request.Operation{
+		Name:       opCreateServiceLinkedRole,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateServiceLinkedRoleInput{}
+	}
+
+	output = &CreateServiceLinkedRoleOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// CreateServiceLinkedRole API operation for Amazon EC2 Container Service.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon EC2 Container Service's
+// API operation CreateServiceLinkedRole for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeServerException "ServerException"
+//   These errors are usually caused by a server issue.
+//
+//   * ErrCodeClientException "ClientException"
+//   These errors are usually caused by a client action, such as using an action
+//   or resource on behalf of a user that doesn't have permission to use the action
+//   or resource, or specifying an identifier that is not valid.
+//
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
+func (c *ECS) CreateServiceLinkedRole(input *CreateServiceLinkedRoleInput) (*CreateServiceLinkedRoleOutput, error) {
+	req, out := c.CreateServiceLinkedRoleRequest(input)
+	return out, req.Send()
+}
+
+// CreateServiceLinkedRoleWithContext is the same as CreateServiceLinkedRole with the addition of
+// the ability to pass a context and additional request options.
+//
+// See CreateServiceLinkedRole for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ECS) CreateServiceLinkedRoleWithContext(ctx aws.Context, input *CreateServiceLinkedRoleInput, opts ...request.Option) (*CreateServiceLinkedRoleOutput, error) {
+	req, out := c.CreateServiceLinkedRoleRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opDeleteAttributes = "DeleteAttributes"
 
 // DeleteAttributesRequest generates a "aws/request.Request" representing the
