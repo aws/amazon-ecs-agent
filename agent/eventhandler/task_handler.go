@@ -275,6 +275,9 @@ func setTaskChangeSent(event *sendableEvent) {
 	if event.taskChange.Task != nil {
 		event.taskChange.Task.SetSentStatus(event.taskChange.Status)
 	}
+	for _, container := range event.taskChange.Containers {
+		container.Container.SetSentStatus(event.taskChange.Status.ContainerStatus(container.Container.GetSteadyStateStatus()))
+	}
 }
 
 // setTaskAttachmentSent sets the event's task attachment object as sent
