@@ -55,6 +55,7 @@ const (
 	// 8)
 	//   a) Add 'UseExecutionRole' in `api.ECRAuthData`
 	//   b) Add `executionCredentialsID` in `api.Task`
+	//   c) Add 'LogsAuthStrategy' field to 'api.Container'
 	ECSDataVersion = 8
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR

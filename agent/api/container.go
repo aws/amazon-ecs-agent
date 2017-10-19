@@ -63,6 +63,8 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 
+	// LogsAuthStrategy specifies how the logs driver for the container will be
+	// authenticated
 	LogsAuthStrategy string
 
 	// lock is used for fields that are accessed and updated concurrently
