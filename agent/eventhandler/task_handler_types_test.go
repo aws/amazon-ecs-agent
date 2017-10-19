@@ -69,6 +69,55 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			}),
 			shouldBeSent: true,
 		},
+		{
+			// Even though the task has been sent, there's a container
+			// state change that needs to be sent
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: api.TaskRunning,
+				Task: &api.Task{
+					SentStatusUnsafe: api.TaskRunning,
+				},
+				Containers: []api.ContainerStateChange{
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerRunning,
+							KnownStatusUnsafe: api.ContainerRunning,
+						},
+					},
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerRunning,
+							KnownStatusUnsafe: api.ContainerStopped,
+						},
+					},
+				},
+			}),
+			shouldBeSent: true,
+		},
+		{
+			// All states sent, nothing to send
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: api.TaskRunning,
+				Task: &api.Task{
+					SentStatusUnsafe: api.TaskRunning,
+				},
+				Containers: []api.ContainerStateChange{
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerRunning,
+							KnownStatusUnsafe: api.ContainerRunning,
+						},
+					},
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerStopped,
+							KnownStatusUnsafe: api.ContainerStopped,
+						},
+					},
+				},
+			}),
+			shouldBeSent: false,
+		},
 	} {
 		t.Run(fmt.Sprintf("Event[%s] should be sent[%t]", tc.event.String(), tc.shouldBeSent), func(t *testing.T) {
 			assert.Equal(t, tc.shouldBeSent, tc.event.taskShouldBeSent())
