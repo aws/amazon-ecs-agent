@@ -14,6 +14,7 @@
 package eventhandler
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -39,9 +40,9 @@ func (event *sendableEvent) String() string {
 	defer event.lock.RUnlock()
 
 	if event.isContainerEvent {
-		return "ContainerChange: " + event.containerChange.String()
+		return "ContainerChange: [" + event.containerChange.String() + fmt.Sprintf("] sent: %t", event.containerSent)
 	} else {
-		return "TaskChange: " + event.taskChange.String()
+		return "TaskChange: [" + event.taskChange.String() + fmt.Sprintf("] sent: %t", event.taskSent)
 	}
 }
 
@@ -71,6 +72,7 @@ func (event *sendableEvent) taskArn() string {
 func (event *sendableEvent) taskShouldBeSent() bool {
 	event.lock.RLock()
 	defer event.lock.RUnlock()
+
 	if event.isContainerEvent {
 		return false
 	}
@@ -78,8 +80,18 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 	if tevent.Status == api.TaskStatusNone {
 		return false // defensive programming :)
 	}
-	if event.taskSent || (tevent.Task != nil && tevent.Task.GetSentStatus() >= tevent.Status) {
+	if event.taskSent {
 		return false // redundant event
+	}
+	if tevent.Task != nil && tevent.Task.GetSentStatus() >= tevent.Status {
+		for _, containerStateChange := range tevent.Containers {
+			container := containerStateChange.Container
+			if container.GetSentStatus() < container.GetKnownStatus() {
+				return true
+			}
+		}
+
+		return false
 	}
 	return true
 }

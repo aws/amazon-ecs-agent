@@ -47,9 +47,10 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	defer cancel()
 
-	ctx := context.Background()
 	buffer := newPayloadRequestHandler(
 		ctx,
 		taskEngine,
@@ -94,12 +95,13 @@ func TestHandlePayloadMessageAddTaskError(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	defer cancel()
 
 	// Return error from AddTask
 	taskEngine.EXPECT().AddTask(gomock.Any()).Return(fmt.Errorf("oops")).Times(2)
 
-	ctx := context.Background()
 	buffer := newPayloadRequestHandler(
 		ctx,
 		taskEngine,
@@ -151,9 +153,11 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	credentialsManager := credentials.NewManager()
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
-
 	taskEngine := engine.NewMockTaskEngine(ctrl)
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	defer cancel()
+
 	// Save added task in the addedTask variable
 	var addedTask *api.Task
 	taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task *api.Task) {
@@ -163,7 +167,6 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	// State manager returns error on save
 	stateManager.EXPECT().Save().Return(fmt.Errorf("oops"))
 
-	ctx := context.Background()
 	buffer := newPayloadRequestHandler(
 		ctx,
 		taskEngine,
@@ -206,8 +209,8 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
 	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	var addedTask *api.Task
@@ -277,7 +280,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	var addedTask *api.Task
@@ -392,7 +395,9 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	credentialsManager := credentials.NewManager()
 	stateManager := statemanager.NewNoopStateManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	defer cancel()
 
 	var tasksAddedToEngine []*api.Task
 	taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task *api.Task) {
@@ -415,7 +420,6 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 		MessageId: aws.String(payloadMessageId),
 	}
 
-	ctx := context.Background()
 	buffer := newPayloadRequestHandler(
 		ctx,
 		taskEngine,
@@ -451,8 +455,8 @@ func TestPayloadBufferHandler(t *testing.T) {
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
 	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
 
 	var addedTask *api.Task
 	taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task *api.Task) {
@@ -517,7 +521,7 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
 
 	// The payload message in the test consists of two tasks, record both of them in
 	// the order in which they were added
@@ -694,9 +698,10 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
-	ctx := context.Background()
 	credentialsManager := credentials.NewManager()
-	taskHandler := eventhandler.NewTaskHandler(stateManager)
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	defer cancel()
 
 	taskEngine := engine.NewMockTaskEngine(ctrl)
 	var addedTask *api.Task

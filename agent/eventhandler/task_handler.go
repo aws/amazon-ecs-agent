@@ -15,19 +15,28 @@ package eventhandler
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
 
-// Maximum number of tasks that may be handled at once by the TaskHandler
-const concurrentEventCalls = 3
+const (
+	// concurrentEventCalls is the maximum number of tasks that may be handled at
+	// once by the TaskHandler
+	concurrentEventCalls = 3
+
+	// drainEventsFrequency is the frequency at the which unsent events batched
+	// by the task handler are sent to the backend
+	drainEventsFrequency = time.Minute
+)
 
 type eventList struct {
 	// events is a list of *sendableEvents
@@ -58,16 +67,73 @@ type TaskHandler struct {
 	// stateSaver is a statemanager which may be used to save any
 	// changes to a task or container's SentStatus
 	stateSaver statemanager.Saver
+
+	drainEventsFrequency time.Duration
+	state                dockerstate.TaskEngineState
+	client               api.ECSClient
+	ctx                  context.Context
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
-func NewTaskHandler(stateManager statemanager.Saver) *TaskHandler {
-	return &TaskHandler{
+func NewTaskHandler(ctx context.Context,
+	stateManager statemanager.Saver,
+	state dockerstate.TaskEngineState,
+	client api.ECSClient) *TaskHandler {
+	// Create a handler and start the periodic event drain loop
+	taskHandler := &TaskHandler{
+		ctx:                    ctx,
 		tasksToEvents:          make(map[string]*eventList),
 		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
 		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
 		stateSaver:             stateManager,
+		state:                  state,
+		client:                 client,
+		drainEventsFrequency:   drainEventsFrequency,
 	}
+	go taskHandler.startDrainEventsTicker()
+
+	return taskHandler
+}
+
+// startDrainEventsTicker starts a ticker that periodically drains the events queue
+// by submitting state change events to the ECS backend
+func (handler *TaskHandler) startDrainEventsTicker() {
+	ticker := time.NewTicker(handler.drainEventsFrequency)
+	for {
+		select {
+		case <-handler.ctx.Done():
+			seelog.Infof("TaskHandler: Stopping periodic container state change submission ticker")
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			seelog.Info("TaskHandler tick")
+			for _, event := range handler.getBatchedContainerEvents() {
+				seelog.Infof(
+					"TaskHandler: Adding a state change event to send batched container events: %s",
+					event.String())
+				handler.AddStateChangeEvent(event, handler.client)
+			}
+		}
+	}
+}
+
+// getBatchedContainerEvents gets a list task state changes for container events that
+// have been batched and not sent beyond the drainEventsFrequency threshold
+func (handler *TaskHandler) getBatchedContainerEvents() []api.TaskStateChange {
+	handler.taskHandlerLock.RLock()
+	defer handler.taskHandlerLock.RUnlock()
+
+	var events []api.TaskStateChange
+	for taskARN, _ := range handler.tasksToContainerStates {
+		if task, ok := handler.state.TaskByArn(taskARN); ok {
+			events = append(events, api.TaskStateChange{
+				TaskARN: taskARN,
+				Status:  task.GetKnownStatus(),
+				Task:    task,
+			})
+		}
+	}
+	return events
 }
 
 // AddStateChangeEvent queues up a state change for sending using the given client.
