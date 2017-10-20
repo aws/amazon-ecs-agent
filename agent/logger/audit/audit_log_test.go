@@ -39,7 +39,7 @@ const (
 	dummyURLV2                = "http://foo.com" + credentials.V2CredentialsPath + "/" + taskARN
 	dummyUserAgent            = "userAgent"
 	dummyResponseCode         = 400
-	dummyRoleType             = "roleType"
+	dummyRoleType             = "TaskExecution"
 	taskARN                   = "task-arn-1"
 
 	commonAuditLogEntryFieldCount = 6

@@ -686,7 +686,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
 	}
 
-	if container.LogsAuthStrategy == logAuthExecutionRole {
+	if container.LogAuthExecutionRole() {
 		hcerr = task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
 		if hcerr != nil {
 			return DockerContainerMetadata{Error: api.NamedError(hcerr)}

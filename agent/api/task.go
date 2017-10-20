@@ -50,6 +50,8 @@ const (
 	// container's network mode to be mapped to that of another existing container
 	networkModeContainerPrefix = "container:"
 
+	// awslogsCredsEndpointOpt is the awslogs option that is used to pass in an
+	// http endpoint for authentication
 	awslogsCredsEndpointOpt = "awslogs-credentials-endpoint"
 )
 

@@ -29,6 +29,8 @@ const (
 	// which the container is assumed to be in steady state. It is set
 	// to 'ContainerRunning' unless overridden
 	defaultContainerSteadyStateStatus = ContainerRunning
+
+	awslogsAuthExecutionRole = "ExecutionRole"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -359,4 +361,9 @@ func (c *Container) IsEssential() bool {
 	defer c.lock.RUnlock()
 
 	return c.Essential
+}
+
+// LogAuthExecutionRole returns true if the auth is by exectution role
+func (c *Container) LogAuthExecutionRole() bool {
+	return c.LogsAuthStrategy == awslogsAuthExecutionRole
 }

@@ -54,7 +54,7 @@ type IAMRoleCredentials struct {
 	// while marshalling/unmarshalling this field in the agent. The agent just echo's
 	// whatever is sent by the backend.
 	Expiration string `json:"Expiration"`
-	RoleType   string `json:"RoleType"`
+	RoleType   string `json:"-"`
 }
 
 // TaskIAMRoleCredentials wraps the task arn and the credentials object for the same

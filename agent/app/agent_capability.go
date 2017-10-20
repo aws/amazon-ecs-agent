@@ -93,6 +93,10 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
+
+		// TODO: DO NOT RELEASE to github dev branch
+		// we need to determine exact docker version that will support
+		// the awslogs creds endpoint option
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
