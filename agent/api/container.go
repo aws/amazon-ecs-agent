@@ -364,6 +364,6 @@ func (c *Container) IsEssential() bool {
 }
 
 // LogAuthExecutionRole returns true if the auth is by exectution role
-func (c *Container) LogAuthExecutionRole() bool {
+func (c *Container) AWSLogAuthExecutionRole() bool {
 	return c.LogsAuthStrategy == awslogsAuthExecutionRole
 }

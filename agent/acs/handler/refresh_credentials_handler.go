@@ -129,16 +129,21 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 	}
 
 	roleType := aws.StringValue(message.RoleType)
-	taskCredentials := credentials.TaskIAMRoleCredentials{
-		ARN:                taskArn,
-		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
+	if !validRoleType(roleType) {
+		seelog.Errorf("Unknown RoleType for task in credentials message, roleType: %s arn: %s, messageId: %s", roleType, taskArn, messageId)
+	} else {
+
+		taskCredentials := credentials.TaskIAMRoleCredentials{
+			ARN:                taskArn,
+			IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
+		}
+		err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
+		if err != nil {
+			seelog.Errorf("Error updating credentials, err: %v messageId: %s", err, messageId)
+			return fmt.Errorf("Error updating credentials %v", err)
+		}
+		task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
 	}
-	err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
-	if err != nil {
-		seelog.Errorf("Error updating credentials, err: %v messageId: %s", err, messageId)
-		return fmt.Errorf("Error updating credentials %v", err)
-	}
-	task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
 
 	go func() {
 		response := &ecsacs.IAMRoleCredentialsAckRequest{
@@ -187,5 +192,18 @@ func (refreshHandler *refreshCredentialsHandler) clearAcks() {
 		default:
 			return
 		}
+	}
+}
+
+// validRoleType returns false if the RoleType in the acs refresh payload is not
+// one of the expected types. TaskApplication, TaskExecution
+func validRoleType(roleType string) bool {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return true
+	case credentials.ExecutionRoleType:
+		return true
+	default:
+		return false
 	}
 }

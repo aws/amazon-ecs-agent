@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	getCredentialsEventType              = "GetCredentials"
-	getCredentialsTaskExecutionEventType = "GetCredentialsExecutionRole"
+	getCredentialsEventType                = "GetCredentials"
+	getCredentialsTaskExecutionEventType   = "GetCredentialsExecutionRole"
+	getCredentialsInvalidRoleTypeEventType = "GetCredentialsInvalidRoleType"
 
 	// getCredentialsAuditLogVersion is the version of the audit log
 	// For version '1', the fields are:
@@ -51,7 +52,7 @@ type commonAuditLogEntryFields struct {
 	arn          string
 }
 
-// GetCredentialsTaskIAMRoleEventType is the type for a GetCredentials request
+// GetCredentialsEventType is the type for a GetCredentials request
 func GetCredentialsEventType(roleType string) string {
 	switch roleType {
 	case credentials.ApplicationRoleType:
@@ -59,7 +60,7 @@ func GetCredentialsEventType(roleType string) string {
 	case credentials.ExecutionRoleType:
 		return getCredentialsTaskExecutionEventType
 	default:
-		return ""
+		return getCredentialsInvalidRoleTypeEventType
 	}
 }
 
