@@ -14,7 +14,6 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"strings"
 )
@@ -40,9 +39,6 @@ const (
 	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
 	// S3BucketMap.
 	DefaultRegionName = "default"
-
-	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
-	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 )
 
 // regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
@@ -128,6 +124,11 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
+// CgroupMountpoint returns the cgroup mountpoint for the system
+func CgroupMountpoint() string {
+	return cgroupMountpoint
+}
+
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getBaseLocationForRegion(regionName string) string {
 	s3BucketURL, ok := regionToS3BucketURL[regionName]
@@ -136,16 +137,4 @@ func getBaseLocationForRegion(regionName string) string {
 	}
 
 	return s3BucketURL
-}
-
-// GetCgroupMountpoint returns the cgroup mountpoint
-func GetCgroupMountpoint() (string, error) {
-	cgroupMountPoints := []string{"/cgroup", "/sys/fs/cgroup"}
-	for _, mountpoint := range cgroupMountPoints {
-		f, err := os.Stat(mountpoint)
-		if err == nil && f.Mode().IsDir() {
-			return mountpoint, nil
-		}
-	}
-	return "", errors.New("cgroup mountpoint: unable to find valid mountpoint")
 }

@@ -81,6 +81,8 @@ const (
 	// For more information on setns, please read this manpage:
 	// http://man7.org/linux/man-pages/man2/setns.2.html
 	CapSysAdmin = "SYS_ADMIN"
+	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
+	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -173,10 +175,8 @@ func (c *Client) findAgentContainer() (string, error) {
 
 // StartAgent starts the Agent in Docker and returns the exit code from the container
 func (c *Client) StartAgent() (int, error) {
-	hostConfig, err := c.getHostConfig()
-	if err != nil {
-		return 0, err
-	}
+	hostConfig := c.getHostConfig()
+
 	container, err := c.docker.CreateContainer(godocker.CreateContainerOptions{
 		Name:       config.AgentContainerName,
 		Config:     c.getContainerConfig(),
@@ -246,16 +246,11 @@ func (c *Client) loadEnvVariables() map[string]string {
 	return envVariables
 }
 
-func (c *Client) getHostConfig() (*godocker.HostConfig, error) {
+func (c *Client) getHostConfig() *godocker.HostConfig {
 	dockerEndpointAgent := defaultDockerEndpoint
 	dockerUnixSocketSourcePath, fromEnv := config.DockerUnixSocket()
 	if fromEnv {
 		dockerEndpointAgent = "/var/run/docker.sock"
-	}
-	// Get cgroup mountpoint
-	cgroupMountpoint, err := config.GetCgroupMountpoint()
-	if err != nil {
-		return nil, err
 	}
 
 	binds := []string{
@@ -264,7 +259,7 @@ func (c *Client) getHostConfig() (*godocker.HostConfig, error) {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
-		cgroupMountpoint + ":" + config.DefaultCgroupMountpoint,
+		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 	}
 	return createHostConfig(binds)
 }

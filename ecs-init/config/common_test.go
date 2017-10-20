@@ -36,6 +36,7 @@ func TestDockerUnixSocketWithoutDockerHost(t *testing.T) {
 func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 
 	os.Setenv("DOCKER_HOST", "unix:///foo/bar")
+	defer os.Unsetenv("DOCKER_HOST")
 
 	dockerUnixSocketSourcePath, fromEnv := DockerUnixSocket()
 	if dockerUnixSocketSourcePath != "/foo/bar" {
@@ -66,3 +67,4 @@ func TestGetS3BucketMapByRegion(t *testing.T) {
 		})
 	}
 }
+
