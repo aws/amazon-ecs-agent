@@ -49,11 +49,15 @@ func Run(arguments []string) int {
 		return exitcodes.ExitError
 	}
 
-	if *parsedArgs.Version {
-		// Print version and exit
+	switch {
+	case *parsedArgs.Version:
+		// Print Agent's version and exit
 		return agent.printVersion()
+	case *parsedArgs.ECSAttributes:
+		// Print agent's ecs attributes based on its environment and exit
+		return agent.printECSAttributes()
+	default:
+		// Start the agent
+		return agent.start()
 	}
-
-	// Start the agent execution
-	return agent.start()
 }

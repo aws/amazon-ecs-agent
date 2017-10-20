@@ -71,6 +71,9 @@ var (
 type agent interface {
 	// printVersion prints the Agent version string
 	printVersion() int
+	// printECSAttributes prints the Agent's capabilities based on
+	// its environment
+	printECSAttributes() int
 	// start starts the Agent execution
 	start() int
 }
@@ -160,6 +163,15 @@ func newAgent(
 // printVersion prints the ECS Agent version string
 func (agent *ecsAgent) printVersion() int {
 	version.PrintVersion(agent.dockerClient)
+	return exitcodes.ExitSuccess
+}
+
+// printECSAttributes prints the Agent's ECS Attributes based on its
+// environment
+func (agent *ecsAgent) printECSAttributes() int {
+	for _, attr := range agent.capabilities() {
+		fmt.Printf("%s\t%s\n", aws.StringValue(attr.Name), aws.StringValue(attr.Value))
+	}
 	return exitcodes.ExitSuccess
 }
 
