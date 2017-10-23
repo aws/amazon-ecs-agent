@@ -261,9 +261,9 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 		llog.Debug("Redundant task transition; ignoring", "old", mtask.GetDesiredStatus().String(), "new", desiredStatus.String())
 		return
 	}
-	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.StopSequenceNumber == 0 {
+	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
 		llog.Debug("Task moving to stopped, adding to stopgroup", "seqnum", seqnum)
-		mtask.StopSequenceNumber = seqnum
+		mtask.SetStopSequenceNumber(seqnum)
 		mtask.engine.taskStopGroup.Add(seqnum, 1)
 	}
 	mtask.SetDesiredStatus(desiredStatus)

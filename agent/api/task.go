@@ -884,6 +884,22 @@ func (task *Task) GetTaskENI() *ENI {
 	return task.ENI
 }
 
+// GetStopSequenceNumber returns the stop sequence number of a task
+func (task *Task) GetStopSequenceNumber() int64 {
+	task.desiredStatusLock.RLock()
+	defer task.desiredStatusLock.RUnlock()
+
+	return task.StopSequenceNumber
+}
+
+// SetStopSequenceNumber sets the stop seqence number of a task
+func (task *Task) SetStopSequenceNumber(seqnum int64) {
+	task.desiredStatusLock.Lock()
+	defer task.desiredStatusLock.Unlock()
+
+	task.StopSequenceNumber = seqnum
+}
+
 // String returns a human readable string representation of this object
 func (task *Task) String() string {
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
