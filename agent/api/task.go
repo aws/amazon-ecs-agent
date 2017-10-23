@@ -542,6 +542,12 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		return hostConfig, nil
 	}
 	hostConfig.NetworkMode = networkMode
+	// Override 'awsvpc' parameters if needed
+	if container.Type == ContainerCNIPause {
+		// Override the DNS settings for the pause container if ENI has custom
+		// DNS settings
+		return task.overrideDNS(hostConfig), nil
+	}
 
 	return hostConfig, nil
 }
@@ -588,6 +594,27 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 		return false, ""
 	}
 	return true, networkModeContainerPrefix + pauseContainer.DockerID
+}
+
+// overrideDNS overrides a container's host config if the following conditions are
+// true:
+// 1. Task has an ENI associated with it
+// 2. ENI has custom DNS IPs and search list associated with it
+// This should only be done for the pause container as other containers inherit the
+// /etc/resolv.conf e container as they share the network namespace
+func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig {
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return hostConfig
+	}
+	if len(eni.DomainNameServers) > 0 {
+		hostConfig.DNS = eni.DomainNameServers
+	}
+	if len(eni.DomainNameSearchList) > 0 {
+		hostConfig.DNSSearch = eni.DomainNameSearchList
+	}
+
+	return hostConfig
 }
 
 func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
