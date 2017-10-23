@@ -58,13 +58,11 @@ var client, _ = docker.NewClient(endpoint)
 var clientFactory = dockerclient.NewFactory(endpoint)
 var cfg = config.DefaultConfig()
 
-var dockerClient ecsengine.DockerClient
 var defaultCluster = "default"
 var defaultContainerInstance = "ci"
 
 func init() {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
-	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, &cfg)
 }
 
 // eventStream returns the event stream used to receive container change events
