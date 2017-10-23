@@ -29,6 +29,12 @@ type ENI struct {
 	IPV6Addresses []*ENIIPV6Address
 	// MacAddress is the mac address of the eni
 	MacAddress string
+	// DomainNameServers specifies the nameserver IP addresses for
+	// the eni
+	DomainNameServers []string `json:"omitempty"`
+	// DomainNameSearchList specifies the search list for the domain
+	// name lookup, for the eni
+	DomainNameSearchList []string `json:"omitempty"`
 }
 
 // ENIIPV4Address is the ipv4 information of the eni
@@ -75,6 +81,12 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		IPV4Addresses: ipv4,
 		IPV6Addresses: ipv6,
 		MacAddress:    aws.StringValue(acsenis[0].MacAddress),
+	}
+	for _, nameserverIP := range acsenis[0].DomainNameServers {
+		eni.DomainNameServers = append(eni.DomainNameServers, aws.StringValue(nameserverIP))
+	}
+	for _, nameserverDomain := range acsenis[0].DomainName {
+		eni.DomainNameSearchList = append(eni.DomainNameSearchList, aws.StringValue(nameserverDomain))
 	}
 
 	return eni, nil

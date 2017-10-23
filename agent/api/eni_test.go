@@ -21,6 +21,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	defaultDNS         = "169.254.169.253"
+	customDNS          = "10.0.0.2"
+	customSearchDomain = "us-west-2.compute.internal"
+)
+
 // TestENIFromACS tests the eni information was correctly read from the acs
 func TestENIFromACS(t *testing.T) {
 	acsenis := []*ecsacs.ElasticNetworkInterface{
@@ -37,7 +43,9 @@ func TestENIFromACS(t *testing.T) {
 				{
 					Address: aws.String("ipv6")},
 			},
-			MacAddress: aws.String("mac"),
+			MacAddress:        aws.String("mac"),
+			DomainNameServers: []*string{aws.String(defaultDNS), aws.String(customDNS)},
+			DomainName:        []*string{aws.String(customSearchDomain)},
 		},
 	}
 
@@ -51,6 +59,11 @@ func TestENIFromACS(t *testing.T) {
 	assert.Equal(t, aws.StringValue(acsenis[0].MacAddress), eni.MacAddress)
 	assert.Equal(t, 1, len(acsenis[0].Ipv6Addresses))
 	assert.Equal(t, aws.StringValue(acsenis[0].Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
+	assert.Len(t, eni.DomainNameServers, 2)
+	assert.Equal(t, defaultDNS, eni.DomainNameServers[0])
+	assert.Equal(t, customDNS, eni.DomainNameServers[1])
+	assert.Len(t, eni.DomainNameSearchList, 1)
+	assert.Equal(t, customSearchDomain, eni.DomainNameSearchList[0])
 }
 
 // TestValidateENIFromACS tests the validation of enis from acs

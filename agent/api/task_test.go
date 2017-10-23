@@ -313,6 +313,24 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask))
 	assert.Nil(t, err)
 	assert.Equal(t, networkModeNone, config.NetworkMode)
+
+	// Verify that overridden DNS settings are set for the "pause" container
+	// and not set for non "pause" containers
+	testTask.ENI.DomainNameServers = []string{"169.254.169.253"}
+	testTask.ENI.DomainNameSearchList = []string{"us-west-2.compute.internal"}
+
+	// DNS overrides are only applied to the pause container. Verify that the non-pause
+	// container contains no overrides
+	config, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(config.DNS))
+	assert.Equal(t, 0, len(config.DNSSearch))
+
+	// Verify DNS settings are overridden for the pause container
+	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask))
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"169.254.169.253"}, config.DNS)
+	assert.Equal(t, []string{"us-west-2.compute.internal"}, config.DNSSearch)
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
