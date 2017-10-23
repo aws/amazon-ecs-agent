@@ -191,7 +191,9 @@
         "attachmentArn":{"shape":"String"},
         "ec2Id":{"shape":"String"},
         "ipv4Addresses":{"shape":"IPv4AddressList"},
-        "ipv6Addresses":{"shape":"IPv6AddressList"}
+        "ipv6Addresses":{"shape":"IPv6AddressList"},
+        "domainName":{"shape":"StringList"},
+        "domainNameServers":{"shape":"StringList"}
       }
     },
     "ElasticNetworkInterfaceList":{

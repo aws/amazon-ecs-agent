@@ -198,6 +198,10 @@ type ElasticNetworkInterface struct {
 
 	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
 
+	DomainName []*string `locationName:"domainName" type:"list"`
+
+	DomainNameServers []*string `locationName:"domainNameServers" type:"list"`
+
 	Ec2Id *string `locationName:"ec2Id" type:"string"`
 
 	Ipv4Addresses []*IPv4AddressAssignment `locationName:"ipv4Addresses" type:"list"`
