@@ -1537,6 +1537,7 @@ func TestGetTaskByArn(t *testing.T) {
 
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepTaskArn := sleepTask.Arn
+	sleepTask.SetDesiredStatus(api.TaskStopped)
 	taskEngine.AddTask(sleepTask)
 
 	_, found := taskEngine.GetTaskByArn(sleepTaskArn)
@@ -1911,7 +1912,6 @@ func TestPullNormalImage(t *testing.T) {
 // agent starts, container created, metadata file created, agent restarted, container recovered
 // during task engine init, metadata file updated
 func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
-
 	conf := &defaultConfig
 	conf.ContainerMetadataEnabled = true
 
@@ -1925,12 +1925,14 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled, "ContainerMetadataEnabled set to false.")
 
+	taskEngine._time = nil
 	taskEngine.SetSaver(saver)
 	state := taskEngine.State()
 	task := testdata.LoadTask("sleep5")
 
 	container, _ := task.ContainerByName("sleep5")
 	assert.False(t, container.MetadataFileUpdated)
+	container.SetKnownStatus(api.ContainerRunning)
 
 	dockerContainer := &api.DockerContainer{DockerID: containerID, Container: container}
 
@@ -1938,17 +1940,17 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	expectedDockerID := dockerContainer.DockerID
 	expectedContainerName := container.Name
 
+	state.AddTask(task)
 	state.AddContainer(dockerContainer, task)
 
 	client.EXPECT().Version()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).AnyTimes()
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).AnyTimes()
-	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+	client.EXPECT().DescribeContainer(gomock.Any())
+	imageManager.EXPECT().RecordContainerReference(gomock.Any())
+
 	saver.EXPECT().Save().AnyTimes()
+	saver.EXPECT().ForceSave().AnyTimes()
 
 	metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(dockerID string, taskARN string, containerName string) {
 		assert.Equal(t, expectedTaskARN, taskARN)
