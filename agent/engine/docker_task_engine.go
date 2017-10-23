@@ -245,52 +245,72 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	}
 
 	tasks := engine.state.AllTasks()
+	var tasksToStart []*api.Task
 	for _, task := range tasks {
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
-			engine.startTask(task)
+			// task hasn't started processing, no need to check container status
+			tasksToStart = append(tasksToStart, task)
 			continue
 		}
-		for _, cont := range conts {
-			if cont.DockerID == "" {
-				log.Debug("Found container potentially created while we were down", "name", cont.DockerName)
-				// Figure out the dockerid
-				describedCont, err := engine.client.InspectContainer(cont.DockerName, inspectContainerTimeout)
-				if err != nil {
-					log.Warn("Could not find matching container for expected", "name", cont.DockerName)
-				} else {
-					cont.DockerID = describedCont.ID
-					cont.Container.SetKnownStatus(dockerStateToState(describedCont.State))
-					// update mappings that need dockerid
-					engine.state.AddContainer(cont, task)
-					engine.imageManager.RecordContainerReference(cont.Container)
-				}
-			}
-			if cont.DockerID != "" {
-				currentState, metadata := engine.client.DescribeContainer(cont.DockerID)
-				if metadata.Error != nil {
-					currentState = api.ContainerStopped
-					if !cont.Container.KnownTerminal() {
-						cont.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
-						log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", cont.DockerID, "name", cont.DockerName)
-						engine.imageManager.RemoveContainerReferenceFromImageState(cont.Container)
-					}
-				} else {
-					engine.imageManager.RecordContainerReference(cont.Container)
-					if engine.cfg.ContainerMetadataEnabled && !cont.Container.IsMetadataFileUpdated() {
-						go engine.updateMetadataFile(task, cont)
-					}
 
-				}
-				if currentState > cont.Container.GetKnownStatus() {
-					cont.Container.SetKnownStatus(currentState)
-				}
-			}
+		for _, cont := range conts {
+			engine.synchronizeContainerStatus(cont, task)
 		}
 
+		tasksToStart = append(tasksToStart, task)
+
+		// Put tasks that are stopped by acs but hasn't been stopped in wait group
+		if task.GetDesiredStatus().Terminal() && task.GetStopSequenceNumber() != 0 {
+			engine.taskStopGroup.Add(task.GetStopSequenceNumber(), 1)
+		}
+	}
+
+	for _, task := range tasksToStart {
 		engine.startTask(task)
 	}
+
 	engine.saver.Save()
+}
+
+// synchronizeContainerStatus checks and updates the container status with docker
+func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.DockerContainer, task *api.Task) {
+	if container.DockerID == "" {
+		log.Debug("Found container potentially created while we were down", "name", container.DockerName)
+		// Figure out the dockerid
+		describedContainer, err := engine.client.InspectContainer(container.DockerName, inspectContainerTimeout)
+		if err != nil {
+			log.Warn("Could not find matching container for expected", "name", container.DockerName)
+		} else {
+			container.DockerID = describedContainer.ID
+			container.Container.SetKnownStatus(dockerStateToState(describedContainer.State))
+			// update mappings that need dockerid
+			engine.state.AddContainer(container, task)
+			engine.imageManager.RecordContainerReference(container.Container)
+		}
+		return
+	}
+
+	if container.DockerID != "" {
+		currentState, metadata := engine.client.DescribeContainer(container.DockerID)
+		if metadata.Error != nil {
+			currentState = api.ContainerStopped
+			if !container.Container.KnownTerminal() {
+				container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+				log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", container.DockerID, "name", container.DockerName)
+				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+			}
+		} else {
+			engine.imageManager.RecordContainerReference(container.Container)
+			if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
+				go engine.updateMetadataFile(task, container)
+			}
+		}
+		if currentState > container.Container.GetKnownStatus() {
+			// update the container known status
+			container.Container.SetKnownStatus(currentState)
+		}
+	}
 }
 
 // CheckTaskState inspects the state of all containers within a task and writes

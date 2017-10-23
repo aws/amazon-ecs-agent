@@ -2031,3 +2031,79 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
 	assert.True(t, ok, "task wasnot started")
 }
+
+// TestTaskWaitForHostResourceOnRestart tests task stopped by acs but hasn't
+// reached stopped should block the later task to start
+func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
+	// Task stopped by backend
+	taskStoppedByACS := testdata.LoadTask("sleep5")
+	taskStoppedByACS.SetDesiredStatus(api.TaskStopped)
+	taskStoppedByACS.SetStopSequenceNumber(1)
+	taskStoppedByACS.SetKnownStatus(api.TaskRunning)
+
+	// Task has essential container stopped
+	taskEssentialContainerStopped := testdata.LoadTask("sleep5")
+	taskEssentialContainerStopped.Arn = "task_Essential_Container_Stopped"
+	taskEssentialContainerStopped.SetDesiredStatus(api.TaskStopped)
+	taskEssentialContainerStopped.SetKnownStatus(api.TaskRunning)
+
+	// Normal task needs to be started
+	taskNotStarted := testdata.LoadTask("sleep5")
+	taskNotStarted.Arn = "task_Not_started"
+
+	conf := &defaultConfig
+	conf.ContainerMetadataEnabled = false
+	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, conf)
+	saver := mock_statemanager.NewMockStateManager(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine.saver = saver
+
+	taskEngine.State().AddTask(taskStoppedByACS)
+	taskEngine.State().AddTask(taskNotStarted)
+	taskEngine.State().AddTask(taskEssentialContainerStopped)
+
+	taskEngine.State().AddContainer(&api.DockerContainer{
+		Container:  taskStoppedByACS.Containers[0],
+		DockerID:   containerID + "1",
+		DockerName: dockerContainerName + "1",
+	}, taskStoppedByACS)
+	taskEngine.State().AddContainer(&api.DockerContainer{
+		Container:  taskNotStarted.Containers[0],
+		DockerID:   containerID + "2",
+		DockerName: dockerContainerName + "2",
+	}, taskNotStarted)
+	taskEngine.State().AddContainer(&api.DockerContainer{
+		Container:  taskEssentialContainerStopped.Containers[0],
+		DockerID:   containerID + "3",
+		DockerName: dockerContainerName + "3",
+	}, taskEssentialContainerStopped)
+
+	// these are performed in synchronizeState on restart
+	client.EXPECT().DescribeContainer(gomock.Any()).Return(api.ContainerRunning, DockerContainerMetadata{
+		DockerID: containerID,
+	}).Times(3)
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
+
+	saver.EXPECT().Save()
+	// start the two tasks
+	taskEngine.synchronizeState()
+
+	waitStopDone := make(chan struct{})
+	go func() {
+		// This is to confirm the other task is waiting
+		time.Sleep(1 * time.Second)
+		// Remove the task sequence number 1 from waitgroup
+		taskEngine.taskStopGroup.Done(1)
+		waitStopDone <- struct{}{}
+	}()
+
+	// task with sequence number 2 should wait until 1 is removed from the waitgroup
+	taskEngine.taskStopGroup.Wait(2)
+	select {
+	case <-waitStopDone:
+	default:
+		t.Errorf("task should wait for tasks in taskStopGroup")
+	}
+}
