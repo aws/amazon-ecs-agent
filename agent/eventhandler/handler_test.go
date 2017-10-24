@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -291,7 +292,14 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 	handler.AddStateChangeEvent(taskEvent3, client)
 
 	wg.Wait()
-	assert.Len(t, handler.tasksToEvents, 0)
+
+	// Wait for task events to be removed from the tasksToEvents map
+	for {
+		if handler.getTasksToEventsLen() == 0 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func containerEvent(arn string) statechange.Event {
@@ -316,11 +324,11 @@ func TestENISentStatusChange(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	task := &api.Task{
-		Arn: "taskarn",
+		Arn: taskARN,
 	}
 
 	eniAttachment := &api.ENIAttachment{
-		TaskARN:          "taskarn",
+		TaskARN:          taskARN,
 		AttachStatusSent: false,
 		ExpiresAt:        time.Now().Add(time.Second),
 	}
@@ -331,7 +339,7 @@ func TestENISentStatusChange(t *testing.T) {
 
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
 		Attachment: eniAttachment,
-		TaskARN:    "taskarn",
+		TaskARN:    taskARN,
 		Status:     api.TaskStatusNone,
 		Task:       task,
 	})
@@ -343,9 +351,9 @@ func TestENISentStatusChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	handler := NewTaskHandler(ctx, statemanager.NewNoopStateManager(), nil, client)
 	defer cancel()
-	handler.SubmitTaskEvents(&eventList{
+	handler.submitTaskEvents(&eventList{
 		events: events,
-	}, client)
+	}, client, taskARN)
 
 	assert.True(t, eniAttachment.AttachStatusSent)
 }
@@ -370,4 +378,154 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 	events := handler.getBatchedContainerEvents()
 	assert.Len(t, events, 1)
 	assert.Equal(t, "t1", events[0].TaskARN)
+}
+
+func TestSenderWhenSendingTaskRunningAfterStopped(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	handler := &TaskHandler{
+		state:                  state,
+		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
+		tasksToEvents:          make(map[string]*eventList),
+		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
+		stateSaver:             stateManager,
+		client:                 client,
+	}
+
+	taskEvents := &eventList{events: list.New(),
+		sending:   false,
+		createdAt: time.Now(),
+		taskARN:   taskARN,
+	}
+
+	backoff := mock_utils.NewMockBackoff(ctrl)
+	sender := &taskEventsSender{
+		handler:    handler,
+		backoff:    backoff,
+		client:     client,
+		taskEvents: taskEvents,
+	}
+	ok, err := sender.send()
+	assert.True(t, ok)
+	assert.NoError(t, err)
+
+	task := &api.Task{}
+	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+		TaskARN: taskARN,
+		Status:  api.TaskStopped,
+		Task:    task,
+	}))
+	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+		TaskARN: taskARN,
+		Status:  api.TaskRunning,
+		Task:    task,
+	}))
+	handler.tasksToEvents[taskARN] = sender.taskEvents
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	gomock.InOrder(
+		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+			assert.Equal(t, api.TaskStopped, change.Status)
+		}),
+		backoff.EXPECT().Reset().Do(func() {
+			wg.Done()
+		}),
+	)
+	ok, err = sender.send()
+	// We have an unsent event for the TaskRunning transition. Hence, send() returns false
+	assert.False(t, ok)
+	assert.NoError(t, err)
+	wg.Wait()
+
+	// The unsent transition is deleted from the task list. send() returns true as it
+	// does not have any more events to process
+	ok, err = sender.send()
+	assert.NoError(t, err)
+	assert.True(t, ok)
+}
+
+func TestSenderWhenSendingTaskStoppedAfterRunning(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	handler := &TaskHandler{
+		state:                  state,
+		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
+		tasksToEvents:          make(map[string]*eventList),
+		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
+		stateSaver:             stateManager,
+		client:                 client,
+	}
+
+	taskEvents := &eventList{events: list.New(),
+		sending:   false,
+		createdAt: time.Now(),
+		taskARN:   taskARN,
+	}
+
+	backoff := mock_utils.NewMockBackoff(ctrl)
+	sender := &taskEventsSender{
+		handler:    handler,
+		backoff:    backoff,
+		client:     client,
+		taskEvents: taskEvents,
+	}
+	ok, err := sender.send()
+	assert.True(t, ok)
+	assert.NoError(t, err)
+
+	task := &api.Task{}
+	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+		TaskARN: taskARN,
+		Status:  api.TaskRunning,
+		Task:    task,
+	}))
+	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+		TaskARN: taskARN,
+		Status:  api.TaskStopped,
+		Task:    task,
+	}))
+	handler.tasksToEvents[taskARN] = sender.taskEvents
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	gomock.InOrder(
+		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+			assert.Equal(t, api.TaskRunning, change.Status)
+		}),
+		backoff.EXPECT().Reset().Do(func() {
+			wg.Done()
+		}),
+	)
+	// We have an unsent event for the TaskStopped transition. Hence, send() returns false
+	ok, err = sender.send()
+	assert.False(t, ok)
+	assert.NoError(t, err)
+	wg.Wait()
+
+	wg.Add(1)
+	gomock.InOrder(
+		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+			assert.Equal(t, api.TaskStopped, change.Status)
+		}),
+		backoff.EXPECT().Reset().Do(func() {
+			wg.Done()
+		}),
+	)
+	// The unsent transition is send and deleted from the task list. send() returns true as it
+	// does not have any more events to process
+	ok, err = sender.send()
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	wg.Wait()
 }
