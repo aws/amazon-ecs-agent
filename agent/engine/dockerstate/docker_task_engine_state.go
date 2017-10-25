@@ -377,6 +377,8 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 	delete(state.taskToID, task.Arn)
 
 	for _, dockerContainer := range containerMap {
+		// The key to these maps is either the Docker ID or agent-generated name.  We use the agent-generated name
+		// before a Docker ID is available.
 		key := dockerContainer.DockerID
 		if key == "" {
 			key = dockerContainer.DockerName
