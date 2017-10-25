@@ -119,7 +119,7 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			shouldBeSent: false,
 		},
 	} {
-		t.Run(fmt.Sprintf("Event[%s] should be sent[%t]", tc.event.String(), tc.shouldBeSent), func(t *testing.T) {
+		t.Run(fmt.Sprintf("Event[%s] should be sent[%t]", tc.event.toString(), tc.shouldBeSent), func(t *testing.T) {
 			assert.Equal(t, tc.shouldBeSent, tc.event.taskShouldBeSent())
 			assert.Equal(t, false, tc.event.containerShouldBeSent())
 			assert.Equal(t, false, tc.event.taskAttachmentShouldBeSent())
@@ -193,7 +193,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Event[%s] should be sent[attachment=%t;task=%t]",
-			tc.event.String(), tc.attachmentShouldBeSent, tc.taskShouldBeSent), func(t *testing.T) {
+			tc.event.toString(), tc.attachmentShouldBeSent, tc.taskShouldBeSent), func(t *testing.T) {
 			assert.Equal(t, tc.attachmentShouldBeSent, tc.event.taskAttachmentShouldBeSent())
 			assert.Equal(t, tc.taskShouldBeSent, tc.event.taskShouldBeSent())
 			assert.Equal(t, false, tc.event.containerShouldBeSent())
