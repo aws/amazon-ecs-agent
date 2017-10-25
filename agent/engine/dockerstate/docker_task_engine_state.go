@@ -364,18 +364,25 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 
 	task, ok := state.tasks[task.Arn]
 	if !ok {
+		seelog.Warnf("Failed to locate task %s for removal from state", task.Arn)
 		return
 	}
 	delete(state.tasks, task.Arn)
+
 	containerMap, ok := state.taskToID[task.Arn]
 	if !ok {
+		seelog.Warnf("Failed to locate containerMap for task %s for removal from state", task.Arn)
 		return
 	}
 	delete(state.taskToID, task.Arn)
 
 	for _, dockerContainer := range containerMap {
-		delete(state.idToTask, dockerContainer.DockerID)
-		delete(state.idToContainer, dockerContainer.DockerID)
+		key := dockerContainer.DockerID
+		if key == "" {
+			key = dockerContainer.DockerName
+		}
+		delete(state.idToTask, key)
+		delete(state.idToContainer, key)
 	}
 }
 
