@@ -318,19 +318,7 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 		state.tasks[task.Arn] = task
 	}
 
-	if container.DockerID != "" {
-		// Update the container id to the state
-		state.idToContainer[container.DockerID] = container
-		state.idToTask[container.DockerID] = task.Arn
-
-		// Remove the previously added name mapping
-		delete(state.idToContainer, container.DockerName)
-		delete(state.idToTask, container.DockerName)
-	} else if container.DockerName != "" {
-		// Update the container name mapping to the state when the ID isn't available
-		state.idToContainer[container.DockerName] = container
-		state.idToTask[container.DockerName] = task.Arn
-	}
+	state.storeIDToContainerTaskUnsafe(container, task)
 
 	existingMap, exists := state.taskToID[task.Arn]
 	if !exists {
@@ -364,19 +352,54 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 
 	task, ok := state.tasks[task.Arn]
 	if !ok {
+		seelog.Warnf("Failed to locate task %s for removal from state", task.Arn)
 		return
 	}
 	delete(state.tasks, task.Arn)
+
 	containerMap, ok := state.taskToID[task.Arn]
 	if !ok {
+		seelog.Warnf("Failed to locate containerMap for task %s for removal from state", task.Arn)
 		return
 	}
 	delete(state.taskToID, task.Arn)
 
 	for _, dockerContainer := range containerMap {
-		delete(state.idToTask, dockerContainer.DockerID)
-		delete(state.idToContainer, dockerContainer.DockerID)
+		state.removeIDToContainerTaskUnsafe(dockerContainer)
 	}
+}
+
+// storeIDToContainerTaskUnsafe stores the container in the idToContainer and idToTask maps.  The key to the maps is
+// either the Docker-generated ID or the agent-generated name (if the ID is not available).  If the container is updated
+// with an ID, a subsequent call to this function will update the map to use the ID as the key.
+func (state *DockerTaskEngineState) storeIDToContainerTaskUnsafe(container *api.DockerContainer, task *api.Task) {
+	if container.DockerID != "" {
+		// Update the container id to the state
+		state.idToContainer[container.DockerID] = container
+		state.idToTask[container.DockerID] = task.Arn
+
+		// Remove the previously added name mapping
+		delete(state.idToContainer, container.DockerName)
+		delete(state.idToTask, container.DockerName)
+	} else if container.DockerName != "" {
+		// Update the container name mapping to the state when the ID isn't available
+		state.idToContainer[container.DockerName] = container
+		state.idToTask[container.DockerName] = task.Arn
+	}
+}
+
+// removeIDToContainerTaskUnsafe removes the container from the idToContainer and idToTask maps.  They key to the maps
+// is either the Docker-generated ID or the agent-generated name (if the ID is not available).  This function assumes
+// that the ID takes precedence and will delete by the ID when the ID is available.
+func (state *DockerTaskEngineState) removeIDToContainerTaskUnsafe(container *api.DockerContainer) {
+	// The key to these maps is either the Docker ID or agent-generated name.  We use the agent-generated name
+	// before a Docker ID is available.
+	key := container.DockerID
+	if key == "" {
+		key = container.DockerName
+	}
+	delete(state.idToTask, key)
+	delete(state.idToContainer, key)
 }
 
 // RemoveImageState removes an image.ImageState

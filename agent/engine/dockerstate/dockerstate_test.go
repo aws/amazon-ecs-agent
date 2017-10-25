@@ -171,32 +171,42 @@ func TestTwophaseAddContainer(t *testing.T) {
 
 func TestRemoveTask(t *testing.T) {
 	state := NewTaskEngineState()
-	testContainer := &api.Container{
+	testContainer1 := &api.Container{
 		Name: "c1",
 	}
-	testDockerContainer := &api.DockerContainer{
+	testDockerContainer1 := &api.DockerContainer{
 		DockerID:  "did",
-		Container: testContainer,
+		Container: testContainer1,
+	}
+	testContainer2 := &api.Container{
+		Name: "c2",
+	}
+	testDockerContainer2 := &api.DockerContainer{
+		// DockerName is used before the DockerID is assigned
+		DockerName: "docker-name-2",
+		Container:  testContainer2,
 	}
 	testTask := &api.Task{
 		Arn:        "t1",
-		Containers: []*api.Container{testContainer},
+		Containers: []*api.Container{testContainer1, testContainer2},
 	}
 
 	state.AddTask(testTask)
-	state.AddContainer(testDockerContainer, testTask)
+	state.AddContainer(testDockerContainer1, testTask)
+	state.AddContainer(testDockerContainer2, testTask)
 
-	tasks := state.AllTasks()
-	if len(tasks) != 1 {
-		t.Error("Expected only 1 task")
-	}
+	engineState := state.(*DockerTaskEngineState)
+
+	assert.Len(t, state.AllTasks(), 1, "Expected one task")
+	assert.Len(t, engineState.idToTask, 2, "idToTask map should have two entries")
+	assert.Len(t, engineState.idToContainer, 2, "idToContainer map should have two entries")
 
 	state.RemoveTask(testTask)
 
-	tasks = state.AllTasks()
-	if len(tasks) != 0 {
-		t.Error("Expected task to be removed")
-	}
+	assert.Len(t, state.AllTasks(), 0, "Expected task to be removed")
+	assert.Len(t, engineState.idToTask, 0, "idToTask map should be empty")
+	assert.Len(t, engineState.idToContainer, 0, "idToContainer map should be empty")
+
 }
 
 func TestAddImageState(t *testing.T) {

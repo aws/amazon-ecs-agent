@@ -394,6 +394,17 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 	}
 }
 
+func (agent *TestAgent) CallTaskIntrospectionAPI(task *TestTask) (*handlers.TaskResponse, error) {
+	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
+	if err != nil {
+		return nil, err
+	}
+
+	var taskResp handlers.TaskResponse
+	err = json.Unmarshal(*rawResponse, &taskResp)
+	return &taskResp, err
+}
+
 func (agent *TestAgent) callTaskIntrospectionApi(taskArn string) (*[]byte, error) {
 	fullIntrospectionApiURL := agent.IntrospectionURL + "/v1/tasks"
 	if taskArn != "" {

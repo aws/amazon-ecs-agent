@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/stretchr/testify/assert"
 )
 
 func createTestContainer(num int) *api.Container {
@@ -50,14 +51,12 @@ func createTestTask(arn string, numContainers int) *api.Task {
 
 func decodeEqual(t *testing.T, state dockerstate.TaskEngineState) dockerstate.TaskEngineState {
 	data, err := json.Marshal(&state)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err, "marshal state")
+
 	otherState := dockerstate.NewTaskEngineState()
 	err = json.Unmarshal(data, &otherState)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err, "unmarshal state")
+
 	if !DockerStatesEqual(state, otherState) {
 		debug.PrintStack()
 		t.Error("States were not equal")
@@ -77,8 +76,5 @@ func TestJsonEncoding(t *testing.T) {
 	}
 	other := decodeEqual(t, testState)
 	_, ok := other.ContainerMapByArn("test1")
-	if !ok {
-		t.Error("Could not retrieve expected task")
-	}
-
+	assert.True(t, ok, "could not retrieve expected task")
 }
