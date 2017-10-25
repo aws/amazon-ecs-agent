@@ -89,6 +89,43 @@ func TestSavedState(t *testing.T) {
 	testTask.WaitStopped(1 * time.Minute)
 }
 
+// TestSavedStateWithInvalidImageAndCleanup verifies that a task definition with an invalid image does not prevent the
+// agnet from starting again after the task has been cleaned up.  See
+// https://github.com/aws/amazon-ecs-agent/issues/1024 for details.
+func TestSavedStateWithInvalidImageAndCleanup(t *testing.T) {
+	// Set the task cleanup time to just over a minute.
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "70s")
+	agent := RunAgent(t, nil)
+	defer func() {
+		agent.Cleanup()
+		os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+	}()
+
+	testTask, err := agent.StartTask(t, "invalid-image")
+	require.NoError(t, err, "failed to start task")
+	assert.NoError(t, testTask.ExpectErrorType("error", "CannotPullContainerError", 1*time.Minute))
+
+	resp, err := agent.CallTaskIntrospectionAPI(testTask)
+	assert.NoError(t, err, "should be able to introspect the task")
+	assert.NotNil(t, resp, "should receive a response")
+	assert.Equal(t, *testTask.TaskArn, resp.Arn, "arn should be equal")
+
+	// wait two minutes for it to be cleaned up
+	fmt.Println("Sleeping...")
+	time.Sleep(2 * time.Minute)
+
+	resp, err = agent.CallTaskIntrospectionAPI(testTask)
+	assert.NoError(t, err, "should be able to call introspection api") // is there a reason we don't 404?
+	assert.NotNil(t, resp, "should receive a response")                // why?
+	assert.Equal(t, "", resp.Arn, "arn is blank")
+
+	err = agent.StopAgent()
+	require.NoError(t, err, "failed to stop agent")
+
+	err = agent.StartAgent()
+	require.NoError(t, err, "failed to start agent again")
+}
+
 // TestPortResourceContention verifies that running two tasks on the same port
 // in quick-succession does not result in the second one failing to run. It
 // verifies the 'seqnum' serialization stuff works.

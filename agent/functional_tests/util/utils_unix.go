@@ -166,8 +166,12 @@ func (agent *TestAgent) StartAgent() error {
 		Links: agent.Options.ContainerLinks,
 	}
 
+	if os.Getenv("ECS_FTEST_FORCE_NET_HOST") != "" {
+		hostConfig.NetworkMode = "host"
+	}
+
 	if agent.Options != nil {
-		// Override the default docker envrionment variable
+		// Override the default docker environment variable
 		for key, value := range agent.Options.ExtraEnvironment {
 			envVarExists := false
 			for i, str := range dockerConfig.Env {
@@ -207,12 +211,17 @@ func (agent *TestAgent) StartAgent() error {
 	if err != nil {
 		return errors.New("Could not inspect agent container: " + err.Error())
 	}
-	agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
+	if containerMetadata.HostConfig.NetworkMode == "host" {
+		agent.IntrospectionURL = "http://localhost:51678"
+	} else {
+		agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
+	}
+
 	return agent.verifyIntrospectionAPI()
 }
 
 // getBindMounts actually constructs volume binds for container's host config
-// It also additionally checks for envrionment variables:
+// It also additionally checks for environment variables:
 // * CGROUP_PATH: the cgroup path
 // * EXECDRIVER_PATH: the path of metrics
 func (agent *TestAgent) getBindMounts() []string {
