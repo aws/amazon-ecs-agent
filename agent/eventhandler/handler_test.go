@@ -351,7 +351,7 @@ func TestENISentStatusChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	handler := NewTaskHandler(ctx, statemanager.NewNoopStateManager(), nil, client)
 	defer cancel()
-	handler.submitTaskEvents(&eventList{
+	handler.submitTaskEvents(&taskSendableEvents{
 		events: events,
 	}, client, taskARN)
 
@@ -380,7 +380,7 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 	assert.Equal(t, "t1", events[0].TaskARN)
 }
 
-func TestSenderWhenSendingTaskRunningAfterStopped(t *testing.T) {
+func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -391,41 +391,35 @@ func TestSenderWhenSendingTaskRunningAfterStopped(t *testing.T) {
 	handler := &TaskHandler{
 		state:                  state,
 		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
-		tasksToEvents:          make(map[string]*eventList),
+		tasksToEvents:          make(map[string]*taskSendableEvents),
 		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
 		stateSaver:             stateManager,
 		client:                 client,
 	}
 
-	taskEvents := &eventList{events: list.New(),
+	taskEvents := &taskSendableEvents{events: list.New(),
 		sending:   false,
 		createdAt: time.Now(),
 		taskARN:   taskARN,
 	}
 
 	backoff := mock_utils.NewMockBackoff(ctrl)
-	sender := &taskEventsSender{
-		handler:    handler,
-		backoff:    backoff,
-		client:     client,
-		taskEvents: taskEvents,
-	}
-	ok, err := sender.send()
+	ok, err := taskEvents.submitFirstEvent(handler, backoff)
 	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	task := &api.Task{}
-	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskStopped,
 		Task:    task,
 	}))
-	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskRunning,
 		Task:    task,
 	}))
-	handler.tasksToEvents[taskARN] = sender.taskEvents
+	handler.tasksToEvents[taskARN] = taskEvents
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -437,7 +431,7 @@ func TestSenderWhenSendingTaskRunningAfterStopped(t *testing.T) {
 			wg.Done()
 		}),
 	)
-	ok, err = sender.send()
+	ok, err = taskEvents.submitFirstEvent(handler, backoff)
 	// We have an unsent event for the TaskRunning transition. Hence, send() returns false
 	assert.False(t, ok)
 	assert.NoError(t, err)
@@ -445,12 +439,12 @@ func TestSenderWhenSendingTaskRunningAfterStopped(t *testing.T) {
 
 	// The unsent transition is deleted from the task list. send() returns true as it
 	// does not have any more events to process
-	ok, err = sender.send()
+	ok, err = taskEvents.submitFirstEvent(handler, backoff)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 }
 
-func TestSenderWhenSendingTaskStoppedAfterRunning(t *testing.T) {
+func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -461,41 +455,35 @@ func TestSenderWhenSendingTaskStoppedAfterRunning(t *testing.T) {
 	handler := &TaskHandler{
 		state:                  state,
 		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
-		tasksToEvents:          make(map[string]*eventList),
+		tasksToEvents:          make(map[string]*taskSendableEvents),
 		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
 		stateSaver:             stateManager,
 		client:                 client,
 	}
 
-	taskEvents := &eventList{events: list.New(),
+	taskEvents := &taskSendableEvents{events: list.New(),
 		sending:   false,
 		createdAt: time.Now(),
 		taskARN:   taskARN,
 	}
 
 	backoff := mock_utils.NewMockBackoff(ctrl)
-	sender := &taskEventsSender{
-		handler:    handler,
-		backoff:    backoff,
-		client:     client,
-		taskEvents: taskEvents,
-	}
-	ok, err := sender.send()
+	ok, err := taskEvents.submitFirstEvent(handler, backoff)
 	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	task := &api.Task{}
-	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskRunning,
 		Task:    task,
 	}))
-	sender.taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskStopped,
 		Task:    task,
 	}))
-	handler.tasksToEvents[taskARN] = sender.taskEvents
+	handler.tasksToEvents[taskARN] = taskEvents
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -508,7 +496,7 @@ func TestSenderWhenSendingTaskStoppedAfterRunning(t *testing.T) {
 		}),
 	)
 	// We have an unsent event for the TaskStopped transition. Hence, send() returns false
-	ok, err = sender.send()
+	ok, err = taskEvents.submitFirstEvent(handler, backoff)
 	assert.False(t, ok)
 	assert.NoError(t, err)
 	wg.Wait()
@@ -524,7 +512,7 @@ func TestSenderWhenSendingTaskStoppedAfterRunning(t *testing.T) {
 	)
 	// The unsent transition is send and deleted from the task list. send() returns true as it
 	// does not have any more events to process
-	ok, err = sender.send()
+	ok, err = taskEvents.submitFirstEvent(handler, backoff)
 	assert.True(t, ok)
 	assert.NoError(t, err)
 	wg.Wait()

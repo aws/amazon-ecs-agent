@@ -14,10 +14,14 @@
 package eventhandler
 
 import (
+	"container/list"
 	"fmt"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/cihub/seelog"
 )
 
 // a state change that may have a container and, optionally, a task event to
@@ -33,17 +37,6 @@ type sendableEvent struct {
 	taskChange api.TaskStateChange
 
 	lock sync.RWMutex
-}
-
-func (event *sendableEvent) String() string {
-	event.lock.RLock()
-	defer event.lock.RUnlock()
-
-	if event.isContainerEvent {
-		return "ContainerChange: [" + event.containerChange.String() + fmt.Sprintf("] sent: %t", event.containerSent)
-	} else {
-		return "TaskChange: [" + event.taskChange.String() + fmt.Sprintf("] sent: %t", event.taskSent)
-	}
 }
 
 func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
@@ -84,9 +77,13 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 		return false // redundant event
 	}
 	if tevent.Task != nil && tevent.Task.GetSentStatus() >= tevent.Status {
+		// If the task status has already been sent, check if there are
+		// any container states that need to be sent
 		for _, containerStateChange := range tevent.Containers {
 			container := containerStateChange.Container
 			if container.GetSentStatus() < container.GetKnownStatus() {
+				// We found a container that needs its state
+				// change to be sent to ECS.
 				return true
 			}
 		}
@@ -129,5 +126,91 @@ func (event *sendableEvent) setSent() {
 		event.containerSent = true
 	} else {
 		event.taskSent = true
+	}
+}
+
+// send tries to send an event, specified by 'eventToSubmit', of type
+// 'eventType' to ECS
+func (event *sendableEvent) send(
+	sendStatusToECS sendStatusChangeToECS,
+	setChangeSent setStatusSent,
+	eventType string,
+	client api.ECSClient,
+	eventToSubmit *list.Element,
+	stateSaver statemanager.Saver,
+	backoff utils.Backoff,
+	taskEvents *taskSendableEvents) error {
+
+	seelog.Infof("TaskHandler: Sending %s change: %s", eventType, event.toString())
+	// Try submitting the change to ECS
+	if err := sendStatusToECS(client, event); err != nil {
+		seelog.Errorf("TaskHandler: Unretriable error submitting %s state change [%s]: %v",
+			eventType, event.toString(), err)
+		return err
+	}
+	// submitted; ensure we don't retry it
+	event.setSent()
+	// Mark event as sent
+	setChangeSent(event)
+	// Update the state file
+	stateSaver.Save()
+	seelog.Debugf("TaskHandler: Submitted container state change: %s", event.toString())
+	taskEvents.events.Remove(eventToSubmit)
+	backoff.Reset()
+	return nil
+}
+
+// sendStatusChangeToECS defines a function type for invoking the appropriate ECS state change API
+type sendStatusChangeToECS func(client api.ECSClient, event *sendableEvent) error
+
+// sendContainerStatusToECS invokes the SubmitContainerStateChange API to send a
+// container status change to ECS
+func sendContainerStatusToECS(client api.ECSClient, event *sendableEvent) error {
+	return client.SubmitContainerStateChange(event.containerChange)
+}
+
+// sendTaskStatusToECS invokes the SubmitTaskStateChange API to send a task
+// status change to ECS
+func sendTaskStatusToECS(client api.ECSClient, event *sendableEvent) error {
+	return client.SubmitTaskStateChange(event.taskChange)
+}
+
+// setStatusSent defines a function type to mark the event as sent
+type setStatusSent func(event *sendableEvent)
+
+// setContainerChangeSent sets the event's container change object as sent
+func setContainerChangeSent(event *sendableEvent) {
+	if event.containerChange.Container != nil {
+		event.containerChange.Container.SetSentStatus(event.containerChange.Status)
+	}
+}
+
+// setTaskChangeSent sets the event's task change object as sent
+func setTaskChangeSent(event *sendableEvent) {
+	if event.taskChange.Task != nil {
+		event.taskChange.Task.SetSentStatus(event.taskChange.Status)
+	}
+	for _, containerStateChange := range event.taskChange.Containers {
+		container := containerStateChange.Container
+		container.SetSentStatus(containerStateChange.Status)
+	}
+}
+
+// setTaskAttachmentSent sets the event's task attachment object as sent
+func setTaskAttachmentSent(event *sendableEvent) {
+	if event.taskChange.Attachment != nil {
+		event.taskChange.Attachment.SetSentStatus()
+		event.taskChange.Attachment.StopAckTimer()
+	}
+}
+
+func (event *sendableEvent) toString() string {
+	event.lock.RLock()
+	defer event.lock.RUnlock()
+
+	if event.isContainerEvent {
+		return "ContainerChange: [" + event.containerChange.String() + fmt.Sprintf("] sent: %t", event.containerSent)
+	} else {
+		return "TaskChange: [" + event.taskChange.String() + fmt.Sprintf("] sent: %t", event.taskSent)
 	}
 }
