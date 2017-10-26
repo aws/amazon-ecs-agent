@@ -600,19 +600,16 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 // true:
 // 1. Task has an ENI associated with it
 // 2. ENI has custom DNS IPs and search list associated with it
-// This should only be done for the pause container as other containers inherit the
-// /etc/resolv.conf e container as they share the network namespace
+// This should only be done for the pause container as other containers inherit
+// /etc/resolv.conf of this container (they share the network namespace)
 func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig {
 	eni := task.GetTaskENI()
 	if eni == nil {
 		return hostConfig
 	}
-	if len(eni.DomainNameServers) > 0 {
-		hostConfig.DNS = eni.DomainNameServers
-	}
-	if len(eni.DomainNameSearchList) > 0 {
-		hostConfig.DNSSearch = eni.DomainNameSearchList
-	}
+
+	hostConfig.DNS = eni.DomainNameServers
+	hostConfig.DNSSearch = eni.DomainNameSearchList
 
 	return hostConfig
 }
@@ -882,6 +879,9 @@ func (t *Task) String() string {
 	res += " Containers: ["
 	for _, c := range t.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
+	}
+	if t.ENI != nil {
+		res += fmt.Sprintf(" ENI: [%s]", t.ENI.String())
 	}
 	return res + "]"
 }

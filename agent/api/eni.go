@@ -14,6 +14,9 @@
 package api
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
@@ -35,6 +38,22 @@ type ENI struct {
 	// DomainNameSearchList specifies the search list for the domain
 	// name lookup, for the eni
 	DomainNameSearchList []string `json:"omitempty"`
+}
+
+// String returns a human readable version of the ENI object
+func (eni *ENI) String() string {
+	var ipv4Addresses []string
+	for _, addr := range eni.IPV4Addresses {
+		ipv4Addresses = append(ipv4Addresses, addr.Address)
+	}
+	var ipv6Addresses []string
+	for _, addr := range eni.IPV6Addresses {
+		ipv6Addresses = append(ipv6Addresses, addr.Address)
+	}
+	return fmt.Sprintf(
+		"eni id:%s, mac: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s]",
+		eni.ID, eni.MacAddress, strings.Join(ipv4Addresses, ","), strings.Join(ipv6Addresses, ","),
+		strings.Join(eni.DomainNameServers, ","), strings.Join(eni.DomainNameSearchList, ","))
 }
 
 // ENIIPV4Address is the ipv4 information of the eni

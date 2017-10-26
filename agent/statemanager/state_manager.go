@@ -50,7 +50,8 @@ const (
 	//   d) Add 'ENIAttachments' struct
 	//   e) Deprecate 'SteadyStateDependencies' in favor of 'TransitionDependencySet'
 	// 7)
-	//	 a) Add 'MetadataUpdated' field to 'api.Container'
+	//   a) Add 'MetadataUpdated' field to 'api.Container'
+	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in `api.ENI`
 	ECSDataVersion = 7
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
