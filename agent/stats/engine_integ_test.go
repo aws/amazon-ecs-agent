@@ -26,6 +26,12 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
+var dockerClient ecsengine.DockerClient
+
+func init() {
+	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, &cfg)
+}
+
 func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
 	resolver.containerIDToTask[containerID] = &api.Task{
 		Arn:     taskArn,
