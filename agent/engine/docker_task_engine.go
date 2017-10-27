@@ -442,10 +442,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case event := <-engine.events:
-			ok := engine.handleDockerEvent(event)
-			if !ok {
-				break
-			}
+			engine.handleDockerEvent(event)
 		}
 	}
 }
