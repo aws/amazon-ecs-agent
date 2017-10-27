@@ -375,7 +375,7 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 	state.EXPECT().TaskByArn("t1").Return(&api.Task{Arn: "t1", KnownStatusUnsafe: api.TaskRunning}, true)
 	state.EXPECT().TaskByArn("t2").Return(nil, false)
 
-	events := handler.getBatchedContainerEvents()
+	events := handler.taskStateChangesToSend()
 	assert.Len(t, events, 1)
 	assert.Equal(t, "t1", events[0].TaskARN)
 }
