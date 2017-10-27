@@ -91,7 +91,7 @@ type Config struct {
 	DockerStopTimeout time.Duration
 
 	// AvailableLoggingDrivers specifies the logging drivers available for use
-	// with Docker.  If not set, it defaults to ["json-file"].
+	// with Docker.  If not set, it defaults to ["json-file","none"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver
 
 	// PrivilegedDisabled specified whether the Agent is capable of launching

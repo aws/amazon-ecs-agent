@@ -67,7 +67,7 @@ func DefaultConfig() Config {
 		// DisableMetrics is set to true on Windows as docker stats does not work
 		DisableMetrics:              true,
 		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver},
+		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:           DefaultDockerStopTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
