@@ -872,16 +872,18 @@ func (task *Task) GetTaskENI() *ENI {
 }
 
 // String returns a human readable string representation of this object
-func (t *Task) String() string {
+func (task *Task) String() string {
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
-		t.Family, t.Version, t.Arn,
-		t.GetKnownStatus().String(), t.GetDesiredStatus().String())
+		task.Family, task.Version, task.Arn,
+		task.GetKnownStatus().String(), task.GetDesiredStatus().String())
 	res += " Containers: ["
-	for _, c := range t.Containers {
+	for _, c := range task.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	}
-	if t.ENI != nil {
-		res += fmt.Sprintf(" ENI: [%s]", t.ENI.String())
+	task.eniLock.Lock()
+	defer task.eniLock.Unlock()
+	if task.ENI != nil {
+		res += fmt.Sprintf(" ENI: [%s]", task.ENI.String())
 	}
 	return res + "]"
 }
