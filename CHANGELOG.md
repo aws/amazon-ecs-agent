@@ -4,6 +4,8 @@
 * Feature - Support for provisioning Tasks with ENIs
 * Enhancement - Support `init` process in containers by adding support for Docker remote API client version 1.25
   [#996](https://github.com/aws/amazon-ecs-agent/pull/996)
+* Enhancement - Enable 'none' logging driver capability by default 
+  [#1041](https://github.com/aws/amazon-ecs-agent/pull/1041) 
 * Bug - Fixed a bug where tasks that fail to pull containers can cause the
   agent to fail to restore properly after a restart.
   [#1033](https://github.com/aws/amazon-ecs-agent/pull/1033)
