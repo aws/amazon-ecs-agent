@@ -196,7 +196,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_AGENT_CONFIG_FILE_PATH":            config.AgentJSONConfigFile(),
 		"ECS_UPDATE_DOWNLOAD_DIR":               config.CacheDirectory(),
 		"ECS_UPDATES_ENABLED":                   "true",
-		"ECS_AVAILABLE_LOGGING_DRIVERS":         `["json-file","syslog","awslogs"]`,
+		"ECS_AVAILABLE_LOGGING_DRIVERS":         `["json-file","syslog","awslogs","none"]`,
 		"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 	}

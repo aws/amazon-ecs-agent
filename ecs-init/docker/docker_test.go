@@ -224,7 +224,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(), envVariables, t)
 	expectKey("ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(), envVariables, t)
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
-	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs"]`, envVariables, t)
+	expectKey(`ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","syslog","awslogs","none"]`,
+		envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE=true", envVariables, t)
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true", envVariables, t)
 	expectKey("ECS_ENABLE_TASK_ENI=true", envVariables, t)
