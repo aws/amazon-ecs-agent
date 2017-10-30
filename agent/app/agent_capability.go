@@ -45,6 +45,7 @@ const (
 //    com.amazonaws.ecs.capability.logging-driver.fluentd
 //    com.amazonaws.ecs.capability.logging-driver.journald
 //    com.amazonaws.ecs.capability.logging-driver.gelf
+//    com.amazonaws.ecs.capability.logging-driver.none
 //    com.amazonaws.ecs.capability.selinux
 //    com.amazonaws.ecs.capability.apparmor
 //    com.amazonaws.ecs.capability.ecr-auth
