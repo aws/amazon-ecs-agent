@@ -312,6 +312,15 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
+	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
+	if container.GetKnownStatus() == api.ContainerStopped && container.IsEssential() {
+		now := mtask.time().Now()
+		ok := mtask.Task.SetExecutionStoppedAt(now)
+		if ok {
+			seelog.Infof("Task essential container stopped, task %s, time: %s", mtask.Task.String(), now)
+		}
+	}
+
 	seelog.Debugf("Sending container change event to tcs, container: %s, status: %s", event.DockerID, event.Status)
 	err := mtask.engine.containerChangeEventStream.WriteToEventStream(event)
 	if err != nil {

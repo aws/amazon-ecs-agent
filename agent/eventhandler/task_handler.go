@@ -184,11 +184,14 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 		// safety mechanism) and add it to the list of task state changes
 		// that need to be sent to ECS
 		if task, ok := handler.state.TaskByArn(taskARN); ok {
-			events = append(events, api.TaskStateChange{
+			event := api.TaskStateChange{
 				TaskARN: taskARN,
-				Status:  task.GetKnownStatus(),
 				Task:    task,
-			})
+				Status:  task.GetKnownStatus(),
+			}
+			event.SetTaskTimestamps()
+
+			events = append(events, event)
 		}
 	}
 	return events
