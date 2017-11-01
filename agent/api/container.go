@@ -227,12 +227,14 @@ func (c *Container) SetSentStatus(status ContainerStatus) {
 	c.SentStatusUnsafe = status
 }
 
+// SetKnownExitCode sets exit code filed in container struct
 func (c *Container) SetKnownExitCode(i *int) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.knownExitCode = i
 }
 
+// GetKnownExitCode returns the container exit code
 func (c *Container) GetKnownExitCode() *int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -345,4 +347,12 @@ func (c *Container) SetMetadataFileUpdated() {
 	defer c.lock.Unlock()
 
 	c.MetadataFileUpdated = true
+}
+
+// IsEssential returns whether the container is an essential container or not
+func (c *Container) IsEssential() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.Essential
 }

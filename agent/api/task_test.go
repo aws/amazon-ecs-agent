@@ -1070,3 +1070,31 @@ func TestTaskFromACSWithOverrides(t *testing.T) {
 	assert.Equal(t, task.Containers[0].Command[1], "bar")
 	assert.Equal(t, task.Containers[1].Command[0], "command")
 }
+
+// TestSetPullStartedAt tests the task SetPullStartedAt
+func TestSetPullStartedAt(t *testing.T) {
+	testTask := &Task{}
+
+	t1 := time.Now()
+	t2 := t1.Add(1 * time.Second)
+
+	testTask.SetPullStartedAt(t1)
+	assert.Equal(t, t1, testTask.GetPullStartedAt(), "first set of pullStartedAt should succeed")
+
+	testTask.SetPullStartedAt(t2)
+	assert.Equal(t, t1, testTask.GetPullStartedAt(), "second set of pullStartedAt should have no impact")
+}
+
+// TestSetExecutionStoppedAt tests the task SetExecutionStoppedAt
+func TestSetExecutionStoppedAt(t *testing.T) {
+	testTask := &Task{}
+
+	t1 := time.Now()
+	t2 := t1.Add(1 * time.Second)
+
+	testTask.SetExecutionStoppedAt(t1)
+	assert.Equal(t, t1, testTask.GetExecutionStoppedAt(), "first set of executionStoppedAt should succeed")
+
+	testTask.SetExecutionStoppedAt(t2)
+	assert.Equal(t, t1, testTask.GetExecutionStoppedAt(), "second set of executionStoppedAt should have no impact")
+}
