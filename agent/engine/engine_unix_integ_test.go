@@ -845,9 +845,9 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")

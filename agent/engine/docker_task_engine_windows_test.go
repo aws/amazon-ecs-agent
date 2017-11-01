@@ -31,6 +31,7 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 	taskEngine.SetSaver(saver)
+	taskEngine._time = nil
 
 	imageName := "image"
 	container := &api.Container{

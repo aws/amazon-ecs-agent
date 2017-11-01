@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -379,13 +380,17 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
 		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", taskKnownStatus.String())
 		return
 	}
+
 	event := api.TaskStateChange{
 		TaskARN: task.Arn,
 		Status:  taskKnownStatus,
 		Reason:  reason,
 		Task:    task,
 	}
-	log.Info("Task change event", "event", event)
+
+	event.SetTaskTimestamps()
+
+	seelog.Infof("Task change event: %s", event.String())
 	engine.stateChangeEvents <- event
 }
 
@@ -556,13 +561,19 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 			return engine.client.ImportLocalEmptyVolumeImage()
 		}
 	}
+
+	// Record the pullStoppedAt timestamp
+	defer func() {
+		timestamp := engine.time().Now()
+		task.SetPullStoppedAt(timestamp)
+	}()
+
 	if engine.enableConcurrentPull {
 		seelog.Infof("Pulling container %v concurrently. Task: %v", container, task)
 		return engine.concurrentPull(task, container)
-	} else {
-		seelog.Infof("Pulling container %v serially. Task: %v", container, task)
-		return engine.serialPull(task, container)
 	}
+	seelog.Infof("Pulling container %v serially. Task: %v", container, task)
+	return engine.serialPull(task, container)
 }
 
 func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) DockerContainerMetadata {
@@ -572,10 +583,16 @@ func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Co
 	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s. Task: %v", container.Image, task)
 	defer ImagePullDeleteLock.RUnlock()
 
-	pullStart := time.Now()
+	// Record the task pull_started_at timestamp
+	pullStart := engine.time().Now()
 	defer func(startTime time.Time) {
 		seelog.Infof("Finished pulling container %v in %s. Task: %v", container.Image, time.Since(startTime).String(), task)
 	}(pullStart)
+	ok := task.SetPullStartedAt(pullStart)
+	if ok {
+		seelog.Infof("Task started pull, task %s, time: %s", task.String(), pullStart)
+	}
+
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
@@ -586,10 +603,15 @@ func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Contai
 	defer seelog.Debugf("Released ImagePullDeleteLock after pulling image - %s. Task: %v", container.Image, task)
 	defer ImagePullDeleteLock.Unlock()
 
-	pullStart := time.Now()
+	pullStart := engine.time().Now()
 	defer func(startTime time.Time) {
 		seelog.Infof("Finished pulling container %v in %s. Task: %v", container.Image, time.Since(startTime).String(), task)
 	}(pullStart)
+	ok := task.SetPullStartedAt(pullStart)
+	if ok {
+		seelog.Infof("Task started pull, task %s, time: %s", task.String(), pullStart)
+	}
+
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
