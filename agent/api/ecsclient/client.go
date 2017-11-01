@@ -312,25 +312,27 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return nil
 	}
 
-	// Submit task state change
 	if change.Status == api.TaskStatusNone {
 		seelog.Warnf("SubmitTaskStateChange called with an invalid change: %s", change.String())
 		return errors.New("ecs api client: SubmitTaskStateChange called with an invalid change")
 	}
 
-	if change.Status != api.TaskRunning && change.Status != api.TaskStopped {
+	if !change.ShouldBeReport() {
 		seelog.Debugf("Not submitting unsupported upstream task state: %s", change.Status.String())
 		// Not really an error
 		return nil
 	}
 
-	status := change.Status.String()
-
+	// status could be PENDING/RUNNING/STOPPED
+	status := change.Status.BackendStatus()
 	req := ecs.SubmitTaskStateChangeInput{
-		Cluster: aws.String(client.config.Cluster),
-		Task:    aws.String(change.TaskARN),
-		Status:  aws.String(status),
-		Reason:  aws.String(change.Reason),
+		Cluster:            aws.String(client.config.Cluster),
+		Task:               aws.String(change.TaskARN),
+		Status:             aws.String(status),
+		Reason:             aws.String(change.Reason),
+		PullStartedAt:      change.PullStartedAt,
+		PullStoppedAt:      change.PullStoppedAt,
+		ExecutionStoppedAt: change.ExecutionStoppedAt,
 	}
 
 	containerEvents := make([]*ecs.ContainerStateChange, len(change.Containers))

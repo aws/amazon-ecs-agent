@@ -79,7 +79,6 @@ type Task struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	DesiredStatusUnsafe TaskStatus `json:"DesiredStatus"`
-	desiredStatusLock   sync.RWMutex
 
 	// KnownStatusUnsafe represents the state where the task is.  This is generally
 	// the minimum of equivalent status types for the containers in the task;
@@ -91,11 +90,19 @@ type Task struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe TaskStatus `json:"KnownStatus"`
-	knownStatusLock   sync.RWMutex
 	// KnownStatusTimeUnsafe captures the time when the KnownStatusUnsafe was last updated.
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
-	knownStatusTimeLock   sync.RWMutex
+
+	// PullStartedAt is the timestamp when the task start pulling the first container,
+	// it won't be set if the pull never happens
+	PullStartedAt time.Time `json:"PullStartedAt"`
+	// PullStoppedAt is the timestamp when the task finished pulling the last container,
+	// it won't be set if the pull never happens
+	PullStoppedAt time.Time `json:"PullStoppedAt"`
+	// ExecutionStoppedAt is the timestamp when the task desired status moved to stopped,
+	// which is when the any of the essential containers stopped
+	ExecutionStoppedAt time.Time `json:"ExecutionStoppedAt"`
 
 	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS SubmitTaskStateChange API.
 	// TODO(samuelkarp) SentStatusUnsafe needs a lock and setters/getters.
@@ -103,7 +110,6 @@ type Task struct {
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	SentStatusUnsafe TaskStatus `json:"SentStatus"`
-	sentStatusLock   sync.RWMutex
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
@@ -115,12 +121,13 @@ type Task struct {
 	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
 	// used to look up the credentials for task in the credentials manager
-	credentialsID     string
-	credentialsIDLock sync.RWMutex
+	credentialsID string
 
 	// ENI is the elastic network interface specified by this task
-	ENI     *ENI
-	eniLock sync.RWMutex
+	ENI *ENI
+
+	// lock is for protecting all fields in the task struct
+	lock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -488,6 +495,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	return volumeMap, nil
 }
 
+// DockerHostConfig construct the configuration recognized by docker
 func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	return task.dockerHostConfig(container, dockerContainerMap)
 }
@@ -775,47 +783,47 @@ func (task *Task) SetKnownStatus(status TaskStatus) {
 }
 
 func (task *Task) setKnownStatus(status TaskStatus) {
-	task.knownStatusLock.Lock()
-	defer task.knownStatusLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.KnownStatusUnsafe = status
 }
 
 func (task *Task) updateKnownStatusTime() {
-	task.knownStatusTimeLock.Lock()
-	defer task.knownStatusTimeLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.KnownStatusTimeUnsafe = ttime.Now()
 }
 
 // GetKnownStatus gets the KnownStatus of the task
 func (task *Task) GetKnownStatus() TaskStatus {
-	task.knownStatusLock.RLock()
-	defer task.knownStatusLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.KnownStatusUnsafe
 }
 
 // GetKnownStatusTime gets the KnownStatusTime of the task
 func (task *Task) GetKnownStatusTime() time.Time {
-	task.knownStatusTimeLock.RLock()
-	defer task.knownStatusTimeLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.KnownStatusTimeUnsafe
 }
 
 // SetCredentialsID sets the credentials ID for the task
 func (task *Task) SetCredentialsID(id string) {
-	task.credentialsIDLock.Lock()
-	defer task.credentialsIDLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.credentialsID = id
 }
 
 // GetCredentialsID gets the credentials ID for the task
 func (task *Task) GetCredentialsID() string {
-	task.credentialsIDLock.RLock()
-	defer task.credentialsIDLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.credentialsID
 }
@@ -838,48 +846,48 @@ func (task *Task) GetExecutionCredentialsID() string {
 
 // GetDesiredStatus gets the desired status of the task
 func (task *Task) GetDesiredStatus() TaskStatus {
-	task.desiredStatusLock.RLock()
-	defer task.desiredStatusLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.DesiredStatusUnsafe
 }
 
 // SetDesiredStatus sets the desired status of the task
 func (task *Task) SetDesiredStatus(status TaskStatus) {
-	task.desiredStatusLock.Lock()
-	defer task.desiredStatusLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.DesiredStatusUnsafe = status
 }
 
 // GetSentStatus safely returns the SentStatus of the task
 func (task *Task) GetSentStatus() TaskStatus {
-	task.sentStatusLock.RLock()
-	defer task.sentStatusLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.SentStatusUnsafe
 }
 
 // SetSentStatus safely sets the SentStatus of the task
 func (task *Task) SetSentStatus(status TaskStatus) {
-	task.sentStatusLock.Lock()
-	defer task.sentStatusLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.SentStatusUnsafe = status
 }
 
 // SetTaskENI sets the eni information of the task
 func (task *Task) SetTaskENI(eni *ENI) {
-	task.eniLock.Lock()
-	defer task.eniLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.ENI = eni
 }
 
 // GetTaskENI returns the eni of task, for now task can only have one enis
 func (task *Task) GetTaskENI() *ENI {
-	task.eniLock.RLock()
-	defer task.eniLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.ENI
 }
@@ -900,17 +908,77 @@ func (task *Task) SetStopSequenceNumber(seqnum int64) {
 	task.StopSequenceNumber = seqnum
 }
 
+// SetPullStartedAt sets the task pullstartedat timestamp and returns whether
+// this field was updated or not
+func (task *Task) SetPullStartedAt(timestamp time.Time) bool {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	// Only set this field if it is not set
+	if task.PullStartedAt.IsZero() {
+		task.PullStartedAt = timestamp
+		return true
+	}
+	return false
+}
+
+// GetPullStartedAt returns the PullStartedAt timestamp
+func (task *Task) GetPullStartedAt() time.Time {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.PullStartedAt
+}
+
+// SetPullStoppedAt sets the task pullstoppedat timestamp
+func (task *Task) SetPullStoppedAt(timestamp time.Time) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.PullStoppedAt = timestamp
+}
+
+// GetPullStoppedAt returns the PullStoppedAt timestamp
+func (task *Task) GetPullStoppedAt() time.Time {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.PullStoppedAt
+}
+
+// SetExecutionStoppedAt sets the ExecutionStoppedAt timestamp of the task
+func (task *Task) SetExecutionStoppedAt(timestamp time.Time) bool {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	if task.ExecutionStoppedAt.IsZero() {
+		task.ExecutionStoppedAt = timestamp
+		return true
+	}
+	return false
+}
+
+// GetExecutionStoppedAt returns the task executionStoppedAt timestamp
+func (task *Task) GetExecutionStoppedAt() time.Time {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ExecutionStoppedAt
+}
+
 // String returns a human readable string representation of this object
 func (task *Task) String() string {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
 		task.Family, task.Version, task.Arn,
-		task.GetKnownStatus().String(), task.GetDesiredStatus().String())
+		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String())
 	res += " Containers: ["
 	for _, c := range task.Containers {
 		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
 	}
-	task.eniLock.Lock()
-	defer task.eniLock.Unlock()
+
 	if task.ENI != nil {
 		res += fmt.Sprintf(" ENI: [%s]", task.ENI.String())
 	}
