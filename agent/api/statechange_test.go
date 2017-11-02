@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestShouldBeReport(t *testing.T) {
+func TestShouldBeReported(t *testing.T) {
 	cases := []struct {
 		status          TaskStatus
 		containerChange []ContainerStateChange
@@ -56,7 +56,7 @@ func TestShouldBeReport(t *testing.T) {
 					Containers: tc.containerChange,
 				}
 
-				assert.Equal(t, tc.result, taskChange.ShouldBeReport())
+				assert.Equal(t, tc.result, taskChange.ShouldBeReported())
 			})
 	}
 }
