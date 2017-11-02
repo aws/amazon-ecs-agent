@@ -149,7 +149,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	steadyStateCheckWait := sync.WaitGroup{}
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	gomock.InOrder(
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
@@ -184,7 +183,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	// Wait for steady state check to be invoked
 	steadyStateCheckWait.Wait()
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
 
 	// Wait for all events to be consumed prior to moving it towards stopped; we
@@ -323,7 +321,6 @@ func TestContainerMetadataEnabledHappyPath(t *testing.T) {
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
 			steadyStateCheckWait.Done()
@@ -494,7 +491,6 @@ func TestContainerMetadataEnabledErrorPath(t *testing.T) {
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
 			steadyStateCheckWait.Done()
@@ -709,7 +705,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	steadyStateVerify := make(chan time.Time, 1)
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
 			steadyStateCheckWait.Done()
@@ -742,7 +737,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	steadyStateCheckWait.Wait()
 
 	cleanup := make(chan time.Time, 1)
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
 	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
 		ID:    containerID,
@@ -817,7 +811,6 @@ func TestRemoveEvents(t *testing.T) {
 	steadyStateCheckWait := sync.WaitGroup{}
 	steadyStateVerify := make(chan time.Time, 1)
 	cleanup := make(chan time.Time, 1)
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	gomock.InOrder(
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
@@ -919,7 +912,6 @@ func TestStartTimeoutThenStart(t *testing.T) {
 
 	eventStream := make(chan DockerContainerChangeEvent)
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	testTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any())
 
 	client.EXPECT().Version()
@@ -1039,7 +1031,6 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	testTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1087,7 +1078,6 @@ func TestSteadyStatePoll(t *testing.T) {
 	wait.Wait()
 
 	cleanupChan := make(chan time.Time)
-	testTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).Return(cleanupChan).AnyTimes()
 	client.EXPECT().RemoveContainer(dockerContainer.DockerName, removeContainerTimeout).Return(nil)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
@@ -1127,7 +1117,6 @@ func TestStopWithPendingStops(t *testing.T) {
 	ctrl, client, testTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	testTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 
 	sleepTask1 := testdata.LoadTask("sleep5")
@@ -1253,7 +1242,6 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStopTimeoutError := DockerContainerMetadata{
 		Error: &DockerTimeoutError{
@@ -1370,7 +1358,6 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	eventsReported := sync.WaitGroup{}
 	for _, container := range sleepTask.Containers {
@@ -1465,7 +1452,6 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	client.EXPECT().Version()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStoppingError := DockerContainerMetadata{
 		Error: CannotStopContainerError{errors.New("Error stopping container")},
@@ -1541,7 +1527,6 @@ func TestGetTaskByArn(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	client.EXPECT().Version()
 	eventStream := make(chan DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -1659,7 +1644,6 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 
 	steadyStateVerify := make(chan time.Time)
 	cleanup := make(chan time.Time)
-	mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).AnyTimes()
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	// Expect steady state check once
 	mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).MinTimes(1)

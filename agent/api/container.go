@@ -227,7 +227,7 @@ func (c *Container) SetSentStatus(status ContainerStatus) {
 	c.SentStatusUnsafe = status
 }
 
-// SetKnownExitCode sets exit code filed in container struct
+// SetKnownExitCode sets exit code field in container struct
 func (c *Container) SetKnownExitCode(i *int) {
 	c.lock.Lock()
 	defer c.lock.Unlock()

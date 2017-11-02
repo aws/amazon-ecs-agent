@@ -186,8 +186,8 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 		if task, ok := handler.state.TaskByArn(taskARN); ok {
 			event := api.TaskStateChange{
 				TaskARN: taskARN,
-				Task:    task,
 				Status:  task.GetKnownStatus(),
+				Task:    task,
 			}
 			event.SetTaskTimestamps()
 

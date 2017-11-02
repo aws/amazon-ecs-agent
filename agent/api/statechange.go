@@ -109,8 +109,8 @@ func (change *TaskStateChange) SetTaskTimestamps() {
 	}
 }
 
-// ShouldBeReport checks if the statechange should be reported to backend
-func (change *TaskStateChange) ShouldBeReport() bool {
+// ShouldBeReported checks if the statechange should be reported to backend
+func (change *TaskStateChange) ShouldBeReported() bool {
 	// Events that should be reported:
 	// 1. Normal task state change: RUNNING/STOPPED
 	// 2. Container state change, with task status in CREATED/RUNNING/STOPPED
@@ -141,7 +141,7 @@ func (t *TaskStateChange) String() string {
 		res += ", " + t.Attachment.String()
 	}
 	for _, containerChange := range t.Containers {
-		res += containerChange.String()
+		res += ", " + containerChange.String()
 	}
 
 	return res
