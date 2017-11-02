@@ -385,24 +385,10 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 	return earliest
 }
 
-// Overridden returns a copy of the task with all container's overridden and
-// itself overridden as well
-func (task *Task) Overridden() *Task {
-	result := *task
-	// Task has no overrides currently, just do the containers
-
-	// Shallow copy, take care of the deeper bits too
-	result.Containers = make([]*Container, len(result.Containers))
-	for i, cont := range task.Containers {
-		result.Containers[i] = cont.Overridden()
-	}
-	return &result
-}
-
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
 func (task *Task) DockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
-	return task.Overridden().dockerConfig(container.Overridden())
+	return task.dockerConfig(container)
 }
 
 func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
@@ -499,7 +485,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 }
 
 func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
-	return task.Overridden().dockerHostConfig(container.Overridden(), dockerContainerMap)
+	return task.dockerHostConfig(container, dockerContainerMap)
 }
 
 func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
@@ -720,6 +706,13 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
 		task.StopSequenceNumber = *envelope.SeqNum
+	}
+
+	// Overrides the container command if it's set
+	for _, container := range task.Containers {
+		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
+			container.Command = *container.Overrides.Command
+		}
 	}
 
 	return task, nil

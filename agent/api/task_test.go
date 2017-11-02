@@ -40,22 +40,6 @@ func dockerMap(task *Task) map[string]*DockerContainer {
 	return m
 }
 
-func TestTaskOverridden(t *testing.T) {
-	testTask := &Task{
-		Containers: []*Container{
-			{
-				Name:  "c1",
-				Ports: []PortBinding{{10, 10, "", TransportProtocolTCP}},
-			},
-		},
-	}
-
-	overridden := testTask.Overridden()
-	if overridden.Containers[0] == testTask.Containers[0] {
-		t.Error("Containers were pointer-equal, not overridden")
-	}
-}
-
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*Container{
@@ -197,7 +181,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
-		Ulimits: []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
+		Ulimits:          []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
 		MemorySwappiness: memorySwappinessDefault,
 	}
 
@@ -268,9 +252,9 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
-		Privileged:  true,
-		SecurityOpt: []string{"foo", "bar"},
-		VolumesFrom: []string{"dockername-c2"},
+		Privileged:       true,
+		SecurityOpt:      []string{"foo", "bar"},
+		VolumesFrom:      []string{"dockername-c2"},
 		MemorySwappiness: memorySwappinessDefault,
 	}
 
@@ -695,7 +679,7 @@ func TestTaskFromACS(t *testing.T) {
 			{
 				Name:        "myName",
 				Image:       "image:tag",
-				Command:     []string{"command", "command2"},
+				Command:     []string{"a", "b", "c"},
 				Links:       []string{"link1", "link2"},
 				EntryPoint:  &[]string{"sh", "-c"},
 				Essential:   true,
@@ -1044,4 +1028,45 @@ func TestTaskGetENI(t *testing.T) {
 	testTask.ENI = nil
 	eni = testTask.GetTaskENI()
 	assert.Nil(t, eni)
+}
+
+// TestTaskFromACSWithOverrides tests the container command is overridden correctly
+func TestTaskFromACSWithOverrides(t *testing.T) {
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: strptr("myName1"),
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr(emptyVolumeContainerPath1),
+						SourceVolume:  strptr(emptyVolumeName1),
+					},
+				},
+				Overrides: strptr(`{"command": ["foo", "bar"]}`),
+			},
+			{
+				Name:    strptr("myName2"),
+				Command: []*string{strptr("command")},
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr(emptyVolumeContainerPath2),
+						SourceVolume:  strptr(emptyVolumeName2),
+					},
+				},
+			},
+		},
+	}
+
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
+
+	assert.Equal(t, task.Containers[0].Command[0], "foo")
+	assert.Equal(t, task.Containers[0].Command[1], "bar")
+	assert.Equal(t, task.Containers[1].Command[0], "command")
 }
