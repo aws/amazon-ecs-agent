@@ -28,7 +28,7 @@ if(!($adapter)) {
 
 $ifIndex = (Get-NetAdapter -Name "*APIPA*" | Sort-Object | Select ifIndex).ifIndex
 
-$dockerSubnet = (docker network inspect nat | ConvertFrom-Json).IPAM.Config.Subnet
+$dockerSubnet = (docker network inspect nat | Out-String | ConvertFrom-Json).IPAM.Config.Subnet
 
 # This address will only exist on systems that have already set up the routes.
 $ip = (Get-NetRoute -InterfaceIndex $ifIndex -DestinationPrefix $dockerSubnet)
