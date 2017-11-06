@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCreate is the mainline case for metadata create
+// TestCreate is the happypath case for metadata create
 func TestCreate(t *testing.T) {
 	_, mockIOUtil, mockOS, mockFile, done := managerSetup(t)
 	defer done()
@@ -53,7 +53,7 @@ func TestCreate(t *testing.T) {
 	assert.Equal(t, 1, len(mockHostConfig.Binds), "Unexpected number of binds in host config")
 }
 
-// TestUpdate is mainline case for metadata update
+// TestUpdate is happypath case for metadata update
 func TestUpdate(t *testing.T) {
 	mockClient, mockIOUtil, mockOS, mockFile, done := managerSetup(t)
 	defer done()
@@ -64,8 +64,16 @@ func TestUpdate(t *testing.T) {
 	mockState := docker.State{
 		Running: true,
 	}
+
+	mockConfig := &docker.Config{Image: "image"}
+
+	mockNetworks := make(map[string]docker.ContainerNetwork)
+	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
+
 	mockContainer := &docker.Container{
-		State: mockState,
+		State:           mockState,
+		Config:          mockConfig,
+		NetworkSettings: mockNetworkSettings,
 	}
 
 	newManager := &metadataManager{

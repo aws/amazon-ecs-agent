@@ -61,8 +61,16 @@ func TestUpdate(t *testing.T) {
 	mockState := docker.State{
 		Running: true,
 	}
+
+	mockConfig := &docker.Config{Image: "image"}
+
+	mockNetworks := make(map[string]docker.ContainerNetwork)
+	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
+
 	mockContainer := &docker.Container{
-		State: mockState,
+		State:           mockState,
+		Config:          mockConfig,
+		NetworkSettings: mockNetworkSettings,
 	}
 
 	newManager := &metadataManager{

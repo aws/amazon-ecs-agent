@@ -71,19 +71,14 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no configuration", taskARN, containerName)
 	}
 
-	// Get Port bindings from docker configurations
-	var ports []api.PortBinding
-	var err error
-	if dockerContainer.HostConfig != nil {
-		ports, err = api.PortBindingFromDockerPortBinding(dockerContainer.HostConfig.PortBindings)
-		if err != nil {
-			seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
-		}
-	} else {
-		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no host configuration", taskARN, containerName)
+	networkMetadata, err := parseNetworkMetadata(dockerContainer.NetworkSettings, dockerContainer.HostConfig)
+	if err != nil {
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 	}
 
-	networkMetadata, err := parseNetworkMetadata(dockerContainer.NetworkSettings, dockerContainer.HostConfig)
+	// Get Port bindings from NetworkSettings
+	var ports []api.PortBinding
+	ports, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 	if err != nil {
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 	}
@@ -104,8 +99,13 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 // errors here and handle them at this stage.
 func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.HostConfig) (NetworkMetadata, error) {
 	// Network settings and Host configuration should not be missing except due to errors
-	if settings == nil || hostConfig == nil {
-		err := fmt.Errorf("parse network metadata: could not find network settings or host configuration")
+	if settings == nil {
+		err := fmt.Errorf("parse network metadata: could not find network settings")
+		return NetworkMetadata{}, err
+	}
+
+	if hostConfig == nil {
+		err := fmt.Errorf("parse network metadata: could not find host configuration")
 		return NetworkMetadata{}, err
 	}
 

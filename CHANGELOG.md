@@ -2,6 +2,7 @@
 
 ## Unreleased
 * Bug - Fixed a bug where a task can be blocked in creating state. [#1048](https://github.com/aws/amazon-ecs-agent/pull/1048)
+* Bug - Fixed dynamic HostPort in container metadata. [#1052](https://github.com/aws/amazon-ecs-agent/pull/1052)
 
 ## 1.15.0
 * Feature - Support for provisioning tasks with ENIs.
