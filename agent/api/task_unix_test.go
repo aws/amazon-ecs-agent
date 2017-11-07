@@ -116,7 +116,7 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 
 	task := &Task{
 		Arn:    validTaskArn,
-		Cpu:    float64(taskVCPULimit),
+		CPU:    float64(taskVCPULimit),
 		Memory: taskMemoryLimit,
 	}
 
@@ -143,7 +143,7 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 	task := &Task{
 		Arn: validTaskArn,
-		Cpu: float64(taskVCPULimit),
+		CPU: float64(taskVCPULimit),
 	}
 
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
@@ -214,7 +214,7 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 
 	task := &Task{
 		Arn:    validTaskArn,
-		Cpu:    float64(taskVCPULimit),
+		CPU:    float64(taskVCPULimit),
 		Memory: taskMemoryLimit,
 		Containers: []*Container{
 			{
@@ -235,7 +235,7 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	task := &Task{
 		Arn:                    validTaskArn,
-		Cpu:                    float64(taskVCPULimit),
+		CPU:                    float64(taskVCPULimit),
 		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
@@ -252,7 +252,7 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 func TestOverrideCgroupParentErrorPath(t *testing.T) {
 	task := &Task{
 		Arn:                    invalidTaskArn,
-		Cpu:                    float64(taskVCPULimit),
+		CPU:                    float64(taskVCPULimit),
 		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
@@ -267,7 +267,7 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 func TestPlatformHostConfigOverride(t *testing.T) {
 	task := &Task{
 		Arn:                    validTaskArn,
-		Cpu:                    float64(taskVCPULimit),
+		CPU:                    float64(taskVCPULimit),
 		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 	}
@@ -283,7 +283,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 	task := &Task{
 		Arn:                    invalidTaskArn,
-		Cpu:                    float64(taskVCPULimit),
+		CPU:                    float64(taskVCPULimit),
 		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
 		Containers: []*Container{

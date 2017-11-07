@@ -64,7 +64,7 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 
 	// If task level CPU limits are requested, set CPU quota + CPU period
 	// Else set CPU shares
-	if task.Cpu > 0 {
+	if task.CPU > 0 {
 		linuxCPUSpec, err := task.buildExplicitLinuxCPUSpec()
 		if err != nil {
 			return specs.LinuxResources{}, err
@@ -91,13 +91,13 @@ func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
 // buildExplicitLinuxCPUSpec builds CPU spec when task CPU limits are
 // explicitly requested
 func (task *Task) buildExplicitLinuxCPUSpec() (specs.LinuxCPU, error) {
-	if task.Cpu > maxTaskVCPULimit {
+	if task.CPU > maxTaskVCPULimit {
 		return specs.LinuxCPU{},
 			errors.Errorf("task CPU spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
-				task.Cpu, maxTaskVCPULimit)
+				task.CPU, maxTaskVCPULimit)
 	}
 	taskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
-	taskCPUQuota := int64(task.Cpu * float64(taskCPUPeriod))
+	taskCPUQuota := int64(task.CPU * float64(taskCPUPeriod))
 
 	// TODO: DefaultCPUPeriod only permits 10VCPUs.
 	// Adaptive calculation of CPUPeriod required for further support

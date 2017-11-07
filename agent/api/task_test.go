@@ -733,7 +733,7 @@ func TestTaskFromACS(t *testing.T) {
 			},
 		},
 		StartSequenceNumber: 42,
-		Cpu:                 2.0,
+		CPU:                 2.0,
 		Memory:              512,
 	}
 

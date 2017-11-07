@@ -72,9 +72,9 @@ type Task struct {
 	Containers []*Container
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
-	// Cpu is a task-level limit for compute resources. A value of 1 means that
+	// CPU is a task-level limit for compute resources. A value of 1 means that
 	// the task may access 100% of 1 vCPU on the instance
-	Cpu float64 `json:"Cpu,omitempty"`
+	CPU float64 `json:"Cpu,omitempty"`
 	// Memory is a task-level limit for memory resources in bytes
 	Memory int64 `json:"Memory,omitempty"`
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,

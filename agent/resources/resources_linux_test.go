@@ -129,7 +129,7 @@ func TestSetupCgroupInvalidResourceSpec(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
-	task.Cpu = float64(100)
+	task.CPU = float64(100)
 
 	mockControl.EXPECT().Exists(gomock.Any()).Return(false)
 
