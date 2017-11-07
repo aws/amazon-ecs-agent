@@ -25,7 +25,8 @@ import (
 // The ECS_ENABLE_TASK_ENI flag is only set for Amazon Linux AMI
 func getPlatformSpecificEnvVariables() map[string]string {
 	return map[string]string{
-		"ECS_ENABLE_TASK_ENI": "true",
+		"ECS_ENABLE_TASK_ENI":                       "true",
+		"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
 	}
 }
 
