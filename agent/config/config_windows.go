@@ -77,6 +77,7 @@ func DefaultConfig() Config {
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 		ContainerMetadataEnabled:    false,
+		TaskCPUMemLimit:             ExplicitlyDisabled,
 	}
 }
 
@@ -89,6 +90,9 @@ func (cfg *Config) platformOverrides() {
 		}
 		cfg.ReservedPorts = append(cfg.ReservedPorts, httpPort)
 	}
+
+	// ensure TaskResourceLimit is disabled
+	cfg.TaskCPUMemLimit = ExplicitlyDisabled
 }
 
 // platformString returns platform-specific config data that can be serialized

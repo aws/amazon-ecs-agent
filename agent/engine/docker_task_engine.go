@@ -43,8 +43,13 @@ const (
 	//DockerEndpointEnvVariable is the environment variable that can override the Docker endpoint
 	DockerEndpointEnvVariable = "DOCKER_HOST"
 	// DockerDefaultEndpoint is the default value for the Docker endpoint
-	DockerDefaultEndpoint = "unix:///var/run/docker.sock"
-	labelPrefix           = "com.amazonaws.ecs."
+	DockerDefaultEndpoint        = "unix:///var/run/docker.sock"
+	capabilityPrefix             = "com.amazonaws.ecs.capability."
+	capabilityTaskIAMRole        = "task-iam-role"
+	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
+	capabilityTaskCPUMemLimit    = "task-cpu-mem-limit"
+	labelPrefix                  = "com.amazonaws.ecs."
+	attributePrefix              = "ecs.capability."
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers

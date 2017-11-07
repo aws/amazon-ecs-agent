@@ -121,6 +121,7 @@
         "containerInstanceArn":{"shape":"String"},
         "clusterArn":{"shape":"String"},
         "taskArn":{"shape":"String"},
+        "generatedAt":{"shape":"Long"},
         "messageId":{"shape":"String"},
         "waitTimeoutMs":{"shape":"Long"},
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
@@ -176,12 +177,14 @@
         "hostConfig":{"shape":"String"}
       }
     },
+    "Double":{"type":"double"},
     "ECRAuthData":{
       "type":"structure",
       "members":{
         "registryId":{"shape":"String"},
         "region":{"shape":"String"},
-        "endpointOverride":{"shape":"String"}
+        "endpointOverride":{"shape":"String"},
+        "useExecutionRole":{"shape":"Boolean"}
       }
     },
     "ElasticNetworkInterface":{
@@ -247,6 +250,7 @@
       "members":{
         "taskArn":{"shape":"String"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
+        "roleType":{"shape":"RoleType"},
         "messageId":{"shape":"String"}
       }
     },
@@ -364,6 +368,13 @@
         "ecrAuthData":{"shape":"ECRAuthData"}
       }
     },
+    "RoleType":{
+      "type":"string",
+      "enum":[
+        "TaskApplication",
+        "TaskExecution"
+      ]
+    },
     "SensitiveString":{
       "type":"string",
       "sensitive":true
@@ -401,7 +412,10 @@
         "taskDefinitionAccountId":{"shape":"String"},
         "volumes":{"shape":"VolumeList"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
-        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
+        "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
+        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
+        "cpu":{"shape":"Double"},
+        "memory":{"shape":"Integer"}
       }
     },
     "TaskList":{
