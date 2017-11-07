@@ -167,19 +167,6 @@ func NewContainerWithSteadyState(steadyState ContainerStatus) *Container {
 	}
 }
 
-// Overriden applies the overridden command and returns the resulting
-// container object
-func (c *Container) Overridden() *Container {
-	result := *c
-
-	// We only support Command overrides at the moment
-	if result.Overrides.Command != nil {
-		result.Command = *c.Overrides.Command
-	}
-
-	return &result
-}
-
 // KnownTerminal returns true if the container's known status is STOPPED
 func (c *Container) KnownTerminal() bool {
 	return c.GetKnownStatus().Terminal()

@@ -15,36 +15,12 @@ package api
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestOverridden(t *testing.T) {
-	container := &Container{
-		Name:                "name",
-		Image:               "image",
-		Command:             []string{"foo", "bar"},
-		CPU:                 1,
-		Memory:              1,
-		Links:               []string{},
-		Ports:               []PortBinding{{10, 10, "", TransportProtocolTCP}},
-		Overrides:           ContainerOverrides{},
-		DesiredStatusUnsafe: ContainerRunning,
-		AppliedStatus:       ContainerRunning,
-		KnownStatusUnsafe:   ContainerRunning,
-	}
-
-	overridden := container.Overridden()
-	// No overrides, should be identity
-	assert.True(t, reflect.DeepEqual(container, overridden))
-	assert.Equal(t, container, overridden)
-	overridden.Name = "mutated"
-	assert.Equal(t, container.Name, "name", "Should make a copy")
-}
 
 type configPair struct {
 	Container *Container
