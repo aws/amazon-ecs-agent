@@ -52,7 +52,9 @@ const (
 	// 7)
 	//   a) Add 'MetadataUpdated' field to 'api.Container'
 	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in `api.ENI`
-	ECSDataVersion = 7
+	// 8)
+	//   a) Added task cgroup related fields to 'api.Task'
+	ECSDataVersion = 8
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
