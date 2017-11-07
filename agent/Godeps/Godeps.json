@@ -170,11 +170,6 @@
 			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
 		},
 		{
-			"ImportPath": "github.com/aws/aws-sdk-go/service/ecs",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
-		},
-		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/iam",
 			"Comment": "v1.8.19",
 			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"

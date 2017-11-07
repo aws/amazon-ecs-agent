@@ -48,7 +48,6 @@ import (
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	ecs_service "github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/cihub/seelog"
 )
 
@@ -428,7 +427,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
 			return err
 		}
-		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecs_service.ErrCodeInvalidParameterException {
+		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecs.ErrCodeInvalidParameterException {
 			seelog.Critical("Instance registration attempt with an invalid parameter")
 			return err
 		}
