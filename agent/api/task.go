@@ -830,16 +830,16 @@ func (task *Task) GetCredentialsID() string {
 
 // SetExecutionRoleCredentialsID sets the ID for the task execution role credentials
 func (task *Task) SetExecutionRoleCredentialsID(id string) {
-	task.credentialsIDLock.Lock()
-	defer task.credentialsIDLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.ExecutionCredentialsID = id
 }
 
 // GetExecutionCredentialsID gets the credentials ID for the task
 func (task *Task) GetExecutionCredentialsID() string {
-	task.credentialsIDLock.RLock()
-	defer task.credentialsIDLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.ExecutionCredentialsID
 }
@@ -894,16 +894,16 @@ func (task *Task) GetTaskENI() *ENI {
 
 // GetStopSequenceNumber returns the stop sequence number of a task
 func (task *Task) GetStopSequenceNumber() int64 {
-	task.desiredStatusLock.RLock()
-	defer task.desiredStatusLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
 	return task.StopSequenceNumber
 }
 
 // SetStopSequenceNumber sets the stop seqence number of a task
 func (task *Task) SetStopSequenceNumber(seqnum int64) {
-	task.desiredStatusLock.Lock()
-	defer task.desiredStatusLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 
 	task.StopSequenceNumber = seqnum
 }

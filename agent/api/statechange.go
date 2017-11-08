@@ -115,7 +115,7 @@ func (change *TaskStateChange) ShouldBeReported() bool {
 	// 1. Normal task state change: RUNNING/STOPPED
 	// 2. Container state change, with task status in CREATED/RUNNING/STOPPED
 	// The task timestamp will be sent in both of the event type
-
+	// TODO Move the Attachment statechange check into this method
 	if change.Status == TaskRunning || change.Status == TaskStopped {
 		return true
 	}

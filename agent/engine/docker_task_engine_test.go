@@ -1523,7 +1523,7 @@ func TestGetTaskByArn(t *testing.T) {
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
 
-	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -1978,7 +1978,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 // TestTaskUseExecutionRolePullECRImage tests the agent will use the execution role
 // credentials to pull from an ECR repository
 func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
-	ctrl, client, _, taskEngine, credentialsManager, imageManager, _ := mocks(t, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
 
 	credentialsID := "execution role"
@@ -2003,6 +2003,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	}
 	container := testTask.Containers[0]
 
+	mockTime.EXPECT().Now().AnyTimes()
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(credentials.TaskIAMRoleCredentials{
 		ARN:                "",
 		IAMRoleCredentials: executionRoleCredentials,
@@ -2022,8 +2023,10 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 // TestNewTasktionRoleOnRestart tests the agent will process the task recorded in
 // the state file on restart
 func TestNewTaskTransitionOnRestart(t *testing.T) {
-	ctrl, _, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
+	ctrl, _, mockTime, taskEngine, _, _, _ := mocks(t, &defaultConfig)
 	defer ctrl.Finish()
+
+	mockTime.EXPECT().Now().AnyTimes()
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	state := dockerTaskEngine.State()
