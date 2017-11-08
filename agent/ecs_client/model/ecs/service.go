@@ -29,13 +29,8 @@ import (
 // from a centralized service, and gives you access to many familiar Amazon
 // EC2 features like security groups, Amazon EBS volumes, and IAM roles.
 //
-// You can use Amazon ECS to schedule the placement of containers across your
-// cluster based on your resource needs, isolation policies, and availability
-// requirements. Amazon EC2 Container Service eliminates the need for you to
-// operate your own cluster management and configuration management systems
-// or worry about scaling your management infrastructure.
-// The service client's operations are safe to be used concurrently.
-// It is not safe to mutate any of the client's properties though.
+// ECS methods are safe to use concurrently. It is not safe to
+// modify mutate any of the struct's properties though.
 type ECS struct {
 	*client.Client
 }
@@ -69,6 +64,9 @@ func New(p client.ConfigProvider, cfgs ...*aws.Config) *ECS {
 
 // newClient creates, initializes and returns a new service client instance.
 func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegion, signingName string) *ECS {
+	if len(signingName) == 0 {
+		signingName = "ecs"
+	}
 	svc := &ECS{
 		Client: client.New(
 			cfg,

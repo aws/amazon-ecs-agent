@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
@@ -44,6 +45,9 @@ const (
 	// variable containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+
+	arnResourceSections  = 2
+	arnResourceDelimiter = "/"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
 	// networkModeContainerPrefix specifies the prefix string used for setting the
@@ -68,7 +72,11 @@ type Task struct {
 	Containers []*Container
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
-
+	// CPU is a task-level limit for compute resources. A value of 1 means that
+	// the task may access 100% of 1 vCPU on the instance
+	CPU float64 `json:"Cpu,omitempty"`
+	// Memory is a task-level limit for memory resources in bytes
+	Memory int64 `json:"Memory,omitempty"`
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler.
@@ -121,6 +129,10 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI     *ENI
 	eniLock sync.RWMutex
+
+	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
+	memoryCPULimitsEnabledLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -129,7 +141,7 @@ type Task struct {
 func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.adjustForPlatform()
+	task.adjustForPlatform(cfg)
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
@@ -510,6 +522,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		return nil, &HostConfigError{err.Error()}
 	}
 
+	// Populate hostConfig
 	hostConfig := &docker.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
@@ -524,7 +537,10 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		}
 	}
 
-	task.platformHostConfigOverride(hostConfig)
+	err = task.platformHostConfigOverride(hostConfig)
+	if err != nil {
+		return nil, &HostConfigError{err.Error()}
+	}
 
 	// Determine if network mode should be overridden and override it if needed
 	ok, networkMode := task.shouldOverrideNetworkMode(container, dockerContainerMap)
@@ -705,7 +721,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
-
 	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
@@ -915,4 +930,28 @@ func (task *Task) String() string {
 		res += fmt.Sprintf(" ENI: [%s]", task.ENI.String())
 	}
 	return res + "]"
+}
+
+// GetID is used to retrieve the taskID from taskARN
+// Reference: http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arn-syntax-ecs
+func (task *Task) GetID() (string, error) {
+	// Parse taskARN
+	parsedARN, err := arn.Parse(task.Arn)
+	if err != nil {
+		return "", errors.Wrapf(err, "task get-id: malformed taskARN: %s", task.Arn)
+	}
+
+	// Get task resource section
+	resource := parsedARN.Resource
+
+	if !strings.Contains(resource, arnResourceDelimiter) {
+		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+	}
+
+	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
+	if len(resourceSplit) != arnResourceSections {
+		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+	}
+
+	return resourceSplit[1], nil
 }

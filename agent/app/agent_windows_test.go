@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -63,7 +62,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		state.EXPECT().AllTasks().Return(nil),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
