@@ -341,3 +341,37 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 		}
 	}
 }
+
+func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := engine.NewMockDockerClient(ctrl)
+	conf := &config.Config{
+		OverrideAWSLogsExecutionRole: true,
+	}
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_17,
+	})
+
+	client.EXPECT().KnownVersions().Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          conf,
+		dockerClient: client,
+	}
+
+	capabilities := agent.capabilities()
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.StringValue(capability.Name)] = true
+	}
+
+	_, ok := capMap["ecs.capability.execution-role-awslogs"]
+	assert.True(t, ok, "Could not find AWSLogs execution role capability when expected; got capabilities %v", capabilities)
+}

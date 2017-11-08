@@ -54,6 +54,7 @@ const (
 //    ecs.capability.task-eni
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
+//    ecs.capability.execution-role-awslogs
 func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	var capabilities []*ecs.Attribute
 
@@ -93,11 +94,6 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
-
-		// TODO: DO NOT RELEASE to github dev branch
-		// we need to determine exact docker version that will support
-		// the awslogs creds endpoint option
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
 	if agent.cfg.TaskIAMRoleEnabled {
@@ -140,6 +136,9 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
+	}
+	if agent.cfg.OverrideAWSLogsExecutionRole {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
 	return capabilities

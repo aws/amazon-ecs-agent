@@ -188,6 +188,8 @@ type Config struct {
 	// ContainerMetadataEnabled specifies if the agent should provide a metadata
 	// file for containers.
 	ContainerMetadataEnabled bool
+
+	OverrideAWSLogsExecutionRole bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

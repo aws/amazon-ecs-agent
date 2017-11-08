@@ -314,6 +314,7 @@ func environmentConfig() (Config, error) {
 	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
 	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
+	overrideAWSLogsExecutionRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false)
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
@@ -397,6 +398,7 @@ func environmentConfig() (Config, error) {
 		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
 		ContainerMetadataEnabled:         containerMetadataEnabled,
 		DataDirOnHost:                    dataDirOnHost,
+		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
 	}, err
 }
 
