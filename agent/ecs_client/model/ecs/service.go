@@ -22,12 +22,9 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
 )
 
-// Amazon EC2 Container Service (Amazon ECS) is a highly scalable, fast, container
-// management service that makes it easy to run, stop, and manage Docker containers
-// on a cluster of EC2 instances. Amazon ECS lets you launch and stop container-enabled
-// applications with simple API calls, allows you to get the state of your cluster
-// from a centralized service, and gives you access to many familiar Amazon
-// EC2 features like security groups, Amazon EBS volumes, and IAM roles.
+// ECS provides the API operation methods for making requests to
+// Amazon EC2 Container Service. See this package's package overview docs
+// for details on the service.
 //
 // ECS methods are safe to use concurrently. It is not safe to
 // modify mutate any of the struct's properties though.
@@ -64,9 +61,6 @@ func New(p client.ConfigProvider, cfgs ...*aws.Config) *ECS {
 
 // newClient creates, initializes and returns a new service client instance.
 func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegion, signingName string) *ECS {
-	if len(signingName) == 0 {
-		signingName = "ecs"
-	}
 	svc := &ECS{
 		Client: client.New(
 			cfg,
