@@ -686,8 +686,11 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
 	}
 
-	if container.AWSLogAuthExecutionRole() && task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager) != nil {
-		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+	if container.AWSLogAuthExecutionRole() {
+		hcerr = task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
+		if hcerr != nil {
+			return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+		}
 	}
 
 	config, err := task.DockerConfig(container)
