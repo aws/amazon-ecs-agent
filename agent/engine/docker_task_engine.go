@@ -590,7 +590,7 @@ func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Co
 	}(pullStart)
 	ok := task.SetPullStartedAt(pullStart)
 	if ok {
-		seelog.Infof("Task started pull, task %s, time: %s", task.String(), pullStart)
+		seelog.Infof("Recording timestamp for starting image pull, task %s, time: %s", task.String(), pullStart)
 	}
 
 	return engine.pullAndUpdateContainerReference(task, container)
@@ -609,7 +609,7 @@ func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Contai
 	}(pullStart)
 	ok := task.SetPullStartedAt(pullStart)
 	if ok {
-		seelog.Infof("Task started pull, task %s, time: %s", task.String(), pullStart)
+		seelog.Infof("Recording timestamp for starting image pull, task %s, time: %s", task.String(), pullStart)
 	}
 
 	return engine.pullAndUpdateContainerReference(task, container)

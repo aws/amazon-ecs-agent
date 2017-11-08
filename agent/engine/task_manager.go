@@ -317,7 +317,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		now := mtask.time().Now()
 		ok := mtask.Task.SetExecutionStoppedAt(now)
 		if ok {
-			seelog.Infof("Essential container in task stopped, task %s, time: %s", mtask.Task.String(), now)
+			seelog.Infof("Recording execution stopped time for a task, essential container in task stopped, task %s, time: %s", mtask.Task.String(), now.String())
 		}
 	}
 
