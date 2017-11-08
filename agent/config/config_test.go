@@ -306,7 +306,6 @@ func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
 }
 
 func TestTaskResourceLimitsOverride(t *testing.T) {
-	t.Skip()
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_CPU_MEM_LIMIT", "false")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
