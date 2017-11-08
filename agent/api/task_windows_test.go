@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
@@ -98,7 +99,8 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
-	task.PostUnmarshalTask(nil, nil)
+	cfg := config.Config{TaskCPUMemLimit: config.ExplicitlyDisabled}
+	task.PostUnmarshalTask(&cfg, nil)
 
 	assert.Equal(t, expectedTask.Containers, task.Containers, "Containers should be equal")
 	assert.Equal(t, expectedTask.Volumes, task.Volumes, "Volumes should be equal")
