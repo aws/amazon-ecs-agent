@@ -48,6 +48,11 @@ usage() {
 stage_s3() {
 	tarball="$(mktemp)"
 	tarball_md5="$(mktemp)"
+	tarball_manifest="$(mktemp)"
+
+	trap "rm -r \"${tarball}\" \"${tarball_md5}\" \"${tarball_manifest}\"" RETURN EXIT
+
+	generate_manifest ${IMAGE_TAG_VERSION} > "${tarball_manifest}"
 
 	docker save "amazon/amazon-ecs-agent:latest" > "${tarball}"
 	md5sum "${tarball}" | sed 's/ .*//' > "${tarball_md5}"
@@ -57,10 +62,12 @@ stage_s3() {
 		echo "Publishing as ecs-agent-${tag}"
 		dryval s3_cp "${tarball}" "s3://${S3_BUCKET}/ecs-agent-${tag}.tar"
 		dryval s3_cp "${tarball_md5}" "s3://${S3_BUCKET}/ecs-agent-${tag}.tar.md5"
+		dryval s3_cp "${tarball_manifest}" "s3://${S3_BUCKET}/ecs-agent-${tag}.tar.json"
 	done
 
 	rm "${tarball}"
 	rm "${tarball_md5}"
+	rm "${tarball_manifest}"
 }
 
 stage_windows_s3() {
@@ -68,7 +75,12 @@ stage_windows_s3() {
 	local ziptgtdir="$(mktemp -d)"
 	local zipfile="${ziptgtdir}/amazon-ecs-agent"
 	local zip_md5="$(mktemp)"
-	trap "rm -r \"${ziproot}\" \"${ziptgtdir}\" \"${zip_md5}\"" RETURN EXIT
+	local zip_manifest="$(mktemp)"
+
+	trap "rm -r \"${ziproot}\" \"${ziptgtdir}\" \"${zip_md5}\" \"${zip_manifest}\"" RETURN EXIT
+
+	generate_manifest ${IMAGE_TAG_VERSION} > "${zip_manifest}"
+
 	install_devcon "${ziproot}"
 	cp LICENSE "${ziproot}"
 	cp out/amazon-ecs-agent.exe "${ziproot}"
@@ -76,11 +88,19 @@ stage_windows_s3() {
 	pushd "${ziproot}"
 	zip "${zipfile}" *
 	md5sum "${zipfile}.zip" | sed 's/ .*//' > "${zip_md5}"
+	echo "Saved with md5sum $(cat ${zip_md5})"
+
 	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
 		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip"
 		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.md5"
+		dryval s3_cp "${zip_manifest}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.json"
 	done
 	popd
+
+	rm "${ziproot}"
+	rm "${ziptgtdir}"
+	rm "${zip_md5}"
+	rm "${zip_manifest}"
 }
 
 install_devcon() {
@@ -97,6 +117,12 @@ install_devcon() {
 	pushd "${ziproot}"
 	unzip "${zipfile}"
 	popd
+}
+
+generate_manifest() {
+	local version=$1
+
+	echo "{\"agentVersion\":\"${version}\"}"
 }
 
 while getopts ":d:p:b:i:a:o:sh" opt; do
