@@ -675,7 +675,6 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 	assert.NoError(t, err, "Unable to submit task state change with attachments")
 }
 
-//
 func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -695,4 +694,43 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 		Status:  api.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
+}
+
+// TestSubmitContainerStateChangeWhileTaskInPending tests the container state change was submitted
+// when the task is still in pending state
+func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster: strptr(configuredCluster),
+			Task:    strptr("arn"),
+			Status:  strptr("PENDING"),
+			Reason:  strptr(""),
+			Containers: []*ecs.ContainerStateChange{
+				{
+					ContainerName:   strptr("container"),
+					Status:          strptr("RUNNING"),
+					NetworkBindings: []*ecs.NetworkBinding{},
+				},
+			},
+		},
+	})
+
+	taskStateChangePending := api.TaskStateChange{
+		Status:  api.TaskCreated,
+		TaskARN: "arn",
+		Containers: []api.ContainerStateChange{
+			{
+				TaskArn:       "arn",
+				ContainerName: "container",
+				Status:        api.ContainerRunning,
+			},
+		},
+	}
+
+	err := client.SubmitTaskStateChange(taskStateChangePending)
+	assert.NoError(t, err)
 }
