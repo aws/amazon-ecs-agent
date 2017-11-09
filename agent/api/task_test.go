@@ -1098,3 +1098,139 @@ func TestSetExecutionStoppedAt(t *testing.T) {
 	testTask.SetExecutionStoppedAt(t2)
 	assert.Equal(t, t1, testTask.GetExecutionStoppedAt(), "second set of executionStoppedAt should have no impact")
 }
+
+func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIDInTask := "credsid"
+	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
+
+	rawHostConfigInput := docker.HostConfig{
+		LogConfig: docker.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+		ExecutionCredentialsID: credentialsIDInTask,
+	}
+
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	assert.Nil(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	assert.Nil(t, err)
+
+	endpoint, ok := config.LogConfig.Config["awslogs-credentials-endpoint"]
+	assert.True(t, ok)
+	assert.Equal(t, expectedEndpoint, endpoint)
+}
+
+func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	rawHostConfigInput := docker.HostConfig{
+		LogConfig: docker.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+	}
+
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	assert.Nil(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	assert.Error(t, err)
+}
+
+func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIDInTask := "credsid"
+
+	rawHostConfigInput := docker.HostConfig{
+		LogConfig: docker.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+		ExecutionCredentialsID: credentialsIDInTask,
+	}
+
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(credentials.TaskIAMRoleCredentials{}, false)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	assert.Error(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	assert.Error(t, err)
+}
