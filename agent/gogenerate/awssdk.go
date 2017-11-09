@@ -166,5 +166,17 @@ func genFull(file string) error {
 	if err != nil {
 		return err
 	}
+
+	processedErrorCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.APIErrorsGoCode())), nil)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	outFile = filepath.Join(api.PackageName(), "errors.go")
+	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedErrorCode)), 0644)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

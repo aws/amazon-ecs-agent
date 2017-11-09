@@ -11,26 +11,15 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package app
+package ecr
 
-// transientError represents a transient error when executing the ECS Agent
-type transientError struct {
-	error
-}
+const (
 
-// isTransient returns true if the error is transient
-func isTransient(err error) bool {
-	_, ok := err.(transientError)
-	return ok
-}
+	// ErrCodeInvalidParameterException for service response error code
+	// "InvalidParameterException".
+	ErrCodeInvalidParameterException = "InvalidParameterException"
 
-// clusterMismatchError represents a mismatch in cluster name between the
-// state file and the config object
-type clusterMismatchError struct {
-	error
-}
-
-func isClusterMismatch(err error) bool {
-	_, ok := err.(clusterMismatchError)
-	return ok
-}
+	// ErrCodeServerException for service response error code
+	// "ServerException".
+	ErrCodeServerException = "ServerException"
+)
