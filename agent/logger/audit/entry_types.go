@@ -42,7 +42,7 @@ const (
 	// 10. container instance arn
 
 	// Version '2', following fields were modified
-	// 1. event type ('GetCredentials, GetCredentialsExecutionRole')
+	// 7. event type ('GetCredentials, GetCredentialsExecutionRole')
 
 	getCredentialsAuditLogVersion = 2
 )

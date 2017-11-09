@@ -142,7 +142,13 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 			seelog.Errorf("Unable to update credentials for task, err: %v messageId: %s", err, messageId)
 			return fmt.Errorf("unable to update credentials %v", err)
 		}
-		task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+
+		if roleType == credentials.ApplicationRoleType {
+			task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+		}
+		if roleType == credentials.ExecutionRoleType {
+			task.SetExecutionRoleCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+		}
 	}
 
 	go func() {

@@ -39,9 +39,13 @@ const (
 	v1CredentialsEndpointRelativeURIFormat = "%s?" + CredentialsIDQueryParameterName + "=%s"
 	v2CredentialsEndpointRelativeURIFormat = "%s/%s"
 
-	// The role types specified in the credentials payload msg from the backend
+	// ApplicationRoleType specifies the credentials that are to be used by the
+	// task itself
 	ApplicationRoleType = "TaskApplication"
-	ExecutionRoleType   = "TaskExecution"
+
+	// ExecutionRoleType specifies the credentials used for non task application
+	// uses
+	ExecutionRoleType = "TaskExecution"
 )
 
 // IAMRoleCredentials is used to save credentials sent by ACS
@@ -55,8 +59,8 @@ type IAMRoleCredentials struct {
 	// while marshalling/unmarshalling this field in the agent. The agent just echo's
 	// whatever is sent by the backend.
 	Expiration string `json:"Expiration"`
-	//RoleType distinguishes between TaskRole and ExecutionRole for the
-	//credentials that are sent from the backend
+	// RoleType distinguishes between TaskRole and ExecutionRole for the
+	// credentials that are sent from the backend
 	RoleType string `json:"-"`
 }
 
