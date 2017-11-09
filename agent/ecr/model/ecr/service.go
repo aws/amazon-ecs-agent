@@ -22,8 +22,12 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
 )
 
-// The service client's operations are safe to be used concurrently.
-// It is not safe to mutate any of the client's properties though.
+// ECR provides the API operation methods for making requests to
+// Amazon EC2 Container Registry. See this package's package overview docs
+// for details on the service.
+//
+// ECR methods are safe to use concurrently. It is not safe to
+// modify mutate any of the struct's properties though.
 type ECR struct {
 	*client.Client
 }

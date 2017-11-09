@@ -55,6 +55,7 @@ const (
 	// 8)
 	//   a) Add 'UseExecutionRole' in `api.ECRAuthData`
 	//   b) Add `executionCredentialsID` in `api.Task`
+	//   c) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
 	ECSDataVersion = 8
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR

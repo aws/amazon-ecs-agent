@@ -648,6 +648,8 @@ type Task struct {
 
 	Containers []*Container `locationName:"containers" type:"list"`
 
+	Cpu *float64 `locationName:"cpu" type:"double"`
+
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
@@ -655,6 +657,8 @@ type Task struct {
 	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
 
 	Family *string `locationName:"family" type:"string"`
+
+	Memory *int64 `locationName:"memory" type:"integer"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
 
