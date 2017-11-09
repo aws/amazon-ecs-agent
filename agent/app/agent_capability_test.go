@@ -106,7 +106,8 @@ func TestCapabilities(t *testing.T) {
 		cniClient:          cniClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
 
 	for i, expected := range expectedCapabilities {
 		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
@@ -133,7 +134,8 @@ func TestCapabilitiesECR(t *testing.T) {
 		cfg:          conf,
 		dockerClient: client,
 	}
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
@@ -169,7 +171,9 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 		cfg:          conf,
 		dockerClient: client,
 	}
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
 		capMap[aws.StringValue(capability.Name)] = true
@@ -202,7 +206,9 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 		dockerClient: client,
 	}
 
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
 		capMap[aws.StringValue(capability.Name)] = true
@@ -235,7 +241,9 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 		dockerClient: client,
 	}
 
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
 		capMap[aws.StringValue(capability.Name)] = true
@@ -268,7 +276,9 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 		dockerClient: client,
 	}
 
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
 		capMap[aws.StringValue(capability.Name)] = true
@@ -328,7 +338,8 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 		cniClient:          cniClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 	}
-	capabilities := agent.capabilities()
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
 
 	for i, expected := range expectedCapabilities {
 		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
@@ -340,4 +351,99 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 			t.Errorf("%s capability found when Task ENI is disabled in the config", taskENIBlockInstanceMetadataAttributeSuffix)
 		}
 	}
+}
+
+func TestCapabilitiesTaskResourceLimit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+
+	client := engine.NewMockDockerClient(ctrl)
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          conf,
+		dockerClient: client,
+	}
+
+	expectedCapability := attributePrefix + capabilityTaskCPUMemLimit
+
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.StringValue(capability.Name)] = true
+	}
+
+	_, ok := capMap[expectedCapability]
+	assert.True(t, ok, "Should contain: "+expectedCapability)
+	assert.True(t, agent.cfg.TaskCPUMemLimit.Enabled(), "TaskCPUMemLimit should remain true")
+}
+
+func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	conf := &config.Config{TaskCPUMemLimit: config.DefaultEnabled}
+
+	client := engine.NewMockDockerClient(ctrl)
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          conf,
+		dockerClient: client,
+	}
+
+	unexpectedCapability := attributePrefix + capabilityTaskCPUMemLimit
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.StringValue(capability.Name)] = true
+	}
+
+	_, ok := capMap[unexpectedCapability]
+
+	assert.False(t, ok, "Docker 1.22 is required for task resource limits. Should be disabled")
+	assert.False(t, conf.TaskCPUMemLimit.Enabled(), "TaskCPUMemLimit should be made false when we can't find the right docker.")
+}
+
+func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+
+	client := engine.NewMockDockerClient(ctrl)
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          conf,
+		dockerClient: client,
+	}
+
+	capabilities, err := agent.capabilities()
+	assert.Nil(t, capabilities)
+	assert.Error(t, err, "An error should be thrown when TaskCPUMemLimit is explicitly enabled")
 }

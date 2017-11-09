@@ -29,30 +29,11 @@ import (
 )
 
 func TestConfigDefault(t *testing.T) {
-	os.Setenv("AWS_DEFAULT_REGION", "foo-bar-1")
-	defer os.Unsetenv("AWS_DEFAULT_REGION")
-	os.Unsetenv("ECS_DISABLE_METRICS")
-	os.Unsetenv("ECS_RESERVED_PORTS")
-	os.Unsetenv("ECS_RESERVED_MEMORY")
-	os.Unsetenv("ECS_DISABLE_PRIVILEGED")
-	os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
-	os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE")
-	os.Unsetenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST")
-	os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	os.Unsetenv("ECS_AUDIT_LOGFILE")
-	os.Unsetenv("ECS_AUDIT_LOGFILE_DISABLED")
-	os.Unsetenv("ECS_DISABLE_IMAGE_CLEANUP")
-	os.Unsetenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
-	os.Unsetenv("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
-	os.Unsetenv("ECS_IMAGE_CLEANUP_INTERVAL")
-	os.Unsetenv("ECS_ENABLE_TASK_ENI")
-	os.Unsetenv("ECS_CNI_PLUGINS_PATH")
-	os.Unsetenv("ECS_AWSVPC_BLOCK_IMDS")
+	defer setTestRegion()()
 	os.Unsetenv("ECS_HOST_DATA_DIR")
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, "/data/", cfg.DataDir, "Default datadir set incorrectly")
@@ -67,6 +48,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
+	assert.Equal(t, DefaultEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be DefaultEnabled")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, defaultCredentialsAuditLogFile, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
@@ -97,6 +79,7 @@ func TestConfigFromFile(t *testing.T) {
   "EngineAuthData": %s,
   "DataDir": "/var/run/ecs_agent",
   "TaskIAMRoleEnabled": true,
+  "TaskCPUMemLimit": true,
   "InstanceAttributes": {
     "attribute1": "value1"
   },
@@ -108,8 +91,8 @@ func TestConfigFromFile(t *testing.T) {
 	filePath := setupFileConfiguration(t, content)
 	defer os.Remove(filePath)
 
-	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", filePath)
-	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
+	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", filePath)()
+	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
 	cfg, err := fileConfig()
 	assert.NoError(t, err, "reading configuration from file failed")
@@ -125,6 +108,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedLocalRoute.IP, cfg.AWSVPCAdditionalLocalRoutes[0].IP, "should match expected route IP")
 	assert.Equal(t, expectedLocalRoute.Mask, cfg.AWSVPCAdditionalLocalRoutes[0].Mask, "should match expected route Mask")
+	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be explicitly enabled")
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge
@@ -152,10 +136,9 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	filePath := setupFileConfiguration(t, content)
 	defer os.Remove(filePath)
 
-	os.Setenv("ECS_CLUSTER", cluster)
-	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", filePath)
-	defer os.Unsetenv("ECS_CLUSTER")
-	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
+	defer setTestEnv("ECS_CLUSTER", cluster)()
+	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", filePath)()
+	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err, "create configuration failed")
