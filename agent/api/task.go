@@ -504,6 +504,8 @@ func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[
 	return task.dockerHostConfig(container, dockerContainerMap)
 }
 
+// ApplyExecutionRoleLogsAuth will check whether the task has excecution role
+// credentials, and add the genereated credentials endpoint to the associated HostConfig
 func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *HostConfigError {
 	id := task.GetExecutionCredentialsID()
 	if id == "" {

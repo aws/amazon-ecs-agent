@@ -125,7 +125,7 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 	task, ok := refreshHandler.taskEngine.GetTaskByArn(taskArn)
 	if !ok {
 		seelog.Errorf("Task not found in the engine for the arn in credentials message, arn: %s, messageId: %s", taskArn, messageId)
-		return fmt.Errorf("Task not found in the engine for the arn in credentials message, arn: %s", taskArn)
+		return fmt.Errorf("task not found in the engine for the arn in credentials message, arn: %s", taskArn)
 	}
 
 	roleType := aws.StringValue(message.RoleType)
@@ -139,8 +139,8 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		}
 		err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
 		if err != nil {
-			seelog.Errorf("Error updating credentials, err: %v messageId: %s", err, messageId)
-			return fmt.Errorf("Error updating credentials %v", err)
+			seelog.Errorf("Unable to update credentials for task, err: %v messageId: %s", err, messageId)
+			return fmt.Errorf("unable to update credentials %v", err)
 		}
 		task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
 	}
@@ -161,24 +161,24 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 // messageId, taskArn, roleCredentials
 func validateIAMRoleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage) error {
 	if message == nil {
-		return fmt.Errorf("Empty credentials message")
+		return fmt.Errorf("empty credentials message")
 	}
 
 	messageId := aws.StringValue(message.MessageId)
 	if messageId == "" {
-		return fmt.Errorf("Message id not set in credentials message")
+		return fmt.Errorf("message id not set in credentials message")
 	}
 
 	if aws.StringValue(message.TaskArn) == "" {
-		return fmt.Errorf("Task Arn not set in credentials message")
+		return fmt.Errorf("task Arn not set in credentials message")
 	}
 
 	if message.RoleCredentials == nil {
-		return fmt.Errorf("Role Credentials not set in credentials message: messageId: %s", messageId)
+		return fmt.Errorf("role Credentials not set in credentials message: messageId: %s", messageId)
 	}
 
 	if aws.StringValue(message.RoleCredentials.CredentialsId) == "" {
-		return fmt.Errorf("Role Credentials ID not set in credentials message: messageId: %s", messageId)
+		return fmt.Errorf("role Credentials ID not set in credentials message: messageId: %s", messageId)
 	}
 
 	return nil

@@ -39,6 +39,7 @@ const (
 	v1CredentialsEndpointRelativeURIFormat = "%s?" + CredentialsIDQueryParameterName + "=%s"
 	v2CredentialsEndpointRelativeURIFormat = "%s/%s"
 
+	// The role types specified in the credentials payload msg from the backend
 	ApplicationRoleType = "TaskApplication"
 	ExecutionRoleType   = "TaskExecution"
 )
@@ -54,7 +55,9 @@ type IAMRoleCredentials struct {
 	// while marshalling/unmarshalling this field in the agent. The agent just echo's
 	// whatever is sent by the backend.
 	Expiration string `json:"Expiration"`
-	RoleType   string `json:"-"`
+	//RoleType distinguishes between TaskRole and ExecutionRole for the
+	//credentials that are sent from the backend
+	RoleType string `json:"-"`
 }
 
 // TaskIAMRoleCredentials wraps the task arn and the credentials object for the same

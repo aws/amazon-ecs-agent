@@ -137,6 +137,8 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 			})
 		}
 	}
+	// TODO: gate this on docker api version when ecs supported docker includes
+	// credentials endpoint feature from upstream docker
 	if agent.cfg.OverrideAWSLogsExecutionRole {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}

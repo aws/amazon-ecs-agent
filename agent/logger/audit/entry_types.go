@@ -29,17 +29,21 @@ const (
 	getCredentialsInvalidRoleTypeEventType = "GetCredentialsInvalidRoleType"
 
 	// getCredentialsAuditLogVersion is the version of the audit log
-	// For version '1', the fields are:
+	// Version '1', the fields are:
 	// 1. event time
 	// 2. response code
 	// 3. source ip address
 	// 4. url
 	// 5. user agent
 	// 6. arn for the entity associated with credentials
-	// 7. event type ('GetCredentials, GetCredentialsExecutionRole')
+	// 7. event type ('GetCredentials')
 	// 8. version
 	// 9. cluster
 	// 10. container instance arn
+
+	// Version '2', following fields were modified
+	// 1. event type ('GetCredentials, GetCredentialsExecutionRole')
+
 	getCredentialsAuditLogVersion = 2
 )
 

@@ -189,6 +189,8 @@ type Config struct {
 	// file for containers.
 	ContainerMetadataEnabled bool
 
+	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
+	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
 }
 

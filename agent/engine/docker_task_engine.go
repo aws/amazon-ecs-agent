@@ -46,7 +46,6 @@ const (
 	// DockerDefaultEndpoint is the default value for the Docker endpoint
 	DockerDefaultEndpoint = "unix:///var/run/docker.sock"
 	labelPrefix           = "com.amazonaws.ecs."
-	logAuthExecutionRole  = "ExecutionRole"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers

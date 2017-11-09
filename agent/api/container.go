@@ -30,6 +30,9 @@ const (
 	// to 'ContainerRunning' unless overridden
 	defaultContainerSteadyStateStatus = ContainerRunning
 
+	// awslogsAuthExecutionRole is the string value passed in the task payload
+	// that specifies that the log driver should be authenticated using the
+	// execution role
 	awslogsAuthExecutionRole = "ExecutionRole"
 )
 
