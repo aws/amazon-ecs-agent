@@ -26,163 +26,172 @@
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/aws/arn",
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/awserr",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/awsutil",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/client",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/client/metadata",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/corehandlers",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/credentials",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/credentials/endpointcreds",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/credentials/stscreds",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/defaults",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/ec2metadata",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/endpoints",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/request",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/session",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/signer/v4",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/shareddefaults",
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/model/api",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
-		},
-		{
-			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/ec2query",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/json/jsonutil",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/jsonrpc",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/query",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/query/queryutil",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/rest",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/private/util",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/cloudwatch",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
-		},
-		{
-			"ImportPath": "github.com/aws/aws-sdk-go/service/ec2",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/iam",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/service/sts",
-			"Comment": "v1.8.19",
-			"Rev": "0dbc446aca87aebb6e0a24509b59bafc0e3ec0ae"
+			"Comment": "v1.10.30",
+			"Rev": "5f216d3a320b04771edb3f39e9e063603551423a"
 		},
 		{
 			"ImportPath": "github.com/cihub/seelog",
 			"Comment": "go1.1-57-g0fa7e41",
 			"Rev": "0fa7e41d2b9600ca6b7e1592478124e4f800f724"
+		},
+		{
+			"ImportPath": "github.com/containerd/cgroups",
+			"Rev": "c3fc2b77b568af2406f3931cf3d3f17d76736886"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd/dbus",
+			"Comment": "v14-30-g24036eb",
+			"Rev": "24036eb3df68550d24a2736c5d013f4e83366866"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/libcni",
@@ -334,6 +343,11 @@
 			"Rev": "060d7da055ba6ec5ea7a31f116332fe5efa04ce0"
 		},
 		{
+			"ImportPath": "github.com/godbus/dbus",
+			"Comment": "v4.0.0-39-g3725288",
+			"Rev": "37252881b3a87eaa2eb04b0ff2211f54f45199ab"
+		},
+		{
 			"ImportPath": "github.com/golang/mock/gomock",
 			"Rev": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
 		},
@@ -362,13 +376,19 @@
 			"Rev": "2940d2e2e9365b4b3fec8ae24822435195f56b61"
 		},
 		{
+			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
+			"Comment": "v1.0.0-rc5-255-gd349388",
+			"Rev": "d349388c43b01b2ea695965ae561b5bddb81318f"
+		},
+		{
 			"ImportPath": "github.com/pborman/uuid",
 			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
 		},
 		{
 			"ImportPath": "github.com/pkg/errors",
-			"Comment": "v0.8.0-3-gbfd5150",
-			"Rev": "bfd5150e4e41705ded2129ec33379de1cb90b513"
+			"Comment": "v0.8.0-5-gc605e28",
+			"Rev": "c605e284fe17294bda444b34710735b29d1a9d90"
+
 		},
 		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",

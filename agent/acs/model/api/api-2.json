@@ -182,6 +182,7 @@
         "hostConfig":{"shape":"String"}
       }
     },
+    "Double":{"type":"double"},
     "ECRAuthData":{
       "type":"structure",
       "members":{
@@ -189,16 +190,6 @@
         "region":{"shape":"String"},
         "endpointOverride":{"shape":"String"},
         "useExecutionRole":{"shape":"Boolean"}
-      }
-    },
-    "ElasticNetworkInterface":{
-      "type":"structure",
-      "members":{
-        "macAddress":{"shape":"String"},
-        "attachmentArn":{"shape":"String"},
-        "ec2Id":{"shape":"String"},
-        "ipv4Addresses":{"shape":"IPv4AddressList"},
-        "ipv6Addresses":{"shape":"IPv6AddressList"}
       }
     },
     "ElasticNetworkInterface":{
@@ -427,7 +418,9 @@
         "volumes":{"shape":"VolumeList"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
         "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
-        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
+        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
+        "cpu":{"shape":"Double"},
+        "memory":{"shape":"Integer"}
       }
     },
     "TaskList":{

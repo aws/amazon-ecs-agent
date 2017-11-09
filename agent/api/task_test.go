@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -164,6 +165,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 
 	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask))
 	assert.Nil(t, err)
+
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
 		t.Error("Expected volumesFrom to be resolved, was: ", config.VolumesFrom)
 	}
@@ -579,7 +581,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
-	task.PostUnmarshalTask(nil, nil)
+	cfg := config.Config{}
+	task.PostUnmarshalTask(&cfg, nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
@@ -606,6 +609,9 @@ func TestTaskFromACS(t *testing.T) {
 	}
 	boolptr := func(b bool) *bool {
 		return &b
+	}
+	floatptr := func(f float64) *float64 {
+		return &f
 	}
 	// Testing type conversions, bleh. At least the type conversion itself
 	// doesn't look this messy.
@@ -669,6 +675,8 @@ func TestTaskFromACS(t *testing.T) {
 			SecretAccessKey: strptr("OhhSecret"),
 			SessionToken:    strptr("sessionToken"),
 		},
+		Cpu:    floatptr(2.0),
+		Memory: intptr(512),
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
@@ -725,25 +733,15 @@ func TestTaskFromACS(t *testing.T) {
 			},
 		},
 		StartSequenceNumber: 42,
+		CPU:                 2.0,
+		Memory:              512,
 	}
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-	if err != nil {
-		t.Fatalf("Should be able to handle acs task: %v", err)
-	}
-	if !reflect.DeepEqual(task.Containers, expectedTask.Containers) {
-		t.Fatal("Containers should be equal")
-	}
-	if !reflect.DeepEqual(task.Volumes, expectedTask.Volumes) {
-		t.Fatal("Volumes should be equal")
-	}
-	if !reflect.DeepEqual(task.StartSequenceNumber, expectedTask.StartSequenceNumber) {
-		t.Fatal("StartSequenceNumber should be equal")
-	}
-	if !reflect.DeepEqual(task.StopSequenceNumber, expectedTask.StopSequenceNumber) {
-		t.Fatal("StopSequenceNumber should be equal")
-	}
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedTask, task)
 }
 
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
@@ -1010,6 +1008,40 @@ func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 			t.Fatalf("Field %v did not match: %v != %v", reflect.TypeOf(expected).Field(i).Name, expectedVal, actualVal)
 		}
 	}
+}
+
+// TestGetIDErrorPaths performs table tests on GetID with erroneous taskARNs
+func TestGetIDErrorPaths(t *testing.T) {
+	testCases := []struct {
+		arn  string
+		name string
+	}{
+		{"", "EmptyString"},
+		{"invalidArn", "InvalidARN"},
+		{"arn:aws:ecs:region:account-id:task:task-id", "IncorrectSections"},
+		{"arn:aws:ecs:region:account-id:task", "IncorrectResouceSections"},
+	}
+
+	task := Task{}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task.Arn = tc.arn
+			taskID, err := task.GetID()
+			assert.Error(t, err, "GetID should return an error")
+			assert.Empty(t, taskID, "ID should be empty")
+		})
+	}
+}
+
+// TestGetIDHappyPath validates the happy path of GetID
+func TestGetIDHappyPath(t *testing.T) {
+	task := Task{
+		Arn: "arn:aws:ecs:region:account-id:task/task-id",
+	}
+	taskID, err := task.GetID()
+	assert.NoError(t, err)
+	assert.Equal(t, "task-id", taskID)
 }
 
 // TestTaskGetENI tests the eni can be correctly acquired by calling GetTaskENI
