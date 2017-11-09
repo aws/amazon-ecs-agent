@@ -835,10 +835,8 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockResource := mock_resources.NewMockResource(ctrl)
 
 	gomock.InOrder(
-		mockResource.EXPECT().Init().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
@@ -846,7 +844,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 			"", awserr.New("InvalidParameterException", "", nil)),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -855,7 +853,6 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
-		resource:           mockResource,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
