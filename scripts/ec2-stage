@@ -162,7 +162,7 @@ userdata=$(cat << EOU
 #!/bin/bash
 
 mkdir -p ${ec2_work_root}
-exec > >(tee -a ${ec2_work_root}/userdata.log)
+exec > >(tee -a ${ec2_work_root}/userdata.log) 2>&1
 
 yum -y install docker golang git zip unzip
 service docker start
