@@ -18,8 +18,8 @@ package mock_ecr
 
 import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	ecr0 "github.com/aws/amazon-ecs-agent/agent/ecr"
-	ecr "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
+	ecr0 "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -44,9 +44,9 @@ func (_m *MockECRSDK) EXPECT() *_MockECRSDKRecorder {
 	return _m.recorder
 }
 
-func (_m *MockECRSDK) GetAuthorizationToken(_param0 *ecr.GetAuthorizationTokenInput) (*ecr.GetAuthorizationTokenOutput, error) {
+func (_m *MockECRSDK) GetAuthorizationToken(_param0 *ecr0.GetAuthorizationTokenInput) (*ecr0.GetAuthorizationTokenOutput, error) {
 	ret := _m.ctrl.Call(_m, "GetAuthorizationToken", _param0)
-	ret0, _ := ret[0].(*ecr.GetAuthorizationTokenOutput)
+	ret0, _ := ret[0].(*ecr0.GetAuthorizationTokenOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -76,9 +76,9 @@ func (_m *MockECRFactory) EXPECT() *_MockECRFactoryRecorder {
 	return _m.recorder
 }
 
-func (_m *MockECRFactory) GetClient(_param0 *api.ECRAuthData) (ecr0.ECRClient, error) {
+func (_m *MockECRFactory) GetClient(_param0 *api.ECRAuthData) (ecr.ECRClient, error) {
 	ret := _m.ctrl.Call(_m, "GetClient", _param0)
-	ret0, _ := ret[0].(ecr0.ECRClient)
+	ret0, _ := ret[0].(ecr.ECRClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -108,9 +108,9 @@ func (_m *MockECRClient) EXPECT() *_MockECRClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockECRClient) GetAuthorizationToken(_param0 string) (*ecr.AuthorizationData, error) {
+func (_m *MockECRClient) GetAuthorizationToken(_param0 string) (*ecr0.AuthorizationData, error) {
 	ret := _m.ctrl.Call(_m, "GetAuthorizationToken", _param0)
-	ret0, _ := ret[0].(*ecr.AuthorizationData)
+	ret0, _ := ret[0].(*ecr0.AuthorizationData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
