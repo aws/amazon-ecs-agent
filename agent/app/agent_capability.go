@@ -54,6 +54,7 @@ const (
 //    ecs.capability.task-eni
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
+//    ecs.capability.execution-role-awslogs
 func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 	var capabilities []*ecs.Attribute
 
@@ -135,6 +136,11 @@ func (agent *ecsAgent) capabilities() []*ecs.Attribute {
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
+	}
+	// TODO: gate this on docker api version when ecs supported docker includes
+	// credentials endpoint feature from upstream docker
+	if agent.cfg.OverrideAWSLogsExecutionRole {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
 	return capabilities

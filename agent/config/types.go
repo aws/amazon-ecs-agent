@@ -188,6 +188,10 @@ type Config struct {
 	// ContainerMetadataEnabled specifies if the agent should provide a metadata
 	// file for containers.
 	ContainerMetadataEnabled bool
+
+	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
+	// driver authentication over the task's execution role
+	OverrideAWSLogsExecutionRole bool
 }
 
 // SensitiveRawMessage is a struct to store some data that should not be logged

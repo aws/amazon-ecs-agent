@@ -49,6 +49,10 @@ const (
 	// networkModeContainerPrefix specifies the prefix string used for setting the
 	// container's network mode to be mapped to that of another existing container
 	networkModeContainerPrefix = "container:"
+
+	// awslogsCredsEndpointOpt is the awslogs option that is used to pass in an
+	// http endpoint for authentication
+	awslogsCredsEndpointOpt = "awslogs-credentials-endpoint"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -498,6 +502,28 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 // DockerHostConfig construct the configuration recognized by docker
 func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
 	return task.dockerHostConfig(container, dockerContainerMap)
+}
+
+// ApplyExecutionRoleLogsAuth will check whether the task has excecution role
+// credentials, and add the genereated credentials endpoint to the associated HostConfig
+func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *HostConfigError {
+	id := task.GetExecutionCredentialsID()
+	if id == "" {
+		// No execution credentials set for the task. Do not inject the endpoint environment variable.
+		return &HostConfigError{"No execution credentials set for the task"}
+	}
+
+	executionRoleCredentials, ok := credentialsManager.GetTaskCredentials(id)
+	if !ok {
+		// Task has credentials id set, but credentials manager is unaware of
+		// the id. This should never happen as the payload handler sets
+		// credentialsId for the task after adding credentials to the
+		// credentials manager
+		return &HostConfigError{"Unable to get execution role credentials for task"}
+	}
+	credentialsEndpointRelativeURI := executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+	hostConfig.LogConfig.Config[awslogsCredsEndpointOpt] = credentialsEndpointRelativeURI
+	return nil
 }
 
 func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {

@@ -450,3 +450,11 @@ func TestInvalidAWSVPCAdditionalLocalRoutes(t *testing.T) {
 	_, err := environmentConfig()
 	assert.Error(t, err)
 }
+
+func TestAWSLogsExecutionRole(t *testing.T) {
+	os.Setenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE", "true")
+	defer os.Unsetenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE")
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.True(t, conf.OverrideAWSLogsExecutionRole)
+}

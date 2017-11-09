@@ -195,7 +195,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// credentials id for the task as well
 			taskCredentials := credentials.TaskIAMRoleCredentials{
 				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.RoleCredentials),
+				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType),
 			}
 			err = payloadHandler.credentialsManager.SetTaskCredentials(taskCredentials)
 			if err != nil {
@@ -223,7 +223,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// task executionCredentials id.
 			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
 				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials),
+				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType),
 			}
 			err = payloadHandler.credentialsManager.SetTaskCredentials(taskExecutionCredentials)
 			if err != nil {

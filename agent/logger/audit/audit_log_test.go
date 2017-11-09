@@ -39,6 +39,7 @@ const (
 	dummyURLV2                = "http://foo.com" + credentials.V2CredentialsPath + "/" + taskARN
 	dummyUserAgent            = "userAgent"
 	dummyResponseCode         = 400
+	dummyRoleType             = "TaskExecution"
 	taskARN                   = "task-arn-1"
 
 	commonAuditLogEntryFieldCount = 6
@@ -73,7 +74,7 @@ func TestWritingToAuditLog(t *testing.T) {
 		verifyAuditLogEntryResult(logLine, taskARN, dummyURLPath, t)
 	})
 
-	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType())
+	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType(dummyRoleType))
 }
 
 func TestWritingToAuditLogV2(t *testing.T) {
@@ -104,7 +105,7 @@ func TestWritingToAuditLogV2(t *testing.T) {
 		verifyAuditLogEntryResult(logLine, taskARN, credentials.V2CredentialsPath, t)
 	})
 
-	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType())
+	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType(dummyRoleType))
 }
 
 func TestWritingErrorsToAuditLog(t *testing.T) {
@@ -135,7 +136,7 @@ func TestWritingErrorsToAuditLog(t *testing.T) {
 		verifyAuditLogEntryResult(logLine, "-", dummyURLPath, t)
 	})
 
-	auditLogger.Log(request.LogRequest{Request: req, ARN: ""}, dummyResponseCode, GetCredentialsEventType())
+	auditLogger.Log(request.LogRequest{Request: req, ARN: ""}, dummyResponseCode, GetCredentialsEventType(dummyRoleType))
 }
 
 func TestWritingToAuditLogWhenDisabled(t *testing.T) {
@@ -158,7 +159,7 @@ func TestWritingToAuditLogWhenDisabled(t *testing.T) {
 
 	mockInfoLogger.EXPECT().Info(gomock.Any()).Times(0)
 
-	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType())
+	auditLogger.Log(request.LogRequest{Request: req, ARN: taskARN}, dummyResponseCode, GetCredentialsEventType(dummyRoleType))
 }
 
 func TestConstructCommonAuditLogEntryFields(t *testing.T) {
@@ -177,7 +178,7 @@ func TestConstructCommonAuditLogEntryFields(t *testing.T) {
 }
 
 func TestConstructAuditLogEntryByTypeGetCredentials(t *testing.T) {
-	result := constructAuditLogEntryByType(GetCredentialsEventType(), dummyCluster,
+	result := constructAuditLogEntryByType(GetCredentialsEventType(dummyRoleType), dummyCluster,
 		dummyContainerInstanceArn)
 	verifyConstructAuditLogEntryGetCredentialsResult(result, t)
 }
@@ -205,7 +206,7 @@ func verifyConstructAuditLogEntryGetCredentialsResult(result string, t *testing.
 	tokens := strings.Split(result, " ")
 
 	assert.Equal(t, getCredentialsEntryFieldCount, len(tokens), "Incorrect number of tokens in GetCredentials audit log entry")
-	assert.Equal(t, GetCredentialsEventType(), tokens[0], "event type does not match")
+	assert.Equal(t, GetCredentialsEventType(dummyRoleType), tokens[0], "event type does not match")
 
 	auditLogVersion, _ := strconv.Atoi(tokens[1])
 	assert.Equal(t, getCredentialsAuditLogVersion, auditLogVersion, "version does not match")

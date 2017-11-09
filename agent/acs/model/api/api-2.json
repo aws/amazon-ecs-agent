@@ -127,6 +127,10 @@
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
       }
     },
+    "AuthStrategy":{
+      "type":"string",
+      "enum":["ExecutionRole"]
+    },
     "AuthenticationType":{
       "type":"string",
       "enum":["ecr"]
@@ -162,7 +166,8 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
-        "registryAuthentication":{"shape":"RegistryAuthenticationData"}
+        "registryAuthentication":{"shape":"RegistryAuthenticationData"},
+        "logsAuthStrategy":{"shape":"AuthStrategy"}
       }
     },
     "ContainerList":{

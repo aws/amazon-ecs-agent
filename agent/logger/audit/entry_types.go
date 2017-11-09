@@ -24,10 +24,12 @@ import (
 )
 
 const (
-	getCredentialsEventType = "GetCredentials"
+	getCredentialsEventType                = "GetCredentials"
+	getCredentialsTaskExecutionEventType   = "GetCredentialsExecutionRole"
+	getCredentialsInvalidRoleTypeEventType = "GetCredentialsInvalidRoleType"
 
 	// getCredentialsAuditLogVersion is the version of the audit log
-	// For version '1', the fields are:
+	// Version '1', the fields are:
 	// 1. event time
 	// 2. response code
 	// 3. source ip address
@@ -38,7 +40,11 @@ const (
 	// 8. version
 	// 9. cluster
 	// 10. container instance arn
-	getCredentialsAuditLogVersion = 1
+
+	// Version '2', following fields were modified
+	// 7. event type ('GetCredentials, GetCredentialsExecutionRole')
+
+	getCredentialsAuditLogVersion = 2
 )
 
 type commonAuditLogEntryFields struct {
@@ -51,8 +57,15 @@ type commonAuditLogEntryFields struct {
 }
 
 // GetCredentialsEventType is the type for a GetCredentials request
-func GetCredentialsEventType() string {
-	return getCredentialsEventType
+func GetCredentialsEventType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return getCredentialsEventType
+	case credentials.ExecutionRoleType:
+		return getCredentialsTaskExecutionEventType
+	default:
+		return getCredentialsInvalidRoleTypeEventType
+	}
 }
 
 func (c *commonAuditLogEntryFields) string() string {
@@ -91,6 +104,14 @@ func constructCommonAuditLogEntryFields(r request.LogRequest, httpResponseCode i
 func constructAuditLogEntryByType(eventType string, cluster string, containerInstanceArn string) string {
 	switch eventType {
 	case getCredentialsEventType:
+		fields := &getCredentialsAuditLogEntryFields{
+			eventType:            eventType,
+			version:              getCredentialsAuditLogVersion,
+			cluster:              populateField(cluster),
+			containerInstanceArn: populateField(containerInstanceArn),
+		}
+		return fields.string()
+	case getCredentialsTaskExecutionEventType:
 		fields := &getCredentialsAuditLogEntryFields{
 			eventType:            eventType,
 			version:              getCredentialsAuditLogVersion,

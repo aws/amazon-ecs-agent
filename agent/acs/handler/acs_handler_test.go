@@ -114,6 +114,7 @@ const (
     "messageId": "123",
     "clusterArn": "default",
     "taskArn": "t1",
+    "roleType": "TaskApplication",
     "roleCredentials": {
       "credentialsId": "credsId",
       "accessKeyId": "newakid",
@@ -966,6 +967,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 					SessionToken:    "newstkn",
 					Expiration:      "later",
 					CredentialsID:   credentialsIdInRefreshMessage,
+					RoleType:        "TaskApplication",
 				},
 			}
 			if !reflect.DeepEqual(updatedCredentials, expectedCreds) {

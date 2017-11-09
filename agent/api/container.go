@@ -29,6 +29,11 @@ const (
 	// which the container is assumed to be in steady state. It is set
 	// to 'ContainerRunning' unless overridden
 	defaultContainerSteadyStateStatus = ContainerRunning
+
+	// awslogsAuthExecutionRole is the string value passed in the task payload
+	// that specifies that the log driver should be authenticated using the
+	// execution role
+	awslogsAuthExecutionRole = "ExecutionRole"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -62,6 +67,10 @@ type Container struct {
 	Overrides              ContainerOverrides          `json:"overrides"`
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
+
+	// LogsAuthStrategy specifies how the logs driver for the container will be
+	// authenticated
+	LogsAuthStrategy string
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
@@ -355,4 +364,9 @@ func (c *Container) IsEssential() bool {
 	defer c.lock.RUnlock()
 
 	return c.Essential
+}
+
+// LogAuthExecutionRole returns true if the auth is by exectution role
+func (c *Container) AWSLogAuthExecutionRole() bool {
+	return c.LogsAuthStrategy == awslogsAuthExecutionRole
 }
