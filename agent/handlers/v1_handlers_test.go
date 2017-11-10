@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks/http"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
@@ -43,7 +44,7 @@ func TestMetadataHandler(t *testing.T) {
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AgentIntrospectionPort), nil)
 	metadataHandler(w, req)
 
-	var resp MetadataResponse
+	var resp v1.MetadataResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp.Cluster != testClusterArn {
@@ -57,7 +58,7 @@ func TestMetadataHandler(t *testing.T) {
 func TestListMultipleTasks(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks")
 
-	var tasksResponse TasksResponse
+	var tasksResponse v1.TasksResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
 	if err != nil {
 		t.Fatal(err)
@@ -71,13 +72,13 @@ func TestGetTaskByDockerID(t *testing.T) {
 	// second task has a container named foo
 	recorder := performMockRequest(t, "/v1/tasks?dockerid=dockerid-task2-foo")
 
-	var taskResponse TaskResponse
+	var taskResponse v1.TaskResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	taskDiffHelper(t, []*api.Task{testTasks[1]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*api.Task{testTasks[1]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetTaskByShortDockerIDMultiple(t *testing.T) {
@@ -97,11 +98,11 @@ func TestGetTaskByShortDockerID(t *testing.T) {
 	// first task has a container name prefix of dockerid-tas
 	recorder := performMockRequest(t, "/v1/tasks?dockerid=dockerid-by")
 
-	var taskResponse TaskResponse
+	var taskResponse v1.TaskResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	require.NoError(t, err, "unmarshal failed for get task by short docker id")
 
-	taskDiffHelper(t, []*api.Task{testTasks[2]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*api.Task{testTasks[2]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetTaskByDockerID404(t *testing.T) {
@@ -115,13 +116,13 @@ func TestGetTaskByDockerID404(t *testing.T) {
 func TestGetTaskByTaskArn(t *testing.T) {
 	recorder := performMockRequest(t, "/v1/tasks?taskarn=task1")
 
-	var taskResponse TaskResponse
+	var taskResponse v1.TaskResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	taskDiffHelper(t, []*api.Task{testTasks[0]}, TasksResponse{Tasks: []*TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*api.Task{testTasks[0]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetTaskByTaskArnNotFound(t *testing.T) {
@@ -171,7 +172,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/v1/tasks", nil)
 	requestHandler(recorder, req)
 
-	var tasksResponse TasksResponse
+	var tasksResponse v1.TasksResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
 	if err != nil {
 		t.Fatal(err)
@@ -215,14 +216,14 @@ func TestLicenseHandlerError(t *testing.T) {
 	licenseHandler(mockResponseWriter, nil)
 }
 
-func taskDiffHelper(t *testing.T, expected []*api.Task, actual TasksResponse) {
+func taskDiffHelper(t *testing.T, expected []*api.Task, actual v1.TasksResponse) {
 	if len(expected) != len(actual.Tasks) {
 		t.Errorf("Expected %v tasks, had %v tasks", len(expected), len(actual.Tasks))
 	}
 
 	for _, task := range expected {
 		// Find related actual task
-		var respTask *TaskResponse
+		var respTask *v1.TaskResponse
 		for _, actualTask := range actual.Tasks {
 			if actualTask.Arn == task.Arn {
 				respTask = actualTask
