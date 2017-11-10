@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -51,7 +52,7 @@ func ValueFromRequest(r *http.Request, field string) (string, bool) {
 }
 
 func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
-	resp := &MetadataResponse{
+	resp := &v1.MetadataResponse{
 		Cluster:              cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
 		Version:              version.String(),
@@ -63,13 +64,13 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	}
 }
 
-func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
-	containers := []ContainerResponse{}
+func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *v1.TaskResponse {
+	containers := []v1.ContainerResponse{}
 	for containerName, container := range containerMap {
 		if container.Container.IsInternal() {
 			continue
 		}
-		containers = append(containers, ContainerResponse{container.DockerID, container.DockerName, containerName})
+		containers = append(containers, v1.ContainerResponse{container.DockerID, container.DockerName, containerName})
 	}
 
 	knownStatus := task.GetKnownStatus()
@@ -81,7 +82,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		desiredStatus = ""
 	}
 
-	return &TaskResponse{
+	return &v1.TaskResponse{
 		Arn:           task.Arn,
 		DesiredStatus: desiredStatus,
 		KnownStatus:   knownBackendStatus,
@@ -91,15 +92,15 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 	}
 }
 
-func newTasksResponse(state dockerstate.TaskEngineState) *TasksResponse {
+func newTasksResponse(state dockerstate.TaskEngineState) *v1.TasksResponse {
 	allTasks := state.AllTasks()
-	taskResponses := make([]*TaskResponse, len(allTasks))
+	taskResponses := make([]*v1.TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		taskResponses[ndx] = newTaskResponse(task, containerMap)
 	}
 
-	return &TasksResponse{Tasks: taskResponses}
+	return &v1.TasksResponse{Tasks: taskResponses}
 }
 
 // Creates JSON response and sets the http status code for the task queried.
@@ -111,7 +112,7 @@ func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state
 		responseJSON, _ = json.Marshal(newTaskResponse(task, containerMap))
 	} else {
 		log.Warn("Could not find requested resource: " + resourceId)
-		responseJSON, _ = json.Marshal(&TaskResponse{})
+		responseJSON, _ = json.Marshal(&v1.TaskResponse{})
 		status = http.StatusNotFound
 	}
 	return responseJSON, status
