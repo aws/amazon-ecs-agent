@@ -27,10 +27,11 @@ const (
 	// https://docs.docker.com/engine/api/version-history/#v125-api-changes
 	minAPIVersionKey = "MinAPIVersion"
 	// apiVersionKey is the docker.Env key for API version
-	apiVersionKey    = "ApiVersion"
+	apiVersionKey = "ApiVersion"
 	// zeroPatch is a string to append patch number zero if the major minor version lacks it
 	zeroPatch = ".0"
 )
+
 // Factory provides a collection of docker remote clients that include a
 // recommended client version as well as a set of alternative supported
 // docker clients.
@@ -57,6 +58,9 @@ type Factory interface {
 	// not necessarily fully support) and the versions that result in
 	// successful responses by the Docker daemon.
 	FindKnownAPIVersions() []DockerVersion
+
+	// FindClientAPIVersion returns the client api version
+	FindClientAPIVersion(dockeriface.Client) DockerVersion
 }
 
 type factory struct {
@@ -104,6 +108,18 @@ func (f *factory) FindKnownAPIVersions() []DockerVersion {
 		knownVersions = append(knownVersions, testVersion)
 	}
 	return knownVersions
+}
+
+// FindClientAPIVersion returns the version of the client from the map
+// TODO we should let go docker client return this version information
+func (f *factory) FindClientAPIVersion(client dockeriface.Client) DockerVersion {
+	for k, v := range f.clients {
+		if v == client {
+			return k
+		}
+	}
+
+	return getDefaultVersion()
 }
 
 // getClient returns a client specified by the docker version. Its wrapped
@@ -157,7 +173,7 @@ func getDockerClientForVersion(
 	version string,
 	minAPIVersion string,
 	apiVersion string) (dockeriface.Client, error) {
-	if (minAPIVersion != "" && apiVersion != "") {
+	if minAPIVersion != "" && apiVersion != "" {
 		// Adding patch number zero to Docker versions to reuse the existing semver
 		// comparator
 		// TODO: remove this logic later when non-semver comparator is implemented

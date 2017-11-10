@@ -5,6 +5,7 @@
 * Feature - Enable support for task level CPU and memory constraints.
 * Bug - Fixed a bug where a task can be blocked in creating state. [#1048](https://github.com/aws/amazon-ecs-agent/pull/1048)
 * Bug - Fixed dynamic HostPort in container metadata. [#1052](https://github.com/aws/amazon-ecs-agent/pull/1052)
+* Bug - Fixed bug on Windows where container memory limits are not enforced. [#1069](https://github.com/aws/amazon-ecs-agent/pull/1069)
 
 ## 1.15.0
 * Feature - Support for provisioning tasks with ENIs.
