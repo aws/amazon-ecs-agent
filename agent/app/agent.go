@@ -37,7 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/taskmetadata"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
@@ -46,9 +46,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 )
 
@@ -520,7 +520,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	// Start serving the endpoint to fetch IAM Role credentials
-	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
+	go taskmetadata.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
