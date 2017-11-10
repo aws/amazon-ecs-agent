@@ -179,6 +179,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		DNSSearch:      []string{"dns.search"},
 		ExtraHosts:     []string{"extra:hosts"},
 		SecurityOpt:    []string{"foo", "bar"},
+		CPUShares:      2,
 		LogConfig: docker.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
@@ -257,6 +258,8 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		Privileged:       true,
 		SecurityOpt:      []string{"foo", "bar"},
 		VolumesFrom:      []string{"dockername-c2"},
+		Memory:           100 * 1024 * 1024,
+		CPUShares:        50,
 		MemorySwappiness: memorySwappinessDefault,
 	}
 

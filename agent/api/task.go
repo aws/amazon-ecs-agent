@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -414,11 +415,11 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
-	return task.dockerConfig(container)
+func (task *Task) DockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *DockerClientConfigError) {
+	return task.dockerConfig(container, apiVersion)
 }
 
-func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerClientConfigError) {
+func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *DockerClientConfigError) {
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
 		return nil, &DockerClientConfigError{err.Error()}
@@ -447,8 +448,11 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 		ExposedPorts: task.dockerExposedPorts(container),
 		Volumes:      dockerVolumes,
 		Env:          dockerEnv,
-		Memory:       dockerMem,
-		CPUShares:    task.dockerCPUShares(container.CPU),
+	}
+
+	err = task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
+	if err != nil {
+		return nil, &DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
 
 	if container.DockerConfig.Config != nil {
@@ -462,6 +466,47 @@ func (task *Task) dockerConfig(container *Container) (*docker.Config, *DockerCli
 	}
 
 	return config, nil
+}
+
+// SetConfigHostconfigBasedOnVersion sets the fields in both Config and HostConfig based on api version for backward compatibility
+func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config *docker.Config, hc *docker.HostConfig, apiVersion dockerclient.DockerVersion) error {
+	// Convert MB to B
+	dockerMem := int64(container.Memory * 1024 * 1024)
+	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
+		dockerMem = DockerContainerMinimumMemoryInBytes
+	}
+	cpuShare := task.dockerCPUShares(container.CPU)
+
+	// Docker copied Memory and cpu field into hostconfig in 1.6 with api version(1.18)
+	// https://github.com/moby/moby/commit/837eec064d2d40a4d86acbc6f47fada8263e0d4c
+	dockerAPIVersion, err := docker.NewAPIVersion(string(apiVersion))
+	if err != nil {
+		seelog.Errorf("Creating docker api version failed, err: %v", err)
+		return err
+	}
+
+	dockerAPIVersion_1_18, err := docker.NewAPIVersion("1.18")
+	if err != nil {
+		seelog.Errorf("Creating docker api version 1.18 failed, err: %v", err)
+		return err
+	}
+
+	if dockerAPIVersion.GreaterThanOrEqualTo(dockerAPIVersion_1_18) {
+		// Set the memory and cpu in host config
+		if hc != nil {
+			hc.Memory = dockerMem
+			hc.CPUShares = cpuShare
+		}
+		return nil
+	}
+
+	// Set the memory and cpu in config
+	if config != nil {
+		config.Memory = dockerMem
+		config.CPUShares = cpuShare
+	}
+
+	return nil
 }
 
 // dockerCPUShares converts containerCPU shares if needed as per the logic stated below:
@@ -512,8 +557,8 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
-	return task.dockerHostConfig(container, dockerContainerMap)
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *HostConfigError) {
+	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has excecution role
@@ -538,7 +583,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, cred
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &HostConfigError{err.Error()}
@@ -562,6 +607,11 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 		Binds:        binds,
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
+	}
+
+	err = task.SetConfigHostconfigBasedOnVersion(container, nil, hostConfig, apiVersion)
+	if err != nil {
+		return nil, &HostConfigError{err.Error()}
 	}
 
 	if container.DockerConfig.HostConfig != nil {
