@@ -138,6 +138,17 @@ func (_mr *_MockTaskEngineStateRecorder) GetAllContainerIDs() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllContainerIDs")
 }
 
+func (_m *MockTaskEngineState) GetLabels(_param0 string) (map[string]string, bool) {
+	ret := _m.ctrl.Call(_m, "GetLabels", _param0)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockTaskEngineStateRecorder) GetLabels(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLabels", arg0)
+}
+
 func (_m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 	ret := _m.ctrl.Call(_m, "MarshalJSON")
 	ret0, _ := ret[0].([]byte)
@@ -179,6 +190,14 @@ func (_m *MockTaskEngineState) Reset() {
 
 func (_mr *_MockTaskEngineStateRecorder) Reset() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reset")
+}
+
+func (_m *MockTaskEngineState) SetLabels(_param0 string, _param1 map[string]string) {
+	_m.ctrl.Call(_m, "SetLabels", _param0, _param1)
+}
+
+func (_mr *_MockTaskEngineStateRecorder) SetLabels(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetLabels", arg0, arg1)
 }
 
 func (_m *MockTaskEngineState) TaskByArn(_param0 string) (*api.Task, bool) {

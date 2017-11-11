@@ -716,6 +716,9 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
 	}
+	if dockerContainer.Config != nil {
+		metadata.Labels = dockerContainer.Config.Labels
+	}
 	// Workaround for https://github.com/docker/docker/issues/27601
 	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
 	// for how Docker handles API compatibility on Linux

@@ -2219,3 +2219,31 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 	assert.Equal(t, testTask.PullStartedAt, startTime1)
 	assert.Equal(t, testTask.PullStoppedAt, stopTime3)
 }
+
+func TestSynchronizeContainerStatus(t *testing.T) {
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "1234"
+	dockerContainer := &api.DockerContainer{
+		DockerID:   dockerID,
+		DockerName: "c1",
+		Container:  &api.Container{},
+	}
+
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerRunning,
+			DockerContainerMetadata{
+				Labels:   labels,
+				DockerID: dockerID,
+			}),
+		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
+	labelsInState, ok := taskEngine.(*DockerTaskEngine).state.GetLabels(dockerID)
+	assert.True(t, ok)
+	assert.Equal(t, labels, labelsInState)
+}

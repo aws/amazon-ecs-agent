@@ -930,6 +930,8 @@ func TestRemoveImage(t *testing.T) {
 	}
 }
 
+// TestContainerMetadataWorkaroundIssue27601 tests the workaround for
+// issue https://github.com/moby/moby/issues/27601
 func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
@@ -1180,4 +1182,38 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 		}, nil).Times(1)
 	metadata = client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
+}
+
+func TestMetadataFromContainer(t *testing.T) {
+	ports := map[docker.Port][]docker.PortBinding{
+		docker.Port("80/tcp"): []docker.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: "80",
+			},
+		},
+	}
+	volumes := map[string]string{
+		"/foo": "/bar",
+	}
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	dockerContainer := &docker.Container{
+		NetworkSettings: &docker.NetworkSettings{
+			Ports: ports,
+		},
+		ID:      "1234",
+		Volumes: volumes,
+		Config: &docker.Config{
+			Labels: labels,
+		},
+		State: docker.State{Running: true},
+	}
+
+	metadata := metadataFromContainer(dockerContainer)
+	assert.Equal(t, "1234", metadata.DockerID)
+	assert.Equal(t, volumes, metadata.Volumes)
+	assert.Equal(t, labels, metadata.Labels)
+	assert.Len(t, metadata.PortBindings, 1)
 }

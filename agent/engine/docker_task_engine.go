@@ -293,29 +293,29 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
+			engine.state.SetLabels(container.DockerID, describedContainer.Config.Labels)
 		}
 		return
 	}
 
-	if container.DockerID != "" {
-		currentState, metadata := engine.client.DescribeContainer(container.DockerID)
-		if metadata.Error != nil {
-			currentState = api.ContainerStopped
-			if !container.Container.KnownTerminal() {
-				container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
-				log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", container.DockerID, "name", container.DockerName)
-				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
-			}
-		} else {
-			engine.imageManager.RecordContainerReference(container.Container)
-			if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
-				go engine.updateMetadataFile(task, container)
-			}
+	currentState, metadata := engine.client.DescribeContainer(container.DockerID)
+	if metadata.Error != nil {
+		currentState = api.ContainerStopped
+		if !container.Container.KnownTerminal() {
+			container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+			log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", container.DockerID, "name", container.DockerName)
+			engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
 		}
-		if currentState > container.Container.GetKnownStatus() {
-			// update the container known status
-			container.Container.SetKnownStatus(currentState)
+	} else {
+		engine.state.SetLabels(metadata.DockerID, metadata.Labels)
+		engine.imageManager.RecordContainerReference(container.Container)
+		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
+			go engine.updateMetadataFile(task, container)
 		}
+	}
+	if currentState > container.Container.GetKnownStatus() {
+		// update the container known status
+		container.Container.SetKnownStatus(currentState)
 	}
 }
 
@@ -746,6 +746,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
 	}
 	seelog.Infof("Created docker container for task %s: %s -> %s", task.Arn, container.Name, metadata.DockerID)
+	engine.state.SetLabels(metadata.DockerID, config.Labels)
 	return metadata
 }
 
