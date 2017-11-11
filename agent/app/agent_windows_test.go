@@ -19,12 +19,17 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestDoStartHappyPath tests the doStart method for windows. This method should
@@ -71,6 +76,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -80,4 +86,98 @@ func TestDoStartHappyPath(t *testing.T) {
 	// invoked. These are used as proxies to indicate that acs and tcs handlers'
 	// NewSession call has been invoked
 	discoverEndpointsInvoked.Wait()
+}
+
+type mockAgent struct {
+	startFunc          func() int
+	terminationHandler sighandlers.TerminationHandler
+}
+
+func (m *mockAgent) start() int {
+	return m.startFunc()
+}
+func (m *mockAgent) setTerminationHandler(handler sighandlers.TerminationHandler) {
+	m.terminationHandler = handler
+}
+func (m *mockAgent) printVersion() int        { return 0 }
+func (m *mockAgent) printECSAttributes() int  { return 0 }
+func (m *mockAgent) startWindowsService() int { return 0 }
+
+func TestHandler_RunAgent_StartExitImmediately(t *testing.T) {
+	// register some mocks, but nothing should get called on any of them
+	ctrl := gomock.NewController(t)
+	_ = statemanager_mocks.NewMockStateManager(ctrl)
+	_ = engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	startFunc := func() int {
+		// startFunc doesn't block, nothing is called
+		wg.Done()
+		return 0
+	}
+	agent := &mockAgent{startFunc: startFunc}
+	handler := &handler{agent}
+	go handler.runAgent(context.TODO())
+	wg.Wait()
+	assert.NotNil(t, agent.terminationHandler)
+}
+
+func TestHandler_RunAgent_NoSaveWithNoTerminationHandler(t *testing.T) {
+	// register some mocks, but nothing should get called on any of them
+	ctrl := gomock.NewController(t)
+	_ = statemanager_mocks.NewMockStateManager(ctrl)
+	_ = engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	startFunc := func() int {
+		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
+		return 0
+	}
+	agent := &mockAgent{startFunc: startFunc}
+	handler := &handler{agent}
+	ctx, cancel := context.WithCancel(context.TODO())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		handler.runAgent(ctx)
+		wg.Done()
+	}()
+	cancel()
+	wg.Wait()
+	assert.NotNil(t, agent.terminationHandler)
+}
+
+func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine.EXPECT().Disable()
+	stateManager.EXPECT().ForceSave()
+
+	agent := &mockAgent{}
+
+	done := make(chan struct{})
+	defer func() { done <- struct{}{} }()
+	startFunc := func() int {
+		go agent.terminationHandler(stateManager, taskEngine)
+		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	ctx, cancel := context.WithCancel(context.TODO())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		handler.runAgent(ctx)
+		wg.Done()
+	}()
+	time.Sleep(time.Second) // give startFunc enough time to actually call the termination handler
+	cancel()
+	wg.Wait()
 }
