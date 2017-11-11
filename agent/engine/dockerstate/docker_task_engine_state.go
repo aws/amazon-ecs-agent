@@ -63,6 +63,10 @@ type TaskEngineState interface {
 	Reset()
 	// RemoveImageState removes an image.ImageState
 	RemoveImageState(imageState *image.ImageState)
+	// SetLables sets labels for a container
+	SetLabels(id string, labels map[string]string)
+	// GetLabels gets labels by container id
+	GetLabels(id string) (map[string]string, bool)
 	json.Marshaler
 	json.Unmarshaler
 }
@@ -83,12 +87,13 @@ type TaskEngineState interface {
 type DockerTaskEngineState struct {
 	lock sync.RWMutex
 
-	tasks          map[string]*api.Task                       // taskarn -> api.Task
-	idToTask       map[string]string                          // DockerId -> taskarn
-	taskToID       map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
-	idToContainer  map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
-	eniAttachments map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
-	imageStates    map[string]*image.ImageState
+	tasks               map[string]*api.Task                       // taskarn -> api.Task
+	idToTask            map[string]string                          // DockerId -> taskarn
+	taskToID            map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
+	idToContainer       map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
+	eniAttachments      map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
+	imageStates         map[string]*image.ImageState
+	containerIDToLabels map[string]map[string]string // container id -> label(key-> value)
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -112,6 +117,7 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.idToContainer = make(map[string]*api.DockerContainer)
 	state.imageStates = make(map[string]*image.ImageState)
 	state.eniAttachments = make(map[string]*api.ENIAttachment)
+	state.containerIDToLabels = make(map[string]map[string]string)
 }
 
 // Reset resets all the states
@@ -366,6 +372,7 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 
 	for _, dockerContainer := range containerMap {
 		state.removeIDToContainerTaskUnsafe(dockerContainer)
+		state.removeContainerLabelsUnsafe(dockerContainer)
 	}
 }
 
@@ -417,4 +424,28 @@ func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageStat
 		return
 	}
 	delete(state.imageStates, imageState.Image.ImageID)
+}
+
+// SetLables sets labels for a container
+func (state *DockerTaskEngineState) SetLabels(id string, labels map[string]string) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.containerIDToLabels[id] = labels
+}
+
+// GetLabels gets labels by container id
+func (state *DockerTaskEngineState) GetLabels(id string) (map[string]string, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	labels, ok := state.containerIDToLabels[id]
+	return labels, ok
+}
+
+func (state *DockerTaskEngineState) removeContainerLabelsUnsafe(container *api.DockerContainer) {
+	id := container.DockerID
+	if id != "" {
+		delete(state.containerIDToLabels, id)
+	}
 }
