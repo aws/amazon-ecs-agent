@@ -161,7 +161,6 @@ image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
 
 .get-deps-stamp:
-	go get github.com/tools/godep
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	go get golang.org/x/tools/cmd/goimports
@@ -175,7 +174,6 @@ clean:
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/*
 	$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
-	rm -rf agent/Godeps/_workspace/pkg/
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
