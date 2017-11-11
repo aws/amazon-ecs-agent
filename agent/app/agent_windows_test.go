@@ -245,3 +245,85 @@ func TestHandler_HandleWindowsRequests_Cancel(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestHandler_Execute_WindowsStops(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine.EXPECT().Disable()
+	stateManager.EXPECT().ForceSave()
+
+	agent := &mockAgent{}
+
+	done := make(chan struct{})
+	defer func() { done <- struct{}{} }()
+	startFunc := func() int {
+		go agent.terminationHandler(stateManager, taskEngine)
+		<-done // block until after the test ends so that we can test that Execute returns when Stopped
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		handler.Execute(nil, requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		time.Sleep(time.Second) // let it run for a second
+		requests <- svc.ChangeRequest{Cmd: svc.Shutdown}
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after Shutdown")
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func TestHandler_Execute_AgentStops(t *testing.T) {
+	agent := &mockAgent{}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	startFunc := func() int {
+		<-ctx.Done()
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		handler.Execute(nil, requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		time.Sleep(time.Second) // let it run for a second
+		cancel()
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after agent goroutine stops")
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
