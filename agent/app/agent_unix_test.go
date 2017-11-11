@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -100,6 +101,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -198,6 +200,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient:          cniClient,
 		os:                 mockOS,
 		ec2MetadataClient:  mockMetadata,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -497,6 +500,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		resource:           mockResource,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -537,6 +541,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		resource:           mockResource,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),

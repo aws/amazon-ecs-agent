@@ -41,6 +41,12 @@ var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
 	ecscni.ECSIPAMPluginName,
 }
 
+// startWindowsService is not supported on Linux
+func (agent *ecsAgent) startWindowsService() int {
+	seelog.Error("Windows Services are not supported on Linux")
+	return 1
+}
+
 // initializeTaskENIDependencies initializes all of the dependencies required by
 // the Agent to support the 'awsvpc' networking mode. A non nil error is returned
 // if an error is encountered during this process. An additional boolean flag to

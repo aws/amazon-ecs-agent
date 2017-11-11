@@ -4,6 +4,7 @@ out/
 coverage/
 _bin/
 *.exe
+*.exe~
 *.zip
 *.swp
 *.orig
@@ -15,3 +16,4 @@ _bin/
 /misc/windows-iam/devcon*
 /misc/pause-container/pause
 *-stamp
+/.idea/
