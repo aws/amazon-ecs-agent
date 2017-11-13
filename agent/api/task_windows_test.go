@@ -142,7 +142,7 @@ func TestWindowsMemorySwappinessOption(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	if configErr != nil {
 		t.Fatal(configErr)
 	}

@@ -293,7 +293,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		},
 	}
 
-	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task))
+	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
 	assert.Error(t, err)
 	assert.Empty(t, dockerHostConfig)
 }

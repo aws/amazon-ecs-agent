@@ -19,9 +19,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 func TestGetClientMinimumVersion(t *testing.T) {
@@ -45,4 +45,14 @@ func TestGetClientMinimumVersion(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedClient, actualClient)
+}
+
+func TestFindClientAPIVersion(t *testing.T) {
+	factory := NewFactory(expectedEndpoint)
+
+	for _, version := range getAgentVersions() {
+		client, err := factory.GetClient(version)
+		assert.NoError(t, err)
+		assert.Equal(t, Version_1_24, factory.FindClientAPIVersion(client))
+	}
 }
