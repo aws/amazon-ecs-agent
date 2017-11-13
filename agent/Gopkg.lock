@@ -143,7 +143,7 @@
 
 [[projects]]
   name = "golang.org/x/sys"
-  packages = ["unix","windows","windows/registry"]
+  packages = ["unix","windows","windows/registry","windows/svc","windows/svc/eventlog"]
   revision = "afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd"
 
 [[projects]]
@@ -154,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7622bf3f939a3ea183688145cbae7aee8a0513f27191096a17be1956d727ea36"
+  inputs-digest = "c09c3275be0ca13e00eca77147f1689e0d619e64b233e3dfdbda494c09215118"
   solver-name = "gps-cdcl"
   solver-version = 1
