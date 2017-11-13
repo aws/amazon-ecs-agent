@@ -18,6 +18,7 @@ package mock_ecscni
 
 import (
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
+	current "github.com/containernetworking/cni/pkg/types/current"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -73,10 +74,11 @@ func (_mr *_MockCNIClientRecorder) ReleaseIPResource(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseIPResource", arg0)
 }
 
-func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config) error {
+func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config) (*current.Result, error) {
 	ret := _m.ctrl.Call(_m, "SetupNS", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*current.Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockCNIClientRecorder) SetupNS(arg0 interface{}) *gomock.Call {
