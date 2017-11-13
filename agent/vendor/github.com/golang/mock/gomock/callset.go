@@ -14,12 +14,6 @@
 
 package gomock
 
-import (
-	"bytes"
-	"errors"
-	"fmt"
-)
-
 // callSet represents a set of expected calls, indexed by receiver and method
 // name.
 type callSet map[interface{}]map[string][]*Call
@@ -53,35 +47,30 @@ func (cs callSet) Remove(call *Call) {
 	}
 }
 
-// FindMatch searches for a matching call. Returns error with explanation message if no call matched.
-func (cs callSet) FindMatch(receiver interface{}, method string, args []interface{}) (*Call, error) {
+// FindMatch searches for a matching call. Returns nil if no call matched.
+func (cs callSet) FindMatch(receiver interface{}, method string, args []interface{}) *Call {
 	methodMap, ok := cs[receiver]
 	if !ok {
-		return nil, errors.New("there are no expected method calls for that receiver")
+		return nil
 	}
 	calls, ok := methodMap[method]
 	if !ok {
-		return nil, fmt.Errorf("there are no expected calls of the method: %s for that receiver", method)
+		return nil
 	}
 
 	// Search through the unordered set of calls expected on a method on a
 	// receiver.
-	var callsErrors bytes.Buffer
 	for _, call := range calls {
 		// A call should not normally still be here if exhausted,
 		// but it can happen if, for instance, .Times(0) was used.
 		// Pretend the call doesn't match.
 		if call.exhausted() {
-			callsErrors.WriteString("\nThe call was exhausted.")
 			continue
 		}
-		err := call.matches(args)
-		if err != nil {
-			fmt.Fprintf(&callsErrors, "\n%v", err)
-		} else {
-			return call, nil
+		if call.matches(args) {
+			return call
 		}
 	}
 
-	return nil, fmt.Errorf(callsErrors.String())
+	return nil
 }
