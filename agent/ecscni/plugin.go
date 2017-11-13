@@ -25,15 +25,23 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/pkg/errors"
 )
 
+const currentCNISpec = "0.3.1"
+
 // CNIClient defines the method of setting/cleaning up container namespace
 type CNIClient interface {
+	// Version returns the version of the plugin
 	Version(string) (string, error)
+	// Capabilities returns the capabilities supported by a plugin
 	Capabilities(string) ([]string, error)
-	SetupNS(*Config) error
+	// SetupNS sets up the namespace of container
+	SetupNS(*Config) (*current.Result, error)
+	// CleanupNS cleans up the container namespace
 	CleanupNS(*Config) error
+	// ReleaseIPResource marks the ip available in the ipam db
 	ReleaseIPResource(*Config) error
 }
 
@@ -61,7 +69,7 @@ func NewClient(cfg *Config) CNIClient {
 
 // SetupNS will set up the namespace of container, including create the bridge
 // and the veth pair, move the eni to container namespace, setup the routes
-func (client *cniClient) SetupNS(cfg *Config) error {
+func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
 	cns := &libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
@@ -70,7 +78,8 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 
 	networkConfigList, err := client.createNetworkConfig(cfg, client.createBridgeNetworkConfigWithIPAM)
 	if err != nil {
-		return errors.Wrap(err, "cni invocation: failed to construct network configuration for configuring namespace")
+		return nil, errors.Wrap(err,
+			"cni invocation: failed to construct network configuration for configuring namespace")
 	}
 
 	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
@@ -78,11 +87,26 @@ func (client *cniClient) SetupNS(cfg *Config) error {
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	result, err := client.libcni.AddNetworkList(networkConfigList, cns)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	seelog.Debugf("Set up container namespace done: %s", result.String())
-	return nil
+	if _, err = result.GetAsVersion(currentCNISpec); err != nil {
+		seelog.Warnf("Unable to convert result to %s: %v: %s",
+			currentCNISpec, err, result.Version())
+		return nil, err
+	}
+	var curResult *current.Result
+	var ok bool
+	curResult, ok = result.(*current.Result)
+	if !ok {
+		seelog.Warnf("Unable to convert result to the expected version: %s",
+			result.String())
+		return nil, errors.New(
+			"cni invocation: unable to convert result to expected version")
+	}
+
+	return curResult, nil
 }
 
 // CleanupNS will clean up the container namespace, including remove the veth
@@ -142,7 +166,7 @@ func (client *cniClient) createNetworkConfig(cfg *Config, bridgeConfigFunc func(
 		return nil, err
 	}
 
-	pluginConfigs := []*libcni.NetworkConfig{bridgeConfig, eniConfig}
+	pluginConfigs := []*libcni.NetworkConfig{eniConfig, bridgeConfig}
 	networkConfigList := &libcni.NetworkConfigList{
 		CNIVersion: client.cniVersion,
 		Plugins:    pluginConfigs,
