@@ -67,6 +67,10 @@ type TaskEngineState interface {
 	SetLabels(id string, labels map[string]string)
 	// GetLabels gets labels by container id
 	GetLabels(id string) (map[string]string, bool)
+	// AddTaskIPAddress adds ip adddress for a task arn into the state
+	AddTaskIPAddress(addr string, taskARN string)
+	// GetTaskByIPAddress gets the task arn for an IP address
+	GetTaskByIPAddress(addr string) (string, bool)
 	json.Marshaler
 	json.Unmarshaler
 }
@@ -94,6 +98,7 @@ type DockerTaskEngineState struct {
 	eniAttachments      map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
 	imageStates         map[string]*image.ImageState
 	containerIDToLabels map[string]map[string]string // container id -> label(key-> value)
+	ipToTask            map[string]string            // ip address -> task arn
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -118,6 +123,7 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.imageStates = make(map[string]*image.ImageState)
 	state.eniAttachments = make(map[string]*api.ENIAttachment)
 	state.containerIDToLabels = make(map[string]map[string]string)
+	state.ipToTask = make(map[string]string)
 }
 
 // Reset resets all the states
@@ -362,6 +368,9 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 		return
 	}
 	delete(state.tasks, task.Arn)
+	if ip, ok := state.taskToIPUnsafe(task.Arn); ok {
+		delete(state.ipToTask, ip)
+	}
 
 	containerMap, ok := state.taskToID[task.Arn]
 	if !ok {
@@ -374,6 +383,17 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 		state.removeIDToContainerTaskUnsafe(dockerContainer)
 		state.removeContainerLabelsUnsafe(dockerContainer)
 	}
+}
+
+// taskToIPUnsafe gets the ip address for a given task arn
+func (state *DockerTaskEngineState) taskToIPUnsafe(arn string) (string, bool) {
+	for ip, taskARN := range state.ipToTask {
+		if arn == taskARN {
+			return ip, true
+		}
+	}
+
+	return "", false
 }
 
 // storeIDToContainerTaskUnsafe stores the container in the idToContainer and idToTask maps.  The key to the maps is
@@ -448,4 +468,21 @@ func (state *DockerTaskEngineState) removeContainerLabelsUnsafe(container *api.D
 	if id != "" {
 		delete(state.containerIDToLabels, id)
 	}
+}
+
+// AddTaskIPAddress adds ip adddress for a task arn into the state
+func (state *DockerTaskEngineState) AddTaskIPAddress(addr string, taskARN string) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.ipToTask[addr] = taskARN
+}
+
+// GetTaskByIPAddress gets the task arn for an IP address
+func (state *DockerTaskEngineState) GetTaskByIPAddress(addr string) (string, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	taskARN, ok := state.ipToTask[addr]
+	return taskARN, ok
 }
