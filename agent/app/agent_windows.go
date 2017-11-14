@@ -78,7 +78,8 @@ func (h *handler) Execute(args []string, requests <-chan svc.ChangeRequest, resp
 	select {
 	case <-windowsDone:
 		// Service was told to stop by the Windows API.  This happens either through manual intervention (i.e.,
-		// "Stop-Service ECS") or through system shutdown.  Regardless, this is a normal exit event and not an error.
+		// "Stop-Service AmazonECS") or through system shutdown.  Regardless, this is a normal exit event and not an
+		// error.
 		seelog.Info("Received normal signal from Windows to exit")
 	case <-agentDone:
 		// This means that the agent stopped on its own.  This is where it's appropriate to light the event log on fire
