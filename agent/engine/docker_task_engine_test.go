@@ -2255,11 +2255,13 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	labels := map[string]string{
 		"name": "metadata",
 	}
+	created := time.Now()
 	gomock.InOrder(
 		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerRunning,
 			DockerContainerMetadata{
-				Labels:   labels,
-				DockerID: dockerID,
+				Labels:    labels,
+				DockerID:  dockerID,
+				CreatedAt: created,
 			}),
 		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
 	)
@@ -2267,4 +2269,6 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	labelsInState, ok := taskEngine.(*DockerTaskEngine).state.GetLabels(dockerID)
 	assert.True(t, ok)
 	assert.Equal(t, labels, labelsInState)
+
+	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
 }

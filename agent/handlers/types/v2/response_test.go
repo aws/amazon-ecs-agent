@@ -16,6 +16,7 @@ package v2
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -56,26 +57,30 @@ func TestTaskResponse(t *testing.T) {
 			},
 		},
 	}
+	container := &api.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: api.ContainerRunning,
+		KnownStatusUnsafe:   api.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                api.ContainerNormal,
+		Ports: []api.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      api.TransportProtocolTCP,
+			},
+		},
+	}
+	created := time.Now()
+	container.SetCreatedAt(created)
+
 	containerNameToDockerContainer := map[string]*api.DockerContainer{
 		taskARN: &api.DockerContainer{
 			DockerID:   containerID,
 			DockerName: containerName,
-			Container: &api.Container{
-				Name:                containerName,
-				Image:               imageName,
-				ImageID:             imageID,
-				DesiredStatusUnsafe: api.ContainerRunning,
-				KnownStatusUnsafe:   api.ContainerRunning,
-				CPU:                 cpu,
-				Memory:              memory,
-				Type:                api.ContainerNormal,
-				Ports: []api.PortBinding{
-					{
-						ContainerPort: 80,
-						Protocol:      api.TransportProtocolTCP,
-					},
-				},
-			},
+			Container:  container,
 		},
 	}
 	labels := map[string]string{
@@ -91,4 +96,5 @@ func TestTaskResponse(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
+	assert.Equal(t, created.String(), taskResponse.Containers[0].CreatedAt.String())
 }

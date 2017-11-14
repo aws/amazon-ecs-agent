@@ -321,6 +321,10 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	currentKnownStatus := containerKnownStatus
 	container.SetKnownStatus(event.Status)
 
+	container.SetCreatedAt(event.CreatedAt)
+	container.SetStartedAt(event.StartedAt)
+	container.SetFinishedAt(event.FinishedAt)
+
 	if event.Error != nil {
 		proceedAnyway := mtask.handleEventError(containerChange, currentKnownStatus)
 		if !proceedAnyway {
