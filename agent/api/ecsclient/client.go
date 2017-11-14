@@ -312,12 +312,6 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		return nil
 	}
 
-	// Submit task state change
-	if change.Status == api.TaskStatusNone {
-		seelog.Warnf("SubmitTaskStateChange called with an invalid change: %s", change.String())
-		return errors.New("ecs api client: SubmitTaskStateChange called with an invalid change")
-	}
-
 	if change.Status != api.TaskRunning && change.Status != api.TaskStopped && len(change.Containers) == 0 {
 		seelog.Debugf("Not submitting unsupported upstream task state: %s", change.Status.String())
 		// Not really an error

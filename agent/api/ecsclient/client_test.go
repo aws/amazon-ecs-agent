@@ -702,22 +702,19 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
-		ecs.SubmitTaskStateChangeInput{
-			Cluster: strptr(configuredCluster),
-			Task:    strptr("arn"),
-			Status:  strptr("PENDING"),
-			Reason:  strptr(""),
-			Containers: []*ecs.ContainerStateChange{
-				{
-					ContainerName:   strptr("container"),
-					Status:          strptr("RUNNING"),
-					NetworkBindings: []*ecs.NetworkBinding{},
-				},
-			},
+	testCases := []struct {
+		taskStatus api.TaskStatus
+	}{
+		{
+			api.TaskStatusNone,
 		},
-	})
+		{
+			api.TaskPulled,
+		},
+		{
+			api.TaskCreated,
+		},
+	}
 
 	taskStateChangePending := api.TaskStateChange{
 		Status:  api.TaskCreated,
@@ -731,6 +728,27 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 		},
 	}
 
-	err := client.SubmitTaskStateChange(taskStateChangePending)
-	assert.NoError(t, err)
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("TaskStatus: %s", tc.taskStatus.String()), func(t *testing.T) {
+			taskStateChangePending.Status = tc.taskStatus
+			client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+			mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+				ecs.SubmitTaskStateChangeInput{
+					Cluster: strptr(configuredCluster),
+					Task:    strptr("arn"),
+					Status:  strptr("PENDING"),
+					Reason:  strptr(""),
+					Containers: []*ecs.ContainerStateChange{
+						{
+							ContainerName:   strptr("container"),
+							Status:          strptr("RUNNING"),
+							NetworkBindings: []*ecs.NetworkBinding{},
+						},
+					},
+				},
+			})
+			err := client.SubmitTaskStateChange(taskStateChangePending)
+			assert.NoError(t, err)
+		})
+	}
 }

@@ -62,6 +62,8 @@ func (event *sendableEvent) taskArn() string {
 	return event.taskChange.TaskARN
 }
 
+// taskShouldBeSent checks whether the event should be sent, this includes
+// both task state change and container state change events
 func (event *sendableEvent) taskShouldBeSent() bool {
 	event.lock.RLock()
 	defer event.lock.RUnlock()
@@ -70,27 +72,31 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 		return false
 	}
 	tevent := event.taskChange
-	if tevent.Status == api.TaskStatusNone {
-		return false // defensive programming :)
-	}
 	if event.taskSent {
 		return false // redundant event
 	}
-	if tevent.Task != nil && tevent.Task.GetSentStatus() >= tevent.Status {
-		// If the task status has already been sent, check if there are
-		// any container states that need to be sent
-		for _, containerStateChange := range tevent.Containers {
-			container := containerStateChange.Container
-			if container.GetSentStatus() < container.GetKnownStatus() {
-				// We found a container that needs its state
-				// change to be sent to ECS.
-				return true
-			}
-		}
 
+	// task and container change event should have task != nil
+	if tevent.Task == nil {
 		return false
 	}
-	return true
+
+	// Task event should be sent
+	if tevent.Task.GetSentStatus() < tevent.Status {
+		return true
+	}
+
+	// Container event should be sent
+	for _, containerStateChange := range tevent.Containers {
+		container := containerStateChange.Container
+		if container.GetSentStatus() < container.GetKnownStatus() {
+			// We found a container that needs its state
+			// change to be sent to ECS.
+			return true
+		}
+	}
+
+	return false
 }
 
 func (event *sendableEvent) taskAttachmentShouldBeSent() bool {

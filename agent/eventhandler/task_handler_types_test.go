@@ -39,6 +39,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// We don't send a task event to backend if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: api.TaskStatusNone,
+				Task: &api.Task{
+					SentStatusUnsafe: api.TaskStatusNone,
+				},
 			}),
 			shouldBeSent: false,
 		},
@@ -46,6 +49,7 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// task status == RUNNING should be sent to backend
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: api.TaskRunning,
+				Task:   &api.Task{},
 			}),
 			shouldBeSent: true,
 		},
@@ -95,6 +99,25 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			shouldBeSent: true,
 		},
 		{
+			// Container state change should be sent regardless of task
+			// status.
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: api.TaskStatusNone,
+				Task: &api.Task{
+					SentStatusUnsafe: api.TaskStatusNone,
+				},
+				Containers: []api.ContainerStateChange{
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerStatusNone,
+							KnownStatusUnsafe: api.ContainerRunning,
+						},
+					},
+				},
+			}),
+			shouldBeSent: true,
+		},
+		{
 			// All states sent, nothing to send
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: api.TaskRunning,
@@ -137,6 +160,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ENI Attachment is only sent if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: api.TaskStopped,
+				Task:   &api.Task{},
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       true,
