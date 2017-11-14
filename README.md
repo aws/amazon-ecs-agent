@@ -58,23 +58,27 @@ To install the service, you can do the following:
 
 ```powershell
 PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path $ProgramFiles\Amazon\ECS
-PS C:\> New-Item -Type directory -Path $ProgramData\Amazon\ECS
+PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
 PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "$env:ProgramFiles\Amazon\ECS"
+PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "$ProgramData\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "$ProgramData\Amazon\ECS\data", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
 PS C:\> # Download the agent
 PS C:\> $agentVersion = "latest"
 PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "$env:TEMP\ecs-agent.zip"
+PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
 PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
 PS C:\> # Put the executables in the executable directory.
 PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> # Uncomment the following line to enable task IAM roles.
+PS C:\> Set-Location ${ecsExeDir}
+PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
 PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> # cd '$ecsExeDir'; .\hostsetup.ps1
+PS C:\> [bool]$EnableTaskIAMRoles = $false
+PS C:\> if (${EnableTaskIAMRoles} {
+>> .\hostsetup.ps1
+>> }
 PS C:\> # Install the agent service
 PS C:\> New-Service -Name "AmazonECS" `
         -BinaryPathName "$ecsExeDir\amazon-ecs-agent.exe -windows-service" `
@@ -93,19 +97,19 @@ Start-Service AmazonECS
 
 ```powershell
 PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path $ProgramFiles\Amazon\ECS
-PS C:\> New-Item -Type directory -Path $ProgramData\Amazon\ECS
+PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
 PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "$env:ProgramFiles\Amazon\ECS"
+PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "$ProgramData\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "$ProgramData\Amazon\ECS\data", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
 PS C:\> # Set this environment variable to "true" to enable IAM roles.  Note that enabling IAM roles will make port 80 unavailable for tasks.
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
 PS C:\> # Download the agent
 PS C:\> $agentVersion = "latest"
 PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "$env:TEMP\ecs-agent.zip"
+PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
 PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
 PS C:\> # Put the executables in the executable directory.
 PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
