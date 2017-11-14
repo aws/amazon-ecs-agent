@@ -46,14 +46,6 @@ const (
 	internalServerError = "InternalServerError"
 )
 
-// errorMessage is used to store the human-readable error Code and a descriptive Message
-//  that describes the error. This struct is marshalled and returned in the HTTP response.
-type errorMessage struct {
-	Code          string `json:"code"`
-	Message       string `json:"message"`
-	httpErrorCode int    `json:"-"`
-}
-
 // credentialsV1V2RequestHandler creates response for the 'v1/credentials' and 'v2/credentials' APIs. It returns a JSON response
 // containing credentials when found. The HTTP status code of 400 is returned otherwise.
 func credentialsV1V2RequestHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger, idFunc func(*http.Request) string, apiVersion int) func(http.ResponseWriter, *http.Request) {
@@ -120,23 +112,14 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		return nil, "", "", msg, errors.New(errText)
 	}
 
-	//Success
+	// Success
 	return credentialsJSON, credentials.ARN, credentials.IAMRoleCredentials.RoleType, nil, nil
 }
 
 func writeCredentialsV1V2RequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
 	auditLogger.Log(request.LogRequest{Request: r, ARN: arn}, httpStatusCode, eventType)
 
-	writeJSONToResponse(w, httpStatusCode, message)
-}
-
-func writeJSONToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(httpStatusCode)
-	_, err := w.Write(jsonMessage)
-	if err != nil {
-		seelog.Error("handlers/credentials: Error writing json error message to ResponseWriter")
-	}
+	writeJSONToResponse(w, httpStatusCode, message, requestTypeCreds)
 }
 
 func getV1CredentialsID(r *http.Request) string {

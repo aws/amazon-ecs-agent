@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -40,7 +41,10 @@ const (
 )
 
 // ServeHTTP serves IAM Role Credentials for Tasks being managed by the agent.
-func ServeHTTP(credentialsManager credentials.Manager, containerInstanceArn string, cfg *config.Config) {
+func ServeHTTP(credentialsManager credentials.Manager,
+	state dockerstate.TaskEngineState,
+	containerInstanceArn string,
+	cfg *config.Config) {
 	// Create and initialize the audit log
 	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := log.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -52,7 +56,7 @@ func ServeHTTP(credentialsManager credentials.Manager, containerInstanceArn stri
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server := setupServer(credentialsManager, auditLogger)
+	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster)
 
 	for {
 		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
@@ -67,7 +71,10 @@ func ServeHTTP(credentialsManager credentials.Manager, containerInstanceArn stri
 }
 
 // setupServer starts the HTTP server for serving IAM Role Credentials for Tasks.
-func setupServer(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) *http.Server {
+func setupServer(credentialsManager credentials.Manager,
+	auditLogger audit.AuditLogger,
+	state dockerstate.TaskEngineState,
+	cluster string) *http.Server {
 	serverMux := http.NewServeMux()
 	serverMux.HandleFunc(credentials.V1CredentialsPath,
 		credentialsV1V2RequestHandler(
@@ -75,6 +82,7 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 	serverMux.HandleFunc(credentials.V2CredentialsPath+"/",
 		credentialsV1V2RequestHandler(
 			credentialsManager, auditLogger, getV2CredentialsID, apiVersion2))
+	serverMux.HandleFunc(metadataPath, metadataV2Handler(state, cluster))
 
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
