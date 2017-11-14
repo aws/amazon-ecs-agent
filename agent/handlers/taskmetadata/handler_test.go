@@ -174,7 +174,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog)
+	server := setupServer(credentialsManager, auditLog, nil, "")
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
@@ -207,7 +207,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog)
+	server := setupServer(credentialsManager, auditLog, nil, "")
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()
