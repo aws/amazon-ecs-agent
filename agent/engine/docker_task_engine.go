@@ -290,6 +290,9 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		} else {
 			container.DockerID = describedContainer.ID
 			container.Container.SetKnownStatus(dockerStateToState(describedContainer.State))
+			container.Container.SetCreatedAt(describedContainer.Created)
+			container.Container.SetStartedAt(describedContainer.State.StartedAt)
+			container.Container.SetFinishedAt(describedContainer.State.FinishedAt)
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
@@ -308,6 +311,9 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		}
 	} else {
 		engine.state.SetLabels(metadata.DockerID, metadata.Labels)
+		container.Container.SetCreatedAt(metadata.CreatedAt)
+		container.Container.SetStartedAt(metadata.StartedAt)
+		container.Container.SetFinishedAt(metadata.FinishedAt)
 		engine.imageManager.RecordContainerReference(container.Container)
 		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)

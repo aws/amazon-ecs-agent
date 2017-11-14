@@ -715,6 +715,9 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
+		CreatedAt:    dockerContainer.Created,
+		StartedAt:    dockerContainer.State.StartedAt,
+		FinishedAt:   dockerContainer.State.FinishedAt,
 	}
 	if dockerContainer.Config != nil {
 		metadata.Labels = dockerContainer.Config.Labels

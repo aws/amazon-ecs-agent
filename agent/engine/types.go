@@ -15,6 +15,7 @@ package engine
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 )
@@ -56,6 +57,12 @@ type DockerContainerMetadata struct {
 	Volumes map[string]string
 	// Labels contains labels set for the container
 	Labels map[string]string
+	// CreatedAt is the timestamp of container creation
+	CreatedAt time.Time
+	// StartedAt is the timestamp of container start
+	StartedAt time.Time
+	// FinishedAt is the timestamp of container stop
+	FinishedAt time.Time
 }
 
 // ListContainersResponse encapsulates the response from the docker client for the

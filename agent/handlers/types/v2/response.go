@@ -14,6 +14,8 @@
 package v2
 
 import (
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -47,9 +49,11 @@ type ContainerResponse struct {
 	KnownStatus   string
 	ExitCode      *int `json:",omitempty"`
 	Limits        LimitsResponse
-	// TODO StartedAt time.Time
-	Type     string
-	Networks []containermetadata.Network `json:",omitempty"`
+	CreatedAt     *time.Time `json:",omitempty"`
+	StartedAt     *time.Time `json:",omitempty"`
+	FinishedAt    *time.Time `json:",omitempty"`
+	Type          string
+	Networks      []containermetadata.Network `json:",omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -119,6 +123,16 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 		},
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),
+	}
+
+	if createdAt := container.GetCreatedAt(); !createdAt.IsZero() {
+		resp.CreatedAt = &createdAt
+	}
+	if startedAt := container.GetStartedAt(); !startedAt.IsZero() {
+		resp.StartedAt = &startedAt
+	}
+	if finishedAt := container.GetFinishedAt(); !finishedAt.IsZero() {
+		resp.FinishedAt = &finishedAt
 	}
 	labels, ok := state.GetLabels(resp.ID)
 	if ok {

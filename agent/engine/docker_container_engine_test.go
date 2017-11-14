@@ -1199,6 +1199,11 @@ func TestMetadataFromContainer(t *testing.T) {
 	labels := map[string]string{
 		"name": "metadata",
 	}
+
+	created := time.Now()
+	started := time.Now()
+	finished := time.Now()
+
 	dockerContainer := &docker.Container{
 		NetworkSettings: &docker.NetworkSettings{
 			Ports: ports,
@@ -1208,7 +1213,12 @@ func TestMetadataFromContainer(t *testing.T) {
 		Config: &docker.Config{
 			Labels: labels,
 		},
-		State: docker.State{Running: true},
+		Created: created,
+		State: docker.State{
+			Running:    true,
+			StartedAt:  started,
+			FinishedAt: finished,
+		},
 	}
 
 	metadata := metadataFromContainer(dockerContainer)
@@ -1216,4 +1226,7 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.Equal(t, volumes, metadata.Volumes)
 	assert.Equal(t, labels, metadata.Labels)
 	assert.Len(t, metadata.PortBindings, 1)
+	assert.Equal(t, created, metadata.CreatedAt)
+	assert.Equal(t, started, metadata.StartedAt)
+	assert.Equal(t, finished, metadata.FinishedAt)
 }

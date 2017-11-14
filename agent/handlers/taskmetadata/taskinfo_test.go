@@ -71,26 +71,28 @@ func TestTaskMetadata(t *testing.T) {
 			},
 		},
 	}
+	container := &api.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: api.ContainerRunning,
+		KnownStatusUnsafe:   api.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                api.ContainerNormal,
+		Ports: []api.PortBinding{
+			{
+				ContainerPort: containerPort,
+				Protocol:      api.TransportProtocolTCP,
+			},
+		},
+	}
+
 	containerNameToDockerContainer := map[string]*api.DockerContainer{
 		taskARN: &api.DockerContainer{
 			DockerID:   containerID,
 			DockerName: containerName,
-			Container: &api.Container{
-				Name:                containerName,
-				Image:               imageName,
-				ImageID:             imageID,
-				DesiredStatusUnsafe: api.ContainerRunning,
-				KnownStatusUnsafe:   api.ContainerRunning,
-				CPU:                 cpu,
-				Memory:              memory,
-				Type:                api.ContainerNormal,
-				Ports: []api.PortBinding{
-					{
-						ContainerPort: containerPort,
-						Protocol:      api.TransportProtocolTCP,
-					},
-				},
-			},
+			Container:  container,
 		},
 	}
 	labels := map[string]string{
