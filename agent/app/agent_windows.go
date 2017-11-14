@@ -175,14 +175,8 @@ func (h *handler) runAgent(ctx context.Context) {
 
 // sleepCtx provides a cancelable sleep
 func sleepCtx(ctx context.Context, duration time.Duration) {
-	done := make(chan struct{})
-	time.AfterFunc(duration, func() {
-		close(done)
-	})
-	select {
-	case <-ctx.Done():
-	case <-done:
-	}
+	derivedCtx, _ := context.WithDeadline(ctx, time.Now().Add(duration))
+	<-derivedCtx.Done()
 }
 
 type termHandlerIndicator struct {
