@@ -63,9 +63,7 @@ func DefaultConfig() Config {
 		DataDir:          dataDir,
 		// DataDirOnHost is identical to DataDir for Windows because we do not
 		// run as a container
-		DataDirOnHost: dataDir,
-		// DisableMetrics is set to true on Windows as docker stats does not work
-		DisableMetrics:              true,
+		DataDirOnHost:               dataDir,
 		ReservedMemory:              0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
