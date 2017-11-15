@@ -32,18 +32,18 @@ const (
 	// Error Types
 
 	// noIDInRequest is the error code indicating that no ID was specified
-	noIDInRequest = "NoIdInRequest"
+	errNoIDInRequest = "NoIdInRequest"
 	// invalidIDInRequest is the error code indicating that the ID was invalid
-	invalidIDInRequest = "InvalidIdInRequest"
+	errInvalidIDInRequest = "InvalidIdInRequest"
 	// noCredentialsAssociated is the error code indicating no credentials are
 	// associated with the specified ID
-	noCredentialsAssociated = "NoCredentialsAssociated"
+	errNoCredentialsAssociated = "NoCredentialsAssociated"
 	// credentialsUninitialized is the error code indicating that credentials were
 	// not properly initialized.  This may happen immediately after the agent is
 	// started, before it has completed state reconciliation.
-	credentialsUninitialized = "CredentialsUninitialized"
+	errCredentialsUninitialized = "CredentialsUninitialized"
 	// internalServerError is the error indicating something generic went wrong
-	internalServerError = "InternalServerError"
+	errInternalServer = "InternalServerError"
 )
 
 // credentialsV1V2RequestHandler creates response for the 'v1/credentials' and 'v2/credentials' APIs. It returns a JSON response
@@ -69,7 +69,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		errText := errPrefix + "No ID in the request"
 		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          noIDInRequest,
+			Code:          errNoIDInRequest,
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
@@ -81,7 +81,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		errText := errPrefix + "ID not found"
 		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          invalidIDInRequest,
+			Code:          errInvalidIDInRequest,
 			Message:       errText,
 			httpErrorCode: http.StatusBadRequest,
 		}
@@ -93,7 +93,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		errText := errPrefix + "Credentials uninitialized for ID"
 		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          credentialsUninitialized,
+			Code:          errCredentialsUninitialized,
 			Message:       errText,
 			httpErrorCode: http.StatusServiceUnavailable,
 		}
@@ -105,7 +105,7 @@ func processCredentialsV1V2Request(credentialsManager credentials.Manager, r *ht
 		errText := errPrefix + "Error marshaling credentials"
 		seelog.Errorf("%s. Request IP Address: %s", errText, r.RemoteAddr)
 		msg := &errorMessage{
-			Code:          internalServerError,
+			Code:          errInternalServer,
 			Message:       "Internal server error",
 			httpErrorCode: http.StatusInternalServerError,
 		}

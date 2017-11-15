@@ -46,7 +46,7 @@ func TestInvalidPath(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
-		Code:          noIDInRequest,
+		Code:          errNoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -57,7 +57,7 @@ func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
-		Code:          noIDInRequest,
+		Code:          errNoIDInRequest,
 		Message:       "CredentialsV2Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -68,7 +68,7 @@ func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          invalidIDInRequest,
+		Code:          errInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -82,7 +82,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          invalidIDInRequest,
+		Code:          errInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV2Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -96,7 +96,7 @@ func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          credentialsUninitialized,
+		Code:          errCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials uninitialized for ID"),
 		httpErrorCode: http.StatusServiceUnavailable,
 	}
@@ -110,7 +110,7 @@ func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          credentialsUninitialized,
+		Code:          errCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials uninitialized for ID"),
 		httpErrorCode: http.StatusServiceUnavailable,
 	}

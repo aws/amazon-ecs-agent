@@ -126,12 +126,15 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 	}
 
 	if createdAt := container.GetCreatedAt(); !createdAt.IsZero() {
+		createdAt = createdAt.UTC()
 		resp.CreatedAt = &createdAt
 	}
 	if startedAt := container.GetStartedAt(); !startedAt.IsZero() {
+		startedAt = startedAt.UTC()
 		resp.StartedAt = &startedAt
 	}
 	if finishedAt := container.GetFinishedAt(); !finishedAt.IsZero() {
+		finishedAt = finishedAt.UTC()
 		resp.FinishedAt = &finishedAt
 	}
 	labels, ok := state.GetLabels(resp.ID)
