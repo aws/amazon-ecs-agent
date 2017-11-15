@@ -87,7 +87,7 @@ PS C:\> New-Service -Name "AmazonECS" `
         -Description "Amazon ECS service runs the Amazon ECS agent" `
         -DependsOn Docker `
         -StartupType Manual
-PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/10000/restart/10000/restart/10000
+PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/5000/restart/30000/restart/60000
 PS C:\> sc.exe failureflag AmazonECS 1
 ```
 
