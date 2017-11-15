@@ -4,7 +4,7 @@
 # Set agent env variables for the Machine context (durable)
 [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "windows", "Machine")
 [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
-$agentVersion = 'v1.15.1'
+$agentVersion = 'v1.15.2'
 $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
 $agentZipMD5Uri = "$agentZipUri.md5"
 
