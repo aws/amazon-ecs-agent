@@ -97,13 +97,11 @@ func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
 		return nil, err
 	}
 	var curResult *current.Result
-	var ok bool
-	curResult, ok = result.(*current.Result)
+	curResult, ok := result.(*current.Result)
 	if !ok {
-		seelog.Warnf("Unable to convert result to the expected version: %s",
+		return nil, errors.Errorf(
+			"cni invocation: unable to convert result to expected version '%s'",
 			result.String())
-		return nil, errors.New(
-			"cni invocation: unable to convert result to expected version")
 	}
 
 	return curResult, nil
@@ -166,6 +164,9 @@ func (client *cniClient) createNetworkConfig(cfg *Config, bridgeConfigFunc func(
 		return nil, err
 	}
 
+	// We order bridgeConfig after eniConfig so that the result of the bridge
+	// plugin (which contains results of the eni plugin) can be parsed to
+	// get the IP address of the veth pair created
 	pluginConfigs := []*libcni.NetworkConfig{eniConfig, bridgeConfig}
 	networkConfigList := &libcni.NetworkConfigList{
 		CNIVersion: client.cniVersion,
