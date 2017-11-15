@@ -147,7 +147,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 		// to determine whether it should run (we skip when the agent engine has already exited).  After recording to
 		// the indicator that the handler has been invoked, we wait on the context.  When we wake up, we determine
 		// whether to execute or not based on whether the agent is still running.
-		defer indicator.done()
+		defer indicator.finish()
 		indicator.setInvoked()
 		<-agentCtx.Done()
 		if !indicator.isAgentRunning() {
@@ -163,6 +163,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 	h.ecsAgent.setTerminationHandler(terminationHandler)
 
 	go func() {
+		defer cancel()
 		exitCode := h.ecsAgent.start() // should block forever, unless there is an error
 
 		if exitCode == exitcodes.ExitTerminal {
@@ -173,7 +174,6 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 		}
 
 		indicator.agentStopped(exitCode)
-		cancel()
 	}()
 
 	sleepCtx(agentCtx, time.Minute) // give the agent a minute to start and invoke terminationHandler
@@ -219,7 +219,7 @@ func (t *termHandlerIndicator) agentStopped(exitCode int) {
 	t.exitCode = uint32(exitCode)
 }
 
-func (t *termHandlerIndicator) done() {
+func (t *termHandlerIndicator) finish() {
 	close(t.handlerDone)
 }
 
