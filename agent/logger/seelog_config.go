@@ -18,6 +18,7 @@ func loggerConfig() string {
 	<seelog type="asyncloop" minlevel="` + level + `">
 		<outputs formatid="main">
 			<console />`
+	config += platformLogConfig()
 	if logfile != "" {
 		config += `<rollingfile filename="` + logfile + `" type="date"
 			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />`
@@ -26,6 +27,7 @@ func loggerConfig() string {
 		</outputs>
 		<formats>
 			<format id="main" format="%UTCDate(2006-01-02T15:04:05Z07:00) [%LEVEL] %Msg%n" />
+			<format id="windows" format="%Msg" />
 		</formats>
 	</seelog>
 `
