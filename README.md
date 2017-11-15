@@ -60,6 +60,7 @@ To install the service, you can do the following:
 PS C:\> # Set up directories the agent uses
 PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
 PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
 PS C:\> # Set up configuration
 PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
@@ -86,6 +87,8 @@ PS C:\> New-Service -Name "AmazonECS" `
         -Description "Amazon ECS service runs the Amazon ECS agent" `
         -DependsOn Docker `
         -StartupType Manual
+PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/10000/restart/10000/restart/10000
+PS C:\> sc.exe failureflag AmazonECS 1
 ```
 
 To run the service, you can do the following:
@@ -99,6 +102,7 @@ Start-Service AmazonECS
 PS C:\> # Set up directories the agent uses
 PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
 PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
 PS C:\> # Set up configuration
 PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")

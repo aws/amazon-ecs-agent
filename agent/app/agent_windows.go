@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/cihub/seelog"
 	"golang.org/x/sys/windows/svc"
@@ -54,6 +55,7 @@ func newHandler(agent agent) *handler {
 // (the Windows goroutine will exit based on messages from Windows while the agent goroutine exits if the agent exits)
 // and then cancel the other.  Once everything has stopped running, this function returns and the process exits.
 func (h *handler) Execute(args []string, requests <-chan svc.ChangeRequest, responses chan<- svc.Status) (bool, uint32) {
+	defer seelog.Flush()
 	// channels for communication between goroutines
 	ctx, cancel := context.WithCancel(context.Background())
 	agentDone := make(chan struct{})
@@ -67,10 +69,11 @@ func (h *handler) Execute(args []string, requests <-chan svc.ChangeRequest, resp
 		h.handleWindowsRequests(ctx, requests, responses)
 	}()
 
+	var agentExitCode uint32
 	go func() {
 		defer close(agentDone)
 		defer wg.Done()
-		h.runAgent(ctx)
+		agentExitCode = h.runAgent(ctx)
 	}()
 
 	// Wait until one of the goroutines is either told to stop or fails spectacularly.  Under normal conditions we will
@@ -84,11 +87,12 @@ func (h *handler) Execute(args []string, requests <-chan svc.ChangeRequest, resp
 	case <-agentDone:
 		// This means that the agent stopped on its own.  This is where it's appropriate to light the event log on fire
 		// and set off all the alarms.
-		seelog.Error("Exiting")
+		seelog.Errorf("Exiting %d", agentExitCode)
 	}
 	cancel()
 	wg.Wait()
-	return true, 0
+	seelog.Infof("Bye Bye! Exiting with %d", agentExitCode)
+	return true, agentExitCode
 }
 
 // handleWindowsRequests is a loop intended to run in a goroutine.  It handles bidirectional communication with the
@@ -134,7 +138,7 @@ func (h *handler) handleWindowsRequests(ctx context.Context, requests <-chan svc
 }
 
 // runAgent runs the ECS agent inside a goroutine and waits to be told to exit.
-func (h *handler) runAgent(ctx context.Context) {
+func (h *handler) runAgent(ctx context.Context) uint32 {
 	agentCtx, cancel := context.WithCancel(ctx)
 	indicator := newTermHandlerIndicator()
 
@@ -159,9 +163,16 @@ func (h *handler) runAgent(ctx context.Context) {
 	h.ecsAgent.setTerminationHandler(terminationHandler)
 
 	go func() {
-		h.ecsAgent.start() // should block forever, unless there is an error
-		// TODO: distinguish between recoverable and unrecoverable errors
-		indicator.agentStopped()
+		exitCode := h.ecsAgent.start() // should block forever, unless there is an error
+
+		if exitCode == exitcodes.ExitTerminal {
+			seelog.Critical("Terminal exit code received from agent.  Windows SCM will not restart the AmazonECS service.")
+			// We override the exit code to 0 here so that Windows does not treat this as a restartable failure even
+			// when "sc.exe failureflag" is set.
+			exitCode = 0
+		}
+
+		indicator.agentStopped(exitCode)
 		cancel()
 	}()
 
@@ -170,7 +181,7 @@ func (h *handler) runAgent(ctx context.Context) {
 	// wait for the termination handler to run.  Once the termination handler runs, we can safely exit.  If the agent
 	// exits by itself, the termination handler doesn't need to do anything and skips.  If the agent exits before the
 	// termination handler is invoked, we can exit immediately.
-	indicator.wait()
+	return indicator.wait()
 }
 
 // sleepCtx provides a cancelable sleep
@@ -182,6 +193,7 @@ func sleepCtx(ctx context.Context, duration time.Duration) {
 type termHandlerIndicator struct {
 	mu             sync.Mutex
 	agentRunning   bool
+	exitCode       uint32
 	handlerInvoked bool
 	handlerDone    chan struct{}
 }
@@ -200,10 +212,11 @@ func (t *termHandlerIndicator) isAgentRunning() bool {
 	return t.agentRunning
 }
 
-func (t *termHandlerIndicator) agentStopped() {
+func (t *termHandlerIndicator) agentStopped(exitCode int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.agentRunning = false
+	t.exitCode = uint32(exitCode)
 }
 
 func (t *termHandlerIndicator) done() {
@@ -216,11 +229,14 @@ func (t *termHandlerIndicator) setInvoked() {
 	t.handlerInvoked = true
 }
 
-func (t *termHandlerIndicator) wait() {
+func (t *termHandlerIndicator) wait() uint32 {
 	t.mu.Lock()
 	invoked := t.handlerInvoked
 	t.mu.Unlock()
 	if invoked {
 		<-t.handlerDone
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.exitCode
 }
