@@ -66,25 +66,6 @@ func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 	}
 }
 
-func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
-	// doing this with json makes me sad, but is the easiest way to deal with
-	// the inner structs
-	jsonStat := fmt.Sprintf(`
-		{
-			"cpu_stats":{
-				"cpu_usage":{
-					"total_usage":%d
-				}
-			}
-		}`, 100)
-	dockerStat := &docker.Stats{}
-	json.Unmarshal([]byte(jsonStat), dockerStat)
-	_, err := dockerStatsToContainerStats(dockerStat)
-	if err == nil {
-		t.Error("Expected error converting container stats with empty PercpuUsage")
-	}
-}
-
 func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 	jsonStat := fmt.Sprintf(`
 		{
@@ -100,9 +81,10 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 				"stats": {
 					"cache": %d,
 					"rss": %d
-				}
+				},
+				"privateworkingset": %d
 			}
-		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10)
+		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10, 10)
 	dockerStat := &docker.Stats{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)

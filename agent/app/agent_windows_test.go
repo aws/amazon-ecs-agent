@@ -21,73 +21,13 @@ import (
 	"testing"
 	"time"
 
-	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/svc"
 )
-
-// TestDoStartHappyPath tests the doStart method for windows. This method should
-// go away when we support metrics for windows containers
-func TestDoStartHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
-	defer ctrl.Finish()
-
-	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	var discoverEndpointsInvoked sync.WaitGroup
-	discoverEndpointsInvoked.Add(1)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
-
-	// These calls are expected to happen, but cannot be ordered as they are
-	// invoked via go routines, which will lead to occasional test failues
-	dockerClient.EXPECT().Version().AnyTimes()
-	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
-	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until acs session has bee started
-		discoverEndpointsInvoked.Done()
-	}).Return("poll-endpoint", nil)
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
-
-	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
-		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
-		state.EXPECT().AllImageStates().Return(nil),
-		state.EXPECT().AllTasks().Return(nil),
-	)
-
-	cfg := getTestConfig()
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                &cfg,
-		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
-		dockerClient:       dockerClient,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
-	}
-
-	go agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
-
-	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
-	// invoked. These are used as proxies to indicate that acs and tcs handlers'
-	// NewSession call has been invoked
-	discoverEndpointsInvoked.Wait()
-}
 
 type mockAgent struct {
 	startFunc          func() int
