@@ -14,14 +14,12 @@
 package stats
 
 import (
-	"fmt"
 	"math"
 	"regexp"
 	"runtime"
 	"time"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 // networkStatsErrorPattern defines the pattern that is used to evaluate
@@ -33,23 +31,6 @@ var numCores = uint64(runtime.NumCPU())
 // nan32 returns a 32bit NaN.
 func nan32() float32 {
 	return (float32)(math.NaN())
-}
-
-// dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
-	// The length of PercpuUsage represents the number of cores in an instance.
-	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 {
-		seelog.Debug("Invalid container statistics reported, invalid stats payload from docker")
-		return nil, fmt.Errorf("Invalid container statistics reported")
-	}
-
-	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
-	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats.Cache
-	return &ContainerStats{
-		cpuUsage:    cpuUsage,
-		memoryUsage: memoryUsage,
-		timestamp:   dockerStats.Read,
-	}, nil
 }
 
 // parseNanoTime returns the time object from a string formatted with RFC3339Nano layout.
