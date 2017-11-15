@@ -24,8 +24,8 @@ import (
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
 func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
 	if numCores == uint64(0) {
-		seelog.Error("Invalid number of cpu cores")
-		return nil, fmt.Errorf("Invalid number of cpu cores")
+		seelog.Error("Invalid number of cpu cores acquired from the system")
+		return nil, fmt.Errorf("invalid number of cpu cores acquired from the system")
 	}
 
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
