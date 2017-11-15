@@ -112,10 +112,10 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	task := &Task{}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &docker.HostConfig{CPUShares: 1024}
 
 	task.platformHostConfigOverride(hostConfig)
-
+	assert.Equal(t, int64(1024)/int64(cpus), hostConfig.CPUPercent)
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 }
 

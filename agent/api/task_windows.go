@@ -17,6 +17,7 @@ package api
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -27,6 +28,8 @@ const (
 	//memorySwappinessDefault is the expected default value for this platform
 	memorySwappinessDefault = -1
 )
+
+var cpus = runtime.NumCPU() * 1024
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
@@ -59,6 +62,7 @@ func getCanonicalPath(path string) string {
 // passed to Docker API.
 func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
+	hostConfig.CPUPercent = hostConfig.CPUShares / int64(cpus)
 	return nil
 }
 
