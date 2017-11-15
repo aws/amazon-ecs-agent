@@ -88,7 +88,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	os.Setenv("ECS_CLUSTER", Cluster)
 	os.Setenv("ECS_ENABLE_TASK_IAM_ROLE", "true")
 	os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
-	os.Setenv("ECS_DISABLE_METRICS", "true")
+	os.Setenv("ECS_DISABLE_METRICS", "false")
 	os.Setenv("ECS_AUDIT_LOGFILE", logdir+"/audit.log")
 	os.Setenv("ECS_LOGLEVEL", "debug")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", `["json-file","awslogs"]`)
