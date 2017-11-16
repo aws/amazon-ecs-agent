@@ -485,12 +485,7 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 		return err
 	}
 
-	dockerAPIVersion_1_18, err := docker.NewAPIVersion("1.18")
-	if err != nil {
-		seelog.Errorf("Creating docker api version 1.18 failed, err: %v", err)
-		return err
-	}
-
+	dockerAPIVersion_1_18 := docker.APIVersion([]int{1, 18})
 	if dockerAPIVersion.GreaterThanOrEqualTo(dockerAPIVersion_1_18) {
 		// Set the memory and cpu in host config
 		if hc != nil {
