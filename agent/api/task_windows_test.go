@@ -115,8 +115,14 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 	hostConfig := &docker.HostConfig{CPUShares: 1024}
 
 	task.platformHostConfigOverride(hostConfig)
-	assert.Equal(t, int64(1024)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
+	assert.Equal(t, int64(102400)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
+	assert.Equal(t, int64(0), hostConfig.CPUShares)
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
+
+	hostConfig = &docker.HostConfig{CPUShares: 10}
+	task.platformHostConfigOverride(hostConfig)
+	assert.Equal(t, int64(0), hostConfig.CPUPercent)
+	assert.Equal(t, int64(10), hostConfig.CPUShares)
 }
 
 func TestWindowsMemorySwappinessOption(t *testing.T) {

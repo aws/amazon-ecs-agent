@@ -62,7 +62,12 @@ func getCanonicalPath(path string) string {
 // passed to Docker API.
 func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
-	hostConfig.CPUPercent = hostConfig.CPUShares / int64(cpuShareScaleFactor)
+	// Convert the CPUShares to CPUPercent
+	hostConfig.CPUPercent = hostConfig.CPUShares * 100 / int64(cpuShareScaleFactor)
+	if hostConfig.CPUPercent != 0 {
+		// Only unset the CPUShares if the CPUPercent has valid value
+		hostConfig.CPUShares = 0
+	}
 	return nil
 }
 
