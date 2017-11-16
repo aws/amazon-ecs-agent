@@ -31,18 +31,18 @@ import (
 const (
 	// Error Types
 
-	// noIDInRequest is the error code indicating that no ID was specified
+	// errnoIDInRequest is the error code indicating that no ID was specified
 	errNoIDInRequest = "NoIdInRequest"
-	// invalidIDInRequest is the error code indicating that the ID was invalid
+	// errinvalidIDInRequest is the error code indicating that the ID was invalid
 	errInvalidIDInRequest = "InvalidIdInRequest"
-	// noCredentialsAssociated is the error code indicating no credentials are
+	// errnoCredentialsAssociated is the error code indicating no credentials are
 	// associated with the specified ID
 	errNoCredentialsAssociated = "NoCredentialsAssociated"
-	// credentialsUninitialized is the error code indicating that credentials were
+	// errcredentialsUninitialized is the error code indicating that credentials were
 	// not properly initialized.  This may happen immediately after the agent is
 	// started, before it has completed state reconciliation.
 	errCredentialsUninitialized = "CredentialsUninitialized"
-	// internalServerError is the error indicating something generic went wrong
+	// errinternalServerError is the error indicating something generic went wrong
 	errInternalServer = "InternalServerError"
 )
 

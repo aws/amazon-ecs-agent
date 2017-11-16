@@ -198,8 +198,6 @@ func TestRemoveTask(t *testing.T) {
 	state.AddContainer(testDockerContainer2, testTask)
 	addr := "169.254.170.3"
 	state.AddTaskIPAddress(addr, testTask.Arn)
-	labels := map[string]string{"foo": "bar"}
-	state.SetLabels(containerID, labels)
 	engineState := state.(*DockerTaskEngineState)
 
 	assert.Len(t, state.AllTasks(), 1, "Expected one task")
@@ -208,9 +206,6 @@ func TestRemoveTask(t *testing.T) {
 	taskARNFromIP, ok := state.GetTaskByIPAddress(addr)
 	assert.True(t, ok)
 	assert.Equal(t, testTask.Arn, taskARNFromIP)
-	labelsForContainer, ok := state.GetLabels(containerID)
-	assert.True(t, ok)
-	assert.Equal(t, labels, labelsForContainer)
 
 	state.RemoveTask(testTask)
 
@@ -218,8 +213,6 @@ func TestRemoveTask(t *testing.T) {
 	assert.Len(t, engineState.idToTask, 0, "idToTask map should be empty")
 	assert.Len(t, engineState.idToContainer, 0, "idToContainer map should be empty")
 	_, ok = state.GetTaskByIPAddress(addr)
-	assert.False(t, ok)
-	_, ok = state.GetLabels(containerID)
 	assert.False(t, ok)
 }
 

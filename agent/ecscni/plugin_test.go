@@ -26,15 +26,16 @@ func TestSetupNS(t *testing.T) {
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
 
-	libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(func(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) {
-		assert.Len(t, net.Plugins, 2, "expected 2 plugins for SetupNS")
-		bridgePlugin := net.Plugins[1]
-		assert.Equal(t, ECSBridgePluginName, bridgePlugin.Network.Type, "first plugin should be bridge")
-		var bridgeConfig BridgeConfig
-		err := json.Unmarshal(bridgePlugin.Bytes, &bridgeConfig)
-		assert.NoError(t, err, "unmarshal BridgeConfig")
-		assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
-	})
+	libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+		func(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) {
+			assert.Len(t, net.Plugins, 2, "expected 2 plugins for SetupNS")
+			bridgePlugin := net.Plugins[1]
+			assert.Equal(t, ECSBridgePluginName, bridgePlugin.Network.Type, "second plugin should be bridge")
+			var bridgeConfig BridgeConfig
+			err := json.Unmarshal(bridgePlugin.Bytes, &bridgeConfig)
+			assert.NoError(t, err, "unmarshal BridgeConfig")
+			assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+		})
 
 	_, err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
 	assert.NoError(t, err)

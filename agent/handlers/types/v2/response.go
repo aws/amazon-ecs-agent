@@ -123,6 +123,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 		},
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),
+		Labels:   container.GetLabels(),
 	}
 
 	if createdAt := container.GetCreatedAt(); !createdAt.IsZero() {
@@ -136,10 +137,6 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 	if finishedAt := container.GetFinishedAt(); !finishedAt.IsZero() {
 		finishedAt = finishedAt.UTC()
 		resp.FinishedAt = &finishedAt
-	}
-	labels, ok := state.GetLabels(resp.ID)
-	if ok {
-		resp.Labels = labels
 	}
 
 	for _, binding := range container.Ports {

@@ -296,7 +296,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
-			engine.state.SetLabels(container.DockerID, describedContainer.Config.Labels)
+			container.Container.SetLabels(describedContainer.Config.Labels)
 		}
 		return
 	}
@@ -310,7 +310,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
 		}
 	} else {
-		engine.state.SetLabels(metadata.DockerID, metadata.Labels)
+		container.Container.SetLabels(metadata.Labels)
 		container.Container.SetCreatedAt(metadata.CreatedAt)
 		container.Container.SetStartedAt(metadata.StartedAt)
 		container.Container.SetFinishedAt(metadata.FinishedAt)
@@ -751,8 +751,8 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
 	}
+	container.SetLabels(config.Labels)
 	seelog.Infof("Created docker container for task %s: %s -> %s", task.Arn, container.Name, metadata.DockerID)
-	engine.state.SetLabels(metadata.DockerID, config.Labels)
 	return metadata
 }
 

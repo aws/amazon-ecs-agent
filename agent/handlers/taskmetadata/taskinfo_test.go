@@ -87,7 +87,10 @@ func TestTaskMetadata(t *testing.T) {
 			},
 		},
 	}
-
+	labels := map[string]string{
+		"foo": "bar",
+	}
+	container.SetLabels(labels)
 	containerNameToDockerContainer := map[string]*api.DockerContainer{
 		taskARN: &api.DockerContainer{
 			DockerID:   containerID,
@@ -95,14 +98,10 @@ func TestTaskMetadata(t *testing.T) {
 			Container:  container,
 		},
 	}
-	labels := map[string]string{
-		"foo": "bar",
-	}
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		state.EXPECT().GetLabels(containerID).Return(labels, true),
 	)
 	server := setupServer(credentials.NewManager(), auditLog, state, clusterName)
 	recorder := httptest.NewRecorder()
