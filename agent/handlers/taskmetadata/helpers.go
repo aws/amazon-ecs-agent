@@ -37,6 +37,8 @@ func writeJSONToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage 
 	w.WriteHeader(httpStatusCode)
 	_, err := w.Write(jsonMessage)
 	if err != nil {
-		seelog.Error("Task metadatda handler[%s]: Unable to write json error message to ResponseWriter")
+		seelog.Errorf(
+			"Task metadatda handler[%s]: Unable to write json error message to ResponseWriter",
+			requestType)
 	}
 }

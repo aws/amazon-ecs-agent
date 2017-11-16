@@ -97,3 +97,55 @@ func TestTaskResponse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, created.UTC().String(), taskResponse.Containers[0].CreatedAt.String())
 }
+
+func TestContainerResponse(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	container := &api.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: api.ContainerRunning,
+		KnownStatusUnsafe:   api.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                api.ContainerNormal,
+		Ports: []api.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      api.TransportProtocolTCP,
+			},
+		},
+	}
+	created := time.Now()
+	container.SetCreatedAt(created)
+	labels := map[string]string{
+		"foo": "bar",
+	}
+	container.SetLabels(labels)
+	dockerContainer := &api.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  container,
+	}
+	task := &api.Task{
+		ENI: &api.ENI{
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Address: eniIPv4Address,
+				},
+			},
+		},
+	}
+	gomock.InOrder(
+		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+		state.EXPECT().TaskByID(containerID).Return(task, true),
+	)
+
+	containerResponse, err := NewContainerResponse(containerID, state)
+	assert.NoError(t, err)
+	_, err = json.Marshal(containerResponse)
+	assert.NoError(t, err)
+}

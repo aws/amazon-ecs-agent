@@ -92,7 +92,7 @@ func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
 
 	seelog.Debugf("Set up container namespace done: %s", result.String())
 	if _, err = result.GetAsVersion(currentCNISpec); err != nil {
-		seelog.Warnf("Unable to convert result to %s: %v: %s",
+		seelog.Warnf("Unable to convert result to %s; error: %v; result is of version: %s",
 			currentCNISpec, err, result.Version())
 		return nil, err
 	}

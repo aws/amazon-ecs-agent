@@ -17,9 +17,12 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -46,6 +49,11 @@ func metadataV2Handler(state dockerstate.TaskEngineState, cluster string) func(h
 			return
 		}
 
+		if containerID := getContainerID(r.URL); containerID != "" {
+			writeContainerResponse(w, containerID, state)
+			return
+		}
+		seelog.Infof("V2 metadata: handling request for task '%s'", taskARN)
 		// Generate a response for the task
 		taskResponse, err := v2.NewTaskResponse(taskARN, state, cluster)
 		if err != nil {
@@ -57,4 +65,25 @@ func metadataV2Handler(state dockerstate.TaskEngineState, cluster string) func(h
 		jsonMsg, _ := json.Marshal(taskResponse)
 		writeJSONToResponse(w, http.StatusOK, jsonMsg, requestTypeMetadata)
 	}
+}
+
+func getContainerID(reqURL *url.URL) string {
+	if strings.HasPrefix(reqURL.Path, metadataPath+"/") {
+		return reqURL.String()[len(metadataPath+"/"):]
+	}
+
+	return ""
+}
+
+func writeContainerResponse(w http.ResponseWriter, containerID string, state dockerstate.TaskEngineState) {
+	seelog.Infof("V2 metadata: handling request for container '%s'", containerID)
+	containerResponse, err := v2.NewContainerResponse(containerID, state)
+	if err != nil {
+		jsonMsg, _ := json.Marshal("Unable to generate metadata for container '" + containerID + "'")
+		writeJSONToResponse(w, http.StatusBadRequest, jsonMsg, requestTypeMetadata)
+		return
+	}
+
+	jsonMsg, _ := json.Marshal(containerResponse)
+	writeJSONToResponse(w, http.StatusOK, jsonMsg, requestTypeMetadata)
 }

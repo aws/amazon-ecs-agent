@@ -105,6 +105,24 @@ func NewTaskResponse(taskARN string,
 	return resp, nil
 }
 
+// NewContainerResponse creates a new container response based on container id
+func NewContainerResponse(containerID string,
+	state dockerstate.TaskEngineState) (*ContainerResponse, error) {
+	dockerContainer, ok := state.ContainerByID(containerID)
+	if !ok {
+		return nil, errors.Errorf(
+			"v2 container response: unable to find container '%s'", containerID)
+	}
+	task, ok := state.TaskByID(containerID)
+	if !ok {
+		return nil, errors.Errorf(
+			"v2 container response: unable to find task for container '%s'", containerID)
+	}
+
+	resp := newContainerResponse(dockerContainer, task.GetTaskENI(), state)
+	return &resp, nil
+}
+
 func newContainerResponse(dockerContainer *api.DockerContainer,
 	eni *api.ENI,
 	state dockerstate.TaskEngineState) ContainerResponse {
