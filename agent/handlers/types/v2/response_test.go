@@ -75,7 +75,10 @@ func TestTaskResponse(t *testing.T) {
 	}
 	created := time.Now()
 	container.SetCreatedAt(created)
-
+	labels := map[string]string{
+		"foo": "bar",
+	}
+	container.SetLabels(labels)
 	containerNameToDockerContainer := map[string]*api.DockerContainer{
 		taskARN: &api.DockerContainer{
 			DockerID:   containerID,
@@ -83,18 +86,14 @@ func TestTaskResponse(t *testing.T) {
 			Container:  container,
 		},
 	}
-	labels := map[string]string{
-		"foo": "bar",
-	}
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		state.EXPECT().GetLabels(containerID).Return(labels, true),
 	)
 
 	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
-	assert.Equal(t, created.String(), taskResponse.Containers[0].CreatedAt.String())
+	assert.Equal(t, created.UTC().String(), taskResponse.Containers[0].CreatedAt.String())
 }

@@ -2266,9 +2266,6 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
 	)
 	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
-	labelsInState, ok := taskEngine.(*DockerTaskEngine).state.GetLabels(dockerID)
-	assert.True(t, ok)
-	assert.Equal(t, labels, labelsInState)
-
 	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
 }

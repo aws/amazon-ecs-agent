@@ -152,6 +152,8 @@ type Container struct {
 	createdAt  time.Time
 	startedAt  time.Time
 	finishedAt time.Time
+
+	labels map[string]string
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -433,4 +435,18 @@ func (c *Container) GetFinishedAt() time.Time {
 	defer c.lock.RUnlock()
 
 	return c.finishedAt
+}
+
+func (c *Container) SetLabels(labels map[string]string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.labels = labels
+}
+
+func (c *Container) GetLabels() map[string]string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.labels
 }
