@@ -82,6 +82,7 @@ func setupServer(credentialsManager credentials.Manager,
 	serverMux.HandleFunc(credentials.V2CredentialsPath+"/",
 		credentialsV1V2RequestHandler(
 			credentialsManager, auditLogger, getV2CredentialsID, apiVersion2))
+	serverMux.HandleFunc(metadataPath+"/", metadataV2Handler(state, cluster))
 	serverMux.HandleFunc(metadataPath, metadataV2Handler(state, cluster))
 
 	// Log all requests and then pass through to serverMux

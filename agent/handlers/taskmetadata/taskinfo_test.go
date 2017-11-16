@@ -50,14 +50,8 @@ const (
 	eniIPv4Address        = "10.0.0.2"
 )
 
-func TestTaskMetadata(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-
-	task := &api.Task{
+var (
+	task = &api.Task{
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
@@ -71,7 +65,7 @@ func TestTaskMetadata(t *testing.T) {
 			},
 		},
 	}
-	container := &api.Container{
+	container = &api.Container{
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
@@ -87,17 +81,67 @@ func TestTaskMetadata(t *testing.T) {
 			},
 		},
 	}
-	labels := map[string]string{
+	dockerContainer = &api.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  container,
+	}
+	containerNameToDockerContainer = map[string]*api.DockerContainer{
+		taskARN: dockerContainer,
+	}
+	labels = map[string]string{
 		"foo": "bar",
 	}
-	container.SetLabels(labels)
-	containerNameToDockerContainer := map[string]*api.DockerContainer{
-		taskARN: &api.DockerContainer{
-			DockerID:   containerID,
-			DockerName: containerName,
-			Container:  container,
+	expectedContainerResponse = v2.ContainerResponse{
+		ID:            containerID,
+		Name:          containerName,
+		DockerName:    containerName,
+		Image:         imageName,
+		ImageID:       imageID,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Limits: v2.LimitsResponse{
+			CPU:    cpu,
+			Memory: memory,
+		},
+		Type:   containerType,
+		Labels: labels,
+		Ports: []v2.PortResponse{
+			{
+				ContainerPort: containerPort,
+				Protocol:      containerPortProtocol,
+				HostPort:      containerPort,
+			},
+		},
+		Networks: []containermetadata.Network{
+			{
+				NetworkMode:   "awsvpc",
+				IPv4Addresses: []string{eniIPv4Address},
+			},
 		},
 	}
+	expectedTaskResponse = v2.TaskResponse{
+		Cluster:       clusterName,
+		TaskARN:       taskARN,
+		Family:        family,
+		Version:       version,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Containers:    []v2.ContainerResponse{expectedContainerResponse},
+	}
+)
+
+func init() {
+	container.SetLabels(labels)
+}
+
+func TestTaskMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
@@ -114,43 +158,31 @@ func TestTaskMetadata(t *testing.T) {
 	var taskResponse v2.TaskResponse
 	err = json.Unmarshal(res, &taskResponse)
 	assert.NoError(t, err)
-	expectedTaskResponse := v2.TaskResponse{
-		Cluster:       clusterName,
-		TaskARN:       taskARN,
-		Family:        family,
-		Version:       version,
-		DesiredStatus: statusRunning,
-		KnownStatus:   statusRunning,
-		Containers: []v2.ContainerResponse{
-			{
-				ID:            containerID,
-				Name:          containerName,
-				DockerName:    containerName,
-				Image:         imageName,
-				ImageID:       imageID,
-				DesiredStatus: statusRunning,
-				KnownStatus:   statusRunning,
-				Limits: v2.LimitsResponse{
-					CPU:    cpu,
-					Memory: memory,
-				},
-				Type:   containerType,
-				Labels: labels,
-				Ports: []v2.PortResponse{
-					{
-						ContainerPort: containerPort,
-						Protocol:      containerPortProtocol,
-						HostPort:      containerPort,
-					},
-				},
-				Networks: []containermetadata.Network{
-					{
-						NetworkMode:   "awsvpc",
-						IPv4Addresses: []string{eniIPv4Address},
-					},
-				},
-			},
-		},
-	}
 	assert.Equal(t, expectedTaskResponse, taskResponse)
+}
+
+func TestContainerMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+		state.EXPECT().TaskByID(containerID).Return(task, true),
+	)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", metadataPath+"/"+containerID, nil)
+	req.RemoteAddr = remoteIP + ":" + remotePort
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var containerResponse v2.ContainerResponse
+	err = json.Unmarshal(res, &containerResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedContainerResponse, containerResponse)
 }
