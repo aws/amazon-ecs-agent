@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -118,7 +118,7 @@ type AgentOptions struct {
 // This is a platform-independent piece of Agent Startup.
 func (agent *TestAgent) verifyIntrospectionAPI() error {
 	// Wait up to 10s for it to register
-	var localMetadata handlers.MetadataResponse
+	var localMetadata v1.MetadataResponse
 	for i := 0; i < 10; i++ {
 		func() {
 			agentMetadataResp, err := http.Get(agent.IntrospectionURL + "/v1/metadata")
@@ -318,7 +318,7 @@ func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string
 	if err != nil {
 		return "", err
 	}
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*bodyData, &taskResp)
 	if err != nil {
 		return "", err
@@ -354,7 +354,7 @@ func (agent *TestAgent) waitStoppedViaIntrospection(task *TestTask) (bool, error
 		return false, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
 	if taskResp.KnownStatus == "STOPPED" {
@@ -384,7 +384,7 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 		return false, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
 	if taskResp.KnownStatus == "RUNNING" {
@@ -394,13 +394,13 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 	}
 }
 
-func (agent *TestAgent) CallTaskIntrospectionAPI(task *TestTask) (*handlers.TaskResponse, error) {
+func (agent *TestAgent) CallTaskIntrospectionAPI(task *TestTask) (*v1.TaskResponse, error) {
 	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
 	if err != nil {
 		return nil, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 	return &taskResp, err
 }
@@ -645,7 +645,7 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 		return err
 	}
 
-	var taskResponse handlers.TaskResponse
+	var taskResponse v1.TaskResponse
 	err = json.Unmarshal(*bodyData, &taskResponse)
 	if err != nil {
 		return err
