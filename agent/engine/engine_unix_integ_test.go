@@ -542,9 +542,10 @@ func TestDockerAuth(t *testing.T) {
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
-	taskUpdate := *testTask
+	taskUpdate := createTestTask("testDockerAuth")
+	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
