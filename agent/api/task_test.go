@@ -1277,7 +1277,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 		Containers: []*Container{
 			{
 				Name:   "c1",
-				CPU:    uint(100),
+				CPU:    uint(10),
 				Memory: uint(50),
 			},
 		},
@@ -1290,7 +1290,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	assert.Nil(t, cerr)
 
 	assert.Equal(t, int64(50*1024*1024), config.Memory)
-	assert.Equal(t, int64(100), config.CPUShares)
+	assert.Equal(t, int64(10), config.CPUShares)
 	assert.Empty(t, hostconfig.CPUShares)
 	assert.Empty(t, hostconfig.Memory)
 
@@ -1300,7 +1300,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(50*1024*1024), hostconfig.Memory)
-	assert.Equal(t, int64(100), hostconfig.CPUShares)
+	assert.Equal(t, int64(10), hostconfig.CPUShares)
 	assert.Empty(t, config.CPUShares)
 	assert.Empty(t, config.Memory)
 }
