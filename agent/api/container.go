@@ -437,6 +437,7 @@ func (c *Container) GetFinishedAt() time.Time {
 	return c.finishedAt
 }
 
+// SetLabels sets the labels for a container
 func (c *Container) SetLabels(labels map[string]string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -444,6 +445,7 @@ func (c *Container) SetLabels(labels map[string]string) {
 	c.labels = labels
 }
 
+// GetLabels gets the labels for a container
 func (c *Container) GetLabels() map[string]string {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
