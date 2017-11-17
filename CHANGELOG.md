@@ -3,6 +3,12 @@
 ## Unreleased
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
 * Feature - Enable support for task level CPU and memory constraints.
+
+## 1.15.2
+* Bug - Fixed a bug where container state information wasn't reported. [#1076](https://github.com/aws/amazon-ecs-agent/pull/1076)
+
+## 1.15.1
+* Bug - Fixed a bug where container state information wasn't reported. [#1067](https://github.com/aws/amazon-ecs-agent/pull/1067)
 * Bug - Fixed a bug where a task can be blocked in creating state. [#1048](https://github.com/aws/amazon-ecs-agent/pull/1048)
 * Bug - Fixed dynamic HostPort in container metadata. [#1052](https://github.com/aws/amazon-ecs-agent/pull/1052)
 
