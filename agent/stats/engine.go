@@ -16,13 +16,14 @@ package stats
 //go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/cihub/seelog"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -53,6 +54,7 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
+	ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error)
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -367,7 +369,7 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 	return resolver, nil
 }
 
-// getContainerMetricsForTask gets all container metrics for a task arn.
+// taskContainerMetricsUnsafe gets all container metrics for a task arn.
 func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*ecstcs.ContainerMetric, error) {
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
@@ -444,13 +446,32 @@ func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContain
 	}
 }
 
-// resetStats resets stats for all watched containers.
+// resetStatsUnsafe resets stats for all watched containers.
 func (engine *DockerStatsEngine) resetStatsUnsafe() {
 	for _, containerMap := range engine.tasksToContainers {
 		for _, container := range containerMap {
 			container.statsQueue.Reset()
 		}
 	}
+}
+
+// ContainerDockerStats returns the last stored raw docker stats object for a container
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error) {
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	containerIDToStatsContainer, ok := engine.tasksToContainers[taskARN]
+	if !ok {
+		return nil, errors.Errorf("stats engine: task '%s' for container '%s' not found: %s",
+			taskARN, containerID)
+	}
+
+	container, ok := containerIDToStatsContainer[containerID]
+	if !ok {
+		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
+	}
+	return container.statsQueue.GetLastStat(), nil
+
 }
 
 // newMetricsMetadata creates the singleton metadata object.
