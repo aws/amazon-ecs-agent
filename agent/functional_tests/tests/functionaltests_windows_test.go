@@ -18,6 +18,8 @@ package functional_tests
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +43,7 @@ const (
 	logDriverTaskDefinition         = "logdriver-jsonfile-windows"
 	cleanupTaskDefinition           = "cleanup-windows"
 	networkModeTaskDefinition       = "network-mode-windows"
+	cpuSharesPerCore                = 1024
 )
 
 // TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
@@ -266,14 +269,20 @@ func TestTelemetry(t *testing.T) {
 	time.Sleep(waitMetricsInCloudwatchDuration)
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
-	testTask, err := agent.StartTask(t, "telemetry-windows")
+	cpuNum := runtime.NumCPU()
+
+	tdOverrides := make(map[string]string)
+	// Set the container cpu percentage 25%
+	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(int(float64(cpuNum*cpuSharesPerCore) * 0.25))
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "telemetry-windows", tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
 	// Wait for the task to run and the agent to send back metrics
 	err = testTask.WaitRunning(waitTaskStateChangeDuration)
@@ -283,11 +292,13 @@ func TestTelemetry(t *testing.T) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	err = VerifyMetrics(cwclient, params, false)
+	metrics, err := VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
+	// Also verify the cpu usage is around 25%
+	assert.InDelta(t, 0.25, *metrics.Average, 0.05)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, false)
+	_, err = VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 
 	err = testTask.Stop()
@@ -300,10 +311,10 @@ func TestTelemetry(t *testing.T) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }

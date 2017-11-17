@@ -27,9 +27,12 @@ import (
 const (
 	//memorySwappinessDefault is the expected default value for this platform
 	memorySwappinessDefault = -1
+	// cpuSharesPerCore represents the cpu shares of a cpu core in docker
+	cpuSharesPerCore = 1024
+	percentageFactor = 100
 )
 
-var cpuShareScaleFactor = runtime.NumCPU() * 1024
+var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
@@ -63,7 +66,7 @@ func getCanonicalPath(path string) string {
 func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
-	hostConfig.CPUPercent = hostConfig.CPUShares * 100 / int64(cpuShareScaleFactor)
+	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
 	if hostConfig.CPUPercent != 0 {
 		// Only unset the CPUShares if the CPUPercent has valid value
 		hostConfig.CPUShares = 0

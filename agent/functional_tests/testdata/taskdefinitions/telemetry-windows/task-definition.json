@@ -1,10 +1,9 @@
 {
-  "family": "ecsftest-telemetry-windows",
+  "family": "ecsftest-windows-telemetry",
   "containerDefinitions": [{
-    "image": "microsoft/iis:latest",
-    "name": "http_server",
-    "cpu": 100,
-    "memory": 500,
-    "command": ["powershell", "-c", "New-Item -Path C:\\inetpub\\wwwroot\\index.html -Type file -Value '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p>'; C:\\ServiceMonitor.exe w3svc"]
+    "image": "amazon/amazon-ecs-windows-cpupercent-test:make",
+    "name": "windows-cpu-percent",
+    "cpu": $$$$CPUSHARE$$$$,
+    "memory": 500
   }]
 }
