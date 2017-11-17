@@ -18,6 +18,7 @@ package mock_stats
 
 import (
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -40,6 +41,17 @@ func NewMockEngine(ctrl *gomock.Controller) *MockEngine {
 
 func (_m *MockEngine) EXPECT() *_MockEngineRecorder {
 	return _m.recorder
+}
+
+func (_m *MockEngine) ContainerDockerStats(_param0 string, _param1 string) (*go_dockerclient.Stats, error) {
+	ret := _m.ctrl.Call(_m, "ContainerDockerStats", _param0, _param1)
+	ret0, _ := ret[0].(*go_dockerclient.Stats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockEngineRecorder) ContainerDockerStats(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerDockerStats", arg0, arg1)
 }
 
 func (_m *MockEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
