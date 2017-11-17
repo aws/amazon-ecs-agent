@@ -318,3 +318,17 @@ func TestTelemetry(t *testing.T) {
 	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
+
+// TestOOMContainer verifies that an OOM container returns an error
+func TestOOMContainer(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "oom-windows")
+	require.NoError(t, err, "Expected to start invalid-image task")
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
+	assert.NoError(t, err, "Expect task to be running")
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, err, "Expect task to be stopped")
+	assert.NotEqual(t, 0, testTask.Containers[0].ExitCode, "container should fail with memory error")
+}
