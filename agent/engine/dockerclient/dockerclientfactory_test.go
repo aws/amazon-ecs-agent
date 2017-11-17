@@ -19,9 +19,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 const expectedEndpoint = "expectedEndpoint"
@@ -109,7 +109,7 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_dockeriface.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{"MinAPIVersion=1.12","ApiVersion=1.27"}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.30"}, nil).AnyTimes()
 		mockClients[string(allVersions[i])].EXPECT().Ping().AnyTimes()
 	}
 
@@ -138,7 +138,7 @@ func TestCompareDockerVersionsWithMinAPIVersion(t *testing.T) {
 
 	for _, version := range versions {
 		_, err := getDockerClientForVersion("endpoint", version, minAPIVersion, apiVersion)
-		assert.EqualError(t, err, "version detection using MinAPIVersion: unsupported version: " + version)
+		assert.EqualError(t, err, "version detection using MinAPIVersion: unsupported version: "+version)
 	}
 
 	mockClients := make(map[string]*mock_dockeriface.MockClient)

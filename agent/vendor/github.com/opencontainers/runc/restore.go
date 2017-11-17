@@ -7,11 +7,11 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/specconv"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 )
 
 var restoreCommand = cli.Command{
@@ -53,7 +53,7 @@ using the runc checkpoint command.`,
 		cli.StringFlag{
 			Name:  "manage-cgroups-mode",
 			Value: "",
-			Usage: "cgroups mode: 'soft' (default), 'full' and 'strict'",
+			Usage: "cgroups mode: 'soft' (default), 'full' and 'strict'.",
 		},
 		cli.StringFlag{
 			Name:  "bundle, b",
@@ -77,16 +77,12 @@ using the runc checkpoint command.`,
 			Name:  "no-pivot",
 			Usage: "do not use pivot root to jail process inside rootfs.  This should be used whenever the rootfs is on top of a ramdisk",
 		},
-		cli.StringSliceFlag{
-			Name:  "empty-ns",
-			Usage: "create a namespace, but don't restore its properies",
-		},
 	},
-	Action: func(context *cli.Context) error {
+	Action: func(context *cli.Context) {
 		imagePath := context.String("image-path")
 		id := context.Args().First()
 		if id == "" {
-			return errEmptyID
+			fatal(errEmptyID)
 		}
 		if imagePath == "" {
 			imagePath = getDefaultImagePath(context)
@@ -94,12 +90,12 @@ using the runc checkpoint command.`,
 		bundle := context.String("bundle")
 		if bundle != "" {
 			if err := os.Chdir(bundle); err != nil {
-				return err
+				fatal(err)
 			}
 		}
 		spec, err := loadSpec(specConfig)
 		if err != nil {
-			return err
+			fatal(err)
 		}
 		config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 			CgroupName:       id,
@@ -108,20 +104,19 @@ using the runc checkpoint command.`,
 			Spec:             spec,
 		})
 		if err != nil {
-			return err
+			fatal(err)
 		}
 		status, err := restoreContainer(context, spec, config, imagePath)
-		if err == nil {
-			os.Exit(status)
+		if err != nil {
+			fatal(err)
 		}
-		return err
+		os.Exit(status)
 	},
 }
 
-func restoreContainer(context *cli.Context, spec *specs.Spec, config *configs.Config, imagePath string) (int, error) {
+func restoreContainer(context *cli.Context, spec *specs.Spec, config *configs.Config, imagePath string) (code int, err error) {
 	var (
 		rootuid = 0
-		rootgid = 0
 		id      = context.Args().First()
 	)
 	factory, err := loadFactory(context)
@@ -147,10 +142,6 @@ func restoreContainer(context *cli.Context, spec *specs.Spec, config *configs.Co
 
 	setManageCgroupsMode(context, options)
 
-	if err := setEmptyNsMask(context, options); err != nil {
-		return -1, err
-	}
-
 	// ensure that the container is always removed if we were the process
 	// that created it.
 	detach := context.Bool("detach")
@@ -158,7 +149,7 @@ func restoreContainer(context *cli.Context, spec *specs.Spec, config *configs.Co
 		defer destroy(container)
 	}
 	process := &libcontainer.Process{}
-	tty, err := setupIO(process, rootuid, rootgid, "", false, detach)
+	tty, err := setupIO(process, rootuid, "", false, detach)
 	if err != nil {
 		return -1, err
 	}
