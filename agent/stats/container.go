@@ -105,10 +105,7 @@ func (container *StatsContainer) processStatsStream() error {
 		return err
 	}
 	for rawStat := range dockerStats {
-		stat, err := dockerStatsToContainerStats(rawStat)
-		if err == nil {
-			container.statsQueue.Add(stat)
-		} else {
+		if err := container.statsQueue.Add(rawStat); err != nil {
 			seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
 		}
 	}

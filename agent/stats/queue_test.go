@@ -132,7 +132,7 @@ func createQueue(size int, predictableHighMemoryUtilization bool) *Queue {
 	}
 	queue := NewQueue(size)
 	for i, time := range timestamps {
-		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
 	}
 	return queue
 }
@@ -279,7 +279,7 @@ func TestCpuStatsSetNotSetToInfinity(t *testing.T) {
 	queueLength := 3
 	queue := NewQueue(queueLength)
 	for i, time := range timestamps {
-		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
 	}
 	cpuStatsSet, err := queue.GetCPUStatsSet()
 	if err != nil {
@@ -352,7 +352,7 @@ func TestEnoughDatapointsInBuffer(t *testing.T) {
 	enoughDataPoints := queue.enoughDatapointsInBuffer()
 	assert.False(t, enoughDataPoints, "Queue is expected to not have enough data points right after creation")
 	for i, time := range timestamps {
-		queue.Add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
 	}
 
 	enoughDataPoints = queue.enoughDatapointsInBuffer()
