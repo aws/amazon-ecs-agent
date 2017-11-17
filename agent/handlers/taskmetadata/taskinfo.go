@@ -140,7 +140,6 @@ func writeTaskStatsResponse(w http.ResponseWriter,
 	taskARN string,
 	state dockerstate.TaskEngineState,
 	statsEngine stats.Engine) {
-	fmt.Println("writeContainerResponse")
 
 	taskStatsResponse, err := v2.NewTaskStatsResponse(taskARN, state, statsEngine)
 	if err != nil {

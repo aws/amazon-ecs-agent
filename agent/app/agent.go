@@ -522,7 +522,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
-	// Start serving the endpoint to fetch IAM Role credentials
+
+	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend

@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -35,7 +36,8 @@ type Queue struct {
 	buffer        []UsageStats
 	maxSize       int
 	lastResetTime time.Time
-	bufferLock    sync.RWMutex
+	lastStat      *docker.Stats
+	lock          sync.RWMutex
 }
 
 // NewQueue creates a queue.
@@ -48,16 +50,33 @@ func NewQueue(maxSize int) *Queue {
 
 // Reset resets the stats queue.
 func (queue *Queue) Reset() {
-	queue.bufferLock.Lock()
-	defer queue.bufferLock.Unlock()
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
 	queue.lastResetTime = time.Now()
 	queue.buffer = queue.buffer[:0]
 }
 
 // Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(rawStat *ContainerStats) {
-	queue.bufferLock.Lock()
-	defer queue.bufferLock.Unlock()
+func (queue *Queue) Add(dockerStat *docker.Stats) error {
+	queue.setLastStat(dockerStat)
+	stat, err := dockerStatsToContainerStats(dockerStat)
+	if err != nil {
+		return err
+	}
+	queue.add(stat)
+	return nil
+}
+
+func (queue *Queue) setLastStat(stat *docker.Stats) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	queue.lastStat = stat
+}
+
+func (queue *Queue) add(rawStat *ContainerStats) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
@@ -88,6 +107,14 @@ func (queue *Queue) Add(rawStat *ContainerStats) {
 	queue.buffer = append(queue.buffer, stat)
 }
 
+// GetLastStat returns the last recorded raw statistics object from docker
+func (queue *Queue) GetLastStat() *docker.Stats {
+	queue.lock.RLock()
+	defer queue.lock.RUnlock()
+
+	return queue.lastStat
+}
+
 // GetCPUStatsSet gets the stats set for CPU utilization.
 func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
 	return queue.getCWStatsSet(getCPUUsagePerc)
@@ -101,8 +128,8 @@ func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
 // GetRawUsageStats gets the array of most recent raw UsageStats, in descending
 // order of timestamps.
 func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
-	queue.bufferLock.Lock()
-	defer queue.bufferLock.Unlock()
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
 	if queueLength == 0 {
@@ -138,23 +165,23 @@ func getMemoryUsagePerc(s *UsageStats) float64 {
 type getUsageFunc func(*UsageStats) float64
 
 func (queue *Queue) resetThresholdElapsed(timeout time.Duration) bool {
-	queue.bufferLock.RLock()
-	defer queue.bufferLock.RUnlock()
+	queue.lock.RLock()
+	defer queue.lock.RUnlock()
 	duration := time.Since(queue.lastResetTime)
 	return duration.Seconds() > timeout.Seconds()
 }
 
 func (queue *Queue) enoughDatapointsInBuffer() bool {
-	queue.bufferLock.RLock()
-	defer queue.bufferLock.RUnlock()
+	queue.lock.RLock()
+	defer queue.lock.RUnlock()
 	return len(queue.buffer) >= minimumQueueDatapoints
 }
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.
 func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
-	queue.bufferLock.Lock()
-	defer queue.bufferLock.Unlock()
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {

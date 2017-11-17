@@ -463,7 +463,7 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 
 	containerIDToStatsContainer, ok := engine.tasksToContainers[taskARN]
 	if !ok {
-		return nil, errors.Errorf("stats engine: task '%s' for container '%s' not found: %s",
+		return nil, errors.Errorf("stats engine: task '%s' for container '%s' not found",
 			taskARN, containerID)
 	}
 
