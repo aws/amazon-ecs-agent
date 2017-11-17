@@ -78,12 +78,12 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	for _, statsContainer := range containers {
 		for _, fakeContainerStats := range createFakeContainerStats() {
-			statsContainer.statsQueue.Add(fakeContainerStats)
+			statsContainer.statsQueue.add(fakeContainerStats)
 		}
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err := engine.getContainerMetricsForTask("t1")
+	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1")
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure that only valid task shows up in metrics.
-	_, err = engine.getContainerMetricsForTask("t2")
+	_, err = engine.taskContainerMetricsUnsafe("t2")
 	if err == nil {
 		t.Error("Expected non-empty error for non existent task")
 	}
@@ -185,7 +185,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {
 		for i := 0; i < 2; i++ {
-			statsContainer.statsQueue.Add(containerStats[i])
+			statsContainer.statsQueue.add(containerStats[i])
 		}
 	}
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()
