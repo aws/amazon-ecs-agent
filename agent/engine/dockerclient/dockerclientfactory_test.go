@@ -109,7 +109,7 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_dockeriface.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.27"}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.30"}, nil).AnyTimes()
 		mockClients[string(allVersions[i])].EXPECT().Ping().AnyTimes()
 	}
 

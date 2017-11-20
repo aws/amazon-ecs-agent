@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/urfave/cli"
+import "github.com/codegangsta/cli"
 
 var pauseCommand = cli.Command{
 	Name:  "pause",
@@ -14,15 +14,14 @@ paused. `,
 	Description: `The pause command suspends all processes in the instance of the container.
 
 Use runc list to identiy instances of containers and their current status.`,
-	Action: func(context *cli.Context) error {
+	Action: func(context *cli.Context) {
 		container, err := getContainer(context)
 		if err != nil {
-			return err
+			fatal(err)
 		}
 		if err := container.Pause(); err != nil {
-			return err
+			fatal(err)
 		}
-		return nil
 	},
 }
 
@@ -36,14 +35,13 @@ resumed.`,
 	Description: `The resume command resumes all processes in the instance of the container.
 
 Use runc list to identiy instances of containers and their current status.`,
-	Action: func(context *cli.Context) error {
+	Action: func(context *cli.Context) {
 		container, err := getContainer(context)
 		if err != nil {
-			return err
+			fatal(err)
 		}
 		if err := container.Resume(); err != nil {
-			return err
+			fatal(err)
 		}
-		return nil
 	},
 }

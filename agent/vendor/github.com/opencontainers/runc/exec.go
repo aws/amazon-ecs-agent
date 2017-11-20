@@ -9,21 +9,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/opencontainers/runc/libcontainer"
+	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runc/libcontainer/utils"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 )
 
 var execCommand = cli.Command{
 	Name:  "exec",
 	Usage: "execute new process inside the container",
-	ArgsUsage: `<container-id> -- <container command> [command options]
+	ArgsUsage: `<container-id> <container command>
 
 Where "<container-id>" is the name for the instance of the container and
 "<container command>" is the command to be executed in the container.
 
-EXAMPLE:
 For example, if the container is configured to run the linux ps command the
 following will output a list of processes running in the container:
 	 
@@ -80,39 +78,26 @@ following will output a list of processes running in the container:
 			Usage: "add a capability to the bounding set for the process",
 		},
 		cli.BoolFlag{
-			Name:   "no-subreaper",
-			Usage:  "disable the use of the subreaper used to reap reparented processes",
-			Hidden: true,
+			Name:  "no-subreaper",
+			Usage: "disable the use of the subreaper used to reap reparented processes",
 		},
 	},
-	Action: func(context *cli.Context) error {
+	Action: func(context *cli.Context) {
 		if os.Geteuid() != 0 {
-			return fmt.Errorf("runc should be run as root")
+			fatalf("runc should be run as root")
 		}
 		status, err := execProcess(context)
-		if err == nil {
-			os.Exit(status)
+		if err != nil {
+			fatalf("exec failed: %v", err)
 		}
-		return fmt.Errorf("exec failed: %v", err)
+		os.Exit(status)
 	},
-	SkipArgReorder: true,
 }
 
 func execProcess(context *cli.Context) (int, error) {
 	container, err := getContainer(context)
 	if err != nil {
 		return -1, err
-	}
-	status, err := container.Status()
-	if err != nil {
-		return -1, err
-	}
-	if status == libcontainer.Stopped {
-		return -1, fmt.Errorf("cannot exec a container that has run and stopped")
-	}
-	path := context.String("process")
-	if path == "" && len(context.Args()) == 1 {
-		return -1, fmt.Errorf("process args cannot be empty")
 	}
 	detach := context.Bool("detach")
 	state, err := container.State()
@@ -125,7 +110,7 @@ func execProcess(context *cli.Context) (int, error) {
 		return -1, err
 	}
 	r := &runner{
-		enableSubreaper: false,
+		enableSubreaper: !context.Bool("no-subreaper"),
 		shouldDestroy:   false,
 		container:       container,
 		console:         context.String("console"),
@@ -158,9 +143,6 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 	}
 	p := spec.Process
 	p.Args = context.Args()[1:]
-	if len(p.Args) > 1 && p.Args[0] == "--" {
-		p.Args = p.Args[1:]
-	}
 	// override the cwd, if passed
 	if context.String("cwd") != "" {
 		p.Cwd = context.String("cwd")
