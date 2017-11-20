@@ -5,7 +5,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "mdservice-validator-windows",
     "cpu": 100,
-    "memory": 100,
+    "memory": 256,
     "entryPoint": ["powershell"],
     "command": ["-c", "sleep 10; if($?){if(cat $env:ECS_CONTAINER_METADATA_FILE | Select-String -pattern READY){exit 42}else {exit 1}};"] 
   }]

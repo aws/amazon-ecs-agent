@@ -4,9 +4,9 @@
     "essential": true,
     "memory": 100,
     "name": "memory-overcommit",
-    "cpu": 100,
+    "cpu": 256,
     "image": "python:3-windowsservercore",
-    "command": ["python", "-c", "import time; time.sleep(30); foo=' '*1024*1024*200;"]
+    "command": ["python", "-c", "import time; time.sleep(30); foo=' '*1024*1024*1024;"]
   }]
 }
 

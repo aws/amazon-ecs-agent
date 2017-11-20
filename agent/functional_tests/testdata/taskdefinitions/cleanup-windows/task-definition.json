@@ -4,7 +4,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "cleanup-windows",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "portBindings": [{
       "containerPort": 80
     }],

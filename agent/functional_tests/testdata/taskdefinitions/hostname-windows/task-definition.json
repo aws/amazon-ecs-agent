@@ -4,7 +4,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "exit",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "hostname": "foobarbaz",
     "command": ["powershell", "-c",  "if ((hostname) -eq \"foobarbaz\") { exit 42 } ; exit 1"]
   }]

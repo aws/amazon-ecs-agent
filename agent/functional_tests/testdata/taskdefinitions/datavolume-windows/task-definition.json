@@ -8,7 +8,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "exit",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "essential": true,
     "volumesFrom": [{
       "sourceContainer": "data-volume-source"
@@ -18,7 +18,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "dataSource",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "essential": false,
     "volumesFrom": [{
       "sourceContainer": "data-volume-source"
@@ -28,7 +28,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "data-volume-source",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "essential": false,
     "mountPoints": [{
       "sourceVolume": "test",

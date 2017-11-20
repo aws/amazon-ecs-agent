@@ -432,7 +432,7 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 				Name:   "c1",
 				Image:  "image",
 				CPU:    50,
-				Memory: 100,
+				Memory: 1000,
 				DockerConfig: DockerConfig{
 					Config: strptr(string(rawConfig)),
 				},
@@ -446,7 +446,7 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 	}
 
 	expected := docker.Config{
-		Memory:    100 * 1024 * 1024,
+		Memory:    1000 * 1024 * 1024,
 		CPUShares: 50,
 		Image:     "image",
 		User:      "user",
@@ -1273,12 +1273,13 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 
 // TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly set// based on the docker client version
 func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
+	memoryMiB := 500
 	testTask := &Task{
 		Containers: []*Container{
 			{
 				Name:   "c1",
 				CPU:    uint(10),
-				Memory: uint(50),
+				Memory: uint(memoryMiB),
 			},
 		},
 	}
@@ -1289,7 +1290,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	assert.Nil(t, cerr)
 
-	assert.Equal(t, int64(50*1024*1024), config.Memory)
+	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
 	assert.Equal(t, int64(10), config.CPUShares)
 	assert.Empty(t, hostconfig.CPUShares)
 	assert.Empty(t, hostconfig.Memory)
@@ -1299,8 +1300,37 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 
 	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(50*1024*1024), hostconfig.Memory)
+	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
 	assert.Equal(t, int64(10), hostconfig.CPUShares)
 	assert.Empty(t, config.CPUShares)
+	assert.Empty(t, config.Memory)
+}
+
+// TestSetMinimumMemoryLimit ensures that we set the correct minimum memory limit when the limit is too low
+func TestSetMinimumMemoryLimit(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			{
+				Name:   "c1",
+				Memory: uint(1),
+			},
+		},
+	}
+
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, cerr)
+
+	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), config.Memory)
+	assert.Empty(t, hostconfig.Memory)
+
+	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
+	assert.Nil(t, err)
+
+	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 	assert.Empty(t, config.Memory)
 }
