@@ -81,6 +81,8 @@ const (
 	// For more information on setns, please read this manpage:
 	// http://man7.org/linux/man-pages/man2/setns.2.html
 	CapSysAdmin = "SYS_ADMIN"
+	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
+	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 )
 
 // Client enables business logic for running the Agent inside Docker
@@ -173,10 +175,12 @@ func (c *Client) findAgentContainer() (string, error) {
 
 // StartAgent starts the Agent in Docker and returns the exit code from the container
 func (c *Client) StartAgent() (int, error) {
+	hostConfig := c.getHostConfig()
+
 	container, err := c.docker.CreateContainer(godocker.CreateContainerOptions{
 		Name:       config.AgentContainerName,
 		Config:     c.getContainerConfig(),
-		HostConfig: c.getHostConfig(),
+		HostConfig: hostConfig,
 	})
 	if err != nil {
 		return 0, err
@@ -255,8 +259,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentDataDirectory() + ":" + dataDir,
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
+		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 	}
-
 	return createHostConfig(binds)
 }
 

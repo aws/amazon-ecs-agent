@@ -237,8 +237,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 
 	hostCfg := opts.HostConfig
 
-	if len(hostCfg.Binds) != 9 {
-		t.Errorf("Expected exactly 9 elements to be in Binds, but was %d", len(hostCfg.Binds))
+	if len(hostCfg.Binds) != 10 {
+		t.Errorf("Expected exactly 10 elements to be in Binds, but was %d", len(hostCfg.Binds))
 	}
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {

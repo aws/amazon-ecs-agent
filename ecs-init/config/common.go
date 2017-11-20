@@ -124,6 +124,11 @@ func DockerUnixSocket() (string, bool) {
 	return "/var/run", false
 }
 
+// CgroupMountpoint returns the cgroup mountpoint for the system
+func CgroupMountpoint() string {
+	return cgroupMountpoint
+}
+
 // getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
 func getBaseLocationForRegion(regionName string) string {
 	s3BucketURL, ok := regionToS3BucketURL[regionName]
