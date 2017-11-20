@@ -473,6 +473,7 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
+		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes", task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
 		dockerMem = DockerContainerMinimumMemoryInBytes
 	}
 	cpuShare := task.dockerCPUShares(container.CPU)

@@ -1304,3 +1304,32 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	assert.Empty(t, config.CPUShares)
 	assert.Empty(t, config.Memory)
 }
+
+// TestSetMinimumMemoryLimit ensures that we set the correct minimum memory limit when the limit is too low
+func TestSetMinimumMemoryLimit(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			{
+				Name:   "c1",
+				Memory: uint(1),
+			},
+		},
+	}
+
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, cerr)
+
+	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), config.Memory)
+	assert.Empty(t, hostconfig.Memory)
+
+	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
+	assert.Nil(t, err)
+
+	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
+	assert.Empty(t, config.Memory)
+}
