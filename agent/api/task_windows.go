@@ -28,8 +28,9 @@ const (
 	//memorySwappinessDefault is the expected default value for this platform
 	memorySwappinessDefault = -1
 	// cpuSharesPerCore represents the cpu shares of a cpu core in docker
-	cpuSharesPerCore = 1024
-	percentageFactor = 100
+	cpuSharesPerCore  = 1024
+	percentageFactor  = 100
+	minimumCPUPercent = 1
 )
 
 var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
@@ -67,10 +68,11 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
 	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
-	if hostConfig.CPUPercent != 0 {
-		// Only unset the CPUShares if the CPUPercent has valid value
-		hostConfig.CPUShares = 0
+	if hostConfig.CPUPercent == 0 {
+		// if the cpu percent is too low, we set it to the minimum
+		hostConfig.CPUPercent = minimumCPUPercent
 	}
+	hostConfig.CPUShares = 0
 	return nil
 }
 
