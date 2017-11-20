@@ -1273,12 +1273,13 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 
 // TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly set// based on the docker client version
 func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
+	memoryMiB := 500
 	testTask := &Task{
 		Containers: []*Container{
 			{
 				Name:   "c1",
 				CPU:    uint(10),
-				Memory: uint(50),
+				Memory: uint(memoryMiB),
 			},
 		},
 	}
@@ -1289,7 +1290,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	assert.Nil(t, cerr)
 
-	assert.Equal(t, int64(50*1024*1024), config.Memory)
+	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
 	assert.Equal(t, int64(10), config.CPUShares)
 	assert.Empty(t, hostconfig.CPUShares)
 	assert.Empty(t, hostconfig.Memory)
@@ -1299,7 +1300,7 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 
 	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(50*1024*1024), hostconfig.Memory)
+	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
 	assert.Equal(t, int64(10), hostconfig.CPUShares)
 	assert.Empty(t, config.CPUShares)
 	assert.Empty(t, config.Memory)
