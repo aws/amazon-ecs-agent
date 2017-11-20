@@ -5,7 +5,7 @@
     "memory": 100,
     "name": "memory-overcommit",
     "cpu": 256,
-    "image": "python:3-windowsservercore",
+    "image": "amazon/amazon-ecs-windows-python:make",
     "command": ["python", "-c", "import time; time.sleep(30); foo=' '*1024*1024*1024;"]
   }]
 }
