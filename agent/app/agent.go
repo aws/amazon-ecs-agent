@@ -521,7 +521,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	// Start serving the endpoint to fetch IAM Role credentials
-	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg)
+	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, nil)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)

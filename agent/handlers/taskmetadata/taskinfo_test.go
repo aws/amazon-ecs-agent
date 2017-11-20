@@ -26,6 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -141,13 +143,14 @@ func TestTaskMetadata(t *testing.T) {
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", metadataPath, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -167,13 +170,14 @@ func TestContainerMetadata(t *testing.T) {
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", metadataPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -185,4 +189,66 @@ func TestContainerMetadata(t *testing.T) {
 	err = json.Unmarshal(res, &containerResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedContainerResponse, containerResponse)
+}
+
+func TestContainerStats(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+
+	dockerStats := &docker.Stats{NumProcs: 2}
+	gomock.InOrder(
+		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
+	)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", statsPath+"/"+containerID, nil)
+	req.RemoteAddr = remoteIP + ":" + remotePort
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var statsFromResult *docker.Stats
+	err = json.Unmarshal(res, &statsFromResult)
+	assert.NoError(t, err)
+	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
+}
+
+func TestTaskStats(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+
+	dockerStats := &docker.Stats{NumProcs: 2}
+	containerMap := map[string]*api.DockerContainer{
+		containerName: &api.DockerContainer{
+			DockerID: containerID,
+		},
+	}
+	gomock.InOrder(
+		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true),
+		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
+	)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", statsPath, nil)
+	req.RemoteAddr = remoteIP + ":" + remotePort
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var statsFromResult map[string]*docker.Stats
+	err = json.Unmarshal(res, &statsFromResult)
+	assert.NoError(t, err)
+	containerStats, ok := statsFromResult[containerID]
+	assert.True(t, ok)
+	assert.Equal(t, dockerStats.NumProcs, containerStats.NumProcs)
 }

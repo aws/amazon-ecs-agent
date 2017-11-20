@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
 )
@@ -44,7 +45,8 @@ const (
 func ServeHTTP(credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	containerInstanceArn string,
-	cfg *config.Config) {
+	cfg *config.Config,
+	statsEngine stats.Engine) {
 	// Create and initialize the audit log
 	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := log.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -56,7 +58,7 @@ func ServeHTTP(credentialsManager credentials.Manager,
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster)
+	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine)
 
 	for {
 		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
@@ -74,16 +76,22 @@ func ServeHTTP(credentialsManager credentials.Manager,
 func setupServer(credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
 	state dockerstate.TaskEngineState,
-	cluster string) *http.Server {
+	cluster string,
+	statsEngine stats.Engine) *http.Server {
 	serverMux := http.NewServeMux()
+	// Credentials handlers
 	serverMux.HandleFunc(credentials.V1CredentialsPath,
 		credentialsV1V2RequestHandler(
 			credentialsManager, auditLogger, getV1CredentialsID, apiVersion1))
 	serverMux.HandleFunc(credentials.V2CredentialsPath+"/",
 		credentialsV1V2RequestHandler(
 			credentialsManager, auditLogger, getV2CredentialsID, apiVersion2))
+	// Metadata handlers
 	serverMux.HandleFunc(metadataPath+"/", metadataV2Handler(state, cluster))
 	serverMux.HandleFunc(metadataPath, metadataV2Handler(state, cluster))
+	// Stats handlers
+	serverMux.HandleFunc(statsPath+"/", statsV2Handler(state, statsEngine))
+	serverMux.HandleFunc(statsPath, statsV2Handler(state, statsEngine))
 
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
