@@ -4,7 +4,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "savedstate-windows",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "entryPoint": ["powershell"],
     "command": ["sleep", "500"]
   }]

@@ -4,7 +4,7 @@
     "image": "microsoft/windowsservercore:latest",
     "name": "labeled",
     "cpu": 10,
-    "memory": 10,
+    "memory": 256,
     "dockerLabels": {
       "label1": "",
       "com.foo.label2": "value"

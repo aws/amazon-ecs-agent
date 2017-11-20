@@ -4,6 +4,6 @@
     "image": "amazon/amazon-ecs-windows-cpupercent-test:make",
     "name": "windows-cpu-percent",
     "cpu": $$$$CPUSHARE$$$$,
-    "memory": 500
+    "memory": 256
   }]
 }
