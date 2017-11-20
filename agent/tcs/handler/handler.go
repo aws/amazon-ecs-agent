@@ -47,26 +47,15 @@ const (
 // StartMetricsSession starts a metric session. It initializes the stats engine
 // and invokes StartSession.
 func StartMetricsSession(params TelemetrySessionParams) {
-	disabled, err := params.isTelemetryDisabled()
+	err := params.StatsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster,
+		params.ContainerInstanceArn)
 	if err != nil {
-		seelog.Warnf("Error getting telemetry config: %v", err)
+		seelog.Warnf("Error initializing metrics engine: %v", err)
 		return
 	}
-
-	if !disabled {
-		statsEngine := stats.NewDockerStatsEngine(params.Cfg, params.DockerClient, params.ContainerChangeEventStream)
-		err := statsEngine.MustInit(params.TaskEngine, params.Cfg.Cluster, params.ContainerInstanceArn)
-		if err != nil {
-			seelog.Warnf("Error initializing metrics engine: %v", err)
-			return
-		}
-		err = StartSession(params, statsEngine)
-		if err != nil {
-			seelog.Warnf("Error starting metrics session with backend: %v", err)
-			return
-		}
-	} else {
-		seelog.Info("Metric collection disabled")
+	err = StartSession(params, params.StatsEngine)
+	if err != nil {
+		seelog.Warnf("Error starting metrics session with backend: %v", err)
 	}
 }
 
