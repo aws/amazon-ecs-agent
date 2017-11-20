@@ -432,7 +432,7 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 				Name:   "c1",
 				Image:  "image",
 				CPU:    50,
-				Memory: 100,
+				Memory: 1000,
 				DockerConfig: DockerConfig{
 					Config: strptr(string(rawConfig)),
 				},
@@ -446,7 +446,7 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 	}
 
 	expected := docker.Config{
-		Memory:    100 * 1024 * 1024,
+		Memory:    1000 * 1024 * 1024,
 		CPUShares: 50,
 		Image:     "image",
 		User:      "user",
