@@ -177,7 +177,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
-	err = task.WaitStopped(2 * time.Minute)
+	err = task.WaitStopped(waitTaskStateChangeDuration)
 	if err != nil {
 		t.Fatalf("Waiting task to stop error : %v", err)
 	}
@@ -215,7 +215,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 	}
 
 	// clean up
-	err = task.WaitStopped(2 * time.Minute)
+	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
 
 	containerID, err := agent.ResolveTaskDockerID(task, "mdservice-validator-windows")
