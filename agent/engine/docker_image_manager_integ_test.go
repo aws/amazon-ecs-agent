@@ -352,7 +352,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	err = renameImage(test3Image3Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	require.NoError(t, err, "Renaming the image failed")
 
-	// Start and wiat for task3 to be running
+	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
 	err = verifyTaskIsRunning(stateChangeEvents, task3)
 	require.NoError(t, err, "task3")
