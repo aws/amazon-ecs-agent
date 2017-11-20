@@ -15,6 +15,7 @@ package tcshandler
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/url"
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -53,9 +55,13 @@ var testCfg = &config.Config{
 	AWSRegion:          "us-east-1",
 }
 
-func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	req := createPublishMetricsRequest()
 	return req.Metadata, req.TaskMetrics, nil
+}
+
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func TestFormatURL(t *testing.T) {
@@ -106,7 +112,9 @@ func TestStartSession(t *testing.T) {
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
-	go startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
+	go startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+		defaultHeartbeatTimeout, defaultHeartbeatJitter,
+		testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
@@ -168,7 +176,9 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	defer cancel()
 
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream)
+	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+		defaultHeartbeatTimeout, defaultHeartbeatJitter,
+		testPublishMetricsInterval, deregisterInstanceEventStream)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -203,11 +213,14 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{}, 50*time.Millisecond, 100*time.Millisecond, testPublishMetricsInterval, deregisterInstanceEventStream)
+	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+		50*time.Millisecond, 100*time.Millisecond,
+		testPublishMetricsInterval, deregisterInstanceEventStream)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
 	assert.Error(t, err, "Close the connection should cause the tcs client return error")
 
-	assert.True(t, websocket.IsCloseError(<-serverErr, websocket.CloseAbnormalClosure), "Read from closed connection should produce an io.EOF error")
+	assert.True(t, websocket.IsCloseError(<-serverErr, websocket.CloseAbnormalClosure),
+		"Read from closed connection should produce an io.EOF error")
 
 	closeSocket(closeWS)
 }

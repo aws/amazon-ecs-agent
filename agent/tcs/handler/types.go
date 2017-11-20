@@ -14,36 +14,30 @@
 package tcshandler
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
+// TelemetrySessionParams contains all the parameters required to start a tcs
+// session
 type TelemetrySessionParams struct {
 	ContainerInstanceArn          string
 	CredentialProvider            *credentials.Credentials
 	Cfg                           *config.Config
 	DeregisterInstanceEventStream *eventstream.EventStream
-	ContainerChangeEventStream    *eventstream.EventStream
-	DockerClient                  engine.DockerClient
 	AcceptInvalidCert             bool
 	ECSClient                     api.ECSClient
 	TaskEngine                    engine.TaskEngine
+	StatsEngine                   *stats.DockerStatsEngine
 	_time                         ttime.Time
 	_timeOnce                     sync.Once
-}
-
-func (params *TelemetrySessionParams) isTelemetryDisabled() (bool, error) {
-	if params.Cfg != nil {
-		return params.Cfg.DisableMetrics, nil
-	}
-	return false, fmt.Errorf("Config is not initialized in session params")
 }
 
 func (params *TelemetrySessionParams) time() ttime.Time {

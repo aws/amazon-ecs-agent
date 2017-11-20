@@ -112,6 +112,7 @@ func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient, con
 
 // MustInit initializes fields of the DockerStatsEngine object.
 func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
+	// TODO ensure that this is done only once per engine object
 	seelog.Info("Initializing stats engine")
 	engine.cluster = cluster
 	engine.containerInstanceArn = containerInstanceArn

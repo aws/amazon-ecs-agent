@@ -42,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -520,8 +521,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Agent introspection api
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
+	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 	// Start serving the endpoint to fetch IAM Role credentials
-	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, nil)
+	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
@@ -531,14 +533,15 @@ func (agent *ecsAgent) startAsyncRoutines(
 		Cfg:                           agent.cfg,
 		ContainerInstanceArn:          agent.containerInstanceARN,
 		DeregisterInstanceEventStream: deregisterInstanceEventStream,
-		ContainerChangeEventStream:    containerChangeEventStream,
-		DockerClient:                  agent.dockerClient,
 		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
+		StatsEngine:                   statsEngine,
 	}
 
-	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(telemetrySessionParams)
+	if !agent.cfg.DisableMetrics {
+		// Start metrics session in a go routine
+		go tcshandler.StartMetricsSession(telemetrySessionParams)
+	}
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This
