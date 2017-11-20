@@ -16,6 +16,7 @@ package api
 import (
 	"encoding/json"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -214,6 +215,11 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expectedOutput := rawHostConfigInput
+	expectedOutput.CPUPercent = minimumCPUPercent
+	if runtime.GOOS == "windows" {
+		// CPUShares will always be 0 on windows
+		expectedOutput.CPUShares = 0
+	}
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
 
@@ -262,6 +268,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		SecurityOpt:      []string{"foo", "bar"},
 		VolumesFrom:      []string{"dockername-c2"},
 		MemorySwappiness: memorySwappinessDefault,
+		CPUPercent:       minimumCPUPercent,
 	}
 
 	assertSetStructFieldsEqual(t, expected, *hostConfig)
@@ -1291,7 +1298,11 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	assert.Nil(t, cerr)
 
 	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
-	assert.Equal(t, int64(10), config.CPUShares)
+	if runtime.GOOS == "windows" {
+		assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
+	} else {
+		assert.Equal(t, int64(10), config.CPUShares)
+	}
 	assert.Empty(t, hostconfig.CPUShares)
 	assert.Empty(t, hostconfig.Memory)
 
@@ -1301,7 +1312,14 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
-	assert.Equal(t, int64(10), hostconfig.CPUShares)
+	if runtime.GOOS == "windows" {
+		// cpushares is set to zero on windows
+		assert.Empty(t, hostconfig.CPUShares)
+		assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
+	} else {
+		assert.Equal(t, int64(10), hostconfig.CPUShares)
+	}
+
 	assert.Empty(t, config.CPUShares)
 	assert.Empty(t, config.Memory)
 }
