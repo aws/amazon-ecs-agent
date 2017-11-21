@@ -1,0 +1,20 @@
+{
+  "family": "ecs-awslogs-multiline-test",
+  "containerDefinitions": [{
+    "essential": true,
+    "memory": 10,
+    "name": "awslogs-multiline",
+    "cpu": 10,
+    "image": "busybox:latest",
+    "command": ["sh", "-c", "echo \"INFO: ECS Agent\nRunning\nINFO: Instance\""],
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group":"ecs-functional-tests",
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests",
+            "awslogs-multiline-pattern":"^INFO"
+        }
+    }
+  }]
+}
