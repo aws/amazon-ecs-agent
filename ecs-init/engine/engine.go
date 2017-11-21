@@ -119,7 +119,7 @@ func (e *Engine) downloadAgent() error {
 	log.Info("Downloading Amazon EC2 Container Service Agent")
 	err := e.downloader.DownloadAgent()
 	if err != nil {
-		return engineError("could not download Amazon EC2 Container Serivce Agent", err)
+		return engineError("could not download Amazon EC2 Container Service Agent", err)
 	}
 	return nil
 }
