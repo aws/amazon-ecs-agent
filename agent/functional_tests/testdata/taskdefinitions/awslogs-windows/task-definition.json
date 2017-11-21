@@ -4,7 +4,7 @@
     "essential": true,
     "memory": 256,
     "name": "awslogs",
-    "cpu": 10,
+    "cpu": 512,
     "image": "microsoft/windowsservercore:latest",
     "logConfiguration": {
         "logDriver": "awslogs",

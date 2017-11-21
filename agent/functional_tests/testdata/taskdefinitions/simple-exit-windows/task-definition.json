@@ -3,7 +3,7 @@
   "containerDefinitions": [{
     "image": "microsoft/windowsservercore:latest",
     "name": "exit",
-    "cpu": 10,
+    "cpu": 512,
     "memory": 256,
     "essential": true,
     "entryPoint": ["powershell"],
