@@ -45,9 +45,6 @@ const (
 	// AgentCredentialsPort is used to serve the credentials for tasks.
 	AgentCredentialsPort = 51679
 
-	// AgentCredentialsAddress is used to serve the credentials for tasks.
-	AgentCredentialsAddress = "127.0.0.1"
-
 	// defaultConfigFileName is the default (json-formatted) config file
 	defaultConfigFileName = "/etc/ecs_container_agent/config.json"
 

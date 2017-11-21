@@ -23,6 +23,9 @@ import (
 )
 
 const (
+	// AgentCredentialsAddress is used to serve the credentials for tasks.
+	AgentCredentialsAddress = "127.0.0.1"
+	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = `log\audit.log`
 	// When using IAM roles for tasks on Windows, the credential proxy consumes port 80
 	httpPort = 80
