@@ -1,3 +1,9 @@
+amazon-ecs-init (1.16.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.16.0
+
+ -- Noah Meyerhans <nmeyerha@amazon.com>  Tue, 21 Nov 2017 13:03:59 -0800
+
 amazon-ecs-init (1.15.2-1) trusty; urgency=medium
 
   * Cache Agent version 1.15.2

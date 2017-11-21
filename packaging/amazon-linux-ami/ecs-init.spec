@@ -13,8 +13,8 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.15.2
-Release:        2%{?dist}
+Version:        1.16.0
+Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
@@ -152,6 +152,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Nov 21 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.0-1
+- Cache Agent vesion 1.16.0
 * Thu Nov 16 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-2
 - Correct the agent 1.15.2 filename
 * Tue Nov 14 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-1
