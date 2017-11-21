@@ -4,7 +4,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/upkhbwf2oc0srglt?svg=true)](https://ci.appveyor.com/project/AmazonECS/amazon-ecs-agent)
 
 
-The Amazon ECS Container Agent is software developed for Amazon EC2 Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
+The Amazon ECS Container Agent is software developed for Amazon Elastic Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
 
 It runs on container instances and starts containers on behalf of Amazon ECS.
 
