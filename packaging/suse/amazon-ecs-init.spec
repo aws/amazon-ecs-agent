@@ -19,7 +19,7 @@
 Name:           amazon-ecs-init
 Version:        1.7.1
 Release:        0
-Summary:        Amazon EC2 Container Service Initialization
+Summary:        Amazon Elastic Container Service Initialization
 License:        Apache-2.0
 Group:          System Environment/Base
 Url:            https://github.com/aws/amazon-ecs-init
@@ -33,7 +33,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:  %ix86 x86_64
 
 %description
-The Amazon EC2 Container Service initialization will start the ECS agent.
+The Amazon Elastic Container Service initialization will start the ECS agent.
 The ECS agent runs in a container and is needed to support integration
 between the aws-cli ecs command line tool and an instance running in
 Amazon EC2.

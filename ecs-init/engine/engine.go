@@ -111,27 +111,27 @@ func (e *Engine) downloadAndLoadCache() error {
 		return err
 	}
 
-	log.Info("Loading Amazon EC2 Container Service Agent into Docker")
+	log.Info("Loading Amazon Elastic Container Service Agent into Docker")
 	return e.load(e.downloader.LoadCachedAgent())
 }
 
 func (e *Engine) downloadAgent() error {
-	log.Info("Downloading Amazon EC2 Container Service Agent")
+	log.Info("Downloading Amazon Elastic Container Service Agent")
 	err := e.downloader.DownloadAgent()
 	if err != nil {
-		return engineError("could not download Amazon EC2 Container Service Agent", err)
+		return engineError("could not download Amazon Elastic Container Service Agent", err)
 	}
 	return nil
 }
 
 func (e *Engine) load(image io.ReadCloser, err error) error {
 	if err != nil {
-		return engineError("could not load Amazon EC2 Container Service Agent from cache", err)
+		return engineError("could not load Amazon Elastic Container Service Agent from cache", err)
 	}
 	defer image.Close()
 	err = e.docker.LoadImage(image)
 	if err != nil {
-		return engineError("could not load Amazon EC2 Container Service Agent into Docker", err)
+		return engineError("could not load Amazon Elastic Container Service Agent into Docker", err)
 	}
 	return e.downloader.RecordCachedAgent()
 }
@@ -145,7 +145,7 @@ func (e *Engine) StartSupervised() error {
 			return engineError("could not remove existing Agent container", err)
 		}
 
-		log.Info("Starting Amazon EC2 Container Service Agent")
+		log.Info("Starting Amazon Elastic Container Service Agent")
 		agentExitCode, err = e.docker.StartAgent()
 		if err != nil {
 			return engineError("could not start Agent", err)
@@ -165,16 +165,16 @@ func (e *Engine) StartSupervised() error {
 }
 
 func (e *Engine) upgradeAgent() error {
-	log.Info("Loading new desired Amazon EC2 Container Service Agent into Docker")
+	log.Info("Loading new desired Amazon Elastic Container Service Agent into Docker")
 	return e.load(e.downloader.LoadDesiredAgent())
 }
 
 // PreStop sends commands to Docker to stop the ECS Agent
 func (e *Engine) PreStop() error {
-	log.Info("Stopping Amazon EC2 Container Service Agent")
+	log.Info("Stopping Amazon Elastic Container Service Agent")
 	err := e.docker.StopAgent()
 	if err != nil {
-		return engineError("could not stop Amazon EC2 Container Service Agent", err)
+		return engineError("could not stop Amazon Elastic Container Service Agent", err)
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func (e *Engine) PreStop() error {
 // PostStop cleans up the credentials endpoint setup by disabling loopback
 // routing and removing the rerouting rule from the netfilter table
 func (e *Engine) PostStop() error {
-	log.Info("Cleaning up the credentials endpoint setup for Amazon EC2 Container Service Agent")
+	log.Info("Cleaning up the credentials endpoint setup for Amazon Elastic Container Service Agent")
 	err := e.loopbackRouting.RestoreDefault()
 
 	// Ignore error from Remove() as the netfilter might never have been

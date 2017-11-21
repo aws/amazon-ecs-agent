@@ -1,6 +1,6 @@
-# Amazon EC2 Container Service RPM
+# Amazon Elastic Container Service RPM
 
-The Amazon EC2 Container Service RPM is software developed to support the [Amazon ECS Container
+The Amazon Elastic Container Service RPM is software developed to support the [Amazon ECS Container
 Agent](http://github.com/aws/amazon-ecs-agent).  The Amazon ECS RPM is packaged for RPM-based systems that utilize
 [Upstart](http://upstart.ubuntu.com) as the init system.
 
@@ -12,7 +12,7 @@ the RPM are available at `/var/log/ecs/ecs-init.log`, while logs from the Amazon
 at `http://127.0.0.1:51678/v1`.  Configuration for the Amazon ECS Container Agent is read from `/etc/ecs/ecs.config`.
 
 ## Usage
-The upstart script installed by the Amazon EC2 Container Service RPM can be started or stopped with the following commands respectively:
+The upstart script installed by the Amazon Elastic Container Service RPM can be started or stopped with the following commands respectively:
 
 * `sudo start ecs`
 * `sudo stop ecs`
@@ -27,4 +27,4 @@ an update failed and the Amazon ECS Container Agent is no longer functional, a r
 
 ## License
 
-The Amazon EC2 Container Service RPM is licensed under the Apache 2.0 License.
+The Amazon Elastic Container Service RPM is licensed under the Apache 2.0 License.

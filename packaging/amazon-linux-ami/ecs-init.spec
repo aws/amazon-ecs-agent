@@ -18,7 +18,7 @@ Release:        2%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
 License:        Apache 2.0
-Summary:        Amazon EC2 Container Service initialization application
+Summary:        Amazon Elastic Container Service initialization application
 BuildArch:      x86_64
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 

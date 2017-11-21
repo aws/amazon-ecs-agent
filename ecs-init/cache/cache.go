@@ -167,7 +167,7 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
 	region := d.getRegion()
 	agentRemoteTarball := config.AgentRemoteTarball(region)
-	log.Debugf("Downloading Amazon EC2 Container Service Agent from %s", agentRemoteTarball)
+	log.Debugf("Downloading Amazon Elastic Container Service Agent from %s", agentRemoteTarball)
 	resp, err := d.getter.Get(agentRemoteTarball)
 	if err != nil {
 		return nil, err

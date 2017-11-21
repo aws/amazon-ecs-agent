@@ -1,5 +1,5 @@
 [Unit]
-Description=Amazon EC2 Container Service Initialization
+Description=Amazon Elastic Container Service Initialization
 After=docker.service
 After=network.target
 Requires=docker.service
