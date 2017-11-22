@@ -46,9 +46,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 )
 
@@ -76,8 +76,12 @@ type agent interface {
 	// printECSAttributes prints the Agent's capabilities based on
 	// its environment
 	printECSAttributes() int
+	// startWindowsService starts the agent as a Windows Service
+	startWindowsService() int
 	// start starts the Agent execution
 	start() int
+	// setTerminationHandler sets the termination handler
+	setTerminationHandler(sighandlers.TerminationHandler)
 }
 
 // ecsAgent wraps all the entities needed to start the ECS Agent execution.
@@ -100,9 +104,10 @@ type ecsAgent struct {
 	mac                   string
 	metadataManager       containermetadata.Manager
 	resource              resources.Resource
+	terminationHandler    sighandlers.TerminationHandler
 }
 
-// newAgent returns a new ecsAgent object
+// newAgent returns a new ecsAgent object, but does not start anything
 func newAgent(
 	ctx context.Context,
 	blackholeEC2Metadata bool,
@@ -158,9 +163,10 @@ func newAgent(
 			PluginsPath:            cfg.CNIPluginsPath,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
-		os:              oswrapper.New(),
-		metadataManager: metadataManager,
-		resource:        resources.New(),
+		os:                 oswrapper.New(),
+		metadataManager:    metadataManager,
+		resource:           resources.New(),
+		terminationHandler: sighandlers.StartDefaultTerminationHandler,
 	}, nil
 }
 
@@ -182,6 +188,10 @@ func (agent *ecsAgent) printECSAttributes() int {
 		fmt.Printf("%s\t%s\n", aws.StringValue(attr.Name), aws.StringValue(attr.Value))
 	}
 	return exitcodes.ExitSuccess
+}
+
+func (agent *ecsAgent) setTerminationHandler(handler sighandlers.TerminationHandler) {
+	agent.terminationHandler = handler
 }
 
 // start starts the ECS Agent
@@ -514,7 +524,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go imageManager.StartImageCleanupProcess(agent.ctx)
 	}
 
-	go sighandlers.StartTerminationHandler(stateManager, taskEngine)
+	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)

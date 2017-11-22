@@ -146,6 +146,8 @@ type DockerClient interface {
 
 	// Version returns the version of the Docker daemon.
 	Version() (string, error)
+	// APIVersion returns the api version of the client
+	APIVersion() (dockerclient.DockerVersion, error)
 
 	// InspectImage returns information about the specified image.
 	InspectImage(string) (*docker.Image, error)
@@ -882,6 +884,15 @@ func (dg *dockerGoClient) Version() (string, error) {
 		return "", err
 	}
 	return info.Get("Version"), nil
+}
+
+// APIVersion returns the client api version
+func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return "", err
+	}
+	return dg.clientFactory.FindClientAPIVersion(client), nil
 }
 
 // Stats returns a channel of *docker.Stats entries for the container.

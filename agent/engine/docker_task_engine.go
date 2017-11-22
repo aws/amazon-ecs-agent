@@ -685,7 +685,12 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// we have to do this in create, not start, because docker no longer handles
 	// merging create config with start hostconfig the same; e.g. memory limits
 	// get lost
-	hostConfig, hcerr := task.DockerHostConfig(container, containerMap)
+	dockerClientVersion, versionErr := client.APIVersion()
+	if versionErr != nil {
+		return DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
+	}
+
+	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
 	if hcerr != nil {
 		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
 	}
@@ -697,7 +702,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		}
 	}
 
-	config, err := task.DockerConfig(container)
+	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
 		return DockerContainerMetadata{Error: api.NamedError(err)}
 	}

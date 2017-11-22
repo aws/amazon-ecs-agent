@@ -2,8 +2,8 @@
     "family": "ecsftest-iamrole-test",
     "taskRoleArn": "$$$TASK_ROLE$$$",
     "containerDefinitions": [{
-        "memory": 100,
-        "cpu": 100,
+        "memory": 512,
+        "cpu": 1024,
         "name": "container-with-iamrole-windows",
         "image": "amazon/amazon-ecs-iamrolecontainer",
          "entryPoint": ["powershell"],

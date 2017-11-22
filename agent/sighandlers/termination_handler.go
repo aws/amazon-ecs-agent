@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// sighandlers handle signals and behave appropriately.
+// Package sighandlers handle signals and behave appropriately.
 // SIGTERM:
 //   Flush state to disk and exit
 // SIGUSR1:
@@ -26,32 +26,37 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+
+	"github.com/cihub/seelog"
 )
 
-var log = logger.ForModule("TerminationHandler")
+const (
+	engineDisableTimeout = 5 * time.Second
+	finalSaveTimeout     = 3 * time.Second
+)
 
-func StartTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) {
+// TerminationHandler defines a handler used for terminating the agent
+type TerminationHandler func(saver statemanager.Saver, taskEngine engine.TaskEngine)
+
+// StartDefaultTerminationHandler defines a default termination handler suitable for running in a process
+func StartDefaultTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) {
 	signalChannel := make(chan os.Signal, 2)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 
 	sig := <-signalChannel
-	log.Debug("Received termination signal", "signal", sig.String())
+	seelog.Debugf("Termination handler received termination signal: %s", sig.String())
 
 	err := FinalSave(saver, taskEngine)
 	if err != nil {
-		log.Crit("Error saving state before final shutdown", "err", err)
+		seelog.Criticalf("Error saving state before final shutdown: %v", err)
 		// Terminal because it's a sigterm; the user doesn't want it to restart
 		os.Exit(exitcodes.ExitTerminal)
 	}
 	os.Exit(exitcodes.ExitSuccess)
 }
-
-const engineDisableTimeout = 5 * time.Second
-const finalSaveTimeout = 3 * time.Second
 
 // FinalSave should be called immediately before exiting, and only before
 // exiting, in order to flush tasks to disk. It waits a short timeout for state
@@ -61,11 +66,11 @@ func FinalSave(saver statemanager.Saver, taskEngine engine.TaskEngine) error {
 	engineDisabled := make(chan error)
 
 	disableTimer := time.AfterFunc(engineDisableTimeout, func() {
-		engineDisabled <- errors.New("Timed out waiting for TaskEngine to settle")
+		engineDisabled <- errors.New("final save: timed out waiting for TaskEngine to settle")
 	})
 
 	go func() {
-		log.Debug("Shutting down task engine")
+		seelog.Debug("Shutting down task engine for final save")
 		taskEngine.Disable()
 		disableTimer.Stop()
 		engineDisabled <- nil
@@ -75,10 +80,10 @@ func FinalSave(saver statemanager.Saver, taskEngine engine.TaskEngine) error {
 
 	stateSaved := make(chan error)
 	saveTimer := time.AfterFunc(finalSaveTimeout, func() {
-		stateSaved <- errors.New("Timed out trying to save to disk")
+		stateSaved <- errors.New("final save: timed out trying to save to disk")
 	})
 	go func() {
-		log.Debug("Saving state before shutting down")
+		seelog.Debug("Saving state before shutting down")
 		stateSaved <- saver.ForceSave()
 		saveTimer.Stop()
 	}()
