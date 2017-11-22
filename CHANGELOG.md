@@ -1,6 +1,6 @@
 #Changelog
 
-## Unreleased
+## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
 * Feature - Enable support for task level CPU and memory constraints.
 * Feature - Enable the ECS agent to run as a Windows service. [#1070](https://github.com/aws/amazon-ecs-agent/pull/1070)
