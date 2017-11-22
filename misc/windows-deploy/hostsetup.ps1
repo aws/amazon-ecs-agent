@@ -19,6 +19,7 @@ $ErrorActionPreference = 'Continue'
 # 169.254.170.2:51679 is the IP address used for task IAM roles.
 $credentialAddress = "169.254.170.2"
 $credentialPort = "51679"
+$loopbackAddress = "127.0.0.1"
 
 $adapter = (Get-NetAdapter -Name "*APIPA*")
 if(!($adapter)) {
@@ -45,7 +46,7 @@ if(!($ip)) {
 
 	# This forwards traffic from port 80 and listens on the IAM role IP address.
 	# 'portproxy' doesn't have a powershell module equivalent, but we could move if it becomes available.
-	netsh interface portproxy add v4tov4 listenaddress=$credentialAddress listenport=80 connectaddress=$credentialAddress connectport=$credentialPort
+	netsh interface portproxy add v4tov4 listenaddress=$credentialAddress listenport=80 connectaddress=$loopbackAddress connectport=$credentialPort
 }
 
 $ErrorActionPreference=$oldActionPref

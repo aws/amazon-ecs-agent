@@ -106,7 +106,7 @@ func setupServer(credentialsManager credentials.Manager, auditLogger audit.Audit
 	loggingServeMux.Handle("/", handlers.NewLoggingHandler(serverMux))
 
 	server := http.Server{
-		Addr:         ":" + strconv.Itoa(config.AgentCredentialsPort),
+		Addr:         config.AgentCredentialsAddress + ":" + strconv.Itoa(config.AgentCredentialsPort),
 		Handler:      loggingServeMux,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
