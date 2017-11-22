@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
+	"github.com/didip/tollbooth"
 )
 
 const (
@@ -39,6 +40,10 @@ const (
 	// Credentials API versions
 	apiVersion1 = 1
 	apiVersion2 = 2
+
+	// Rate limits for the metadata endpoint(s) and APIs by request ip addresses
+	rateLimitPerSecond      = 3
+	rateLimitBurstPerSecond = 6
 )
 
 // ServeHTTP serves IAM Role Credentials for Tasks being managed by the agent.
@@ -93,9 +98,12 @@ func setupServer(credentialsManager credentials.Manager,
 	serverMux.HandleFunc(statsPath+"/", statsV2Handler(state, statsEngine))
 	serverMux.HandleFunc(statsPath, statsV2Handler(state, statsEngine))
 
+	limiter := tollbooth.NewLimiter(rateLimitPerSecond, nil)
+	limiter.SetBurst(rateLimitBurstPerSecond)
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
-	loggingServeMux.Handle("/", handlers.NewLoggingHandler(serverMux))
+	loggingServeMux.Handle("/", tollbooth.LimitHandler(
+		limiter, handlers.NewLoggingHandler(serverMux)))
 
 	server := http.Server{
 		Addr:         ":" + strconv.Itoa(config.AgentCredentialsPort),
