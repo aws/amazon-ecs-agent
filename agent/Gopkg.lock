@@ -55,6 +55,12 @@
   revision = "82fe5be8ca5f7d8255cc838723687f61bb175120"
 
 [[projects]]
+  name = "github.com/didip/tollbooth"
+  packages = [".","errors","libstring","limiter"]
+  revision = "b65680a2d5f624ed528d36f8406f31535555828a"
+  version = "v3.0.2"
+
+[[projects]]
   name = "github.com/docker/docker"
   packages = ["api/types/filters","api/types/mount","api/types/swarm","api/types/versions","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
   revision = "1dbf3c65e15a2d021cc15ded9caaf6192d58970b"
@@ -106,6 +112,12 @@
   revision = "d349388c43b01b2ea695965ae561b5bddb81318f"
 
 [[projects]]
+  name = "github.com/patrickmn/go-cache"
+  packages = ["."]
+  revision = "a3647f8e31d79543b2d0f0ae2fe5c379d72cedc0"
+  version = "v2.1.0"
+
+[[projects]]
   name = "github.com/pborman/uuid"
   packages = ["."]
   revision = "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
@@ -147,6 +159,12 @@
   revision = "afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/time"
+  packages = ["rate"]
+  revision = "6dc17368e09b0e8634d71cac8168d853e869a0c7"
+
+[[projects]]
   name = "golang.org/x/tools"
   packages = ["go/ast/astutil","imports"]
   revision = "d63e2b22b05a9682de336cd4802bba367ed429e7"
@@ -154,6 +172,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7622bf3f939a3ea183688145cbae7aee8a0513f27191096a17be1956d727ea36"
+  inputs-digest = "0f003fe1b3702f95bfc6590376a69c5887360d1de1b9137c3a0bc9c82ce6f745"
   solver-name = "gps-cdcl"
   solver-version = 1
