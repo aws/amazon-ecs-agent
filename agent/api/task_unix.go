@@ -36,7 +36,8 @@ const (
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
 	minimumCPUShare = 2
 
-	bytesPerMegabyte = 1024 * 1024
+	minimumCPUPercent = 0
+	bytesPerMegabyte  = 1024 * 1024
 )
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {

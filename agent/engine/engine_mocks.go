@@ -181,6 +181,17 @@ func (_m *MockDockerClient) EXPECT() *_MockDockerClientRecorder {
 	return _m.recorder
 }
 
+func (_m *MockDockerClient) APIVersion() (dockerclient.DockerVersion, error) {
+	ret := _m.ctrl.Call(_m, "APIVersion")
+	ret0, _ := ret[0].(dockerclient.DockerVersion)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDockerClientRecorder) APIVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "APIVersion")
+}
+
 func (_m *MockDockerClient) ContainerEvents(_param0 context0.Context) (<-chan DockerContainerChangeEvent, error) {
 	ret := _m.ctrl.Call(_m, "ContainerEvents", _param0)
 	ret0, _ := ret[0].(<-chan DockerContainerChangeEvent)

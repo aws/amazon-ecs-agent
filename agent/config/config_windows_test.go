@@ -34,7 +34,7 @@ func TestConfigDefault(t *testing.T) {
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
-	assert.True(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
+	assert.False(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
 	assert.Equal(t, 10, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")

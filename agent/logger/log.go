@@ -59,6 +59,7 @@ func initLogger() {
 
 	logfile = os.Getenv(LOGFILE_ENV_VAR)
 	SetLevel(envLevel)
+	registerPlatformLogger()
 	reloadConfig()
 }
 
@@ -86,7 +87,7 @@ func SetLevel(logLevel string) {
 // GetLevel gets the log level
 func GetLevel() string {
 	levelLock.RLock()
-	defer levelLock.RLock()
+	defer levelLock.RUnlock()
 
 	return level
 }

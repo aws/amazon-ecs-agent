@@ -19,65 +19,251 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
-	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/windows/svc"
 )
 
-// TestDoStartHappyPath tests the doStart method for windows. This method should
-// go away when we support metrics for windows containers
-func TestDoStartHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+type mockAgent struct {
+	startFunc          func() int
+	terminationHandler sighandlers.TerminationHandler
+}
+
+func (m *mockAgent) start() int {
+	return m.startFunc()
+}
+func (m *mockAgent) setTerminationHandler(handler sighandlers.TerminationHandler) {
+	m.terminationHandler = handler
+}
+func (m *mockAgent) printVersion() int        { return 0 }
+func (m *mockAgent) printECSAttributes() int  { return 0 }
+func (m *mockAgent) startWindowsService() int { return 0 }
+
+func TestHandler_RunAgent_StartExitImmediately(t *testing.T) {
+	// register some mocks, but nothing should get called on any of them
+	ctrl := gomock.NewController(t)
+	_ = statemanager_mocks.NewMockStateManager(ctrl)
+	_ = engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
-	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-
-	var discoverEndpointsInvoked sync.WaitGroup
-	discoverEndpointsInvoked.Add(1)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
-
-	// These calls are expected to happen, but cannot be ordered as they are
-	// invoked via go routines, which will lead to occasional test failues
-	dockerClient.EXPECT().Version().AnyTimes()
-	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
-	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until acs session has bee started
-		discoverEndpointsInvoked.Done()
-	}).Return("poll-endpoint", nil)
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
-
-	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
-		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
-		state.EXPECT().AllImageStates().Return(nil),
-		state.EXPECT().AllTasks().Return(nil),
-	)
-
-	cfg := getTestConfig()
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                &cfg,
-		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
-		dockerClient:       dockerClient,
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	startFunc := func() int {
+		// startFunc doesn't block, nothing is called
+		wg.Done()
+		return 0
 	}
+	agent := &mockAgent{startFunc: startFunc}
+	handler := &handler{agent}
+	go handler.runAgent(context.TODO())
+	wg.Wait()
+	assert.NotNil(t, agent.terminationHandler)
+}
 
-	go agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+func TestHandler_RunAgent_NoSaveWithNoTerminationHandler(t *testing.T) {
+	// register some mocks, but nothing should get called on any of them
+	ctrl := gomock.NewController(t)
+	_ = statemanager_mocks.NewMockStateManager(ctrl)
+	_ = engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
 
-	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
-	// invoked. These are used as proxies to indicate that acs and tcs handlers'
-	// NewSession call has been invoked
-	discoverEndpointsInvoked.Wait()
+	done := make(chan struct{})
+	startFunc := func() int {
+		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
+		return 0
+	}
+	agent := &mockAgent{startFunc: startFunc}
+	handler := &handler{agent}
+	ctx, cancel := context.WithCancel(context.TODO())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		handler.runAgent(ctx)
+		wg.Done()
+	}()
+	cancel()
+	wg.Wait()
+	assert.NotNil(t, agent.terminationHandler)
+}
+
+func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine.EXPECT().Disable()
+	stateManager.EXPECT().ForceSave()
+
+	agent := &mockAgent{}
+
+	done := make(chan struct{})
+	defer func() { done <- struct{}{} }()
+	startFunc := func() int {
+		go agent.terminationHandler(stateManager, taskEngine)
+		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	ctx, cancel := context.WithCancel(context.TODO())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		handler.runAgent(ctx)
+		wg.Done()
+	}()
+	time.Sleep(time.Second) // give startFunc enough time to actually call the termination handler
+	cancel()
+	wg.Wait()
+}
+
+func TestHandler_HandleWindowsRequests_StopService(t *testing.T) {
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	handler := &handler{}
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		handler.handleWindowsRequests(context.TODO(), requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		requests <- svc.ChangeRequest{Cmd: svc.Interrogate, CurrentStatus: svc.Status{State: svc.Running}}
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after Interrogate")
+		requests <- svc.ChangeRequest{Cmd: svc.Stop}
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after Stop")
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func TestHandler_HandleWindowsRequests_Cancel(t *testing.T) {
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	handler := &handler{}
+	ctx, cancel := context.WithCancel(context.TODO())
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		handler.handleWindowsRequests(ctx, requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		requests <- svc.ChangeRequest{Cmd: svc.Interrogate, CurrentStatus: svc.Status{State: svc.Running}}
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after Interrogate")
+		cancel()
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after Cancel")
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func TestHandler_Execute_WindowsStops(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
+	taskEngine := engine.NewMockTaskEngine(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine.EXPECT().Disable()
+	stateManager.EXPECT().ForceSave()
+
+	agent := &mockAgent{}
+
+	done := make(chan struct{})
+	defer func() { done <- struct{}{} }()
+	startFunc := func() int {
+		go agent.terminationHandler(stateManager, taskEngine)
+		<-done // block until after the test ends so that we can test that Execute returns when Stopped
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		handler.Execute(nil, requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		time.Sleep(time.Second) // let it run for a second
+		requests <- svc.ChangeRequest{Cmd: svc.Shutdown}
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after Shutdown")
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func TestHandler_Execute_AgentStops(t *testing.T) {
+	agent := &mockAgent{}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	startFunc := func() int {
+		<-ctx.Done()
+		return 0
+	}
+	agent.startFunc = startFunc
+	handler := &handler{agent}
+	requests := make(chan svc.ChangeRequest)
+	responses := make(chan svc.Status)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		handler.Execute(nil, requests, responses)
+		wg.Done()
+	}()
+
+	go func() {
+		resp := <-responses
+		assert.Equal(t, svc.StartPending, resp.State, "Send StartPending immediately")
+		resp = <-responses
+		assert.Equal(t, svc.Running, resp.State, "Send Running after StartPending")
+		assert.Equal(t, svc.AcceptStop|svc.AcceptShutdown, resp.Accepts, "Accept stop & shutdown")
+		time.Sleep(time.Second) // let it run for a second
+		cancel()
+		resp = <-responses
+		assert.Equal(t, svc.StopPending, resp.State, "Send StopPending after agent goroutine stops")
+		wg.Done()
+	}()
+
+	wg.Wait()
 }

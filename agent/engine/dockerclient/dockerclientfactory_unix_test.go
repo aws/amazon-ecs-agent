@@ -19,9 +19,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 func TestGetClientCached(t *testing.T) {
@@ -43,4 +43,14 @@ func TestGetClientCached(t *testing.T) {
 	assert.Nil(t, errAgain)
 
 	assert.Equal(t, client, clientAgain)
+}
+
+func TestFindClientAPIVersion(t *testing.T) {
+	factory := NewFactory(expectedEndpoint)
+
+	for _, version := range getAgentVersions() {
+		client, err := factory.GetClient(version)
+		assert.NoError(t, err)
+		assert.Equal(t, version, factory.FindClientAPIVersion(client))
+	}
 }

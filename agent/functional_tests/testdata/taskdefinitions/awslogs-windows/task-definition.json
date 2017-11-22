@@ -2,9 +2,9 @@
   "family": "ecs-awslogs-test",
   "containerDefinitions": [{
     "essential": true,
-    "memory": 10,
+    "memory": 256,
     "name": "awslogs",
-    "cpu": 10,
+    "cpu": 512,
     "image": "microsoft/windowsservercore:latest",
     "logConfiguration": {
         "logDriver": "awslogs",

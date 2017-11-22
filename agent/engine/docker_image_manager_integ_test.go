@@ -352,7 +352,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	err = renameImage(test3Image3Name, "testimagewithsamenameanddifferentid", "latest", goDockerClient)
 	require.NoError(t, err, "Renaming the image failed")
 
-	// Start and wiat for task3 to be running
+	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
 	err = verifyTaskIsRunning(stateChangeEvents, task3)
 	require.NoError(t, err, "task3")
@@ -566,24 +566,24 @@ func createImageCleanupHappyTestTask(taskName string) *api.Task {
 				Image:               test1Image1Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 			{
 				Name:                "test2",
 				Image:               test1Image2Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 			{
 				Name:                "test3",
 				Image:               test1Image3Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 		},
 	}
@@ -601,24 +601,24 @@ func createImageCleanupThresholdTestTask(taskName string) *api.Task {
 				Image:               test2Image1Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 			{
 				Name:                "test2",
 				Image:               test2Image2Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 			{
 				Name:                "test3",
 				Image:               test2Image3Name,
 				Essential:           false,
 				DesiredStatusUnsafe: api.ContainerRunning,
-				CPU:                 10,
-				Memory:              10,
+				CPU:                 512,
+				Memory:              256,
 			},
 		},
 	}

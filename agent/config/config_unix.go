@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	// AgentCredentialsAddress is used to serve the credentials for tasks.
+	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
 	// Default cgroup prefix for ECS tasks
