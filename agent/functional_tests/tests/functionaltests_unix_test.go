@@ -704,3 +704,63 @@ func TestTaskMetadataValidator(t *testing.T) {
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
+
+// TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
+// send logs to cloudwatch with awslogs driver
+func TestExecutionRole(t *testing.T) {
+	if os.Getenv("TEST_EXECUTION_ROLE") != "true" {
+		t.Skip("TEST_EXECUTION_ROLE was not set to true")
+	}
+
+	RequireDockerVersion(t, ">=17.06.2-ce") // awslogs drivers with execution role available from docker 17.06.2
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
+			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
+			"ECS_ENABLE_TASK_IAM_ROLE":                  "true",
+		},
+		PortBindings: map[docker.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$$TEST_REGION$$$$"] = *ECS.Config.Region
+	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+	tdOverrides["$$$$IMAGE$$$$"] = os.Getenv("ECS_FTS_EXECUTIONROLE_ECR_IMAGE")
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "execution-role", tdOverrides)
+	require.NoError(t, err, "Expected to start task using awslogs driver failed")
+
+	// Wait for the container to start
+	testTask.WaitRunning(waitTaskStateChangeDuration)
+	strs := strings.Split(*testTask.TaskArn, "/")
+	taskId := strs[len(strs)-1]
+
+	// Delete the log stream after the test
+	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskId)),
+	})
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskId)),
+	}
+
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
+	// Search the audit log to verify the credential request from awslogs driver
+	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
+	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	require.NoError(t, err, "Verify credential request failed")
+}
