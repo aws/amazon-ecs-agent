@@ -59,6 +59,12 @@ done first:
   `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679`
   and `export TEST_TASK_IAM_ROLE_NET_HOST=true`
 
+#### Additional setup for EXECUTION roles
+In order to run ExecutionRole functional tests, the following environment variable needs to be set:
+`TEST_EXECUTION_ROLE`: true, whether to run the test `TestExecutionRole`.
+`ECS_FTS_EXECUTIONROLE_ECR_IMAGE`: container image from ECR, the container image
+used for this test, which should output `hello world`.
+
 ### Windows
 
 Before running these tests, you should build the ECS agent (as `agent.exe`) and
