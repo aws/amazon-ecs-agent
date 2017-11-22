@@ -17,6 +17,7 @@ package functional_tests
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,6 +37,11 @@ const (
 	waitTaskStateChangeDuration     = 2 * time.Minute
 	waitMetricsInCloudwatchDuration = 4 * time.Minute
 	awslogsLogGroupName             = "ecs-functional-tests"
+
+	// 'awsvpc' test parameters
+	awsvpcTaskDefinition     = "nginx-awsvpc"
+	awsvpcIPv4AddressKey     = "privateIPv4Address"
+	awsvpcTaskRequestTimeout = 5 * time.Second
 )
 
 // TestPullInvalidImage verifies that an invalid image returns an error
@@ -268,8 +275,8 @@ func TestTaskCleanup(t *testing.T) {
 	}
 }
 
-// TestNetworkModeBridge tests the container network can be configured
-// as none mode in task definition
+// TestNetworkModeNone tests if the 'none' contaienr network mode is configured
+// correctly in task definition
 func TestNetworkModeNone(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -280,7 +287,6 @@ func TestNetworkModeNone(t *testing.T) {
 	}
 }
 
-// TestNetworkMode tests the contaienr network mode is configured in task definition correctly
 func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 	tdOverride := make(map[string]string)
 
@@ -298,7 +304,7 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 	}
 	containerId, err := agent.ResolveTaskDockerID(task, "network-"+mode)
 	if err != nil {
-		return fmt.Errorf("error resolving docker id for container \"network-none\": %v", err)
+		return fmt.Errorf("error resolving docker id for container \"network-%s\": %v", mode, err)
 	}
 
 	networks, err := agent.GetContainerNetworkMode(containerId)
@@ -310,6 +316,62 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 	}
 	if networks[0] != mode {
 		return fmt.Errorf("did not found the expected network mode")
+	}
+	return nil
+}
+
+// awsvpcNetworkModeTest tests if the 'awsvpc' network mode works properly
+func awsvpcNetworkModeTest(t *testing.T, agent *TestAgent) error {
+	// Start task with network mode set to 'awsvpc'
+	task, err := agent.StartAWSVPCTask(awsvpcTaskDefinition)
+	if err != nil {
+		return fmt.Errorf("unable to start task with 'awsvpc' network mode: %v", err)
+	}
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(2 * time.Minute)
+	}()
+
+	// Wait for task to be running
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	if err != nil {
+		return fmt.Errorf("error waiting for task running, err: %v", err)
+	}
+
+	// Get attachment info from the task
+	attachmentDetails, err := task.GetAttachmentInfo()
+	if err != nil {
+		return fmt.Errorf("unable to get task attachments: %v", err)
+	}
+
+	// Get the primary ipv4 address of the ENI from the attachment info
+	taskIPv4Address := ""
+	for _, detail := range attachmentDetails {
+		if aws.StringValue(detail.Name) == awsvpcIPv4AddressKey {
+			taskIPv4Address = aws.StringValue(detail.Value)
+			break
+		}
+	}
+	if taskIPv4Address == "" {
+		return fmt.Errorf("unable to get task's ip address")
+	}
+
+	t.Logf("Querying task ip address: %v", taskIPv4Address)
+
+	// Query the nginx server hosted on task's endpoint
+	client := &http.Client{
+		Timeout: awsvpcTaskRequestTimeout,
+	}
+	resp, err := client.Get("http://" + taskIPv4Address)
+	// Ensure that we get a response from the endpoint
+	if err != nil {
+		return fmt.Errorf("unable to get response from task: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected http response status code from task response: %d", resp.StatusCode)
 	}
 	return nil
 }

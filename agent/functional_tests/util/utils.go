@@ -18,7 +18,6 @@ package util
 import (
 	"crypto/md5"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -39,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
 
@@ -112,6 +112,7 @@ type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
 	PortBindings     map[docker.Port]map[string]string
+	EnableTaskENI    bool
 }
 
 // verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
@@ -218,6 +219,48 @@ func (agent *TestAgent) StartTaskWithTaskDefinitionOverrides(t *testing.T, task 
 	}
 
 	return tasks[0], nil
+}
+
+// StartAWSVPCTask starts a task with "awsvpc" networking mode
+func (agent *TestAgent) StartAWSVPCTask(task string) (*TestTask, error) {
+	td, err := GetTaskDefinition(task)
+	if err != nil {
+		return nil, err
+	}
+
+	return agent.startAWSVPCTask(td)
+}
+
+func (agent *TestAgent) startAWSVPCTask(taskDefinition string) (*TestTask, error) {
+	agent.t.Logf("Task definition: %s", taskDefinition)
+	// Get the subnet ID, which is a required parameter for starting
+	// tasks in 'awsvpc' network mode
+	subnet, err := getSubnetID()
+	if err != nil {
+		return nil, err
+	}
+
+	agent.t.Logf("Starting 'awsvpc' task in subnet: %s", subnet)
+	resp, err := ECS.StartTask(&ecs.StartTaskInput{
+		Cluster:            &agent.Cluster,
+		ContainerInstances: []*string{&agent.ContainerInstanceArn},
+		TaskDefinition:     &taskDefinition,
+		NetworkConfiguration: &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				Subnets: []*string{&subnet},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Failures) != 0 || len(resp.Tasks) == 0 {
+		return nil, errors.New("Failure starting task: " + *resp.Failures[0].Reason)
+	}
+
+	task := resp.Tasks[0]
+	agent.t.Logf("Started task: %s\n", *task.TaskArn)
+	return &TestTask{task}, nil
 }
 
 func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overrides []*ecs.ContainerOverride) (*TestTask, error) {
@@ -480,7 +523,8 @@ func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 		return err
 	case <-timer.C:
 		cancelled = true
-		return errors.New("Timed out waiting for task to reach " + status + ": " + *task.TaskDefinitionArn + ", " + *task.TaskArn)
+		return errors.Errorf("Timed out waiting for task '%s' to reach '%s': '%s' ",
+			status, *task.TaskArn, task.GoString())
 	}
 }
 
@@ -531,6 +575,15 @@ func (task *TestTask) Stop() error {
 		Task:    task.TaskArn,
 	})
 	return err
+}
+
+// GetAttachmentInfo returns the task's attachment properties, as a list of key value pairs
+func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
+	if len(task.Attachments) == 0 {
+		return nil, errors.New("attachments empty for task")
+	}
+
+	return task.Attachments[0].Details, nil
 }
 
 func RequireDockerVersion(t *testing.T, selector string) {
@@ -671,4 +724,19 @@ func AttributesToMap(attributes []*ecs.Attribute) map[string]string {
 		attributeMap[aws.StringValue(attribute.Name)] = aws.StringValue(attribute.Value)
 	}
 	return attributeMap
+}
+
+// getSubnetID gets the subnet id for the instance from ec2 instance metadata
+func getSubnetID() (string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+	mac, err := ec2Metadata.GetMetadata("mac")
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to get mac from ec2 metadata")
+	}
+	subnet, err := ec2Metadata.GetMetadata("network/interfaces/macs/" + mac + "/subnet-id")
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to get subnet from ec2 metadata")
+	}
+
+	return subnet, nil
 }
