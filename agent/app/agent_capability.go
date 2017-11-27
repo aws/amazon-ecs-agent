@@ -58,6 +58,7 @@ const (
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
+//    ecs.capability.container-health-check
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -97,6 +98,11 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
+	}
+
+	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok {
+		// Docker health check was added in API 1.24
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"container-health-check")
 	}
 
 	if agent.cfg.TaskIAMRoleEnabled {
