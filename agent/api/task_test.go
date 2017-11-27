@@ -26,9 +26,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const dockerIDPrefix = "dockerid-"
@@ -1351,4 +1354,33 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 	assert.Empty(t, config.Memory)
+}
+
+// TestContainerHealthConfig tests that we set the correct container health check config
+func TestContainerHealthConfig(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			{
+				Name:            "c1",
+				HealthCheckType: dockerHealthCheckType,
+				DockerConfig: DockerConfig{
+					HealthCheck: aws.String(`{
+							"Test":["command"],
+							"Interval":5000000000,
+							"Timeout":4000000000,
+							"StartPeriod":60000000000,
+							"Retries":5}`),
+				},
+			},
+		},
+	}
+
+	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	require.NotNil(t, config.Healthcheck, "health config was not set in docker config")
+	assert.Equal(t, config.Healthcheck.Test, []string{"command"})
+	assert.Equal(t, config.Healthcheck.Retries, 5)
+	assert.Equal(t, config.Healthcheck.Interval, 5*time.Second)
+	assert.Equal(t, config.Healthcheck.Timeout, 4*time.Second)
+	assert.Equal(t, config.Healthcheck.StartPeriod, 1*time.Minute)
 }
