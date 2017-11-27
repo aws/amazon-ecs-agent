@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
@@ -454,8 +455,19 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 		return nil, &DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
 
+	if container.HealthCheckType == dockerHealthCheckType {
+		// configure the docker health check config if it's set
+		healthConfig := &docker.HealthConfig{}
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.HealthCheck)), healthConfig)
+		if err != nil {
+			return nil, &DockerClientConfigError{
+				fmt.Sprintf("Unable to decode given docker health config: %s", aws.StringValue(container.DockerConfig.HealthCheck))}
+		}
+		config.Healthcheck = healthConfig
+	}
+
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(*container.DockerConfig.Config), &config)
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
 		if err != nil {
 			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}

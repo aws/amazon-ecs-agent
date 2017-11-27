@@ -32,15 +32,19 @@ const (
 	// that specifies that the log driver should be authenticated using the
 	// execution role
 	awslogsAuthExecutionRole = "ExecutionRole"
+
+	// dockerHealthCheckType is the type of container health check provided by docker
+	dockerHealthCheckType = "docker"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
 // remodeled from the `ecsacs` api model file. Eventually it should not exist
 // once this remodeling is refactored out.
 type DockerConfig struct {
-	Config     *string `json:"config"`
-	HostConfig *string `json:"hostConfig"`
-	Version    *string `json:"version"`
+	Config      *string `json:"config"`
+	HostConfig  *string `json:"hostConfig"`
+	Version     *string `json:"version"`
+	HealthCheck *string `json:"healthCheck,omitempty"`
 }
 
 // Container is the internal representation of a container in the ECS agent
@@ -65,11 +69,14 @@ type Container struct {
 	Overrides              ContainerOverrides          `json:"overrides"`
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
-
+	HealthCheckType        string                      `json:"healthCheckType,omitempty"`
+	// HealthStatus is the status of container health check
+	HealthStatus ContainerHealthStatus `json:"healthStatus,omitempty"`
+	// LastHealthKnownTime is the time when the container health status changed
+	LastHealthKnownTime time.Time `json:"lastUpdatedTime,omitempty"`
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
-
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 
@@ -457,4 +464,10 @@ func (c *Container) GetLabels() map[string]string {
 	defer c.lock.RUnlock()
 
 	return c.labels
+}
+
+// HealthCheckShouldBeReported returns true if the health check is defined in
+// the task definition
+func (c *Container) HealthCheckShouldBeReported() bool {
+	return c.HealthCheckType == dockerHealthCheckType
 }
