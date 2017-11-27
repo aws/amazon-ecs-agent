@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -47,6 +48,18 @@ type DockerConfig struct {
 	HealthCheck *string `json:"healthCheck,omitempty"`
 }
 
+// HealthStatus contains the health check result returned by docker
+type HealthStatus struct {
+	// Status is the container health status
+	Status ContainerHealthStatus `json:"status,omitempty"`
+	// Since is the timestamp when container health status changed
+	Since *time.Time `json:"statusSince,omitempty"`
+	// ExitCode is the exitcode of health check if failed
+	ExitCode int `json:"exitCode,omitempty"`
+	// Output is the output of health check
+	Output string `json:"output,omitempty"`
+}
+
 // Container is the internal representation of a container in the ECS agent
 type Container struct {
 	// Name is the name of the container specified in the task definition
@@ -70,10 +83,8 @@ type Container struct {
 	DockerConfig           DockerConfig                `json:"dockerConfig"`
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 	HealthCheckType        string                      `json:"healthCheckType,omitempty"`
-	// HealthStatus is the status of container health check
-	HealthStatus ContainerHealthStatus `json:"healthStatus,omitempty"`
-	// LastHealthKnownTime is the time when the container health status changed
-	LastHealthKnownTime time.Time `json:"lastUpdatedTime,omitempty"`
+	// Health contains the health check information of
+	Health HealthStatus `json:"health,omitempty"`
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
@@ -470,4 +481,38 @@ func (c *Container) GetLabels() map[string]string {
 // the task definition
 func (c *Container) HealthCheckShouldBeReported() bool {
 	return c.HealthCheckType == dockerHealthCheckType
+}
+
+// SetHealthStatus sets the container health status
+func (c *Container) SetHealthStatus(health HealthStatus) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.Health.Status == health.Status {
+		return
+	}
+
+	c.Health.Status = health.Status
+	c.Health.Since = aws.Time(time.Now())
+	c.Health.Output = health.Output
+
+	// Set the health exit code if the health check failed
+	if c.Health.Status == ContainerUnhealthy {
+		c.Health.ExitCode = health.ExitCode
+	}
+}
+
+// GetHealthStatus returns the container health information
+func (c *Container) GetHealthStatus() HealthStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Copy the pointer to avoid race condition
+	copyHealth := c.Health
+
+	if c.Health.Since != nil {
+		copyHealth.Since = aws.Time(*c.Health.Since)
+	}
+
+	return copyHealth
 }

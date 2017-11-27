@@ -45,6 +45,10 @@ const (
 	imageNameFormat = "%s:%s"
 	// the buffer size will ensure agent doesn't miss any event from docker
 	dockerEventBufferSize = 100
+	// healthCheckHealthy is the health status returned from docker container health check
+	healthCheckHealthy = "healthy"
+	// healthCheckUnhealthy is unhealth status returned from docker container health check
+	healthCheckUnhealthy = "unhealthy"
 )
 
 // Timelimits for docker operations enforced above docker
@@ -743,7 +747,26 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	if dockerContainer.State.OOMKilled {
 		metadata.Error = OutOfMemoryError{}
 	}
+	if dockerContainer.State.Health.Status == "" {
+		return metadata
+	}
 
+	// Record the health check information if exists
+	health := api.HealthStatus{}
+	logLength := len(dockerContainer.State.Health.Log)
+	if logLength != 0 {
+		// Only save the last log from the health check
+		health.Output = dockerContainer.State.Health.Log[logLength-1].Output
+	}
+
+	if dockerContainer.State.Health.Status == healthCheckHealthy {
+		health.Status = api.ContainerHealthy
+	} else if dockerContainer.State.Health.Status == healthCheckUnhealthy {
+		health.Status = api.ContainerUnhealthy
+		health.ExitCode = dockerContainer.State.Health.Log[logLength-1].ExitCode
+	}
+
+	metadata.Health = health
 	return metadata
 }
 
@@ -780,6 +803,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			log.Debug("Got event from docker daemon", "event", event)
 
 			var status api.ContainerStatus
+			eventType := api.ContainerStatusEvent
 			switch event.Status {
 			case "create":
 				status = api.ContainerCreated
@@ -802,6 +826,10 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 				// mean the container dies (non-init processes). If the container also
 				// dies, you see a "die" status as well; we'll update suitably there
 				continue
+			case "health_status: healthy":
+				fallthrough
+			case "health_status: unhealthy":
+				eventType = api.ContainerHealthEvent
 			default:
 				// Because docker emits new events even when you use an old event api
 				// version, it's not that big a deal
@@ -811,7 +839,8 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 			metadata := dg.containerMetadata(containerID)
 
 			changedContainers <- DockerContainerChangeEvent{
-				Status:                  status,
+				Status: status,
+				Type:   eventType,
 				DockerContainerMetadata: metadata,
 			}
 		}

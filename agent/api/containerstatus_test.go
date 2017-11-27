@@ -15,6 +15,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -146,5 +147,30 @@ func TestUnmarshalContainerStatus(t *testing.T) {
 	}
 	if test.SomeStatus != ContainerStopped {
 		t.Error("STOPPED should unmarshal to STOPPED, not " + test.SomeStatus.String())
+	}
+}
+
+func TestHealthBackendStatus(t *testing.T) {
+	testCases := []struct {
+		status ContainerHealthStatus
+		result string
+	}{
+		{
+			status: ContainerHealthy,
+			result: "HEALTHY",
+		},
+		{
+			status: ContainerUnhealthy,
+			result: "UNHEALTHY",
+		}, {
+			status: ContainerHealthUnknown,
+			result: "UNKNOWN",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Status: %s BackendStatus: %s", tc.status, tc.result), func(t *testing.T) {
+			assert.Equal(t, tc.status.BackendStatus(), tc.result)
+		})
 	}
 }

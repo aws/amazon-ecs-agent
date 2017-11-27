@@ -40,6 +40,8 @@ type DockerContainerChangeEvent struct {
 	Status api.ContainerStatus
 	// DockerContainerMetadata is the metadata of the container in the event
 	DockerContainerMetadata
+	// Type is the event type received from docker events
+	Type api.DockerEventType
 }
 
 // DockerContainerMetadata is a type for metadata about Docker containers
@@ -63,6 +65,8 @@ type DockerContainerMetadata struct {
 	StartedAt time.Time
 	// FinishedAt is the timestamp of container stop
 	FinishedAt time.Time
+	// Health contains the result of a container health check
+	Health api.HealthStatus
 }
 
 // ListContainersResponse encapsulates the response from the docker client for the

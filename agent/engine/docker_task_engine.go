@@ -489,28 +489,40 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 // handleDockerEvent is responsible for taking an event that correlates to a
 // container and placing it in the context of the task to which that container
 // belongs.
-func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) bool {
-	log.Debug("Handling a docker event", "event", event)
+func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) {
+	seelog.Debugf("Handling a docker event, event: %s", event)
 
 	task, taskFound := engine.state.TaskByID(event.DockerID)
 	cont, containerFound := engine.state.ContainerByID(event.DockerID)
 	if !taskFound || !containerFound {
-		log.Debug("Event for container not managed", "dockerId", event.DockerID)
-		return false
+		seelog.Debugf("Event for container not managed, container: %s", event.DockerID)
+		return
 	}
+
+	// Container health status change doesnot affect the container status
+	// no need to process this in task manager
+	if event.Type == api.ContainerHealthEvent {
+		if cont.Container.HealthCheckShouldBeReported() {
+			seelog.Debugf("Updating container health status: %s", event.DockerContainerMetadata.Health)
+			cont.Container.SetHealthStatus(event.DockerContainerMetadata.Health)
+			engine.saver.Save()
+		}
+		return
+	}
+
 	engine.processTasks.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
 	// hold the lock until the message is sent so we don't send on a closed channel
 	defer engine.processTasks.RUnlock()
 	if !ok {
-		log.Crit("Could not find managed task corresponding to a docker event", "event", event, "task", task)
-		return true
+		seelog.Criticalf("Could not find managed task corresponding to a docker event, event: %s, task: %s", event, task.Arn)
+		return
 	}
-	log.Debug("Writing docker event to the associated task", "task", task, "event", event)
+	seelog.Debugf("Writing docker event to the associated task: %s, event: %s", task.Arn, event)
 
 	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
-	log.Debug("Wrote docker event to the associated task", "task", task, "event", event)
-	return true
+	seelog.Debugf("Wrote docker event to the associated task: %s, event: %s", task.Arn, event)
+	return
 }
 
 // StateChangeEvents returns channels to read task and container state changes. These
