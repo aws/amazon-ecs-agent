@@ -15,6 +15,10 @@ package ecs
 
 const (
 
+	// ErrCodeAccessDeniedException for service response error code
+	// "AccessDeniedException".
+	ErrCodeAccessDeniedException = "AccessDeniedException"
+
 	// ErrCodeAttributeLimitExceededException for service response error code
 	// "AttributeLimitExceededException".
 	//
@@ -22,6 +26,10 @@ const (
 	// of a resource with ListAttributes. You can remove existing attributes on
 	// a resource with DeleteAttributes.
 	ErrCodeAttributeLimitExceededException = "AttributeLimitExceededException"
+
+	// ErrCodeBlockedException for service response error code
+	// "BlockedException".
+	ErrCodeBlockedException = "BlockedException"
 
 	// ErrCodeClientException for service response error code
 	// "ClientException".
@@ -46,6 +54,10 @@ const (
 	// the service to reduce its desired task count to 0 and then delete the service.
 	// For more information, see UpdateService and DeleteService.
 	ErrCodeClusterContainsServicesException = "ClusterContainsServicesException"
+
+	// ErrCodeClusterContainsTasksException for service response error code
+	// "ClusterContainsTasksException".
+	ErrCodeClusterContainsTasksException = "ClusterContainsTasksException"
 
 	// ErrCodeClusterNotFoundException for service response error code
 	// "ClusterNotFoundException".
@@ -77,6 +89,14 @@ const (
 	// be because the agent is already running the latest version, or it is so old
 	// that there is no update path to the current version.
 	ErrCodeNoUpdateAvailableException = "NoUpdateAvailableException"
+
+	// ErrCodePlatformTaskDefinitionIncompatibilityException for service response error code
+	// "PlatformTaskDefinitionIncompatibilityException".
+	ErrCodePlatformTaskDefinitionIncompatibilityException = "PlatformTaskDefinitionIncompatibilityException"
+
+	// ErrCodePlatformUnknownException for service response error code
+	// "PlatformUnknownException".
+	ErrCodePlatformUnknownException = "PlatformUnknownException"
 
 	// ErrCodeServerException for service response error code
 	// "ServerException".
