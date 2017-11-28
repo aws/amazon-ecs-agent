@@ -1,7 +1,7 @@
 # Amazon ECS Agent - Functional Tests
 
 This directory contains scripts to perform a functional test of a build of the
-agent against the production Amazon EC2 Container Service.
+agent against the production Amazon Elastic Container Service.
 
 These tests are meant to cover scenarios that are difficult to cover with `go test`.
 The bulk of the tests in this repository may be found alongside the Go source

@@ -383,11 +383,11 @@ func TestTelemetry(t *testing.T) {
 	time.Sleep(waitMetricsInCloudwatchDuration)
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
 	testTask, err := agent.StartTask(t, "telemetry")
@@ -400,11 +400,11 @@ func TestTelemetry(t *testing.T) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	err = VerifyMetrics(cwclient, params, false)
+	_, err = VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, false)
+	_, err = VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 
 	err = testTask.Stop()
@@ -417,15 +417,15 @@ func TestTelemetry(t *testing.T) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
-func TestTaskIamRolesNetHostMode(t *testing.T) {
+func TestTaskIAMRolesNetHostMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
 	if os.Getenv("TEST_TASK_IAM_ROLE_NET_HOST") != "true" {
 		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_TASK_IAM_ROLE_NET_HOST isn't set true")
@@ -445,10 +445,10 @@ func TestTaskIamRolesNetHostMode(t *testing.T) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	taskIamRolesTest("host", agent, t)
+	taskIAMRoles("host", agent, t)
 }
 
-func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
+func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
 	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
 		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_TASK_IAM_ROLE isn't set true")
@@ -468,10 +468,10 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	taskIamRolesTest("bridge", agent, t)
+	taskIAMRoles("bridge", agent, t)
 }
 
-func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -551,14 +551,14 @@ func TestMemoryOvercommit(t *testing.T) {
 			containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024))
 }
 
-// TestNetworkModeBridge tests the container network can be configured
+// TestNetworkModeHost tests the container network can be configured
 // as host mode in task definition
 func TestNetworkModeHost(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "host")
-	require.NoError(t, err, "Networking mode host testing failed")
+	require.NoError(t, err, "Networking mode 'host' testing failed")
 }
 
 // TestNetworkModeBridge tests the container network can be configured
@@ -568,7 +568,16 @@ func TestNetworkModeBridge(t *testing.T) {
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "bridge")
-	require.NoError(t, err, "Networking mode bridge testing failed")
+	require.NoError(t, err, "Networking mode 'bridge' testing failed")
+}
+
+func TestNetworkModeAWSVPC(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0-ce")
+	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
+	defer agent.Cleanup()
+
+	err := awsvpcNetworkModeTest(t, agent)
+	require.NoError(t, err, "Networking mode 'awsvpc' testing failed")
 }
 
 // TestFluentdTag tests the fluentd logging driver option "tag"

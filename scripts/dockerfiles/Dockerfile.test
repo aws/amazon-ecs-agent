@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# A Dockerfile to run all the the Amazon EC2 Container Service's Container
+# A Dockerfile to run all the the Amazon Elastic Container Service's Container
 # Agent's tests.
 #
 # Because the Agent's tests include starting docker containers, it is necessary

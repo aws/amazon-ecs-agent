@@ -43,11 +43,11 @@
 
 [[constraint]]
   name = "github.com/docker/docker"
-  revision ="1dbf3c65e15a2d021cc15ded9caaf6192d58970b"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/fsouza/go-dockerclient"
-  revision ="98edf3edfae6a6500fecc69d2bcccf1302544004"
+  revision ="d25e8d2941bd448756b336a2ec3abf79802d6ddf"
 
 [[constraint]]
   name = "github.com/golang/mock"

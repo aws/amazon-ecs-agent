@@ -112,11 +112,17 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	task := &Task{}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &docker.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
 
 	task.platformHostConfigOverride(hostConfig)
-
+	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
+	assert.Equal(t, int64(0), hostConfig.CPUShares)
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
+
+	hostConfig = &docker.HostConfig{CPUShares: 10}
+	task.platformHostConfigOverride(hostConfig)
+	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
+	assert.Empty(t, hostConfig.CPUShares)
 }
 
 func TestWindowsMemorySwappinessOption(t *testing.T) {
@@ -142,7 +148,7 @@ func TestWindowsMemorySwappinessOption(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask))
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	if configErr != nil {
 		t.Fatal(configErr)
 	}

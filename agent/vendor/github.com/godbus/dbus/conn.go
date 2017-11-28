@@ -160,7 +160,7 @@ func Dial(address string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newConn(tr, newDefaultHandler(), newDefaultSignalHandler())
+	return newConn(tr, NewDefaultHandler(), NewDefaultSignalHandler())
 }
 
 // DialHandler establishes a new private connection to the message bus specified by address, using the supplied handlers.
@@ -174,7 +174,7 @@ func DialHandler(address string, handler Handler, signalHandler SignalHandler) (
 
 // NewConn creates a new private *Conn from an already established connection.
 func NewConn(conn io.ReadWriteCloser) (*Conn, error) {
-	return NewConnHandler(conn, newDefaultHandler(), newDefaultSignalHandler())
+	return NewConnHandler(conn, NewDefaultHandler(), NewDefaultSignalHandler())
 }
 
 // NewConnHandler creates a new private *Conn from an already established connection, using the supplied handlers.
@@ -368,7 +368,7 @@ func (conn *Conn) inWorker() {
 						conn.namesLck.Unlock()
 					}
 				}
-				go conn.handleSignal(msg)
+				conn.handleSignal(msg)
 			case TypeMethodCall:
 				go conn.handleCall(msg)
 			}

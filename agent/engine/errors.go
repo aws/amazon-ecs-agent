@@ -317,3 +317,16 @@ func (err ContainerNetworkingError) Error() string {
 func (err ContainerNetworkingError) ErrorName() string {
 	return "ContainerNetworkingError"
 }
+
+// CannotGetDockerClientVersionError indicates error when trying to get docker
+// client api version
+type CannotGetDockerClientVersionError struct {
+	fromError error
+}
+
+func (err CannotGetDockerClientVersionError) ErrorName() string {
+	return "CannotGetDockerClientVersionError"
+}
+func (err CannotGetDockerClientVersionError) Error() string {
+	return err.fromError.Error()
+}

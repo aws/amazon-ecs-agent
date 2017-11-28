@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 )
 
 func TestSessionBus(t *testing.T) {
@@ -41,6 +42,23 @@ func TestSend(t *testing.T) {
 	<-ch
 	if call.Err != nil {
 		t.Error(call.Err)
+	}
+}
+
+func TestFlagNoReplyExpectedSend(t *testing.T) {
+	bus, err := SessionBus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		bus.BusObject().Call("org.freedesktop.DBus.ListNames", FlagNoReplyExpected)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Error("Failed to announce that the call was done")
 	}
 }
 

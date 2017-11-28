@@ -23,9 +23,6 @@ import (
 )
 
 const (
-	// DockerContainerMinimumMemoryInBytes is the minimum amount of
-	// memory to be allocated to a docker container
-	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
 	// defaultContainerSteadyStateStatus defines the container status at
 	// which the container is assumed to be in steady state. It is set
 	// to 'ContainerRunning' unless overridden

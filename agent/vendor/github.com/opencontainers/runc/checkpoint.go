@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"syscall"
 
+	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 )
 
 var checkpointCommand = cli.Command{
@@ -30,33 +28,21 @@ checkpointed.`,
 		cli.BoolFlag{Name: "shell-job", Usage: "allow shell jobs"},
 		cli.StringFlag{Name: "page-server", Value: "", Usage: "ADDRESS:PORT of the page server"},
 		cli.BoolFlag{Name: "file-locks", Usage: "handle file locks, for safety"},
-		cli.StringFlag{Name: "manage-cgroups-mode", Value: "", Usage: "cgroups mode: 'soft' (default), 'full' and 'strict'"},
-		cli.StringSliceFlag{Name: "empty-ns", Usage: "create a namespace, but don't restore its properies"},
+		cli.StringFlag{Name: "manage-cgroups-mode", Value: "", Usage: "cgroups mode: 'soft' (default), 'full' and 'strict'."},
 	},
-	Action: func(context *cli.Context) error {
+	Action: func(context *cli.Context) {
 		container, err := getContainer(context)
 		if err != nil {
-			return err
-		}
-		status, err := container.Status()
-		if err != nil {
-			return(err)
-		}
-		if status == libcontainer.Created {
-			fatalf("Container cannot be checkpointed in created state")
+			fatal(err)
 		}
 		defer destroy(container)
 		options := criuOptions(context)
 		// these are the mandatory criu options for a container
 		setPageServer(context, options)
 		setManageCgroupsMode(context, options)
-		if err := setEmptyNsMask(context, options); err != nil {
-			return err
-		}
 		if err := container.Checkpoint(options); err != nil {
-			return err
+			fatal(err)
 		}
-		return nil
 	},
 }
 
@@ -100,23 +86,4 @@ func setManageCgroupsMode(context *cli.Context, options *libcontainer.CriuOpts) 
 			fatal(fmt.Errorf("Invalid manage cgroups mode"))
 		}
 	}
-}
-
-var namespaceMapping = map[specs.NamespaceType]int{
-	specs.NetworkNamespace: syscall.CLONE_NEWNET,
-}
-
-func setEmptyNsMask(context *cli.Context, options *libcontainer.CriuOpts) error {
-	var nsmask int
-
-	for _, ns := range context.StringSlice("empty-ns") {
-		f, exists := namespaceMapping[specs.NamespaceType(ns)]
-		if !exists {
-			return fmt.Errorf("namespace %q is not supported", ns)
-		}
-		nsmask |= f
-	}
-
-	options.EmptyNs = uint32(nsmask)
-	return nil
 }

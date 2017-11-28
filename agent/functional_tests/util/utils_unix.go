@@ -40,7 +40,7 @@ const (
 	cacheDirectory        = "/var/cache/ecs"
 	configDirectory       = "/etc/ecs"
 	readOnly              = ":ro"
-	dockerEndpoint        = "/var/run/docker.sock"
+	dockerEndpoint        = "/var/run"
 )
 
 var ECS *ecs.ECS
@@ -190,6 +190,20 @@ func (agent *TestAgent) StartAgent() error {
 			hostConfig.PortBindings[key] = []docker.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
 			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
+
+		if agent.Options.EnableTaskENI {
+			dockerConfig.Env = append(dockerConfig.Env, "ECS_ENABLE_TASK_ENI=true")
+			hostConfig.Binds = append(hostConfig.Binds,
+				"/lib64:/lib64:ro",
+				"/proc:/host/proc:ro",
+				"/var/lib/ecs/dhclient:/var/lib/ecs/dhclient",
+				"/sbin:/sbin:ro",
+			)
+			hostConfig.CapAdd = []string{"NET_ADMIN", "SYS_ADMIN"}
+			hostConfig.Init = true
+			hostConfig.NetworkMode = "host"
+		}
+
 	}
 
 	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{

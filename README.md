@@ -4,7 +4,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/upkhbwf2oc0srglt?svg=true)](https://ci.appveyor.com/project/AmazonECS/amazon-ecs-agent)
 
 
-The Amazon ECS Container Agent is software developed for Amazon EC2 Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
+The Amazon ECS Container Agent is software developed for Amazon Elastic Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
 
 It runs on container instances and starts containers on behalf of Amazon ECS.
 
@@ -48,26 +48,72 @@ See also the Advanced Usage section below.
 
 ### On Windows Server 2016
 
-On Windows Server 2016, the Amazon ECS Container Agent runs as a process on the
-host. Unlike Linux, the agent may not run inside a container as it uses the
-host's registry and the named pipe at `\\.\pipe\docker_engine` to communicate
-with the Docker daemon.
+On Windows Server 2016, the Amazon ECS Container Agent runs as a process or
+service on the host. Unlike Linux, the agent may not run inside a container as
+it uses the host's registry and the named pipe at `\\.\pipe\docker_engine` to
+communicate with the Docker daemon.
+
+#### As a Service
+To install the service, you can do the following:
 
 ```powershell
 PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path $ProgramFiles\Amazon\ECS
-PS C:\> New-Item -Type directory -Path $ProgramData\Amazon\ECS
+PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
 PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "$env:ProgramFiles\Amazon\ECS"
+PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "$ProgramData\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "$ProgramData\Amazon\ECS\data", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
+PS C:\> # Download the agent
+PS C:\> $agentVersion = "latest"
+PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
+PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
+PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
+PS C:\> # Put the executables in the executable directory.
+PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
+PS C:\> Set-Location ${ecsExeDir}
+PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
+PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
+PS C:\> [bool]$EnableTaskIAMRoles = $false
+PS C:\> if (${EnableTaskIAMRoles} {
+>> .\hostsetup.ps1
+>> }
+PS C:\> # Install the agent service
+PS C:\> New-Service -Name "AmazonECS" `
+        -BinaryPathName "$ecsExeDir\amazon-ecs-agent.exe -windows-service" `
+        -DisplayName "Amazon ECS" `
+        -Description "Amazon ECS service runs the Amazon ECS agent" `
+        -DependsOn Docker `
+        -StartupType Manual
+PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/5000/restart/30000/restart/60000
+PS C:\> sc.exe failureflag AmazonECS 1
+```
+
+To run the service, you can do the following:
+```powershell
+Start-Service AmazonECS
+```
+
+#### As a Process
+
+```powershell
+PS C:\> # Set up directories the agent uses
+PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
+PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
+PS C:\> # Set up configuration
+PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
+PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
 PS C:\> # Set this environment variable to "true" to enable IAM roles.  Note that enabling IAM roles will make port 80 unavailable for tasks.
 PS C:\> [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
 PS C:\> # Download the agent
 PS C:\> $agentVersion = "latest"
 PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "$env:TEMP\ecs-agent.zip"
+PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
 PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
 PS C:\> # Put the executables in the executable directory.
 PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
@@ -177,7 +223,7 @@ configure them as something other than the defaults.
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | Not applicable |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | Not applicable |
-| `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metdata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | Not applicable |
+| `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metadata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | Not applicable |
 | `ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES` | `["10.0.15.0/24"]` | In `awsvpc` network mode, traffic to these prefixes will be routed via the host bridge instead of the task ENI | `[]` | Not applicable |
 | `ECS_ENABLE_CONTAINER_METADATA` | `true` | When `true`, the agent will create a file describing the container's metadata and the file can be located and consumed by using the container enviornment variable `$ECS_CONTAINER_METADATA_FILE` | `false` | `false` |
 | `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. | `/var/lib/ecs` | `Not used` |

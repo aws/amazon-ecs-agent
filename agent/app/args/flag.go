@@ -18,10 +18,11 @@ import "flag"
 const (
 	versionUsage             = "Print the agent version information and exit"
 	logLevelUsage            = "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]"
+	ecsAttributesUsage       = "Print the Agent's ECS Attributes based on its environment"
 	acceptInsecureCertUsage  = "Disable SSL certificate verification. We do not recommend setting this option"
 	licenseUsage             = "Print the LICENSE and NOTICE files and exit"
 	blacholeEC2MetadataUsage = "Blackhole the EC2 Metadata requests. Setting this option can cause the ECS Agent to fail to work properly.  We do not recommend setting this option"
-	ecsAttributesUsage       = "Print the Agent's ECS Attributes based on its environment"
+	windowsServiceUsage      = "Run the ECS agent as a Windows Service"
 
 	versionFlagName              = "version"
 	logLevelFlagName             = "loglevel"
@@ -29,6 +30,7 @@ const (
 	acceptInsecureCertFlagName   = "k"
 	licenseFlagName              = "license"
 	blackholeEC2MetadataFlagName = "blackhole-ec2-metadata"
+	windowsServiceFlagName       = "windows-service"
 )
 
 // Args wraps various ECS Agent arguments
@@ -47,6 +49,8 @@ type Args struct {
 	BlackholeEC2Metadata *bool
 	// ECSAttributes indicates that the agent should print its attributes
 	ECSAttributes *bool
+	// WindowsService indicates that the agent should run as a Windows service
+	WindowsService *bool
 }
 
 // New creates a new Args object from the argument list
@@ -60,6 +64,7 @@ func New(arguments []string) (*Args, error) {
 		License:              flagset.Bool(licenseFlagName, false, licenseUsage),
 		BlackholeEC2Metadata: flagset.Bool(blackholeEC2MetadataFlagName, false, blacholeEC2MetadataUsage),
 		ECSAttributes:        flagset.Bool(ecsAttributesFlagName, false, ecsAttributesUsage),
+		WindowsService:       flagset.Bool(windowsServiceFlagName, false, windowsServiceUsage),
 	}
 
 	err := flagset.Parse(arguments)

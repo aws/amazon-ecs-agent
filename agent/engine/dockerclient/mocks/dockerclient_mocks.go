@@ -43,6 +43,16 @@ func (_m *MockFactory) EXPECT() *_MockFactoryRecorder {
 	return _m.recorder
 }
 
+func (_m *MockFactory) FindClientAPIVersion(_param0 dockeriface.Client) dockerclient.DockerVersion {
+	ret := _m.ctrl.Call(_m, "FindClientAPIVersion", _param0)
+	ret0, _ := ret[0].(dockerclient.DockerVersion)
+	return ret0
+}
+
+func (_mr *_MockFactoryRecorder) FindClientAPIVersion(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FindClientAPIVersion", arg0)
+}
+
 func (_m *MockFactory) FindKnownAPIVersions() []dockerclient.DockerVersion {
 	ret := _m.ctrl.Call(_m, "FindKnownAPIVersions")
 	ret0, _ := ret[0].([]dockerclient.DockerVersion)

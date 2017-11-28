@@ -27,6 +27,10 @@ containerd/cgroups
 runtime-spec/specs-go
 Kubernetes, Copyright 2016 The Kubernetes Authors.
 kubernetes/build/pause Copyright 2016 The Kubernetes Authors.
+github.com/containerd/continuity
+github.com/docker/go-connections
+github.com/opencontainers/go-digest
+github.com/opencontainers/image-spec
 
 each of which are licensed under the Apache License, Version 2.0 (the
 "License"); you may not use this file except in compliance with the
@@ -161,6 +165,10 @@ Gorilla Context, Copyright (c) 2012 Rodrigo Moraes
 Gorilla Mux, Copyright (c) 2012 Rodrigo Moraes
 seelog, Copyright (c) 2012, Cloud Instruments Co., Ltd.
 uuid, Copyright (c) 2009,2014 Google Inc.
+github.com/golang/crypto, Copyright (c) 2009 The Go Authors
+Protocol Buffers for Go with Gadgets
+Copyright (c) 2013, The GoGo Authors. All rights reserved.
+http://github.com/gogo/protobuf
 
 each of which are licensed under the following terms and conditions:
 
@@ -707,8 +715,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ***
-dbus
 BSD 2-clause (Simplified License)
+Includes the following packages:
+dbus
+github.com/pkg/errors
+thub.com/Nvveen/Gotty
 
 Copyright (c) 2013, Georg Reinke (<guelfey at gmail dot com>), Google
 All rights reserved.
@@ -735,29 +746,6 @@ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-***
-github.com/pkg/errors
-BSD 2-clause (Simplified License)
-Copyright (c) 2015, Dave Cheney <dave@cheney.net>
-All rights reserved.
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ***
 github.com/didip/tollbooth, Copyright (c) 2015 Didip Kerabat

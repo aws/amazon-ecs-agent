@@ -61,14 +61,14 @@ func TestContainerStatsCollection(t *testing.T) {
 			// deal with the docker.Stats.MemoryStats inner struct
 			jsonStat := fmt.Sprintf(`
 				{
-					"memory_stats": {"usage":%d},
+					"memory_stats": {"usage":%d, "privateworkingset":%d},
 					"cpu_stats":{
 						"cpu_usage":{
 							"percpu_usage":[%d],
 							"total_usage":%d
 						}
 					}
-				}`, stat.memBytes, stat.cpuTime, stat.cpuTime)
+				}`, stat.memBytes, stat.memBytes, stat.cpuTime, stat.cpuTime)
 			dockerStat := &docker.Stats{}
 			json.Unmarshal([]byte(jsonStat), dockerStat)
 			dockerStat.Read = stat.timestamp

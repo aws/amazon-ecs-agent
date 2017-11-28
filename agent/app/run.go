@@ -56,6 +56,9 @@ func Run(arguments []string) int {
 	case *parsedArgs.ECSAttributes:
 		// Print agent's ecs attributes based on its environment and exit
 		return agent.printECSAttributes()
+	case *parsedArgs.WindowsService:
+		// Enable Windows Service
+		return agent.startWindowsService()
 	default:
 		// Start the agent
 		return agent.start()
