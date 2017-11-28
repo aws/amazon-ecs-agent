@@ -146,9 +146,14 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 		seelog.Errorf("Failed to save the data file path: %v", err)
 		return err
 	}
+	if oldFile == "" {
+		return nil
+	}
+
 	err = deps.fs.Remove(oldFile)
 	if err != nil {
 		seelog.Errorf("Error removing old file %s; err %v", oldFile, err)
+		return err
 	}
 	return nil
 }
