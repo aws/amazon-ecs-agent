@@ -54,8 +54,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	defer engine.removeAll()
 
-	engine.addContainer("c1")
-	engine.addContainer("c1")
+	engine.addAndStartStatsContainer("c1")
+	engine.addAndStartStatsContainer("c1")
 
 	if len(engine.tasksToContainers) != 1 {
 		t.Errorf("Adding containers failed. Expected num tasks = 1, got: %d", len(engine.tasksToContainers))
@@ -70,7 +70,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c1 not found in engine")
 	}
 
-	engine.addContainer("c2")
+	engine.addAndStartStatsContainer("c2")
 	containers, _ = engine.tasksToContainers["t1"]
 	_, exists = containers["c2"]
 	if !exists {
@@ -131,7 +131,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	if exists {
 		t.Error("Container c2 not removed from engine")
 	}
-	engine.addContainer("c3")
+	engine.addAndStartStatsContainer("c3")
 	containers, _ = engine.tasksToContainers["t2"]
 	_, exists = containers["c3"]
 	if !exists {
@@ -146,7 +146,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	// Should get an error while adding this container due to unmapped
 	// container to task.
-	engine.addContainer("c4")
+	engine.addAndStartStatsContainer("c4")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatalf("Error validating metadata: %v", err)
@@ -154,7 +154,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	// Should get an error while adding this container due to unmapped
 	// task arn to task definition family.
-	engine.addContainer("c6")
+	engine.addAndStartStatsContainer("c6")
 	err = validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatalf("Error validating metadata: %v", err)
@@ -178,7 +178,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.client = mockDockerClient
-	engine.addContainer("c1")
+	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
 	containerStats := []*ContainerStats{
@@ -246,7 +246,7 @@ func TestStatsEngineUninitialized(t *testing.T) {
 	engine.resolver = &DockerContainerMetadataResolver{}
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
-	engine.addContainer("c1")
+	engine.addAndStartStatsContainer("c1")
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatalf("Error validating metadata: %v", err)
@@ -269,7 +269,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.resolver = resolver
 
-	engine.addContainer("c1")
+	engine.addAndStartStatsContainer("c1")
 	err := validateIdleContainerMetrics(engine)
 	if err != nil {
 		t.Fatalf("Error validating metadata: %v", err)
