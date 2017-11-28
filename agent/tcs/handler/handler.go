@@ -53,6 +53,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 		seelog.Warnf("Error initializing metrics engine: %v", err)
 		return
 	}
+
 	err = StartSession(params, params.StatsEngine)
 	if err != nil {
 		seelog.Warnf("Error starting metrics session with backend: %v", err)
@@ -97,7 +98,7 @@ func startSession(url string,
 	publishMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
-		publishMetricsInterval, wsRWTimeout)
+		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
@@ -124,6 +125,7 @@ func startSession(url string,
 	defer timer.Stop()
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
+	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
 	return client.Serve()
 }
@@ -141,6 +143,15 @@ func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 	return func(*ecstcs.AckPublishMetric) {
 		seelog.Debug("Received AckPublishMetric from tcs")
+		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+	}
+}
+
+// ackPublishHealthMetricHandler consumes the ack message from backend. The backend sends
+// the ack each time it processes a health message
+func ackPublishHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishHealth) {
+	return func(*ecstcs.AckPublishHealth) {
+		seelog.Debug("Received ACKPublishHealth from tcs")
 		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }

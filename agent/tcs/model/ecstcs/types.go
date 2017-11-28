@@ -13,14 +13,26 @@
 
 package ecstcs
 
-import "time"
+import (
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+)
 
 // NewPublishMetricsRequest creates a PublishMetricsRequest object.
 func NewPublishMetricsRequest(metadata *MetricsMetadata, taskMetrics []*TaskMetric) *PublishMetricsRequest {
-	timestamp := time.Now()
 	return &PublishMetricsRequest{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
-		Timestamp:   &timestamp,
+		Timestamp:   aws.Time(time.Now()),
+	}
+}
+
+// NewPublishHealthMetricsRequest creates a PublishHealthRequest
+func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*TaskHealth) *PublishHealthRequest {
+	return &PublishHealthRequest{
+		Metadata:  metadata,
+		Tasks:     healthMetrics,
+		Timestamp: aws.Time(time.Now()),
 	}
 }

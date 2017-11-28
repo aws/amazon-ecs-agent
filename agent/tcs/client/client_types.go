@@ -39,6 +39,8 @@ func init() {
 		ecstcs.AckPublishMetric{},
 		ecstcs.HeartbeatMessage{},
 		ecstcs.PublishMetricsRequest{},
+		ecstcs.PublishHealthRequest{},
+		ecstcs.AckPublishHealth{},
 		ecstcs.StartTelemetrySessionRequest{},
 		ecstcs.ServerException{},
 		ecstcs.BadRequestException{},

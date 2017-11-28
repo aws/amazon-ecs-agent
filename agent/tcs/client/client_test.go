@@ -54,6 +54,10 @@ func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
+}
+
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
@@ -62,6 +66,10 @@ func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstc
 
 func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
 }
 
 type idleStatsEngine struct{}
@@ -78,6 +86,10 @@ func (*idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 
 func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
 }
 
 type nonIdleStatsEngine struct {
@@ -104,6 +116,9 @@ func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*doc
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
+}
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 	return &nonIdleStatsEngine{numTasks: numTasks}
 }
@@ -227,7 +242,7 @@ func testCS(conn *mock_wsclient.MockWebsocketConn) wsclient.ClientServer {
 		AcceptInsecureCert: true,
 	}
 	cs := New("localhost:443", cfg, testCreds, &mockStatsEngine{},
-		testPublishMetricsInterval, rwTimeout).(*clientServer)
+		testPublishMetricsInterval, rwTimeout, false).(*clientServer)
 	cs.SetConnection(conn)
 	return cs
 }
