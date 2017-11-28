@@ -237,6 +237,12 @@ func (c *ECS) CreateServiceRequest(input *CreateServiceInput) (req *request.Requ
 //
 //   * ErrCodeUnsupportedFeatureException "UnsupportedFeatureException"
 //
+//   * ErrCodePlatformUnknownException "PlatformUnknownException"
+//
+//   * ErrCodePlatformTaskDefinitionIncompatibilityException "PlatformTaskDefinitionIncompatibilityException"
+//
+//   * ErrCodeAccessDeniedException "AccessDeniedException"
+//
 func (c *ECS) CreateService(input *CreateServiceInput) (*CreateServiceOutput, error) {
 	req, out := c.CreateServiceRequest(input)
 	return out, req.Send()
@@ -423,6 +429,8 @@ func (c *ECS) DeleteClusterRequest(input *DeleteClusterInput) (req *request.Requ
 //   You cannot delete a cluster that contains services. You must first update
 //   the service to reduce its desired task count to 0 and then delete the service.
 //   For more information, see UpdateService and DeleteService.
+//
+//   * ErrCodeClusterContainsTasksException "ClusterContainsTasksException"
 //
 func (c *ECS) DeleteCluster(input *DeleteClusterInput) (*DeleteClusterOutput, error) {
 	req, out := c.DeleteClusterRequest(input)
@@ -2610,6 +2618,14 @@ func (c *ECS) RunTaskRequest(input *RunTaskInput) (req *request.Request, output 
 //
 //   * ErrCodeUnsupportedFeatureException "UnsupportedFeatureException"
 //
+//   * ErrCodePlatformUnknownException "PlatformUnknownException"
+//
+//   * ErrCodePlatformTaskDefinitionIncompatibilityException "PlatformTaskDefinitionIncompatibilityException"
+//
+//   * ErrCodeAccessDeniedException "AccessDeniedException"
+//
+//   * ErrCodeBlockedException "BlockedException"
+//
 func (c *ECS) RunTask(input *RunTaskInput) (*RunTaskOutput, error) {
 	req, out := c.RunTaskRequest(input)
 	return out, req.Send()
@@ -2888,6 +2904,8 @@ func (c *ECS) SubmitContainerStateChangeRequest(input *SubmitContainerStateChang
 //   or resource on behalf of a user that doesn't have permission to use the action
 //   or resource, or specifying an identifier that is not valid.
 //
+//   * ErrCodeAccessDeniedException "AccessDeniedException"
+//
 func (c *ECS) SubmitContainerStateChange(input *SubmitContainerStateChangeInput) (*SubmitContainerStateChangeOutput, error) {
 	req, out := c.SubmitContainerStateChangeRequest(input)
 	return out, req.Send()
@@ -2971,6 +2989,8 @@ func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (r
 //   These errors are usually caused by a client action, such as using an action
 //   or resource on behalf of a user that doesn't have permission to use the action
 //   or resource, or specifying an identifier that is not valid.
+//
+//   * ErrCodeAccessDeniedException "AccessDeniedException"
 //
 func (c *ECS) SubmitTaskStateChange(input *SubmitTaskStateChangeInput) (*SubmitTaskStateChangeOutput, error) {
 	req, out := c.SubmitTaskStateChangeRequest(input)
@@ -3385,6 +3405,12 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Requ
 //   not active. If you have previously deleted a service, you can re-create it
 //   with CreateService.
 //
+//   * ErrCodePlatformUnknownException "PlatformUnknownException"
+//
+//   * ErrCodePlatformTaskDefinitionIncompatibilityException "PlatformTaskDefinitionIncompatibilityException"
+//
+//   * ErrCodeAccessDeniedException "AccessDeniedException"
+//
 func (c *ECS) UpdateService(input *UpdateServiceInput) (*UpdateServiceOutput, error) {
 	req, out := c.UpdateServiceRequest(input)
 	return out, req.Send()
@@ -3578,6 +3604,8 @@ func (s *Attribute) SetValue(v string) *Attribute {
 type AwsVpcConfiguration struct {
 	_ struct{} `type:"structure"`
 
+	AssignPublicIp *string `locationName:"assignPublicIp" type:"string" enum:"AssignPublicIp"`
+
 	SecurityGroups []*string `locationName:"securityGroups" type:"list"`
 
 	// Subnets is a required field
@@ -3605,6 +3633,12 @@ func (s *AwsVpcConfiguration) Validate() error {
 		return invalidParams
 	}
 	return nil
+}
+
+// SetAssignPublicIp sets the AssignPublicIp field's value.
+func (s *AwsVpcConfiguration) SetAssignPublicIp(v string) *AwsVpcConfiguration {
+	s.AssignPublicIp = &v
+	return s
 }
 
 // SetSecurityGroups sets the SecurityGroups field's value.
@@ -3647,6 +3681,8 @@ type Cluster struct {
 
 	// The number of tasks in the cluster that are in the RUNNING state.
 	RunningTasksCount *int64 `locationName:"runningTasksCount" type:"integer"`
+
+	Statistics []*KeyValuePair `locationName:"statistics" type:"list"`
 
 	// The status of the cluster. The valid values are ACTIVE or INACTIVE. ACTIVE
 	// indicates that you can register container instances with the cluster and
@@ -3697,6 +3733,12 @@ func (s *Cluster) SetRegisteredContainerInstancesCount(v int64) *Cluster {
 // SetRunningTasksCount sets the RunningTasksCount field's value.
 func (s *Cluster) SetRunningTasksCount(v int64) *Cluster {
 	s.RunningTasksCount = &v
+	return s
+}
+
+// SetStatistics sets the Statistics field's value.
+func (s *Cluster) SetStatistics(v []*KeyValuePair) *Cluster {
+	s.Statistics = v
 	return s
 }
 
@@ -3930,6 +3972,8 @@ type ContainerDefinition struct {
 	// and the --add-host option to docker run (https://docs.docker.com/engine/reference/run/).
 	ExtraHosts []*HostEntry `locationName:"extraHosts" type:"list"`
 
+	HealthCheck *HealthCheck `locationName:"healthCheck" type:"structure"`
+
 	// The hostname to use for your container. This parameter maps to Hostname in
 	// the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
@@ -3938,18 +3982,18 @@ type ContainerDefinition struct {
 
 	// The image used to start a container. This string is passed directly to the
 	// Docker daemon. Images in the Docker Hub registry are available by default.
-	// Other repositories are specified with repository-url/image:tag. Up to 255
-	// letters (uppercase and lowercase), numbers, hyphens, underscores, colons,
-	// periods, forward slashes, and number signs are allowed. This parameter maps
-	// to Image in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// Other repositories are specified with either repository-url/image:tag or
+	// repository-url/image@digest. Up to 255 letters (uppercase and lowercase),
+	// numbers, hyphens, underscores, colons, periods, forward slashes, and number
+	// signs are allowed. This parameter maps to Image in the Create a container
+	// (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
 	// and the IMAGE parameter of docker run (https://docs.docker.com/engine/reference/run/).
 	//
-	// Amazon ECS task definitions currently only support tags as image identifiers
-	// within a specified repository (and not sha256 digests).
-	//
-	//    * Images in Amazon ECR repositories use the full registry and repository
-	//    URI (for example, 012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>).
+	//    * Images in Amazon ECR repositories can be specified by either using the
+	//    full registry/repository:tag or registry/repository@digest. For example,
+	//    012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>:latest
+	//    or 012345678910.dkr.ecr.<region-name>.amazonaws.com/<repository-name>@sha256:94afd1f2e64d908bc90dbca0035a5b567EXAMPLE.
 	//
 	//
 	//    * Images in official repositories on Docker Hub use a single name (for
@@ -3979,6 +4023,8 @@ type ContainerDefinition struct {
 	// and VPC settings.
 	Links []*string `locationName:"links" type:"list"`
 
+	// Linux-specific modifications that are applied to the container, such as Linux
+	// KernelCapabilities.
 	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
 
 	// The log configuration specification for the container. This parameter maps
@@ -4149,6 +4195,11 @@ func (s *ContainerDefinition) Validate() error {
 			}
 		}
 	}
+	if s.HealthCheck != nil {
+		if err := s.HealthCheck.Validate(); err != nil {
+			invalidParams.AddNested("HealthCheck", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.LinuxParameters != nil {
 		if err := s.LinuxParameters.Validate(); err != nil {
 			invalidParams.AddNested("LinuxParameters", err.(request.ErrInvalidParams))
@@ -4239,6 +4290,12 @@ func (s *ContainerDefinition) SetEssential(v bool) *ContainerDefinition {
 // SetExtraHosts sets the ExtraHosts field's value.
 func (s *ContainerDefinition) SetExtraHosts(v []*HostEntry) *ContainerDefinition {
 	s.ExtraHosts = v
+	return s
+}
+
+// SetHealthCheck sets the HealthCheck field's value.
+func (s *ContainerDefinition) SetHealthCheck(v *HealthCheck) *ContainerDefinition {
+	s.HealthCheck = v
 	return s
 }
 
@@ -4371,6 +4428,7 @@ type ContainerInstance struct {
 	// The number of tasks on the container instance that are in the PENDING status.
 	PendingTasksCount *int64 `locationName:"pendingTasksCount" type:"integer"`
 
+	// The Unix timestamp for when the container instance was registered.
 	RegisteredAt *time.Time `locationName:"registeredAt" type:"timestamp" timestampFormat:"unix"`
 
 	// For most resource types, this parameter describes the registered resources
@@ -4515,6 +4573,8 @@ type ContainerOverride struct {
 	// name.
 	Command []*string `locationName:"command" type:"list"`
 
+	// The number of cpu units reserved for the container, instead of the default
+	// value from the task definition. You must also specify a container name.
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
 	// The environment variables to send to the container. You can add new environment
@@ -4523,12 +4583,19 @@ type ContainerOverride struct {
 	// You must also specify a container name.
 	Environment []*KeyValuePair `locationName:"environment" type:"list"`
 
+	// The hard limit (in MiB) of memory to present to the container, instead of
+	// the default value from the task definition. If your container attempts to
+	// exceed the memory specified here, the container is killed. You must also
+	// specify a container name.
 	Memory *int64 `locationName:"memory" type:"integer"`
 
+	// The soft limit (in MiB) of memory to reserve for the container, instead of
+	// the default value from the task definition. You must also specify a container
+	// name.
 	MemoryReservation *int64 `locationName:"memoryReservation" type:"integer"`
 
 	// The name of the container that receives the override. This parameter is required
-	// if a command or environment variable is specified.
+	// if any override is specified.
 	Name *string `locationName:"name" type:"string"`
 }
 
@@ -4702,23 +4769,25 @@ type CreateServiceInput struct {
 	// DesiredCount is a required field
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer" required:"true"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A load balancer object representing the load balancer to use with your service.
 	// Currently, you are limited to one load balancer or target group per service.
 	// After you create a service, the load balancer name or target group ARN, container
 	// name, and container port specified in the service definition are immutable.
 	//
-	// For Elastic Load Balancing Classic load balancers, this object must contain
-	// the load balancer name, the container name (as it appears in a container
-	// definition), and the container port to access from the load balancer. When
-	// a task from this service is placed on a container instance, the container
-	// instance is registered with the load balancer specified here.
+	// For Classic Load Balancers, this object must contain the load balancer name,
+	// the container name (as it appears in a container definition), and the container
+	// port to access from the load balancer. When a task from this service is placed
+	// on a container instance, the container instance is registered with the load
+	// balancer specified here.
 	//
-	// For Elastic Load Balancing Application load balancers, this object must contain
-	// the load balancer target group ARN, the container name (as it appears in
-	// a container definition), and the container port to access from the load balancer.
-	// When a task from this service is placed on a container instance, the container
-	// instance and port combination is registered as a target in the target group
-	// specified here.
+	// For Application Load Balancers and Network Load Balancers, this object must
+	// contain the load balancer target group ARN, the container name (as it appears
+	// in a container definition), and the container port to access from the load
+	// balancer. When a task from this service is placed on a container instance,
+	// the container instance and port combination is registered as a target in
+	// the target group specified here.
 	LoadBalancers []*LoadBalancer `locationName:"loadBalancers" type:"list"`
 
 	NetworkConfiguration *NetworkConfiguration `locationName:"networkConfiguration" type:"structure"`
@@ -4731,6 +4800,8 @@ type CreateServiceInput struct {
 	// The placement strategy objects to use for tasks in your service. You can
 	// specify a maximum of 5 strategy rules per service.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The name or full Amazon Resource Name (ARN) of the IAM role that allows Amazon
 	// ECS to make calls to your load balancer on your behalf. This parameter is
@@ -4753,6 +4824,8 @@ type CreateServiceInput struct {
 	//
 	// ServiceName is a required field
 	ServiceName *string `locationName:"serviceName" type:"string" required:"true"`
+
+	ServiceRegistries []*ServiceRegistry `locationName:"serviceRegistries" type:"list"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition to run in your service. If a revision is not specified,
@@ -4820,6 +4893,12 @@ func (s *CreateServiceInput) SetDesiredCount(v int64) *CreateServiceInput {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *CreateServiceInput) SetLaunchType(v string) *CreateServiceInput {
+	s.LaunchType = &v
+	return s
+}
+
 // SetLoadBalancers sets the LoadBalancers field's value.
 func (s *CreateServiceInput) SetLoadBalancers(v []*LoadBalancer) *CreateServiceInput {
 	s.LoadBalancers = v
@@ -4844,6 +4923,12 @@ func (s *CreateServiceInput) SetPlacementStrategy(v []*PlacementStrategy) *Creat
 	return s
 }
 
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *CreateServiceInput) SetPlatformVersion(v string) *CreateServiceInput {
+	s.PlatformVersion = &v
+	return s
+}
+
 // SetRole sets the Role field's value.
 func (s *CreateServiceInput) SetRole(v string) *CreateServiceInput {
 	s.Role = &v
@@ -4853,6 +4938,12 @@ func (s *CreateServiceInput) SetRole(v string) *CreateServiceInput {
 // SetServiceName sets the ServiceName field's value.
 func (s *CreateServiceInput) SetServiceName(v string) *CreateServiceInput {
 	s.ServiceName = &v
+	return s
+}
+
+// SetServiceRegistries sets the ServiceRegistries field's value.
+func (s *CreateServiceInput) SetServiceRegistries(v []*ServiceRegistry) *CreateServiceInput {
+	s.ServiceRegistries = v
 	return s
 }
 
@@ -5117,10 +5208,14 @@ type Deployment struct {
 	// The ID of the deployment.
 	Id *string `locationName:"id" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	NetworkConfiguration *NetworkConfiguration `locationName:"networkConfiguration" type:"structure"`
 
 	// The number of tasks in the deployment that are in the PENDING status.
 	PendingCount *int64 `locationName:"pendingCount" type:"integer"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The number of tasks in the deployment that are in the RUNNING status.
 	RunningCount *int64 `locationName:"runningCount" type:"integer"`
@@ -5166,6 +5261,12 @@ func (s *Deployment) SetId(v string) *Deployment {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *Deployment) SetLaunchType(v string) *Deployment {
+	s.LaunchType = &v
+	return s
+}
+
 // SetNetworkConfiguration sets the NetworkConfiguration field's value.
 func (s *Deployment) SetNetworkConfiguration(v *NetworkConfiguration) *Deployment {
 	s.NetworkConfiguration = v
@@ -5175,6 +5276,12 @@ func (s *Deployment) SetNetworkConfiguration(v *NetworkConfiguration) *Deploymen
 // SetPendingCount sets the PendingCount field's value.
 func (s *Deployment) SetPendingCount(v int64) *Deployment {
 	s.PendingCount = &v
+	return s
+}
+
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *Deployment) SetPlatformVersion(v string) *Deployment {
+	s.PlatformVersion = &v
 	return s
 }
 
@@ -5269,7 +5376,7 @@ type DeregisterContainerInstanceInput struct {
 	// of that task, on a different container instance if possible.
 	//
 	// Any containers in orphaned service tasks that are registered with a Classic
-	// load balancer or an Application load balancer target group are deregistered,
+	// Load Balancer or an Application Load Balancer target group are deregistered,
 	// and they will begin connection draining according to the settings on the
 	// load balancer or target group.
 	Force *bool `locationName:"force" type:"boolean"`
@@ -5407,6 +5514,8 @@ type DescribeClustersInput struct {
 	// A list of up to 100 cluster names or full cluster Amazon Resource Name (ARN)
 	// entries. If you do not specify a cluster, the default cluster is assumed.
 	Clusters []*string `locationName:"clusters" type:"list"`
+
+	Include []*string `locationName:"include" type:"list"`
 }
 
 // String returns the string representation
@@ -5422,6 +5531,12 @@ func (s DescribeClustersInput) GoString() string {
 // SetClusters sets the Clusters field's value.
 func (s *DescribeClustersInput) SetClusters(v []*string) *DescribeClustersInput {
 	s.Clusters = v
+	return s
+}
+
+// SetInclude sets the Include field's value.
+func (s *DescribeClustersInput) SetInclude(v []*string) *DescribeClustersInput {
+	s.Include = v
 	return s
 }
 
@@ -5918,6 +6033,74 @@ func (s *Failure) SetReason(v string) *Failure {
 	return s
 }
 
+type HealthCheck struct {
+	_ struct{} `type:"structure"`
+
+	// HealthCommand is a required field
+	HealthCommand []*string `locationName:"healthCommand" type:"list" required:"true"`
+
+	Interval *int64 `locationName:"interval" type:"integer"`
+
+	Retries *int64 `locationName:"retries" type:"integer"`
+
+	StartPeriod *int64 `locationName:"startPeriod" type:"integer"`
+
+	Timeout *int64 `locationName:"timeout" type:"integer"`
+}
+
+// String returns the string representation
+func (s HealthCheck) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HealthCheck) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *HealthCheck) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "HealthCheck"}
+	if s.HealthCommand == nil {
+		invalidParams.Add(request.NewErrParamRequired("HealthCommand"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetHealthCommand sets the HealthCommand field's value.
+func (s *HealthCheck) SetHealthCommand(v []*string) *HealthCheck {
+	s.HealthCommand = v
+	return s
+}
+
+// SetInterval sets the Interval field's value.
+func (s *HealthCheck) SetInterval(v int64) *HealthCheck {
+	s.Interval = &v
+	return s
+}
+
+// SetRetries sets the Retries field's value.
+func (s *HealthCheck) SetRetries(v int64) *HealthCheck {
+	s.Retries = &v
+	return s
+}
+
+// SetStartPeriod sets the StartPeriod field's value.
+func (s *HealthCheck) SetStartPeriod(v int64) *HealthCheck {
+	s.StartPeriod = &v
+	return s
+}
+
+// SetTimeout sets the Timeout field's value.
+func (s *HealthCheck) SetTimeout(v int64) *HealthCheck {
+	s.Timeout = &v
+	return s
+}
+
 // Hostnames and IP address entries that are added to the /etc/hosts file of
 // a container via the extraHosts parameter of its ContainerDefinition.
 type HostEntry struct {
@@ -6002,11 +6185,46 @@ func (s *HostVolumeProperties) SetSourcePath(v string) *HostVolumeProperties {
 	return s
 }
 
+// The Linux capabilities for the container that are added to or dropped from
+// the default configuration provided by Docker. For more information on the
+// default capabilities and the non-default available capabilities, see Runtime
+// privilege and Linux capabilities (https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities)
+// in the Docker run reference. For more detailed information on these Linux
+// capabilities, see the capabilities(7) (http://man7.org/linux/man-pages/man7/capabilities.7.html)
+// Linux manual page.
 type KernelCapabilities struct {
 	_ struct{} `type:"structure"`
 
+	// The Linux capabilities for the container that have been added to the default
+	// configuration provided by Docker. This parameter maps to CapAdd in the Create
+	// a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
+	// and the --cap-add option to docker run (https://docs.docker.com/engine/reference/run/).
+	//
+	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
+	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
+	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
+	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
+	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
+	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
+	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
+	// "WAKE_ALARM"
 	Add []*string `locationName:"add" type:"list"`
 
+	// The Linux capabilities for the container that have been removed from the
+	// default configuration provided by Docker. This parameter maps to CapDrop
+	// in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/#create-a-container)
+	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.23/)
+	// and the --cap-drop option to docker run (https://docs.docker.com/engine/reference/run/).
+	//
+	// Valid values: "ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" |
+	// "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK"
+	// | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE"
+	// | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW"
+	// | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT"
+	// | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" |
+	// "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" |
+	// "WAKE_ALARM"
 	Drop []*string `locationName:"drop" type:"list"`
 }
 
@@ -6067,9 +6285,12 @@ func (s *KeyValuePair) SetValue(v string) *KeyValuePair {
 	return s
 }
 
+// Linux-specific options that are applied to the container, such as Linux KernelCapabilities.
 type LinuxParameters struct {
 	_ struct{} `type:"structure"`
 
+	// The Linux capabilities for the container that are added to or dropped from
+	// the default configuration provided by Docker.
 	Capabilities *KernelCapabilities `locationName:"capabilities" type:"structure"`
 
 	Devices []*Device `locationName:"devices" type:"list"`
@@ -6463,13 +6684,15 @@ type ListServicesInput struct {
 	// is assumed.
 	Cluster *string `locationName:"cluster" type:"string"`
 
-	// The maximum number of container instance results returned by ListServices
-	// in paginated output. When this parameter is used, ListServices only returns
-	// maxResults results in a single page along with a nextToken response element.
-	// The remaining results of the initial request can be seen by sending another
-	// ListServices request with the returned nextToken value. This value can be
-	// between 1 and 10. If this parameter is not used, then ListServices returns
-	// up to 10 results and a nextToken value if applicable.
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
+	// The maximum number of service results returned by ListServices in paginated
+	// output. When this parameter is used, ListServices only returns maxResults
+	// results in a single page along with a nextToken response element. The remaining
+	// results of the initial request can be seen by sending another ListServices
+	// request with the returned nextToken value. This value can be between 1 and
+	// 10. If this parameter is not used, then ListServices returns up to 10 results
+	// and a nextToken value if applicable.
 	MaxResults *int64 `locationName:"maxResults" type:"integer"`
 
 	// The nextToken value returned from a previous paginated ListServices request
@@ -6495,6 +6718,12 @@ func (s ListServicesInput) GoString() string {
 // SetCluster sets the Cluster field's value.
 func (s *ListServicesInput) SetCluster(v string) *ListServicesInput {
 	s.Cluster = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *ListServicesInput) SetLaunchType(v string) *ListServicesInput {
+	s.LaunchType = &v
 	return s
 }
 
@@ -6801,6 +7030,8 @@ type ListTasksInput struct {
 	// a family limits the results to tasks that belong to that family.
 	Family *string `locationName:"family" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// The maximum number of task results returned by ListTasks in paginated output.
 	// When this parameter is used, ListTasks only returns maxResults results in
 	// a single page along with a nextToken response element. The remaining results
@@ -6859,6 +7090,12 @@ func (s *ListTasksInput) SetDesiredStatus(v string) *ListTasksInput {
 // SetFamily sets the Family field's value.
 func (s *ListTasksInput) SetFamily(v string) *ListTasksInput {
 	s.Family = &v
+	return s
+}
+
+// SetLaunchType sets the LaunchType field's value.
+func (s *ListTasksInput) SetLaunchType(v string) *ListTasksInput {
+	s.LaunchType = &v
 	return s
 }
 
@@ -6935,7 +7172,7 @@ type LoadBalancer struct {
 	// mapping.
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
-	// The name of a Classic load balancer.
+	// The name of a load balancer.
 	LoadBalancerName *string `locationName:"loadBalancerName" type:"string"`
 
 	// The full Amazon Resource Name (ARN) of the Elastic Load Balancing target
@@ -7326,13 +7563,15 @@ type PortMapping struct {
 	// and your container automatically receives a port in the ephemeral port range
 	// for your container instance operating system and Docker version.
 	//
-	// The default ephemeral port range is 49153 to 65535, and this range is used
-	// for Docker versions prior to 1.6.0. For Docker version 1.6.0 and later, the
-	// Docker daemon tries to read the ephemeral port range from /proc/sys/net/ipv4/ip_local_port_range;
-	// if this kernel parameter is unavailable, the default ephemeral port range
+	// The default ephemeral port range for Docker version 1.6.0 and later is listed
+	// on the instance under /proc/sys/net/ipv4/ip_local_port_range; if this kernel
+	// parameter is unavailable, the default ephemeral port range of 49153 to 65535
 	// is used. You should not attempt to specify a host port in the ephemeral port
-	// range, because these are reserved for automatic assignment. In general, ports
-	// below 32768 are outside of the ephemeral port range.
+	// range as these are reserved for automatic assignment. In general, ports below
+	// 32768 are outside of the ephemeral port range.
+	//
+	// The default ephemeral port range of 49153 to 65535 will always be used for
+	// Docker versions prior to 1.6.0.
 	//
 	// The default reserved ports are 22 for SSH, the Docker ports 2375 and 2376,
 	// and the Amazon ECS container agent ports 51678 and 51679. Any host port that
@@ -7597,7 +7836,7 @@ type RegisterTaskDefinitionInput struct {
 	// ContainerDefinitions is a required field
 	ContainerDefinitions []*ContainerDefinition `locationName:"containerDefinitions" type:"list" required:"true"`
 
-	Cpu *int64 `locationName:"cpu" type:"integer"`
+	Cpu *string `locationName:"cpu" type:"string"`
 
 	ExecutionRoleArn *string `locationName:"executionRoleArn" type:"string"`
 
@@ -7609,7 +7848,7 @@ type RegisterTaskDefinitionInput struct {
 	// Family is a required field
 	Family *string `locationName:"family" type:"string" required:"true"`
 
-	Memory *int64 `locationName:"memory" type:"integer"`
+	Memory *string `locationName:"memory" type:"string"`
 
 	// The Docker networking mode to use for the containers in the task. The valid
 	// values are none, bridge, and host.
@@ -7632,6 +7871,8 @@ type RegisterTaskDefinitionInput struct {
 	// a maximum of 10 constraints per task (this limit includes constraints in
 	// the task definition and those specified at run time).
 	PlacementConstraints []*TaskDefinitionPlacementConstraint `locationName:"placementConstraints" type:"list"`
+
+	RequiresCompatibilities []*string `locationName:"requiresCompatibilities" type:"list"`
 
 	// The short name or full Amazon Resource Name (ARN) of the IAM role that containers
 	// in this task can assume. All containers in this task are granted the permissions
@@ -7688,7 +7929,7 @@ func (s *RegisterTaskDefinitionInput) SetContainerDefinitions(v []*ContainerDefi
 }
 
 // SetCpu sets the Cpu field's value.
-func (s *RegisterTaskDefinitionInput) SetCpu(v int64) *RegisterTaskDefinitionInput {
+func (s *RegisterTaskDefinitionInput) SetCpu(v string) *RegisterTaskDefinitionInput {
 	s.Cpu = &v
 	return s
 }
@@ -7706,7 +7947,7 @@ func (s *RegisterTaskDefinitionInput) SetFamily(v string) *RegisterTaskDefinitio
 }
 
 // SetMemory sets the Memory field's value.
-func (s *RegisterTaskDefinitionInput) SetMemory(v int64) *RegisterTaskDefinitionInput {
+func (s *RegisterTaskDefinitionInput) SetMemory(v string) *RegisterTaskDefinitionInput {
 	s.Memory = &v
 	return s
 }
@@ -7720,6 +7961,12 @@ func (s *RegisterTaskDefinitionInput) SetNetworkMode(v string) *RegisterTaskDefi
 // SetPlacementConstraints sets the PlacementConstraints field's value.
 func (s *RegisterTaskDefinitionInput) SetPlacementConstraints(v []*TaskDefinitionPlacementConstraint) *RegisterTaskDefinitionInput {
 	s.PlacementConstraints = v
+	return s
+}
+
+// SetRequiresCompatibilities sets the RequiresCompatibilities field's value.
+func (s *RegisterTaskDefinitionInput) SetRequiresCompatibilities(v []*string) *RegisterTaskDefinitionInput {
+	s.RequiresCompatibilities = v
 	return s
 }
 
@@ -7846,6 +8093,8 @@ type RunTaskInput struct {
 	// is the family name of the task definition (for example, family:my-family-name).
 	Group *string `locationName:"group" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	NetworkConfiguration *NetworkConfiguration `locationName:"networkConfiguration" type:"structure"`
 
 	// A list of container overrides in JSON format that specify the name of a container
@@ -7868,6 +8117,8 @@ type RunTaskInput struct {
 	// The placement strategy objects to use for the task. You can specify a maximum
 	// of 5 strategy rules per task.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// An optional tag specified when a task is started. For example if you automatically
 	// trigger a task to run a batch process job, you could apply a unique identifier
@@ -7934,6 +8185,12 @@ func (s *RunTaskInput) SetGroup(v string) *RunTaskInput {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *RunTaskInput) SetLaunchType(v string) *RunTaskInput {
+	s.LaunchType = &v
+	return s
+}
+
 // SetNetworkConfiguration sets the NetworkConfiguration field's value.
 func (s *RunTaskInput) SetNetworkConfiguration(v *NetworkConfiguration) *RunTaskInput {
 	s.NetworkConfiguration = v
@@ -7955,6 +8212,12 @@ func (s *RunTaskInput) SetPlacementConstraints(v []*PlacementConstraint) *RunTas
 // SetPlacementStrategy sets the PlacementStrategy field's value.
 func (s *RunTaskInput) SetPlacementStrategy(v []*PlacementStrategy) *RunTaskInput {
 	s.PlacementStrategy = v
+	return s
+}
+
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *RunTaskInput) SetPlatformVersion(v string) *RunTaskInput {
+	s.PlatformVersion = &v
 	return s
 }
 
@@ -8029,6 +8292,8 @@ type Service struct {
 	// are displayed.
 	Events []*ServiceEvent `locationName:"events" type:"list"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
 	// A list of Elastic Load Balancing load balancer objects, containing the load
 	// balancer name, the container name (as it appears in a container definition),
 	// and the container port to access from the load balancer.
@@ -8044,6 +8309,8 @@ type Service struct {
 
 	// The placement strategy that determines how tasks for the service are placed.
 	PlacementStrategy []*PlacementStrategy `locationName:"placementStrategy" type:"list"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The Amazon Resource Name (ARN) of the IAM role associated with the service
 	// that allows the Amazon ECS container agent to register container instances
@@ -8064,6 +8331,8 @@ type Service struct {
 	// a cluster, but you can have similarly named services in multiple clusters
 	// within a region or across multiple regions.
 	ServiceName *string `locationName:"serviceName" type:"string"`
+
+	ServiceRegistries []*ServiceRegistry `locationName:"serviceRegistries" type:"list"`
 
 	// The status of the service. The valid values are ACTIVE, DRAINING, or INACTIVE.
 	Status *string `locationName:"status" type:"string"`
@@ -8120,6 +8389,12 @@ func (s *Service) SetEvents(v []*ServiceEvent) *Service {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *Service) SetLaunchType(v string) *Service {
+	s.LaunchType = &v
+	return s
+}
+
 // SetLoadBalancers sets the LoadBalancers field's value.
 func (s *Service) SetLoadBalancers(v []*LoadBalancer) *Service {
 	s.LoadBalancers = v
@@ -8150,6 +8425,12 @@ func (s *Service) SetPlacementStrategy(v []*PlacementStrategy) *Service {
 	return s
 }
 
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *Service) SetPlatformVersion(v string) *Service {
+	s.PlatformVersion = &v
+	return s
+}
+
 // SetRoleArn sets the RoleArn field's value.
 func (s *Service) SetRoleArn(v string) *Service {
 	s.RoleArn = &v
@@ -8171,6 +8452,12 @@ func (s *Service) SetServiceArn(v string) *Service {
 // SetServiceName sets the ServiceName field's value.
 func (s *Service) SetServiceName(v string) *Service {
 	s.ServiceName = &v
+	return s
+}
+
+// SetServiceRegistries sets the ServiceRegistries field's value.
+func (s *Service) SetServiceRegistries(v []*ServiceRegistry) *Service {
+	s.ServiceRegistries = v
 	return s
 }
 
@@ -8225,6 +8512,44 @@ func (s *ServiceEvent) SetId(v string) *ServiceEvent {
 // SetMessage sets the Message field's value.
 func (s *ServiceEvent) SetMessage(v string) *ServiceEvent {
 	s.Message = &v
+	return s
+}
+
+type ServiceRegistry struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
+
+	RegistryArn *string `locationName:"registryArn" type:"string"`
+}
+
+// String returns the string representation
+func (s ServiceRegistry) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ServiceRegistry) GoString() string {
+	return s.String()
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *ServiceRegistry) SetContainerName(v string) *ServiceRegistry {
+	s.ContainerName = &v
+	return s
+}
+
+// SetContainerPort sets the ContainerPort field's value.
+func (s *ServiceRegistry) SetContainerPort(v int64) *ServiceRegistry {
+	s.ContainerPort = &v
+	return s
+}
+
+// SetRegistryArn sets the RegistryArn field's value.
+func (s *ServiceRegistry) SetRegistryArn(v string) *ServiceRegistry {
+	s.RegistryArn = &v
 	return s
 }
 
@@ -8724,11 +9049,17 @@ type Task struct {
 	// The Amazon Resource Name (ARN) of the cluster that hosts the task.
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
+	Connectivity *string `locationName:"connectivity" type:"string" enum:"Connectivity"`
+
+	ConnectivityAt *time.Time `locationName:"connectivityAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The Amazon Resource Name (ARN) of the container instances that host the task.
 	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
 
 	// The containers associated with the task.
 	Containers []*Container `locationName:"containers" type:"list"`
+
+	Cpu *string `locationName:"cpu" type:"string"`
 
 	// The Unix timestamp for when the task was created (the task entered the PENDING
 	// state).
@@ -8737,14 +9068,26 @@ type Task struct {
 	// The desired status of the task.
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
+	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp" timestampFormat:"unix"`
+
 	// The name of the task group associated with the task.
 	Group *string `locationName:"group" type:"string"`
 
 	// The last known status of the task.
 	LastStatus *string `locationName:"lastStatus" type:"string"`
 
+	LaunchType *string `locationName:"launchType" type:"string" enum:"LaunchType"`
+
+	Memory *string `locationName:"memory" type:"string"`
+
 	// One or more container overrides.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
+
+	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp" timestampFormat:"unix"`
+
+	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp" timestampFormat:"unix"`
 
 	// The Unix timestamp for when the task was started (the task transitioned from
 	// the PENDING state to the RUNNING state).
@@ -8761,6 +9104,8 @@ type Task struct {
 
 	// The reason the task was stopped.
 	StoppedReason *string `locationName:"stoppedReason" type:"string"`
+
+	StoppingAt *time.Time `locationName:"stoppingAt" type:"timestamp" timestampFormat:"unix"`
 
 	// The Amazon Resource Name (ARN) of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -8799,6 +9144,18 @@ func (s *Task) SetClusterArn(v string) *Task {
 	return s
 }
 
+// SetConnectivity sets the Connectivity field's value.
+func (s *Task) SetConnectivity(v string) *Task {
+	s.Connectivity = &v
+	return s
+}
+
+// SetConnectivityAt sets the ConnectivityAt field's value.
+func (s *Task) SetConnectivityAt(v time.Time) *Task {
+	s.ConnectivityAt = &v
+	return s
+}
+
 // SetContainerInstanceArn sets the ContainerInstanceArn field's value.
 func (s *Task) SetContainerInstanceArn(v string) *Task {
 	s.ContainerInstanceArn = &v
@@ -8808,6 +9165,12 @@ func (s *Task) SetContainerInstanceArn(v string) *Task {
 // SetContainers sets the Containers field's value.
 func (s *Task) SetContainers(v []*Container) *Task {
 	s.Containers = v
+	return s
+}
+
+// SetCpu sets the Cpu field's value.
+func (s *Task) SetCpu(v string) *Task {
+	s.Cpu = &v
 	return s
 }
 
@@ -8823,6 +9186,12 @@ func (s *Task) SetDesiredStatus(v string) *Task {
 	return s
 }
 
+// SetExecutionStoppedAt sets the ExecutionStoppedAt field's value.
+func (s *Task) SetExecutionStoppedAt(v time.Time) *Task {
+	s.ExecutionStoppedAt = &v
+	return s
+}
+
 // SetGroup sets the Group field's value.
 func (s *Task) SetGroup(v string) *Task {
 	s.Group = &v
@@ -8835,9 +9204,39 @@ func (s *Task) SetLastStatus(v string) *Task {
 	return s
 }
 
+// SetLaunchType sets the LaunchType field's value.
+func (s *Task) SetLaunchType(v string) *Task {
+	s.LaunchType = &v
+	return s
+}
+
+// SetMemory sets the Memory field's value.
+func (s *Task) SetMemory(v string) *Task {
+	s.Memory = &v
+	return s
+}
+
 // SetOverrides sets the Overrides field's value.
 func (s *Task) SetOverrides(v *TaskOverride) *Task {
 	s.Overrides = v
+	return s
+}
+
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *Task) SetPlatformVersion(v string) *Task {
+	s.PlatformVersion = &v
+	return s
+}
+
+// SetPullStartedAt sets the PullStartedAt field's value.
+func (s *Task) SetPullStartedAt(v time.Time) *Task {
+	s.PullStartedAt = &v
+	return s
+}
+
+// SetPullStoppedAt sets the PullStoppedAt field's value.
+func (s *Task) SetPullStoppedAt(v time.Time) *Task {
+	s.PullStoppedAt = &v
 	return s
 }
 
@@ -8865,6 +9264,12 @@ func (s *Task) SetStoppedReason(v string) *Task {
 	return s
 }
 
+// SetStoppingAt sets the StoppingAt field's value.
+func (s *Task) SetStoppingAt(v time.Time) *Task {
+	s.StoppingAt = &v
+	return s
+}
+
 // SetTaskArn sets the TaskArn field's value.
 func (s *Task) SetTaskArn(v string) *Task {
 	s.TaskArn = &v
@@ -8887,20 +9292,22 @@ func (s *Task) SetVersion(v int64) *Task {
 type TaskDefinition struct {
 	_ struct{} `type:"structure"`
 
+	Compatibilities []*string `locationName:"compatibilities" type:"list"`
+
 	// A list of container definitions in JSON format that describe the different
 	// containers that make up your task. For more information about container definition
 	// parameters and defaults, see Amazon ECS Task Definitions (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html)
 	// in the Amazon EC2 Container Service Developer Guide.
 	ContainerDefinitions []*ContainerDefinition `locationName:"containerDefinitions" type:"list"`
 
-	Cpu *int64 `locationName:"cpu" type:"integer"`
+	Cpu *string `locationName:"cpu" type:"string"`
 
 	ExecutionRoleArn *string `locationName:"executionRoleArn" type:"string"`
 
 	// The family of your task definition, used as the definition name.
 	Family *string `locationName:"family" type:"string"`
 
-	Memory *int64 `locationName:"memory" type:"integer"`
+	Memory *string `locationName:"memory" type:"string"`
 
 	// The Docker networking mode to use for the containers in the task. The valid
 	// values are none, bridge, and host.
@@ -8919,6 +9326,8 @@ type TaskDefinition struct {
 
 	// The container instance attributes required by your task.
 	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`
+
+	RequiresCompatibilities []*string `locationName:"requiresCompatibilities" type:"list"`
 
 	// The revision of the task in a particular family. The revision is a version
 	// number of a task definition in a family. When you register a task definition
@@ -8954,6 +9363,12 @@ func (s TaskDefinition) GoString() string {
 	return s.String()
 }
 
+// SetCompatibilities sets the Compatibilities field's value.
+func (s *TaskDefinition) SetCompatibilities(v []*string) *TaskDefinition {
+	s.Compatibilities = v
+	return s
+}
+
 // SetContainerDefinitions sets the ContainerDefinitions field's value.
 func (s *TaskDefinition) SetContainerDefinitions(v []*ContainerDefinition) *TaskDefinition {
 	s.ContainerDefinitions = v
@@ -8961,7 +9376,7 @@ func (s *TaskDefinition) SetContainerDefinitions(v []*ContainerDefinition) *Task
 }
 
 // SetCpu sets the Cpu field's value.
-func (s *TaskDefinition) SetCpu(v int64) *TaskDefinition {
+func (s *TaskDefinition) SetCpu(v string) *TaskDefinition {
 	s.Cpu = &v
 	return s
 }
@@ -8979,7 +9394,7 @@ func (s *TaskDefinition) SetFamily(v string) *TaskDefinition {
 }
 
 // SetMemory sets the Memory field's value.
-func (s *TaskDefinition) SetMemory(v int64) *TaskDefinition {
+func (s *TaskDefinition) SetMemory(v string) *TaskDefinition {
 	s.Memory = &v
 	return s
 }
@@ -8999,6 +9414,12 @@ func (s *TaskDefinition) SetPlacementConstraints(v []*TaskDefinitionPlacementCon
 // SetRequiresAttributes sets the RequiresAttributes field's value.
 func (s *TaskDefinition) SetRequiresAttributes(v []*Attribute) *TaskDefinition {
 	s.RequiresAttributes = v
+	return s
+}
+
+// SetRequiresCompatibilities sets the RequiresCompatibilities field's value.
+func (s *TaskDefinition) SetRequiresCompatibilities(v []*string) *TaskDefinition {
+	s.RequiresCompatibilities = v
 	return s
 }
 
@@ -9366,12 +9787,18 @@ type UpdateServiceInput struct {
 	// service.
 	DesiredCount *int64 `locationName:"desiredCount" type:"integer"`
 
+	ForceNewDeployment *bool `locationName:"forceNewDeployment" type:"boolean"`
+
 	NetworkConfiguration *NetworkConfiguration `locationName:"networkConfiguration" type:"structure"`
+
+	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The name of the service to update.
 	//
 	// Service is a required field
 	Service *string `locationName:"service" type:"string" required:"true"`
+
+	ServiceRegistries []*ServiceRegistry `locationName:"serviceRegistries" type:"list"`
 
 	// The family and revision (family:revision) or full Amazon Resource Name (ARN)
 	// of the task definition to run in your service. If a revision is not specified,
@@ -9427,15 +9854,33 @@ func (s *UpdateServiceInput) SetDesiredCount(v int64) *UpdateServiceInput {
 	return s
 }
 
+// SetForceNewDeployment sets the ForceNewDeployment field's value.
+func (s *UpdateServiceInput) SetForceNewDeployment(v bool) *UpdateServiceInput {
+	s.ForceNewDeployment = &v
+	return s
+}
+
 // SetNetworkConfiguration sets the NetworkConfiguration field's value.
 func (s *UpdateServiceInput) SetNetworkConfiguration(v *NetworkConfiguration) *UpdateServiceInput {
 	s.NetworkConfiguration = v
 	return s
 }
 
+// SetPlatformVersion sets the PlatformVersion field's value.
+func (s *UpdateServiceInput) SetPlatformVersion(v string) *UpdateServiceInput {
+	s.PlatformVersion = &v
+	return s
+}
+
 // SetService sets the Service field's value.
 func (s *UpdateServiceInput) SetService(v string) *UpdateServiceInput {
 	s.Service = &v
+	return s
+}
+
+// SetServiceRegistries sets the ServiceRegistries field's value.
+func (s *UpdateServiceInput) SetServiceRegistries(v []*ServiceRegistry) *UpdateServiceInput {
+	s.ServiceRegistries = v
 	return s
 }
 
@@ -9608,6 +10053,35 @@ const (
 )
 
 const (
+	// AssignPublicIpEnabled is a AssignPublicIp enum value
+	AssignPublicIpEnabled = "ENABLED"
+
+	// AssignPublicIpDisabled is a AssignPublicIp enum value
+	AssignPublicIpDisabled = "DISABLED"
+)
+
+const (
+	// ClusterFieldStatistics is a ClusterField enum value
+	ClusterFieldStatistics = "STATISTICS"
+)
+
+const (
+	// CompatibilityEc2 is a Compatibility enum value
+	CompatibilityEc2 = "EC2"
+
+	// CompatibilityFargate is a Compatibility enum value
+	CompatibilityFargate = "FARGATE"
+)
+
+const (
+	// ConnectivityConnected is a Connectivity enum value
+	ConnectivityConnected = "CONNECTED"
+
+	// ConnectivityDisconnected is a Connectivity enum value
+	ConnectivityDisconnected = "DISCONNECTED"
+)
+
+const (
 	// ContainerInstanceStatusActive is a ContainerInstanceStatus enum value
 	ContainerInstanceStatusActive = "ACTIVE"
 
@@ -9635,6 +10109,14 @@ const (
 
 	// DeviceCgroupPermissionMknod is a DeviceCgroupPermission enum value
 	DeviceCgroupPermissionMknod = "mknod"
+)
+
+const (
+	// LaunchTypeEc2 is a LaunchType enum value
+	LaunchTypeEc2 = "EC2"
+
+	// LaunchTypeFargate is a LaunchType enum value
+	LaunchTypeFargate = "FARGATE"
 )
 
 const (
