@@ -28,19 +28,20 @@ type savedState struct {
 	IdToContainer  map[string]*api.DockerContainer `json:"IdToContainer"` // DockerId -> api.DockerContainer
 	IdToTask       map[string]string               `json:"IdToTask"`      // DockerId -> taskarn
 	ImageStates    []*image.ImageState
-	ENIAttachments []*api.ENIAttachment `json:enis`
+	ENIAttachments []*api.ENIAttachment `json:"ENIAttachments"`
+	IPToTask       map[string]string    `json:"IPToTask"`
 }
 
 func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
-	var toSave savedState
 	state.lock.RLock()
 	defer state.lock.RUnlock()
-	toSave = savedState{
-		Tasks:          state.allTasks(),
+	toSave := savedState{
+		Tasks:          state.allTasksUnsafe(),
 		IdToContainer:  state.idToContainer,
 		IdToTask:       state.idToTask,
-		ImageStates:    state.allImageStates(),
+		ImageStates:    state.allImageStatesUnsafe(),
 		ENIAttachments: state.allENIAttachmentsUnsafe(),
+		IPToTask:       state.ipToTask,
 	}
 	return json.Marshal(toSave)
 }
@@ -87,6 +88,10 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 
 	for _, eniAttachment := range saved.ENIAttachments {
 		clean.AddENIAttachment(eniAttachment)
+	}
+
+	for ipAddr, taskARN := range saved.IPToTask {
+		clean.AddTaskIPAddress(ipAddr, taskARN)
 	}
 
 	*state = *clean

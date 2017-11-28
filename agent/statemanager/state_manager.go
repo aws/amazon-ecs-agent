@@ -57,7 +57,8 @@ const (
 	//   b) Add `executionCredentialsID` in `api.Task`
 	//   c) Add 'LogsAuthStrategy' field to 'api.Container'
 	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
-	ECSDataVersion = 8
+	// 9) Add 'ipToTask' map to state file
+	ECSDataVersion = 9
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

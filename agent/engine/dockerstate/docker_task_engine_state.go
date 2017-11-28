@@ -130,10 +130,10 @@ func (state *DockerTaskEngineState) AllTasks() []*api.Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allTasks()
+	return state.allTasksUnsafe()
 }
 
-func (state *DockerTaskEngineState) allTasks() []*api.Task {
+func (state *DockerTaskEngineState) allTasksUnsafe() []*api.Task {
 	ret := make([]*api.Task, len(state.tasks))
 	ndx := 0
 	for _, task := range state.tasks {
@@ -148,10 +148,10 @@ func (state *DockerTaskEngineState) AllImageStates() []*image.ImageState {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allImageStates()
+	return state.allImageStatesUnsafe()
 }
 
-func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
+func (state *DockerTaskEngineState) allImageStatesUnsafe() []*image.ImageState {
 	var allImageStates []*image.ImageState
 	for _, imageState := range state.imageStates {
 		allImageStates = append(allImageStates, imageState)
