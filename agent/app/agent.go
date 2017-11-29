@@ -44,7 +44,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -71,8 +70,6 @@ var (
 // object. Its purpose is to mostly demonstrate how to interact with the
 // ecsAgent type.
 type agent interface {
-	// printVersion prints the Agent version string
-	printVersion() int
 	// printECSAttributes prints the Agent's capabilities based on
 	// its environment
 	printECSAttributes() int
@@ -168,12 +165,6 @@ func newAgent(
 		resource:           resources.New(),
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
 	}, nil
-}
-
-// printVersion prints the ECS Agent version string
-func (agent *ecsAgent) printVersion() int {
-	version.PrintVersion(agent.dockerClient)
-	return exitcodes.ExitSuccess
 }
 
 // printECSAttributes prints the Agent's ECS Attributes based on its
