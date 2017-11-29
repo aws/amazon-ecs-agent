@@ -19,20 +19,24 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
-	Cluster       string
-	TaskARN       string
-	Family        string
-	Version       string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Containers    []ContainerResponse `json:",omitempty"`
-	Limits        LimitsResponse      `json:",omitempty"`
+	Cluster            string
+	TaskARN            string
+	Family             string
+	Version            string
+	DesiredStatus      string `json:",omitempty"`
+	KnownStatus        string
+	Containers         []ContainerResponse `json:",omitempty"`
+	Limits             *LimitsResponse     `json:",omitempty"`
+	PullStartedAt      *time.Time          `json:",omitempty"`
+	PullStoppedAt      *time.Time          `json:",omitempty"`
+	ExecutionStoppedAt *time.Time          `json:",omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
@@ -59,8 +63,8 @@ type ContainerResponse struct {
 // LimitsResponse defines the schema for task/cpu limits response
 // JSON object
 type LimitsResponse struct {
-	CPU    uint
-	Memory uint
+	CPU    *float64 `json:",omitempty"`
+	Memory *int64   `json:",omitempty"`
 }
 
 // PortResponse defines the schema for portmapping response JSON
@@ -89,6 +93,28 @@ func NewTaskResponse(taskARN string,
 		KnownStatus:   task.GetKnownStatus().String(),
 	}
 
+	taskCPU := task.CPU
+	taskMemory := task.Memory
+	if taskCPU != 0 || taskMemory != 0 {
+		taskLimits := &LimitsResponse{}
+		if taskCPU != 0 {
+			taskLimits.CPU = &taskCPU
+		}
+		if taskMemory != 0 {
+			taskLimits.Memory = &taskMemory
+		}
+		resp.Limits = taskLimits
+	}
+
+	if timestamp := task.GetPullStartedAt(); !timestamp.IsZero() {
+		resp.PullStartedAt = aws.Time(timestamp.UTC())
+	}
+	if timestamp := task.GetPullStoppedAt(); !timestamp.IsZero() {
+		resp.PullStoppedAt = aws.Time(timestamp.UTC())
+	}
+	if timestamp := task.GetExecutionStoppedAt(); !timestamp.IsZero() {
+		resp.ExecutionStoppedAt = aws.Time(timestamp.UTC())
+	}
 	containerNameToDockerContainer, ok := state.ContainerMapByArn(task.Arn)
 	if !ok {
 		seelog.Warnf("V2 task response: unable to get container name mapping for task '%s'",
@@ -136,8 +162,8 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 		DesiredStatus: container.GetDesiredStatus().String(),
 		KnownStatus:   container.GetKnownStatus().String(),
 		Limits: LimitsResponse{
-			CPU:    container.CPU,
-			Memory: container.Memory,
+			CPU:    aws.Float64(float64(container.CPU)),
+			Memory: aws.Int64(int64(container.Memory)),
 		},
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),

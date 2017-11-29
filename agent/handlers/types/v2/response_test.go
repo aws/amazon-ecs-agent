@@ -43,6 +43,7 @@ func TestTaskResponse(t *testing.T) {
 	defer ctrl.Finish()
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	now := time.Now()
 	task := &api.Task{
 		Arn:                 taskARN,
 		Family:              family,
@@ -56,6 +57,11 @@ func TestTaskResponse(t *testing.T) {
 				},
 			},
 		},
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
 	}
 	container := &api.Container{
 		Name:                containerName,

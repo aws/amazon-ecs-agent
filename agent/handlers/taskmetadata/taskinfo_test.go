@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -27,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -53,6 +55,7 @@ const (
 )
 
 var (
+	now  = time.Now()
 	task = &api.Task{
 		Arn:                 taskARN,
 		Family:              family,
@@ -66,6 +69,11 @@ var (
 				},
 			},
 		},
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
 	}
 	container = &api.Container{
 		Name:                containerName,
@@ -103,8 +111,8 @@ var (
 		DesiredStatus: statusRunning,
 		KnownStatus:   statusRunning,
 		Limits: v2.LimitsResponse{
-			CPU:    cpu,
-			Memory: memory,
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
 		},
 		Type:   containerType,
 		Labels: labels,
@@ -130,6 +138,13 @@ var (
 		DesiredStatus: statusRunning,
 		KnownStatus:   statusRunning,
 		Containers:    []v2.ContainerResponse{expectedContainerResponse},
+		Limits: &v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		PullStartedAt:      aws.Time(now.UTC()),
+		PullStoppedAt:      aws.Time(now.UTC()),
+		ExecutionStoppedAt: aws.Time(now.UTC()),
 	}
 )
 

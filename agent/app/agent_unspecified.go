@@ -27,8 +27,8 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 	return errors.New("unsupported platform"), true
 }
 
-// startWindowsService is not supported on Linux
+// startWindowsService is not supported on non windows platforms
 func (agent *ecsAgent) startWindowsService() int {
-	seelog.Error("Windows Services are not supported on unspecified platform")
+	seelog.Error("Windows Services are not supported on unspecified platforms")
 	return 1
 }
