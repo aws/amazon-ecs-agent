@@ -2202,8 +2202,8 @@ func TestPullStartedStoppedAtWasSetCorrectly(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 
-	assert.Equal(t, testTask.PullStartedAt, startTime1)
-	assert.Equal(t, testTask.PullStoppedAt, stopTime3)
+	assert.Equal(t, testTask.PullStartedAtUnsafe, startTime1)
+	assert.Equal(t, testTask.PullStoppedAtUnsafe, stopTime3)
 
 }
 
@@ -2256,8 +2256,8 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 
-	assert.Equal(t, testTask.PullStartedAt, startTime1)
-	assert.Equal(t, testTask.PullStoppedAt, stopTime3)
+	assert.Equal(t, testTask.PullStartedAtUnsafe, startTime1)
+	assert.Equal(t, testTask.PullStoppedAtUnsafe, stopTime3)
 }
 
 func TestSynchronizeContainerStatus(t *testing.T) {
