@@ -41,8 +41,8 @@ const (
 )
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {
-	task.memoryCPULimitsEnabledLock.Lock()
-	defer task.memoryCPULimitsEnabledLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
@@ -167,8 +167,8 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
-	task.memoryCPULimitsEnabledLock.RLock()
-	defer task.memoryCPULimitsEnabledLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 	if task.MemoryCPULimitsEnabled {
 		cgroupRoot, err := task.BuildCgroupRoot()
 		if err != nil {
