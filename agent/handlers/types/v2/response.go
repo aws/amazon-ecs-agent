@@ -29,7 +29,7 @@ type TaskResponse struct {
 	Cluster            string
 	TaskARN            string
 	Family             string
-	Version            string
+	Revision           string
 	DesiredStatus      string `json:",omitempty"`
 	KnownStatus        string
 	Containers         []ContainerResponse `json:",omitempty"`
@@ -88,7 +88,7 @@ func NewTaskResponse(taskARN string,
 		Cluster:       cluster,
 		TaskARN:       task.Arn,
 		Family:        task.Family,
-		Version:       task.Version,
+		Revision:      task.Version,
 		DesiredStatus: task.GetDesiredStatus().String(),
 		KnownStatus:   task.GetKnownStatus().String(),
 	}
