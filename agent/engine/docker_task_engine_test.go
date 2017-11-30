@@ -1978,8 +1978,8 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	saver.EXPECT().Save().AnyTimes()
 	saver.EXPECT().ForceSave().AnyTimes()
 
-	metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(dockerID string, taskARN string, containerName string) {
-		assert.Equal(t, expectedTaskARN, taskARN)
+	metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(dockerID string, task *api.Task, containerName string) {
+		assert.Equal(t, expectedTaskARN, task.Arn)
 		assert.Equal(t, expectedContainerName, containerName)
 		assert.Equal(t, expectedDockerID, dockerID)
 		wg.Done()
