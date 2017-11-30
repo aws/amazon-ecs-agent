@@ -6,7 +6,7 @@
     "entryPoint": ["powershell"],
     "command": ["sleep", "60"],
     "name": "network-$$$$NETWORK_MODE$$$$",
-    "memory": 256,
-    "cpu": 512
+    "memory": 512,
+    "cpu": 1024
   }]
 }

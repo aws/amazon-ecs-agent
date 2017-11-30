@@ -3,8 +3,8 @@
   "containerDefinitions": [{
     "image": "microsoft/windowsservercore:latest",
     "name": "exit",
-    "memory": 256,
-    "cpu": 512,
+    "memory": 512,
+    "cpu": 1024,
     "logConfiguration": {
       "logDriver": "json-file",
       "options": {

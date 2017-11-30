@@ -3,8 +3,8 @@
   "containerDefinitions": [{
     "image": "microsoft/windowsservercore:latest",
     "name": "cleanup-windows",
-    "cpu": 512,
-    "memory": 256,
+    "cpu": 1024,
+    "memory": 512,
     "portBindings": [{
       "containerPort": 80
     }],
