@@ -66,10 +66,7 @@ func (c *cgroupWrapper) cgroupInit() error {
 
 // setupCgroup is used to create the task cgroup
 func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
-	cgroupRoot, err := task.BuildCgroupRoot()
-	if err != nil {
-		return errors.Wrapf(err, "resource: setup cgroup: unable to determine cgroup root for task: %s", task.Arn)
-	}
+	var cgroupRoot = config.DefaultTaskCgroupPrefix
 
 	seelog.Debugf("Setting up cgroup at: %s for task: %s", cgroupRoot, task.Arn)
 
@@ -98,14 +95,11 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 
 // cleanupCgroup is used to remove the task cgroup
 func (c *cgroupWrapper) cleanupCgroup(task *api.Task) error {
-	cgroupRoot, err := task.BuildCgroupRoot()
-	if err != nil {
-		return errors.Wrapf(err, "resource: cleanup cgroup: unable to determine cgroup root for task: %s", task.Arn)
-	}
+	var cgroupRoot = config.DefaultTaskCgroupPrefix
 
 	seelog.Debugf("Cleaning up cgroup at: %s for task: %s", cgroupRoot, task.Arn)
 
-	err = c.control.Remove(cgroupRoot)
+	var err = c.control.Remove(cgroupRoot)
 	// Explicitly handle cgroup deleted error
 	if err != nil {
 		if err == cgroups.ErrCgroupDeleted {

@@ -44,7 +44,7 @@ const (
 	validTaskArn   = "arn:aws:ecs:region:account-id:task/task-id"
 	invalidTaskArn = "invalid:task::arn"
 
-	expectedCgroupRoot = "/ecs/task-id"
+	expectedCgroupRoot = "/docker"
 
 	taskVCPULimit   = 2.0
 	taskMemoryLimit = 512
@@ -84,30 +84,6 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
 		"pause container should use configured image")
-}
-
-// TestBuildCgroupRootHappyPath builds cgroup root from valid taskARN
-func TestBuildCgroupRootHappyPath(t *testing.T) {
-	task := Task{
-		Arn: validTaskArn,
-	}
-
-	cgroupRoot, err := task.BuildCgroupRoot()
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedCgroupRoot, cgroupRoot)
-}
-
-// TestBuildCgroupRootErrorPath validates the cgroup path build error path
-func TestBuildCgroupRootErrorPath(t *testing.T) {
-	task := Task{
-		Arn: invalidTaskArn,
-	}
-
-	cgroupRoot, err := task.BuildCgroupRoot()
-
-	assert.Error(t, err)
-	assert.Empty(t, cgroupRoot)
 }
 
 // TestBuildLinuxResourceSpecCPUMem validates the linux resource spec builder
@@ -247,22 +223,6 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }
 
-// TestOverrideCgroupParentErrorPath validates the error path for
-// cgroup parent update
-func TestOverrideCgroupParentErrorPath(t *testing.T) {
-	task := &Task{
-		Arn:                    invalidTaskArn,
-		CPU:                    float64(taskVCPULimit),
-		Memory:                 int64(taskMemoryLimit),
-		MemoryCPULimitsEnabled: true,
-	}
-
-	hostConfig := &docker.HostConfig{}
-
-	assert.Error(t, task.overrideCgroupParent(hostConfig))
-	assert.Empty(t, hostConfig.CgroupParent)
-}
-
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverride(t *testing.T) {
 	task := &Task{
@@ -277,23 +237,4 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
-}
-
-// TestPlatformHostConfigOverride validates the platform host config overrides
-func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
-	task := &Task{
-		Arn:                    invalidTaskArn,
-		CPU:                    float64(taskVCPULimit),
-		Memory:                 int64(taskMemoryLimit),
-		MemoryCPULimitsEnabled: true,
-		Containers: []*Container{
-			{
-				Name: "c1",
-			},
-		},
-	}
-
-	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
-	assert.Error(t, err)
-	assert.Empty(t, dockerHostConfig)
 }
