@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -40,6 +41,11 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+)
+
+const (
+	arnResourceSections  = 2
+	arnResourceDelimiter = "/"
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -739,4 +745,39 @@ func getSubnetID() (string, error) {
 	}
 
 	return subnet, nil
+}
+
+// GetAccountID returns the aws account id from the instance metadata
+func GetAccountID() (string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+
+	instanceIdentity, err := ec2Metadata.GetInstanceIdentityDocument()
+	if err != nil {
+		return "", err
+	}
+
+	return instanceIdentity.AccountID, nil
+}
+
+// GetTaskID returns the task id from the task arn
+func GetTaskID(taskARN string) (string, error) {
+	// Parse taskARN
+	parsedARN, err := arn.Parse(taskARN)
+	if err != nil {
+		return "", errors.Wrapf(err, "task get-id: malformed taskARN: %s", taskARN)
+	}
+
+	// Get task resource section
+	resource := parsedARN.Resource
+
+	if !strings.Contains(resource, arnResourceDelimiter) {
+		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+	}
+
+	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
+	if len(resourceSplit) != arnResourceSections {
+		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+	}
+
+	return resourceSplit[1], nil
 }

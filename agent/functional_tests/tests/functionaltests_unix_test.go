@@ -322,20 +322,20 @@ func TestAWSLogsDriver(t *testing.T) {
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
-	strs := strings.Split(*testTask.TaskArn, "/")
-	taskId := strs[len(strs)-1]
+	taskID, err := GetTaskID(*testTask.TaskArn)
+	require.NoError(t, err)
 
 	// Delete the log stream after the test
 	defer func() {
 		cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
 			LogGroupName:  aws.String(awslogsLogGroupName),
-			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 		})
 	}()
 
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	}
 
 	resp, err := waitCloudwatchLogs(cwlClient, params)
@@ -671,7 +671,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 }
 
 func TestTaskMetadataValidator(t *testing.T) {
-	RequireDockerVersion(t, ">=17.06.0")
+	RequireDockerVersion(t, ">=17.06.0-ce")
 	// Best effort to create a log group. It should be safe to even not do this
 	// as the log group gets created in the TestAWSLogsDriver functional test.
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
@@ -713,6 +713,9 @@ func TestExecutionRole(t *testing.T) {
 	}
 
 	RequireDockerVersion(t, ">=17.06.2-ce") // awslogs drivers with execution role available from docker 17.06.2
+	accountID, err := GetAccountID()
+	assert.NoError(t, err, "acquiring account id failed")
+
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 
 	agentOptions := AgentOptions{
@@ -730,29 +733,30 @@ func TestExecutionRole(t *testing.T) {
 	}
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
-
 	tdOverrides := make(map[string]string)
+	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+
 	tdOverrides["$$$$TEST_REGION$$$$"] = *ECS.Config.Region
 	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
-	tdOverrides["$$$$IMAGE$$$$"] = os.Getenv("ECS_FTS_EXECUTIONROLE_ECR_IMAGE")
+	tdOverrides["$$$$IMAGE$$$$"] = testImage
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "execution-role", tdOverrides)
 	require.NoError(t, err, "Expected to start task using awslogs driver failed")
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
-	strs := strings.Split(*testTask.TaskArn, "/")
-	taskId := strs[len(strs)-1]
+	taskID, err := GetTaskID(*testTask.TaskArn)
+	require.NoError(t, err)
 
 	// Delete the log stream after the test
 	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
 	})
 
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
 	}
 
 	resp, err := waitCloudwatchLogs(cwlClient, params)

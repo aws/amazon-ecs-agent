@@ -28,6 +28,7 @@ import (
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -427,10 +428,11 @@ func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatc
 	for i := 0; i < 30; i++ {
 		resp, err := client.GetLogEvents(params)
 		if err != nil {
-			return nil, err
-		}
-
-		if len(resp.Events) > 0 {
+			awsError, ok := err.(awserr.Error)
+			if !ok || awsError.Code() != "ResourceNotFoundException" {
+				return nil, err
+			}
+		} else if len(resp.Events) > 0 {
 			return resp, nil
 		}
 		time.Sleep(time.Second)
