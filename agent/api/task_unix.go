@@ -16,7 +16,6 @@
 package api
 
 import (
-	"path/filepath"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -47,17 +46,6 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 }
 
 func getCanonicalPath(path string) string { return path }
-
-// BuildCgroupRoot helps build the task cgroup prefix
-// Example: /ecs/task-id
-func (task *Task) BuildCgroupRoot() (string, error) {
-	taskID, err := task.GetID()
-	if err != nil {
-		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
-	}
-
-	return filepath.Join(config.DefaultTaskCgroupPrefix, taskID), nil
-}
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup
 func (task *Task) BuildLinuxResourceSpec() (specs.LinuxResources, error) {
@@ -170,11 +158,7 @@ func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
 	task.memoryCPULimitsEnabledLock.RLock()
 	defer task.memoryCPULimitsEnabledLock.RUnlock()
 	if task.MemoryCPULimitsEnabled {
-		cgroupRoot, err := task.BuildCgroupRoot()
-		if err != nil {
-			return errors.Wrapf(err, "task cgroup override: unable to obtain cgroup root for task: %s", task.Arn)
-		}
-		hostConfig.CgroupParent = cgroupRoot
+		hostConfig.CgroupParent = config.DefaultTaskCgroupPrefix
 	}
 	return nil
 }

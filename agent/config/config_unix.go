@@ -26,7 +26,7 @@ const (
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
 	// Default cgroup prefix for ECS tasks
-	DefaultTaskCgroupPrefix = "/ecs"
+	DefaultTaskCgroupPrefix = "/docker"
 )
 
 // DefaultConfig returns the default configuration for Linux
