@@ -17,3 +17,4 @@ _bin/
 /misc/pause-container/pause
 *-stamp
 /.idea/
+/misc/taskmetadata-validator/taskmetadata-validator

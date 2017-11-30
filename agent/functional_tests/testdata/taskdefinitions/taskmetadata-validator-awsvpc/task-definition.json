@@ -1,0 +1,9 @@
+{
+  "family": "ecsftest-taskmetadata-validator-awsvpc",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51670/amazon/amazon-ecs-taskmetadata-validator:latest",
+    "name": "taskmetadata-validator",
+    "memory": 50
+  }]
+}
