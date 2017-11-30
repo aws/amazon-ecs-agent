@@ -134,7 +134,7 @@ var (
 		Cluster:       clusterName,
 		TaskARN:       taskARN,
 		Family:        family,
-		Version:       version,
+		Revision:      version,
 		DesiredStatus: statusRunning,
 		KnownStatus:   statusRunning,
 		Containers:    []v2.ContainerResponse{expectedContainerResponse},
