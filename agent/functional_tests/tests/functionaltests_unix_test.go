@@ -669,3 +669,24 @@ func TestMetadataServiceValidator(t *testing.T) {
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
+
+func TestTaskMetadataValidator(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0-ce")
+	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
+	defer agent.Cleanup()
+
+	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc")
+	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(2 * time.Minute)
+	}()
+
+	err = task.WaitStopped(3 * time.Minute)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
