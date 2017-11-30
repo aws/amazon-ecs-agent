@@ -572,7 +572,7 @@ func TestNetworkModeBridge(t *testing.T) {
 }
 
 func TestNetworkModeAWSVPC(t *testing.T) {
-	RequireDockerVersion(t, ">=17.06.0-ce")
+	RequireDockerVersion(t, ">=17.06.0")
 	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
 	defer agent.Cleanup()
 
@@ -671,7 +671,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 }
 
 func TestTaskMetadataValidator(t *testing.T) {
-	RequireDockerVersion(t, ">=17.06.0-ce")
+	RequireDockerVersion(t, ">=17.06.0")
 	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
 	defer agent.Cleanup()
 
@@ -681,10 +681,10 @@ func TestTaskMetadataValidator(t *testing.T) {
 		if err := task.Stop(); err != nil {
 			return
 		}
-		task.WaitStopped(2 * time.Minute)
+		task.WaitStopped(waitTaskStateChangeDuration)
 	}()
 
-	err = task.WaitStopped(3 * time.Minute)
+	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
 	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
 
