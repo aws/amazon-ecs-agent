@@ -10,18 +10,15 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-.PHONY: all clean docker image
+.PHONY: all clean taskmetadata-validator image
 
 all: taskmetadata-validator image
 
-#VENDOR_DIR=$(shell echo $(cd ../../agent/vendor; pwd))
-VENDOR_DIR=$(shell echo $(cd ../../agent/vendor; pwd))
 taskmetadata-validator: taskmetadata-validator.go
 	@./build-in-docker
 
 image: taskmetadata-validator
 	@./docker-image
-
 
 clean:
 	rm -f taskmetadata-validator
