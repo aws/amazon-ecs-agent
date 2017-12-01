@@ -222,8 +222,8 @@ func (agent *TestAgent) StartTaskWithTaskDefinitionOverrides(t *testing.T, task 
 }
 
 // StartAWSVPCTask starts a task with "awsvpc" networking mode
-func (agent *TestAgent) StartAWSVPCTask(task string) (*TestTask, error) {
-	td, err := GetTaskDefinition(task)
+func (agent *TestAgent) StartAWSVPCTask(task string, overrides map[string]string) (*TestTask, error) {
+	td, err := GetTaskDefinitionWithOverrides(task, overrides)
 	if err != nil {
 		return nil, err
 	}
