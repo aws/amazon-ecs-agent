@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+* Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
+
 ## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
 * Feature - Enable support for task level CPU and memory constraints.
