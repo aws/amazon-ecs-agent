@@ -68,7 +68,7 @@ func TestSavedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testTask.WaitRunning(1 * time.Minute)
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestSavedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testTask.WaitStopped(1 * time.Minute)
+	testTask.WaitStopped(waitTaskStateChangeDuration)
 }
 
 // TestSavedStateWithInvalidImageAndCleanup verifies that a task definition with an invalid image does not prevent the
