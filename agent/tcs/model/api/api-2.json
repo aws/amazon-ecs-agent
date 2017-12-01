@@ -1,4 +1,5 @@
 {
+  "version":"2.0",
   "metadata":{
     "apiVersion":"2015-03-10",
     "endpointPrefix":"ecstcs",
@@ -17,6 +18,33 @@
         "requestUri":"/"
       },
       "input":{"shape":"HeartbeatMessage"}
+    },
+    "PublishHealth":{
+      "name":"PublishHealth",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PublishHealthRequest"},
+      "output":{"shape":"AckPublishHealth"},
+      "errors":[
+        {
+          "shape":"BadRequestException",
+          "exception":true
+        },
+        {
+          "shape":"ResourceValidationException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ServerException",
+          "exception":true
+        }
+      ]
     },
     "PublishMetrics":{
       "name":"PublishMetrics",
@@ -70,6 +98,12 @@
     }
   },
   "shapes":{
+    "AckPublishHealth":{
+      "type":"structure",
+      "members":{
+        "message":{"shape":"String"}
+      }
+    },
     "AckPublishMetric":{
       "type":"structure",
       "members":{
@@ -93,6 +127,18 @@
         "sum":{"shape":"Double"}
       }
     },
+    "ContainerHealth":{
+      "type":"structure",
+      "members":{
+        "containerName":{"shape":"String"},
+        "healthStatus":{"shape":"HealthStatus"},
+        "statusSince":{"shape":"Timestamp"}
+      }
+    },
+    "ContainerHealths":{
+      "type":"list",
+      "member":{"shape":"ContainerHealth"}
+    },
     "ContainerMetric":{
       "type":"structure",
       "members":{
@@ -105,6 +151,23 @@
       "member":{"shape":"ContainerMetric"}
     },
     "Double":{"type":"double"},
+    "HealthMetadata":{
+      "type":"structure",
+      "members":{
+        "cluster":{"shape":"String"},
+        "containerInstance":{"shape":"String"},
+        "messageId":{"shape":"String"},
+        "fin":{"shape":"Boolean"}
+      }
+    },
+    "HealthStatus":{
+      "type":"string",
+      "enum":[
+        "HEALTHY",
+        "UNHEALTHY",
+        "UNKNOWN"
+      ]
+    },
     "HeartbeatMessage":{
       "type":"structure",
       "members":{
@@ -127,6 +190,14 @@
         "messageId":{"shape":"String"},
         "idle":{"shape":"Boolean"},
         "fin":{"shape":"Boolean"}
+      }
+    },
+    "PublishHealthRequest":{
+      "type":"structure",
+      "members":{
+        "metadata":{"shape":"HealthMetadata"},
+        "tasks":{"shape":"TaskHealths"},
+        "timestamp":{"shape":"Timestamp"}
       }
     },
     "PublishMetricsRequest":{
@@ -165,6 +236,19 @@
       }
     },
     "String":{"type":"string"},
+    "TaskHealth":{
+      "type":"structure",
+      "members":{
+        "taskArn":{"shape":"String"},
+        "taskDefinitionFamily":{"shape":"String"},
+        "taskDefinitionVersion":{"shape":"String"},
+        "containers":{"shape":"ContainerHealths"}
+      }
+    },
+    "TaskHealths":{
+      "type":"list",
+      "member":{"shape":"TaskHealth"}
+    },
     "TaskMetric":{
       "type":"structure",
       "members":{
