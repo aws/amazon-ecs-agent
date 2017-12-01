@@ -672,10 +672,24 @@ func TestMetadataServiceValidator(t *testing.T) {
 
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0")
-	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
 	defer agent.Cleanup()
 
-	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc")
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
 	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
 	defer func() {
 		if err := task.Stop(); err != nil {

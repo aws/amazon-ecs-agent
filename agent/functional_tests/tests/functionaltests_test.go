@@ -323,7 +323,7 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 // awsvpcNetworkModeTest tests if the 'awsvpc' network mode works properly
 func awsvpcNetworkModeTest(t *testing.T, agent *TestAgent) error {
 	// Start task with network mode set to 'awsvpc'
-	task, err := agent.StartAWSVPCTask(awsvpcTaskDefinition)
+	task, err := agent.StartAWSVPCTask(awsvpcTaskDefinition, nil)
 	if err != nil {
 		return fmt.Errorf("unable to start task with 'awsvpc' network mode: %v", err)
 	}
