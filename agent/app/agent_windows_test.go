@@ -40,7 +40,6 @@ func (m *mockAgent) start() int {
 func (m *mockAgent) setTerminationHandler(handler sighandlers.TerminationHandler) {
 	m.terminationHandler = handler
 }
-func (m *mockAgent) printVersion() int        { return 0 }
 func (m *mockAgent) printECSAttributes() int  { return 0 }
 func (m *mockAgent) startWindowsService() int { return 0 }
 

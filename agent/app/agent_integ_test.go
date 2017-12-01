@@ -32,7 +32,7 @@ func TestNewAgent(t *testing.T) {
 	agent, err := newAgent(ctx, true, aws.Bool(true))
 
 	assert.NoError(t, err)
-	// printVersion should ensure that agent's cfg is set with
+	// printECSAttributes should ensure that agent's cfg is set with
 	// valid values and not panic
-	assert.Equal(t, exitcodes.ExitSuccess, agent.printVersion())
+	assert.Equal(t, exitcodes.ExitSuccess, agent.printECSAttributes())
 }

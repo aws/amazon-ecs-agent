@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+* Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
+
 ## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
 * Feature - Enable support for task level CPU and memory constraints.
