@@ -98,6 +98,17 @@ func TestOOMContainer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestOOMTask verifies that a task with a memory limit returns an error
+func TestOOMTask(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTask(t, "oom-task")
+	require.NoError(t, err, "Expected to start invalid-image task")
+	err = testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
+	assert.NoError(t, err)
+}
+
 func strptr(s string) *string { return &s }
 
 func TestCommandOverrides(t *testing.T) {

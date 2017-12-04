@@ -15,6 +15,7 @@ package ioutilwrapper
 
 import (
 	"io/ioutil"
+	"os"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 )
@@ -22,6 +23,7 @@ import (
 // IOUtil wraps 'io/util' methods for testing
 type IOUtil interface {
 	TempFile(string, string) (oswrapper.File, error)
+	WriteFile(string, []byte, os.FileMode) error
 }
 
 type ioUtil struct {
@@ -34,4 +36,8 @@ func NewIOUtil() IOUtil {
 
 func (*ioUtil) TempFile(dir string, prefix string) (oswrapper.File, error) {
 	return ioutil.TempFile(dir, prefix)
+}
+
+func (*ioUtil) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return ioutil.WriteFile(filename, data, perm)
 }

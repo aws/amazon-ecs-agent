@@ -17,12 +17,14 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
 	"github.com/stretchr/testify/assert"
 
@@ -39,13 +41,14 @@ func TestInitHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
 		mockControl.EXPECT().Init().Return(nil),
 	)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Init())
 }
 
@@ -54,10 +57,11 @@ func TestInitCgroupExistsHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	mockControl.EXPECT().Exists(gomock.Any()).Return(true)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Init())
 }
 
@@ -66,13 +70,14 @@ func TestInitErrorPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
 		mockControl.EXPECT().Init().Return(errors.New("cgroup init error")),
 	)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Init())
 }
 
@@ -82,15 +87,20 @@ func TestSetupHappyPath(t *testing.T) {
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	mockCgroup := mock_cgroups.NewMockCgroup(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
+	taskid, err := task.GetID()
+	assert.NoError(t, err)
+	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskid)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
 		mockControl.EXPECT().Create(gomock.Any()).Return(mockCgroup, nil),
+		mockIO.EXPECT().WriteFile(cgroupPath, gomock.Any(), gomock.Any()).Return(nil),
 	)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Setup(task))
 }
 
@@ -99,12 +109,13 @@ func TestSetupInvalidTaskARN(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := &api.Task{
 		Arn: invalidTaskArn,
 	}
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Setup(task))
 }
 
@@ -113,12 +124,13 @@ func TestSetupCgroupExists(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
 
 	mockControl.EXPECT().Exists(gomock.Any()).Return(true)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Setup(task))
 }
 
@@ -127,13 +139,14 @@ func TestSetupCgroupInvalidResourceSpec(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
 	task.CPU = float64(100)
 
 	mockControl.EXPECT().Exists(gomock.Any()).Return(false)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Setup(task))
 }
 
@@ -142,6 +155,7 @@ func TestSetupCgroupCreateError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockCgroup := mock_cgroups.NewMockCgroup(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
@@ -151,7 +165,7 @@ func TestSetupCgroupCreateError(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(mockCgroup, errors.New("cgroup create error")),
 	)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Setup(task))
 }
 
@@ -160,12 +174,13 @@ func TestCleanupHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(nil)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Cleanup(task))
 }
 
@@ -174,12 +189,13 @@ func TestCleanupRemoveError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(errors.New("cgroup remove error"))
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Cleanup(task))
 }
 
@@ -188,12 +204,13 @@ func TestCleanupInvalidTaskARN(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := &api.Task{
 		Arn: invalidTaskArn,
 	}
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.Error(t, resource.Cleanup(task))
 }
 
@@ -202,11 +219,12 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(cgroups.ErrCgroupDeleted)
 
-	resource := newResources(mockControl)
+	resource := newResources(mockControl, mockIO)
 	assert.NoError(t, resource.Cleanup(task))
 }

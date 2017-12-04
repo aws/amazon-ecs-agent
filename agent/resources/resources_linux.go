@@ -16,27 +16,39 @@
 package resources
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
 	"github.com/pkg/errors"
 )
 
+const (
+	memorySubsystem    = "/sys/fs/cgroup/memory/"
+	memoryUseHierarchy = "memory.use_hierarchy"
+)
+
 // cgroupWrapper implements the Resource interface
 type cgroupWrapper struct {
 	control cgroup.Control
+	ioutil  ioutilwrapper.IOUtil
 }
 
 // New is used to return an object that implements the Resource interface
 func New() Resource {
-	return newResources(cgroup.New())
+	return newResources(cgroup.New(), ioutilwrapper.NewIOUtil())
 }
 
-func newResources(control cgroup.Control) Resource {
+func newResources(control cgroup.Control, ioutil ioutilwrapper.IOUtil) Resource {
 	return &cgroupWrapper{
 		control: control,
+		ioutil:  ioutil,
 	}
 }
 
@@ -91,6 +103,12 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	_, err = c.control.Create(&cgroupSpec)
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to create cgroup at %s for task: %s", cgroupRoot, task.Arn)
+	}
+
+	// echo 1 > memory.use_hierarchy
+	err = c.ioutil.WriteFile(filepath.Join(memorySubsystem, cgroupRoot, memoryUseHierarchy), []byte(strconv.Itoa(1)), os.FileMode(0))
+	if err != nil {
+		return errors.Wrapf(err, "resource: setup cgroup: unable to set use hierarchy flag for task: %s", task.Arn)
 	}
 
 	return nil
