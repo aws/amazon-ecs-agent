@@ -3,6 +3,7 @@
 ## Unreleased
 * Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
+* Bug - Persist container exit code in agent state file [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
 
 ## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
