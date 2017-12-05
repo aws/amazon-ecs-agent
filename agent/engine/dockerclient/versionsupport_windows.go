@@ -46,9 +46,23 @@ func getWindowsReplaceableVersions() []DockerVersion {
 	}
 }
 
-// getAgentVersions for Windows should return all of the replaceable versions plus additional versions
+// getWindowsSupportedVersions returns the set of remote api versions that are
+// supported by agent in windows
+func getWindowsSupportedVersions() []DockerVersion {
+	return []DockerVersion{
+		Version_1_24,
+		Version_1_25,
+		Version_1_26,
+		Version_1_27,
+		Version_1_28,
+		Version_1_29,
+		Version_1_30,
+	}
+}
+
+// getAgentVersions for Windows should return all of the replaceable versions plus supported versions
 func getAgentVersions() []DockerVersion {
-	return append(getWindowsReplaceableVersions(), minDockerAPIVersion)
+	return append(getWindowsReplaceableVersions(), getWindowsSupportedVersions()...)
 }
 
 // getDefaultVersion returns agent's default version of the Docker API
