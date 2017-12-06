@@ -24,7 +24,7 @@ Begin {
     $Script:ServiceName = "AmazonECS"
     if (Get-Service | ?{$_.Name -eq "$($Script:ServiceName)"}) {
         Write-Host "The $($Script:ServiceName) service already exists."
-        return
+        exit
     }
     Function Initialize-Directory {
         Param (
