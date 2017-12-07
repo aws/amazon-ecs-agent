@@ -65,3 +65,15 @@ func (_m *MockEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.T
 func (_mr *_MockEngineRecorder) GetInstanceMetrics() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInstanceMetrics")
 }
+
+func (_m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	ret := _m.ctrl.Call(_m, "GetTaskHealthMetrics")
+	ret0, _ := ret[0].(*ecstcs.HealthMetadata)
+	ret1, _ := ret[1].([]*ecstcs.TaskHealth)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockEngineRecorder) GetTaskHealthMetrics() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskHealthMetrics")
+}
