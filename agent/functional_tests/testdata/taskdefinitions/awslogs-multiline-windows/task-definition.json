@@ -1,0 +1,21 @@
+{
+  "family": "ecs-awslogs-multiline-windows-test",
+  "containerDefinitions": [{
+    "essential": true,
+    "memory": 512,
+    "name": "awslogs-multiline-windows",
+    "cpu": 1024,
+    "image": "microsoft/windowsservercore:latest",
+    "entryPoint": ["powershell"],
+    "command": ["echo", "\"INFO: ECS Agent\nRunning\nINFO: Instance\""],
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group":"ecs-functional-tests",
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests",
+            "awslogs-multiline-pattern":"^INFO"
+        }
+    }
+  }]
+}
