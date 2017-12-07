@@ -397,7 +397,7 @@ func TestInitProcessEnabled(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.14.5")
+	agent.RequireVersion(">=1.15.0")
 
 	td, err := GetTaskDefinition("init-process")
 	if err != nil {

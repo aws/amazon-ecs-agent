@@ -55,7 +55,7 @@ type DockerContainerMetadataResolver struct {
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error)
-	GetContainerHealthMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
+	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -317,11 +317,107 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 	return metricsMetadata, taskMetrics, nil
 }
 
+// GetTaskHealthMetrics returns the container health metrics
+func (engine *DockerStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	var taskHealths []*ecstcs.TaskHealth
+	idle := engine.isHealthContainerIdle()
+	metadata := &ecstcs.HealthMetadata{
+		Cluster:           aws.String(engine.cluster),
+		ContainerInstance: aws.String(engine.containerInstanceArn),
+		Fin:               aws.Bool(idle),
+		MessageId:         aws.String(uuid.NewRandom().String()),
+	}
+
+	if idle {
+		seelog.Debug("Instance is idle. No task health metrics to report")
+		return metadata, taskHealths, nil
+	}
+
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	for taskARN := range engine.tasksToHealthCheckContainers {
+		taskHealth := engine.getTaskHealthUnsafe(taskARN)
+		if taskHealth == nil {
+			continue
+		}
+		taskHealths = append(taskHealths, taskHealth)
+	}
+
+	if len(taskHealths) == 0 {
+		return nil, nil, EmptyMetricsError
+	}
+
+	return metadata, taskHealths, nil
+}
+
 func (engine *DockerStatsEngine) isIdle() bool {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
 	return len(engine.tasksToContainers) == 0
+}
+
+func (engine *DockerStatsEngine) isHealthContainerIdle() bool {
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	return len(engine.tasksToHealthCheckContainers) == 0
+}
+
+func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.TaskHealth {
+	// Acquire the task definition information
+	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
+	if !ok {
+		seelog.Debugf("Could not map task to definitions, task: %s", taskARN)
+		return nil
+	}
+	// Check all the stats container for the task
+	containers, ok := engine.tasksToHealthCheckContainers[taskARN]
+	if !ok {
+		seelog.Debugf("Could not map task to health containers, task: %s", taskARN)
+		return nil
+	}
+
+	// Aggregate container health information for all the containers in the task
+	var containerHealths []*ecstcs.ContainerHealth
+	for _, container := range containers {
+		dockerContainer, err := engine.resolver.ResolveContainer(container.containerMetadata.DockerID)
+		if err != nil {
+			seelog.Debugf("Could not resolve the Docker ID in agent state: %s", container.containerMetadata.DockerID)
+			continue
+		}
+
+		// Check if the container has health check enabled
+		if !dockerContainer.Container.HealthCheckShouldBeReported() {
+			continue
+		}
+
+		healthInfo := dockerContainer.Container.GetHealthStatus()
+		if healthInfo.Since == nil {
+			// container was started but the health status isn't ready
+			healthInfo.Since = aws.Time(time.Now())
+		}
+		containerHealth := &ecstcs.ContainerHealth{
+			ContainerName: aws.String(dockerContainer.Container.Name),
+			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
+			StatusSince:   aws.Time(healthInfo.Since.UTC()),
+		}
+		containerHealths = append(containerHealths, containerHealth)
+	}
+
+	if len(containerHealths) == 0 {
+		return nil
+	}
+
+	taskHealth := &ecstcs.TaskHealth{
+		Containers:            containerHealths,
+		TaskArn:               aws.String(taskARN),
+		TaskDefinitionFamily:  aws.String(taskDefinition.family),
+		TaskDefinitionVersion: aws.String(taskDefinition.version),
+	}
+
+	return taskHealth
 }
 
 // handleDockerEvents must be called after openEventstream; it processes each
@@ -456,7 +552,6 @@ func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContain
 	container.StopStatsCollection()
 	dockerID := container.containerMetadata.DockerID
 	delete(engine.tasksToContainers[taskArn], dockerID)
-	delete(engine.tasksToHealthCheckContainers[taskArn], dockerID)
 	seelog.Debugf("Deleted container from tasks, id: %s", dockerID)
 
 	if len(engine.tasksToContainers[taskArn]) == 0 {
@@ -468,6 +563,12 @@ func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContain
 		seelog.Debugf("Deleted task from tasks, arn: %s", taskArn)
 	}
 
+	// Remove the container from health container watch list
+	if _, ok := engine.tasksToHealthCheckContainers[taskArn][dockerID]; !ok {
+		return
+	}
+
+	delete(engine.tasksToHealthCheckContainers[taskArn], dockerID)
 	if len(engine.tasksToHealthCheckContainers[taskArn]) == 0 {
 		delete(engine.tasksToHealthCheckContainers, taskArn)
 		seelog.Debugf("Deleted task from container health watch list, arn: %s", taskArn)
