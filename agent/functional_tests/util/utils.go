@@ -614,6 +614,33 @@ func RequireDockerVersion(t *testing.T, selector string) {
 	}
 }
 
+func RequireDockerAPIVersion(t *testing.T, selector string) {
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		t.Fatalf("Could not get docker client to check version: %v", err)
+	}
+	dockerVersion, err := dockerClient.Version()
+	if err != nil {
+		t.Fatalf("Could not get docker version: %v", err)
+	}
+
+	version := dockerVersion.Get("ApiVersion")
+
+	// adding zero patch to use semver comparator
+	// TODO: Implement non-semver comparator
+	version += ".0"
+	selector += ".0"
+
+	match, err := utils.Version(version).Matches(selector)
+	if err != nil {
+		t.Fatalf("Could not check docker api version to match required: %v", err)
+	}
+
+	if !match {
+		t.Skipf("Skipping test; requires %v, but api version is %v", selector, version)
+	}
+}
+
 // GetInstanceProfileName gets the instance profile name
 func GetInstanceMetadata(path string) (string, error) {
 	ec2MetadataClient := ec2metadata.New(session.New())
