@@ -16,7 +16,7 @@ permissions and limitations under the License.
 ECS relies on the networking capability provided by Docker to set up the
 network stack for containers. ECS supports the `none` (network interface is not
 configured for any container in the task), `bridge` (a primary network interface
-is configured for containers using by creating a pair of `veth` devices and
+is configured for containers by creating a pair of `veth` devices and
 attaching one to the `docker0` bridge and the other to the container) and `host`
 (containers just use host's global default namespace) networking modes. As per
 comments in [this github issue](https://github.com/aws/amazon-ecs-agent/issues/185),
