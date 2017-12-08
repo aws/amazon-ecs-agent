@@ -322,7 +322,7 @@ func TestAWSLogsDriver(t *testing.T) {
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
-	taskID, err := GetTaskID(*testTask.TaskArn)
+	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
 	require.NoError(t, err)
 
 	// Delete the log stream after the test
@@ -722,21 +722,19 @@ func TestExecutionRole(t *testing.T) {
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
 			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
-			"ECS_ENABLE_TASK_IAM_ROLE":                  "true",
-		},
-		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
 		},
 	}
+
+	// Run the agent container with host network mode
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
+
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 	tdOverrides := make(map[string]string)
 	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
 
-	tdOverrides["$$$$TEST_REGION$$$$"] = *ECS.Config.Region
+	tdOverrides["$$$$TEST_REGION$$$$"] = aws.StringValue(ECS.Config.Region)
 	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
 	tdOverrides["$$$$IMAGE$$$$"] = testImage
 
