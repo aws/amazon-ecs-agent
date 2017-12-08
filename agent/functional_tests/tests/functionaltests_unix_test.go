@@ -427,8 +427,8 @@ func TestTelemetry(t *testing.T) {
 
 func TestTaskIAMRolesNetHostMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
-	if os.Getenv("TEST_TASK_IAM_ROLE_NET_HOST") != "true" {
-		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_TASK_IAM_ROLE_NET_HOST isn't set true")
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE_NET_HOST") == "true" {
+		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_DISABLE_TASK_IAM_ROLE_NET_HOST is set true")
 	}
 	agentOptions := &AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -450,8 +450,8 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 
 func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
-	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
-		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_TASK_IAM_ROLE isn't set true")
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE") == "true" {
+		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_DISABLE_TASK_IAM_ROLE is set true")
 	}
 
 	agentOptions := &AgentOptions{
@@ -708,8 +708,8 @@ func TestTaskMetadataValidator(t *testing.T) {
 // TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
 // send logs to cloudwatch with awslogs driver
 func TestExecutionRole(t *testing.T) {
-	if os.Getenv("TEST_EXECUTION_ROLE") != "true" {
-		t.Skip("TEST_EXECUTION_ROLE was not set to true")
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
 	}
 
 	RequireDockerVersion(t, ">=17.06.2-ce") // awslogs drivers with execution role available from docker 17.06.2
