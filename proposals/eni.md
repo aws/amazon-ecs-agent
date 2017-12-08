@@ -106,7 +106,7 @@ that they use the `pause` container's network namespace.
 
 #### CNI Plugin Sequence
 1. Plugin to assign ENI to a network namespace:
-	1. Get MAC Address for the ENI from EC2 Instance Metaddata Service
+	1. Get MAC Address for the ENI from EC2 Instance Metadata Service
 	1. Get ENI device name on default namespace
 	1. Get network gateway mask
 	1. Get Primary IP Address of the ENI
