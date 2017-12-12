@@ -15,13 +15,14 @@ package resources
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
 // Resource interface to interact with platform level resource constructs
 // Resource is exposed as a platform agnostic abstraction
 type Resource interface {
 	// Init is used to initialize the resource
-	Init() error
+	Init(config *config.Config) error
 	// Setup sets up the resource
 	Setup(task *api.Task) error
 	// Cleanup removes the resource

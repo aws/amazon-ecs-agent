@@ -16,6 +16,7 @@
 package cgroup
 
 import (
+	"fmt"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
 	"github.com/cihub/seelog"
@@ -23,12 +24,12 @@ import (
 )
 
 // Init is used to setup the cgroup root for ecs
-func (c *control) Init() error {
-	seelog.Infof("Creating root ecs cgroup: %s", config.DefaultTaskCgroupPrefix)
+func (c *control) Init(config *config.Config) error {
+	seelog.Infof("Creating root ecs cgroup: %s.slice", config.CgroupPrefix)
 
 	// Build cgroup spec
 	cgroupSpec := &Spec{
-		Root:  config.DefaultTaskCgroupPrefix,
+		Root:  fmt.Sprintf("%s.slice", config.CgroupPrefix),
 		Specs: &specs.LinuxResources{},
 	}
 	_, err := c.Create(cgroupSpec)

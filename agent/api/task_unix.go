@@ -16,7 +16,8 @@
 package api
 
 import (
-	"path/filepath"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -44,6 +45,7 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.memoryCPULimitsEnabledLock.Lock()
 	defer task.memoryCPULimitsEnabledLock.Unlock()
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
+	task.cgroupPrefix = cfg.CgroupPrefix
 }
 
 func getCanonicalPath(path string) string { return path }
@@ -56,7 +58,8 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
 	}
 
-	return filepath.Join(config.DefaultTaskCgroupPrefix, taskID), nil
+	// See https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/resource_management_guide/sec-default_cgroup_hierarchies
+	return fmt.Sprintf("%s-%s.slice", task.cgroupPrefix, strings.Replace(taskID, "-", "_", -1)), nil
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup
