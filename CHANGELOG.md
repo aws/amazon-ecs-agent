@@ -1,9 +1,13 @@
 # Changelog
 
 ## Unreleased
+
+## 1.17.0
 * Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
+* Enhancement - Add a rate limiter for the task metadata endpoint [#1110](https://github.com/aws/amazon-ecs-agent/pull/1110)
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
 * Bug - Persist container exit code in agent state file [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
+* Bug - Fixed a bug where agent tries to remove old state file that does not exist on startup [#1108](https://github.com/aws/amazon-ecs-agent/pull/1108) 
 
 ## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
