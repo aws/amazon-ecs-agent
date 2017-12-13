@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	v2MetadataEndpoint = "http://169.254.170.2/v2/metadata"
-	v2StatsEndpoint    = "http://169.254.170.2/v2/stats"
+	v2MetadataEndpoint     = "http://169.254.170.2/v2/metadata"
+	v2StatsEndpoint        = "http://169.254.170.2/v2/stats"
+	maxRetries             = 4
+	durationBetweenRetries = time.Second
 )
 
 // TaskResponse defines the schema for the task response JSON object
@@ -145,6 +147,22 @@ func containerStats(client *http.Client, id string) (*docker.Stats, error) {
 }
 
 func metadataResponse(client *http.Client, endpoint string, respType string) ([]byte, error) {
+	var resp []byte
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		resp, err = metadataResponseOnce(client, endpoint, respType)
+		if err == nil {
+			return resp, nil
+		}
+		fmt.Fprintf(os.Stderr, "Attempt [%d/%d]: unable to get metadata response for '%s' from '%s': %v",
+			i, maxRetries, respType, endpoint, err)
+		time.Sleep(durationBetweenRetries)
+	}
+
+	return nil, err
+}
+
+func metadataResponseOnce(client *http.Client, endpoint string, respType string) ([]byte, error) {
 	resp, err := client.Get(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to get response: %v", respType, err)
@@ -163,7 +181,7 @@ func metadataResponse(client *http.Client, endpoint string, respType string) ([]
 
 func main() {
 	client := &http.Client{
-		Timeout: 20 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 
 	taskMetadata, err := taskMetadata(client)
