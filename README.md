@@ -1,5 +1,7 @@
 # Amazon Elastic Container Service RPM
 
+[![Build Status](https://travis-ci.org/aws/amazon-ecs-init.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-init)
+
 The Amazon Elastic Container Service RPM is software developed to support the [Amazon ECS Container
 Agent](http://github.com/aws/amazon-ecs-agent).  The Amazon ECS RPM is packaged for RPM-based systems that utilize
 [Upstart](http://upstart.ubuntu.com) as the init system.
