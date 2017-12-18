@@ -174,3 +174,32 @@ func TestHealthBackendStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestUnmarshalContainerHealthStatus(t *testing.T) {
+	testCases := []struct {
+		Status ContainerHealthStatus
+		String string
+	}{
+		{
+			Status: ContainerHealthUnknown,
+			String: `"UNKNOWN"`,
+		},
+		{
+			Status: ContainerHealthy,
+			String: `"HEALTHY"`,
+		},
+		{
+			Status: ContainerUnhealthy,
+			String: `"UNHEALTHY"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Status: %s, String value: %s", tc.Status, tc.String), func(t *testing.T) {
+			var status ContainerHealthStatus
+			err := json.Unmarshal([]byte(tc.String), &status)
+			assert.NoError(t, err)
+			assert.Equal(t, status, tc.Status)
+		})
+	}
+}

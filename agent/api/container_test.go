@@ -16,6 +16,7 @@ package api
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
@@ -185,6 +186,9 @@ func TestSetHealtStatus(t *testing.T) {
 	assert.Equal(t, health2.Status, ContainerHealthy)
 	assert.Equal(t, health2.Since, health.Since)
 
+	// the sleep is to ensure the different of the two timestamp returned by time.Now()
+	// is big enough to pass asser.NotEqual
+	time.Sleep(10 * time.Millisecond)
 	// change the container health status
 	container.SetHealthStatus(HealthStatus{Status: ContainerUnhealthy, ExitCode: 1})
 	health3 := container.GetHealthStatus()

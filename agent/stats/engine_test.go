@@ -15,12 +15,16 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -274,4 +278,115 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error validating metadata: %v", err)
 	}
+}
+
+func TestGetTaskHealthMetrics(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	containerID := "containerID"
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+		DockerID: containerID,
+		Container: &api.Container{
+			HealthCheckType: "docker",
+			Health: api.HealthStatus{
+				Status: api.ContainerHealthy,
+				Since:  aws.Time(time.Now()),
+			},
+		},
+	}, nil)
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	engine.containerInstanceArn = "container_instance"
+
+	containerToStats := make(map[string]*StatsContainer)
+	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	engine.tasksToHealthCheckContainers["t1"] = containerToStats
+	engine.tasksToDefinitions["t1"] = &taskDefinition{
+		family:  "f1",
+		version: "1",
+	}
+
+	engine.resolver = resolver
+	metadata, taskHealth, err := engine.GetTaskHealthMetrics()
+	assert.NoError(t, err)
+
+	assert.Equal(t, aws.StringValue(metadata.ContainerInstance), "container_instance")
+	assert.Len(t, taskHealth, 1)
+	assert.Len(t, taskHealth[0].Containers, 1)
+	assert.Equal(t, aws.StringValue(taskHealth[0].Containers[0].HealthStatus), "HEALTHY")
+}
+
+// TestMetricsDisabled tests container won't call docker api to collect stats
+// but will track container health when metrics is disabled in agent.
+func TestMetricsDisabled(t *testing.T) {
+	disableMetricsConfig := cfg
+	disableMetricsConfig.DisableMetrics = true
+
+	containerID := "containerID"
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	resolver.EXPECT().ResolveTask(containerID).Return(&api.Task{
+		Arn:               "t1",
+		KnownStatusUnsafe: api.TaskRunning,
+		Family:            "f1",
+	}, nil)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+		DockerID: containerID,
+		Container: &api.Container{
+			HealthCheckType: "docker",
+		},
+	}, nil)
+
+	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"))
+	engine.resolver = resolver
+	engine.addAndStartStatsContainer(containerID)
+
+	assert.Len(t, engine.tasksToContainers, 0, "No containers should be tracked if metrics is disabled")
+	assert.Len(t, engine.tasksToHealthCheckContainers, 1)
+}
+
+func TestSynchronizeOnRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	containerID := "containerID"
+	statsChan := make(chan *docker.Stats)
+	statsStarted := make(chan struct{})
+	client := ecsengine.NewMockDockerClient(ctrl)
+	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
+
+	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"))
+	engine.resolver = resolver
+
+	client.EXPECT().ListContainers(false, gomock.Any()).Return(ecsengine.ListContainersResponse{
+		DockerIDs: []string{containerID},
+	})
+	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {
+		statsStarted <- struct{}{}
+	}).Return(statsChan, nil)
+
+	resolver.EXPECT().ResolveTask(containerID).Return(&api.Task{
+		Arn:               "t1",
+		KnownStatusUnsafe: api.TaskRunning,
+		Family:            "f1",
+	}, nil)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+		DockerID: containerID,
+		Container: &api.Container{
+			HealthCheckType: "docker",
+		},
+	}, nil)
+	err := engine.synchronizeState()
+	assert.NoError(t, err)
+
+	assert.Len(t, engine.tasksToContainers, 1)
+	assert.Len(t, engine.tasksToHealthCheckContainers, 1)
+
+	statsContainer := engine.tasksToContainers["t1"][containerID]
+	assert.NotNil(t, statsContainer)
+	<-statsStarted
+	statsContainer.StopStatsCollection()
 }

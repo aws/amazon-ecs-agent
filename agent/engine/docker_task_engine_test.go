@@ -2288,3 +2288,33 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
 	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
 }
+
+// TestHandleDockerHealthEvent tests the docker health event will only cause the
+// container health status change
+func TestHandleDockerHealthEvent(t *testing.T) {
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	state := taskEngine.(*DockerTaskEngine).State()
+	testTask := testdata.LoadTask("sleep5")
+	testContainer := testTask.Containers[0]
+	testContainer.HealthCheckType = "docker"
+
+	state.AddTask(testTask)
+	state.AddContainer(&api.DockerContainer{DockerID: "id",
+		DockerName: "container_name",
+		Container:  testContainer,
+	}, testTask)
+
+	taskEngine.(*DockerTaskEngine).handleDockerEvent(DockerContainerChangeEvent{
+		Status: api.ContainerRunning,
+		Type:   api.ContainerHealthEvent,
+		DockerContainerMetadata: DockerContainerMetadata{
+			DockerID: "id",
+			Health: api.HealthStatus{
+				Status: api.ContainerHealthy,
+			},
+		},
+	})
+	assert.Equal(t, testContainer.Health.Status, api.ContainerHealthy)
+}

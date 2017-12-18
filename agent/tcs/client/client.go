@@ -266,7 +266,6 @@ func (cs *clientServer) publishHealthMetricsOnce() error {
 	if err != nil {
 		return err
 	}
-
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		err = cs.MakeRequest(request)
