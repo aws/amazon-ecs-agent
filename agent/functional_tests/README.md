@@ -42,12 +42,10 @@ execution behavior:
 * `ECS_FTEST_FORCE_NET_HOST`: Run the agent with `--net=host`
 
 #### Additional setup for IAM roles
-In order to run TaskIamRole functional tests, the following steps should b
+In order to run TaskIamRole functional tests, the following steps should be
 done first:
 * Run command: `sysctl -w net.ipv4.conf.all.route_localnet=1` and
   `iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679`.
-* Set the environment variable to enable the test under default network mode:
-  `export TEST_TASK_IAM_ROLE=true`.
 * Set the environment variable of IAM roles the test will use:
   `export TASK_IAM_ROLE_ARN="iam role arn"`. The role should have the
   `ec2:DescribeRegions` permission and have a trust relationship with
@@ -55,9 +53,16 @@ done first:
   isn't set, the test will use the IAM role attached to the instance profile.
   In this case, the IAM role should additionally have the
   `iam:GetInstanceProfile` permission.
+* To skip the test `TestTaskIAMRolesDefaultNetworkMode`, please set `TEST_DISABLE_TASK_IAM_ROLE` to be true.
 * Testing under net=host network mode requires additional commands:
   `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679`
-  and `export TEST_TASK_IAM_ROLE_NET_HOST=true`
+* To skip the test `TestTaskIAMRolesNetHostMode`, please set `TEST_DISABLE_TASK_IAM_ROLE_NET_HOST` to be true.
+
+
+#### Additional setup for EXECUTION roles
+* In order to run ExecutionRole functional test, the following environment variable needs to be set:
+* `ECS_FTS_EXECUTION_ROLE`: execution role arn. The role should have permission to cloudwatch logs and ECR pull.
+* To skip the test `TestExecutionRole`, please set `TEST_DISABLE_EXECUTION_ROLE` to be true.
 
 ### Windows
 

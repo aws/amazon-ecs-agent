@@ -17,10 +17,12 @@ package app
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -32,6 +34,10 @@ const (
 	//EcsSvcName is the name of the service
 	EcsSvcName = "AmazonECS"
 )
+
+func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) (error, bool) {
+	return errors.New("unsupported platform"), true
+}
 
 // startWindowsService runs the ECS agent as a Windows Service
 func (agent *ecsAgent) startWindowsService() int {

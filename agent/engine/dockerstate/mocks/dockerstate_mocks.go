@@ -75,6 +75,14 @@ func (_mr *_MockTaskEngineStateRecorder) AddTask(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTask", arg0)
 }
 
+func (_m *MockTaskEngineState) AddTaskIPAddress(_param0 string, _param1 string) {
+	_m.ctrl.Call(_m, "AddTaskIPAddress", _param0, _param1)
+}
+
+func (_mr *_MockTaskEngineStateRecorder) AddTaskIPAddress(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddTaskIPAddress", arg0, arg1)
+}
+
 func (_m *MockTaskEngineState) AllImageStates() []*image.ImageState {
 	ret := _m.ctrl.Call(_m, "AllImageStates")
 	ret0, _ := ret[0].([]*image.ImageState)
@@ -136,6 +144,17 @@ func (_m *MockTaskEngineState) GetAllContainerIDs() []string {
 
 func (_mr *_MockTaskEngineStateRecorder) GetAllContainerIDs() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllContainerIDs")
+}
+
+func (_m *MockTaskEngineState) GetTaskByIPAddress(_param0 string) (string, bool) {
+	ret := _m.ctrl.Call(_m, "GetTaskByIPAddress", _param0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockTaskEngineStateRecorder) GetTaskByIPAddress(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetTaskByIPAddress", arg0)
 }
 
 func (_m *MockTaskEngineState) MarshalJSON() ([]byte, error) {

@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,19 +46,27 @@ const (
 
 type mockStatsEngine struct{}
 
-func (engine *mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("uninitialized")
+}
+
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 type emptyStatsEngine struct{}
 
-func (engine *emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("empty stats")
+}
+
+func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 type idleStatsEngine struct{}
 
-func (engine *idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -65,6 +74,10 @@ func (engine *idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []
 		MessageId:         aws.String(testMessageId),
 	}
 	return metadata, []*ecstcs.TaskMetric{}, nil
+}
+
+func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 type nonIdleStatsEngine struct {
@@ -85,6 +98,10 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata,
 		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
 	}
 	return metadata, taskMetrics, nil
+}
+
+func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {

@@ -22,7 +22,7 @@ ECS_CNI_REPOSITORY_REVISION=master
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests gremlin benchmark-test gogenerate run-integ-tests image-cleanup-test-images pause-container get-cni-sources cni-plugins
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins
 
 all: docker
 
@@ -91,7 +91,7 @@ benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd
+test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -99,7 +99,7 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests: testnnp test-registry
+run-functional-tests: testnnp test-registry ecr-execution-role-image
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
 
 testnnp:
@@ -144,7 +144,7 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd
+.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -159,6 +159,11 @@ fluentd:
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
+
+taskmetadata-validator:
+	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
+ecr-execution-role-image:
+	$(MAKE) -C misc/ecr $(MFLAGS)
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
@@ -179,4 +184,5 @@ clean:
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
+	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-rm -f .get-deps-stamp

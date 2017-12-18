@@ -85,3 +85,7 @@
 
 [[constraint]]
   name = "golang.org/x/tools"
+
+[[constraint]]
+  name = "github.com/didip/tollbooth"
+  version = "3.0.2"

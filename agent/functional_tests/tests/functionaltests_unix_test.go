@@ -322,20 +322,20 @@ func TestAWSLogsDriver(t *testing.T) {
 
 	// Wait for the container to start
 	testTask.WaitRunning(waitTaskStateChangeDuration)
-	strs := strings.Split(*testTask.TaskArn, "/")
-	taskId := strs[len(strs)-1]
+	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
+	require.NoError(t, err)
 
 	// Delete the log stream after the test
 	defer func() {
 		cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
 			LogGroupName:  aws.String(awslogsLogGroupName),
-			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 		})
 	}()
 
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	}
 
 	resp, err := waitCloudwatchLogs(cwlClient, params)
@@ -425,10 +425,10 @@ func TestTelemetry(t *testing.T) {
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
-func TestTaskIamRolesNetHostMode(t *testing.T) {
+func TestTaskIAMRolesNetHostMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
-	if os.Getenv("TEST_TASK_IAM_ROLE_NET_HOST") != "true" {
-		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_TASK_IAM_ROLE_NET_HOST isn't set true")
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE_NET_HOST") == "true" {
+		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_DISABLE_TASK_IAM_ROLE_NET_HOST is set true")
 	}
 	agentOptions := &AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -445,13 +445,13 @@ func TestTaskIamRolesNetHostMode(t *testing.T) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	taskIamRolesTest("host", agent, t)
+	taskIAMRoles("host", agent, t)
 }
 
-func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
+func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
-	if os.Getenv("TEST_TASK_IAM_ROLE") != "true" {
-		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_TASK_IAM_ROLE isn't set true")
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE") == "true" {
+		t.Skip("Skipping test TaskIamRole in default network mode, as TEST_DISABLE_TASK_IAM_ROLE is set true")
 	}
 
 	agentOptions := &AgentOptions{
@@ -468,10 +468,10 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	taskIamRolesTest("bridge", agent, t)
+	taskIAMRoles("bridge", agent, t)
 }
 
-func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -551,14 +551,14 @@ func TestMemoryOvercommit(t *testing.T) {
 			containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024))
 }
 
-// TestNetworkModeBridge tests the container network can be configured
+// TestNetworkModeHost tests the container network can be configured
 // as host mode in task definition
 func TestNetworkModeHost(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "host")
-	require.NoError(t, err, "Networking mode host testing failed")
+	require.NoError(t, err, "Networking mode 'host' testing failed")
 }
 
 // TestNetworkModeBridge tests the container network can be configured
@@ -568,7 +568,16 @@ func TestNetworkModeBridge(t *testing.T) {
 	defer agent.Cleanup()
 
 	err := networkModeTest(t, agent, "bridge")
-	require.NoError(t, err, "Networking mode bridge testing failed")
+	require.NoError(t, err, "Networking mode 'bridge' testing failed")
+}
+
+func TestNetworkModeAWSVPC(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0")
+	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
+	defer agent.Cleanup()
+
+	err := awsvpcNetworkModeTest(t, agent)
+	require.NoError(t, err, "Networking mode 'awsvpc' testing failed")
 }
 
 // TestFluentdTag tests the fluentd logging driver option "tag"
@@ -659,4 +668,101 @@ func TestMetadataServiceValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+func TestTaskMetadataValidator(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0-ce")
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
+	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(waitTaskStateChangeDuration)
+	}()
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
+// send logs to cloudwatch with awslogs driver
+func TestExecutionRole(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	RequireDockerVersion(t, ">=17.06.2-ce") // awslogs drivers with execution role available from docker 17.06.2
+	accountID, err := GetAccountID()
+	assert.NoError(t, err, "acquiring account id failed")
+
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
+			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
+		},
+	}
+
+	// Run the agent container with host network mode
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
+
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+	tdOverrides := make(map[string]string)
+	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+
+	tdOverrides["$$$$TEST_REGION$$$$"] = aws.StringValue(ECS.Config.Region)
+	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+	tdOverrides["$$$$IMAGE$$$$"] = testImage
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "execution-role", tdOverrides)
+	require.NoError(t, err, "Expected to start task using awslogs driver failed")
+
+	// Wait for the container to start
+	testTask.WaitRunning(waitTaskStateChangeDuration)
+	taskID, err := GetTaskID(*testTask.TaskArn)
+	require.NoError(t, err)
+
+	// Delete the log stream after the test
+	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
+	})
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
+	}
+
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
+	// Search the audit log to verify the credential request from awslogs driver
+	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
+	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	require.NoError(t, err, "Verify credential request failed")
 }

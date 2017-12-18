@@ -15,31 +15,8 @@ package handlers
 
 import "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 
-type MetadataResponse struct {
-	Cluster              string
-	ContainerInstanceArn *string
-	Version              string
-}
-
-type TaskResponse struct {
-	Arn           string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Family        string
-	Version       string
-	Containers    []ContainerResponse
-}
-
-type TasksResponse struct {
-	Tasks []*TaskResponse
-}
-
-type ContainerResponse struct {
-	DockerId   string
-	DockerName string
-	Name       string
-}
-
+// DockerStateResolver is a sub-interface for the engine.TaskEngine interface
+// to make it easy to test code in this package
 type DockerStateResolver interface {
 	State() dockerstate.TaskEngineState
 }

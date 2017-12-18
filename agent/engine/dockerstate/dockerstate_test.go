@@ -174,8 +174,10 @@ func TestRemoveTask(t *testing.T) {
 	testContainer1 := &api.Container{
 		Name: "c1",
 	}
+
+	containerID := "did"
 	testDockerContainer1 := &api.DockerContainer{
-		DockerID:  "did",
+		DockerID:  containerID,
 		Container: testContainer1,
 	}
 	testContainer2 := &api.Container{
@@ -194,19 +196,24 @@ func TestRemoveTask(t *testing.T) {
 	state.AddTask(testTask)
 	state.AddContainer(testDockerContainer1, testTask)
 	state.AddContainer(testDockerContainer2, testTask)
-
+	addr := "169.254.170.3"
+	state.AddTaskIPAddress(addr, testTask.Arn)
 	engineState := state.(*DockerTaskEngineState)
 
 	assert.Len(t, state.AllTasks(), 1, "Expected one task")
 	assert.Len(t, engineState.idToTask, 2, "idToTask map should have two entries")
 	assert.Len(t, engineState.idToContainer, 2, "idToContainer map should have two entries")
+	taskARNFromIP, ok := state.GetTaskByIPAddress(addr)
+	assert.True(t, ok)
+	assert.Equal(t, testTask.Arn, taskARNFromIP)
 
 	state.RemoveTask(testTask)
 
 	assert.Len(t, state.AllTasks(), 0, "Expected task to be removed")
 	assert.Len(t, engineState.idToTask, 0, "idToTask map should be empty")
 	assert.Len(t, engineState.idToContainer, 0, "idToContainer map should be empty")
-
+	_, ok = state.GetTaskByIPAddress(addr)
+	assert.False(t, ok)
 }
 
 func TestAddImageState(t *testing.T) {
@@ -337,4 +344,17 @@ func TestAddContainerNameAndID(t *testing.T) {
 	assert.True(t, ok, "container with DockerName should be added to the state")
 	_, ok = state.ContainerByID(container.DockerName)
 	assert.False(t, ok, "container with DockerName should be added to the state")
+}
+
+func TestTaskIPAddress(t *testing.T) {
+	state := newDockerTaskEngineState()
+	addr := "169.254.170.3"
+	taskARN := "t1"
+	state.AddTaskIPAddress(addr, taskARN)
+	taskARNFromIP, ok := state.GetTaskByIPAddress(addr)
+	assert.True(t, ok)
+	assert.Equal(t, taskARN, taskARNFromIP)
+	taskIP, ok := state.taskToIPUnsafe(taskARN)
+	assert.True(t, ok)
+	assert.Equal(t, addr, taskIP)
 }

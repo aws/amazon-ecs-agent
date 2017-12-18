@@ -543,6 +543,7 @@ func TestDockerAuth(t *testing.T) {
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
 
 	taskUpdate := createTestTask("testDockerAuth")
+	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 

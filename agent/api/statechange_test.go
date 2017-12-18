@@ -68,9 +68,9 @@ func TestSetTaskTimestamps(t *testing.T) {
 
 	change := &TaskStateChange{
 		Task: &Task{
-			PullStartedAt:      t1,
-			PullStoppedAt:      t2,
-			ExecutionStoppedAt: t3,
+			PullStartedAtUnsafe:      t1,
+			PullStoppedAtUnsafe:      t2,
+			ExecutionStoppedAtUnsafe: t3,
 		},
 	}
 

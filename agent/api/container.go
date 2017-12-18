@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 )
@@ -135,7 +136,14 @@ type Container struct {
 	// metadata file
 	MetadataFileUpdated bool `json:"metadataFileUpdated"`
 
-	knownExitCode     *int
+	// KnownExitCodeUnsafe specifies the exit code for the container.
+	// It is exposed outside of the package so that it's marshalled/unmarshalled in
+	// the JSON body while saving the state.
+	// NOTE: Do not access KnownExitCodeUnsafe directly. Instead, use `GetKnownExitCode`
+	// and `SetKnownExitCode`.
+	KnownExitCodeUnsafe *int `json:"KnownExitCode"`
+
+	// KnownPortBindings is an array of port bindings for the container.
 	KnownPortBindings []PortBinding
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
@@ -144,6 +152,12 @@ type Container struct {
 	// exposed outside of the package so that it's marshalled/unmarshalled in the
 	// the JSON body while saving the state
 	SteadyStateStatusUnsafe *ContainerStatus `json:"SteadyStateStatus,omitempty"`
+
+	createdAt  time.Time
+	startedAt  time.Time
+	finishedAt time.Time
+
+	labels map[string]string
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -237,14 +251,16 @@ func (c *Container) SetSentStatus(status ContainerStatus) {
 func (c *Container) SetKnownExitCode(i *int) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.knownExitCode = i
+
+	c.KnownExitCodeUnsafe = i
 }
 
 // GetKnownExitCode returns the container exit code
 func (c *Container) GetKnownExitCode() *int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return c.knownExitCode
+
+	return c.KnownExitCodeUnsafe
 }
 
 // SetRegistryAuthCredentials sets the credentials for pulling image from ECR
@@ -363,7 +379,82 @@ func (c *Container) IsEssential() bool {
 	return c.Essential
 }
 
-// LogAuthExecutionRole returns true if the auth is by exectution role
+// AWSLogAuthExecutionRole returns true if the auth is by execution role
 func (c *Container) AWSLogAuthExecutionRole() bool {
 	return c.LogsAuthStrategy == awslogsAuthExecutionRole
+}
+
+// SetCreatedAt sets the timestamp for container's creation time
+func (c *Container) SetCreatedAt(createdAt time.Time) {
+	if createdAt.IsZero() {
+		return
+	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.createdAt = createdAt
+}
+
+// SetStartedAt sets the timestamp for container's start time
+func (c *Container) SetStartedAt(startedAt time.Time) {
+	if startedAt.IsZero() {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.startedAt = startedAt
+}
+
+// SetFinishedAt sets the timestamp for container's stopped time
+func (c *Container) SetFinishedAt(finishedAt time.Time) {
+	if finishedAt.IsZero() {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.finishedAt = finishedAt
+}
+
+// GetCreatedAt sets the timestamp for container's creation time
+func (c *Container) GetCreatedAt() time.Time {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.createdAt
+}
+
+// GetStartedAt sets the timestamp for container's start time
+func (c *Container) GetStartedAt() time.Time {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.startedAt
+}
+
+// GetFinishedAt sets the timestamp for container's stopped time
+func (c *Container) GetFinishedAt() time.Time {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.finishedAt
+}
+
+// SetLabels sets the labels for a container
+func (c *Container) SetLabels(labels map[string]string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.labels = labels
+}
+
+// GetLabels gets the labels for a container
+func (c *Container) GetLabels() map[string]string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.labels
 }

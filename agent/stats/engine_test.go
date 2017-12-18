@@ -23,6 +23,7 @@ import (
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
@@ -78,12 +79,12 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	for _, statsContainer := range containers {
 		for _, fakeContainerStats := range createFakeContainerStats() {
-			statsContainer.statsQueue.Add(fakeContainerStats)
+			statsContainer.statsQueue.add(fakeContainerStats)
 		}
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err := engine.getContainerMetricsForTask("t1")
+	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1")
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure that only valid task shows up in metrics.
-	_, err = engine.getContainerMetricsForTask("t2")
+	_, err = engine.taskContainerMetricsUnsafe("t2")
 	if err == nil {
 		t.Error("Expected non-empty error for non existent task")
 	}
@@ -178,14 +179,25 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.client = mockDockerClient
 	engine.addContainer("c1")
+	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
+	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
 	containerStats := []*ContainerStats{
-		{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{22400432, 1839104, ts1},
+		{116499979, 3649536, ts2},
+	}
+	dockerStats := []*docker.Stats{
+		{
+			Read: ts1,
+		},
+		{
+			Read: ts2,
+		},
 	}
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {
 		for i := 0; i < 2; i++ {
-			statsContainer.statsQueue.Add(containerStats[i])
+			statsContainer.statsQueue.add(containerStats[i])
+			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()
@@ -206,6 +218,10 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error validating metadata: %v", err)
 	}
+
+	dockerStat, err := engine.ContainerDockerStats("t1", "c1")
+	assert.NoError(t, err)
+	assert.Equal(t, ts2, dockerStat.Read)
 
 	engine.removeContainer("c1")
 	err = validateIdleContainerMetrics(engine)

@@ -717,6 +717,12 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Volumes,
+		CreatedAt:    dockerContainer.Created,
+		StartedAt:    dockerContainer.State.StartedAt,
+		FinishedAt:   dockerContainer.State.FinishedAt,
+	}
+	if dockerContainer.Config != nil {
+		metadata.Labels = dockerContainer.Config.Labels
 	}
 	// Workaround for https://github.com/docker/docker/issues/27601
 	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43

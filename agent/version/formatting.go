@@ -13,11 +13,11 @@
 
 package version
 
-import "fmt"
+import (
+	"fmt"
 
-type Versioner interface {
-	Version() (string, error)
-}
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
+)
 
 // PrintVersions prints the version information on stdout as a multi-line
 // string. The output will look similar to the following:
@@ -25,8 +25,7 @@ type Versioner interface {
 //    Amazon ECS Agent:
 //        Version: 0.0.3
 //        Commit: 4bdc7fc
-//        DockerVersion: 1.5.0
-func PrintVersion(extra ...Versioner) {
+func PrintVersion() int {
 	cleanliness := ""
 	if GitDirty {
 		cleanliness = "\tDirty: true\n"
@@ -37,12 +36,7 @@ func PrintVersion(extra ...Versioner) {
 	Commit: %v
 %v`, Version, GitShortHash, cleanliness)
 
-	for _, versioner := range extra {
-		if str, err := versioner.Version(); err == nil {
-			fmt.Printf("\t%v\n", str)
-		}
-	}
-
+	return exitcodes.ExitSuccess
 }
 
 // String produces a human-readable string showing the agent version.

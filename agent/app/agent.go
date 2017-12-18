@@ -37,14 +37,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/taskmetadata"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -71,8 +71,6 @@ var (
 // object. Its purpose is to mostly demonstrate how to interact with the
 // ecsAgent type.
 type agent interface {
-	// printVersion prints the Agent version string
-	printVersion() int
 	// printECSAttributes prints the Agent's capabilities based on
 	// its environment
 	printECSAttributes() int
@@ -168,12 +166,6 @@ func newAgent(
 		resource:           resources.New(),
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
 	}, nil
-}
-
-// printVersion prints the ECS Agent version string
-func (agent *ecsAgent) printVersion() int {
-	version.PrintVersion(agent.dockerClient)
-	return exitcodes.ExitSuccess
 }
 
 // printECSAttributes prints the Agent's ECS Attributes based on its
@@ -297,7 +289,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream.StartListening()
 	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, state, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
-		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
+		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler, state)
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine, stateManager,
@@ -517,7 +509,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 	stateManager statemanager.StateManager,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
-	taskHandler *eventhandler.TaskHandler) {
+	taskHandler *eventhandler.TaskHandler,
+	state dockerstate.TaskEngineState) {
 
 	// Start of the periodic image cleanup process
 	if !agent.cfg.ImageCleanupDisabled {
@@ -529,8 +522,10 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Agent introspection api
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
-	// Start serving the endpoint to fetch IAM Role credentials
-	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
+	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
+
+	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
+	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
@@ -540,14 +535,15 @@ func (agent *ecsAgent) startAsyncRoutines(
 		Cfg:                           agent.cfg,
 		ContainerInstanceArn:          agent.containerInstanceARN,
 		DeregisterInstanceEventStream: deregisterInstanceEventStream,
-		ContainerChangeEventStream:    containerChangeEventStream,
-		DockerClient:                  agent.dockerClient,
 		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
+		StatsEngine:                   statsEngine,
 	}
 
-	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(telemetrySessionParams)
+	if !agent.cfg.DisableMetrics {
+		// Start metrics session in a go routine
+		go tcshandler.StartMetricsSession(telemetrySessionParams)
+	}
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This

@@ -40,6 +40,26 @@ type ENI struct {
 	DomainNameSearchList []string `json:"omitempty"`
 }
 
+// GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
+func (eni *ENI) GetIPV4Addresses() []string {
+	var addresses []string
+	for _, addr := range eni.IPV4Addresses {
+		addresses = append(addresses, addr.Address)
+	}
+
+	return addresses
+}
+
+// GetIPV6Addresses returns a list of ipv6 addresses allocated to the ENI
+func (eni *ENI) GetIPV6Addresses() []string {
+	var addresses []string
+	for _, addr := range eni.IPV6Addresses {
+		addresses = append(addresses, addr.Address)
+	}
+
+	return addresses
+}
+
 // String returns a human readable version of the ENI object
 func (eni *ENI) String() string {
 	var ipv4Addresses []string

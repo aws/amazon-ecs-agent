@@ -1,0 +1,17 @@
+{
+  "family": "ecsftest-taskmetadata-validator-awsvpc",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51670/amazon/amazon-ecs-taskmetadata-validator:latest",
+    "name": "taskmetadata-validator",
+    "memory": 50,
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group":"ecs-functional-tests",
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests-taskmetadata-validator"
+        }
+    }
+  }]
+}

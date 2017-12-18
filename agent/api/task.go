@@ -107,15 +107,15 @@ type Task struct {
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
 
-	// PullStartedAt is the timestamp when the task start pulling the first container,
+	// PullStartedAtUnsafe is the timestamp when the task start pulling the first container,
 	// it won't be set if the pull never happens
-	PullStartedAt time.Time `json:"PullStartedAt"`
-	// PullStoppedAt is the timestamp when the task finished pulling the last container,
+	PullStartedAtUnsafe time.Time `json:"PullStartedAt"`
+	// PullStoppedAtUnsafe is the timestamp when the task finished pulling the last container,
 	// it won't be set if the pull never happens
-	PullStoppedAt time.Time `json:"PullStoppedAt"`
-	// ExecutionStoppedAt is the timestamp when the task desired status moved to stopped,
+	PullStoppedAtUnsafe time.Time `json:"PullStoppedAt"`
+	// ExecutionStoppedAtUnsafe is the timestamp when the task desired status moved to stopped,
 	// which is when the any of the essential containers stopped
-	ExecutionStoppedAt time.Time `json:"ExecutionStoppedAt"`
+	ExecutionStoppedAtUnsafe time.Time `json:"ExecutionStoppedAt"`
 
 	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS SubmitTaskStateChange API.
 	// TODO(samuelkarp) SentStatusUnsafe needs a lock and setters/getters.
@@ -139,12 +139,11 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI *ENI
 
+	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
-
-	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
-	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
-	memoryCPULimitsEnabledLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -473,7 +472,8 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
-		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes", task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
+		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
+			task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
 		dockerMem = DockerContainerMinimumMemoryInBytes
 	}
 	cpuShare := task.dockerCPUShares(container.CPU)
@@ -1002,8 +1002,8 @@ func (task *Task) SetPullStartedAt(timestamp time.Time) bool {
 	defer task.lock.Unlock()
 
 	// Only set this field if it is not set
-	if task.PullStartedAt.IsZero() {
-		task.PullStartedAt = timestamp
+	if task.PullStartedAtUnsafe.IsZero() {
+		task.PullStartedAtUnsafe = timestamp
 		return true
 	}
 	return false
@@ -1014,7 +1014,7 @@ func (task *Task) GetPullStartedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.PullStartedAt
+	return task.PullStartedAtUnsafe
 }
 
 // SetPullStoppedAt sets the task pullstoppedat timestamp
@@ -1022,7 +1022,7 @@ func (task *Task) SetPullStoppedAt(timestamp time.Time) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	task.PullStoppedAt = timestamp
+	task.PullStoppedAtUnsafe = timestamp
 }
 
 // GetPullStoppedAt returns the PullStoppedAt timestamp
@@ -1030,7 +1030,7 @@ func (task *Task) GetPullStoppedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.PullStoppedAt
+	return task.PullStoppedAtUnsafe
 }
 
 // SetExecutionStoppedAt sets the ExecutionStoppedAt timestamp of the task
@@ -1038,8 +1038,8 @@ func (task *Task) SetExecutionStoppedAt(timestamp time.Time) bool {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	if task.ExecutionStoppedAt.IsZero() {
-		task.ExecutionStoppedAt = timestamp
+	if task.ExecutionStoppedAtUnsafe.IsZero() {
+		task.ExecutionStoppedAtUnsafe = timestamp
 		return true
 	}
 	return false
@@ -1050,7 +1050,7 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.ExecutionStoppedAt
+	return task.ExecutionStoppedAtUnsafe
 }
 
 // String returns a human readable string representation of this object

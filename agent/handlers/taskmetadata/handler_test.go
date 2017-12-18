@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package credentials
+package taskmetadata
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ func TestInvalidPath(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
-		Code:          NoIDInRequest,
+		Code:          errNoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -57,7 +57,7 @@ func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 	msg := &errorMessage{
-		Code:          NoIDInRequest,
+		Code:          errNoIDInRequest,
 		Message:       "CredentialsV2Request: No ID in the request",
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -68,7 +68,7 @@ func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          InvalidIDInRequest,
+		Code:          errInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -82,7 +82,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          InvalidIDInRequest,
+		Code:          errInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV2Request: ID not found"),
 		httpErrorCode: http.StatusBadRequest,
 	}
@@ -96,7 +96,7 @@ func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          CredentialsUninitialized,
+		Code:          errCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials uninitialized for ID"),
 		httpErrorCode: http.StatusServiceUnavailable,
 	}
@@ -110,7 +110,7 @@ func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &errorMessage{
-		Code:          CredentialsUninitialized,
+		Code:          errCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials uninitialized for ID"),
 		httpErrorCode: http.StatusServiceUnavailable,
 	}
@@ -174,7 +174,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog)
+	server := setupServer(credentialsManager, auditLog, nil, "", nil)
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
@@ -207,7 +207,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog)
+	server := setupServer(credentialsManager, auditLog, nil, "", nil)
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()

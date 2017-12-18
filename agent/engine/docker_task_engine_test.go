@@ -17,6 +17,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/containernetworking/cni/pkg/types/current"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -53,10 +55,14 @@ const (
 	containerID         = "containerID"
 	dockerContainerName = "docker-container-name"
 	containerPid        = 123
+	taskIP              = "169.254.170.3"
 )
 
-var defaultConfig = config.DefaultConfig()
-var defaultDockerClientAPIVersion = dockerclient.Version_1_17
+var (
+	defaultConfig                 = config.DefaultConfig()
+	nsResult                      = mockSetupNSResult()
+	defaultDockerClientAPIVersion = dockerclient.Version_1_17
+)
 
 func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockManager) {
 	ctrl := gomock.NewController(t)
@@ -79,6 +85,17 @@ func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
 		DockerID: containerID,
 	}
 	return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+}
+
+func mockSetupNSResult() *current.Result {
+	_, ip, _ := net.ParseCIDR(taskIP + "/32")
+	return &current.Result{
+		IPs: []*current.IPConfig{
+			{
+				Address: *ip,
+			},
+		},
+	}
 }
 
 func TestBatchContainerHappyPath(t *testing.T) {
@@ -683,7 +700,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			State: docker.State{Pid: 23},
 		}, nil),
 		// Then setting up the pause container network namespace
-		mockCNIClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+		mockCNIClient.EXPECT().SetupNS(gomock.Any()).Return(nsResult, nil),
 
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -744,6 +761,10 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	createStartEventsReported.Wait()
 	// Wait for steady state check to be invoked
 	steadyStateCheckWait.Wait()
+
+	taskARNByIP, ok := taskEngine.(*DockerTaskEngine).state.GetTaskByIPAddress(taskIP)
+	assert.True(t, ok)
+	assert.Equal(t, sleepTask.Arn, taskARNByIP)
 
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
@@ -1646,7 +1667,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 				ID:    pauseContainerID,
 				State: docker.State{Pid: 123},
 			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nil),
+		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nsResult, nil),
 	)
 
 	// For the other container
@@ -2181,8 +2202,8 @@ func TestPullStartedStoppedAtWasSetCorrectly(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 
-	assert.Equal(t, testTask.PullStartedAt, startTime1)
-	assert.Equal(t, testTask.PullStoppedAt, stopTime3)
+	assert.Equal(t, testTask.PullStartedAtUnsafe, startTime1)
+	assert.Equal(t, testTask.PullStoppedAtUnsafe, stopTime3)
 
 }
 
@@ -2235,6 +2256,35 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 
-	assert.Equal(t, testTask.PullStartedAt, startTime1)
-	assert.Equal(t, testTask.PullStoppedAt, stopTime3)
+	assert.Equal(t, testTask.PullStartedAtUnsafe, startTime1)
+	assert.Equal(t, testTask.PullStoppedAtUnsafe, stopTime3)
+}
+
+func TestSynchronizeContainerStatus(t *testing.T) {
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "1234"
+	dockerContainer := &api.DockerContainer{
+		DockerID:   dockerID,
+		DockerName: "c1",
+		Container:  &api.Container{},
+	}
+
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	created := time.Now()
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerRunning,
+			DockerContainerMetadata{
+				Labels:    labels,
+				DockerID:  dockerID,
+				CreatedAt: created,
+			}),
+		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
+	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
 }

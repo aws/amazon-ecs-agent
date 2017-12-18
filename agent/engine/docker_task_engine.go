@@ -290,32 +290,38 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		} else {
 			container.DockerID = describedContainer.ID
 			container.Container.SetKnownStatus(dockerStateToState(describedContainer.State))
+			container.Container.SetCreatedAt(describedContainer.Created)
+			container.Container.SetStartedAt(describedContainer.State.StartedAt)
+			container.Container.SetFinishedAt(describedContainer.State.FinishedAt)
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
+			container.Container.SetLabels(describedContainer.Config.Labels)
 		}
 		return
 	}
 
-	if container.DockerID != "" {
-		currentState, metadata := engine.client.DescribeContainer(container.DockerID)
-		if metadata.Error != nil {
-			currentState = api.ContainerStopped
-			if !container.Container.KnownTerminal() {
-				container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
-				log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", container.DockerID, "name", container.DockerName)
-				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
-			}
-		} else {
-			engine.imageManager.RecordContainerReference(container.Container)
-			if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
-				go engine.updateMetadataFile(task, container)
-			}
+	currentState, metadata := engine.client.DescribeContainer(container.DockerID)
+	if metadata.Error != nil {
+		currentState = api.ContainerStopped
+		if !container.Container.KnownTerminal() {
+			container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+			log.Warn("Could not describe previously known container; assuming dead", "err", metadata.Error, "id", container.DockerID, "name", container.DockerName)
+			engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
 		}
-		if currentState > container.Container.GetKnownStatus() {
-			// update the container known status
-			container.Container.SetKnownStatus(currentState)
+	} else {
+		container.Container.SetLabels(metadata.Labels)
+		container.Container.SetCreatedAt(metadata.CreatedAt)
+		container.Container.SetStartedAt(metadata.StartedAt)
+		container.Container.SetFinishedAt(metadata.FinishedAt)
+		engine.imageManager.RecordContainerReference(container.Container)
+		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
+			go engine.updateMetadataFile(task, container)
 		}
+	}
+	if currentState > container.Container.GetKnownStatus() {
+		// update the container known status
+		container.Container.SetKnownStatus(currentState)
 	}
 }
 
@@ -750,6 +756,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	if metadata.DockerID != "" {
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID, DockerName: dockerContainerName, Container: container}, task)
 	}
+	container.SetLabels(config.Labels)
 	seelog.Infof("Created docker container for task %s: %s -> %s", task.Arn, container.Name, metadata.DockerID)
 	return metadata
 }
@@ -803,15 +810,20 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
-	err = engine.cniClient.SetupNS(cniConfig)
+	result, err := engine.cniClient.SetupNS(cniConfig)
 	if err != nil {
-		seelog.Errorf("Set up pause container namespace failed, err: %v, task: %s", err, task.String())
+		seelog.Errorf("Unable to configure pause container namespace, err: %v, task: %s",
+			err, task.Arn)
 		return DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
-			Error:    ContainerNetworkingError{errors.Wrap(err, "container resource provisioning: failed to setup network namespace")},
+			Error: ContainerNetworkingError{errors.Wrap(err,
+				"container resource provisioning: failed to setup network namespace")},
 		}
 	}
 
+	taskIP := result.IPs[0].Address.IP.String()
+	seelog.Infof("Task [%s] associated with ip address '%s'", task.Arn, taskIP)
+	engine.state.AddTaskIPAddress(taskIP, task.Arn)
 	return DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
