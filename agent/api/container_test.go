@@ -193,11 +193,11 @@ func TestSetHealtStatus(t *testing.T) {
 	assert.NotEqual(t, health3.Since, health2.Since)
 }
 
-func TestHealthCheckShouldBeReported(t *testing.T) {
+func TestHealthStatusShouldBeReported(t *testing.T) {
 	container := Container{}
-	assert.False(t, container.HealthCheckShouldBeReported(), "Health status of container that does not have HealthCheckType set should not be reported")
+	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that does not have HealthCheckType set should not be reported")
 	container.HealthCheckType = dockerHealthCheckType
-	assert.True(t, container.HealthCheckShouldBeReported(), "Health status of container that has docker HealthCheckType set should be reported")
+	assert.True(t, container.HealthStatusShouldBeReported(), "Health status of container that has docker HealthCheckType set should be reported")
 	container.HealthCheckType = "unknown"
-	assert.False(t, container.HealthCheckShouldBeReported(), "Health status of container that has non-docker HealthCheckType set should not be reported")
+	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that has non-docker HealthCheckType set should not be reported")
 }

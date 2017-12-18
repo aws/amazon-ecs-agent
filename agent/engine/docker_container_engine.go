@@ -45,10 +45,12 @@ const (
 	imageNameFormat = "%s:%s"
 	// the buffer size will ensure agent doesn't miss any event from docker
 	dockerEventBufferSize = 100
-	// healthCheckHealthy is the health status returned from docker container health check
+	// healthCheckHealthy is the healthy status returned from docker container health check
 	healthCheckHealthy = "healthy"
-	// healthCheckUnhealthy is unhealth status returned from docker container health check
+	// healthCheckUnhealthy is unhealthy status returned from docker container health check
 	healthCheckUnhealthy = "unhealthy"
+	// maxHealthCheckOutputSize is the maximum size of healthcheck command output that agent will save
+	maxHealthCheckOutputSize = 1024
 )
 
 // Timelimits for docker operations enforced above docker
@@ -756,7 +758,12 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	logLength := len(dockerContainer.State.Health.Log)
 	if logLength != 0 {
 		// Only save the last log from the health check
-		health.Output = dockerContainer.State.Health.Log[logLength-1].Output
+		output := dockerContainer.State.Health.Log[logLength-1].Output
+		size := len(output)
+		if size > maxHealthCheckOutputSize {
+			size = maxHealthCheckOutputSize
+		}
+		health.Output = output[:size]
 	}
 
 	if dockerContainer.State.Health.Status == healthCheckHealthy {

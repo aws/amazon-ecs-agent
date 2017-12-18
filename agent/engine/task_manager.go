@@ -333,7 +333,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 
 	// Update the container health status
-	if container.HealthCheckShouldBeReported() {
+	if container.HealthStatusShouldBeReported() {
 		container.SetHealthStatus(event.Health)
 	}
 

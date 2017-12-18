@@ -66,9 +66,8 @@ func (overrides *ContainerOverrides) UnmarshalJSON(b []byte) error {
 		if err3 == nil {
 			*overrides = ContainerOverrides(regular)
 			return nil
-		} else {
-			err3 = utils.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err3)
 		}
+		err3 = utils.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err3)
 	}
 
 	return utils.NewMultiError(errors.New("Could not unmarshal ContainerOverrides in any supported way"), err, err2, err3)

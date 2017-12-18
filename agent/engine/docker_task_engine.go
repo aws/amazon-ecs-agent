@@ -297,6 +297,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
 			container.Container.SetLabels(describedContainer.Config.Labels)
+			// update the container health information
+			if container.Container.HealthStatusShouldBeReported() {
+				dockerContainerMetadata := metadataFromContainer(describedContainer)
+				container.Container.SetHealthStatus(dockerContainerMetadata.Health)
+			}
 		}
 		return
 	}
@@ -317,6 +322,10 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		engine.imageManager.RecordContainerReference(container.Container)
 		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
+		}
+		// update the container health information
+		if container.Container.HealthStatusShouldBeReported() {
+			container.Container.SetHealthStatus(metadata.Health)
 		}
 	}
 	if currentState > container.Container.GetKnownStatus() {
@@ -456,9 +465,9 @@ func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Con
 		Reason:        reason,
 		Container:     cont,
 	}
-	log.Debug("Container change event", "event", event)
+	log.Debug("Container change event", "event", event.String())
 	engine.stateChangeEvents <- event
-	log.Debug("Container change event passed on", "event", event)
+	log.Debug("Container change event passed on", "event", event.String())
 }
 
 // openEventstream opens, but does not consume, the docker event stream
@@ -490,22 +499,22 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 // container and placing it in the context of the task to which that container
 // belongs.
 func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) {
-	seelog.Debugf("Handling a docker event, event: %s", event)
+	seelog.Debugf("Handling a docker event: %s", event.String())
 
 	task, taskFound := engine.state.TaskByID(event.DockerID)
 	cont, containerFound := engine.state.ContainerByID(event.DockerID)
 	if !taskFound || !containerFound {
-		seelog.Debugf("Event for container not managed, container: %s", event.DockerID)
+		seelog.Debugf("Event for container not managed, container: %s, task found: %v, container found: %v",
+			event.DockerID, taskFound, containerFound)
 		return
 	}
 
 	// Container health status change doesnot affect the container status
 	// no need to process this in task manager
 	if event.Type == api.ContainerHealthEvent {
-		if cont.Container.HealthCheckShouldBeReported() {
+		if cont.Container.HealthStatusShouldBeReported() {
 			seelog.Debugf("Updating container health status: %s", event.DockerContainerMetadata.Health)
 			cont.Container.SetHealthStatus(event.DockerContainerMetadata.Health)
-			engine.saver.Save()
 		}
 		return
 	}
@@ -515,13 +524,13 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	// hold the lock until the message is sent so we don't send on a closed channel
 	defer engine.processTasks.RUnlock()
 	if !ok {
-		seelog.Criticalf("Could not find managed task corresponding to a docker event, event: %s, task: %s", event, task.Arn)
+		seelog.Criticalf("Could not find managed task corresponding to a docker event, event: %s, task: %s", event.String(), task.Arn)
 		return
 	}
-	seelog.Debugf("Writing docker event to the associated task: %s, event: %s", task.Arn, event)
+	seelog.Debugf("Writing docker event to the associated task: %s, event: %s", task.Arn, event.String())
 
 	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
-	seelog.Debugf("Wrote docker event to the associated task: %s, event: %s", task.Arn, event)
+	seelog.Debugf("Wrote docker event to the associated task: %s, event: %s", task.Arn, event.String())
 	return
 }
 
