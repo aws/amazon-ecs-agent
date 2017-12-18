@@ -57,15 +57,10 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 		ID:    container.ID,
 		Force: true,
 	})
-	resolver := newIntegContainerMetadataResolver()
-	// Initialize mock interface so that task id is resolved only for the container
-	// that was launched during the test.
-	resolver.addToMap(container.ID)
 
 	// Wait for containers from previous tests to transition states.
 	time.Sleep(checkPointSleep)
 
-	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
@@ -75,19 +70,35 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	}
 	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
-	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
-		Status: api.ContainerRunning,
-		DockerContainerMetadata: ecsengine.DockerContainerMetadata{
-			DockerID: container.ID,
+	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainers")
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	containers := []*api.Container{
+		{
+			Name: "gremlin",
 		},
-	})
-	if err != nil {
-		t.Errorf("Failed to write to container change event stream, err: %v", err)
 	}
+	testTask := &api.Task{
+		Arn:                 "gremlin-task",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "docker-gremlin",
+		Version:             "1",
+		Containers:          containers,
+	}
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(
+		&api.DockerContainer{
+			DockerID:   container.ID,
+			DockerName: "gremlin",
+			Container:  containers[0],
+		},
+		testTask)
 
 	// Simulate container start prior to listener initialization.
 	time.Sleep(checkPointSleep)
-	err = engine.Init()
+	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
 		t.Errorf("Error initializing stats engine: %v", err)
 	}
@@ -159,18 +170,38 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 		Force: true,
 	})
 
-	resolver := newIntegContainerMetadataResolver()
-	// Initialize mock interface so that task id is resolved only for the container
-	// that was launched during the test.
-	resolver.addToMap(container.ID)
-
 	// Wait for containers from previous tests to transition states.
 	time.Sleep(checkPointSleep * 2)
-	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = engine.Init()
+	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	containers := []*api.Container{
+		{
+			Name: "gremlin",
+		},
+	}
+	testTask := &api.Task{
+		Arn:                 "gremlin-task",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "docker-gremlin",
+		Version:             "1",
+		Containers:          containers,
+	}
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(
+		&api.DockerContainer{
+			DockerID:   container.ID,
+			DockerName: "gremlin",
+			Container:  containers[0],
+		},
+		testTask)
+
+	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
 	if err != nil {
 		t.Errorf("Error initializing stats engine: %v", err)
 	}
