@@ -1097,12 +1097,12 @@ func (task *Task) GetID() (string, error) {
 	resource := parsedARN.Resource
 
 	if !strings.Contains(resource, arnResourceDelimiter) {
-		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+		return "", errors.Errorf("task get-id: malformed task resource: %s", resource)
 	}
 
 	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
 	if len(resourceSplit) != arnResourceSections {
-		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+		return "", errors.Errorf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit))
 	}
 
 	return resourceSplit[1], nil

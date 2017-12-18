@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -76,4 +77,42 @@ type ListContainersResponse struct {
 	DockerIDs []string
 	// Error contains any error returned when listing containers
 	Error error
+}
+
+// String returns a human readable string of the container change event
+func (event *DockerContainerChangeEvent) String() string {
+	res := fmt.Sprintf("Status: %s, DockerID: %s", event.Status.String(), event.DockerID)
+	res += ", health: " + event.Health.Status.String()
+
+	if event.ExitCode != nil {
+		res += fmt.Sprintf(", ExitCode: %d", aws.IntValue(event.ExitCode))
+	}
+
+	if len(event.PortBindings) != 0 {
+		res += fmt.Sprintf(", PortBindings: %v", event.PortBindings)
+	}
+
+	if event.Error != nil {
+		res += ", Error: " + event.Error.Error()
+	}
+
+	if len(event.Volumes) != 0 {
+		res += fmt.Sprintf(", Volumes: %v", event.Volumes)
+	}
+
+	if len(event.Labels) != 0 {
+		res += fmt.Sprintf(", Labels: %v", event.Labels)
+	}
+
+	if !event.CreatedAt.IsZero() {
+		res += ", CreatedAt: " + event.CreatedAt.String()
+	}
+	if !event.StartedAt.IsZero() {
+		res += ", StartedAt: " + event.StartedAt.String()
+	}
+	if !event.FinishedAt.IsZero() {
+		res += ", FinishedAt: " + event.FinishedAt.String()
+	}
+
+	return res
 }

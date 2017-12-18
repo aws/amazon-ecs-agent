@@ -18,8 +18,10 @@ type DockerEventType int
 
 const (
 	// ContainerStatusEvent represents the container status change events from docker
+	// currently create, start, stop, die, restart and oom event will have this type
 	ContainerStatusEvent DockerEventType = iota
 	// ContainerHealthEvent represents the container health status event from docker
+	// "health_status: unhealthy" and "health_status: healthy" will have this type
 	ContainerHealthEvent
 )
 

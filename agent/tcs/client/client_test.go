@@ -202,7 +202,7 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	expectedRequests := 3
 	// Cretes 21 task metrics, which translate to 3 batches,
 	// {[Task1, Task2, ...Task10], [Task11, Task12, ...Task20], [Task21]}
-	numTasks := (tasksInMessage * (expectedRequests - 1)) + 1
+	numTasks := (tasksInMetricMessage * (expectedRequests - 1)) + 1
 	cs := clientServer{
 		statsEngine: newNonIdleStatsEngine(numTasks),
 	}

@@ -43,9 +43,9 @@ const (
 const (
 	// ContainerHealthUnknown is the initial status of container health
 	ContainerHealthUnknown ContainerHealthStatus = iota
-	// ContainerHealthy represents the container health check returned healthy
+	// ContainerHealthy represents the status of container health check when returned healthy
 	ContainerHealthy
-	// ContainerUnhealthy represents the container health check failed
+	// ContainerUnhealthy represents the status of container health check when returned unhealthy
 	ContainerUnhealthy
 )
 
@@ -150,7 +150,7 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
 		*cs = ContainerStatusNone
-		return errors.New("ContainerStatus must be a string or null; Got " + string(b))
+		return errors.New("container status unmarshal: status must be a string or null; Got " + string(b))
 	}
 	strStatus := string(b[1 : len(b)-1])
 	// 'UNKNOWN' and 'DEAD' for Compatibility with v1.0.0 state files
@@ -166,7 +166,7 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	stat, ok := containerStatusMap[strStatus]
 	if !ok {
 		*cs = ContainerStatusNone
-		return errors.New("Unrecognized ContainerStatus")
+		return errors.New("container status unmarshal: unrecognized status")
 	}
 	*cs = stat
 	return nil
@@ -182,31 +182,26 @@ func (cs *ContainerStatus) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON overrides the logic for parsing the JSON-encoded container health data
 func (healthStatus *ContainerHealthStatus) UnmarshalJSON(b []byte) error {
+	*healthStatus = ContainerHealthUnknown
+
 	if strings.ToLower(string(b)) == "null" {
-		*healthStatus = ContainerHealthUnknown
 		return nil
 	}
-
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*healthStatus = ContainerHealthUnknown
-		return errors.New("ContainerHealthStatus must be a string or null; Got " + string(b))
+		return errors.New("container health status unmarshal: status must be a string or null; Got " + string(b))
 	}
+
 	strStatus := string(b[1 : len(b)-1])
-	if strStatus == "UNKNOWN" {
-		*healthStatus = ContainerHealthUnknown
-		return nil
-	}
-	if strStatus == "HEALTHY" {
+	switch strStatus {
+	case "UNKNOWN":
+	case "HEALTHY":
 		*healthStatus = ContainerHealthy
-		return nil
-	}
-
-	if strStatus == "UNHEALTHY" {
+	case "UNHEALTHY":
 		*healthStatus = ContainerUnhealthy
-		return nil
+	default:
+		return errors.New("container health status unmarshal: unrecognized status: " + string(b))
 	}
-
-	return errors.New("Unrecognized container health status: " + string(b))
+	return nil
 }
 
 // MarshalJSON overrides the logic for JSON-encoding the ContainerHealthStatus type

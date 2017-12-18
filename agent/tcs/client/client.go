@@ -30,9 +30,13 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// tasksInMessage is the maximum number of tasks that can be sent in a message to the backend
-// This is a very conservative estimate assuming max allowed string lengths for all fields.
-const tasksInMessage = 10
+const (
+	// tasksInMetricMessage is the maximum number of tasks that can be sent in a message to the backend
+	// This is a very conservative estimate assuming max allowed string lengths for all fields.
+	tasksInMetricMessage = 10
+	// tasksInHealthMessage is the maximum number of tasks that can be sent in a message to the backend
+	tasksInHealthMessage = 10
+)
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
@@ -90,7 +94,7 @@ func (cs *clientServer) Serve() error {
 	if !cs.disableResourceMetrics {
 		go cs.publishMetrics()
 	}
-	go cs.publishHelathMetrics()
+	go cs.publishHealthMetrics()
 
 	return cs.ConsumeMessages()
 }
@@ -212,8 +216,8 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		} else {
 			requestMetadata = copyMetricsMetadata(metadata, false)
 		}
-		if (i+1)%tasksInMessage == 0 {
-			// Construct payload with tasksInMessage number of task metrics and send to backend.
+		if (i+1)%tasksInMetricMessage == 0 {
+			// Construct payload with tasksInMetricMessage number of task metrics and send to backend.
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
@@ -228,8 +232,8 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 	return requests, nil
 }
 
-// publishHelathMetrics send the container health information to backend
-func (cs *clientServer) publishHelathMetrics() {
+// publishHealthMetrics send the container health information to backend
+func (cs *clientServer) publishHealthMetrics() {
 	if cs.publishTicker == nil {
 		seelog.Debug("Skipping publishing health metrics. Publish ticker is uninitialized")
 		return
@@ -291,7 +295,7 @@ func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRe
 	for i, taskHealth := range taskHealthMetrics {
 		taskHealths = append(taskHealths, taskHealth)
 		// create a request if the number of task reaches the maximum page size
-		if (i+1)%tasksInMessage == 0 {
+		if (i+1)%tasksInHealthMessage == 0 {
 			requestMetadata := copyHealthMetadata(metadata, (i+1) == numOfTasks)
 			requestTaskHealth := copyTaskHealthMetrics(taskHealths)
 			request := ecstcs.NewPublishHealthMetricsRequest(requestMetadata, requestTaskHealth)
@@ -333,10 +337,10 @@ func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
 // copyHealthMetadata performs a deep copy of HealthMetadata object
 func copyHealthMetadata(metadata *ecstcs.HealthMetadata, fin bool) *ecstcs.HealthMetadata {
 	return &ecstcs.HealthMetadata{
-		Cluster:           aws.String(*metadata.Cluster),
-		ContainerInstance: aws.String(*metadata.ContainerInstance),
+		Cluster:           aws.String(aws.StringValue(metadata.Cluster)),
+		ContainerInstance: aws.String(aws.StringValue(metadata.ContainerInstance)),
 		Fin:               aws.Bool(fin),
-		MessageId:         aws.String(*metadata.MessageId),
+		MessageId:         aws.String(aws.StringValue(metadata.MessageId)),
 	}
 }
 

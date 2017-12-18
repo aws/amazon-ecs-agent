@@ -20,8 +20,10 @@ import (
 )
 
 const (
+	// UnrecognizedTransportProtocolErrorName is an error where the protocol of the binding is invalid
 	UnrecognizedTransportProtocolErrorName = "UnrecognizedTransportProtocol"
-	UnparseablePortErrorName               = "UnparsablePort"
+	// UnparseablePortErrorName is an error where the port configuration is invalid
+	UnparseablePortErrorName = "UnparsablePort"
 )
 
 // PortBinding represents a port binding for a container
