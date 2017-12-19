@@ -5,6 +5,13 @@
     "image": "127.0.0.1:51670/amazon/amazon-ecs-taskmetadata-validator:latest",
     "name": "taskmetadata-validator",
     "memory": 50,
+    "healthCheck": {
+        "command": ["CMD-SHELL", "echo hello"],
+        "interval": 1,
+        "timeout": 5,
+        "retries": 2,
+        "startPeriod": 1
+    },
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

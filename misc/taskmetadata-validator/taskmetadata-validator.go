@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -61,7 +61,15 @@ type ContainerResponse struct {
 	StartedAt     *time.Time `json:",omitempty"`
 	FinishedAt    *time.Time `json:",omitempty"`
 	Type          string
-	Networks      []Network `json:",omitempty"`
+	Health        HealthStatus `json:"health,omitempty"`
+	Networks      []Network    `json:",omitempty"`
+}
+
+type HealthStatus struct {
+	Status   string     `json:"status,omitempty"`
+	Since    *time.Time `json:"statusSince,omitempty"`
+	ExitCode int        `json:"exitCode,omitempty"`
+	Output   string     `json:"output,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -106,6 +114,8 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("Received data: %s ", string(body))
 
 	var containerMetadata ContainerResponse
 	err = json.Unmarshal(body, &containerMetadata)
@@ -184,6 +194,9 @@ func main() {
 		Timeout: 5 * time.Second,
 	}
 
+	// Wait for the Health information to be ready
+	time.Sleep(5 * time.Second)
+
 	taskMetadata, err := taskMetadata(client)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to get task metadata: %v", err)
@@ -209,9 +222,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = containerMetadata(client, containerID)
+	containerMetadata, err := containerMetadata(client, containerID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to get container metadata for '%s': %v", containerID, err)
+		os.Exit(1)
+	}
+	if containerMetadata.Health.Status != "HEALTHY" || containerMetadata.Health.Output != "hello\n" {
+		fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
 		os.Exit(1)
 	}
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -22,4 +22,3 @@ docker run \
 	-e CGO_ENABLED=0 \
 	-e GOPATH=/go:/gopath \
 	golang:1.7 go build -a -x -ldflags '-s' -o /out/taskmetadata-validator /in/taskmetadata-validator.go
-

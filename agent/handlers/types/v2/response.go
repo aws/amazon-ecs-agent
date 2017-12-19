@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -58,6 +58,7 @@ type ContainerResponse struct {
 	FinishedAt    *time.Time `json:",omitempty"`
 	Type          string
 	Networks      []containermetadata.Network `json:",omitempty"`
+	Health        *api.HealthStatus           `json:",omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -168,6 +169,12 @@ func newContainerResponse(dockerContainer *api.DockerContainer,
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),
 		Labels:   container.GetLabels(),
+	}
+
+	// Write the container health status inside the container
+	if dockerContainer.Container.HealthStatusShouldBeReported() {
+		health := dockerContainer.Container.GetHealthStatus()
+		resp.Health = &health
 	}
 
 	if createdAt := container.GetCreatedAt(); !createdAt.IsZero() {

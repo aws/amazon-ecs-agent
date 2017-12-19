@@ -269,7 +269,7 @@ func (mtask *managedTask) waitSteady() {
 	timedOut := mtask.waitEvent(maxWait)
 
 	if timedOut {
-		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate")
+		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
 		go mtask.engine.CheckTaskState(mtask.Task)
 	}
 }

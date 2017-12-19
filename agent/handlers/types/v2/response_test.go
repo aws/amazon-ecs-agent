@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,11 +15,13 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -105,53 +107,78 @@ func TestTaskResponse(t *testing.T) {
 }
 
 func TestContainerResponse(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	container := &api.Container{
-		Name:                containerName,
-		Image:               imageName,
-		ImageID:             imageID,
-		DesiredStatusUnsafe: api.ContainerRunning,
-		KnownStatusUnsafe:   api.ContainerRunning,
-		CPU:                 cpu,
-		Memory:              memory,
-		Type:                api.ContainerNormal,
-		Ports: []api.PortBinding{
-			{
-				ContainerPort: 80,
-				Protocol:      api.TransportProtocolTCP,
-			},
+	testCases := []struct {
+		healthCheckType string
+		result          bool
+	}{
+		{
+			healthCheckType: "docker",
+			result:          false,
+		},
+		{
+			healthCheckType: "",
+			result:          true,
 		},
 	}
-	created := time.Now()
-	container.SetCreatedAt(created)
-	labels := map[string]string{
-		"foo": "bar",
-	}
-	container.SetLabels(labels)
-	dockerContainer := &api.DockerContainer{
-		DockerID:   containerID,
-		DockerName: containerName,
-		Container:  container,
-	}
-	task := &api.Task{
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
-				{
-					Address: eniIPv4Address,
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("docker health check type: %v", tc.healthCheckType), func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			container := &api.Container{
+				Name:                containerName,
+				Image:               imageName,
+				ImageID:             imageID,
+				DesiredStatusUnsafe: api.ContainerRunning,
+				KnownStatusUnsafe:   api.ContainerRunning,
+				CPU:                 cpu,
+				Memory:              memory,
+				Type:                api.ContainerNormal,
+				HealthCheckType:     tc.healthCheckType,
+				Health: api.HealthStatus{
+					Status: api.ContainerHealthy,
+					Since:  aws.Time(time.Now()),
 				},
-			},
-		},
-	}
-	gomock.InOrder(
-		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
-		state.EXPECT().TaskByID(containerID).Return(task, true),
-	)
+				Ports: []api.PortBinding{
+					{
+						ContainerPort: 80,
+						Protocol:      api.TransportProtocolTCP,
+					},
+				},
+			}
+			created := time.Now()
+			container.SetCreatedAt(created)
+			labels := map[string]string{
+				"foo": "bar",
+			}
+			container.SetLabels(labels)
+			dockerContainer := &api.DockerContainer{
+				DockerID:   containerID,
+				DockerName: containerName,
+				Container:  container,
+			}
+			task := &api.Task{
+				ENI: &api.ENI{
+					IPV4Addresses: []*api.ENIIPV4Address{
+						{
+							Address: eniIPv4Address,
+						},
+					},
+				},
+			}
+			gomock.InOrder(
+				state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+				state.EXPECT().TaskByID(containerID).Return(task, true),
+			)
 
-	containerResponse, err := NewContainerResponse(containerID, state)
-	assert.NoError(t, err)
-	_, err = json.Marshal(containerResponse)
-	assert.NoError(t, err)
+			containerResponse, err := NewContainerResponse(containerID, state)
+			assert.NoError(t, err)
+			assert.Equal(t, containerResponse.Health == nil, tc.result)
+			_, err = json.Marshal(containerResponse)
+			assert.NoError(t, err)
+		})
+	}
 }

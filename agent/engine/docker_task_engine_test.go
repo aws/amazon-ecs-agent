@@ -641,18 +641,15 @@ func TestStopWithPendingStops(t *testing.T) {
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	go func() {
-		for {
-			<-stateChangeEvents
-		}
-	}()
+
+	defer discardEvents(stateChangeEvents)()
 
 	pullDone := make(chan bool)
 	pullInvoked := make(chan bool)
 	client.EXPECT().PullImage(gomock.Any(), nil).Do(func(x, y interface{}) {
 		pullInvoked <- true
 		<-pullDone
-	})
+	}).MaxTimes(2)
 
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()

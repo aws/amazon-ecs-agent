@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -18,7 +18,7 @@ taskmetadata-validator: taskmetadata-validator.go
 	@./build-in-docker
 
 image: taskmetadata-validator
-	@./docker-image
+	docker build -t amazon/amazon-ecs-taskmetadata-validator:make .
 
 clean:
 	rm -f taskmetadata-validator
