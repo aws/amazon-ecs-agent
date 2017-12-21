@@ -17,6 +17,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	log "github.com/cihub/seelog"
@@ -27,19 +28,49 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
-	eniUtils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const (
 	// linkTypeDevice defines the string that's expected to be the output of
 	// netlink.Link.Type() method for netlink.Device type
 	linkTypeDevice = "device"
+
 	// encapTypeLoopback defines the string that's set for the link.Attrs.EncapType
 	// field for localhost devices. The EncapType field defines the link
 	// encapsulation method. For localhost, it's set to "loopback"
 	encapTypeLoopback = "loopback"
+
+	// sendENIStateChangeRetryTimeout specifies the timeout before giving up
+	// when looking for ENI in agent's state. If for whatever reason, the message
+	// from ACS is received after the ENI has been attached to the instance, this
+	// timeout duration will be used to wait for ENI message to be sent from ACS
+	sendENIStateChangeRetryTimeout = 3 * time.Second
+
+	// sendENIStateChangeBackoffMin specifies minimum value for backoff when
+	// waiting for attachment message from ACS
+	sendENIStateChangeBackoffMin = 100 * time.Millisecond
+
+	// sendENIStateChangeBackoffMax specifies maximum value for backoff when
+	// waiting for attachment message from ACS
+	sendENIStateChangeBackoffMax = 250 * time.Millisecond
+
+	// sendENIStateChangeBackoffJitter specifies the jitter multiple percentage
+	// when waiting for attachment message from ACS
+	sendENIStateChangeBackoffJitter = 0.2
+
+	// sendENIStateChangeBackoffMultiple specifies the backoff duration multipler
+	// when waiting for the attachment message from ACS
+	sendENIStateChangeBackoffMultiple = 1.5
+
+	// macAddressRetryTimeout specifies the timeout before giving up when
+	// looking for an ENI's mac address on the host. It takes a few milliseconds
+	// for the host to learn about an ENIs mac address from netlink.LinkList().
+	// We are capping off this duration to 1s assuming worst-case behavior
+	macAddressRetryTimeout = time.Second
 )
 
 // UdevWatcher maintains the state of attached ENIs
@@ -55,6 +86,17 @@ type UdevWatcher struct {
 	agentState           dockerstate.TaskEngineState
 	eniChangeEvent       chan<- statechange.Event
 	primaryMAC           string
+}
+
+// unmanagedENIError is used to indicate that the agent found an ENI, but the agent isn't
+// aware if this ENI is being managed by ECS
+type unmanagedENIError struct {
+	mac string
+}
+
+// Error returns the error string for the unmanagedENIError type
+func (err *unmanagedENIError) Error() string {
+	return fmt.Sprintf("udev watcher send ENI state change: eni not managed by ecs: %s", err.mac)
 }
 
 // New is used to return an instance of the UdevWatcher struct
@@ -154,7 +196,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 	// check if this is an eni required by a task
 	eni, ok := udevWatcher.agentState.ENIByMac(mac)
 	if !ok {
-		return errors.Errorf("udev watcher send ENI state change: eni not managed by ecs: %s", mac)
+		return &unmanagedENIError{mac}
 	}
 	if eni.IsSent() {
 		return errors.Errorf("udev watcher send ENI state change: eni status already sent: %s", eni.String())
@@ -216,20 +258,27 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 			if event.Env[udevEventAction] != udevAddEvent {
 				continue
 			}
-			if !eniUtils.IsValidNetworkDevice(event.Env[udevDevPath]) {
+			if !networkutils.IsValidNetworkDevice(event.Env[udevDevPath]) {
 				log.Debugf("Udev watcher event handler: ignoring event for invalid network device: %s", event.String())
 				continue
 			}
 			netInterface := event.Env[udevInterface]
-			log.Debugf("Udev watcher event-handler: add interface: %s", netInterface)
-			macAddress, err := eniUtils.GetMACAddress(netInterface, udevWatcher.netlinkClient)
-			if err != nil {
-				log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", netInterface)
-				continue
-			}
-			if err := udevWatcher.sendENIStateChange(macAddress); err != nil {
-				log.Warnf("Udev watcher event-handler: unable to send state change: %v", err)
-			}
+			// GetMACAddres and sendENIStateChangeWithRetries can block the execution
+			// of this method for a few seconds in the worst-case scenario.
+			// Execute these within a go-routine
+			go func(ctx context.Context, dev string, timeout time.Duration) {
+				log.Debugf("Udev watcher event-handler: add interface: %s", dev)
+				macAddress, err := networkutils.GetMACAddress(udevWatcher.ctx, macAddressRetryTimeout,
+					dev, udevWatcher.netlinkClient)
+				if err != nil {
+					log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", dev)
+					return
+				}
+
+				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
+					log.Warnf("Udev watcher event-handler: unable to send state change: %v", err)
+				}
+			}(udevWatcher.ctx, netInterface, sendENIStateChangeRetryTimeout)
 		case <-udevWatcher.ctx.Done():
 			log.Info("Stopping udev event handler")
 			// Send the shutdown signal and close the connection
@@ -240,4 +289,43 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 			return
 		}
 	}
+}
+
+// sendENIStateChangeWithRetries invokes the sendENIStateChange method, with backoff and
+// retries. Retries are only effective if sendENIStateChange returns an unmanagedENIError.
+// We're effectively waiting for the ENI attachment message from ACS for a network device
+// at this point of time.
+func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.Context,
+	macAddress string,
+	timeout time.Duration) error {
+	backoff := utils.NewSimpleBackoff(sendENIStateChangeBackoffMin, sendENIStateChangeBackoffMax,
+		sendENIStateChangeBackoffJitter, sendENIStateChangeBackoffMultiple)
+	ctx, cancel := context.WithTimeout(parentCtx, timeout)
+	defer cancel()
+
+	err := utils.RetryWithBackoffCtx(ctx, backoff, func() error {
+		sendErr := udevWatcher.sendENIStateChange(macAddress)
+		if sendErr != nil {
+			if _, ok := sendErr.(*unmanagedENIError); ok {
+				log.Debugf("Unable to send state change for unmanaged ENI: %v", sendErr)
+				return sendErr
+			}
+			// Not unmanagedENIError. Stop retrying when this happens
+			return utils.NewRetriableError(utils.NewRetriable(false), sendErr)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	// RetryWithBackoffCtx returns nil when the context is cancelled. Check if there was
+	// a timeout here. TODO: Fix RetryWithBackoffCtx to return ctx.Err() on context Done()
+	if err = ctx.Err(); err != nil {
+		return errors.Wrapf(err,
+			"udev watcher send ENI state change: timed out waiting for eni '%s' in state", macAddress)
+	}
+
+	return nil
 }
