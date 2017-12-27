@@ -18,6 +18,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-var netError = &net.OpError{Op: "read", Net: "unix", Err: io.EOF}
+var netError = &url.Error{Err: &net.OpError{Op: "read", Net: "unix", Err: io.EOF}}
 var httpError = &docker.Error{Status: http.StatusInternalServerError, Message: "error"}
 
 func TestIsNetworkErrorReturnsTrue(t *testing.T) {

@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
@@ -131,15 +132,18 @@ func (s *_standardFS) ReadFile(filename string) ([]byte, error) {
 }
 
 func isNetworkError(err error) bool {
-	_, ok := err.(*net.OpError)
-	return ok
+	wrapped, isWrapped := err.(*url.Error)
+	if isWrapped {
+		_, ok := wrapped.Err.(*net.OpError)
+		return ok
+	}
+	return false
 }
 
 func isRetryablePingError(err error) bool {
 	godockerError, ok := err.(*godocker.Error)
-	if ok && godockerError.Status != http.StatusOK {
-		return true
+	if ok {
+		return godockerError.Status != http.StatusOK
 	}
-
 	return false
 }
