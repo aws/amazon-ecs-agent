@@ -75,7 +75,7 @@ func newDockerClient(dockerClientFactory dockerClientFactory, pingBackoff backof
 			break
 		}
 		backoffDuration := pingBackoff.Duration()
-		log.Infof("Network error connecting to docker, backing off for '%v', error: %v", backoffDuration, err)
+		log.Infof("Error connecting to docker, backing off for %s, error: %s", backoffDuration, err)
 		time.Sleep(backoffDuration)
 	}
 	return &_dockerclient{
