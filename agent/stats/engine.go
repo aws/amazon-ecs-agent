@@ -68,7 +68,7 @@ type DockerStatsEngine struct {
 	resolver                   resolver.ContainerMetadataResolver
 	// tasksToContainers maps task arns to a map of container ids to StatsContainer objects.
 	tasksToContainers map[string]map[string]*StatsContainer
-	// tasksToDefinitions maps task arns to task definiton name and family metadata objects.
+	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
 	tasksToDefinitions map[string]*taskDefinition
 }
 

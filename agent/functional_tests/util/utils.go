@@ -642,7 +642,7 @@ func GetInstanceIAMRole() (*iam.Role, error) {
 	return instanceRole.Role, nil
 }
 
-// SearchStrInDir searches the files in direcotry for specific content
+// SearchStrInDir searches the files in directory for specific content
 func SearchStrInDir(dir, filePrefix, content string) error {
 	logfiles, err := ioutil.ReadDir(dir)
 	if err != nil {

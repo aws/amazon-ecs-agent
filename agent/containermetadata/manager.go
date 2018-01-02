@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	// metadataEnvironmentVariable is the enviornment variable passed to the
+	// metadataEnvironmentVariable is the environment variable passed to the
 	// container for the metadata file path.
 	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA_FILE"
 	inspectContainerTimeout     = 30 * time.Second

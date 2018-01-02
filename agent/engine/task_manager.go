@@ -558,7 +558,7 @@ type containerTransitionFunc func(container *api.Container, nextStatus api.Conta
 // It returns a transition struct including the information:
 // * container state it should transition to,
 // * a bool indicating whether any action is required
-// * an error indicate why this transition can't happend
+// * an error indicating why this transition can't happen
 //
 // 'Stopped, false, ""' -> "You can move it to known stopped, but you don't have to call a transition function"
 // 'Running, true, ""' -> "You can move it to running and you need to call the transition function"

@@ -93,7 +93,7 @@ type intermediateSaveableState map[string]json.RawMessage
 // Note, changing this to work with BinaryMarshaler or another more compact
 // format would be fine, but everything already needs a json representation
 // since that's our wire format and the extra space taken / IO-time is expected
-// to be fairly negligable.
+// to be fairly negligible.
 type state struct {
 	Data saveableState
 

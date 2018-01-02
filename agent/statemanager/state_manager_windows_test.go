@@ -67,7 +67,7 @@ func TestStateManagerLoadNoRegistryKey(t *testing.T) {
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(nil, registry.ErrNotExist)
 
 	err := manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 }
 
 func TestStateManagerLoadNoFile(t *testing.T) {
@@ -82,7 +82,7 @@ func TestStateManagerLoadNoFile(t *testing.T) {
 	mockFS.EXPECT().IsNotExist(gomock.Any()).Return(true)
 
 	err := manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 }
 
 func TestStateManagerLoadError(t *testing.T) {

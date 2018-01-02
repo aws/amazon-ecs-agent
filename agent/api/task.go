@@ -310,7 +310,7 @@ func (task *Task) ContainerByName(name string) (*Container, bool) {
 }
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
-// task. The second return value indicates the presense of that volume
+// task. The second return value indicates the presence of that volume
 func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
@@ -557,7 +557,7 @@ func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
-// ApplyExecutionRoleLogsAuth will check whether the task has excecution role
+// ApplyExecutionRoleLogsAuth will check whether the task has execution role
 // credentials, and add the genereated credentials endpoint to the associated HostConfig
 func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *HostConfigError {
 	id := task.GetExecutionCredentialsID()
@@ -789,7 +789,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
-// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the recieved
+// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
 // ecsacs.Task to json and unmrashaling it as api.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)

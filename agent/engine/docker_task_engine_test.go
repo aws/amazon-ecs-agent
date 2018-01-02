@@ -1264,7 +1264,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 }
 
 // TestTaskTransitionWhenStopContainerTimesout tests that task transitions to stopped
-// only when terminal events are recieved from docker event stream when
+// only when terminal events are received from docker event stream when
 // StopContainer times out
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	ctrl, client, mockTime, taskEngine, _, imageManager, _ := mocks(t, &defaultConfig)

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// ecr_test packge to avoid test dependency cycle on ecr/mocks
+// ecr_test package to avoid test dependency cycle on ecr/mocks
 package ecr_test
 
 import (

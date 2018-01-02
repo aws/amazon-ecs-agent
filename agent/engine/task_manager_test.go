@@ -694,7 +694,7 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		transitionChangeContainer <- firstContainerName
 	}()
 
-	// waitForContainerTransitions will block until it recieves events
+	// waitForContainerTransitions will block until it receives events
 	// sent by the go routine defined above
 	task.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
 }
@@ -726,7 +726,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 
 	// Event though there are two keys in the transitions map, send
 	// only one event. This tests that `waitForContainerTransitions` doesn't
-	// block to recieve two events and will still progress
+	// block to receive two events and will still progress
 	go func() {
 		transitionChange <- true
 		transitionChangeContainer <- secondContainerName
@@ -830,7 +830,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		api.ContainerStopped: transitionFunction,
 	}
 
-	// Recieved RUNNING event, known status is not STOPPED, expect this to
+	// Received RUNNING event, known status is not STOPPED, expect this to
 	// be a noop. Assertions in transitionFunction asserts that as well
 	mTask.handleStoppedToRunningContainerTransition(
 		api.ContainerRunning, secondContainer)
@@ -854,7 +854,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 			"Mismatch in container reference in event")
 		waitForDockerMessageAssertions.Done()
 	}()
-	// Recieved RUNNING, known status is STOPPED, expect this to invoke
+	// Received RUNNING, known status is STOPPED, expect this to invoke
 	// transition function once
 	mTask.handleStoppedToRunningContainerTransition(
 		api.ContainerRunning, firstContainer)

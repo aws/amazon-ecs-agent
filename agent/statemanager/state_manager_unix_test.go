@@ -39,7 +39,7 @@ func TestStateManager(t *testing.T) {
 	assert.Nil(t, err, "Error loading manager")
 
 	err = manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 
 	// Now let's make some state to save
 	containerInstanceArn := ""

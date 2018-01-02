@@ -43,7 +43,7 @@ type Config struct {
 	// will be fatal.
 	AWSRegion string `missing:"fatal" trim:"true"`
 
-	// ReservedPorts is an array of ports which should be registerd as
+	// ReservedPorts is an array of ports which should be registered as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
 	// ReservedPortsUDP is an array of UDP ports which should be registered as

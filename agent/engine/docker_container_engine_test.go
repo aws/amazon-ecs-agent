@@ -1079,7 +1079,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 }
 
 // TestECRAuthCacheWithExecutionRole tests the client will use the cached docker auth
-// for ecr when pull from the same registery with same execution role
+// for ecr when pull from the same registry with same execution role
 func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	mockDocker, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
 	defer done()
@@ -1129,7 +1129,7 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 }
 
 // TestECRAuthCacheWithDifferentExecutionRole tests client will call ecr client to get
-// docker auth credentails for different execution role
+// docker auth credentials for different execution role
 func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	mockDocker, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
 	defer done()

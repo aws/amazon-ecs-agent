@@ -858,7 +858,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 
 // TestGetEarliestTaskStatusForContainersEmptyTask verifies that
 // `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
-// a task with no contianers
+// a task with no containers
 func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 	testTask := &Task{}
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
@@ -866,7 +866,7 @@ func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 
 // TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
 // `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
-// a task with contianers that do not have the `KnownStatusUnsafe` field set
+// a task with containers that do not have the `KnownStatusUnsafe` field set
 func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
@@ -1009,7 +1009,7 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 	for i := 0; i < reflect.TypeOf(expected).NumField(); i++ {
 		expectedValue := reflect.ValueOf(expected).Field(i)
-		// All the values we actaully expect to see are valid and non-nil
+		// All the values we actually expect to see are valid and non-nil
 		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
 			continue
 		}
