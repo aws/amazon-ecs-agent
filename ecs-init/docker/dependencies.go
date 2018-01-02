@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
@@ -74,7 +75,7 @@ func newDockerClient(dockerClientFactory dockerClientFactory, pingBackoff backof
 			break
 		}
 		backoffDuration := pingBackoff.Duration()
-		log.Infof("Network error connecting to docker, backing off for '%v', error: %v", backoffDuration, err)
+		log.Infof("Error connecting to docker, backing off for %s, error: %s", backoffDuration, err)
 		time.Sleep(backoffDuration)
 	}
 	return &_dockerclient{
@@ -131,15 +132,18 @@ func (s *_standardFS) ReadFile(filename string) ([]byte, error) {
 }
 
 func isNetworkError(err error) bool {
-	_, ok := err.(*net.OpError)
-	return ok
+	wrapped, isWrapped := err.(*url.Error)
+	if isWrapped {
+		_, ok := wrapped.Err.(*net.OpError)
+		return ok
+	}
+	return false
 }
 
 func isRetryablePingError(err error) bool {
 	godockerError, ok := err.(*godocker.Error)
-	if ok && godockerError.Status != http.StatusOK {
-		return true
+	if ok {
+		return godockerError.Status != http.StatusOK
 	}
-
 	return false
 }
