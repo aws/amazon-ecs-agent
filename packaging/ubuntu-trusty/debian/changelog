@@ -1,3 +1,10 @@
+amazon-ecs-init (1.16.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.16.1
+  * Improve startup behavior when Docker socket doesn't exist yet
+
+ -- Noah Meyerhans <nmeyerha@amazon.com>  Wed, 03 Jan 2018 14:52:56 -0800
+
 amazon-ecs-init (1.16.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.16.0

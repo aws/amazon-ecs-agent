@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.16.0
+Version:        1.16.1
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -152,6 +152,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Wed Jan 03 2018 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.1-1
+- Cache Agent version 1.16.1
+- Improve startup behavior when docker socket does not yet exist
 * Tue Nov 21 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.0-1
 - Cache Agent vesion 1.16.0
 * Thu Nov 16 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-2
