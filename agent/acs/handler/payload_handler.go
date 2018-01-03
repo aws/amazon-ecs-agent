@@ -179,7 +179,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 	validTasks := make([]*api.Task, 0, len(payload.Tasks))
 	for _, task := range payload.Tasks {
 		if task == nil {
-			seelog.Criticalf("Recieved nil task for messageId: %s", *payload.MessageId)
+			seelog.Criticalf("Received nil task for messageId: %s", *payload.MessageId)
 			allTasksOK = false
 			continue
 		}
@@ -279,7 +279,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 		}
 
 		// Generate an ack request for the credentials in the task, if the
-		// task is associated with an IAM role or the exectuion role
+		// task is associated with an IAM role or the execution role
 		taskCredentialsID := task.GetCredentialsID()
 		if taskCredentialsID != "" {
 			ackCredentials(taskCredentialsID, "task iam role")
@@ -324,7 +324,7 @@ func isTaskStatusNotStopped(status api.TaskStatus) bool {
 // a suitable reason to the backend
 func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
 	if task.Arn == nil {
-		seelog.Criticalf("Recieved task with no arn, messageId: %s, task: %v", *payload.MessageId, task)
+		seelog.Criticalf("Received task with no arn, messageId: %s, task: %v", *payload.MessageId, task)
 		return
 	}
 

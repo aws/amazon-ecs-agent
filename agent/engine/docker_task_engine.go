@@ -88,9 +88,9 @@ type DockerTaskEngine struct {
 
 	stopEngine context.CancelFunc
 
-	// processTasks is a mutex that the task engine must aquire before changing
+	// processTasks is a mutex that the task engine must acquire before changing
 	// any task's state which it manages. Since this is a lock that encompasses
-	// all tasks, it must not aquire it for any significant duration
+	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	processTasks sync.RWMutex
 
@@ -829,7 +829,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	}
 }
 
-// releaseIPInIPAM marks the ip avaialble in the ipam db
+// releaseIPInIPAM marks the ip available in the ipam db
 func (engine *DockerTaskEngine) releaseIPInIPAM(task *api.Task) error {
 	seelog.Infof("Releasing ip in the ipam, task: %s", task.Arn)
 	cfg, err := task.BuildCNIConfig()

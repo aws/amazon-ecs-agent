@@ -173,7 +173,7 @@ func newAgent(
 func (agent *ecsAgent) printECSAttributes() int {
 	capabilities, err := agent.capabilities()
 	if err != nil {
-		seelog.Warnf("Unable to obtain capabilit: %v", err)
+		seelog.Warnf("Unable to obtain capabilities: %v", err)
 		return exitcodes.ExitError
 	}
 	for _, attr := range capabilities {

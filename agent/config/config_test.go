@@ -227,7 +227,7 @@ func TestInvalidTaskCleanupTimeoutOverridesToThreeHours(t *testing.T) {
 
 	// If an invalid value is set, the config should pick up the default value for
 	// cleaning up the task.
-	assert.Equal(t, cfg.TaskCleanupWaitDuration, 3*time.Hour, "Defualt task cleanup wait duration set incorrectly")
+	assert.Equal(t, cfg.TaskCleanupWaitDuration, 3*time.Hour, "Default task cleanup wait duration set incorrectly")
 }
 
 func TestTaskCleanupTimeout(t *testing.T) {

@@ -157,7 +157,7 @@ func TestDockerAuth(t *testing.T) {
 			gobytes := fmt.Sprintf("%#v", []byte(badstring))
 			// format is []byte{0x12, 0x34}
 			// if it were json.RawMessage or another alias, it would print as json.RawMessage ... in the log
-			// Because of this, strip down to just the comma-seperated hex and look for that
+			// Because of this, strip down to just the comma-separated hex and look for that
 			if strings.Contains(string(data), gobytes[len(`[]byte{`):len(gobytes)-1]) {
 				t.Fatalf("log data contained byte-hex representation of bad string: %v, %v", string(data), badstring)
 			}
@@ -507,7 +507,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container envrionment variable")
+		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"

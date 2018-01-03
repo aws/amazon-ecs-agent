@@ -535,7 +535,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 
 	if cfg.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
-		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
+		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overridden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
 		cfg.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
 	}
 

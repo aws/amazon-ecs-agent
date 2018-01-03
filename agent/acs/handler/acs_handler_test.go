@@ -954,7 +954,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		// Return a task from the engine for GetTaskByArn
 		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 		// The last invocation of SetCredentials is to update
-		// credentials when a refresh message is recieved by the handler
+		// credentials when a refresh message is received by the handler
 		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds rolecredentials.TaskIAMRoleCredentials) {
 			updatedCredentials = creds
 			// Validate parsed credentials after the update
@@ -981,7 +981,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	case err := <-errChan:
 		t.Fatal("Error should not have been returned from server", err)
 	case <-ctx.Done():
-		// Context is canceled when requestsChan recieves an ack
+		// Context is canceled when requestsChan receives an ack
 	}
 
 	// Validate that the correct credentialsId is set for the task

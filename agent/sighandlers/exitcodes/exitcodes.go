@@ -19,7 +19,7 @@ const (
 	// is okay
 	ExitSuccess = 0
 	// ExitError (as well as unspecified exit codes) indicate a fatal error
-	// occured, but the agent should be restarted
+	// occurred, but the agent should be restarted
 	ExitError = 1
 	// ExitTerminal indicates the agent has exited unsuccessfully, but should
 	// not be restarted

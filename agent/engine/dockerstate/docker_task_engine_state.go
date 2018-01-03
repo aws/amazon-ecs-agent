@@ -77,7 +77,7 @@ type TaskEngineState interface {
 // accessed before an update comes and to ensure multiple goroutines can safely
 // work with it.
 //
-// The methods on it will aquire the read lock, but not all aquire the write
+// The methods on it will acquire the read lock, but not all acquire the write
 // lock (sometimes it is up to the caller). This is because the write lock for
 // containers should encapsulate the creation of the resource as well as adding,
 // and creating the resource (docker container) is outside the scope of this

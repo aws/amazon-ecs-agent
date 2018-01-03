@@ -173,7 +173,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container envrionment variable")
+		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"

@@ -120,7 +120,7 @@ type Container struct {
 	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull,
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
 	AppliedStatus ContainerStatus
-	// ApplyingError is an error that occured trying to transition the container
+	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
 	ApplyingError *DefaultNamedError
