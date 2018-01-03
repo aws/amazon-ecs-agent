@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
-* Bug - Fixed a bug where the agent could miss sending an ENI attachment to ECS because of address propagation delays [#1148](https://github.com/aws/amazon-ecs-agent/pull/1148)
+## 1.16.1
+* Bug - Fixed a bug where the agent could miss sending an ENI attachment to ECS
+  because of address propagation delays. [#1148](https://github.com/aws/amazon-ecs-agent/pull/1148)
+* Enhancement - Upgrade the `amazon-ecs-cni-plugins` to `2017.10.1`. [#1155](https://github.com/aws/amazon-ecs-agent/pull/1155)
 
 ## 1.16.0
 * Feature - Support pulling from Amazon ECR with specified IAM role in task definition
