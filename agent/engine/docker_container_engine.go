@@ -250,14 +250,16 @@ func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenti
 
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
-		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay, maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
-		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries, func() error {
-			err := dg.pullImage(image, authData)
-			if err != nil {
-				seelog.Warnf("Failed to pull image %s: %s", image, err.Error())
-			}
-			return err
-		})
+		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay,
+			maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
+		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries,
+			func() error {
+				err := dg.pullImage(image, authData)
+				if err != nil {
+					seelog.Warnf("Failed to pull image %s: %s", image, err.Error())
+				}
+				return err
+			})
 		response <- DockerContainerMetadata{Error: wrapPullErrorAsEngineError(err)}
 	}()
 	select {

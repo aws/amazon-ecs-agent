@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 )
@@ -70,6 +71,69 @@ type TaskStateChange struct {
 	// Task is a pointer to the task involved in the state change that gives the event handler a hook into storing
 	// what status was sent.  This is used to ensure the same event is handled only once.
 	Task *Task
+}
+
+// NewTaskStateChangeEvent creates a new task state change event
+func NewTaskStateChangeEvent(task *Task, reason string) (TaskStateChange, error) {
+	var event TaskStateChange
+	taskKnownStatus := task.GetKnownStatus()
+	if !taskKnownStatus.BackendRecognized() {
+		return event, errors.Errorf(
+			"create task state change event api: status not recognized by ECS: %v; task: %s",
+			taskKnownStatus, task.Arn)
+	}
+	if task.GetSentStatus() >= taskKnownStatus {
+		return event, errors.Errorf(
+			"create task state change event api: status [%s] already sent for task %s",
+			taskKnownStatus.String(), task.Arn)
+	}
+
+	event = TaskStateChange{
+		TaskARN: task.Arn,
+		Status:  taskKnownStatus,
+		Reason:  reason,
+		Task:    task,
+	}
+
+	event.SetTaskTimestamps()
+
+	return event, nil
+}
+
+// NewContainerStateChangeEvent creates a new container state change event
+func NewContainerStateChangeEvent(task *Task, cont *Container, reason string) (ContainerStateChange, error) {
+	var event ContainerStateChange
+	contKnownStatus := cont.GetKnownStatus()
+	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
+		return event, errors.Errorf(
+			"create container state change event api: status not recognized by ECS: %v; task: %s",
+			contKnownStatus, task.Arn)
+	}
+	if cont.IsInternal() {
+		return event, errors.Errorf(
+			"create container state change event api: internal container: %s",
+			cont.Name)
+	}
+	if cont.GetSentStatus() >= contKnownStatus {
+		return event, errors.Errorf(
+			"create container state change event api: status [%s] already sent for container %s, task %s",
+			contKnownStatus.String(), cont.Name, task.Arn)
+	}
+
+	if reason == "" && cont.ApplyingError != nil {
+		reason = cont.ApplyingError.Error()
+	}
+	event = ContainerStateChange{
+		TaskArn:       task.Arn,
+		ContainerName: cont.Name,
+		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
+		ExitCode:      cont.GetKnownExitCode(),
+		PortBindings:  cont.KnownPortBindings,
+		Reason:        reason,
+		Container:     cont,
+	}
+
+	return event, nil
 }
 
 // String returns a human readable string representation of this object

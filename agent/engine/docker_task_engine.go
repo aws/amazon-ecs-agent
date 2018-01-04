@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -102,6 +103,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
+	resource                            resources.Resource
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -134,6 +136,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 		}),
 
 		metadataManager: metadataManager,
+		resource:        resources.New(),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -331,7 +334,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		log.Warn("Could not check task state for task; no task in state", "task", task)
+		seelog.Warnf("Could not check task state for task; no task in state: %s", task.Arn)
 		return
 	}
 	for _, container := range task.Containers {
@@ -383,26 +386,40 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	engine.saver.Save()
 }
 
+func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone chan<- struct{}) {
+	if engine.cfg.TaskCPUMemLimit.Enabled() {
+		err := engine.resource.Cleanup(task)
+		if err != nil {
+			seelog.Warnf("Unable to cleanup platform resources for task %s: %v",
+				task.Arn, err)
+		}
+	}
+
+	// Now remove ourselves from the global state and cleanup channels
+	engine.processTasks.Lock()
+	engine.state.RemoveTask(task)
+	eni := task.GetTaskENI()
+	if eni == nil {
+		seelog.Debugf("No eni associated with task: [%s]", task.Arn)
+	} else {
+		seelog.Debugf("Removing the eni from agent state, task: [%s]", task.Arn)
+		engine.state.RemoveENIAttachment(eni.MacAddress)
+	}
+	seelog.Debugf("Finished removing task data, removing task from managed tasks: %s", task.Arn)
+	delete(engine.managedTasks, task.Arn)
+	handleCleanupDone <- struct{}{}
+	engine.processTasks.Unlock()
+	engine.saver.Save()
+}
+
 func (engine *DockerTaskEngine) emitTaskEvent(task *api.Task, reason string) {
-	taskKnownStatus := task.GetKnownStatus()
-	if !taskKnownStatus.BackendRecognized() {
-		return
-	}
-	if task.GetSentStatus() >= taskKnownStatus {
-		log.Debug("Already sent task event; no need to re-send", "task", task.Arn, "event", taskKnownStatus.String())
+	event, err := api.NewTaskStateChangeEvent(task, reason)
+	if err != nil {
+		seelog.Debugf("Unable to create task state change event for task '%s': %v", task.Arn, err)
 		return
 	}
 
-	event := api.TaskStateChange{
-		TaskARN: task.Arn,
-		Status:  taskKnownStatus,
-		Reason:  reason,
-		Task:    task,
-	}
-
-	event.SetTaskTimestamps()
-
-	seelog.Infof("Task change event: %s", event.String())
+	seelog.Infof("Task engine: sending change event [%s]", event.String())
 	engine.stateChangeEvents <- event
 }
 
@@ -428,38 +445,6 @@ func (engine *DockerTaskEngine) time() ttime.Time {
 		}
 	})
 	return engine._time
-}
-
-// emitContainerEvent passes a given event up through the containerEvents channel if necessary.
-// It will omit events the backend would not process and will perform best-effort deduplication of events.
-func (engine *DockerTaskEngine) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
-	contKnownStatus := cont.GetKnownStatus()
-	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
-		return
-	}
-	if cont.IsInternal() {
-		return
-	}
-	if cont.GetSentStatus() >= contKnownStatus {
-		log.Debug("Already sent container event; no need to re-send", "task", task.Arn, "container", cont.Name, "event", contKnownStatus.String())
-		return
-	}
-
-	if reason == "" && cont.ApplyingError != nil {
-		reason = cont.ApplyingError.Error()
-	}
-	event := api.ContainerStateChange{
-		TaskArn:       task.Arn,
-		ContainerName: cont.Name,
-		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
-		ExitCode:      cont.GetKnownExitCode(),
-		PortBindings:  cont.KnownPortBindings,
-		Reason:        reason,
-		Container:     cont,
-	}
-	log.Debug("Container change event", "event", event)
-	engine.stateChangeEvents <- event
-	log.Debug("Container change event passed on", "event", event)
 }
 
 // openEventstream opens, but does not consume, the docker event stream
@@ -823,17 +808,6 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	return DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
-}
-
-// releaseIPInIPAM marks the ip available in the ipam db
-func (engine *DockerTaskEngine) releaseIPInIPAM(task *api.Task) error {
-	seelog.Infof("Releasing ip in the ipam, task: %s", task.Arn)
-	cfg, err := task.BuildCNIConfig()
-	if err != nil {
-		return errors.Wrapf(err, "engine: build cni configuration from task failed")
-	}
-
-	return engine.cniClient.ReleaseIPResource(cfg)
 }
 
 // cleanupPauseContainerNetwork will clean up the network namespace of pause container

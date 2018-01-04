@@ -455,7 +455,11 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 	assert.NoError(t, err, "setting task credentials failed")
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%s to %s transition with useExecutionRole %v and credentials %s", tc.containerCurrentStatus.String(), tc.containerDesiredStatus.String(), tc.useExecutionRole, tc.credentialsID), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s to %s transition with useExecutionRole %v and credentials %s",
+			tc.containerCurrentStatus.String(),
+			tc.containerDesiredStatus.String(),
+			tc.useExecutionRole,
+			tc.credentialsID), func(t *testing.T) {
 			container := &api.Container{
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
@@ -475,7 +479,8 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 					ExecutionCredentialsID: tc.credentialsID,
 					DesiredStatusUnsafe:    api.TaskRunning,
 				},
-				engine: taskEngine,
+				engine:             taskEngine,
+				credentialsManager: taskEngine.credentialsManager,
 			}
 
 			transition := task.containerNextState(container)
@@ -628,6 +633,8 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 			containerChangeEventStream: containerChangeEventStream,
 			stateChangeEvents:          stateChangeEvents,
 		},
+		stateChangeEvents:          stateChangeEvents,
+		containerChangeEventStream: containerChangeEventStream,
 	}
 
 	eventsGenerated := sync.WaitGroup{}
@@ -744,6 +751,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 		engine: &DockerTaskEngine{
 			stateChangeEvents: stateChangeEvents,
 		},
+		stateChangeEvents: stateChangeEvents,
 	}
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(1)
@@ -813,6 +821,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		saver:          taskEngine.saver,
 	}
 	taskEngine.managedTasks = make(map[string]*managedTask)
 	taskEngine.managedTasks["task1"] = mTask
@@ -897,6 +906,8 @@ func TestCleanupTask(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
@@ -945,6 +956,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskRunning)
@@ -1005,6 +1018,8 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskRunning)
@@ -1053,6 +1068,8 @@ func TestCleanupTaskENIs(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetTaskENI(&api.ENI{
 		ID: "TestCleanupTaskENIs",
@@ -1172,6 +1189,8 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 
 	mTask.SetKnownStatus(api.TaskStopped)
@@ -1217,6 +1236,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
+		resource:     mockResource,
 	}
 	mTask := &managedTask{
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
@@ -1225,6 +1245,8 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		resource:       mockResource,
+		cfg:            taskEngine.cfg,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
@@ -1270,6 +1292,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
+		resource:     mockResource,
 	}
 	mTask := &managedTask{
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
@@ -1277,7 +1300,9 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		engine:         taskEngine,
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
+		cfg:            taskEngine.cfg,
 		resource:       mockResource,
+		saver:          taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)

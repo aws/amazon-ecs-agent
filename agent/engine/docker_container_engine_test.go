@@ -109,11 +109,12 @@ func TestPullImageOutputTimeout(t *testing.T) {
 	wait := sync.WaitGroup{}
 	wait.Add(1)
 	// multiple invocations will happen due to retries, but all should timeout
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
-		pullBeginTimeout <- time.Now()
-		wait.Wait()
-		// Don't return, verify timeout happens
-	}).Times(maximumPullRetries) // expected number of retries
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(
+		func(x, y interface{}) {
+			pullBeginTimeout <- time.Now()
+			wait.Wait()
+			// Don't return, verify timeout happens
+		}).Times(maximumPullRetries) // expected number of retries
 
 	metadata := client.PullImage("image", nil)
 	if metadata.Error == nil {
