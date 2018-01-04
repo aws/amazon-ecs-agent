@@ -15,12 +15,15 @@
 package engine
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -47,4 +50,34 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+}
+
+func TestDeleteTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	task := &api.Task{}
+
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+	taskEngine := &DockerTaskEngine{
+		state: mockState,
+		saver: mockSaver,
+		cfg:   &defaultConfig,
+	}
+
+	gomock.InOrder(
+		mockState.EXPECT().RemoveTask(task),
+		mockSaver.EXPECT().Save(),
+	)
+
+	var cleanupDone sync.WaitGroup
+	handleCleanupDone := make(chan struct{})
+	cleanupDone.Add(1)
+	go func() {
+		<-handleCleanupDone
+		cleanupDone.Done()
+	}()
+	taskEngine.deleteTask(task, handleCleanupDone)
+	cleanupDone.Wait()
 }
