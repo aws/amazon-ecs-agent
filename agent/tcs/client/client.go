@@ -244,14 +244,14 @@ func (cs *clientServer) publishHealthMetrics() {
 	// due to a connection reset.
 	err := cs.publishHealthMetricsOnce()
 	if err != nil {
-		seelog.Warnf("Error publishing health metrics: %v", err)
+		seelog.Warnf("Unable to publish health metrics: %v", err)
 	}
 	for {
 		select {
 		case <-cs.publishTicker.C:
 			err := cs.publishHealthMetricsOnce()
 			if err != nil {
-				seelog.Warnf("Error publishing health metrics: %v", err)
+				seelog.Warnf("Unable to publish health metrics: %v", err)
 			}
 		case <-cs.endPublish:
 			return

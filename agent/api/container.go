@@ -48,8 +48,6 @@ type DockerConfig struct {
 	HostConfig *string `json:"hostConfig"`
 	// Version specifies the docker client API version to use
 	Version *string `json:"version"`
-	// HealthCheck is the configuration of docker health check
-	HealthCheck *string `json:"healthCheck,omitempty"`
 }
 
 // HealthStatus contains the health check result returned by docker

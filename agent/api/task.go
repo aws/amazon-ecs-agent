@@ -455,23 +455,17 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 		return nil, &DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
 
-	if container.HealthCheckType == dockerHealthCheckType {
-		// configure the docker health check config if it's set
-		healthConfig := &docker.HealthConfig{}
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.HealthCheck)), healthConfig)
-		if err != nil {
-			return nil, &DockerClientConfigError{
-				fmt.Sprintf("Unable to decode given docker health config: %s", aws.StringValue(container.DockerConfig.HealthCheck))}
-		}
-		config.Healthcheck = healthConfig
-	}
-
 	if container.DockerConfig.Config != nil {
 		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
 		if err != nil {
 			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
+	if container.HealthCheckType == dockerHealthCheckType && config.Healthcheck == nil {
+		return nil, &DockerClientConfigError{
+			"docker health check is nil while container health check type is DOCKER"}
+	}
+
 	if config.Labels == nil {
 		config.Labels = make(map[string]string)
 	}
@@ -1102,7 +1096,9 @@ func (task *Task) GetID() (string, error) {
 
 	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
 	if len(resourceSplit) != arnResourceSections {
-		return "", errors.Errorf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit))
+		return "", errors.Errorf(
+			"task get-id: invalid task resource split: %s, expected=%d, actual=%d",
+			resource, arnResourceSections, len(resourceSplit))
 	}
 
 	return resourceSplit[1], nil

@@ -1364,12 +1364,14 @@ func TestContainerHealthConfig(t *testing.T) {
 				Name:            "c1",
 				HealthCheckType: dockerHealthCheckType,
 				DockerConfig: DockerConfig{
-					HealthCheck: aws.String(`{
+					Config: aws.String(`{
+						"HealthCheck":{
 							"Test":["command"],
 							"Interval":5000000000,
 							"Timeout":4000000000,
 							"StartPeriod":60000000000,
-							"Retries":5}`),
+							"Retries":5}
+					}`),
 				},
 			},
 		},

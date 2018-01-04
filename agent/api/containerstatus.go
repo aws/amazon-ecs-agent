@@ -194,6 +194,7 @@ func (healthStatus *ContainerHealthStatus) UnmarshalJSON(b []byte) error {
 	strStatus := string(b[1 : len(b)-1])
 	switch strStatus {
 	case "UNKNOWN":
+	// The health status is already set to ContainerHealthUnknown initially
 	case "HEALTHY":
 		*healthStatus = ContainerHealthy
 	case "UNHEALTHY":

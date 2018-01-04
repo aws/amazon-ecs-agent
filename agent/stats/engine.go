@@ -140,7 +140,7 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 	defer engine.lock.Unlock()
 	statsContainer, err := engine.addContainerUnsafe(containerID)
 	if err != nil {
-		seelog.Debugf("Adding container to stats watch list failed, err: %v", err)
+		seelog.Debugf("Adding container to stats watch list failed, container: %s, err: %v", containerID, err)
 		return
 	}
 
@@ -170,7 +170,10 @@ func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, clust
 		return fmt.Errorf("Failed to subscribe to container change event stream, err %v", err)
 	}
 
-	engine.synchronizeState()
+	err = engine.synchronizeState()
+	if err != nil {
+		seelog.Warnf("Synchronize the container state failed, err: %v", err)
+	}
 
 	go engine.waitToStop()
 	return nil
@@ -226,31 +229,40 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 	statsContainer := newStatsContainer(dockerID, engine.client, engine.resolver)
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
+	watchStatsContainer := false
 	if !engine.disableMetrics {
 		// Adding container to the map for collecting stats
-		statsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
+		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
 	}
 
-	dockerContainer, err := engine.resolver.ResolveContainer(dockerID)
-	if err == nil && dockerContainer.Container.HealthStatusShouldBeReported() {
+	if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
+		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
+	} else if dockerContainer.Container.HealthStatusShouldBeReported() {
+		// Track the container health status
+		engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.healthCheckContainerMapUnsafe)
 		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
-		engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.healthCheckContainerMetricsMapUnsafe)
 	}
 
+	if !watchStatsContainer {
+		return nil, nil
+	}
 	return statsContainer, nil
 }
 
 func (engine *DockerStatsEngine) containerMetricsMapUnsafe() map[string]map[string]*StatsContainer {
 	return engine.tasksToContainers
 }
-func (engine *DockerStatsEngine) healthCheckContainerMetricsMapUnsafe() map[string]map[string]*StatsContainer {
+
+func (engine *DockerStatsEngine) healthCheckContainerMapUnsafe() map[string]map[string]*StatsContainer {
 	return engine.tasksToHealthCheckContainers
 }
 
+// addToStatsContainerMapUnsafe adds the statscontainer into stats for tracking and returns a boolean indicates
+// whether this container should be tracked for collecting metrics
 func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 	taskARN, containerID string,
 	statsContainer *StatsContainer,
-	statsMapToUpdate func() map[string]map[string]*StatsContainer) *StatsContainer {
+	statsMapToUpdate func() map[string]map[string]*StatsContainer) bool {
 
 	taskToContainerMap := statsMapToUpdate()
 
@@ -262,7 +274,7 @@ func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 		if containerExists {
 			// container arn exists in map.
 			seelog.Debugf("Container already being watched, ignoring, id: %s", containerID)
-			return nil
+			return false
 		}
 	} else {
 		// Create a map for the task arn if it doesn't exist yet.
@@ -270,7 +282,7 @@ func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 	}
 	taskToContainerMap[taskARN][containerID] = statsContainer
 
-	return statsContainer
+	return true
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
