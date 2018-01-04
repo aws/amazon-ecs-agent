@@ -132,13 +132,12 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials TaskIAMRol
 	}
 
 	// Check if credentials exists for the given credentials id
-	taskCredentialsInMap, ok := manager.idToTaskCredentials[credentials.CredentialsID]
+	_, ok := manager.idToTaskCredentials[credentials.CredentialsID]
 	if !ok {
 		// No existing credentials, create a new one
-		taskCredentialsInMap = &TaskIAMRoleCredentials{}
+		manager.idToTaskCredentials[credentials.CredentialsID] = &TaskIAMRoleCredentials{}
 	}
-	*taskCredentialsInMap = taskCredentials
-	manager.idToTaskCredentials[credentials.CredentialsID] = taskCredentialsInMap
+	manager.idToTaskCredentials[credentials.CredentialsID] = &taskCredentials
 
 	return nil
 }
@@ -153,7 +152,10 @@ func (manager *credentialsManager) GetTaskCredentials(id string) (TaskIAMRoleCre
 	if !ok {
 		return TaskIAMRoleCredentials{}, ok
 	}
-	return *taskCredentials, ok
+	return TaskIAMRoleCredentials{
+		ARN:                taskCredentials.ARN,
+		IAMRoleCredentials: taskCredentials.GetIAMRoleCredentials(),
+	}, ok
 }
 
 // RemoveCredentials removes credentials from the credentials manager

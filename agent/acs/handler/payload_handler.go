@@ -193,17 +193,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// The payload from ACS for the task has credentials for the
 			// task. Add those to the credentials manager and set the
 			// credentials id for the task as well
-			taskCredentials := credentials.TaskIAMRoleCredentials{
-				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType),
-			}
-			err = payloadHandler.credentialsManager.SetTaskCredentials(taskCredentials)
+			taskIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType)
+			err = payloadHandler.credentialsManager.SetTaskCredentials(
+				credentials.TaskIAMRoleCredentials{
+					ARN:                aws.StringValue(task.Arn),
+					IAMRoleCredentials: taskIAMRoleCredentials,
+				})
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
+			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
 
 		// Adding the eni information to the task struct
@@ -221,17 +222,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// The payload message contains execution credentials for the task.
 			// Add the credentials to the credentials manager and set the
 			// task executionCredentials id.
-			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
-				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType),
-			}
-			err = payloadHandler.credentialsManager.SetTaskCredentials(taskExecutionCredentials)
+			taskExecutionIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType)
+			err = payloadHandler.credentialsManager.SetTaskCredentials(
+				credentials.TaskIAMRoleCredentials{
+					ARN:                aws.StringValue(task.Arn),
+					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
+				})
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetExecutionRoleCredentialsID(taskExecutionCredentials.IAMRoleCredentials.CredentialsID)
+			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
 		}
 
 		validTasks = append(validTasks, apiTask)
