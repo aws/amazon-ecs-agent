@@ -513,7 +513,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	// no need to process this in task manager
 	if event.Type == api.ContainerHealthEvent {
 		if cont.Container.HealthStatusShouldBeReported() {
-			seelog.Debugf("Updating container health status: %s", event.DockerContainerMetadata.Health)
+			seelog.Debugf("Updating container health status: %v, container: %s", event.DockerContainerMetadata.Health, cont.DockerID)
 			cont.Container.SetHealthStatus(event.DockerContainerMetadata.Health)
 		}
 		return
