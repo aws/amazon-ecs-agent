@@ -68,7 +68,7 @@ func DefaultConfig() Config {
 		// run as a container
 		DataDirOnHost:               dataDir,
 		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
+		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:           DefaultDockerStopTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
