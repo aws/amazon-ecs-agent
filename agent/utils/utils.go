@@ -137,7 +137,6 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 
 		_time.Sleep(backoff.Duration())
 	}
-	return err
 }
 
 // RetryNWithBackoff takes a Backoff, a maximum number of tries 'n', and a
