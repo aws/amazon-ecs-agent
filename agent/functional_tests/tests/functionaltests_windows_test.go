@@ -70,11 +70,7 @@ func TestAWSLogsDriver(t *testing.T) {
 		require.NoError(t, err, "Failed to create log group %s", awslogsLogGroupName)
 	}
 
-	agentOptions := AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
-		},
-	}
+	agentOptions := AgentOptions{}
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.9.0") //Required for awslogs driver
