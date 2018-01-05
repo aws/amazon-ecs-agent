@@ -16,7 +16,7 @@
 # It exists to wrap go build and properly make a static binary, as well as to
 # correctly setup versioning before creating the binary
 
-set -e
+set -ex
 
 # Pass in whether you want to build a static binary (true|false) and whether
 # the resulting binary should be moved to an output directory
