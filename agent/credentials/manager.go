@@ -90,7 +90,7 @@ func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeUR
 // the credentials endpoint
 type credentialsManager struct {
 	// idToTaskCredentials maps credentials id to its corresponding TaskIAMRoleCredentials object
-	idToTaskCredentials map[string]*TaskIAMRoleCredentials
+	idToTaskCredentials map[string]TaskIAMRoleCredentials
 	taskCredentialsLock sync.RWMutex
 }
 
@@ -111,7 +111,7 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 // NewManager creates a new credentials manager object
 func NewManager() Manager {
 	return &credentialsManager{
-		idToTaskCredentials: make(map[string]*TaskIAMRoleCredentials),
+		idToTaskCredentials: make(map[string]TaskIAMRoleCredentials),
 	}
 }
 
@@ -131,13 +131,10 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials TaskIAMRol
 		return fmt.Errorf("task ARN is empty")
 	}
 
-	// Check if credentials exists for the given credentials id
-	_, ok := manager.idToTaskCredentials[credentials.CredentialsID]
-	if !ok {
-		// No existing credentials, create a new one
-		manager.idToTaskCredentials[credentials.CredentialsID] = &TaskIAMRoleCredentials{}
+	manager.idToTaskCredentials[credentials.CredentialsID] = TaskIAMRoleCredentials{
+		ARN:                taskCredentials.ARN,
+		IAMRoleCredentials: taskCredentials.GetIAMRoleCredentials(),
 	}
-	manager.idToTaskCredentials[credentials.CredentialsID] = &taskCredentials
 
 	return nil
 }
