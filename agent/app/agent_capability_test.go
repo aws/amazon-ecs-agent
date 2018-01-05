@@ -14,6 +14,7 @@
 package app
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
@@ -359,15 +360,17 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	defer ctrl.Finish()
 
 	client := engine.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	conf := &config.Config{
 		OverrideAWSLogsExecutionRole: true,
+		TaskENIEnabled:               true,
 	}
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 	})
-
 	client.EXPECT().KnownVersions().Return(nil)
+	cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", errors.New("some error happened"))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -376,6 +379,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 		ctx:          ctx,
 		cfg:          conf,
 		dockerClient: client,
+		cniClient:    cniClient,
 	}
 
 	capabilities, err := agent.capabilities()
