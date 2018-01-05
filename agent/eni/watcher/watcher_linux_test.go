@@ -512,3 +512,53 @@ func TestSendENIStateChangeExpired(t *testing.T) {
 
 	assert.Error(t, watcher.sendENIStateChange(randomMAC))
 }
+
+func TestSendENIStateChangeWithRetries(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
+
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
+
+	gomock.InOrder(
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false),
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+			ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
+		}, true),
+	)
+
+	ctx := context.TODO()
+	go watcher.sendENIStateChangeWithRetries(ctx, randomMAC, sendENIStateChangeRetryTimeout)
+
+	eniChangeEvent := <-eventChannel
+	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
+	require.True(t, ok)
+	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
+}
+
+func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
+
+	gomock.InOrder(
+		// ENIByMAC returns an error for exipred ENI attachment, which should
+		// mean that it doesn't get retried.
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
+			&api.ENIAttachment{
+				AttachStatusSent: false,
+				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
+				MACAddress:       randomMAC,
+			}, true),
+		mockStateManager.EXPECT().RemoveENIAttachment(randomMAC),
+	)
+
+	ctx := context.TODO()
+	assert.Error(t, watcher.sendENIStateChangeWithRetries(
+		ctx, randomMAC, sendENIStateChangeRetryTimeout))
+}
