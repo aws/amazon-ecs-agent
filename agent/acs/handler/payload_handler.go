@@ -179,7 +179,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 	validTasks := make([]*api.Task, 0, len(payload.Tasks))
 	for _, task := range payload.Tasks {
 		if task == nil {
-			seelog.Criticalf("Received nil task for messageId: %s", *payload.MessageId)
+			seelog.Criticalf("Received nil task for messageId: %s", aws.StringValue(payload.MessageId))
 			allTasksOK = false
 			continue
 		}
@@ -325,8 +325,11 @@ func isTaskStatusNotStopped(status api.TaskStatus) bool {
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
 // a suitable reason to the backend
 func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
-	if task.Arn == nil {
-		seelog.Criticalf("Received task with no arn, messageId: %s, task: %v", *payload.MessageId, task)
+	seelog.Warnf("Received unexpected acs message, messageID: %s, task: %v, err: %v",
+		aws.StringValue(payload.MessageId), aws.StringValue(task.Arn), err)
+
+	if aws.StringValue(task.Arn) == "" {
+		seelog.Criticalf("Received task with no arn, messageId: %s", aws.StringValue(payload.MessageId))
 		return
 	}
 
