@@ -296,12 +296,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	pullDebugOut, pullWriter := io.Pipe()
 	defer pullWriter.Close()
 
-	repository, tag := parseRepositoryTag(image)
-	if tag == "" {
-		repository = repository + ":" + dockerDefaultTag
-	} else {
-		repository = image
-	}
+	repository := getRepository(image)
 
 	opts := docker.PullImageOptions{
 		Repository:   repository,
@@ -311,39 +306,9 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
 	// It is here to guard against a bug wherin docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
-	// pullBeganOnce ensures we only indicate it began once (since our channel will only be read 0 or 1 times)
-	pullBeganOnce := sync.Once{}
 
-	go func() {
-		reader := bufio.NewReader(pullDebugOut)
-		var line string
-		var pullErr error
-		var statusDisplayed time.Time
-		for pullErr == nil {
-			line, pullErr = reader.ReadString('\n')
-			if pullErr != nil {
-				break
-			}
-			pullBeganOnce.Do(func() {
-				pullBegan <- true
-			})
+	go dg.filterPullDebugOutput(pullDebugOut, pullBegan, image)
 
-			now := time.Now()
-			if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
-				// skip most of the progress bar lines, but retain enough for debugging
-				log.Debug("Pulling image", "image", image, "status", line)
-				statusDisplayed = now
-			}
-
-			if strings.Contains(line, "already being pulled by another client. Waiting.") {
-				// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
-				log.Error("Image 'pull' status marked as already being pulled", "image", image, "status", line)
-			}
-		}
-		if pullErr != nil && pullErr != io.EOF {
-			log.Warn("Error reading pull image status", "image", image, "err", pullErr)
-		}
-	}()
 	pullFinished := make(chan error, 1)
 	go func() {
 		pullFinished <- client.PullImage(opts, authConfig)
@@ -369,6 +334,50 @@ func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenti
 		return CannotPullContainerError{err}
 	}
 	return nil
+}
+
+func (dg *dockerGoClient) filterPullDebugOutput(pullDebugOut *io.PipeReader, pullBegan chan<- bool, image string) {
+	// pullBeganOnce ensures we only indicate it began once (since our channel will only be read 0 or 1 times)
+	pullBeganOnce := sync.Once{}
+
+	reader := bufio.NewReader(pullDebugOut)
+	var line string
+	var pullErr error
+	var statusDisplayed time.Time
+	for {
+		line, pullErr = reader.ReadString('\n')
+		if pullErr != nil {
+			break
+		}
+		pullBeganOnce.Do(func() {
+			pullBegan <- true
+		})
+
+		now := time.Now()
+		if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
+			// skip most of the progress bar lines, but retain enough for debugging
+			seelog.Debugf("Pulling image %s, status %s", image, line)
+			statusDisplayed = now
+		}
+
+		if strings.Contains(line, "already being pulled by another client. Waiting.") {
+			// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
+			seelog.Errorf("Image 'pull' status marked as already being pulled for image %s, status %s", image, line)
+		}
+	}
+	if pullErr != nil && pullErr != io.EOF {
+		seelog.Warnf("Error reading pull image status for image %s, err %s", image, pullErr)
+	}
+}
+
+func getRepository(image string) string {
+	repository, tag := parseRepositoryTag(image)
+	if tag == "" {
+		repository = repository + ":" + dockerDefaultTag
+	} else {
+		repository = image
+	}
+	return repository
 }
 
 // ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.

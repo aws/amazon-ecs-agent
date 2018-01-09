@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -702,9 +703,9 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	}
 
 	if container.AWSLogAuthExecutionRole() {
-		hcerr = task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
-		if hcerr != nil {
-			return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
+		if err != nil {
+			return DockerContainerMetadata{Error: api.NamedError(err)}
 		}
 	}
 
@@ -723,14 +724,9 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	config.Labels[labelPrefix+"cluster"] = engine.cfg.Cluster
 
 	if dockerContainerName == "" {
-		name := ""
-		for i := 0; i < len(container.Name); i++ {
-			c := container.Name[i]
-			if !((c <= '9' && c >= '0') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '-')) {
-				continue
-			}
-			name += string(c)
-		}
+		// only alphanumeric and hyphen characters are allowed
+		reInvalidChars := regexp.MustCompile("[^A-Za-z0-9-]+")
+		name := reInvalidChars.ReplaceAllString(container.Name, "")
 
 		dockerContainerName = "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 

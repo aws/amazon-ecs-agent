@@ -294,12 +294,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	// locate the container
 	container := containerChange.container
-	found := false
-	for _, c := range mtask.Containers {
-		if container == c {
-			found = true
-		}
-	}
+	found := mtask.isContainerFound(container)
 	if !found {
 		llog.Crit("State error; task manager called with another task's container!", "container", container)
 		return
@@ -363,6 +358,17 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		// If knownStatus changed, let it be known
 		mtask.engine.emitTaskEvent(mtask.Task, "")
 	}
+}
+
+func (mtask *managedTask) isContainerFound(container *api.Container) bool {
+	found := false
+	for _, c := range mtask.Containers {
+		if container == c {
+			found = true
+			break
+		}
+	}
+	return found
 }
 
 // releaseIPInIPAM releases the ip used by the task for awsvpc
