@@ -165,10 +165,21 @@ taskmetadata-validator:
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
 
+.PHONY: gocyclo
+gocyclo:
+	# Run gocyclo over all .go files in the agent, excluding vendor/ and testutils/ directories, and all *_test.go and *_mocks.go files
+	gocyclo -over 15 $(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
+		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$)
+
+#TODO, create and add go vet target
+.PHONY: static-check
+static-check: gocyclo
+
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	go get golang.org/x/tools/cmd/goimports
+	go get github.com/fzipp/gocyclo
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp

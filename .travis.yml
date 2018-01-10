@@ -7,3 +7,5 @@ go_import_path: github.com/aws/amazon-ecs-agent
 install: make get-deps
 script:
   - make test
+  - make static-check
+  
