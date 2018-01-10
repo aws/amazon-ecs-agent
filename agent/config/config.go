@@ -243,16 +243,8 @@ func environmentConfig() (Config, error) {
 	engineAuthType := os.Getenv("ECS_ENGINE_AUTH_TYPE")
 	engineAuthData := os.Getenv("ECS_ENGINE_AUTH_DATA")
 
-	var checkpoint bool
 	dataDir := os.Getenv("ECS_DATADIR")
-	if dataDir != "" {
-		// if we have a directory to checkpoint to, default it to be on
-		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
-	} else {
-		// if the directory is not set, default to checkpointing off for
-		// backwards compatibility
-		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
-	}
+	checkpoint := getCheckpoint(dataDir)
 
 	// Format: json array, e.g. [1,2,3]
 	reservedPortEnv := os.Getenv("ECS_RESERVED_PORTS")
@@ -286,13 +278,7 @@ func environmentConfig() (Config, error) {
 
 	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
-	var dockerStopTimeout time.Duration
-	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
-	if parsedStopTimeout >= minimumDockerStopTimeout {
-		dockerStopTimeout = parsedStopTimeout
-	} else if parsedStopTimeout != 0 {
-		seelog.Warnf("Discarded invalid value for docker stop timeout, parsed as: %v", parsedStopTimeout)
-	}
+	dockerStopTimeout := getDockerStopTimeout()
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 
@@ -316,18 +302,7 @@ func environmentConfig() (Config, error) {
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 	overrideAWSLogsExecutionRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false)
 
-	var taskCPUMemLimitEnabled Conditional
-	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
-
-	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
-	// We can do this by checking against the ParseBool default
-	if taskCPUMemLimitConfigString != "" {
-		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
-			taskCPUMemLimitEnabled = ExplicitlyEnabled
-		} else {
-			taskCPUMemLimitEnabled = ExplicitlyDisabled
-		}
-	}
+	taskCPUMemLimitEnabled := getTaskCPUMemLimitEnabled()
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
@@ -414,6 +389,46 @@ func environmentConfig() (Config, error) {
 		DataDirOnHost:                    dataDirOnHost,
 		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
 	}, err
+}
+
+func getCheckpoint(dataDir string) bool {
+	var checkPoint bool
+	if dataDir != "" {
+		// if we have a directory to checkpoint to, default it to be on
+		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
+	} else {
+		// if the directory is not set, default to checkpointing off for
+		// backwards compatibility
+		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
+	}
+	return checkPoint
+}
+
+func getDockerStopTimeout() time.Duration {
+	var dockerStopTimeout time.Duration
+	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
+	if parsedStopTimeout >= minimumDockerStopTimeout {
+		dockerStopTimeout = parsedStopTimeout
+	} else if parsedStopTimeout != 0 {
+		seelog.Warnf("Discarded invalid value for docker stop timeout, parsed as: %v", parsedStopTimeout)
+	}
+	return dockerStopTimeout
+}
+
+func getTaskCPUMemLimitEnabled() Conditional {
+	var taskCPUMemLimitEnabled Conditional
+	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
+
+	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
+	// We can do this by checking against the ParseBool default
+	if taskCPUMemLimitConfigString != "" {
+		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
+			taskCPUMemLimitEnabled = ExplicitlyEnabled
+		} else {
+			taskCPUMemLimitEnabled = ExplicitlyDisabled
+		}
+	}
+	return taskCPUMemLimitEnabled
 }
 
 func parseEnvVariableUint16(envVar string) uint16 {

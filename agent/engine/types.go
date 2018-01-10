@@ -50,7 +50,7 @@ type DockerContainerMetadata struct {
 	ExitCode *int
 	// PortBindings is the list of port binding information of the container
 	PortBindings []api.PortBinding
-	// Error wraps vaioous container transition errors and is set if engine
+	// Error wraps various container transition errors and is set if engine
 	// is unable to perform any of the required container transitions
 	Error engineError
 	// Volumes contains volume informaton for the container

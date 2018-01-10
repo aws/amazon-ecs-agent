@@ -169,6 +169,26 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
 }
 
+func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.False(t, conf.Checkpoint)
+}
+
+func TestDefaultCheckpointWithECSDataDir(t *testing.T) {
+	defer setTestEnv("ECS_DATADIR", "/some/dir")()
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.True(t, conf.Checkpoint)
+}
+
+func TestCheckpointWithoutECSDataDir(t *testing.T) {
+	defer setTestEnv("ECS_CHECKPOINT", "true")()
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.True(t, conf.Checkpoint)
+}
+
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()

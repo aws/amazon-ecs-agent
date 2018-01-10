@@ -295,6 +295,20 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	assert.Error(t, metadata.Error, "expected pull to fail")
 }
 
+func TestGetRepositoryWithTaggedImage(t *testing.T) {
+	image := "registry.endpoint/myimage:tag"
+	respository := getRepository(image)
+
+	assert.Equal(t, image, respository)
+}
+
+func TestGetRepositoryWithUntaggedImage(t *testing.T) {
+	image := "registry.endpoint/myimage"
+	respository := getRepository(image)
+
+	assert.Equal(t, image+":"+dockerDefaultTag, respository)
+}
+
 func TestImportLocalEmptyVolumeImage(t *testing.T) {
 	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
