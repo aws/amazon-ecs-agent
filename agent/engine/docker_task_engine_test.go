@@ -1874,6 +1874,12 @@ func TestTaskWithCircularDependency(t *testing.T) {
 	go taskEngine.AddTask(task)
 
 	event := <-events
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to move to stopped directly")
+
+	event = <-events
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to move to stopped directly")
+
+	event = <-events
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to move to stopped directly")
 	_, ok := taskEngine.(*DockerTaskEngine).state.TaskByArn(task.Arn)
 	assert.True(t, ok, "Task state should be added to the agent state")

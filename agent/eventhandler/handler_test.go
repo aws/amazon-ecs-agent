@@ -35,6 +35,132 @@ import (
 
 const taskARN = "taskarn"
 
+// ensure that a task event with an empty container events list is not submitted
+// when the empty task event is sent before a non empty task event
+func TestDoNotSendTaskStoppedEventEmptyContainerEventsBefore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewTaskHandler(ctx, stateManager, nil, client)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	contEvent1 := containerEvent(taskARN)
+	contEvent2 := containerEvent(taskARN)
+	taskEvent1 := taskEventStopped(taskARN)
+
+	taskEvent2 := taskEventStopped(taskARN)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 2, len(change.Containers))
+		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
+		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
+		wg.Done()
+	}).Times(1)
+
+	handler.AddStateChangeEvent(taskEvent2, client)
+
+	handler.AddStateChangeEvent(contEvent1, client)
+	handler.AddStateChangeEvent(contEvent2, client)
+	handler.AddStateChangeEvent(taskEvent1, client)
+
+	wg.Wait()
+}
+
+// ensure that a task event with an empty container events list is not submitted
+// when the empty task event is sent after a non empty task event
+func TestDoNotSendTaskStoppedEventEmptyContainerEventsAfter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewTaskHandler(ctx, stateManager, nil, client)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	contEvent1 := containerEvent(taskARN)
+	contEvent2 := containerEvent(taskARN)
+	taskEvent1 := taskEventStopped(taskARN)
+
+	taskEvent2 := taskEventStopped(taskARN)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 2, len(change.Containers))
+		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
+		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
+		wg.Done()
+	}).Times(1)
+
+	handler.AddStateChangeEvent(contEvent1, client)
+	handler.AddStateChangeEvent(contEvent2, client)
+	handler.AddStateChangeEvent(taskEvent1, client)
+
+	handler.AddStateChangeEvent(taskEvent2, client)
+
+	wg.Wait()
+}
+
+// directly exercise codepath that ensures that an STOPPED task event with no
+// container events is removed from the event submission list
+func TestSubmitFirstEventRemovesEmptyTaskStoppedEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	handler := &TaskHandler{
+		state:                  state,
+		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
+		tasksToEvents:          make(map[string]*taskSendableEvents),
+		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
+		stateSaver:             stateManager,
+		client:                 client,
+	}
+
+	taskEvents := &taskSendableEvents{
+		events:    list.New(),
+		sending:   false,
+		createdAt: time.Now(),
+		taskARN:   taskARN,
+	}
+
+	task := &api.Task{}
+
+	change := api.TaskStateChange{
+		TaskARN: taskARN,
+		Status:  api.TaskStopped,
+		Task:    task,
+	}
+
+	// ensure no container events
+	assert.Equal(t, 0, len(change.Containers))
+
+	sendableTaskEvent := newSendableTaskEvent(change)
+	taskEvents.events.PushBack(sendableTaskEvent)
+
+	assert.Equal(t, 1, taskEvents.events.Len())
+	assert.False(t, sendableTaskEvent.taskShouldBeSent())
+
+	backoff := mock_utils.NewMockBackoff(ctrl)
+	ok, err := taskEvents.submitFirstEvent(handler, backoff)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+
+	// task event should be remove
+	assert.Equal(t, 0, taskEvents.events.Len())
+}
+
 func TestSendsEventsOneContainer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -409,11 +535,23 @@ func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 	assert.NoError(t, err)
 
 	task := &api.Task{}
-	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+	tevent := api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskStopped,
 		Task:    task,
-	}))
+	}
+
+	cevent := api.ContainerStateChange{
+		TaskArn:       taskARN,
+		ContainerName: "containerName",
+		Status:        api.ContainerStopped,
+		Container:     &api.Container{},
+	}
+
+	tevent.Containers = append(tevent.Containers, cevent)
+
+	taskEvents.events.PushBack(newSendableTaskEvent(tevent))
+
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskRunning,
@@ -473,16 +611,28 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	assert.NoError(t, err)
 
 	task := &api.Task{}
+
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskRunning,
 		Task:    task,
 	}))
-	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
+
+	tevent := api.TaskStateChange{
 		TaskARN: taskARN,
 		Status:  api.TaskStopped,
 		Task:    task,
-	}))
+	}
+
+	cevent := api.ContainerStateChange{
+		TaskArn:       taskARN,
+		ContainerName: "containerName",
+		Status:        api.ContainerStopped,
+		Container:     &api.Container{},
+	}
+	tevent.Containers = append(tevent.Containers, cevent)
+
+	taskEvents.events.PushBack(newSendableTaskEvent(tevent))
 	handler.tasksToEvents[taskARN] = taskEvents
 
 	var wg sync.WaitGroup

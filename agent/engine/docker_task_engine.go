@@ -541,6 +541,12 @@ func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 			task.SetKnownStatus(api.TaskStopped)
 			task.SetDesiredStatus(api.TaskStopped)
 			err := TaskDependencyError{task.Arn}
+
+			for _, container := range task.Containers {
+				container.SetKnownStatus(api.ContainerStopped)
+				container.SetDesiredStatus(api.ContainerStopped)
+				engine.emitContainerEvent(task, container, err.Error())
+			}
 			engine.emitTaskEvent(task, err.Error())
 		}
 		return nil
