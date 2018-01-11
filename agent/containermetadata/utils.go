@@ -58,7 +58,7 @@ func getMetadataFilePath(taskARN string, containerName string, dataDir string) (
 func getTaskMetadataDir(taskARN string, dataDir string) (string, error) {
 	taskID, err := getTaskIDfromARN(taskARN)
 	if err != nil {
-		fmt.Errorf("get task metadata directory: %v", err)
+		return "", fmt.Errorf("get task metadata directory: %v", err)
 	}
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID), err
 }

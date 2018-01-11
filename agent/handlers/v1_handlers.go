@@ -70,7 +70,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		if container.Container.IsInternal() {
 			continue
 		}
-		containers = append(containers, v1.ContainerResponse{container.DockerID, container.DockerName, containerName})
+		containers = append(containers, v1.ContainerResponse{DockerId: container.DockerID, DockerName: container.DockerName, Name: containerName})
 	}
 
 	knownStatus := task.GetKnownStatus()

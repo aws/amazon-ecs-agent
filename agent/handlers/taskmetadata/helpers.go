@@ -29,7 +29,7 @@ const (
 type errorMessage struct {
 	Code          string `json:"code"`
 	Message       string `json:"message"`
-	httpErrorCode int    `json:"-"`
+	httpErrorCode int
 }
 
 func writeJSONToResponse(w http.ResponseWriter, httpStatusCode int, jsonMessage []byte, requestType string) {
