@@ -173,7 +173,7 @@ func metadataResponseOnce(client *http.Client, endpoint string, respType string)
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("task metadata: unable to read response body: %v", respType, err)
+		return nil, fmt.Errorf("task metadata: unable to read response body: %v", err)
 	}
 
 	return body, nil

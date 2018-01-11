@@ -34,10 +34,10 @@ type ENI struct {
 	MacAddress string
 	// DomainNameServers specifies the nameserver IP addresses for
 	// the eni
-	DomainNameServers []string `json:"omitempty"`
+	DomainNameServers []string `json:",omitempty"`
 	// DomainNameSearchList specifies the search list for the domain
 	// name lookup, for the eni
-	DomainNameSearchList []string `json:"omitempty"`
+	DomainNameSearchList []string `json:",omitempty"`
 }
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
