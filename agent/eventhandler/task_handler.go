@@ -361,8 +361,9 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 }
 
 func (taskEvents *taskSendableEvents) toStringUnsafe() string {
-	return fmt.Sprintf("Task event list [taskARN: %s, sending: %t, createdAt: %s]",
-		taskEvents.taskARN, taskEvents.sending, taskEvents.createdAt.String())
+	return fmt.Sprintf("Task event list [taskARN: %s, sending: %t, createdAt: %s, len: %d]",
+		taskEvents.taskARN, taskEvents.sending, taskEvents.createdAt.String(), taskEvents.events.Len())
+	// WIP maybe add number of events this list is holding
 }
 
 // getTasksToEventsLen returns the length of the tasksToEvents map. It is

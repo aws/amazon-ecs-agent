@@ -70,6 +70,14 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				Task: &api.Task{
 					SentStatusUnsafe: api.TaskRunning,
 				},
+				Containers: []api.ContainerStateChange{
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerRunning,
+							KnownStatusUnsafe: api.ContainerStopped,
+						},
+					},
+				},
 			}),
 			shouldBeSent: true,
 		},
@@ -161,6 +169,14 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: api.TaskStopped,
 				Task:   &api.Task{},
+				Containers: []api.ContainerStateChange{
+					{
+						Container: &api.Container{
+							SentStatusUnsafe:  api.ContainerRunning,
+							KnownStatusUnsafe: api.ContainerStopped,
+						},
+					},
+				},
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       true,

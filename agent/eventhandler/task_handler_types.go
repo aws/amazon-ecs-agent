@@ -81,6 +81,12 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 		return false
 	}
 
+	// task event should not be sent if status is STOPPED and includes no
+	// container state change events
+	if tevent.Status == api.TaskStopped && len(tevent.Containers) == 0 {
+		return false
+	}
+
 	// Task event should be sent
 	if tevent.Task.GetSentStatus() < tevent.Status {
 		return true
@@ -160,7 +166,7 @@ func (event *sendableEvent) send(
 	setChangeSent(event)
 	// Update the state file
 	stateSaver.Save()
-	seelog.Debugf("TaskHandler: Submitted container state change: %s", event.toString())
+	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
 	return nil
