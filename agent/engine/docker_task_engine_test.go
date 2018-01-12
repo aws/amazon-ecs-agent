@@ -1727,3 +1727,170 @@ func TestHandleDockerHealthEvent(t *testing.T) {
 	})
 	assert.Equal(t, testContainer.Health.Status, api.ContainerHealthy)
 }
+
+func TestCreatedContainerMetadataUpdateOnRestart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "dockerID"
+	dockerContainer := &api.DockerContainer{
+		DockerName: "c1",
+		Container: &api.Container{
+			MountPoints: []api.MountPoint{
+				{
+					SourceVolume:  "empty",
+					ContainerPath: "container",
+				},
+			},
+		},
+	}
+
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	created := time.Now()
+	volumes := map[string]string{
+		"container": "tmp",
+	}
+	emptyVolume := &api.EmptyHostVolume{}
+	task := &api.Task{
+		Volumes: []api.TaskVolume{
+			{
+				Name:   "empty",
+				Volume: emptyVolume,
+			},
+		},
+	}
+
+	gomock.InOrder(
+		client.EXPECT().InspectContainer("c1", gomock.Any()).Return(&docker.Container{
+			ID: dockerID,
+			Config: &docker.Config{
+				Labels: labels,
+			},
+			Created: created,
+			Volumes: volumes,
+		}, nil),
+		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, task)
+	assert.Equal(t, dockerID, dockerContainer.DockerID)
+	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, "tmp", task.Volumes[0].Volume.SourcePath())
+}
+
+func TestStartedContainerMetadataUpdateOnRestart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "1234"
+	dockerContainer := &api.DockerContainer{
+		DockerID:   dockerID,
+		DockerName: "c1",
+		Container:  &api.Container{},
+	}
+
+	portBindings := []api.PortBinding{
+		{
+			ContainerPort: 80,
+			HostPort:      80,
+			BindIP:        "0.0.0.0/0",
+			Protocol:      api.TransportProtocolTCP,
+		},
+	}
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	startedAt := time.Now()
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerRunning,
+			DockerContainerMetadata{
+				Labels:       labels,
+				DockerID:     dockerID,
+				StartedAt:    startedAt,
+				PortBindings: portBindings,
+			}),
+		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
+	assert.Equal(t, startedAt, dockerContainer.Container.GetStartedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindings[0].ContainerPort)
+}
+
+func TestStoppedContainerMetadataUpdateOnRestart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "1234"
+	dockerContainer := &api.DockerContainer{
+		DockerID:   dockerID,
+		DockerName: "c1",
+		Container: &api.Container{
+			Essential: true,
+		},
+	}
+	task := &api.Task{}
+
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	finishedAt := time.Now()
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerStopped,
+			DockerContainerMetadata{
+				Labels:     labels,
+				DockerID:   dockerID,
+				FinishedAt: finishedAt,
+				ExitCode:   aws.Int(1),
+			}),
+		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, task)
+	assert.Equal(t, finishedAt, dockerContainer.Container.GetFinishedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, 1, aws.IntValue(dockerContainer.Container.GetKnownExitCode()))
+	assert.False(t, task.GetExecutionStoppedAt().IsZero())
+}
+
+func TestErroredContainerMetadataUpdateOnRestart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dockerID := "1234"
+	dockerContainer := &api.DockerContainer{
+		DockerID:   dockerID,
+		DockerName: "c1",
+		Container:  &api.Container{},
+	}
+	task := &api.Task{}
+
+	labels := map[string]string{
+		"name": "metadata",
+	}
+	finishedAt := time.Now()
+	gomock.InOrder(
+		client.EXPECT().DescribeContainer(dockerID).Return(api.ContainerStopped,
+			DockerContainerMetadata{
+				Labels:     labels,
+				DockerID:   dockerID,
+				FinishedAt: finishedAt,
+				Error:      NewDockerStateError("failed"),
+				ExitCode:   aws.Int(1),
+			}),
+	)
+	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, task)
+	assert.Equal(t, finishedAt, dockerContainer.Container.GetFinishedAt())
+	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, 1, aws.IntValue(dockerContainer.Container.GetKnownExitCode()))
+	assert.Error(t, dockerContainer.Container.ApplyingError)
+}

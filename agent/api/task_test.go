@@ -15,6 +15,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -1385,4 +1386,43 @@ func TestContainerHealthConfig(t *testing.T) {
 	assert.Equal(t, config.Healthcheck.Interval, 5*time.Second)
 	assert.Equal(t, config.Healthcheck.Timeout, 4*time.Second)
 	assert.Equal(t, config.Healthcheck.StartPeriod, 1*time.Minute)
+}
+
+func TestRecordExecutionStoppedAt(t *testing.T) {
+	testCases := []struct {
+		essential             bool
+		status                ContainerStatus
+		executionStoppedAtSet bool
+		msg                   string
+	}{
+		{
+			essential:             true,
+			status:                ContainerStopped,
+			executionStoppedAtSet: true,
+			msg: "essential container stopped should have executionStoppedAt set",
+		},
+		{
+			essential:             false,
+			status:                ContainerStopped,
+			executionStoppedAtSet: false,
+			msg: "non essential container stopped should not cause executionStoppedAt set",
+		},
+		{
+			essential:             true,
+			status:                ContainerRunning,
+			executionStoppedAtSet: false,
+			msg: "essential non-stop status change should not cause executionStoppedAt set",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Container status: %s, essential: %v, executionStoppedAt should be set: %v", tc.status, tc.essential, tc.executionStoppedAtSet), func(t *testing.T) {
+			task := &Task{}
+			task.RecordExecutionStoppedAt(&Container{
+				Essential:         tc.essential,
+				KnownStatusUnsafe: tc.status,
+			})
+			assert.Equal(t, !tc.executionStoppedAtSet, task.GetExecutionStoppedAt().IsZero(), tc.msg)
+		})
+	}
 }
