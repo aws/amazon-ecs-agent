@@ -37,6 +37,7 @@ import (
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -290,6 +291,36 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	engine.saver.Save()
 }
 
+func updateContainerMetadata(metadata *DockerContainerMetadata, container *api.Container, task *api.Task) {
+	container.SetCreatedAt(metadata.CreatedAt)
+	container.SetStartedAt(metadata.StartedAt)
+	container.SetFinishedAt(metadata.FinishedAt)
+
+	// Set the labels if it's not set
+	if len(metadata.Labels) != 0 && len(container.GetLabels()) == 0 {
+		container.SetLabels(metadata.Labels)
+	}
+
+	// Update Volume
+	if metadata.Volumes != nil {
+		task.UpdateMountPoints(container, metadata.Volumes)
+	}
+
+	// Set Exitcode if it's not set
+	if metadata.ExitCode != nil {
+		container.SetKnownExitCode(metadata.ExitCode)
+	}
+
+	// Set port mappings
+	if len(metadata.PortBindings) != 0 && len(container.KnownPortBindings) == 0 {
+		container.KnownPortBindings = metadata.PortBindings
+	}
+	// update the container health information
+	if container.HealthStatusShouldBeReported() {
+		container.SetHealthStatus(metadata.Health)
+	}
+}
+
 // synchronizeContainerStatus checks and updates the container status with docker
 func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.DockerContainer, task *api.Task) {
 	if container.DockerID == "" {
@@ -301,20 +332,15 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			seelog.Warnf("Task engine [%s]: could not find matching container for expected name [%s]: %v",
 				task.Arn, container.DockerName, err)
 		} else {
+			// update the container metadata in case the container status/metadata changed during agent restart
+			metadata := metadataFromContainer(describedContainer)
+			updateContainerMetadata(&metadata, container.Container, task)
 			container.DockerID = describedContainer.ID
+
 			container.Container.SetKnownStatus(dockerStateToState(describedContainer.State))
-			container.Container.SetCreatedAt(describedContainer.Created)
-			container.Container.SetStartedAt(describedContainer.State.StartedAt)
-			container.Container.SetFinishedAt(describedContainer.State.FinishedAt)
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
-			container.Container.SetLabels(describedContainer.Config.Labels)
-			// update the container health information
-			if container.Container.HealthStatusShouldBeReported() {
-				dockerContainerMetadata := metadataFromContainer(describedContainer)
-				container.Container.SetHealthStatus(dockerContainerMetadata.Health)
-			}
 		}
 		return
 	}
@@ -322,30 +348,33 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 	currentState, metadata := engine.client.DescribeContainer(container.DockerID)
 	if metadata.Error != nil {
 		currentState = api.ContainerStopped
-		if !container.Container.KnownTerminal() {
-			container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+		// If this is a Docker API error
+		if metadata.Error.ErrorName() == cannotDescribeContainerError {
 			seelog.Warnf("Task engine [%s]: could not describe previously known container [id=%s; name=%s]; assuming dead: %v",
 				task.Arn, container.DockerID, container.DockerName, metadata.Error)
-			engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+			if !container.Container.KnownTerminal() {
+				container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+			}
+		} else {
+			// If this is a container state error
+			updateContainerMetadata(&metadata, container.Container, task)
+			container.Container.ApplyingError = api.NewNamedError(metadata.Error)
 		}
 	} else {
-		container.Container.SetLabels(metadata.Labels)
-		container.Container.SetCreatedAt(metadata.CreatedAt)
-		container.Container.SetStartedAt(metadata.StartedAt)
-		container.Container.SetFinishedAt(metadata.FinishedAt)
+		// update the container metadata in case the container status/metadata changed during agent restart
+		updateContainerMetadata(&metadata, container.Container, task)
 		engine.imageManager.RecordContainerReference(container.Container)
 		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
-		}
-		// update the container health information
-		if container.Container.HealthStatusShouldBeReported() {
-			container.Container.SetHealthStatus(metadata.Health)
 		}
 	}
 	if currentState > container.Container.GetKnownStatus() {
 		// update the container known status
 		container.Container.SetKnownStatus(currentState)
 	}
+	// Update task ExecutionStoppedAt timestamp
+	task.RecordExecutionStoppedAt(container.Container)
 }
 
 // CheckTaskState inspects the state of all containers within a task and writes

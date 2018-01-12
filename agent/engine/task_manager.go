@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
 	"github.com/cihub/seelog"
 )
 
@@ -365,9 +366,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus
 	container.SetKnownStatus(event.Status)
-	container.SetCreatedAt(event.CreatedAt)
-	container.SetStartedAt(event.StartedAt)
-	container.SetFinishedAt(event.FinishedAt)
+	updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
 
 	if event.Error != nil {
 		proceedAnyway := mtask.handleEventError(containerChange, currentKnownStatus)
@@ -381,25 +380,13 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		container.SetHealthStatus(event.Health)
 	}
 
-	mtask.recordExecutionStoppedAt(container)
+	mtask.RecordExecutionStoppedAt(container)
 	seelog.Debugf("Managed task [%s]: sending container change event to tcs, container: [%s(%s)], status: %s",
 		mtask.Arn, container.Name, event.DockerID, event.Status.String())
 	err := mtask.containerChangeEventStream.WriteToEventStream(event)
 	if err != nil {
 		seelog.Warnf("Managed task [%s]: failed to write container [%s] change event to tcs event stream: %v",
 			mtask.Arn, container.Name, err)
-	}
-
-	if event.ExitCode != nil && event.ExitCode != container.GetKnownExitCode() {
-		container.SetKnownExitCode(event.ExitCode)
-	}
-	if event.PortBindings != nil {
-		container.KnownPortBindings = event.PortBindings
-	}
-	if event.Volumes != nil {
-		seelog.Warnf("Managed task [%s]: updating mounts for container [%s]: %v",
-			mtask.Arn, container.Name, event.Volumes)
-		mtask.UpdateMountPoints(container, event.Volumes)
 	}
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
@@ -411,25 +398,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 	seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 		mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
-}
-
-func (mtask *managedTask) recordExecutionStoppedAt(container *api.Container) {
-	if !container.Essential {
-		return
-	}
-	if container.GetKnownStatus() != api.ContainerStopped {
-		return
-	}
-	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
-	now := mtask.time().Now()
-	ok := mtask.Task.SetExecutionStoppedAt(now)
-	if !ok {
-		// ExecutionStoppedAt was already recorded. Nothing to left to do here
-		return
-	}
-	seelog.Infof("Managed task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
-		mtask.Arn, container.Name, now.String())
-
 }
 
 func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
