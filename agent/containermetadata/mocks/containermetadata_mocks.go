@@ -21,6 +21,7 @@ import (
 
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
 // Mock of Manager interface
@@ -54,7 +55,7 @@ func (_mr *_MockManagerRecorder) Clean(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Clean", arg0)
 }
 
-func (_m *MockManager) Create(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 string, _param3 string) error {
+func (_m *MockManager) Create(_param0 *go_dockerclient.Config, _param1 *go_dockerclient.HostConfig, _param2 *api.Task, _param3 string) error {
 	ret := _m.ctrl.Call(_m, "Create", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -72,7 +73,7 @@ func (_mr *_MockManagerRecorder) SetContainerInstanceARN(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetContainerInstanceARN", arg0)
 }
 
-func (_m *MockManager) Update(_param0 string, _param1 string, _param2 string) error {
+func (_m *MockManager) Update(_param0 string, _param1 *api.Task, _param2 string) error {
 	ret := _m.ctrl.Call(_m, "Update", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0

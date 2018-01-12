@@ -742,7 +742,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
-		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
+		mderr := engine.metadataManager.Create(config, hostConfig, task, container.Name)
 		if mderr != nil {
 			seelog.Warnf("Create metadata failed for container %s of task %s: %v", container.Name, task.Arn, mderr)
 		}
@@ -785,7 +785,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
 	if dockerContainerMD.Error == nil && engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
 		go func() {
-			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
+			err := engine.metadataManager.Update(dockerContainer.DockerID, task, container.Name)
 			if err != nil {
 				seelog.Warnf("Update metadata file failed for container %s of task %s: %v", container.Name, task.Arn, err)
 				return
@@ -1036,7 +1036,7 @@ func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
-	err := engine.metadataManager.Update(cont.DockerID, task.Arn, cont.Container.Name)
+	err := engine.metadataManager.Update(cont.DockerID, task, cont.Container.Name)
 	if err != nil {
 		seelog.Errorf("Update metadata file failed for container %s of task %s: %v", cont.Container.Name, task.Arn, err)
 	} else {

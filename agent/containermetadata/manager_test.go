@@ -18,6 +18,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
@@ -32,6 +33,8 @@ const (
 	dockerID             = "888888888887"
 	invalidTaskARN       = "invalidARN"
 	validTaskARN         = "arn:aws:ecs:region:account-id:task/task-id"
+	taskDefinitionFamily = "joshwuzhere"
+	taskDefinitionRevision = "8"
 	containerName        = "container"
 	dataDir              = "ecs_mockdata"
 )
@@ -63,10 +66,11 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	defer done()
 
 	mockTaskARN := invalidTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 
 	newManager := &metadataManager{}
-	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName)
 	assert.Error(t, err)
 }
 
@@ -76,6 +80,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	defer done()
 
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 
 	gomock.InOrder(
@@ -85,7 +90,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	newManager := &metadataManager{
 		osWrap: mockOS,
 	}
-	err := newManager.Create(nil, nil, mockTaskARN, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName)
 	assert.Error(t, err)
 }
 
@@ -96,6 +101,7 @@ func TestUpdateInspectFail(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 
 	newManager := &metadataManager{
@@ -103,7 +109,7 @@ func TestUpdateInspectFail(t *testing.T) {
 	}
 
 	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
-	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
+	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
 
 	assert.Error(t, err, "Expected inspect error to result in update fail")
 }
@@ -115,6 +121,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 	mockState := docker.State{
 		Running: false,
@@ -128,7 +135,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	}
 
 	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
-	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
+	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
 	assert.Error(t, err)
 }
 

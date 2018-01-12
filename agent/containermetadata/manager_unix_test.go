@@ -17,6 +17,8 @@ package containermetadata
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
+
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -28,6 +30,7 @@ func TestCreate(t *testing.T) {
 	defer done()
 
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 	mockConfig := &docker.Config{Env: make([]string, 0)}
 	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
@@ -46,7 +49,7 @@ func TestCreate(t *testing.T) {
 		osWrap:     mockOS,
 		ioutilWrap: mockIOUtil,
 	}
-	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
+	err := newManager.Create(mockConfig, mockHostConfig, mockTask, mockContainerName)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(mockConfig.Env), "Unexpected number of environment variables in config")
@@ -60,6 +63,7 @@ func TestUpdate(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{ Arn: mockTaskARN }
 	mockContainerName := containerName
 	mockState := docker.State{
 		Running: true,
@@ -91,7 +95,7 @@ func TestUpdate(t *testing.T) {
 		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 		mockFile.EXPECT().Close().Return(nil),
 	)
-	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
+	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
 
 	assert.NoError(t, err)
 }
