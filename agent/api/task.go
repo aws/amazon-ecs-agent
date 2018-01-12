@@ -1103,3 +1103,21 @@ func (task *Task) GetID() (string, error) {
 
 	return resourceSplit[1], nil
 }
+
+func (task *Task) RecordExecutionStoppedAt(container *Container) {
+	if !container.Essential {
+		return
+	}
+	if container.GetKnownStatus() != ContainerStopped {
+		return
+	}
+	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
+	now := time.Now()
+	ok := task.SetExecutionStoppedAt(now)
+	if !ok {
+		// ExecutionStoppedAt was already recorded. Nothing to left to do here
+		return
+	}
+	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
+		task.Arn, container.Name, now.String())
+}

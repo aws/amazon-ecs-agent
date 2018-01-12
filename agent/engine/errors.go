@@ -24,6 +24,7 @@ import (
 const (
 	dockerTimeoutErrorName          = "DockerTimeoutError"
 	cannotInspectContainerErrorName = "CannotInspectContainerError"
+	cannotDescribeContainerError    = "CannotDescribeContainerError"
 )
 
 // engineError wraps the error interface with an identifier method that
@@ -291,7 +292,7 @@ func (err CannotDescribeContainerError) Error() string {
 }
 
 func (err CannotDescribeContainerError) ErrorName() string {
-	return "CannotDescribeContainerError"
+	return cannotDescribeContainerError
 }
 
 // CannotListContainersError indicates any error when trying to list containers
