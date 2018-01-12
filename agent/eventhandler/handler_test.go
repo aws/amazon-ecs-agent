@@ -380,6 +380,25 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 	assert.Equal(t, "t1", events[0].TaskARN)
 }
 
+func TestGetBatchedContainerEventsStoppedTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+
+	handler := &TaskHandler{
+		tasksToContainerStates: map[string][]api.ContainerStateChange{
+			"t1": []api.ContainerStateChange{},
+		},
+		state: state,
+	}
+
+	state.EXPECT().TaskByArn("t1").Return(&api.Task{Arn: "t1", KnownStatusUnsafe: api.TaskStopped}, true)
+
+	events := handler.taskStateChangesToSend()
+	assert.Len(t, events, 0)
+}
+
 func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
