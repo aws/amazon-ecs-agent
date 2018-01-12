@@ -70,7 +70,7 @@ const (
 	// looking for an ENI's mac address on the host. It takes a few milliseconds
 	// for the host to learn about an ENIs mac address from netlink.LinkList().
 	// We are capping off this duration to 1s assuming worst-case behavior
-	macAddressRetryTimeout = time.Second
+	macAddressRetryTimeout = 2 * time.Second
 )
 
 // UdevWatcher maintains the state of attached ENIs
