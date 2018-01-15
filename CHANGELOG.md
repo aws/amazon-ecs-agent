@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.2
+* Bug - Fixed a bug where the ticker would submit empty container state change
+  transitions when a task is STOPPED. [#1178](https://github.com/aws/amazon-ecs-agent/pull/1178)
+
 ## 1.16.1
 * Bug - Fixed a bug where the agent could miss sending an ENI attachment to ECS
   because of address propagation delays. [#1148](https://github.com/aws/amazon-ecs-agent/pull/1148)
