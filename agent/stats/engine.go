@@ -390,6 +390,27 @@ func (engine *DockerStatsEngine) containerHealthsToMonitor() bool {
 	return len(engine.tasksToHealthCheckContainers) != 0
 }
 
+func (engine *DockerStatsEngine) stopTrackingContainer(container *StatsContainer, taskARN string) bool {
+	terminal, err := container.terminal()
+	if err != nil {
+		// Error determining if the container is terminal. This means that the container
+		// id could not be resolved to a container that is being tracked by the
+		// docker task engine. If the docker task engine has already removed
+		// the container from its state, there's no point in stats engine tracking the
+		// container. So, clean-up anyway.
+		seelog.Warnf("Error determining if the container %s is terminal, removing from stats, err: %v", container.containerMetadata.DockerID, err)
+		engine.doRemoveContainerUnsafe(container, taskARN)
+		return true
+	} else if terminal {
+		// Container is in knonwn terminal state. Stop collection metrics.
+		seelog.Infof("Container %s is terminal, removing from stats", container.containerMetadata.DockerID)
+		engine.doRemoveContainerUnsafe(container, taskARN)
+		return true
+	}
+
+	return false
+}
+
 func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.TaskHealth {
 	// Acquire the task definition information
 	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
@@ -407,6 +428,11 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 	// Aggregate container health information for all the containers in the task
 	var containerHealths []*ecstcs.ContainerHealth
 	for _, container := range containers {
+		// check if the container is stopped/untracked, and remove it from stats
+		//engine if needed
+		if engine.stopTrackingContainer(container, taskARN) {
+			continue
+		}
 		dockerContainer, err := engine.resolver.ResolveContainer(container.containerMetadata.DockerID)
 		if err != nil {
 			seelog.Debugf("Could not resolve the Docker ID in agent state: %s", container.containerMetadata.DockerID)
@@ -526,20 +552,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		// cleaned up properly. We might sometimes miss events from docker task
 		// engine and this helps in reconciling the state. The tcs client's
 		// GetInstanceMetrics probe is used as the trigger for this.
-		terminal, err := container.terminal()
-		if err != nil {
-			// Error determining if the container is terminal. This means that the container
-			// id could not be resolved to a container that is being tracked by the
-			// docker task engine. If the docker task engine has already removed
-			// the container from its state, there's no point in stats engine tracking the
-			// container. So, clean-up anyway.
-			seelog.Warnf("Error determining if the container %s is terminal, cleaning up and skipping", dockerID, err)
-			engine.doRemoveContainerUnsafe(container, taskArn)
-			continue
-		} else if terminal {
-			// Container is in knonwn terminal state. Stop collection metrics.
-			seelog.Infof("Container %s is terminal, cleaning up and skipping", dockerID)
-			engine.doRemoveContainerUnsafe(container, taskArn)
+		if engine.stopTrackingContainer(container, taskArn) {
 			continue
 		}
 

@@ -289,13 +289,14 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
 		DockerID: containerID,
 		Container: &api.Container{
-			HealthCheckType: "docker",
+			KnownStatusUnsafe: api.ContainerRunning,
+			HealthCheckType:   "docker",
 			Health: api.HealthStatus{
 				Status: api.ContainerHealthy,
 				Since:  aws.Time(time.Now()),
 			},
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
 	engine.containerInstanceArn = "container_instance"
@@ -316,6 +317,40 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	assert.Len(t, taskHealth, 1)
 	assert.Len(t, taskHealth[0].Containers, 1)
 	assert.Equal(t, aws.StringValue(taskHealth[0].Containers[0].HealthStatus), "HEALTHY")
+}
+
+func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	containerID := "containerID"
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+		DockerID: containerID,
+		Container: &api.Container{
+			KnownStatusUnsafe: api.ContainerStopped,
+			HealthCheckType:   "docker",
+			Health: api.HealthStatus{
+				Status: api.ContainerHealthy,
+				Since:  aws.Time(time.Now()),
+			},
+		},
+	}, nil)
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	engine.containerInstanceArn = "container_instance"
+
+	containerToStats := make(map[string]*StatsContainer)
+	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	engine.tasksToHealthCheckContainers["t1"] = containerToStats
+	engine.tasksToDefinitions["t1"] = &taskDefinition{
+		family:  "f1",
+		version: "1",
+	}
+
+	engine.resolver = resolver
+	_, _, err := engine.GetTaskHealthMetrics()
+	assert.Error(t, err, "empty metrics should causing error")
 }
 
 // TestMetricsDisabled tests container won't call docker api to collect stats
