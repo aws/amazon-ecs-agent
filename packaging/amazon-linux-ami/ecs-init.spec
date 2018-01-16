@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.16.1
+Version:        1.16.2
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -152,6 +152,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Tue Jan 16 2018 Derek Petersen <petderek@amazon.com> - 1.16.2-1
+- Cache Agent version 1.16.2
+- Add GovCloud endpoint
 * Wed Jan 03 2018 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.1-1
 - Cache Agent version 1.16.1
 - Improve startup behavior when docker socket does not yet exist

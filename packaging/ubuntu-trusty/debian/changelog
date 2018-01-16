@@ -1,3 +1,10 @@
+amazon-ecs-init (1.16.2-1) trusty; urgency=medium
+
+  * Cache Agent version 1.16.2
+  * Add GovCloud endpoint
+
+ -- Derek Petersen <petderek@amazon.com>  Tue, 16 Jan 2018 10:12:56 -0800
+
 amazon-ecs-init (1.16.1-1) trusty; urgency=medium
 
   * Cache Agent version 1.16.1
