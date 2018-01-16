@@ -44,6 +44,7 @@ const (
 // regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
 var regionToS3BucketURL = map[string]string{
 	"cn-north-1":      "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
+	"us-gov-west-1":   "https://s3-fips-us-gov-west-1.amazonaws.com/amazon-ecs-agent/",
 	DefaultRegionName: "https://s3.amazonaws.com/amazon-ecs-agent/",
 }
 
