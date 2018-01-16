@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -28,16 +28,18 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	docker "github.com/fsouza/go-dockerclient"
 
+	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
 	"golang.org/x/net/context"
 )
 
 const (
 	// checkPointSleep is the sleep duration in milliseconds between
 	// starting/stopping containers in the test code.
-	checkPointSleep = 5 * SleepBetweenUsageDataCollection
-	testImageName   = "amazon/amazon-ecs-gremlin:make"
+	checkPointSleep              = 5 * SleepBetweenUsageDataCollection
+	testImageName                = "amazon/amazon-ecs-gremlin:make"
+	testContainerHelathImageName = "amazon/amazon-ecs-containerhealthcheck:make"
 
 	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
 	defaultDockerTimeoutSeconds uint = 10
@@ -78,6 +80,16 @@ func createGremlin(client *docker.Client) (*docker.Container, error) {
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
 		Config: &docker.Config{
 			Image: testImageName,
+		},
+	})
+
+	return container, err
+}
+
+func createHealthContainer(client *docker.Client) (*docker.Container, error) {
+	container, err := client.CreateContainer(docker.CreateContainerOptions{
+		Config: &docker.Config{
+			Image: testContainerHelathImageName,
 		},
 	})
 
@@ -167,6 +179,43 @@ func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
 		return fmt.Errorf("Empty MessageId")
 	}
 
+	return nil
+}
+
+func validateHealthMetricsMetadata(metadata *ecstcs.HealthMetadata) error {
+	if metadata == nil {
+		return fmt.Errorf("metadata is nil")
+	}
+
+	if aws.StringValue(metadata.Cluster) != defaultCluster {
+		return fmt.Errorf("expected cluster in metadata to be: %s, got %s", defaultCluster, aws.StringValue(metadata.Cluster))
+	}
+
+	if aws.StringValue(metadata.ContainerInstance) != defaultContainerInstance {
+		return fmt.Errorf("expected container instance in metadata to be %s, got %s", defaultContainerInstance, aws.StringValue(metadata.ContainerInstance))
+	}
+	if len(aws.StringValue(metadata.MessageId)) == 0 {
+		return fmt.Errorf("empty MessageId")
+	}
+
+	return nil
+}
+
+func validateTaskHealth(metrics []*ecstcs.ContainerHealth, expected int) error {
+	if len(metrics) != expected {
+		return fmt.Errorf("mismatch in number of ContainerHealth elements. Expected: %d, Got: %d", expected, len(metrics))
+	}
+	for _, health := range metrics {
+		if aws.StringValue(health.ContainerName) == "" {
+			return fmt.Errorf("container name is empty")
+		}
+		if aws.StringValue(health.HealthStatus) == "" {
+			return fmt.Errorf("container health status is empty")
+		}
+		if aws.TimeValue(health.StatusSince).IsZero() {
+			return fmt.Errorf("container health status change timestamp is empty")
+		}
+	}
 	return nil
 }
 
