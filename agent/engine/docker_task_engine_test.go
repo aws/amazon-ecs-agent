@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
@@ -90,7 +91,8 @@ func setCreatedContainerName(name string) {
 	createdContainerName = name
 }
 
-func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime, TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockManager) {
+func mocks(t *testing.T, cfg *config.Config) (*gomock.Controller, *MockDockerClient, *mock_ttime.MockTime,
+	TaskEngine, *mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockManager) {
 	ctrl := gomock.NewController(t)
 	client := NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -124,26 +126,35 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		metadataCreateError error
 		metadataUpdateError error
 		metadataCleanError  error
+		taskCPULimit        config.Conditional
 	}{
 		{
 			name:                "Metadata Manager Succeeds",
 			metadataCreateError: nil,
 			metadataUpdateError: nil,
 			metadataCleanError:  nil,
+			taskCPULimit:        config.ExplicitlyDisabled,
 		},
 		{
 			name:                "Metadata Manager Fails to Create, Update and Cleanup",
 			metadataCreateError: errors.New("create metadata error"),
 			metadataUpdateError: errors.New("update metadata error"),
 			metadataCleanError:  errors.New("clean metadata error"),
+			taskCPULimit:        config.ExplicitlyDisabled,
 		},
-		// TODO: Add unit test for a task that uses resource (cgroup)
+		{
+			name:                "Task CPU Limit Succeeds",
+			metadataCreateError: nil,
+			metadataUpdateError: nil,
+			metadataCleanError:  nil,
+			taskCPULimit:        config.ExplicitlyEnabled,
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
-			metadataConfig.TaskCPUMemLimit = config.ExplicitlyDisabled
+			metadataConfig.TaskCPUMemLimit = tc.taskCPULimit
 			metadataConfig.ContainerMetadataEnabled = true
 			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(t, &metadataConfig)
 			defer ctrl.Finish()
@@ -169,6 +180,19 @@ func TestBatchContainerHappyPath(t *testing.T) {
 				name := <-containerName
 				setCreatedContainerName(name)
 			}()
+
+			mockResource := mock_resources.NewMockResource(ctrl)
+			if tc.taskCPULimit.Enabled() {
+				taskEngine.(*DockerTaskEngine).resource = mockResource
+				// TODO Currently, the resource Setup() method gets invoked multiple
+				// times for a task. This is really a bug and a fortunate occurrence
+				// that cgroup creation APIs behave idempotently.
+				//
+				// This should be modified so that 'Setup' is invoked exactly once
+				// by moving the cgroup creation to a "resource setup" step in the
+				// task life-cycle and performing the setup only in this stage
+				mockResource.EXPECT().Setup(sleepTask).Return(nil).MinTimes(1)
+			}
 
 			for _, container := range sleepTask.Containers {
 				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
@@ -215,6 +239,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			taskEngine.AddTask(sleepTaskStop)
 			taskEngine.AddTask(sleepTaskStop)
 
+			if tc.taskCPULimit.Enabled() {
+				mockResource.EXPECT().Cleanup(sleepTask).Return(nil)
+			}
 			// Expect a bunch of steady state 'poll' describes when we trigger cleanup
 			client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Do(
 				func(removedContainerName string, timeout time.Duration) {
