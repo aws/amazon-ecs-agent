@@ -151,18 +151,12 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	// Should get an error while adding this container due to unmapped
 	// container to task.
 	engine.addAndStartStatsContainer("c4")
-	err = validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatalf("Error validating metadata: %v", err)
-	}
+	validateIdleContainerMetrics(t, engine)
 
 	// Should get an error while adding this container due to unmapped
 	// task arn to task definition family.
 	engine.addAndStartStatsContainer("c6")
-	err = validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatalf("Error validating metadata: %v", err)
-	}
+	validateIdleContainerMetrics(t, engine)
 }
 
 func TestStatsEngineMetadataInStatsSets(t *testing.T) {
@@ -228,10 +222,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	assert.Equal(t, ts2, dockerStat.Read)
 
 	engine.removeContainer("c1")
-	err = validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatalf("Error validating metadata: %v", err)
-	}
+	validateIdleContainerMetrics(t, engine)
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
@@ -251,10 +242,7 @@ func TestStatsEngineUninitialized(t *testing.T) {
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.addAndStartStatsContainer("c1")
-	err := validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatalf("Error validating metadata: %v", err)
-	}
+	validateIdleContainerMetrics(t, engine)
 }
 
 func TestStatsEngineTerminalTask(t *testing.T) {
@@ -274,10 +262,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	engine.resolver = resolver
 
 	engine.addAndStartStatsContainer("c1")
-	err := validateIdleContainerMetrics(engine)
-	if err != nil {
-		t.Fatalf("Error validating metadata: %v", err)
-	}
+	validateIdleContainerMetrics(t, engine)
 }
 
 func TestGetTaskHealthMetrics(t *testing.T) {
@@ -350,7 +335,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 
 	engine.resolver = resolver
 	_, _, err := engine.GetTaskHealthMetrics()
-	assert.Error(t, err, "empty metrics should causing error")
+	assert.Error(t, err, "empty metrics should cause an error")
 }
 
 // TestMetricsDisabled tests container won't call docker api to collect stats

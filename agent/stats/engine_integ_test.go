@@ -24,7 +24,6 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 
-	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,15 +35,18 @@ func init() {
 	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, &cfg)
 }
 
-func (resolver *IntegContainerMetadataResolver) addToMap(containerID string) {
-	resolver.containerIDToTask[containerID] = &api.Task{
-		Arn:     taskArn,
-		Family:  taskDefinitionFamily,
-		Version: taskDefinitionVersion,
-	}
-	resolver.containerIDToDockerContainer[containerID] = &api.DockerContainer{
-		DockerID:  containerID,
-		Container: &api.Container{},
+func createTestTask() *api.Task {
+	return &api.Task{
+		Arn:                 taskArn,
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              taskDefinitionFamily,
+		Version:             taskDefinitionVersion,
+		Containers: []*api.Container{
+			{
+				Name: containerName,
+			},
+		},
 	}
 }
 
@@ -72,27 +74,15 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainersWithoutHealth")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	containers := []*api.Container{
-		{
-			Name: "gremlin",
-		},
-	}
-	testTask := &api.Task{
-		Arn:                 "gremlin-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "docker-gremlin",
-		Version:             "1",
-		Containers:          containers,
-	}
+	testTask := createTestTask()
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "gremlin",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
 		testTask)
 
@@ -104,17 +94,8 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	assert.NoError(t, err, "gettting instance metrics failed")
-	err = validateMetricsMetadata(metadata)
-	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
-	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
-
-	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexcpected task definition version")
-	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
+	validateInstanceMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	assert.NoError(t, err, "stopping container failed")
@@ -130,7 +111,8 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	time.Sleep(waitForCleanupSleep)
 
 	// Should not contain any metrics after cleanup.
-	assert.NoError(t, validateIdleContainerMetrics(engine), "validating idle metrics failed")
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 }
 
 func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
@@ -152,27 +134,15 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	containers := []*api.Container{
-		{
-			Name: "gremlin",
-		},
-	}
-	testTask := &api.Task{
-		Arn:                 "gremlin-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "docker-gremlin",
-		Version:             "1",
-		Containers:          containers,
-	}
+	testTask := createTestTask()
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "gremlin",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
 		testTask)
 
@@ -181,8 +151,8 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
 	err = client.StartContainer(container.ID, nil)
-	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	require.NoError(t, err, "starting container failed")
+	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
@@ -195,17 +165,8 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	assert.NoError(t, err, "gettting instance metrics failed")
-
-	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
-	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
-	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexcpected task definition family")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexcpected task definition version")
-
-	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
+	validateInstanceMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	assert.NoError(t, err, "stopping container failed")
@@ -221,7 +182,8 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	time.Sleep(waitForCleanupSleep)
 
 	// Should not contain any metrics after cleanup.
-	assert.NoError(t, validateIdleContainerMetrics(engine), "validating idle metrics failed")
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 }
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
@@ -248,28 +210,17 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	containers := []*api.Container{
-		{
-			Name:            "container-health",
-			HealthCheckType: "docker",
-		},
-	}
-	testTask := &api.Task{
-		Arn:                 "container-health-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "docker-container-health",
-		Version:             "1",
-		Containers:          containers,
-	}
+	testTask := createTestTask()
+	// enable container health check for this container
+	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "container-health",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
 		testTask)
 
@@ -283,25 +234,10 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	time.Sleep(checkPointSleep)
 
 	// Verify the metrics of the container
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	assert.NoError(t, err, "error gettting instance metrics")
-	assert.NoError(t, validateMetricsMetadata(metadata), "error validating metadata")
-	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
-
-	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), "docker-container-health", "task definition family not expected")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "task definition family version not expected")
-	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "error validating container metrics")
+	validateInstanceMetrics(t, engine)
 
 	// Verify the health metrics of container
-	healthMetadata, healthMetrics, err := engine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health metrics failed")
-	require.Len(t, healthMetrics, 1)
-	assert.NoError(t, validateHealthMetricsMetadata(healthMetadata))
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskArn), testTask.Arn, "task arn not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionFamily), "docker-container-health", "task definition family not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
-	assert.NoError(t, validateTaskHealth(healthMetrics[0].Containers, 1))
+	validateTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	assert.NoError(t, err, "stopping container failed")
@@ -317,12 +253,8 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	time.Sleep(waitForCleanupSleep)
 
 	// Should not contain any metrics after cleanup.
-	err = validateIdleContainerMetrics(engine)
-	assert.NoError(t, err, "validating idle metrics failed")
-
-	_, healthMetrics, err = engine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health failed")
-	assert.Len(t, healthMetrics, 0, "no health metrics was expected")
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 }
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
@@ -344,28 +276,18 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	containers := []*api.Container{
-		{
-			Name:            "container-health",
-			HealthCheckType: "docker",
-		},
-	}
-	testTask := &api.Task{
-		Arn:                 "container-health-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "docker-container-health",
-		Version:             "1",
-		Containers:          containers,
-	}
+
+	testTask := createTestTask()
+	// enable health check of the container
+	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "container-health",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
 		testTask)
 
@@ -374,8 +296,8 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
 	err = client.StartContainer(container.ID, nil)
-	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	require.NoError(t, err, "starting container failed")
+	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
@@ -388,30 +310,9 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	assert.NoError(t, err, "gettting instance metrics failed")
-
-	err = validateMetricsMetadata(metadata)
-	assert.NoError(t, err, "validating metadata failed")
-
-	assert.Len(t, taskMetrics, 1)
-	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), "docker-container-health", "task defnition family not expected")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
-
-	err = validateContainerMetrics(taskMetric.ContainerMetrics, 1)
-	assert.NoError(t, err, "validating container metrics failed")
-
+	validateInstanceMetrics(t, engine)
 	// Verify the health metrics of container
-	healthMetadata, healthMetrics, err := engine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health metrics failed")
-	require.Len(t, healthMetrics, 1)
-	assert.NoError(t, validateHealthMetricsMetadata(healthMetadata))
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskArn), testTask.Arn, "task arn not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionFamily), "docker-container-health", "task definition family not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
-	assert.NoError(t, validateTaskHealth(healthMetrics[0].Containers, 1))
+	validateTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	assert.NoError(t, err, "stopping container failed")
@@ -428,12 +329,8 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	time.Sleep(waitForCleanupSleep)
 
 	// Should not contain any metrics after cleanup.
-	err = validateIdleContainerMetrics(engine)
-	assert.NoError(t, err, "validating idle metrics failed")
-
-	_, healthMetrics, err = engine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health failed")
-	assert.Len(t, healthMetrics, 0, "no health metrics was expected")
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 }
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
@@ -452,30 +349,19 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		ID:    unmappedContainer.ID,
 		Force: true,
 	})
-	containers := []*api.Container{
-		{
-			Name:            "container-health",
-			HealthCheckType: "docker",
-		},
-	}
-	testTask := api.Task{
-		Arn:                 "container-health-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "test",
-		Version:             "1",
-		Containers:          containers,
-	}
+	testTask := createTestTask()
+	// enable the health check of the container
+	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(&testTask)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "container-health",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
-		&testTask)
+		testTask)
 
 	// Create a new docker stats engine
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
@@ -485,12 +371,12 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	defer statsEngine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
 	err = client.StartContainer(container.ID, nil)
-	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	require.NoError(t, err, "starting container failed")
+	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
 	err = client.StartContainer(unmappedContainer.ID, nil)
-	defer client.StopContainer(unmappedContainer.ID, defaultDockerTimeoutSeconds)
 	require.NoError(t, err, "starting container failed")
+	defer client.StopContainer(unmappedContainer.ID, defaultDockerTimeoutSeconds)
 
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerRunning,
@@ -510,22 +396,8 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-
-	metadata, taskMetrics, err := statsEngine.GetInstanceMetrics()
-	assert.NoError(t, err, "gettting instance metrics failed")
-	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
-	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
-	assert.NoError(t, validateContainerMetrics(taskMetrics[0].ContainerMetrics, 1), "validating container metrics failed")
-
-	// Verify the health metrics of container
-	healthMetadata, healthMetrics, err := statsEngine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health metrics failed")
-	require.Len(t, healthMetrics, 1)
-	assert.NoError(t, validateHealthMetricsMetadata(healthMetadata))
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskArn), testTask.Arn, "task arn not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionFamily), "test", "task definition family not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
-	assert.NoError(t, validateTaskHealth(healthMetrics[0].Containers, 1))
+	validateInstanceMetrics(t, statsEngine)
+	validateTaskHealthMetrics(t, statsEngine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	assert.NoError(t, err, "stopping container failed")
@@ -541,12 +413,8 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	time.Sleep(waitForCleanupSleep)
 
 	// Should not contain any metrics after cleanup.
-	err = validateIdleContainerMetrics(statsEngine)
-	assert.NoError(t, err, "validating idle metrics failed")
-
-	_, healthMetrics, err = statsEngine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health failed")
-	assert.Len(t, healthMetrics, 0, "no health metrics was expected")
+	validateIdleContainerMetrics(t, statsEngine)
+	validateEmptyTaskHealthMetrics(t, statsEngine)
 }
 
 func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
@@ -559,31 +427,21 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		ID:    container.ID,
 		Force: true,
 	})
-	containers := []*api.Container{
-		{
-			Name:              "container-health",
-			HealthCheckType:   "docker",
-			KnownStatusUnsafe: api.ContainerStopped,
-		},
-	}
-	testTask := api.Task{
-		Arn:                 "container-health-task",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		Family:              "test",
-		Version:             "1",
-		Containers:          containers,
-	}
+	testTask := createTestTask()
+	// enable container health check of this container
+	testTask.Containers[0].HealthCheckType = "docker"
+	testTask.Containers[0].KnownStatusUnsafe = api.ContainerStopped
+
 	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine, _ := taskEngine.(*ecsengine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(&testTask)
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
 	dockerTaskEngine.State().AddContainer(
 		&api.DockerContainer{
 			DockerID:   container.ID,
 			DockerName: "container-health",
-			Container:  containers[0],
+			Container:  testTask.Containers[0],
 		},
-		&testTask)
+		testTask)
 
 	// Create a new docker stats engine
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
@@ -620,10 +478,6 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	assert.Error(t, err, "expect error 'no task metrics tp report' when getting instance metrics")
 
 	// Should not contain any metrics after cleanup.
-	err = validateIdleContainerMetrics(statsEngine)
-	assert.NoError(t, err, "validating idle metrics failed")
-
-	_, healthMetrics, err := statsEngine.GetTaskHealthMetrics()
-	assert.NoError(t, err, "getting task health failed")
-	assert.Len(t, healthMetrics, 0, "no health metrics was expected")
+	validateIdleContainerMetrics(t, statsEngine)
+	validateEmptyTaskHealthMetrics(t, statsEngine)
 }

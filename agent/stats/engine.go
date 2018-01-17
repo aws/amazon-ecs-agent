@@ -390,7 +390,10 @@ func (engine *DockerStatsEngine) containerHealthsToMonitor() bool {
 	return len(engine.tasksToHealthCheckContainers) != 0
 }
 
-func (engine *DockerStatsEngine) stopTrackingContainer(container *StatsContainer, taskARN string) bool {
+// stopTrackingContainerUnsafe remove the StatsContaine from stats engine and
+// returns true if the container is stopped or no longer tracked in agent. Otherwise
+// it does nothing and return false
+func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsContainer, taskARN string) bool {
 	terminal, err := container.terminal()
 	if err != nil {
 		// Error determining if the container is terminal. This means that the container
@@ -401,8 +404,9 @@ func (engine *DockerStatsEngine) stopTrackingContainer(container *StatsContainer
 		seelog.Warnf("Error determining if the container %s is terminal, removing from stats, err: %v", container.containerMetadata.DockerID, err)
 		engine.doRemoveContainerUnsafe(container, taskARN)
 		return true
-	} else if terminal {
-		// Container is in knonwn terminal state. Stop collection metrics.
+	}
+	if terminal {
+		// Container is in known terminal state. Stop collection metrics.
 		seelog.Infof("Container %s is terminal, removing from stats", container.containerMetadata.DockerID)
 		engine.doRemoveContainerUnsafe(container, taskARN)
 		return true
@@ -430,7 +434,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 	for _, container := range containers {
 		// check if the container is stopped/untracked, and remove it from stats
 		//engine if needed
-		if engine.stopTrackingContainer(container, taskARN) {
+		if engine.stopTrackingContainerUnsafe(container, taskARN) {
 			continue
 		}
 		dockerContainer, err := engine.resolver.ResolveContainer(container.containerMetadata.DockerID)
@@ -552,7 +556,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		// cleaned up properly. We might sometimes miss events from docker task
 		// engine and this helps in reconciling the state. The tcs client's
 		// GetInstanceMetrics probe is used as the trigger for this.
-		if engine.stopTrackingContainer(container, taskArn) {
+		if engine.stopTrackingContainerUnsafe(container, taskArn) {
 			continue
 		}
 
