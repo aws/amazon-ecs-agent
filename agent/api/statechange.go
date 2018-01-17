@@ -79,13 +79,13 @@ func NewTaskStateChangeEvent(task *Task, reason string) (TaskStateChange, error)
 	taskKnownStatus := task.GetKnownStatus()
 	if !taskKnownStatus.BackendRecognized() {
 		return event, errors.Errorf(
-			"create task state change event api: status not recognized by ECS: %v; task: %s",
-			taskKnownStatus, task.Arn)
+			"create task state change event api: status not recognized by ECS: %v",
+			taskKnownStatus)
 	}
 	if task.GetSentStatus() >= taskKnownStatus {
 		return event, errors.Errorf(
-			"create task state change event api: status [%s] already sent for task %s",
-			taskKnownStatus.String(), task.Arn)
+			"create task state change event api: status [%s] already sent",
+			taskKnownStatus.String())
 	}
 
 	event = TaskStateChange{
@@ -106,8 +106,8 @@ func NewContainerStateChangeEvent(task *Task, cont *Container, reason string) (C
 	contKnownStatus := cont.GetKnownStatus()
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
 		return event, errors.Errorf(
-			"create container state change event api: status not recognized by ECS: %v; task: %s",
-			contKnownStatus, task.Arn)
+			"create container state change event api: status not recognized by ECS: %v",
+			contKnownStatus)
 	}
 	if cont.IsInternal() {
 		return event, errors.Errorf(

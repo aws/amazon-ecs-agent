@@ -92,7 +92,7 @@ type managedTask struct {
 	saver              statemanager.Saver
 	credentialsManager credentials.Manager
 	cniClient          ecscni.CNIClient
-	taskStopGroup      *utilsync.SequentialWaitGroup
+	taskStopWG         *utilsync.SequentialWaitGroup
 
 	acsMessages                chan acsTransition
 	dockerMessages             chan dockerContainerChange
@@ -130,7 +130,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		saver:              engine.saver,
 		credentialsManager: engine.credentialsManager,
 		cniClient:          engine.cniClient,
-		taskStopGroup:      engine.taskStopGroup,
+		taskStopWG:         engine.taskStopGroup,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -172,7 +172,7 @@ func (mtask *managedTask) overseeTask() {
 					mtask.SetDesiredStatus(api.TaskStopped)
 					mtask.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
 				}
-				// TODO: Add log to indicate successful setup of platform resources
+				seelog.Infof("Cgroup resource set up for task %s complete", mtask.Arn)
 			}
 			mtask.progressContainers()
 		}
@@ -183,7 +183,7 @@ func (mtask *managedTask) overseeTask() {
 		// be sufficient to capture state changes.
 		err := mtask.saver.Save()
 		if err != nil {
-			llog.Warn("Error checkpointing task's states to disk", "err", err)
+			seelog.Warnf("Unable to checkpoint task's states to disk [%s]: %v", mtask.Arn, err)
 		}
 
 		if mtask.GetKnownStatus().Terminal() {
@@ -196,7 +196,7 @@ func (mtask *managedTask) overseeTask() {
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		llog.Debug("Marking done for this sequence", "seqnum", mtask.StopSequenceNumber)
-		mtask.taskStopGroup.Done(mtask.StopSequenceNumber)
+		mtask.taskStopWG.Done(mtask.StopSequenceNumber)
 	}
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
@@ -221,7 +221,7 @@ func (mtask *managedTask) waitForHostResources() {
 		llog.Info("Waiting for any previous stops to complete", "seqnum", mtask.StartSequenceNumber)
 		othersStopped := make(chan bool, 1)
 		go func() {
-			mtask.taskStopGroup.Wait(mtask.StartSequenceNumber)
+			mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
 			othersStopped <- true
 		}()
 		for !mtask.waitEvent(othersStopped) {
@@ -300,7 +300,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
 		llog.Debug("Task moving to stopped, adding to stopgroup", "seqnum", seqnum)
 		mtask.SetStopSequenceNumber(seqnum)
-		mtask.taskStopGroup.Add(seqnum, 1)
+		mtask.taskStopWG.Add(seqnum, 1)
 	}
 	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
@@ -385,12 +385,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		seelog.Debugf("Unable to create task state change event for task '%s': %v",
+		seelog.Infof("Unable to create task state change event for task '%s': %v",
 			task.Arn, err)
 		return
 	}
 
-	seelog.Infof("Managed task: sending change event [%s]", event.String())
+	seelog.Infof("Managed task: sending task change event [%s]", event.String())
 	mtask.stateChangeEvents <- event
 }
 
@@ -399,14 +399,14 @@ func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		seelog.Debugf("Unable to create container state change event for container '%s' in task '%s': %v",
+		seelog.Infof("Unable to create container state change event for container '%s' in task '%s': %v",
 			cont.Name, task.Arn, err)
 		return
 	}
 
-	seelog.Debugf("Container change event: %s", event.String())
+	seelog.Infof("Managed task: sending container change event: %s", event.String())
 	mtask.stateChangeEvents <- event
-	seelog.Infof("Container change event passed on, event: %s", event.String())
+	seelog.Infof("Managed task: sent container change event: %s", event.String())
 }
 
 func (mtask *managedTask) isContainerFound(container *api.Container) bool {
@@ -425,7 +425,7 @@ func (mtask *managedTask) releaseIPInIPAM() {
 	if mtask.ENI == nil {
 		return
 	}
-	seelog.Infof("Releasing ip in IPAM for eni in task task: %s", mtask.Arn)
+	seelog.Infof("Releasing ip in IPAM for eni in task: %s", mtask.Arn)
 
 	cfg, err := mtask.BuildCNIConfig()
 	if err != nil {
@@ -661,7 +661,7 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 	}
 	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
 		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager); err != nil {
-		seelog.Debug("Can not apply state to container yet; dependencies unresolved, container: %s, task: %s, err: %v",
+		seelog.Debugf("Can not apply state to container yet; dependencies unresolved, container: %s, task: %s, err: %v",
 			container.String(), mtask.Task.Arn, err)
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
