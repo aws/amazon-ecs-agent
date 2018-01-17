@@ -15,20 +15,16 @@ package stats
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -41,7 +37,6 @@ const (
 	// checkPointSleep is the sleep duration in milliseconds between
 	// starting/stopping containers in the test code.
 	checkPointSleep              = 5 * SleepBetweenUsageDataCollection
-	testImageName                = "amazon/amazon-ecs-gremlin:make"
 	testContainerHealthImageName = "amazon/amazon-ecs-containerhealthcheck:make"
 
 	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
@@ -57,14 +52,11 @@ const (
 	containerName         = "gremlin-container"
 )
 
-var endpoint = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
-
-var client, _ = docker.NewClient(endpoint)
-var clientFactory = dockerclient.NewFactory(endpoint)
-var cfg = config.DefaultConfig()
-
-var defaultCluster = "default"
-var defaultContainerInstance = "ci"
+var (
+	cfg                      = config.DefaultConfig()
+	defaultCluster           = "default"
+	defaultContainerInstance = "ci"
+)
 
 func init() {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
