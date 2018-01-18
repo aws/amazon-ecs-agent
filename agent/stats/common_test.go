@@ -131,7 +131,7 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine) {
 
 	taskMetric := taskMetrics[0]
 	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexcpected task definition version")
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
 	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
 }
 
@@ -231,6 +231,8 @@ func validateTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
 }
 
 func validateEmptyTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
+	// If the metrics is empty, no health metrics will be send, the metadata won't be used
+	// no need to check the metadata here
 	_, healthMetrics, err := engine.GetTaskHealthMetrics()
 	assert.NoError(t, err, "getting task health failed")
 	assert.Len(t, healthMetrics, 0, "no health metrics was expected")

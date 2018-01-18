@@ -35,7 +35,7 @@ func init() {
 	dockerClient, _ = ecsengine.NewDockerGoClient(clientFactory, &cfg)
 }
 
-func createTestTask() *api.Task {
+func createRunningTask() *api.Task {
 	return &api.Task{
 		Arn:                 taskArn,
 		DesiredStatusUnsafe: api.TaskRunning,
@@ -62,9 +62,6 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 		Force: true,
 	})
 
-	// Wait for containers from previous tests to transition states.
-	time.Sleep(checkPointSleep)
-
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
@@ -74,7 +71,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainersWithoutHealth")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
@@ -98,7 +95,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
-	assert.NoError(t, err, "stopping container failed")
+	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
@@ -127,14 +124,12 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 		Force: true,
 	})
 
-	// Wait for containers from previous tests to transition states.
-	time.Sleep(checkPointSleep * 2)
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
 	dockerTaskEngine.State().AddTask(testTask)
@@ -169,7 +164,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
-	assert.NoError(t, err, "stopping container failed")
+	require.NoError(t, err, "stopping container failed")
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
@@ -198,9 +193,6 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 		Force: true,
 	})
 
-	// Wait for containers from previous tests to transition states.
-	time.Sleep(checkPointSleep)
-
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
@@ -210,7 +202,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// enable container health check for this container
 	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
@@ -240,7 +232,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	validateTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
-	assert.NoError(t, err, "stopping container failed")
+	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
@@ -269,15 +261,13 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 		Force: true,
 	})
 
-	// Wait for containers from previous tests to transition states.
-	time.Sleep(checkPointSleep * 2)
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
 
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// enable health check of the container
 	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
@@ -315,7 +305,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	validateTaskHealthMetrics(t, engine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
-	assert.NoError(t, err, "stopping container failed")
+	require.NoError(t, err, "stopping container failed")
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
@@ -337,7 +327,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
 	container, err := createHealthContainer(client)
-	assert.NoError(t, err, "creating container failed")
+	require.NoError(t, err, "creating container failed")
 
 	defer client.RemoveContainer(docker.RemoveContainerOptions{
 		ID:    container.ID,
@@ -349,7 +339,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		ID:    unmappedContainer.ID,
 		Force: true,
 	})
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// enable the health check of the container
 	testTask.Containers[0].HealthCheckType = "docker"
 	// Populate Tasks and Container map in the engine.
@@ -400,7 +390,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	validateTaskHealthMetrics(t, statsEngine)
 
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
-	assert.NoError(t, err, "stopping container failed")
+	require.NoError(t, err, "stopping container failed")
 
 	err = containerChangeEventStream.WriteToEventStream(ecsengine.DockerContainerChangeEvent{
 		Status: api.ContainerStopped,
@@ -427,7 +417,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		ID:    container.ID,
 		Force: true,
 	})
-	testTask := createTestTask()
+	testTask := createRunningTask()
 	// enable container health check of this container
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].KnownStatusUnsafe = api.ContainerStopped
@@ -469,7 +459,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		ID:    container.ID,
 		Force: true,
 	})
-	assert.NoError(t, err, "removing container failed")
+	require.NoError(t, err, "removing container failed")
 
 	time.Sleep(checkPointSleep)
 

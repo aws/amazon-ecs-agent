@@ -15,6 +15,7 @@ package tcsclient
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,7 +43,9 @@ const (
 type clientServer struct {
 	statsEngine            stats.Engine
 	publishTicker          *time.Ticker
-	endPublish             chan struct{}
+	publishHealthTicker    *time.Ticker
+	ctx                    context.Context
+	cancel                 context.CancelFunc
 	disableResourceMetrics bool
 	publishMetricsInterval time.Duration
 	wsclient.ClientServerImpl
@@ -61,6 +64,7 @@ func New(url string,
 	cs := &clientServer{
 		statsEngine:            statsEngine,
 		publishTicker:          nil,
+		publishHealthTicker:    nil,
 		publishMetricsInterval: publishMetricsInterval,
 	}
 	cs.URL = url
@@ -71,6 +75,8 @@ func New(url string,
 	cs.TypeDecoder = NewTCSDecoder()
 	cs.RWTimeout = rwTimeout
 	cs.disableResourceMetrics = disableResourceMetrics
+	// TODO make this context inherited from the handler
+	cs.ctx, cs.cancel = context.WithCancel(context.TODO())
 	return cs
 }
 
@@ -89,7 +95,7 @@ func (cs *clientServer) Serve() error {
 
 	// Start the timer function to publish metrics to the backend.
 	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
-	cs.endPublish = make(chan struct{})
+	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
 
 	if !cs.disableResourceMetrics {
 		go cs.publishMetrics()
@@ -137,9 +143,12 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 func (cs *clientServer) Close() error {
 	if cs.publishTicker != nil {
 		cs.publishTicker.Stop()
-		cs.endPublish <- struct{}{}
+	}
+	if cs.publishHealthTicker != nil {
+		cs.publishHealthTicker.Stop()
 	}
 
+	cs.cancel()
 	return cs.Disconnect()
 }
 
@@ -165,7 +174,7 @@ func (cs *clientServer) publishMetrics() {
 			if err != nil {
 				seelog.Warnf("Error publishing metrics: %v", err)
 			}
-		case <-cs.endPublish:
+		case <-cs.ctx.Done():
 			return
 		}
 	}
@@ -248,12 +257,12 @@ func (cs *clientServer) publishHealthMetrics() {
 	}
 	for {
 		select {
-		case <-cs.publishTicker.C:
+		case <-cs.publishHealthTicker.C:
 			err := cs.publishHealthMetricsOnce()
 			if err != nil {
 				seelog.Warnf("Unable to publish health metrics: %v", err)
 			}
-		case <-cs.endPublish:
+		case <-cs.ctx.Done():
 			return
 		}
 	}

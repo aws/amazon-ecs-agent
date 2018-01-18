@@ -172,7 +172,6 @@ func TestPublishMetricsRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 func TestPublishMetricsOnceEmptyStatsError(t *testing.T) {
 	cs := clientServer{
@@ -410,4 +409,33 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 
 	assert.Equal(t, request[0].Metadata, testMetadata)
 	assert.Equal(t, request[0].Tasks, testHealthMetrics)
+}
+
+func TestSessionClosed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+
+	// Messages should be read from the connection at least once
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Return(1,
+		[]byte(`{"type":"AckPublishMetric","message":{}}`), nil).MinTimes(1)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	handledPayload := make(chan *ecstcs.AckPublishMetric)
+	reqHandler := func(payload *ecstcs.AckPublishMetric) {
+		handledPayload <- payload
+	}
+	cs.AddRequestHandler(reqHandler)
+
+	go cs.Serve()
+	// wait for the session start
+	<-handledPayload
+	cs.Close()
+	_, ok := <-cs.(*clientServer).ctx.Done()
+	assert.False(t, ok, "channel should be closed")
 }

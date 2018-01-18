@@ -390,7 +390,7 @@ func (engine *DockerStatsEngine) containerHealthsToMonitor() bool {
 	return len(engine.tasksToHealthCheckContainers) != 0
 }
 
-// stopTrackingContainerUnsafe remove the StatsContaine from stats engine and
+// stopTrackingContainerUnsafe removes the StatsContainer from stats engine and
 // returns true if the container is stopped or no longer tracked in agent. Otherwise
 // it does nothing and return false
 func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsContainer, taskARN string) bool {
