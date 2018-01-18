@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -29,7 +30,9 @@ import (
 )
 
 func TestPullEmptyVolumeImage(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)
@@ -60,10 +63,13 @@ func TestDeleteTask(t *testing.T) {
 
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
 		state: mockState,
 		saver: mockSaver,
 		cfg:   &defaultConfig,
+		ctx:   ctx,
 	}
 
 	gomock.InOrder(

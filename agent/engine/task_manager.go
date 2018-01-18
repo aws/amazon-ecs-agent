@@ -14,6 +14,7 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -87,6 +88,7 @@ type containerTransition struct {
 // task's statuses yourself)
 type managedTask struct {
 	*api.Task
+	ctx                context.Context
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -119,6 +121,7 @@ type managedTask struct {
 // already held.
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 	t := &managedTask{
+		ctx:                        engine.ctx,
 		Task:                       task,
 		acsMessages:                make(chan acsTransition),
 		dockerMessages:             make(chan dockerContainerChange),
@@ -216,9 +219,9 @@ func (mtask *managedTask) emitCurrentStatus() {
 // the task. This involves waiting for previous stops to complete so the
 // resources become free.
 func (mtask *managedTask) waitForHostResources() {
-	llog := log.New("task", mtask.Task)
 	if mtask.StartSequenceNumber != 0 && !mtask.GetDesiredStatus().Terminal() {
-		llog.Info("Waiting for any previous stops to complete", "seqnum", mtask.StartSequenceNumber)
+		seelog.Infof("Task [%s]: waiting for any previous stops to complete. Sequence number: %d",
+			mtask.Arn, mtask.StartSequenceNumber)
 		othersStopped := make(chan bool, 1)
 		go func() {
 			mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
@@ -232,7 +235,8 @@ func (mtask *managedTask) waitForHostResources() {
 				break
 			}
 		}
-		llog.Info("Wait over; ready to move towards status: " + mtask.GetDesiredStatus().String())
+		seelog.Infof("Task [%s]: wait over; ready to move towards status: %s",
+			mtask.Arn, mtask.GetDesiredStatus().String())
 	}
 }
 
@@ -245,6 +249,7 @@ func (mtask *managedTask) waitSteady() {
 	maxWait := make(chan bool, 1)
 	timer := mtask.time().After(steadyStateTaskVerifyInterval)
 	go func() {
+		// TODO: Wire in context here
 		<-timer
 		maxWait <- true
 	}()
@@ -267,19 +272,20 @@ func (mtask *managedTask) cleanupCredentials() {
 // waitEvent waits for any event to occur. If an event occurs, the appropriate
 // handler is called. If the event is the passed in channel, it will return the
 // value written to the channel, otherwise it will return false.
+// TODO: Wire in context here
 func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
-	log.Debug("Waiting for event for task", "task", mtask.Task)
+	seelog.Debugf("Waiting for event for task: %s", mtask.Arn)
 	select {
 	case acsTransition := <-mtask.acsMessages:
-		log.Debug("Got acs event for task", "task", mtask.Task)
+		seelog.Debugf("Got acs event for task: %s", mtask.Arn)
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
 		return false
 	case dockerChange := <-mtask.dockerMessages:
-		log.Debug("Got container event for task", "task", mtask.Task)
+		seelog.Debugf("Got container event for task: %s", mtask.Arn)
 		mtask.handleContainerChange(dockerChange)
 		return false
 	case b := <-stopWaiting:
-		log.Debug("No longer waiting", "task", mtask.Task)
+		seelog.Debugf("No longer waiting for task: %s", mtask.Arn)
 		return b
 	}
 }
@@ -706,7 +712,9 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 	}
 }
 
-func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus, transitionChange <-chan bool, transitionChangeContainer <-chan string) {
+func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus,
+	transitionChange <-chan bool,
+	transitionChangeContainer <-chan string) {
 	for len(transitions) > 0 {
 		if mtask.waitEvent(transitionChange) {
 			changedContainer := <-transitionChangeContainer

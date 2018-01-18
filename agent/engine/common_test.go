@@ -67,41 +67,35 @@ func discardEvents(from interface{}) func() {
 
 // TODO: Move integ tests away from relying on the statechange channel for
 // determining if a task is running/stopped or not
-func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, testTasks ...*api.Task) error {
+func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *api.Task) error {
 	for {
 		event := <-stateChangeEvents
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			for i, task := range testTasks {
-				if taskEvent.TaskARN != task.Arn {
-					continue
-				}
-				if taskEvent.Status == api.TaskRunning {
-					if len(testTasks) == 1 {
-						return nil
-					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
-				} else if taskEvent.Status > api.TaskRunning {
-					return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
-				}
-			}
+		if event.GetEventType() != statechange.TaskEvent {
+			continue
+		}
+
+		taskEvent := event.(api.TaskStateChange)
+		if taskEvent.TaskARN != task.Arn {
+			continue
+		}
+		if taskEvent.Status == api.TaskRunning {
+			return nil
+		}
+		if taskEvent.Status > api.TaskRunning {
+			return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
 		}
 	}
 }
 
-func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, testTasks ...*api.Task) {
+func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *api.Task) {
 	for {
 		event := <-stateChangeEvents
-		if event.GetEventType() == statechange.TaskEvent {
-			taskEvent := event.(api.TaskStateChange)
-			for i, task := range testTasks {
-				if taskEvent.TaskARN == task.Arn && taskEvent.Status >= api.TaskStopped {
-					if len(testTasks) == 1 {
-						return
-					}
-					testTasks = append(testTasks[:i], testTasks[i+1:]...)
-				}
-			}
+		if event.GetEventType() != statechange.TaskEvent {
+			continue
+		}
+		taskEvent := event.(api.TaskStateChange)
+		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= api.TaskStopped {
+			return
 		}
 	}
 }

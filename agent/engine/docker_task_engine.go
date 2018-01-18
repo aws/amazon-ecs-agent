@@ -66,6 +66,7 @@ type DockerTaskEngine struct {
 
 	cfg *config.Config
 
+	ctx          context.Context
 	initialized  bool
 	mustInitLock sync.Mutex
 
@@ -178,6 +179,7 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	derivedCtx, cancel := context.WithCancel(ctx)
 	engine.stopEngine = cancel
 
+	engine.ctx = derivedCtx
 	// Determine whether the engine can perform concurrent "docker pull" based on docker version
 	engine.enableConcurrentPull = engine.isParallelPullCompatible()
 
@@ -743,7 +745,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 }
 
 func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	log.Info("Starting container", "task", task, "container", container)
+	seelog.Infof("Starting container: %s for task: %s", container.Name, task.Arn)
 	client := engine.client
 	if container.DockerConfig.Version != nil {
 		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
@@ -783,7 +785,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 }
 
 func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Infof("Task [%s]: Setting up container resources for container [%s]", task.String(), container.String())
+	seelog.Infof("Task [%s]: Setting up container resources for container [%s]", task.Arn, container.Name)
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return DockerContainerMetadata{

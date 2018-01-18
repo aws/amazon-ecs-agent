@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -31,7 +32,9 @@ import (
 )
 
 func TestPullEmptyVolumeImage(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)
