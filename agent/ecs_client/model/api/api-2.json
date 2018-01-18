@@ -670,7 +670,8 @@
         "exitCode":{"shape":"BoxedInteger"},
         "reason":{"shape":"String"},
         "networkBindings":{"shape":"NetworkBindings"},
-        "networkInterfaces":{"shape":"NetworkInterfaces"}
+        "networkInterfaces":{"shape":"NetworkInterfaces"},
+        "healthStatus":{"shape":"HealthStatus"}
       }
     },
     "ContainerDefinition":{
@@ -806,7 +807,8 @@
         "deploymentConfiguration":{"shape":"DeploymentConfiguration"},
         "placementConstraints":{"shape":"PlacementConstraints"},
         "placementStrategy":{"shape":"PlacementStrategies"},
-        "networkConfiguration":{"shape":"NetworkConfiguration"}
+        "networkConfiguration":{"shape":"NetworkConfiguration"},
+        "healthCheckGracePeriodSeconds":{"shape":"BoxedInteger"}
       }
     },
     "CreateServiceResponse":{
@@ -1053,14 +1055,22 @@
     },
     "HealthCheck":{
       "type":"structure",
-      "required":["healthCommand"],
+      "required":["command"],
       "members":{
-        "healthCommand":{"shape":"StringList"},
+        "command":{"shape":"StringList"},
         "interval":{"shape":"BoxedInteger"},
         "timeout":{"shape":"BoxedInteger"},
         "retries":{"shape":"BoxedInteger"},
         "startPeriod":{"shape":"BoxedInteger"}
       }
+    },
+    "HealthStatus":{
+      "type":"string",
+      "enum":[
+        "HEALTHY",
+        "UNHEALTHY",
+        "UNKNOWN"
+      ]
     },
     "HostEntry":{
       "type":"structure",
@@ -1537,7 +1547,8 @@
         "createdAt":{"shape":"Timestamp"},
         "placementConstraints":{"shape":"PlacementConstraints"},
         "placementStrategy":{"shape":"PlacementStrategies"},
-        "networkConfiguration":{"shape":"NetworkConfiguration"}
+        "networkConfiguration":{"shape":"NetworkConfiguration"},
+        "healthCheckGracePeriodSeconds":{"shape":"BoxedInteger"}
       }
     },
     "ServiceEvent":{
@@ -1572,8 +1583,7 @@
       "type":"structure",
       "members":{
         "registryArn":{"shape":"String"},
-        "containerName":{"shape":"String"},
-        "containerPort":{"shape":"BoxedInteger"}
+        "port":{"shape":"BoxedInteger"}
       }
     },
     "Services":{
@@ -1711,7 +1721,8 @@
         "group":{"shape":"String"},
         "launchType":{"shape":"LaunchType"},
         "platformVersion":{"shape":"String"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "healthStatus":{"shape":"HealthStatus"}
       }
     },
     "TaskDefinition":{
@@ -1878,7 +1889,8 @@
         "deploymentConfiguration":{"shape":"DeploymentConfiguration"},
         "networkConfiguration":{"shape":"NetworkConfiguration"},
         "platformVersion":{"shape":"String"},
-        "forceNewDeployment":{"shape":"Boolean"}
+        "forceNewDeployment":{"shape":"Boolean"},
+        "healthCheckGracePeriodSeconds":{"shape":"BoxedInteger"}
       }
     },
     "UpdateServiceResponse":{

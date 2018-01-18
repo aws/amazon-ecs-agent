@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,8 @@ const (
 
 	// ErrCodeAccessDeniedException for service response error code
 	// "AccessDeniedException".
+	//
+	// You do not have authorization to perform the requested action.
 	ErrCodeAccessDeniedException = "AccessDeniedException"
 
 	// ErrCodeAttributeLimitExceededException for service response error code
@@ -29,14 +31,17 @@ const (
 
 	// ErrCodeBlockedException for service response error code
 	// "BlockedException".
+	//
+	// Your AWS account has been blocked. Contact AWS Customer Support (http://aws.amazon.com/contact-us/)
+	// for more information.
 	ErrCodeBlockedException = "BlockedException"
 
 	// ErrCodeClientException for service response error code
 	// "ClientException".
 	//
 	// These errors are usually caused by a client action, such as using an action
-	// or resource on behalf of a user that doesn't have permission to use the action
-	// or resource, or specifying an identifier that is not valid.
+	// or resource on behalf of a user that doesn't have permissions to use the
+	// action or resource, or specifying an identifier that is not valid.
 	ErrCodeClientException = "ClientException"
 
 	// ErrCodeClusterContainsContainerInstancesException for service response error code
@@ -57,6 +62,8 @@ const (
 
 	// ErrCodeClusterContainsTasksException for service response error code
 	// "ClusterContainsTasksException".
+	//
+	// You cannot delete a cluster that has active tasks.
 	ErrCodeClusterContainsTasksException = "ClusterContainsTasksException"
 
 	// ErrCodeClusterNotFoundException for service response error code
@@ -92,10 +99,15 @@ const (
 
 	// ErrCodePlatformTaskDefinitionIncompatibilityException for service response error code
 	// "PlatformTaskDefinitionIncompatibilityException".
+	//
+	// The specified platform version does not satisfy the task definition’s required
+	// capabilities.
 	ErrCodePlatformTaskDefinitionIncompatibilityException = "PlatformTaskDefinitionIncompatibilityException"
 
 	// ErrCodePlatformUnknownException for service response error code
 	// "PlatformUnknownException".
+	//
+	// The specified platform version does not exist.
 	ErrCodePlatformUnknownException = "PlatformUnknownException"
 
 	// ErrCodeServerException for service response error code
@@ -107,9 +119,8 @@ const (
 	// ErrCodeServiceNotActiveException for service response error code
 	// "ServiceNotActiveException".
 	//
-	// The specified service is not active. You cannot update a service that is
-	// not active. If you have previously deleted a service, you can re-create it
-	// with CreateService.
+	// The specified service is not active. You can't update a service that is inactive.
+	// If you have previously deleted a service, you can re-create it with CreateService.
 	ErrCodeServiceNotActiveException = "ServiceNotActiveException"
 
 	// ErrCodeServiceNotFoundException for service response error code
@@ -129,6 +140,8 @@ const (
 
 	// ErrCodeUnsupportedFeatureException for service response error code
 	// "UnsupportedFeatureException".
+	//
+	// The specified task is not supported in this region.
 	ErrCodeUnsupportedFeatureException = "UnsupportedFeatureException"
 
 	// ErrCodeUpdateInProgressException for service response error code
