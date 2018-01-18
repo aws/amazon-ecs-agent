@@ -670,7 +670,10 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 	acsMessages := make(chan acsTransition)
 	dockerMessages := make(chan dockerContainerChange)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	task := &managedTask{
+		ctx:            ctx,
 		acsMessages:    acsMessages,
 		dockerMessages: dockerMessages,
 		Task: &api.Task{
@@ -713,6 +716,8 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 	acsMessages := make(chan acsTransition)
 	dockerMessages := make(chan dockerContainerChange)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	task := &managedTask{
 		acsMessages:    acsMessages,
 		dockerMessages: dockerMessages,
@@ -720,6 +725,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 			Containers:        []*api.Container{},
 			KnownStatusUnsafe: api.TaskStopped,
 		},
+		ctx: ctx,
 	}
 
 	transitionChange := make(chan bool, 2)
@@ -893,7 +899,10 @@ func TestCleanupTask(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -901,6 +910,7 @@ func TestCleanupTask(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -943,7 +953,10 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -951,6 +964,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -988,7 +1002,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	assert.Equal(t, api.TaskRunning, mTask.GetSentStatus())
 
 	// Expectations to verify that the task gets removed
-	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(
+		map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
@@ -1005,7 +1020,10 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -1013,6 +1031,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1055,7 +1074,10 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mockImageManager := NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -1063,6 +1085,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1148,7 +1171,10 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockTime := mock_ttime.NewMockTime(ctrl)
 			mockTimer := mock_ttime.NewMockTimer(ctrl)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 			task := &managedTask{
+				ctx: ctx,
 				Task: &api.Task{
 					KnownStatusUnsafe:   api.TaskRunning,
 					DesiredStatusUnsafe: api.TaskRunning,
@@ -1176,7 +1202,10 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -1184,6 +1213,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1229,8 +1259,10 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 
 	cfg := getTestConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
-
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -1239,6 +1271,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		resource:     mockResource,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1285,8 +1318,10 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 
 	cfg := getTestConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
-
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
 		state:        mockState,
@@ -1295,6 +1330,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		resource:     mockResource,
 	}
 	mTask := &managedTask{
+		ctx:            ctx,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
