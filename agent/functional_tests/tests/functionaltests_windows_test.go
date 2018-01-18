@@ -1,6 +1,6 @@
 // +build windows,functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -331,4 +331,9 @@ func TestOOMContainer(t *testing.T) {
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	assert.NoError(t, err, "Expect task to be stopped")
 	assert.NotEqual(t, 0, testTask.Containers[0].ExitCode, "container should fail with memory error")
+}
+
+// TestContainerHealthMetrics tests the container health metrics was sent to backend
+func TestContainerHealthMetrics(t *testing.T) {
+	containerHealthMetricsTest(t, "container-health-windows")
 }

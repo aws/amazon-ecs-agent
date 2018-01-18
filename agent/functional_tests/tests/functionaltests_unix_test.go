@@ -1,6 +1,6 @@
 // +build !windows,functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -765,4 +765,9 @@ func TestExecutionRole(t *testing.T) {
 	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
 	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
+}
+
+// TestContainerHealthMetrics tests the container health metrics was sent to backend
+func TestContainerHealthMetrics(t *testing.T) {
+	containerHealthMetricsTest(t, "container-health")
 }

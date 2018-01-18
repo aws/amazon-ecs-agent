@@ -6,13 +6,13 @@
         "cpu": 512,
         "name": "executionrole-awslogs-test",
         "image": "$$$$IMAGE$$$$",
-		"logConfiguration":{
-			"logDriver": "awslogs",
-			"options": {
-				"awslogs-group": "ecs-functional-tests",
-				"awslogs-region": "$$$$TEST_REGION$$$$",
-				"awslogs-stream-prefix":"ecs-functional-tests"
-			}
-		}
+        "logConfiguration":{
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "ecs-functional-tests",
+                "awslogs-region": "$$$$TEST_REGION$$$$",
+                "awslogs-stream-prefix":"ecs-functional-tests"
+            }
+        }
     }]
 }
