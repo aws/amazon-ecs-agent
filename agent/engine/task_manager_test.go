@@ -112,7 +112,11 @@ func TestHandleEventError(t *testing.T) {
 					},
 				},
 			}
-			mtask := managedTask{}
+			mtask := managedTask{
+				Task: &api.Task{
+					Arn: "task1",
+				},
+			}
 			ok := mtask.handleEventError(containerChange, tc.CurrentKnownStatus)
 			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")
 			if tc.ExpectedKnownStatusSet {
@@ -142,7 +146,7 @@ func TestContainerNextState(t *testing.T) {
 		{api.ContainerStatusNone, api.ContainerResourcesProvisioned, api.ContainerPulled, true, nil},
 		// NONE -> NONE transition is not be allowed and is not actionable,
 		// when desired is Running
-		{api.ContainerStatusNone, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerStatusNone, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// NONE -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
 		{api.ContainerStatusNone, api.ContainerStopped, api.ContainerStopped, false, nil},
@@ -154,10 +158,10 @@ func TestContainerNextState(t *testing.T) {
 		{api.ContainerPulled, api.ContainerResourcesProvisioned, api.ContainerCreated, true, nil},
 		// PULLED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerPulled, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerPulled, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// PULLED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerPulled, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerPulled, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// PULLED -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
 		{api.ContainerPulled, api.ContainerStopped, api.ContainerStopped, false, nil},
@@ -169,13 +173,13 @@ func TestContainerNextState(t *testing.T) {
 		{api.ContainerCreated, api.ContainerResourcesProvisioned, api.ContainerRunning, true, nil},
 		// CREATED -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerCreated, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerCreated, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerCreated, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerCreated, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerCreated, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerCreated, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
 		{api.ContainerCreated, api.ContainerStopped, api.ContainerStopped, false, nil},
@@ -184,38 +188,38 @@ func TestContainerNextState(t *testing.T) {
 		{api.ContainerRunning, api.ContainerStopped, api.ContainerStopped, true, nil},
 		// RUNNING -> RUNNING transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerRunning, api.ContainerRunning, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerRunning, api.ContainerRunning, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> RESOURCES_PROVISIONED is allowed when steady state status is
 		// RESOURCES_PROVISIONED and desired is RESOURCES_PROVISIONED
 		{api.ContainerRunning, api.ContainerResourcesProvisioned, api.ContainerResourcesProvisioned, true, nil},
 		// RUNNING -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerRunning, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerRunning, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 
 		// RESOURCES_PROVISIONED -> RESOURCES_PROVISIONED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerResourcesProvisioned, api.ContainerResourcesProvisioned, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerResourcesProvisioned, api.ContainerResourcesProvisioned, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> RUNNING transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerResourcesProvisioned, api.ContainerRunning, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerResourcesProvisioned, api.ContainerRunning, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> STOPPED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is STOPPED
 		{api.ContainerResourcesProvisioned, api.ContainerStopped, api.ContainerStopped, true, nil},
 		// RESOURCES_PROVISIONED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerResourcesProvisioned, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerResourcesProvisioned, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerResourcesProvisioned, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerResourcesProvisioned, api.ContainerPulled, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{api.ContainerResourcesProvisioned, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.UnableTransitionContainerPassedDesiredStatus},
+		{api.ContainerResourcesProvisioned, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 	}
 
 	steadyStates := []api.ContainerStatus{api.ContainerRunning, api.ContainerResourcesProvisioned}
@@ -273,7 +277,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			dependencySatisfiedStatus:    api.ContainerCreated,
 			expectedContainerStatus:      api.ContainerStatusNone,
 			expectedTransitionActionable: false,
-			reason: dependencygraph.UnableTransitionTransitionDependencyNotResolved,
+			reason: dependencygraph.DependentContainerNotResolvedErr,
 		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
 		{
@@ -285,7 +289,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			dependencySatisfiedStatus:    api.ContainerRunning,
 			expectedContainerStatus:      api.ContainerStatusNone,
 			expectedTransitionActionable: false,
-			reason: dependencygraph.UnableTransitionTransitionDependencyNotResolved,
+			reason: dependencygraph.DependentContainerNotResolvedErr,
 		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
 		// The expected next status is Pulled
@@ -373,9 +377,9 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 		reason                       error
 	}{
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is None
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.UnableTransitionTransitionDependencyNotResolved},
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, api.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.UnableTransitionTransitionDependencyNotResolved},
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerCreated, api.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
 		// The expected next status is Pulled
 		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerRunning, api.ContainerPulled, true, nil},
@@ -428,7 +432,7 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 		expectedTransitionReason     error
 	}{
 		// NONE -> RUNNING transition is not allowed when container is waiting for credentials
-		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, "not_existed", true, false, dependencygraph.UnableTransitionExecutionCredentialsNotResolved},
+		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerStatusNone, "not_existed", true, false, dependencygraph.CredentialsNotResolvedErr},
 		// NONE -> RUNNING transition is allowed when the required execution credentials existed
 		{api.ContainerStatusNone, api.ContainerRunning, api.ContainerPulled, "existed", true, true, nil},
 		// PULLED -> RUNNING transition is allowed even the credentials is required
@@ -1144,8 +1148,8 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 	}{
 		{
 			errs: []error{
-				dependencygraph.UnableTransitionExecutionCredentialsNotResolved,
-				dependencygraph.UnableTransitionContainerPassedDesiredStatus,
+				dependencygraph.CredentialsNotResolvedErr,
+				dependencygraph.ContainerPastDesiredStatusErr,
 				fmt.Errorf("other error"),
 			},
 			result: true,
@@ -1157,8 +1161,8 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 		},
 		{
 			errs: []error{
-				dependencygraph.UnableTransitionContainerPassedDesiredStatus,
-				dependencygraph.UnableTransitionTransitionDependencyNotResolved,
+				dependencygraph.ContainerPastDesiredStatusErr,
+				dependencygraph.DependentContainerNotResolvedErr,
 				fmt.Errorf("other errors"),
 			},
 			result: false,
