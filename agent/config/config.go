@@ -280,6 +280,8 @@ func environmentConfig() (Config, error) {
 
 	dockerStopTimeout := getDockerStopTimeout()
 
+	cgroupMemorySubsystemPath := os.Getenv("ECS_CGROUP_MEMORY_SUBSYSTEM_PATH")
+
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
@@ -388,6 +390,7 @@ func environmentConfig() (Config, error) {
 		ContainerMetadataEnabled:         containerMetadataEnabled,
 		DataDirOnHost:                    dataDirOnHost,
 		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
+		CgroupMemorySubsystemPath:        cgroupMemorySubsystemPath,
 	}, err
 }
 
