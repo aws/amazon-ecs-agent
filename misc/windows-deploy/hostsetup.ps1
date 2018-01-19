@@ -29,7 +29,7 @@ if(!($adapter)) {
 
 $ifIndex = (Get-NetAdapter -Name "*APIPA*" | Sort-Object | Select ifIndex).ifIndex
 
-$dockerSubnet = (docker network inspect nat | ConvertFrom-Json).IPAM.Config.Subnet
+$dockerSubnet = (docker network inspect nat | Out-String | ConvertFrom-Json).IPAM.Config.Subnet
 
 # This address will only exist on systems that have already set up the routes.
 $ip = (Get-NetRoute -InterfaceIndex $ifIndex -DestinationPrefix $dockerSubnet)
@@ -44,6 +44,13 @@ if(!($ip)) {
 	# Exposes credential port for local windows firewall
 	New-NetFirewallRule -DisplayName "Allow Inbound Port $credentialPort" -Direction Inbound -LocalPort $credentialPort -Protocol TCP -Action Allow
 
+	# Wait for Credential IP to become available
+	while(!(Test-Connection -ComputerName $credentialAddress))
+	{
+		Write-Output "Waiting for Credential IP to be up"
+		Start-Sleep 1
+	}
+	
 	# This forwards traffic from port 80 and listens on the IAM role IP address.
 	# 'portproxy' doesn't have a powershell module equivalent, but we could move if it becomes available.
 	netsh interface portproxy add v4tov4 listenaddress=$credentialAddress listenport=80 connectaddress=$loopbackAddress connectport=$credentialPort

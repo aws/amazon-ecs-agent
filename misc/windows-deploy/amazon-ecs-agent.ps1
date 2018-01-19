@@ -61,7 +61,7 @@ try {
 
     LogMsg "Docker is running and ready."
 
-    if([System.Environment]::GetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "Machine") -eq "true") {
+    if([System.Environment]::GetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE") -eq "true") {
         LogMsg "IAM roles environment variable is set."
         .\hostsetup.ps1
     }
