@@ -27,6 +27,8 @@ const (
 	defaultCredentialsAuditLogFile = "/log/audit.log"
 	// Default cgroup prefix for ECS tasks
 	DefaultTaskCgroupPrefix = "/ecs"
+
+	defaultCgroupMemorySubsystemPath = "/sys/fs/cgroup/memory/"
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -55,6 +57,7 @@ func DefaultConfig() Config {
 		AWSVPCBlockInstanceMetdata:  false,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             DefaultEnabled,
+		CgroupMemorySubsystemPath:   defaultCgroupMemorySubsystemPath,
 	}
 }
 

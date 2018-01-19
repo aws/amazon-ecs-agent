@@ -145,6 +145,9 @@ func newAgent(
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
+	resource := resources.New()
+	resource.ApplyConfigDependencies(cfg)
+
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
@@ -163,7 +166,7 @@ func newAgent(
 		}),
 		os:                 oswrapper.New(),
 		metadataManager:    metadataManager,
-		resource:           resources.New(),
+		resource:           resource,
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
 	}, nil
 }

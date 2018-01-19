@@ -30,14 +30,14 @@ import (
 )
 
 const (
-	memorySubsystem    = "/sys/fs/cgroup/memory/"
 	memoryUseHierarchy = "memory.use_hierarchy"
 )
 
 // cgroupWrapper implements the Resource interface
 type cgroupWrapper struct {
-	control cgroup.Control
-	ioutil  ioutilwrapper.IOUtil
+	control             cgroup.Control
+	ioutil              ioutilwrapper.IOUtil
+	memorySubsystemPath string
 }
 
 // New is used to return an object that implements the Resource interface
@@ -65,6 +65,10 @@ func (c *cgroupWrapper) Setup(task *api.Task) error {
 // Cleanup removes the resource
 func (c *cgroupWrapper) Cleanup(task *api.Task) error {
 	return c.cleanupCgroup(task)
+}
+
+func (c *cgroupWrapper) ApplyConfigDependencies(cfg *config.Config) {
+	c.memorySubsystemPath = cfg.CgroupMemorySubsystemPath
 }
 
 // cgroupInit is used to create the root '/ecs/ cgroup
@@ -106,6 +110,8 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	}
 
 	// echo 1 > memory.use_hierarchy
+	memorySubsystem := c.memorySubsystemPath
+
 	err = c.ioutil.WriteFile(filepath.Join(memorySubsystem, cgroupRoot, memoryUseHierarchy), []byte(strconv.Itoa(1)), os.FileMode(0))
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to set use hierarchy flag for task: %s", task.Arn)

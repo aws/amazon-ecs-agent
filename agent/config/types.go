@@ -194,4 +194,6 @@ type Config struct {
 	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
 	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
+
+	CgroupMemorySubsystemPath string
 }
