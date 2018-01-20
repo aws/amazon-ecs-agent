@@ -37,7 +37,7 @@ func TestJsonKeys(t *testing.T) {
 		t.Error(err)
 	}
 	if len(keys) != 0 {
-		t.Error("Keys for empty objet should be empty")
+		t.Error("Keys for empty object should be empty")
 	}
 
 	_, err = JsonKeys([]byte(`[]`))
