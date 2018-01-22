@@ -28,7 +28,6 @@ import (
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
@@ -90,14 +89,14 @@ func TestAWSLogsDriver(t *testing.T) {
 	// Delete the log stream after the test
 	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	})
 
 	// Added a delay of 1 minute to allow the task to be stopped - Windows only.
 	testTask.WaitStopped(1 * time.Minute)
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskId)),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	}
 
 	resp, err := waitCloudwatchLogs(cwlClient, params)
@@ -362,8 +361,8 @@ func TestAWSLogsDriverMultilinePattern(t *testing.T) {
 
 	// Delete the log stream after the test
 	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
-			LogGroupName:  aws.String(awslogsLogGroupName),
-			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-multiline-windows/%s", taskID)),
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-multiline-windows/%s", taskID)),
 	})
 
 	// Added a delay of 1 minute to allow the task to be stopped - Windows only.
@@ -413,8 +412,8 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 
 	// Delete the log stream after the test
 	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
-			LogGroupName:  aws.String(awslogsLogGroupName),
-			LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-datetime-windows/%s", taskID)),
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-datetime-windows/%s", taskID)),
 	})
 
 	// Added a delay of 1 minute to allow the task to be stopped - Windows only.
