@@ -5,6 +5,10 @@
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
 * Bug - Persist container exit code in agent state file [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
 
+## 1.16.2
+* Bug - Fixed a bug where the ticker would submit empty container state change
+  transitions when a task is STOPPED. [#1178](https://github.com/aws/amazon-ecs-agent/pull/1178)
+
 ## 1.16.1
 * Bug - Fixed a bug where the agent could miss sending an ENI attachment to ECS
   because of address propagation delays. [#1148](https://github.com/aws/amazon-ecs-agent/pull/1148)

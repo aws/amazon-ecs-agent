@@ -184,6 +184,15 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 		// safety mechanism) and add it to the list of task state changes
 		// that need to be sent to ECS
 		if task, ok := handler.state.TaskByArn(taskARN); ok {
+			// We do not allow the ticker to submit container state updates for
+			// tasks that are STOPPED. This prevents the ticker's asynchronous
+			// updates from clobbering container states when the task
+			// transitions to STOPPED, since ECS does not allow updates to
+			// container states once the task has moved to STOPPED.
+			knownStatus := task.GetKnownStatus()
+			if knownStatus >= api.TaskStopped {
+				continue
+			}
 			event := api.TaskStateChange{
 				TaskARN: taskARN,
 				Status:  task.GetKnownStatus(),
