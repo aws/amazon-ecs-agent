@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -408,9 +408,9 @@ func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 		return
 	}
 
-	seelog.Infof("Managed task [%s]:Managed task: sending task change event [%s]", mtask.Arn, event.String())
+	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
 	mtask.stateChangeEvents <- event
-	seelog.Infof("Managed task [%s]:Managed task: sent task change event [%s]", mtask.Arn, event.String())
+	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
 }
 
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
