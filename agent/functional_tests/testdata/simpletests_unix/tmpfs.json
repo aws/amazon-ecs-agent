@@ -1,0 +1,10 @@
+{
+  "Name": "Tmpfs",
+  "Description": "checks that adding tmpfs volume works",
+  "TaskDefinition": "tmpfs",
+  "Version": ">=1.11.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}
