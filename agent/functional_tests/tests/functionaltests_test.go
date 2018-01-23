@@ -425,28 +425,50 @@ func TestCustomAttributesWithMaxOptions(t *testing.T) {
 
 func waitForContainerHealthStatus(t *testing.T, testTask *TestTask) {
 	ctx, _ := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
-waitHealth:
 	for {
 		select {
 		case <-ctx.Done():
-			t.Error("Waiting for container health status available timed out")
+			t.Error("Timed out waiting for container health status")
 		default:
 			testTask.Redescribe()
 			if aws.StringValue(testTask.Containers[0].HealthStatus) == "UNKNOWN" {
 				time.Sleep(time.Second)
 				continue
 			}
-			break waitHealth
+			return
 		}
 	}
 }
 
+func containerHealthWithoutStartPeriodTest(t *testing.T, taskDefinition string) {
+	RequireDockerVersion(t, ">=1.12.0") // container health check was added in Docker 1.12.0
+	// StartPeriod of container health check was added in 17.05.0,
+	// don't test it here, it should be tested in containerHealthWithStartPeriodTest
+	RequireDockerVersion(t, "<17.05.0")
+
+	tdOverrides := map[string]string{
+		"$$$$START_PERIOD$$$$": "",
+	}
+
+	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
+}
+
+func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
+	RequireDockerVersion(t, ">=17.05.0") // StartPeriod of container health check was added in 17.05.0
+
+	tdOverrides := map[string]string{
+		"$$$$START_PERIOD$$$$": `"startPeriod": 1,`,
+	}
+
+	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
+}
+
 // containerHealthMetricsTest tests the container health metrics based on the task definition
-func containerHealthMetricsTest(t *testing.T, taskDefinition string) {
+func containerHealthMetricsTest(t *testing.T, taskDefinition string, overrides map[string]string) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
-	testTask, err := agent.StartTask(t, taskDefinition)
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, overrides)
 	require.NoError(t, err, "expect task to be started without error")
 
 	testTask.WaitRunning(waitTaskStateChangeDuration)

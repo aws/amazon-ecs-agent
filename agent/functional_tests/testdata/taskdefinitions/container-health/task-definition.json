@@ -11,8 +11,8 @@
             "command": ["CMD-SHELL", "echo hello"],
             "interval": 1,
             "timeout": 2,
-            "retries": 3,
-            "startPeriod": 1
+            $$$$START_PERIOD$$$$
+            "retries": 3
         },
         "essential": true
     }

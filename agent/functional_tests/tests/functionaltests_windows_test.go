@@ -335,5 +335,11 @@ func TestOOMContainer(t *testing.T) {
 
 // TestContainerHealthMetrics tests the container health metrics was sent to backend
 func TestContainerHealthMetrics(t *testing.T) {
-	containerHealthMetricsTest(t, "container-health-windows")
+	containerHealthWithoutStartPeriodTest(t, "container-health-windows")
+}
+
+// TestContainerHealthMetricsWithStartPeriod tests the container health metrics
+// with start period configured in the task definition
+func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
+	containerHealthWithStartPeriodTest(t, "container-health-windows")
 }
