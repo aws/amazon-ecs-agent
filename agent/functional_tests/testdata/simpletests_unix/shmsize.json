@@ -1,0 +1,10 @@
+{
+  "Name": "ShmSize",
+  "Description": "checks that setting size of shared memory volume works",
+  "TaskDefinition": "shmsize",
+  "Version": ">=1.11.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}

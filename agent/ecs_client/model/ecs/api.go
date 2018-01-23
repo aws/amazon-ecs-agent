@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -6075,6 +6075,10 @@ type LinuxParameters struct {
 	Devices []*Device `locationName:"devices" type:"list"`
 
 	InitProcessEnabled *bool `locationName:"initProcessEnabled" type:"boolean"`
+
+	SharedMemorySize *int64 `locationName:"sharedMemorySize" type:"integer"`
+
+	Tmpfs []*Tmpfs `locationName:"tmpfs" type:"list"`
 }
 
 // String returns the string representation
@@ -6100,6 +6104,16 @@ func (s *LinuxParameters) Validate() error {
 			}
 		}
 	}
+	if s.Tmpfs != nil {
+		for i, v := range s.Tmpfs {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Tmpfs", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -6122,6 +6136,18 @@ func (s *LinuxParameters) SetDevices(v []*Device) *LinuxParameters {
 // SetInitProcessEnabled sets the InitProcessEnabled field's value.
 func (s *LinuxParameters) SetInitProcessEnabled(v bool) *LinuxParameters {
 	s.InitProcessEnabled = &v
+	return s
+}
+
+// SetSharedMemorySize sets the SharedMemorySize field's value.
+func (s *LinuxParameters) SetSharedMemorySize(v int64) *LinuxParameters {
+	s.SharedMemorySize = &v
+	return s
+}
+
+// SetTmpfs sets the Tmpfs field's value.
+func (s *LinuxParameters) SetTmpfs(v []*Tmpfs) *LinuxParameters {
+	s.Tmpfs = v
 	return s
 }
 
@@ -9111,6 +9137,62 @@ func (s *TaskOverride) SetExecutionRoleArn(v string) *TaskOverride {
 // SetTaskRoleArn sets the TaskRoleArn field's value.
 func (s *TaskOverride) SetTaskRoleArn(v string) *TaskOverride {
 	s.TaskRoleArn = &v
+	return s
+}
+
+type Tmpfs struct {
+	_ struct{} `type:"structure"`
+
+	// ContainerPath is a required field
+	ContainerPath *string `locationName:"containerPath" type:"string" required:"true"`
+
+	MountOptions []*string `locationName:"mountOptions" type:"list"`
+
+	// Size is a required field
+	Size *int64 `locationName:"size" type:"integer" required:"true"`
+}
+
+// String returns the string representation
+func (s Tmpfs) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Tmpfs) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Tmpfs) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Tmpfs"}
+	if s.ContainerPath == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerPath"))
+	}
+	if s.Size == nil {
+		invalidParams.Add(request.NewErrParamRequired("Size"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetContainerPath sets the ContainerPath field's value.
+func (s *Tmpfs) SetContainerPath(v string) *Tmpfs {
+	s.ContainerPath = &v
+	return s
+}
+
+// SetMountOptions sets the MountOptions field's value.
+func (s *Tmpfs) SetMountOptions(v []*string) *Tmpfs {
+	s.MountOptions = v
+	return s
+}
+
+// SetSize sets the Size field's value.
+func (s *Tmpfs) SetSize(v int64) *Tmpfs {
+	s.Size = &v
 	return s
 }
 
