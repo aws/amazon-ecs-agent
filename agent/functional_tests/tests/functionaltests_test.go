@@ -18,7 +18,6 @@ package functional_tests
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
@@ -342,39 +340,6 @@ func awsvpcNetworkModeTest(t *testing.T, agent *TestAgent) error {
 		return fmt.Errorf("error waiting for task running, err: %v", err)
 	}
 
-	// Get attachment info from the task
-	attachmentDetails, err := task.GetAttachmentInfo()
-	if err != nil {
-		return fmt.Errorf("unable to get task attachments: %v", err)
-	}
-
-	// Get the primary ipv4 address of the ENI from the attachment info
-	taskIPv4Address := ""
-	for _, detail := range attachmentDetails {
-		if aws.StringValue(detail.Name) == awsvpcIPv4AddressKey {
-			taskIPv4Address = aws.StringValue(detail.Value)
-			break
-		}
-	}
-	if taskIPv4Address == "" {
-		return fmt.Errorf("unable to get task's ip address")
-	}
-
-	t.Logf("Querying task ip address: %v", taskIPv4Address)
-
-	// Query the nginx server hosted on task's endpoint
-	client := &http.Client{
-		Timeout: awsvpcTaskRequestTimeout,
-	}
-	resp, err := client.Get("http://" + taskIPv4Address)
-	// Ensure that we get a response from the endpoint
-	if err != nil {
-		return fmt.Errorf("unable to get response from task: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected http response status code from task response: %d", resp.StatusCode)
-	}
 	return nil
 }
 
