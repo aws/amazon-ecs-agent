@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
@@ -100,7 +101,9 @@ func TestSetupHappyPath(t *testing.T) {
 		mockIO.EXPECT().WriteFile(cgroupPath, gomock.Any(), gomock.Any()).Return(nil),
 	)
 
+	cfg := config.DefaultConfig()
 	resource := newResources(mockControl, mockIO)
+	resource.ApplyConfigDependencies(&cfg)
 	assert.NoError(t, resource.Setup(task))
 }
 

@@ -17,6 +17,7 @@ package resources
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
 // unimplementedResource implements the Resource interface
@@ -40,4 +41,7 @@ func (r *unimplementedResource) Setup(task *api.Task) error {
 // Cleanup removes the resource
 func (r *unimplementedResource) Cleanup(task *api.Task) error {
 	return nil
+}
+
+func (r *unimplementedResource) ApplyConfigDependencies(cfg *config.Config) {
 }
