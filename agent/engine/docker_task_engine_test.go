@@ -55,6 +55,7 @@ const (
 	containerPid        = 123
 	taskIP              = "169.254.170.3"
 	exitCode            = 1
+	labelsTaskARN       = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
 )
 
 var (
@@ -221,6 +222,10 @@ func TestBatchContainerHappyPath(t *testing.T) {
 				},
 			}
 
+			// StopContainer might be invoked if the test execution is slow, during
+			// the cleanup phase. Account for that.
+			client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
+				DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 			// This ensures that managedTask.waitForStopReported makes progress
 			sleepTask.SetSentStatus(api.TaskStopped)
@@ -597,6 +602,10 @@ func TestSteadyStatePoll(t *testing.T) {
 		steadyStateVerify <- time.Now()
 	}
 
+	// StopContainer might be invoked if the test execution is slow, during
+	// the cleanup phase. Account for that.
+	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
+		DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
 	close(steadyStateVerify)
 	// trigger cleanup, this ensures all the goroutines were finished
@@ -701,7 +710,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 	defer ctrl.Finish()
 
 	testTask := &api.Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Arn:     labelsTaskARN,
 		Family:  "myFamily",
 		Version: "1",
 		Containers: []*api.Container{
@@ -718,7 +727,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedConfig.Labels = map[string]string{
-		"com.amazonaws.ecs.task-arn":                "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		"com.amazonaws.ecs.task-arn":                labelsTaskARN,
 		"com.amazonaws.ecs.container-name":          "c1",
 		"com.amazonaws.ecs.task-definition-family":  "myFamily",
 		"com.amazonaws.ecs.task-definition-version": "1",
@@ -811,7 +820,11 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		t.Logf("Send docker stop event")
 		go func() {
 			for {
-				<-dockerEventSent
+				select {
+				case <-dockerEventSent:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}()
 	}
@@ -1056,7 +1069,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(
 			&docker.Container{
 				ID:    pauseContainerID,
-				State: docker.State{Pid: 123},
+				State: docker.State{Pid: containerPid},
 			}, nil),
 		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nsResult, nil),
 	)
@@ -1092,7 +1105,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
 	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
 		ID:    pauseContainerID,
-		State: docker.State{Pid: 123},
+		State: docker.State{Pid: containerPid},
 	}, nil)
 	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(

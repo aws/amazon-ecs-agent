@@ -665,7 +665,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 	err = client.StopContainerWithContext(dockerID, uint(dg.config.DockerStopTimeout/time.Second), ctx)
 	metadata := dg.containerMetadata(dockerID)
 	if err != nil {
-		seelog.Infof("Error stopping container %s: %v", dockerID, err)
+		seelog.Infof("DockerGoClient: error stopping container %s: %v", dockerID, err)
 		if metadata.Error == nil {
 			metadata.Error = CannotStopContainerError{err}
 		}

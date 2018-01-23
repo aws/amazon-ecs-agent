@@ -906,7 +906,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
-	seelog.Infof("Task engine[ %s]: stopping container [%s]", task.Arn, container.Name)
+	seelog.Infof("Task engine [%s]: stopping container [%s]", task.Arn, container.Name)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		return DockerContainerMetadata{
@@ -927,10 +927,10 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 	if container.Type == api.ContainerCNIPause {
 		err := engine.cleanupPauseContainerNetwork(task, container)
 		if err != nil {
-			seelog.Errorf("Task engine[%s]: unable to cleanup pause container network namespace: %v",
+			seelog.Errorf("Task engine [%s]: unable to cleanup pause container network namespace: %v",
 				task.Arn, err)
 		}
-		seelog.Infof("Task engine[%s]: cleaned pause container network namespace", task.Arn)
+		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
 
 	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
