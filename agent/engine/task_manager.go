@@ -424,10 +424,10 @@ func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container
 	}
 
 	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
-		mtask.Arn, container.Name, event.String())
+		mtask.Arn, cont.Name, event.String())
 	mtask.stateChangeEvents <- event
 	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
-		mtask.Arn, container.Name, event.String())
+		mtask.Arn, cont.Name, event.String())
 }
 
 func (mtask *managedTask) isContainerFound(container *api.Container) bool {

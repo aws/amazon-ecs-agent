@@ -339,7 +339,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		seelog.Warnf("Task engine [%s]: could not check task state for task; no task in state", task.Arn)
+		seelog.Warnf("Task engine [%s]: could not check task state; no task in state", task.Arn)
 		return
 	}
 	for _, container := range task.Containers {
