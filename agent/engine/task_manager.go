@@ -366,17 +366,17 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		now := mtask.time().Now()
 		ok := mtask.Task.SetExecutionStoppedAt(now)
 		if ok {
-			seelog.Infof("Managed task [%s]: recording execution stopped time. Essential container %s stopped at: %s",
+			seelog.Infof("Managed task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
 				mtask.Arn, container.Name, now.String())
 		}
 	}
 
-	seelog.Debugf("Managed task [%s]: sending container change event to tcs, container: %s(%s), status: %s",
+	seelog.Debugf("Managed task [%s]: sending container change event to tcs, container: [%s(%s)], status: %s",
 		mtask.Arn, container.Name, event.DockerID, event.Status.String())
 	err := mtask.containerChangeEventStream.WriteToEventStream(event)
 	if err != nil {
-		seelog.Warnf("Managed task [%s]: failed to write container change event to event stream: %v",
-			mtask.Arn, err)
+		seelog.Warnf("Managed task [%s]: failed to write container [%s] change event to event stream: %v",
+			mtask.Arn, container.Name, err)
 	}
 
 	if event.ExitCode != nil && event.ExitCode != container.GetKnownExitCode() {
@@ -391,20 +391,20 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
 	if mtask.UpdateStatus() {
-		seelog.Debugf("Managed task [%s]: container [%s] change also resulted in task change: [%s]",
+		seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 			mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
 		// If knownStatus changed, let it be known
 		mtask.emitTaskEvent(mtask.Task, "")
 	}
-	seelog.Debugf("Managed task [%s]: container [%s] change also resulted in task change: [%s]",
+	seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 		mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
 }
 
 func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		seelog.Infof("Managed task [%s]:Unable to create task state change event: %v",
-			task.Arn, err)
+		seelog.Infof("Managed task [%s]: unable to create task state change event [%s]: %v",
+			task.Arn, reason, err)
 		return
 	}
 
@@ -418,14 +418,16 @@ func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		seelog.Infof("Managed task [%s]:Unable to create container state change event for container '%s' in task '%s': %v",
-			cont.Name, task.Arn, err)
+		seelog.Infof("Managed task [%s]: unable to create state change event for container [%s]: %v",
+			task.Arn, cont.Name, err)
 		return
 	}
 
-	seelog.Infof("Managed task [%s]: sending container change event: %s", mtask.Arn, event.String())
+	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
+		mtask.Arn, container.Name, event.String())
 	mtask.stateChangeEvents <- event
-	seelog.Infof("Managed task [%s]: sent container change event: %s", mtask.Arn, event.String())
+	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
+		mtask.Arn, container.Name, event.String())
 }
 
 func (mtask *managedTask) isContainerFound(container *api.Container) bool {
