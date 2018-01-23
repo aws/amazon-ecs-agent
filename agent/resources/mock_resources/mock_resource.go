@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,6 +18,7 @@ package mock_resources
 
 import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	config "github.com/aws/amazon-ecs-agent/agent/config"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -40,6 +41,14 @@ func NewMockResource(ctrl *gomock.Controller) *MockResource {
 
 func (_m *MockResource) EXPECT() *_MockResourceRecorder {
 	return _m.recorder
+}
+
+func (_m *MockResource) ApplyConfigDependencies(_param0 *config.Config) {
+	_m.ctrl.Call(_m, "ApplyConfigDependencies", _param0)
+}
+
+func (_mr *_MockResourceRecorder) ApplyConfigDependencies(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ApplyConfigDependencies", arg0)
 }
 
 func (_m *MockResource) Cleanup(_param0 *api.Task) error {
