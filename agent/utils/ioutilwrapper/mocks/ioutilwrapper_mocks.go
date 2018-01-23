@@ -17,6 +17,8 @@
 package mock_ioutilwrapper
 
 import (
+	os "os"
+
 	oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -51,4 +53,14 @@ func (_m *MockIOUtil) TempFile(_param0 string, _param1 string) (oswrapper.File, 
 
 func (_mr *_MockIOUtilRecorder) TempFile(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TempFile", arg0, arg1)
+}
+
+func (_m *MockIOUtil) WriteFile(_param0 string, _param1 []byte, _param2 os.FileMode) error {
+	ret := _m.ctrl.Call(_m, "WriteFile", _param0, _param1, _param2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockIOUtilRecorder) WriteFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WriteFile", arg0, arg1, arg2)
 }
