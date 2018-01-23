@@ -105,8 +105,10 @@ func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Contr
 	containerChangeEventStream.StartListening()
 	imageManager := NewMockImageManager(ctrl)
 	metadataManager := mock_containermetadata.NewMockManager(ctrl)
+	mockResource := mock_resources.NewMockResource(ctrl)
+
 	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream,
-		imageManager, dockerstate.NewTaskEngineState(), metadataManager)
+		imageManager, dockerstate.NewTaskEngineState(), metadataManager, mockResource)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 
 	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager

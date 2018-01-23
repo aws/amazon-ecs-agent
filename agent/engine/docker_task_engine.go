@@ -119,7 +119,8 @@ type DockerTaskEngine struct {
 func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 	credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream,
 	imageManager ImageManager, state dockerstate.TaskEngineState,
-	metadataManager containermetadata.Manager) *DockerTaskEngine {
+	metadataManager containermetadata.Manager,
+	resource resources.Resource) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -142,7 +143,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 		}),
 
 		metadataManager: metadataManager,
-		resource:        resources.New(),
+		resource:        resource,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()

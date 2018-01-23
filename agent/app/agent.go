@@ -311,13 +311,13 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	if !agent.cfg.Checkpoint {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-			credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager), "", nil
+			credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
 	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager)
+		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource)
 
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
@@ -349,7 +349,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state, agent.metadataManager), currentEC2InstanceID, nil
+			containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource), currentEC2InstanceID, nil
 	}
 
 	if previousCluster != "" {
