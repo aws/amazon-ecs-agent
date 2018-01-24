@@ -1,5 +1,5 @@
 // +build !windows
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,8 +29,8 @@ const (
 	DefaultTaskCgroupPrefix = "/ecs"
 
 	// Default cgroup memory system root path, this is the default used if the
-	// path has not been configured through ECS_CGROUP_MEMORY_SUBSYSTEM_PATH
-	defaultCgroupMemorySubsystemPath = "/sys/fs/cgroup/memory/"
+	// path has not been configured through ECS_CGROUP_PATH
+	defaultCgroupPath = "/sys/fs/cgroup"
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -59,7 +59,7 @@ func DefaultConfig() Config {
 		AWSVPCBlockInstanceMetdata:  false,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             DefaultEnabled,
-		CgroupMemorySubsystemPath:   defaultCgroupMemorySubsystemPath,
+		CgroupPath:                  defaultCgroupPath,
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -280,7 +280,7 @@ func environmentConfig() (Config, error) {
 
 	dockerStopTimeout := getDockerStopTimeout()
 
-	cgroupMemorySubsystemPath := os.Getenv("ECS_CGROUP_MEMORY_SUBSYSTEM_PATH")
+	cgroupPath := os.Getenv("ECS_CGROUP_PATH")
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 
@@ -390,7 +390,7 @@ func environmentConfig() (Config, error) {
 		ContainerMetadataEnabled:         containerMetadataEnabled,
 		DataDirOnHost:                    dataDirOnHost,
 		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
-		CgroupMemorySubsystemPath:        cgroupMemorySubsystemPath,
+		CgroupPath:                       cgroupPath,
 	}, err
 }
 

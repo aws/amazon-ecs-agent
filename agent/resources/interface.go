@@ -27,6 +27,6 @@ type Resource interface {
 	Setup(task *api.Task) error
 	// Cleanup removes the resource
 	Cleanup(task *api.Task) error
-
+	// ApplyConfigDependencies applies config parameters for the resources
 	ApplyConfigDependencies(cfg *config.Config)
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -145,9 +145,6 @@ func newAgent(
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
-	resource := resources.New()
-	resource.ApplyConfigDependencies(cfg)
-
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
@@ -166,7 +163,7 @@ func newAgent(
 		}),
 		os:                 oswrapper.New(),
 		metadataManager:    metadataManager,
-		resource:           resource,
+		resource:           resources.New(),
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
 	}, nil
 }
@@ -228,6 +225,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
+		agent.resource.ApplyConfigDependencies(agent.cfg)
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
@@ -310,8 +308,9 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	if !agent.cfg.Checkpoint {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-			credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource), "", nil
+		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
+			containerChangeEventStream, imageManager, state,
+			agent.metadataManager, agent.resource), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
