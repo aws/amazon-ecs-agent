@@ -91,9 +91,9 @@ func TestSetupHappyPath(t *testing.T) {
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	task := testdata.LoadTask("sleep5TaskCgroup")
-	taskid, err := task.GetID()
+	taskID, err := task.GetID()
 	assert.NoError(t, err)
-	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskid)
+	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),

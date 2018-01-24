@@ -195,5 +195,6 @@ type Config struct {
 	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
 
-	CgroupMemorySubsystemPath string
+	// The expected Cgroup root path in the agent
+	CgroupPath string
 }
