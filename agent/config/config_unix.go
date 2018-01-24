@@ -28,6 +28,8 @@ const (
 	// Default cgroup prefix for ECS tasks
 	DefaultTaskCgroupPrefix = "/ecs"
 
+	// Default cgroup memory system root path, this is the default used if the
+	// path has not been configured through ECS_CGROUP_MEMORY_SUBSYSTEM_PATH
 	defaultCgroupMemorySubsystemPath = "/sys/fs/cgroup/memory/"
 )
 

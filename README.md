@@ -176,6 +176,7 @@ additional details on each available environment variable.
 | `ECS_ENABLE_CONTAINER_METADATA` | `true` | When `true`, the agent will create a file describing the container's metadata and the file can be located and consumed by using the container enviornment variable `$ECS_CONTAINER_METADATA_FILE` | `false` | `false` |
 | `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. | `/var/lib/ecs` | `Not used` |
 | `ECS_ENABLE_TASK_CPU_MEM_LIMIT` | `true` | Whether to enable task-level cpu and memory limits | `true` | `false` |
+| `ECS_CGROUP_MEMORY_SUBSYSTEM_PATH` | `/sys/fs/cgroup/memory/` | The root path of the cgroup memory subsystem  | `/sys/fs/cgroup/memory/` | Not applicable |
 
 ### Persistence
 
