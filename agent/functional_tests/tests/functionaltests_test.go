@@ -468,6 +468,8 @@ func containerHealthMetricsTest(t *testing.T, taskDefinition string, overrides m
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
+	agent.RequireVersion(">1.16.2") //Required for container health check option
+
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, overrides)
 	require.NoError(t, err, "expect task to be started without error")
 

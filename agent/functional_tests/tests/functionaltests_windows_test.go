@@ -198,6 +198,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.15.0")
 
 	tdOverride := make(map[string]string)
 	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region

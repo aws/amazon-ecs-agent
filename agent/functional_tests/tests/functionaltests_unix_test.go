@@ -575,6 +575,7 @@ func TestNetworkModeAWSVPC(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0")
 	agent := RunAgent(t, &AgentOptions{EnableTaskENI: true})
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.15.0")
 
 	err := awsvpcNetworkModeTest(t, agent)
 	require.NoError(t, err, "Networking mode 'awsvpc' testing failed")
@@ -657,6 +658,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.15.0")
 
 	task, err := agent.StartTask(t, "mdservice-validator-unix")
 	require.NoError(t, err, "Register task definition failed")
@@ -685,6 +687,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 		},
 	})
 	defer agent.Cleanup()
+	agent.RequireVersion(">1.16.2")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
@@ -731,6 +734,8 @@ func TestExecutionRole(t *testing.T) {
 
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
+	agent.RequireVersion(">=1.16.0")
+
 	tdOverrides := make(map[string]string)
 	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
 

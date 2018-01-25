@@ -170,9 +170,9 @@ container-health-check-image:
 
 .PHONY: gocyclo
 gocyclo:
-	# Run gocyclo over all .go files in the agent, excluding vendor/ and testutils/ directories, and all *_test.go and *_mocks.go files
+	# Run gocyclo over all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 	gocyclo -over 15 $(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
-		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$)
+		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
 
 #TODO, create and add go vet target
 .PHONY: static-check
