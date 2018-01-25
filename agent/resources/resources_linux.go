@@ -32,6 +32,7 @@ import (
 const (
 	memorySubsystem    = "/memory"
 	memoryUseHierarchy = "memory.use_hierarchy"
+	rootReadOnly       = 400
 )
 
 // cgroupWrapper implements the Resource interface
@@ -72,7 +73,8 @@ func (c *cgroupWrapper) ApplyConfigDependencies(cfg *config.Config) {
 	c.cgroupPath = cfg.CgroupPath
 }
 
-// cgroupInit is used to create the root '/ecs/ cgroup
+// cgroupInit is used to create the root '/ecs/ cgroup and enable
+// memory.use_hierarchy at the '/ecs/' level
 func (c *cgroupWrapper) cgroupInit() error {
 	if c.control.Exists(config.DefaultTaskCgroupPrefix) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)

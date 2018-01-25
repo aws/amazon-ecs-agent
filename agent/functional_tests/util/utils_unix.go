@@ -32,15 +32,16 @@ import (
 )
 
 const (
-	defaultExecDriverPath = "/var/run/docker/execdriver"
-	logdir                = "/log"
-	datadir               = "/data"
-	ExecDriverDir         = "/var/lib/docker/execdriver"
-	defaultCgroupPath     = "/cgroup"
-	cacheDirectory        = "/var/cache/ecs"
-	configDirectory       = "/etc/ecs"
-	readOnly              = ":ro"
-	dockerEndpoint        = "/var/run"
+	defaultExecDriverPath       = "/var/run/docker/execdriver"
+	logdir                      = "/log"
+	datadir                     = "/data"
+	ExecDriverDir               = "/var/lib/docker/execdriver"
+	defaultCgroupPath           = "/cgroup"
+	defaultCgroupPathAgentMount = "/sys/fs/cgroup"
+	cacheDirectory              = "/var/cache/ecs"
+	configDirectory             = "/etc/ecs"
+	readOnly                    = ":ro"
+	dockerEndpoint              = "/var/run"
 )
 
 var ECS *ecs.ECS
@@ -241,7 +242,7 @@ func (agent *TestAgent) StartAgent() error {
 func (agent *TestAgent) getBindMounts() []string {
 	var binds []string
 	cgroupPath := utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
-	cgroupBind := cgroupPath + ":" + cgroupPath + readOnly
+	cgroupBind := cgroupPath + ":" + defaultCgroupPathAgentMount
 	binds = append(binds, cgroupBind)
 
 	execdriverPath := utils.DefaultIfBlank(os.Getenv("EXECDRIVER_PATH"), defaultExecDriverPath)

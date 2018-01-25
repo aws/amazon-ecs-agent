@@ -195,6 +195,7 @@ type Config struct {
 	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
 
-	// The expected Cgroup root path in the agent
+	// CgroupPath is the path expected by the agent, defaults to
+	// '/sys/fs/cgroup'
 	CgroupPath string
 }

@@ -103,6 +103,8 @@ func TestOOMTask(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
+	agent.RequireVersion(">=1.16.0")
+
 	testTask, err := agent.StartTask(t, "oom-task")
 	require.NoError(t, err, "Expected to start invalid-image task")
 	err = testTask.ExpectErrorType("error", "OutOfMemoryError", 1*time.Minute)
