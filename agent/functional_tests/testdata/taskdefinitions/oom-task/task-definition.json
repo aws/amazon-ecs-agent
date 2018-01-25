@@ -1,6 +1,6 @@
 {
   "family": "ecsftest-oom-task",
-  "memory": "256",
+  "memory": "64",
   "containerDefinitions": [{
     "essential": true,
     "name": "error",

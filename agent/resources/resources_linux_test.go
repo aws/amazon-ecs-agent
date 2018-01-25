@@ -17,7 +17,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
