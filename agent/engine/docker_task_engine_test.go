@@ -513,16 +513,18 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		})
 	}
 
+	// Start timeout triggers a container stop as we force stop containers
+	// when startcontainer times out. See #1043 for details
+	client.EXPECT().StopContainer(containerID, gomock.Any()).Return(DockerContainerMetadata{
+		Error: CannotStartContainerError{fmt.Errorf("cannot start container")},
+	}).AnyTimes()
+
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	taskEngine.AddTask(sleepTask)
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
 
-	// Expect it to try to stop it once now
-	client.EXPECT().StopContainer(containerID, gomock.Any()).Return(DockerContainerMetadata{
-		Error: CannotStartContainerError{fmt.Errorf("cannot start container")},
-	}).AnyTimes()
 	// Now surprise surprise, it actually did start!
 	eventStream <- createDockerEvent(api.ContainerRunning)
 	// However, if it starts again, we should not see it be killed; no additional expect

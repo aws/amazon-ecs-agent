@@ -218,7 +218,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		// test  to time out as the context is never cancelled
 		mockWsClient.EXPECT().Connect().Do(func() {
 			cancel()
-		}).Return(io.EOF),
+		}).Return(io.EOF).MinTimes(1),
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",

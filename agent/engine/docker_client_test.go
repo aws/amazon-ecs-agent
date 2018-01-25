@@ -355,7 +355,9 @@ func TestCreateContainerTimeout(t *testing.T) {
 		warp <- time.Now()
 		wait.Wait()
 		// Don't return, verify timeout happens
-	})
+		// TODO remove the MaxTimes by cancel the context passed to CreateContainer
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
 	metadata := client.CreateContainer(config.Config, nil, config.Name, xContainerShortTimeout)
 	assert.Error(t, metadata.Error, "expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName())
