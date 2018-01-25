@@ -1,6 +1,6 @@
 // +build functional
 
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@
 package functional_tests
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -420,6 +421,64 @@ func TestCustomAttributesWithMaxOptions(t *testing.T) {
 
 	_, ok := attribMap["ecs.os-type"]
 	assert.True(t, ok, "OS attribute not found")
+}
+
+func waitForContainerHealthStatus(t *testing.T, testTask *TestTask) {
+	ctx, _ := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
+	for {
+		select {
+		case <-ctx.Done():
+			t.Error("Timed out waiting for container health status")
+		default:
+			testTask.Redescribe()
+			if aws.StringValue(testTask.Containers[0].HealthStatus) == "UNKNOWN" {
+				time.Sleep(time.Second)
+				continue
+			}
+			return
+		}
+	}
+}
+
+func containerHealthWithoutStartPeriodTest(t *testing.T, taskDefinition string) {
+	RequireDockerVersion(t, ">=1.12.0") // container health check was added in Docker 1.12.0
+	// StartPeriod of container health check was added in 17.05.0,
+	// don't test it here, it should be tested in containerHealthWithStartPeriodTest
+	RequireDockerVersion(t, "<17.05.0")
+
+	tdOverrides := map[string]string{
+		"$$$$START_PERIOD$$$$": "",
+	}
+
+	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
+}
+
+func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
+	RequireDockerVersion(t, ">=17.05.0") // StartPeriod of container health check was added in 17.05.0
+
+	tdOverrides := map[string]string{
+		"$$$$START_PERIOD$$$$": `"startPeriod": 1,`,
+	}
+
+	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
+}
+
+// containerHealthMetricsTest tests the container health metrics based on the task definition
+func containerHealthMetricsTest(t *testing.T, taskDefinition string, overrides map[string]string) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, overrides)
+	require.NoError(t, err, "expect task to be started without error")
+
+	testTask.WaitRunning(waitTaskStateChangeDuration)
+
+	waitForContainerHealthStatus(t, testTask)
+	assert.Equal(t, aws.StringValue(testTask.Containers[0].HealthStatus), "HEALTHY", "container health status is not HEALTHY")
+	err = testTask.Stop()
+	assert.NoError(t, err, "stop task failed")
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, err, "waiting for task stopped failed")
 }
 
 // waitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs

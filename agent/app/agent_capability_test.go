@@ -488,3 +488,35 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	assert.Nil(t, capabilities)
 	assert.Error(t, err, "An error should be thrown when TaskCPUMemLimit is explicitly enabled")
 }
+
+func TestCapabilitiesContainerHealth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := engine.NewMockDockerClient(ctrl)
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_24,
+	})
+	client.EXPECT().KnownVersions().Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          &config.Config{},
+		dockerClient: client,
+	}
+
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.StringValue(capability.Name)] = true
+	}
+
+	_, ok := capMap["ecs.capability.container-health-check"]
+	assert.True(t, ok, "Could not find container health check capability when expected; got capabilities %v", capabilities)
+}

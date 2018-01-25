@@ -58,6 +58,7 @@ const (
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
+//    ecs.capability.container-health-check
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -82,11 +83,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
 	}
 
-	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
-		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
-	}
-
 	capabilities = agent.appendTaskIamRoleCapabilities(capabilities, supportedVersions)
 
 	capabilities, err := agent.appendTaskCPUMemLimitCapabilities(capabilities, supportedVersions)
@@ -95,6 +91,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
+	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
 
 	// TODO: gate this on docker api version when ecs supported docker includes
 	// credentials endpoint feature from upstream docker
@@ -103,6 +100,20 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	return capabilities, nil
+}
+
+func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Attribute,
+	supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
+	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
+	}
+
+	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok {
+		// Docker health check was added in API 1.24
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"container-health-check")
+	}
+	return capabilities
 }
 
 func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {

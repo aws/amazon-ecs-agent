@@ -15,6 +15,7 @@ package tcsclient
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,15 +31,22 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// tasksInMessage is the maximum number of tasks that can be sent in a message to the backend
-// This is a very conservative estimate assuming max allowed string lengths for all fields.
-const tasksInMessage = 10
+const (
+	// tasksInMetricMessage is the maximum number of tasks that can be sent in a message to the backend
+	// This is a very conservative estimate assuming max allowed string lengths for all fields.
+	tasksInMetricMessage = 10
+	// tasksInHealthMessage is the maximum number of tasks that can be sent in a message to the backend
+	tasksInHealthMessage = 10
+)
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
 	statsEngine            stats.Engine
 	publishTicker          *time.Ticker
-	endPublish             chan struct{}
+	publishHealthTicker    *time.Ticker
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	disableResourceMetrics bool
 	publishMetricsInterval time.Duration
 	wsclient.ClientServerImpl
 }
@@ -51,10 +59,12 @@ func New(url string,
 	credentialProvider *credentials.Credentials,
 	statsEngine stats.Engine,
 	publishMetricsInterval time.Duration,
-	rwTimeout time.Duration) wsclient.ClientServer {
+	rwTimeout time.Duration,
+	disableResourceMetrics bool) wsclient.ClientServer {
 	cs := &clientServer{
 		statsEngine:            statsEngine,
 		publishTicker:          nil,
+		publishHealthTicker:    nil,
 		publishMetricsInterval: publishMetricsInterval,
 	}
 	cs.URL = url
@@ -64,6 +74,9 @@ func New(url string,
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
 	cs.TypeDecoder = NewTCSDecoder()
 	cs.RWTimeout = rwTimeout
+	cs.disableResourceMetrics = disableResourceMetrics
+	// TODO make this context inherited from the handler
+	cs.ctx, cs.cancel = context.WithCancel(context.TODO())
 	return cs
 }
 
@@ -82,8 +95,12 @@ func (cs *clientServer) Serve() error {
 
 	// Start the timer function to publish metrics to the backend.
 	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
-	cs.endPublish = make(chan struct{})
-	go cs.publishMetrics()
+	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
+
+	if !cs.disableResourceMetrics {
+		go cs.publishMetrics()
+	}
+	go cs.publishHealthMetrics()
 
 	return cs.ConsumeMessages()
 }
@@ -126,9 +143,12 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 func (cs *clientServer) Close() error {
 	if cs.publishTicker != nil {
 		cs.publishTicker.Stop()
-		cs.endPublish <- struct{}{}
+	}
+	if cs.publishHealthTicker != nil {
+		cs.publishHealthTicker.Stop()
 	}
 
+	cs.cancel()
 	return cs.Disconnect()
 }
 
@@ -154,7 +174,7 @@ func (cs *clientServer) publishMetrics() {
 			if err != nil {
 				seelog.Warnf("Error publishing metrics: %v", err)
 			}
-		case <-cs.endPublish:
+		case <-cs.ctx.Done():
 			return
 		}
 	}
@@ -205,8 +225,8 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		} else {
 			requestMetadata = copyMetricsMetadata(metadata, false)
 		}
-		if (i+1)%tasksInMessage == 0 {
-			// Construct payload with tasksInMessage number of task metrics and send to backend.
+		if (i+1)%tasksInMetricMessage == 0 {
+			// Construct payload with tasksInMetricMessage number of task metrics and send to backend.
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
@@ -218,6 +238,86 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		// Create a request with remaining task metrics.
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
 	}
+	return requests, nil
+}
+
+// publishHealthMetrics send the container health information to backend
+func (cs *clientServer) publishHealthMetrics() {
+	if cs.publishTicker == nil {
+		seelog.Debug("Skipping publishing health metrics. Publish ticker is uninitialized")
+		return
+	}
+
+	// Publish metrics immediately after we connect and wait for ticks. This makes
+	// sure that there is no data loss when a scheduled metrics publishing fails
+	// due to a connection reset.
+	err := cs.publishHealthMetricsOnce()
+	if err != nil {
+		seelog.Warnf("Unable to publish health metrics: %v", err)
+	}
+	for {
+		select {
+		case <-cs.publishHealthTicker.C:
+			err := cs.publishHealthMetricsOnce()
+			if err != nil {
+				seelog.Warnf("Unable to publish health metrics: %v", err)
+			}
+		case <-cs.ctx.Done():
+			return
+		}
+	}
+}
+
+// publishHealthMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
+func (cs *clientServer) publishHealthMetricsOnce() error {
+	// Get the list of health request to send to backend.
+	requests, err := cs.createPublishHealthRequests()
+	if err != nil {
+		return err
+	}
+	// Make the publish metrics request to the backend.
+	for _, request := range requests {
+		err = cs.MakeRequest(request)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createPublishHealthRequests creates the requests to publish container health
+func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRequest, error) {
+	metadata, taskHealthMetrics, err := cs.statsEngine.GetTaskHealthMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	if metadata == nil || taskHealthMetrics == nil {
+		seelog.Debug("No container health metrics to report")
+		return nil, nil
+	}
+
+	var requests []*ecstcs.PublishHealthRequest
+	var taskHealths []*ecstcs.TaskHealth
+	numOfTasks := len(taskHealthMetrics)
+	for i, taskHealth := range taskHealthMetrics {
+		taskHealths = append(taskHealths, taskHealth)
+		// create a request if the number of task reaches the maximum page size
+		if (i+1)%tasksInHealthMessage == 0 {
+			requestMetadata := copyHealthMetadata(metadata, (i+1) == numOfTasks)
+			requestTaskHealth := copyTaskHealthMetrics(taskHealths)
+			request := ecstcs.NewPublishHealthMetricsRequest(requestMetadata, requestTaskHealth)
+			requests = append(requests, request)
+			taskHealths = taskHealths[:0]
+		}
+	}
+
+	// Put the rest of the metrics in another request
+	if len(taskHealths) != 0 {
+		requestMetadata := copyHealthMetadata(metadata, true)
+		requests = append(requests, ecstcs.NewPublishHealthMetricsRequest(requestMetadata, taskHealths))
+	}
+
 	return requests, nil
 }
 
@@ -238,6 +338,23 @@ func copyMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.Met
 // reset the source slice after creating a new PublishMetricsRequest object.
 func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
 	to := make([]*ecstcs.TaskMetric, len(from))
+	copy(to, from)
+	return to
+}
+
+// copyHealthMetadata performs a deep copy of HealthMetadata object
+func copyHealthMetadata(metadata *ecstcs.HealthMetadata, fin bool) *ecstcs.HealthMetadata {
+	return &ecstcs.HealthMetadata{
+		Cluster:           aws.String(aws.StringValue(metadata.Cluster)),
+		ContainerInstance: aws.String(aws.StringValue(metadata.ContainerInstance)),
+		Fin:               aws.Bool(fin),
+		MessageId:         aws.String(aws.StringValue(metadata.MessageId)),
+	}
+}
+
+// copyTaskHealthMetrics copies a slice of taskHealthMetrics to another slice
+func copyTaskHealthMetrics(from []*ecstcs.TaskHealth) []*ecstcs.TaskHealth {
+	to := make([]*ecstcs.TaskHealth, len(from))
 	copy(to, from)
 	return to
 }

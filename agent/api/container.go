@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -32,15 +33,33 @@ const (
 	// that specifies that the log driver should be authenticated using the
 	// execution role
 	awslogsAuthExecutionRole = "ExecutionRole"
+
+	// dockerHealthCheckType is the type of container health check provided by docker
+	dockerHealthCheckType = "docker"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
 // remodeled from the `ecsacs` api model file. Eventually it should not exist
 // once this remodeling is refactored out.
 type DockerConfig struct {
-	Config     *string `json:"config"`
+	// Config is the configuration used to create container
+	Config *string `json:"config"`
+	// HostConfig is the configuration of container related to host resource
 	HostConfig *string `json:"hostConfig"`
-	Version    *string `json:"version"`
+	// Version specifies the docker client API version to use
+	Version *string `json:"version"`
+}
+
+// HealthStatus contains the health check result returned by docker
+type HealthStatus struct {
+	// Status is the container health status
+	Status ContainerHealthStatus `json:"status,omitempty"`
+	// Since is the timestamp when container health status changed
+	Since *time.Time `json:"statusSince,omitempty"`
+	// ExitCode is the exitcode of health check if failed
+	ExitCode int `json:"exitCode,omitempty"`
+	// Output is the output of health check
+	Output string `json:"output,omitempty"`
 }
 
 // Container is the internal representation of a container in the ECS agent
@@ -51,25 +70,40 @@ type Container struct {
 	Image string
 	// ImageID is the local ID of the image used in the container
 	ImageID string
-
-	Command                []string
-	CPU                    uint `json:"Cpu"`
-	Memory                 uint
-	Links                  []string
-	VolumesFrom            []VolumeFrom  `json:"volumesFrom"`
-	MountPoints            []MountPoint  `json:"mountPoints"`
-	Ports                  []PortBinding `json:"portMappings"`
-	Essential              bool
-	EntryPoint             *[]string
-	Environment            map[string]string           `json:"environment"`
-	Overrides              ContainerOverrides          `json:"overrides"`
-	DockerConfig           DockerConfig                `json:"dockerConfig"`
+	// Command is the command to run in the container which is specified in the task definition
+	Command []string
+	// CPU is the cpu limitation of the container which is specified in the task definition
+	CPU uint `json:"Cpu"`
+	// Memory is the memory limitation of the container which is specified in the task definition
+	Memory uint
+	// Links contains a list of containers to link, corresponding to docker option: --link
+	Links []string
+	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
+	VolumesFrom []VolumeFrom `json:"volumesFrom"`
+	// MountPoints contains a list of volume mount paths
+	MountPoints []MountPoint `json:"mountPoints"`
+	// Ports contains a list of ports binding configuration
+	Ports []PortBinding `json:"portMappings"`
+	// Essential denotes whether the container is essential or not
+	Essential bool
+	// EntryPoint is entrypoint of the container, corresponding to docker option: --entrypoint
+	EntryPoint *[]string
+	// Environment is the environment variable set in the container
+	Environment map[string]string `json:"environment"`
+	// Overrides contains the configuration to override of a container
+	Overrides ContainerOverrides `json:"overrides"`
+	// DockerConfig is the configuration used to create the container
+	DockerConfig DockerConfig `json:"dockerConfig"`
+	// RegistryAuthentication is the auth data used to pull image
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
-
+	// HealthCheckType is the mechnism to use for the container health check
+	// currently it only supports 'DOCKER'
+	HealthCheckType string `json:"healthCheckType,omitempty"`
+	// Health contains the health check information of container health check
+	Health HealthStatus `json:"-"`
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
-
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 
@@ -457,4 +491,44 @@ func (c *Container) GetLabels() map[string]string {
 	defer c.lock.RUnlock()
 
 	return c.labels
+}
+
+// HealthStatusShouldBeReported returns true if the health check is defined in
+// the task definition
+func (c *Container) HealthStatusShouldBeReported() bool {
+	return c.HealthCheckType == dockerHealthCheckType
+}
+
+// SetHealthStatus sets the container health status
+func (c *Container) SetHealthStatus(health HealthStatus) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.Health.Status == health.Status {
+		return
+	}
+
+	c.Health.Status = health.Status
+	c.Health.Since = aws.Time(time.Now())
+	c.Health.Output = health.Output
+
+	// Set the health exit code if the health check failed
+	if c.Health.Status == ContainerUnhealthy {
+		c.Health.ExitCode = health.ExitCode
+	}
+}
+
+// GetHealthStatus returns the container health information
+func (c *Container) GetHealthStatus() HealthStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Copy the pointer to avoid race condition
+	copyHealth := c.Health
+
+	if c.Health.Since != nil {
+		copyHealth.Since = aws.Time(aws.TimeValue(c.Health.Since))
+	}
+
+	return copyHealth
 }

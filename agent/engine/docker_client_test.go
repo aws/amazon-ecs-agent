@@ -24,12 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -41,7 +35,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+
+	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
 )
 
 // xContainerShortTimeout is a short duration intended to be used by the
@@ -522,7 +522,18 @@ func TestInspectContainer(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	containerOutput := docker.Container{ID: "id", State: docker.State{ExitCode: 10}}
+	containerOutput := docker.Container{ID: "id",
+		State: docker.State{
+			ExitCode: 10,
+			Health: docker.Health{
+				Status: "healthy",
+				Log: []docker.HealthCheck{
+					{
+						ExitCode: 1,
+						Output:   "health output",
+					},
+				},
+			}}}
 	gomock.InOrder(
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&containerOutput, nil),
 	)
@@ -545,9 +556,7 @@ func TestContainerEvents(t *testing.T) {
 	})
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
-	if err != nil {
-		t.Fatal("Could not get container events")
-	}
+	require.NoError(t, err, "Could not get container events")
 
 	mockDocker.EXPECT().InspectContainerWithContext("containerId", gomock.Any()).Return(
 		&docker.Container{
@@ -559,12 +568,8 @@ func TestContainerEvents(t *testing.T) {
 	}()
 
 	event := <-dockerEvents
-	if event.DockerID != "containerId" {
-		t.Error("Wrong docker id")
-	}
-	if event.Status != api.ContainerCreated {
-		t.Error("Wrong status")
-	}
+	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
+	assert.Equal(t, event.Status, api.ContainerCreated, "Wrong status")
 
 	container := &docker.Container{
 		ID: "cid2",
@@ -580,18 +585,11 @@ func TestContainerEvents(t *testing.T) {
 		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
 	}()
 	event = <-dockerEvents
-	if event.DockerID != "cid2" {
-		t.Error("Wrong docker id")
-	}
-	if event.Status != api.ContainerRunning {
-		t.Error("Wrong status")
-	}
-	if event.PortBindings[0].ContainerPort != 80 || event.PortBindings[0].HostPort != 9001 {
-		t.Error("Incorrect port bindings")
-	}
-	if event.Volumes["/host/path"] != "/container/path" {
-		t.Error("Incorrect volume mapping")
-	}
+	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
+	assert.Equal(t, event.Status, api.ContainerRunning, "Wrong status")
+	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
+	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
+	assert.Equal(t, event.Volumes["/host/path"], "/container/path", "Incorrect volume mapping")
 
 	for i := 0; i < 2; i++ {
 		stoppedContainer := &docker.Container{
@@ -610,16 +608,42 @@ func TestContainerEvents(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
-		if anEvent.DockerID != "cid30" && anEvent.DockerID != "cid31" {
-			t.Error("Wrong container id: " + anEvent.DockerID)
-		}
-		if anEvent.Status != api.ContainerStopped {
-			t.Error("Should be stopped")
-		}
-		if *anEvent.ExitCode != 20 {
-			t.Error("Incorrect exit code")
-		}
+		assert.True(t, anEvent.DockerID == "cid30" || anEvent.DockerID == "cid31", "Wrong container id: "+anEvent.DockerID)
+		assert.Equal(t, anEvent.Status, api.ContainerStopped, "Should be stopped")
+		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
+
+	containerWithHealthInfo := &docker.Container{
+		ID: "container_health",
+		State: docker.State{
+			Health: docker.Health{
+				Status: "healthy",
+				Log: []docker.HealthCheck{
+					{
+						ExitCode: 1,
+						Output:   "health output",
+					},
+				},
+			},
+		},
+	}
+	mockDocker.EXPECT().InspectContainerWithContext("container_health", gomock.Any()).Return(containerWithHealthInfo, nil)
+	go func() {
+		events <- &docker.APIEvents{
+			Type:   "container",
+			ID:     "container_health",
+			Action: "health_status: unhealthy",
+			Status: "health_status: unhealthy",
+			Actor: docker.APIActor{
+				ID: "container_health",
+			},
+		}
+	}()
+
+	anEvent := <-dockerEvents
+	assert.Equal(t, anEvent.Type, api.ContainerHealthEvent, "unexpected docker events type received")
+	assert.Equal(t, anEvent.Health.Status, api.ContainerHealthy)
+	assert.Equal(t, anEvent.Health.Output, "health output")
 
 	// Verify the following events do not translate into our event stream
 

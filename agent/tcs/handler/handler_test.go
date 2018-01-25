@@ -64,6 +64,10 @@ func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
+}
+
 func TestFormatURL(t *testing.T) {
 	endpoint := "http://127.0.0.0.1/"
 	wsurl := formatURL(endpoint, testClusterArn, testInstanceArn)

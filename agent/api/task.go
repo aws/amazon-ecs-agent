@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
@@ -455,11 +456,16 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(*container.DockerConfig.Config), &config)
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
 		if err != nil {
 			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
+	if container.HealthCheckType == dockerHealthCheckType && config.Healthcheck == nil {
+		return nil, &DockerClientConfigError{
+			"docker health check is nil while container health check type is DOCKER"}
+	}
+
 	if config.Labels == nil {
 		config.Labels = make(map[string]string)
 	}
@@ -1085,12 +1091,14 @@ func (task *Task) GetID() (string, error) {
 	resource := parsedARN.Resource
 
 	if !strings.Contains(resource, arnResourceDelimiter) {
-		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+		return "", errors.Errorf("task get-id: malformed task resource: %s", resource)
 	}
 
 	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
 	if len(resourceSplit) != arnResourceSections {
-		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+		return "", errors.Errorf(
+			"task get-id: invalid task resource split: %s, expected=%d, actual=%d",
+			resource, arnResourceSections, len(resourceSplit))
 	}
 
 	return resourceSplit[1], nil

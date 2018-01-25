@@ -1,6 +1,6 @@
 // +build windows,functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -427,4 +427,15 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "May 01, 2017 19:00:01 ECS\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 	assert.Equal(t, *resp.Events[1].Message, "May 01, 2017 19:00:04 Agent\nRunning\nin the instance\r\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[1].Message))
+}
+
+// TestContainerHealthMetrics tests the container health metrics was sent to backend
+func TestContainerHealthMetrics(t *testing.T) {
+	containerHealthWithoutStartPeriodTest(t, "container-health-windows")
+}
+
+// TestContainerHealthMetricsWithStartPeriod tests the container health metrics
+// with start period configured in the task definition
+func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
+	containerHealthWithStartPeriodTest(t, "container-health-windows")
 }

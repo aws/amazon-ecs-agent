@@ -24,7 +24,16 @@ const (
 	containerTypeEvent = "container"
 )
 
-var containerEvents = []string{"create", "start", "stop", "die", "restart", "oom"}
+var containerEvents = []string{
+	"create",
+	"start",
+	"stop",
+	"die",
+	"restart",
+	"oom",
+	"health_status: unhealthy",
+	"health_status: healthy",
+}
 
 // InfiniteBuffer defines an unlimited buffer, where it reads from
 // input channel and write to output channel.

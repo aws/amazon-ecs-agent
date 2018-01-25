@@ -58,7 +58,8 @@ const (
 	//   c) Add 'LogsAuthStrategy' field to 'api.Container'
 	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
 	// 9) Add 'ipToTask' map to state file
-	ECSDataVersion = 9
+	// 10) Add 'healthCheckType' field in 'api.Container'
+	ECSDataVersion = 10
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

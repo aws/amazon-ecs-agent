@@ -1370,6 +1370,47 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
+func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
+	eventStreamName := "TestHandleContainerChangeUpdateContainerHealth"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, ctx)
+	containerChangeEventStream.StartListening()
+
+	mTask := &managedTask{
+		Task: testdata.LoadTask("sleep5TaskCgroup"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+	}
+	// Disgard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(api.TaskRunning)
+	mTask.SetSentStatus(api.TaskRunning)
+	container := mTask.Containers[0]
+	container.HealthCheckType = "docker"
+
+	containerChange := dockerContainerChange{
+		container: container,
+		event: DockerContainerChangeEvent{
+			Status: api.ContainerRunning,
+			DockerContainerMetadata: DockerContainerMetadata{
+				DockerID: "dockerID",
+				Health: api.HealthStatus{
+					Status: api.ContainerHealthy,
+					Output: "health check succeed",
+				},
+			},
+		},
+	}
+
+	mTask.handleContainerChange(containerChange)
+
+	containerHealth := container.GetHealthStatus()
+	assert.Equal(t, containerHealth.Status, api.ContainerHealthy)
+	assert.Equal(t, containerHealth.Output, "health check succeed")
+}
+
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled

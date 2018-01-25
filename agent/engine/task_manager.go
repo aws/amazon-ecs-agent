@@ -361,6 +361,11 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
+	// Update the container health status
+	if container.HealthStatusShouldBeReported() {
+		container.SetHealthStatus(event.Health)
+	}
+
 	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
 	if container.GetKnownStatus() == api.ContainerStopped && container.IsEssential() {
 		now := mtask.time().Now()

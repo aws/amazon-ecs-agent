@@ -192,19 +192,19 @@ func (change *TaskStateChange) ShouldBeReported() bool {
 }
 
 // String returns a human readable string representation of this object
-func (t *TaskStateChange) String() string {
-	res := fmt.Sprintf("%s -> %s", t.TaskARN, t.Status.String())
-	if t.Task != nil {
+func (change *TaskStateChange) String() string {
+	res := fmt.Sprintf("%s -> %s", change.TaskARN, change.Status.String())
+	if change.Task != nil {
 		res += fmt.Sprintf(", Known Sent: %s, PullStartedAt: %s, PullStoppedAt: %s, ExecutionStoppedAt: %s",
-			t.Task.GetSentStatus().String(),
-			t.Task.GetPullStartedAt(),
-			t.Task.GetPullStoppedAt(),
-			t.Task.GetExecutionStoppedAt())
+			change.Task.GetSentStatus().String(),
+			change.Task.GetPullStartedAt(),
+			change.Task.GetPullStoppedAt(),
+			change.Task.GetExecutionStoppedAt())
 	}
-	if t.Attachment != nil {
-		res += ", " + t.Attachment.String()
+	if change.Attachment != nil {
+		res += ", " + change.Attachment.String()
 	}
-	for _, containerChange := range t.Containers {
+	for _, containerChange := range change.Containers {
 		res += ", " + containerChange.String()
 	}
 
@@ -212,11 +212,11 @@ func (t *TaskStateChange) String() string {
 }
 
 // GetEventType returns an enum identifying the event type
-func (c ContainerStateChange) GetEventType() statechange.EventType {
+func (ContainerStateChange) GetEventType() statechange.EventType {
 	return statechange.ContainerEvent
 }
 
 // GetEventType returns an enum identifying the event type
-func (t TaskStateChange) GetEventType() statechange.EventType {
+func (TaskStateChange) GetEventType() statechange.EventType {
 	return statechange.TaskEvent
 }

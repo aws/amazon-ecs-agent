@@ -540,10 +540,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 		StatsEngine:                   statsEngine,
 	}
 
-	if !agent.cfg.DisableMetrics {
-		// Start metrics session in a go routine
-		go tcshandler.StartMetricsSession(telemetrySessionParams)
-	}
+	// Start metrics session in a go routine
+	go tcshandler.StartMetricsSession(telemetrySessionParams)
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This

@@ -1,0 +1,20 @@
+{
+    "family": "health",
+    "containerDefinitions": [
+    {
+        "name": "healthcheck",
+        "image": "busybox:latest",
+        "cpu": 500,
+        "command":  ["sh", "-c", "sleep 300"],
+        "memory": 300,
+        "healthCheck": {
+            "command": ["CMD-SHELL", "echo hello"],
+            "interval": 1,
+            "timeout": 2,
+            $$$$START_PERIOD$$$$
+            "retries": 3
+        },
+        "essential": true
+    }
+    ]
+}

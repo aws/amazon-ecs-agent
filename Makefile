@@ -1,4 +1,4 @@
-# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -133,7 +133,7 @@ cni-plugins: get-cni-sources
 		"amazon/amazon-ecs-build-cniplugins:make"
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
-run-integ-tests: test-registry gremlin
+run-integ-tests: test-registry gremlin container-health-check-image
 	. ./scripts/shared_env && go test -race -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
 netkitten:
@@ -144,7 +144,7 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image
+.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -164,6 +164,9 @@ taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
+
+container-health-check-image:
+	$(MAKE) -C misc/container-health $(MFLAGS)
 
 .PHONY: gocyclo
 gocyclo:
@@ -196,4 +199,5 @@ clean:
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-rm -f .get-deps-stamp

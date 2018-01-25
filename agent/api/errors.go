@@ -41,6 +41,7 @@ func (err *badVolumeError) Error() string     { return err.msg }
 func (err *badVolumeError) ErrorName() string { return "InvalidVolumeError" }
 func (err *badVolumeError) Retry() bool       { return false }
 
+// NamedError defines an interface that wraps error and add additional 'ErrorName' method
 type NamedError interface {
 	error
 	ErrorName() string
@@ -74,16 +75,24 @@ func NewNamedError(err error) *DefaultNamedError {
 	return &DefaultNamedError{Err: err.Error()}
 }
 
+// HostConfigError represents an error caused by host configuration
 type HostConfigError struct {
 	msg string
 }
 
-func (err *HostConfigError) Error() string     { return err.msg }
+// Error returns the error as a string
+func (err *HostConfigError) Error() string { return err.msg }
+
+// ErrorName returns the name of the error
 func (err *HostConfigError) ErrorName() string { return "HostConfigError" }
 
+// DockerClientConfigError represents the error caused by docker client
 type DockerClientConfigError struct {
 	msg string
 }
 
-func (err *DockerClientConfigError) Error() string     { return err.msg }
+// Error returns the error as a string
+func (err *DockerClientConfigError) Error() string { return err.msg }
+
+// ErrorName returns the name of the error
 func (err *DockerClientConfigError) ErrorName() string { return "DockerClientConfigError" }
