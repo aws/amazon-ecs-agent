@@ -21,7 +21,10 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-const dockerTimeoutErrorName = "DockerTimeoutError"
+const (
+	dockerTimeoutErrorName          = "DockerTimeoutError"
+	cannotInspectContainerErrorName = "CannotInspectContainerError"
+)
 
 // engineError wraps the error interface with an identifier method that
 // is used to classify the error type
@@ -262,7 +265,7 @@ func (err CannotInspectContainerError) Error() string {
 }
 
 func (err CannotInspectContainerError) ErrorName() string {
-	return "CannotInspectContainerError"
+	return cannotInspectContainerErrorName
 }
 
 // CannotRemoveContainerError indicates any error when trying to remove a container

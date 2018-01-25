@@ -518,6 +518,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
+
 	return dg.containerMetadata(dockerContainer.ID)
 }
 
@@ -821,57 +822,58 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	go buffer.Consume(events)
 
 	changedContainers := make(chan DockerContainerChangeEvent)
-
-	go func() {
-		for event := range events {
-			containerID := event.ID
-			seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
-
-			var status api.ContainerStatus
-			eventType := api.ContainerStatusEvent
-			switch event.Status {
-			case "create":
-				status = api.ContainerCreated
-			case "start":
-				status = api.ContainerRunning
-			case "stop":
-				fallthrough
-			case "die":
-				status = api.ContainerStopped
-			case "oom":
-				containerInfo := event.ID
-				// events only contain the container's name in newer Docker API
-				// versions (starting with 1.22)
-				if containerName, ok := event.Actor.Attributes["name"]; ok {
-					containerInfo += fmt.Sprintf(" (name: %q)", containerName)
-				}
-
-				seelog.Infof("DockerGoClient: process within container %s died due to OOM", containerInfo)
-				// "oom" can either means any process got OOM'd, but doesn't always
-				// mean the container dies (non-init processes). If the container also
-				// dies, you see a "die" status as well; we'll update suitably there
-				continue
-			case "health_status: healthy":
-				fallthrough
-			case "health_status: unhealthy":
-				eventType = api.ContainerHealthEvent
-			default:
-				// Because docker emits new events even when you use an old event api
-				// version, it's not that big a deal
-				seelog.Debugf("DockerGoClient: unknown status event from docker: %s", event.Status)
-			}
-
-			metadata := dg.containerMetadata(containerID)
-
-			changedContainers <- DockerContainerChangeEvent{
-				Status: status,
-				Type:   eventType,
-				DockerContainerMetadata: metadata,
-			}
-		}
-	}()
-
+	go dg.handleContainerEvents(events, changedContainers)
 	return changedContainers, nil
+}
+
+func (dg *dockerGoClient) handleContainerEvents(events <-chan *docker.APIEvents, changedContainers chan<- DockerContainerChangeEvent) {
+	for event := range events {
+		containerID := event.ID
+		seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
+
+		var status api.ContainerStatus
+		eventType := api.ContainerStatusEvent
+		switch event.Status {
+		case "create":
+			status = api.ContainerCreated
+			// TODO no need to inspect containers here
+		case "start":
+			status = api.ContainerRunning
+		case "stop":
+			fallthrough
+		case "die":
+			status = api.ContainerStopped
+		case "oom":
+			containerInfo := event.ID
+			// events only contain the container's name in newer Docker API
+			// versions (starting with 1.22)
+			if containerName, ok := event.Actor.Attributes["name"]; ok {
+				containerInfo += fmt.Sprintf(" (name: %q)", containerName)
+			}
+
+			seelog.Infof("DockerGoClient: process within container %s died due to OOM", containerInfo)
+			// "oom" can either means any process got OOM'd, but doesn't always
+			// mean the container dies (non-init processes). If the container also
+			// dies, you see a "die" status as well; we'll update suitably there
+			continue
+		case "health_status: healthy":
+			fallthrough
+		case "health_status: unhealthy":
+			eventType = api.ContainerHealthEvent
+		default:
+			// Because docker emits new events even when you use an old event api
+			// version, it's not that big a deal
+			seelog.Debugf("DockerGoClient: unknown status event from docker: %s", event.Status)
+		}
+
+		metadata := dg.containerMetadata(containerID)
+
+		changedContainers <- DockerContainerChangeEvent{
+			Status: status,
+			Type:   eventType,
+			DockerContainerMetadata: metadata,
+		}
+	}
 }
 
 // ListContainers returns a slice of container IDs.

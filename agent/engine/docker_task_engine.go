@@ -51,8 +51,13 @@ const (
 	capabilityTaskIAMRole        = "task-iam-role"
 	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
 	capabilityTaskCPUMemLimit    = "task-cpu-mem-limit"
-	labelPrefix                  = "com.amazonaws.ecs."
 	attributePrefix              = "ecs.capability."
+	labelPrefix                  = "com.amazonaws.ecs."
+	labelTaskARN                 = labelPrefix + "task-arn"
+	labelContainerName           = labelPrefix + "container-name"
+	labelTaskDefinitionFamily    = labelPrefix + "task-definition-family"
+	labelTaskDefinitionVersion   = labelPrefix + "task-definition-version"
+	labelCluster                 = labelPrefix + "cluster"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -406,7 +411,7 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone cha
 	if engine.cfg.TaskCPUMemLimit.Enabled() {
 		err := engine.resource.Cleanup(task)
 		if err != nil {
-			seelog.Warnf("Unable to cleanup platform resources for task %s: %v",
+			seelog.Warnf("Task engine [%s]: unable to cleanup platform resources: %v",
 				task.Arn, err)
 		}
 	}
@@ -492,12 +497,18 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 // container and placing it in the context of the task to which that container
 // belongs.
 func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) {
-	seelog.Debugf("Handling a docker event: %s", event.String())
+	seelog.Debugf("Task engine: handling a docker event: %s", event.String())
 
-	task, taskFound := engine.state.TaskByID(event.DockerID)
-	cont, containerFound := engine.state.ContainerByID(event.DockerID)
-	if !taskFound || !containerFound {
-		seelog.Debugf("Task engine: event for container [%s] not managed", event.DockerID)
+	task, ok := engine.state.TaskByID(event.DockerID)
+	if !ok {
+		seelog.Debugf("Task engine: event for container [%s] not managed, unable to map container id to task",
+			event.DockerID)
+		return
+	}
+	cont, ok := engine.state.ContainerByID(event.DockerID)
+	if !ok {
+		seelog.Debugf("Task engine: event for container [%s] not managed, unable to map container id to container",
+			event.DockerID)
 		return
 	}
 
@@ -505,7 +516,8 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	// no need to process this in task manager
 	if event.Type == api.ContainerHealthEvent {
 		if cont.Container.HealthStatusShouldBeReported() {
-			seelog.Debugf("Updating container health status: %v, container: %s", event.DockerContainerMetadata.Health, cont.DockerID)
+			seelog.Debugf("Task engine: updating container [%s(%s)] health status: %v",
+				cont.Container.Name, cont.DockerID, event.DockerContainerMetadata.Health)
 			cont.Container.SetHealthStatus(event.DockerContainerMetadata.Health)
 		}
 		return
@@ -516,14 +528,15 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	// hold the lock until the message is sent so we don't send on a closed channel
 	defer engine.processTasks.RUnlock()
 	if !ok {
-		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %v",
-			task.Arn, event)
+		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %s",
+			task.Arn, event.String())
 		return
 	}
-	seelog.Debugf("Task engine [%s]: writing docker event to the task: %v", task.Arn, event)
+	seelog.Debugf("Task engine [%s]: writing docker event to the task: %s",
+		task.Arn, event.String())
 	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
-	seelog.Debugf("Task engine [%s]: wrote docker event to the task", task.Arn, event)
-	return
+	seelog.Debugf("Task engine [%s]: wrote docker event to the task: %s",
+		task.Arn, event.String())
 }
 
 // StateChangeEvents returns channels to read task and container state changes. These
@@ -746,11 +759,11 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Augment labels with some metadata from the agent. Explicitly do this last
 	// such that it will always override duplicates in the provided raw config
 	// data.
-	config.Labels[labelPrefix+"task-arn"] = task.Arn
-	config.Labels[labelPrefix+"container-name"] = container.Name
-	config.Labels[labelPrefix+"task-definition-family"] = task.Family
-	config.Labels[labelPrefix+"task-definition-version"] = task.Version
-	config.Labels[labelPrefix+"cluster"] = engine.cfg.Cluster
+	config.Labels[labelTaskARN] = task.Arn
+	config.Labels[labelContainerName] = container.Name
+	config.Labels[labelTaskDefinitionFamily] = task.Family
+	config.Labels[labelTaskDefinitionVersion] = task.Version
+	config.Labels[labelCluster] = engine.cfg.Cluster
 
 	if dockerContainerName == "" {
 		// only alphanumeric and hyphen characters are allowed
@@ -997,7 +1010,7 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *api.Task, update *api.Tas
 }
 
 // transitionContainer calls applyContainerState, and then notifies the managed
-// task of the change.  transitionContainer is called by progressContainers and
+// task of the change. transitionContainer is called by progressContainers and
 // by handleStoppedToRunningContainerTransition.
 func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
 	// Let docker events operate async so that we can continue to handle ACS / other requests
