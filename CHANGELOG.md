@@ -1,10 +1,9 @@
 # Changelog
 
 ## Unreleased
-* Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata.
-* Feature - Support Docker health check.
+* Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
+* Feature - Support Docker health check
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
-* Bug - Persist container exit code in agent state file. [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
 * Bug - Persist container exit code in agent state file [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
 * Bug - Fixed a bug where the agent could lose track of running containers when Docker APIs timeout [#1217](https://github.com/aws/amazon-ecs-agent/pull/1217)
 
