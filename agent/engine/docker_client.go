@@ -836,7 +836,12 @@ func (dg *dockerGoClient) handleContainerEvents(events <-chan *docker.APIEvents,
 		switch event.Status {
 		case "create":
 			status = api.ContainerCreated
-			// TODO no need to inspect containers here
+			// TODO no need to inspect containers here.
+			// There's no need to inspect containers after they are created when we
+			// adopt Docker's volume APIs. Today, that's the only information we need
+			// from the `inspect` API. Once we start injecting that ourselves,
+			// there's no need to `inspect` containers on `Create` anymore. This will
+			// save us a lot of `inspect` calls in the future.
 		case "start":
 			status = api.ContainerRunning
 		case "stop":
@@ -863,7 +868,7 @@ func (dg *dockerGoClient) handleContainerEvents(events <-chan *docker.APIEvents,
 		default:
 			// Because docker emits new events even when you use an old event api
 			// version, it's not that big a deal
-			seelog.Debugf("DockerGoClient: unknown status event from docker: %s", event.Status)
+			seelog.Debugf("DockerGoClient: unknown status event from docker: %v", event)
 		}
 
 		metadata := dg.containerMetadata(containerID)
