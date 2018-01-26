@@ -505,7 +505,7 @@ func (mtask *managedTask) handleStoppedToRunningContainerTransition(status api.C
 		return
 	}
 	if containerKnownStatus != api.ContainerStopped {
-		// Container's known status is STOPPED. Nothing to do here.
+		// Container's known status is not STOPPED. Nothing to do here.
 		return
 	}
 	if !status.IsRunning() {
@@ -576,7 +576,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 }
 
 // handleContainerStoppedTransitionError handles an error when transitioning a container to
-// STOPPED. It returns a boolean indicating whethere the taks can continue with updating its
+// STOPPED. It returns a boolean indicating whether the tak can continue with updating its
 // state
 func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerContainerChangeEvent,
 	container *api.Container,
