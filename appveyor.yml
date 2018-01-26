@@ -4,7 +4,7 @@ clone_depth: 2
 clone_folder: c:\gopath\src\github.com\aws\amazon-ecs-agent
 environment:
   GOPATH: c:\gopath
-  GOVERSION: 1.7.4
+  GOVERSION: 1.9.3
 install:
   - set PATH=%GOPATH%\bin;c:\go\bin;%PATH%
   - rmdir c:\go /s /q
