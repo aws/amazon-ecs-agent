@@ -1491,17 +1491,17 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 // TestTaskWaitForHostResourceOnRestart tests task stopped by acs but hasn't
 // reached stopped should block the later task to start
 func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
-	// Task stopped by backend
+	// Task 1 stopped by backend
 	taskStoppedByACS := testdata.LoadTask("sleep5")
 	taskStoppedByACS.SetDesiredStatus(api.TaskStopped)
 	taskStoppedByACS.SetStopSequenceNumber(1)
 	taskStoppedByACS.SetKnownStatus(api.TaskRunning)
-	// Task has essential container stopped
+	// Task 2 has essential container stopped
 	taskEssentialContainerStopped := testdata.LoadTask("sleep5")
 	taskEssentialContainerStopped.Arn = "task_Essential_Container_Stopped"
 	taskEssentialContainerStopped.SetDesiredStatus(api.TaskStopped)
 	taskEssentialContainerStopped.SetKnownStatus(api.TaskRunning)
-	// Normal task needs to be started
+	// Normal task 3 needs to be started
 	taskNotStarted := testdata.LoadTask("sleep5")
 	taskNotStarted.Arn = "task_Not_started"
 
@@ -1510,8 +1510,8 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
+	saver := mock_statemanager.NewMockStateManager(ctrl)
 
 	taskEngine := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine.saver = saver
@@ -1545,22 +1545,19 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	// start the two tasks
 	taskEngine.synchronizeState()
 
-	waitStopDone := make(chan struct{})
+	var waitStopWG sync.WaitGroup
+	waitStopWG.Add(1)
 	go func() {
 		// This is to confirm the other task is waiting
 		time.Sleep(1 * time.Second)
 		// Remove the task sequence number 1 from waitgroup
 		taskEngine.taskStopGroup.Done(1)
-		waitStopDone <- struct{}{}
+		waitStopWG.Done()
 	}()
 
 	// task with sequence number 2 should wait until 1 is removed from the waitgroup
 	taskEngine.taskStopGroup.Wait(2)
-	select {
-	case <-waitStopDone:
-	default:
-		t.Errorf("task should wait for tasks in taskStopGroup")
-	}
+	waitStopWG.Wait()
 }
 
 // TestPullStartedStoppedAtWasSetCorrectly tests the PullStartedAt and PullStoppedAt
