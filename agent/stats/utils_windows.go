@@ -28,7 +28,7 @@ func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, er
 		return nil, fmt.Errorf("invalid number of cpu cores acquired from the system")
 	}
 
-	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
+	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
 	return &ContainerStats{
 		cpuUsage:    cpuUsage,
