@@ -710,7 +710,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	mockWsClient.EXPECT().Serve().Do(func() {
 		// Serve() cancels the context
 		cancel()
-	}).Return(io.EOF)
+	}).Return(io.EOF).MinTimes(1)
 
 	gomock.InOrder(
 		// DiscoverPollEndpoint returns an error on its first invocation
