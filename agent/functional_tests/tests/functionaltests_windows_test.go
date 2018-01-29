@@ -290,7 +290,7 @@ func TestTelemetry(t *testing.T) {
 	metrics, err := VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 	// Also verify the cpu usage is around 25%
-	assert.InDelta(t, 0.25, *metrics.Average, 0.05)
+	assert.InDelta(t, 25, *metrics.Average, 5)
 
 	params.MetricName = aws.String("MemoryUtilization")
 	_, err = VerifyMetrics(cwclient, params, false)

@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
@@ -35,7 +37,28 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 	dockerStat := &docker.Stats{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	_, err := dockerStatsToContainerStats(dockerStat)
-	if err == nil {
-		t.Error("Expected error converting container stats with zero cpu cores")
-	}
+	assert.Error(t, err, "expected error converting container stats with zero cpu cores")
+}
+
+func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
+	// doing this with json makes me sad, but is the easiest way to deal with
+	// the inner structs
+
+	// numCores is a global variable in package agent/stats
+	// which denotes the number of cpu cores
+	numCores = 4
+	jsonStat := fmt.Sprintf(`
+		{
+			"cpu_stats":{
+				"cpu_usage":{
+					"total_usage":%d
+				}
+			}
+		}`, 100)
+	dockerStat := &docker.Stats{}
+	json.Unmarshal([]byte(jsonStat), dockerStat)
+	containerStats, err := dockerStatsToContainerStats(dockerStat)
+	assert.NoError(t, err, "converting container stats failed")
+	require.NotNil(t, containerStats, "containerStats should not be nil")
+	assert.Equal(t, uint64(2500), containerStats.cpuUsage, "unexpected value for cpuUsage", containerStats.cpuUsage)
 }
