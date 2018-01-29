@@ -31,5 +31,10 @@ func NewTaskEngine(cfg *config.Config, client DockerClient,
 	imageManager ImageManager, state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resource resources.Resource) TaskEngine {
-	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, state, metadataManager, resource)
+
+	taskEngine := NewDockerTaskEngine(cfg, client, credentialsManager,
+		containerChangeEventStream, imageManager,
+		state, metadataManager, resource)
+
+	return taskEngine
 }

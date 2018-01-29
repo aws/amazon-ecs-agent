@@ -70,7 +70,8 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainersWithoutHealth")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
 	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
@@ -128,7 +129,8 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
 	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
@@ -201,7 +203,8 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	defer client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainers")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
 	testTask := createRunningTask()
 	// enable container health check for this container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -265,7 +268,8 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
 
 	testTask := createRunningTask()
 	// enable health check of the container

@@ -30,9 +30,13 @@ import (
 )
 
 const (
-	memorySubsystem    = "/memory"
-	memoryUseHierarchy = "memory.use_hierarchy"
-	rootReadOnly       = 400
+	memorySubsystem         = "/memory"
+	memoryUseHierarchy      = "memory.use_hierarchy"
+	rootReadOnlyPermissions = os.FileMode(400)
+)
+
+var (
+	enableMemoryHierarchy = []byte(strconv.Itoa(1))
 )
 
 // cgroupWrapper implements the Resource interface
@@ -73,8 +77,7 @@ func (c *cgroupWrapper) ApplyConfigDependencies(cfg *config.Config) {
 	c.cgroupPath = cfg.CgroupPath
 }
 
-// cgroupInit is used to create the root '/ecs/ cgroup and enable
-// memory.use_hierarchy at the '/ecs/' level
+// cgroupInit is used to create the root '/ecs/ cgroup
 func (c *cgroupWrapper) cgroupInit() error {
 	if c.control.Exists(config.DefaultTaskCgroupPrefix) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)
@@ -85,6 +88,7 @@ func (c *cgroupWrapper) cgroupInit() error {
 }
 
 // setupCgroup is used to create the task cgroup
+// and enable memory.use_hierarchy at the '/ecs/<task-id>' level
 func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
@@ -114,7 +118,8 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	}
 
 	// echo 1 > memory.use_hierarchy
-	err = c.ioutil.WriteFile(filepath.Join(c.cgroupPath, memorySubsystem, cgroupRoot, memoryUseHierarchy), []byte(strconv.Itoa(1)), os.FileMode(0))
+	memoryHierarchyPath := filepath.Join(c.cgroupPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
+	err = c.ioutil.WriteFile(memoryHierarchyPath, enableMemoryHierarchy, rootReadOnlyPermissions)
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to set use hierarchy flag")
 	}

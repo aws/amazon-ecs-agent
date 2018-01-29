@@ -171,7 +171,7 @@ func TestDoStartTaskLimitsFail(t *testing.T) {
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return(statemanager.NewNoopStateManager(), nil),
 
-		resource.EXPECT().ApplyConfigDependencies(gomock.Any()).AnyTimes(),
+		resource.EXPECT().ApplyConfigDependencies(gomock.Any()).MinTimes(1),
 		resource.EXPECT().Init().Return(errors.New("test error")),
 	)
 
