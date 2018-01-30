@@ -37,7 +37,6 @@ import (
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -292,6 +291,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	engine.saver.Save()
 }
 
+// updateContainerMetadata sets the container metadata from the docker inspect
 func updateContainerMetadata(metadata *DockerContainerMetadata, container *api.Container, task *api.Task) {
 	container.SetCreatedAt(metadata.CreatedAt)
 	container.SetStartedAt(metadata.StartedAt)
@@ -333,7 +333,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 			seelog.Warnf("Task engine [%s]: could not find matching container for expected name [%s]: %v",
 				task.Arn, container.DockerName, err)
 		} else {
-			// update the container metadata in case the container status/metadata changed during agent restart
+			// update the container metadata in case the container was created during agent restart
 			metadata := metadataFromContainer(describedContainer)
 			updateContainerMetadata(&metadata, container.Container, task)
 			container.DockerID = describedContainer.ID
