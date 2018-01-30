@@ -1104,6 +1104,8 @@ func (task *Task) GetID() (string, error) {
 	return resourceSplit[1], nil
 }
 
+// RecordExecutionStoppedAt checks if this is an essential container stopped
+// and set the task executionStoppedAt timestamps
 func (task *Task) RecordExecutionStoppedAt(container *Container) {
 	if !container.Essential {
 		return
