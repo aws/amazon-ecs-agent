@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -1026,7 +1027,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 		"Task engine should not be able to perform concurrent pulling for version < 1.11.1")
 }
 
-func TestPauseContaienrHappyPath(t *testing.T) {
+func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
@@ -1101,6 +1102,8 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	verifyTaskIsRunning(stateChangeEvents, sleepTask)
 	steadyStateVerify <- time.Now()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
 	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(&docker.Container{
 		ID:    pauseContainerID,
@@ -1109,7 +1112,9 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(pauseContainerID, gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: pauseContainerID})
-	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil)
+	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Do(func(cfg *ecscni.Config) {
+		wg.Done()
+	}).Return(nil)
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
@@ -1134,6 +1139,7 @@ func TestPauseContaienrHappyPath(t *testing.T) {
 		fmt.Printf("Found %d tasks in the engine; first task arn: %s\n", len(tasks), tasks[0].Arn)
 		time.Sleep(5 * time.Millisecond)
 	}
+	wg.Wait()
 }
 
 func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
