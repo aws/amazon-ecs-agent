@@ -6,6 +6,7 @@
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker client. [#1118](https://github.com/aws/amazon-ecs-agent/pull/1118)
 * Bug - Persist container exit code in agent state file [#1125](https://github.com/aws/amazon-ecs-agent/pull/1125)
 * Bug - Fixed a bug where the agent could lose track of running containers when Docker APIs timeout [#1217](https://github.com/aws/amazon-ecs-agent/pull/1217)
+* Bug - Task level memory.use_hierarchy was not being set and memory limits were not being enforced [#1195](https://github.com/aws/amazon-ecs-agent/pull/1195)
 
 ## 1.16.2
 * Bug - Fixed a bug where the ticker would submit empty container state change
