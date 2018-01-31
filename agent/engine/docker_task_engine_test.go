@@ -470,6 +470,8 @@ func TestRemoveEvents(t *testing.T) {
 			eventStream <- createDockerEvent(api.ContainerStopped)
 			eventStream <- createDockerEvent(api.ContainerStopped)
 		}).Return(nil)
+
+	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).AnyTimes()
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 
 	// This ensures that managedTask.waitForStopReported makes progress
