@@ -95,6 +95,7 @@ type containerTransition struct {
 type managedTask struct {
 	*api.Task
 	ctx                context.Context
+	cancel             context.CancelFunc
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -126,8 +127,10 @@ type managedTask struct {
 // This method must only be called when the engine.processTasks write lock is
 // already held.
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
+	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                        engine.ctx,
+		ctx:                        ctx,
+		cancel:                     cancel,
 		Task:                       task,
 		acsMessages:                make(chan acsTransition),
 		dockerMessages:             make(chan dockerContainerChange),

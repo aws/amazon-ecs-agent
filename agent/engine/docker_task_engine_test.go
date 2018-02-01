@@ -1478,10 +1478,15 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 func TestNewTaskTransitionOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	state := dockerTaskEngine.State()
@@ -1519,6 +1524,12 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 	saver := mock_statemanager.NewMockStateManager(ctrl)
+
+	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := privateTaskEngine.Init(ctx)
+	assert.NoError(t, err)
 
 	taskEngine := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine.saver = saver
