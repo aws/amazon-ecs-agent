@@ -41,8 +41,8 @@ func newResources(control cgroup.Control) Resource {
 }
 
 // Init is used to initialize the resource
-func (c *cgroupWrapper) Init(config *config.Config) error {
-	return c.cgroupInit(config)
+func (c *cgroupWrapper) Init(cgroupDriver string) error {
+	return c.cgroupInit(cgroupDriver)
 }
 
 // Setup sets up the resource
@@ -55,13 +55,16 @@ func (c *cgroupWrapper) Cleanup(task *api.Task) error {
 	return c.cleanupCgroup(task)
 }
 
-// cgroupInit is used to create the root '/ecs/ cgroup
-func (c *cgroupWrapper) cgroupInit(config *config.Config) error {
-	if c.control.Exists(config.CgroupPrefix) {
-		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.CgroupPrefix)
-		return nil
-	}
-	return c.control.Init(config)
+// cgroupInit is used to create the root cgroup
+func (c *cgroupWrapper) cgroupInit(cgroupDriver string) error {
+	/*
+	     if c.control.Exists(config.CgroupPrefix) {
+	   		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.CgroupPrefix)
+	   		return nil
+	   	}
+	   	return c.control.Init(config)
+	*/
+	return nil
 }
 
 // setupCgroup is used to create the task cgroup
