@@ -263,14 +263,8 @@ func (mtask *managedTask) waitForHostResources() {
 func (mtask *managedTask) waitSteady() {
 	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	maxWait := make(chan bool, 1)
-	timer := mtask.time().After(steadyStateTaskVerifyInterval)
-	go func() {
-		// TODO: Wire in context here
-		<-timer
-		maxWait <- true
-	}()
-	timedOut := mtask.waitEvent(maxWait)
+	timeoutCtx, _ := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	timedOut := mtask.waitEventWithContext(timeoutCtx)
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
@@ -312,6 +306,24 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
 	case b := <-stopWaiting:
 		seelog.Debugf("Managed task [%s]: no longer waiting", mtask.Arn)
 		return b
+	}
+}
+
+func (mtask *managedTask) waitEventWithContext(ctx context.Context) bool {
+	seelog.Debugf("Managed task [%s]: waiting for event for task", mtask.Arn)
+	select {
+	case acsTransition := <-mtask.acsMessages:
+		seelog.Debugf("Managed task [%s]: got acs event", mtask.Arn)
+		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
+		return false
+	case dockerChange := <-mtask.dockerMessages:
+		seelog.Debugf("Managed task [%s]: got container [%s] event: [%s]",
+			mtask.Arn, dockerChange.container.Name, dockerChange.event.Status.String())
+		mtask.handleContainerChange(dockerChange)
+		return false
+	case <-ctx.Done():
+		seelog.Debugf("Managed task [%s]: no longer waiting", mtask.Arn)
+		return true
 	}
 }
 

@@ -182,22 +182,18 @@ func addTaskToEngine(t *testing.T,
 	sleepTask *api.Task,
 	mockTime *mock_ttime.MockTime,
 	createStartEventsReported sync.WaitGroup) {
+
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
 	// has been invoked at least once
-	steadyStateCheckWait := sync.WaitGroup{}
 	steadyStateVerify := make(chan time.Time, 1)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	gomock.InOrder(
-		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Do(func(d time.Duration) {
-			steadyStateCheckWait.Done()
-		}).Return(steadyStateVerify),
 		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
 	)
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 
-	steadyStateCheckWait.Add(1)
 	taskEngine.AddTask(sleepTask)
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 
@@ -207,8 +203,6 @@ func addTaskToEngine(t *testing.T,
 
 	// Wait for container create and start events to be processed
 	createStartEventsReported.Wait()
-	// Wait for steady state check to be invoked
-	steadyStateCheckWait.Wait()
 }
 
 func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
@@ -246,7 +240,6 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
 		}
 	}
-
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 
@@ -255,4 +248,5 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 		t.Fatal("Should be out of events")
 	default:
 	}
+
 }

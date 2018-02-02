@@ -213,9 +213,11 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
 			cleanup := make(chan time.Time, 1)
+
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
 			client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
+
 			// Simulate a container stop event from docker
 			eventStream <- DockerContainerChangeEvent{
 				Status: api.ContainerStopped,
@@ -566,13 +568,11 @@ func TestSteadyStatePoll(t *testing.T) {
 			eventStream, containerName, func() {
 			})
 	}
-
-	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
-	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
+	testTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
 
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
+
 	taskEngine.AddTask(sleepTask) // actually add the task we created
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
@@ -605,19 +605,23 @@ func TestSteadyStatePoll(t *testing.T) {
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
 	// trigger steady state verification
-	for i := 0; i < 10; i++ {
-		steadyStateVerify <- time.Now()
+	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
+	for _, task := range mtasks {
+		task.cancel()
 	}
 
 	// StopContainer might be invoked if the test execution is slow, during
 	// the cleanup phase. Account for that.
 	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: containerID}).AnyTimes()
+
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
-	close(steadyStateVerify)
+
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(api.TaskStopped)
+
 	cleanup <- time.Now()
+
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
 		if len(tasks) == 0 {
@@ -625,6 +629,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+
 }
 
 func TestStopWithPendingStops(t *testing.T) {
