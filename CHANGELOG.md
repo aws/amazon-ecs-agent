@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.17.0
 * Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
 * Feature - Support Docker health check
 * Bug - Fixed a bug where `-version` fails due to its dependency on docker
