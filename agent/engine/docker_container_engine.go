@@ -148,6 +148,8 @@ type DockerClient interface {
 	Version() (string, error)
 	// APIVersion returns the api version of the client
 	APIVersion() (dockerclient.DockerVersion, error)
+	// CgroupDriver returns the Cgroup Driver used by the Docker daemon.
+	CgroupDriver() (string, error)
 
 	// InspectImage returns information about the specified image.
 	InspectImage(string) (*docker.Image, error)
@@ -893,6 +895,18 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 		return "", err
 	}
 	return dg.clientFactory.FindClientAPIVersion(client), nil
+}
+
+// APIVersion returns the client api version
+func (dg *dockerGoClient) CgroupDriver() (string, error) {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return "", err
+	}
+
+	info, err := client.Info()
+
+	return info.CgroupDriver, err
 }
 
 // Stats returns a channel of *docker.Stats entries for the container.

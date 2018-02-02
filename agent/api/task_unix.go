@@ -17,6 +17,7 @@ package api
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,21 +46,24 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.memoryCPULimitsEnabledLock.Lock()
 	defer task.memoryCPULimitsEnabledLock.Unlock()
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
-	task.cgroupPrefix = cfg.CgroupPrefix
 }
 
 func getCanonicalPath(path string) string { return path }
 
 // BuildCgroupRoot helps build the task cgroup prefix
-// Example: /ecs/task-id
+// Cgroupfs example: /ecs/task-id
+// Systemd example: ecs.slice/ecs-task_id.slice
 func (task *Task) BuildCgroupRoot() (string, error) {
 	taskID, err := task.GetID()
 	if err != nil {
 		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
 	}
-
-	// See https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/resource_management_guide/sec-default_cgroup_hierarchies
-	return fmt.Sprintf("%s-%s.slice", task.cgroupPrefix, strings.Replace(taskID, "-", "_", -1)), nil
+	task.CgroupDriver = "systemd" // TODO FIX
+	if task.CgroupDriver == "systemd" {
+		// See https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/resource_management_guide/sec-default_cgroup_hierarchies
+		return fmt.Sprintf("%s-%s.slice", config.DefaultTaskCgroupPrefixSystemd, strings.Replace(taskID, "-", "_", -1)), nil
+	}
+	return filepath.Join(config.DefaultTaskCgroupPrefixCgroupFS, taskID), nil
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup

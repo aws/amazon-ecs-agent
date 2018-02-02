@@ -369,7 +369,6 @@ func environmentConfig() (Config, error) {
 	}
 	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
 	dataDirOnHost := os.Getenv("ECS_HOST_DATA_DIR")
-	cgroupPrefix := os.Getenv("ECS_CGROUP_PREFIX")
 
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
@@ -414,7 +413,6 @@ func environmentConfig() (Config, error) {
 		ContainerMetadataEnabled:         containerMetadataEnabled,
 		DataDirOnHost:                    dataDirOnHost,
 		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
-		CgroupPrefix:                     cgroupPrefix,
 	}, err
 }
 
@@ -561,7 +559,6 @@ func (cfg *Config) String() string {
 			"TaskCleanupWaitDuration: %v, "+
 			"DockerStopTimeout: %v, "+
 			"TaskCPUMemLimit: %v, "+
-			"CgroupPrefix: %v, "+
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
@@ -574,7 +571,6 @@ func (cfg *Config) String() string {
 		cfg.TaskCleanupWaitDuration,
 		cfg.DockerStopTimeout,
 		cfg.TaskCPUMemLimit,
-		cfg.CgroupPrefix,
 		cfg.platformString(),
 	)
 }

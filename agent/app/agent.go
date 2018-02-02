@@ -233,8 +233,14 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
-		// TODO change this to enum and get it from Info
-		err = agent.resource.Init("systemd")
+		// TODO change this to enum
+		cgroupDriver, err := agent.dockerClient.CgroupDriver()
+		if err != nil {
+			seelog.Criticalf("Unable to get Cgroup Driver from Docker daemon: %v", err)
+			return exitcodes.ExitTerminal
+		}
+		seelog.Infof("Docker daemon is using Cgroup Driver: %s", cgroupDriver)
+		err = agent.resource.Init(cgroupDriver)
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
 		if err != nil {

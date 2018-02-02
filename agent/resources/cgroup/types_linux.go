@@ -16,7 +16,6 @@
 package cgroup
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -34,5 +33,5 @@ type Control interface {
 	Create(cgroupSpec *Spec) (cgroups.Cgroup, error)
 	Remove(cgroupPath string) error
 	Exists(cgroupPath string) bool
-	Init(config *config.Config) error
+	Init(cgroupRoot string) error
 }

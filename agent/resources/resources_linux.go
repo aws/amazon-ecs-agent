@@ -57,14 +57,18 @@ func (c *cgroupWrapper) Cleanup(task *api.Task) error {
 
 // cgroupInit is used to create the root cgroup
 func (c *cgroupWrapper) cgroupInit(cgroupDriver string) error {
-	/*
-	     if c.control.Exists(config.CgroupPrefix) {
-	   		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.CgroupPrefix)
-	   		return nil
-	   	}
-	   	return c.control.Init(config)
-	*/
-	return nil
+
+	var cgroupRoot string
+	if cgroupDriver == "systemd" {
+		cgroupRoot = config.DefaultTaskCgroupPrefixSystemd
+	} else {
+		cgroupRoot = config.DefaultTaskCgroupPrefixCgroupFS
+	}
+	if c.control.Exists(cgroupRoot) {
+		seelog.Debugf("Cgroup at %s already exists, skipping creation", cgroupRoot)
+		return nil
+	}
+	return c.control.Init(cgroupRoot)
 }
 
 // setupCgroup is used to create the task cgroup

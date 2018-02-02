@@ -146,8 +146,8 @@ type Task struct {
 	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
 	memoryCPULimitsEnabledLock sync.RWMutex
 
-	// cgroupPrefix defaults to ecs
-	cgroupPrefix string
+	// CgroupDriver cgroupfs or systemd
+	CgroupDriver string
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
