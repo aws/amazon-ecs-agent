@@ -593,7 +593,7 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
-	task.PostUnmarshalTask(&cfg, nil)
+	task.PostUnmarshalTask(&cfg, nil, nil)
 
 	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)

@@ -248,7 +248,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	container, err := createGremlin(client)
 	if err != nil {
 		t.Fatalf("Error creating container: %v", err)
@@ -376,7 +376,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 
 func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngineMissingRemoveEvent")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream, nil, dockerstate.NewTaskEngineState(), nil, nil)
 
 	container, err := createGremlin(client)
 	if err != nil {
