@@ -241,12 +241,16 @@ func (mtask *managedTask) waitForHostResources() {
 
 	seelog.Infof("Managed task [%s]: waiting for any previous stops to complete. Sequence number: %d",
 		mtask.Arn, mtask.StartSequenceNumber)
-	othersStopped := make(chan bool, 1)
+
+	othersStoppedCtx, othersStoppedCancel := context.WithCancel(mtask.ctx)
+	defer othersStoppedCancel()
+
 	go func() {
 		mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
-		othersStopped <- true
+		othersStoppedCancel()
 	}()
-	for !mtask.waitEvent(othersStopped) {
+
+	for !mtask.waitEventWithContext(othersStoppedCtx) {
 		if mtask.GetDesiredStatus().Terminal() {
 			// If we end up here, that means we received a start then stop for this
 			// task before a task that was expected to stop before it could
@@ -254,6 +258,7 @@ func (mtask *managedTask) waitForHostResources() {
 			break
 		}
 	}
+
 	seelog.Infof("Managed task [%s]: wait over; ready to move towards status: %s",
 		mtask.Arn, mtask.GetDesiredStatus().String())
 }
@@ -785,6 +790,7 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus,
 	transitionChange <-chan bool,
 	transitionChangeContainer <-chan string) {
+
 	for len(transitions) > 0 {
 		if mtask.waitEvent(transitionChange) {
 			changedContainer := <-transitionChangeContainer
@@ -830,6 +836,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 			mtask.Arn, config.DefaultTaskCleanupWaitDuration.String())
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
+
 	cleanupTime := mtask.time().After(cleanupTimeDuration)
 	cleanupTimeBool := make(chan bool)
 	go func() {

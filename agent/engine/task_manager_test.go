@@ -1468,7 +1468,11 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 func TestWaitForHostResources(t *testing.T) {
 	taskStopWG := utilsync.NewSequentialWaitGroup()
 	taskStopWG.Add(1, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	mtask := &managedTask{
+		ctx:        ctx,
+		cancel:     cancel,
 		taskStopWG: taskStopWG,
 		Task: &api.Task{
 			StartSequenceNumber: 1,
