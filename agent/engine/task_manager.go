@@ -650,15 +650,14 @@ func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bo
 		if reason == dependencygraph.CredentialsNotResolvedErr {
 			seelog.Debugf("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
 
-			maxWait := make(chan bool, 1)
-			timer := mtask.time().AfterFunc(waitForPullCredentialsTimeout, func() {
-				maxWait <- true
-			})
-			// Have a timeout in case we missed the acs message but the credentials
-			// were already in the credentials manager
-			if !mtask.waitEvent(maxWait) {
-				timer.Stop()
+			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForPullCredentialsTimeout)
+			defer timeoutCancel()
+
+			timedOut := mtask.waitEventWithContext(timeoutCtx)
+			if timedOut {
+				seelog.Debugf("Managed task [%s]: timed out waiting for acs credentials message", mtask.Arn)
 			}
+
 			return true
 		}
 	}
