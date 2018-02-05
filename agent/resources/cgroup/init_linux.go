@@ -16,19 +16,17 @@
 package cgroup
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/config"
-
 	"github.com/cihub/seelog"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // Init is used to setup the cgroup root for ecs
-func (c *control) Init() error {
-	seelog.Infof("Creating root ecs cgroup: %s", config.DefaultTaskCgroupPrefix)
+func (c *control) Init(cgroupRoot string) error {
+	seelog.Infof("Creating root ecs cgroup: %s", cgroupRoot)
 
 	// Build cgroup spec
 	cgroupSpec := &Spec{
-		Root:  config.DefaultTaskCgroupPrefix,
+		Root:  cgroupRoot,
 		Specs: &specs.LinuxResources{},
 	}
 	_, err := c.Create(cgroupSpec)

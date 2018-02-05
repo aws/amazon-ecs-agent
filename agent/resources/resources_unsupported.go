@@ -17,6 +17,7 @@ package resources
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 )
 
 // unimplementedResource implements the Resource interface
@@ -28,7 +29,7 @@ func New() Resource {
 }
 
 // Init is used to initialize the resource
-func (r *unimplementedResource) Init() error {
+func (r *unimplementedResource) Init(cgroupDriver cgroup.CgroupDriver) error {
 	return nil
 }
 

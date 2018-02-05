@@ -25,8 +25,6 @@ const (
 	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
-	// Default cgroup prefix for ECS tasks
-	DefaultTaskCgroupPrefix = "/ecs"
 )
 
 // DefaultConfig returns the default configuration for Linux

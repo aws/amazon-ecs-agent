@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -101,6 +102,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
+	cgroupDriver                        cgroup.CgroupDriver
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -110,7 +112,8 @@ type DockerTaskEngine struct {
 func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 	credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream,
 	imageManager ImageManager, state dockerstate.TaskEngineState,
-	metadataManager containermetadata.Manager) *DockerTaskEngine {
+	metadataManager containermetadata.Manager,
+	cgroupDriver cgroup.CgroupDriver) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:    cfg,
 		client: client,
@@ -133,6 +136,7 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 		}),
 
 		metadataManager: metadataManager,
+		cgroupDriver:    cgroupDriver,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -516,7 +520,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 
 // AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
-	task.PostUnmarshalTask(engine.cfg, engine.credentialsManager)
+	task.PostUnmarshalTask(engine.cfg, engine.credentialsManager, engine.cgroupDriver)
 
 	engine.processTasks.Lock()
 	defer engine.processTasks.Unlock()

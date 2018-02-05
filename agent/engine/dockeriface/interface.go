@@ -40,6 +40,7 @@ type Client interface {
 	StopContainerWithContext(id string, timeout uint, ctx context.Context) error
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
+	Info() (*docker.DockerInfo, error)
 	RemoveImage(imageName string) error
 	LoadImage(opts docker.LoadImageOptions) error
 }
