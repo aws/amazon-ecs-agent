@@ -1094,12 +1094,9 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
 		DockerContainerMetadata{DockerID: containerID})
 
-	steadyStateVerify := make(chan time.Time)
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
-	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	// Expect steady state check once
-	mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).MinTimes(1)
+	mockTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
 	dockerClient.EXPECT().DescribeContainer(containerID).AnyTimes()
 	dockerClient.EXPECT().DescribeContainer(pauseContainerID).AnyTimes()
 
@@ -1109,7 +1106,12 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	verifyTaskIsRunning(stateChangeEvents, sleepTask)
-	steadyStateVerify <- time.Now()
+
+	// trigger steady state verification
+	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
+	for _, task := range mtasks {
+		task.cancel()
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
