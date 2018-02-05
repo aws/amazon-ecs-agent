@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 )
 
 var log = logger.ForModule("TaskEngine")
@@ -31,6 +32,7 @@ func NewTaskEngine(cfg *config.Config, client DockerClient,
 	credentialsManager credentials.Manager,
 	containerChangeEventStream *eventstream.EventStream,
 	imageManager ImageManager, state dockerstate.TaskEngineState,
-	metadataManager containermetadata.Manager) TaskEngine {
-	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, state, metadataManager)
+	metadataManager containermetadata.Manager,
+	cgroupDriver cgroup.CgroupDriver) TaskEngine {
+	return NewDockerTaskEngine(cfg, client, credentialsManager, containerChangeEventStream, imageManager, state, metadataManager, cgroupDriver)
 }

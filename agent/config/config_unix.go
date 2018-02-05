@@ -25,10 +25,6 @@ const (
 	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
-	// Default cgroup prefix for ECS tasks when using Cgroup Driver cgroupfs
-	DefaultTaskCgroupPrefixCgroupFS = "/ecs"
-	// Default cgroup prefix for ECS tasks when using Cgroup Driver systemd
-	DefaultTaskCgroupPrefixSystemd = "ecs.slice"
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -57,7 +53,6 @@ func DefaultConfig() Config {
 		AWSVPCBlockInstanceMetdata:  false,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             DefaultEnabled,
-		CgroupDriver:                "cgroupfs",
 	}
 }
 

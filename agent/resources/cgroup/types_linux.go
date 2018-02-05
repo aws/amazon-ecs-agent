@@ -16,8 +16,11 @@
 package cgroup
 
 import (
+	"fmt"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"path/filepath"
+	"strings"
 )
 
 // Spec captures the abstraction for a creating a new
@@ -34,4 +37,45 @@ type Control interface {
 	Remove(cgroupPath string) error
 	Exists(cgroupPath string) bool
 	Init(cgroupRoot string) error
+}
+
+type cgrpdrv int
+
+const (
+	CgroupFS cgrpdrv = iota // default
+	SystemD
+)
+
+const (
+	// Default cgroup prefix for ECS tasks when using Cgroup Driver cgroupfs
+	defaultTaskCgroupPrefixCgroupFS = "/ecs"
+	// Default cgroup prefix for ECS tasks when using Cgroup Driver systemd
+	defaultTaskCgroupPrefixSystemd = "ecs"
+)
+
+func NewCgroupDriver(driver string) CgroupDriver {
+	if driver == "systemd" {
+		return SystemD
+	}
+	return CgroupFS
+}
+
+type CgroupDriver interface {
+	Root() string
+	TaskCgroupRoot(string) string
+}
+
+func (d cgrpdrv) Root() string {
+	if d == SystemD {
+		return fmt.Sprintf("%.slice", defaultTaskCgroupPrefixSystemd)
+	}
+	return defaultTaskCgroupPrefixCgroupFS
+}
+
+func (d cgrpdrv) TaskCgroupRoot(taskID string) string {
+	if d == SystemD {
+		// See https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/resource_management_guide/sec-default_cgroup_hierarchies
+		return fmt.Sprintf("%s-%s.slice", defaultTaskCgroupPrefixSystemd, strings.Replace(taskID, "-", "_", -1))
+	}
+	return filepath.Join(defaultTaskCgroupPrefixCgroupFS, taskID)
 }

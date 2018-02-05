@@ -16,9 +16,6 @@
 package api
 
 import (
-	"fmt"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -45,7 +42,6 @@ const (
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.memoryCPULimitsEnabledLock.Lock()
 	defer task.memoryCPULimitsEnabledLock.Unlock()
-	task.CgroupDriver = cfg.CgroupDriver
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
@@ -60,11 +56,7 @@ func (task *Task) BuildCgroupRoot() (string, error) {
 		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
 	}
 
-	if task.CgroupDriver == "systemd" {
-		// See https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/resource_management_guide/sec-default_cgroup_hierarchies
-		return fmt.Sprintf("%s-%s.slice", config.DefaultTaskCgroupPrefixSystemd, strings.Replace(taskID, "-", "_", -1)), nil
-	}
-	return filepath.Join(config.DefaultTaskCgroupPrefixCgroupFS, taskID), nil
+	return task.cgroupDriver.TaskCgroupRoot(taskID), nil
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup

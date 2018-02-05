@@ -17,7 +17,6 @@ package resources
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
@@ -41,7 +40,7 @@ func newResources(control cgroup.Control) Resource {
 }
 
 // Init is used to initialize the resource
-func (c *cgroupWrapper) Init(cgroupDriver string) error {
+func (c *cgroupWrapper) Init(cgroupDriver cgroup.CgroupDriver) error {
 	return c.cgroupInit(cgroupDriver)
 }
 
@@ -56,14 +55,9 @@ func (c *cgroupWrapper) Cleanup(task *api.Task) error {
 }
 
 // cgroupInit is used to create the root cgroup
-func (c *cgroupWrapper) cgroupInit(cgroupDriver string) error {
+func (c *cgroupWrapper) cgroupInit(cgroupDriver cgroup.CgroupDriver) error {
 
-	var cgroupRoot string
-	if cgroupDriver == "systemd" {
-		cgroupRoot = config.DefaultTaskCgroupPrefixSystemd
-	} else {
-		cgroupRoot = config.DefaultTaskCgroupPrefixCgroupFS
-	}
+	cgroupRoot := cgroupDriver.Root()
 	if c.control.Exists(cgroupRoot) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", cgroupRoot)
 		return nil

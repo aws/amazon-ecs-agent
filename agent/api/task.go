@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -146,20 +147,21 @@ type Task struct {
 	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
 	memoryCPULimitsEnabledLock sync.RWMutex
 
-	// CgroupDriver cgroupfs or systemd
-	CgroupDriver string
+	// cgroupDriver cgroupfs or systemd
+	cgroupDriver cgroup.CgroupDriver
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
-func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
+func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager, cgroupDriver cgroup.CgroupDriver) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
+	task.cgroupDriver = cgroupDriver
 }
 
 func (task *Task) initializeEmptyVolumes() {
