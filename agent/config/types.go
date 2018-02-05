@@ -194,4 +194,7 @@ type Config struct {
 	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
 	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
+
+	// CgroupDriver which Cgroup Driver is the Docker daemon using
+	CgroupDriver string
 }

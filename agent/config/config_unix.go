@@ -57,6 +57,7 @@ func DefaultConfig() Config {
 		AWSVPCBlockInstanceMetdata:  false,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             DefaultEnabled,
+		CgroupDriver:                "cgroupfs",
 	}
 }
 

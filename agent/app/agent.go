@@ -240,6 +240,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitTerminal
 		}
 		seelog.Infof("Docker daemon is using Cgroup Driver: %s", cgroupDriver)
+		agent.cfg.CgroupDriver = cgroupDriver
 		err = agent.resource.Init(cgroupDriver)
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
