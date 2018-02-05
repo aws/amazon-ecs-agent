@@ -34,7 +34,7 @@ const (
 	ProcFS = "/proc"
 
 	// AgentFilename is the filename, including version number, of the agent to be downloaded.
-	AgentFilename = "ecs-agent-v1.16.2.tar"
+	AgentFilename = "ecs-agent-v1.17.0.tar"
 
 	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
 	// S3BucketMap.
