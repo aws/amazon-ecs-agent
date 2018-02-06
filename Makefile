@@ -99,7 +99,7 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests: testnnp test-registry ecr-execution-role-image
+run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
 
 testnnp:
@@ -144,7 +144,7 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image
+.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -162,8 +162,12 @@ image-cleanup-test-images:
 
 taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
+
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
+
+telemetry-test-image:
+	$(MAKE) -C misc/telemetry $(MFLAGS)
 
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
@@ -200,4 +204,5 @@ clean:
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
+	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
 	-rm -f .get-deps-stamp

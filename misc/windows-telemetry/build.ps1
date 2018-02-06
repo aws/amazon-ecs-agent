@@ -10,11 +10,5 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM golang:nanoserver
 
-WORKDIR /gopath
-COPY main.go .
-
-RUN go build -o cpuhog main.go
-ENTRYPOINT ["./cpuhog"]
-CMD [ "-concurrency", "1000" ]
+docker build -t "amazon/amazon-ecs-windows-telemetry-test:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}
