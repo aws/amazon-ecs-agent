@@ -1,10 +1,9 @@
 {
+    "cpu": "$$$$CPUSHARE$$$$",
     "family": "ecs-metrics-test",
     "containerDefinitions": [{
-        "memory": 100,
+        "memory": 2000,
         "name": "telemetry",
-        "cpu": 100,
-        "image": "127.0.0.1:51670/ubuntu:latest",
-        "command": ["bash", "-c", "apt-get update; apt-get install stress; stress -m 1 --vm-bytes 84M --vm-keep;"] 
+        "image": "amazon/amazon-ecs-telemetry-test:make"
     }]
 }

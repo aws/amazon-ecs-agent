@@ -21,8 +21,16 @@ import (
 
 func main() {
 	concurrency := flag.Int("concurrency", 1, "amount of concurrency")
+	memory := flag.Int("memory", 1024, "amount of memory to use")
 	flag.Parse()
 	neverdie := make(chan struct{})
+
+	fmt.Printf("Allocating %vM memory", memory)
+	memoryBytes := *memory * 1024 * 1024
+	buffer := make([]byte, memoryBytes)
+	for i := 0; i < memoryBytes; i++ {
+		buffer[i] = ' '
+	}
 
 	fmt.Printf("Hogging CPU with concurrency %d\n", *concurrency)
 	for i := 0; i < *concurrency; i++ {

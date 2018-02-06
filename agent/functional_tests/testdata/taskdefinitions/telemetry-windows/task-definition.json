@@ -1,9 +1,9 @@
 {
   "family": "ecsftest-windows-telemetry",
   "containerDefinitions": [{
-    "image": "amazon/amazon-ecs-windows-cpupercent-test:make",
-    "name": "windows-cpu-percent",
+    "image": "amazon/amazon-ecs-windows-telemetry-test:make",
+    "name": "windows-telemetry",
     "cpu": $$$$CPUSHARE$$$$,
-    "memory": 256
+    "memory": 2048
   }]
 }

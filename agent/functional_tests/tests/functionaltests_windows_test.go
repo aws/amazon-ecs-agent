@@ -18,20 +18,15 @@ package functional_tests
 import (
 	"fmt"
 	"os"
-	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +38,6 @@ const (
 	logDriverTaskDefinition         = "logdriver-jsonfile-windows"
 	cleanupTaskDefinition           = "cleanup-windows"
 	networkModeTaskDefinition       = "network-mode-windows"
-	cpuSharesPerCore                = 1024
 )
 
 // TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
@@ -227,91 +221,7 @@ func TestMetadataServiceValidator(t *testing.T) {
 
 // TestTelemetry tests whether agent can send metrics to TACS
 func TestTelemetry(t *testing.T) {
-	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
-	newClusterName := "ecstest-telemetry-" + uuid.New()
-	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
-		ClusterName: aws.String(newClusterName),
-	})
-	require.NoError(t, err, "Failed to create cluster")
-	defer DeleteCluster(t, newClusterName)
-
-	agentOptions := AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_CLUSTER": newClusterName,
-		},
-	}
-	agent := RunAgent(t, &agentOptions)
-	defer agent.Cleanup()
-
-	params := &cloudwatch.GetMetricStatisticsInput{
-		MetricName: aws.String("CPUUtilization"),
-		Namespace:  aws.String("AWS/ECS"),
-		Period:     aws.Int64(60),
-		Statistics: []*string{
-			aws.String("Average"),
-			aws.String("SampleCount"),
-		},
-		Dimensions: []*cloudwatch.Dimension{
-			{
-				Name:  aws.String("ClusterName"),
-				Value: aws.String(newClusterName),
-			},
-		},
-	}
-	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.EndTime = aws.Time((*params.StartTime).Add(waitMetricsInCloudwatchDuration).UTC())
-	// wait for the agent start and ensure no task is running
-	time.Sleep(waitMetricsInCloudwatchDuration)
-
-	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
-
-	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
-
-	cpuNum := runtime.NumCPU()
-
-	tdOverrides := make(map[string]string)
-	// Set the container cpu percentage 25%
-	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(int(float64(cpuNum*cpuSharesPerCore) * 0.25))
-
-	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "telemetry-windows", tdOverrides)
-	require.NoError(t, err, "Failed to start telemetry task")
-	// Wait for the task to run and the agent to send back metrics
-	err = testTask.WaitRunning(waitTaskStateChangeDuration)
-	require.NoError(t, err, "Error wait telemetry task running")
-
-	time.Sleep(waitMetricsInCloudwatchDuration)
-	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
-	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
-	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around 25%
-	assert.InDelta(t, 25, *metrics.Average, 5)
-
-	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, false)
-	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
-
-	err = testTask.Stop()
-	require.NoError(t, err, "Failed to stop the telemetry task")
-
-	err = testTask.WaitStopped(waitTaskStateChangeDuration)
-	require.NoError(t, err, "Waiting for task stop failed")
-
-	time.Sleep(waitMetricsInCloudwatchDuration)
-	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
-	params.MetricName = aws.String("CPUUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
-
-	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
+	telemetryTest(t, "telemetry-windows")
 }
 
 // TestOOMContainer verifies that an OOM container returns an error

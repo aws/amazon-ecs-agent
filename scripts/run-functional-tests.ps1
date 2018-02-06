@@ -13,7 +13,7 @@
 
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-iam\Setup_Iam.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-listen80\Setup_Listen80.ps1"
-Invoke-Expression "${PSScriptRoot}\..\misc\windows-cpupercent\build.ps1"
+Invoke-Expression "${PSScriptRoot}\..\misc\windows-telemetry\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-python\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\container-health-windows\build.ps1"
 
