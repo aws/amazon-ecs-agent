@@ -182,7 +182,6 @@ func addTaskToEngine(t *testing.T,
 	sleepTask *api.Task,
 	mockTime *mock_ttime.MockTime,
 	createStartEventsReported sync.WaitGroup) {
-
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
 	// has been invoked at least once
 	steadyStateVerify := make(chan time.Time, 1)
@@ -248,5 +247,4 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 		t.Fatal("Should be out of events")
 	default:
 	}
-
 }

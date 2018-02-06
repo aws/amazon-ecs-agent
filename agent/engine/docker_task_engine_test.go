@@ -213,11 +213,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
 			cleanup := make(chan time.Time, 1)
-
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
 			client.EXPECT().DescribeContainer(gomock.Any()).AnyTimes()
-
 			// Simulate a container stop event from docker
 			eventStream <- DockerContainerChangeEvent{
 				Status: api.ContainerStopped,
@@ -572,7 +570,6 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
-
 	taskEngine.AddTask(sleepTask) // actually add the task we created
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
@@ -614,14 +611,10 @@ func TestSteadyStatePoll(t *testing.T) {
 	// the cleanup phase. Account for that.
 	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: containerID}).AnyTimes()
-
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
-
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(api.TaskStopped)
-
 	cleanup <- time.Now()
-
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
 		if len(tasks) == 0 {
@@ -629,7 +622,6 @@ func TestSteadyStatePoll(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-
 }
 
 func TestStopWithPendingStops(t *testing.T) {
