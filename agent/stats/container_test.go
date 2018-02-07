@@ -21,12 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
-	"golang.org/x/net/context"
 )
 
 type StatTestData struct {

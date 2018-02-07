@@ -16,9 +16,9 @@ package stats
 import (
 	"time"
 
+	"context"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
-	"golang.org/x/net/context"
 )
 
 // ContainerStats encapsulates the raw CPU and memory utilization from cgroup fs.

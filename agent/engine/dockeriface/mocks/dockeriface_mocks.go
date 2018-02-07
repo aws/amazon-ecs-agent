@@ -17,9 +17,9 @@
 package mock_dockeriface
 
 import (
+	"context"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
-	context "golang.org/x/net/context"
 )
 
 // Mock of Client interface

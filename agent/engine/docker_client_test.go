@@ -36,12 +36,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
+	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 // xContainerShortTimeout is a short duration intended to be used by the

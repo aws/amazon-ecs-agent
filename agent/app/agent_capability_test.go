@@ -19,7 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 
-	"golang.org/x/net/context"
+	"context"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"

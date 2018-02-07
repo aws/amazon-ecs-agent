@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -35,7 +36,6 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 const (

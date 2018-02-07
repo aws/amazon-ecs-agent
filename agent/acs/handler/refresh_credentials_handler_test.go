@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"testing"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -23,7 +24,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
-	"golang.org/x/net/context"
 )
 
 const (

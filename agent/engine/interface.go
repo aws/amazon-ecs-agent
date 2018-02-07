@@ -16,10 +16,10 @@ package engine
 import (
 	"encoding/json"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"golang.org/x/net/context"
 )
 
 // TaskEngine is an interface for the DockerTaskEngine

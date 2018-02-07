@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"

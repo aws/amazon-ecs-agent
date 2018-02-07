@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -40,7 +41,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 const (
