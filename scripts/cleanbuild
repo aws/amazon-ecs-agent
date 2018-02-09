@@ -14,6 +14,7 @@
 
 # This script is meant for use inside the clean build dockerfile and makes
 # assumptions related to that. It should not be run on its own.
+set -ex
 
 cd /src/amazon-ecs-agent
 DIRTY_WARNING=$(cat <<EOW
@@ -27,7 +28,9 @@ EOW
 [ ! -z "$(git status --porcelain)" ] && echo "$DIRTY_WARNING"
 
 # Fresh clone to ensure our build doesn't rely on anything outside of vcs
-git clone --quiet /src/amazon-ecs-agent /go/src/github.com/aws/amazon-ecs-agent
+# The config values 'user.name' and 'user.email' are used to make git-clone
+# happy when running in a container as a non-root user.
+git clone -c user.name="cleanbuild" -c user.email="cleanbuild" /src/amazon-ecs-agent /go/src/github.com/aws/amazon-ecs-agent
 
 # Allows the build to be marked as 'clean' so we can distinguish a properly
 # created build.
