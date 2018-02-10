@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -36,7 +37,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
 
 const (

@@ -15,6 +15,7 @@ package handler
 import (
 	"fmt"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -24,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 // payloadRequestHandler represents the payload operation for the ACS client
