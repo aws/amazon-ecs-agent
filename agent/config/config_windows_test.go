@@ -51,6 +51,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded, "CPUUnbounded should be false by default")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -86,4 +87,21 @@ func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
+}
+
+func TestCPUUnboundedSet(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.True(t, cfg.PlatformVariables.CPUUnbounded)
+}
+
+func TestCPUUnboundedWindowsDisabled(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
 }

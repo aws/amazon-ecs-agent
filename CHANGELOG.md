@@ -2,6 +2,8 @@
 
 ## 1.17.1-dev
 * Bug - Fixed a bug that was causing a runtime panic by accessing negative index in the health check log slice. [#1239](https://github.com/aws/amazon-ecs-agent/pull/1239)
+* Bug - Workaround for an issue where CPU percent was set to 1 when CPU was not
+  set or set to zero(unbounded) in Windows [#1227](https://github.com/aws/amazon-ecs-agent/pull/1227)
 
 ## 1.17.0
 * Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata

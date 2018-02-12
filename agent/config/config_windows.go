@@ -48,6 +48,9 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
+	platformVariables := PlatformVariables{
+		CPUUnbounded: false,
+	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
 		ReservedPorts: []uint16{
@@ -79,6 +82,7 @@ func DefaultConfig() Config {
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             ExplicitlyDisabled,
+		PlatformVariables:           platformVariables,
 	}
 }
 
@@ -94,6 +98,12 @@ func (cfg *Config) platformOverrides() {
 
 	// ensure TaskResourceLimit is disabled
 	cfg.TaskCPUMemLimit = ExplicitlyDisabled
+
+	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	platformVariables := PlatformVariables{
+		CPUUnbounded: cpuUnbounded,
+	}
+	cfg.PlatformVariables = platformVariables
 }
 
 // platformString returns platform-specific config data that can be serialized
