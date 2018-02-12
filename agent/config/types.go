@@ -198,4 +198,7 @@ type Config struct {
 	// CgroupPath is the path expected by the agent, defaults to
 	// '/sys/fs/cgroup'
 	CgroupPath string
+
+	// PlatformVariables consists of configuration variables specific to linux/windows
+	PlatformVariables PlatformVariables
 }
