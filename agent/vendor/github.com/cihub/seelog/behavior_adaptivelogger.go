@@ -49,8 +49,8 @@ type asyncAdaptiveLogger struct {
 	maxInterval      time.Duration
 }
 
-// newAsyncLoopLogger creates a new asynchronous adaptive logger
-func newAsyncAdaptiveLogger(
+// NewAsyncLoopLogger creates a new asynchronous adaptive logger
+func NewAsyncAdaptiveLogger(
 	config *logConfig,
 	minInterval time.Duration,
 	maxInterval time.Duration,
@@ -90,11 +90,11 @@ func (asnAdaptiveLogger *asyncAdaptiveLogger) processItem() (closed bool, itemCo
 	asnAdaptiveLogger.queueHasElements.L.Lock()
 	defer asnAdaptiveLogger.queueHasElements.L.Unlock()
 
-	for asnAdaptiveLogger.msgQueue.Len() == 0 && !asnAdaptiveLogger.closed {
+	for asnAdaptiveLogger.msgQueue.Len() == 0 && !asnAdaptiveLogger.Closed() {
 		asnAdaptiveLogger.queueHasElements.Wait()
 	}
 
-	if asnAdaptiveLogger.closed {
+	if asnAdaptiveLogger.Closed() {
 		return true, asnAdaptiveLogger.msgQueue.Len()
 	}
 
@@ -115,7 +115,7 @@ func (asnAdaptiveLogger *asyncAdaptiveLogger) calcAdaptiveInterval(msgCount int)
 }
 
 func (asnAdaptiveLogger *asyncAdaptiveLogger) processQueue() {
-	for !asnAdaptiveLogger.closed {
+	for !asnAdaptiveLogger.Closed() {
 		closed, itemCount := asnAdaptiveLogger.processItem()
 
 		if closed {

@@ -151,9 +151,9 @@ type customReceiverDispatcher struct {
 	usedArgs           CustomReceiverInitArgs
 }
 
-// newCustomReceiverDispatcher creates a customReceiverDispatcher which dispatches data to a specific receiver created
+// NewCustomReceiverDispatcher creates a customReceiverDispatcher which dispatches data to a specific receiver created
 // using a <custom> tag in the config file.
-func newCustomReceiverDispatcher(formatter *formatter, customReceiverName string, cArgs CustomReceiverInitArgs) (*customReceiverDispatcher, error) {
+func NewCustomReceiverDispatcher(formatter *formatter, customReceiverName string, cArgs CustomReceiverInitArgs) (*customReceiverDispatcher, error) {
 	if formatter == nil {
 		return nil, errors.New("formatter cannot be nil")
 	}
@@ -174,9 +174,9 @@ func newCustomReceiverDispatcher(formatter *formatter, customReceiverName string
 	return disp, nil
 }
 
-// newCustomReceiverDispatcherByValue is basically the same as newCustomReceiverDispatcher, but using
+// NewCustomReceiverDispatcherByValue is basically the same as NewCustomReceiverDispatcher, but using
 // a specific CustomReceiver value instead of instantiating a new one by type.
-func newCustomReceiverDispatcherByValue(formatter *formatter, customReceiver CustomReceiver, name string, cArgs CustomReceiverInitArgs) (*customReceiverDispatcher, error) {
+func NewCustomReceiverDispatcherByValue(formatter *formatter, customReceiver CustomReceiver, name string, cArgs CustomReceiverInitArgs) (*customReceiverDispatcher, error) {
 	if formatter == nil {
 		return nil, errors.New("formatter cannot be nil")
 	}

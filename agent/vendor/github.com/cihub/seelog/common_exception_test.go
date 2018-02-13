@@ -53,14 +53,14 @@ var exceptionTestCases = []exceptionTestCase{
 }
 
 func TestMatchingCorrectness(t *testing.T) {
-	constraints, err := newListConstraints([]LogLevel{TraceLvl})
+	constraints, err := NewListConstraints([]LogLevel{TraceLvl})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	for _, testCase := range exceptionTestCases {
-		rule, ruleError := newLogLevelException(testCase.funcPattern, testCase.filePattern, constraints)
+		rule, ruleError := NewLogLevelException(testCase.funcPattern, testCase.filePattern, constraints)
 		if ruleError != nil {
 			t.Fatalf("Unexpected error on rule creation: [ %v, %v ]. %v",
 				testCase.funcPattern, testCase.filePattern, ruleError)
@@ -75,13 +75,13 @@ func TestMatchingCorrectness(t *testing.T) {
 }
 
 func TestAsterisksReducing(t *testing.T) {
-	constraints, err := newListConstraints([]LogLevel{TraceLvl})
+	constraints, err := NewListConstraints([]LogLevel{TraceLvl})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	rule, err := newLogLevelException("***func**", "fi*****le", constraints)
+	rule, err := NewLogLevelException("***func**", "fi*****le", constraints)
 	if err != nil {
 		t.Error(err)
 		return

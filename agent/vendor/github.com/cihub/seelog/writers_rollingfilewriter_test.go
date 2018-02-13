@@ -57,16 +57,16 @@ func createRollingDatefileWriterTestCase(
 
 func TestRollingFileWriter(t *testing.T) {
 	t.Logf("Starting rolling file writer tests")
-	newFileWriterTester(rollingfileWriterTests, rollingFileWriterGetter, t).test()
+	NewFileWriterTester(rollingfileWriterTests, rollingFileWriterGetter, t).test()
 }
 
 //===============================================================
 
 func rollingFileWriterGetter(testCase *fileWriterTestCase) (io.WriteCloser, error) {
 	if testCase.rollingType == rollingTypeSize {
-		return newRollingFileWriterSize(testCase.fileName, rollingArchiveNone, "", testCase.fileSize, testCase.maxRolls, testCase.nameMode)
+		return NewRollingFileWriterSize(testCase.fileName, rollingArchiveNone, "", testCase.fileSize, testCase.maxRolls, testCase.nameMode)
 	} else if testCase.rollingType == rollingTypeTime {
-		return newRollingFileWriterTime(testCase.fileName, rollingArchiveNone, "", -1, testCase.datePattern, rollingIntervalDaily, testCase.nameMode)
+		return NewRollingFileWriterTime(testCase.fileName, rollingArchiveNone, "", -1, testCase.datePattern, rollingIntervalDaily, testCase.nameMode)
 	}
 
 	return nil, fmt.Errorf("incorrect rollingType")

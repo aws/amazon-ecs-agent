@@ -36,7 +36,7 @@ func TestCustomDispatcher_Message(t *testing.T) {
 	recName := "TestCustomDispatcher_Message"
 	RegisterReceiver(recName, &testCustomDispatcherMessageReceiver{})
 
-	customDispatcher, err := newCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
+	customDispatcher, err := NewCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
 		XmlCustomAttrs: map[string]string{
 			"test": "testdata",
 		},
@@ -46,7 +46,7 @@ func TestCustomDispatcher_Message(t *testing.T) {
 		return
 	}
 
-	context, err := currentContext()
+	context, err := currentContext(nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -90,7 +90,7 @@ func TestCustomDispatcher_Flush(t *testing.T) {
 	recName := "TestCustomDispatcher_Flush"
 	RegisterReceiver(recName, &testCustomDispatcherFlushReceiver{})
 
-	customDispatcher, err := newCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
+	customDispatcher, err := NewCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
 		XmlCustomAttrs: map[string]string{
 			"test": "testdata",
 		},
@@ -137,7 +137,7 @@ func TestCustomDispatcher_Close(t *testing.T) {
 	recName := "TestCustomDispatcher_Close"
 	RegisterReceiver(recName, &testCustomDispatcherCloseReceiver{})
 
-	customDispatcher, err := newCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
+	customDispatcher, err := NewCustomReceiverDispatcher(onlyMessageFormatForTest, recName, CustomReceiverInitArgs{
 		XmlCustomAttrs: map[string]string{
 			"test": "testdata",
 		},

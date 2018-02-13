@@ -31,7 +31,7 @@ type consoleWriter struct {
 }
 
 // Creates a new console writer. Returns error, if the console writer couldn't be created.
-func newConsoleWriter() (writer *consoleWriter, err error) {
+func NewConsoleWriter() (writer *consoleWriter, err error) {
 	newWriter := new(consoleWriter)
 
 	return newWriter, nil

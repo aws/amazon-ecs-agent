@@ -32,7 +32,7 @@ import (
 )
 
 func reportInternalError(err error) {
-	fmt.Fprintln(os.Stderr, "Seelog error: "+err.Error())
+	fmt.Fprintf(os.Stderr, "seelog internal error: %s\n", err)
 }
 
 // LoggerInterface represents structs capable of logging Seelog messages
@@ -113,6 +113,9 @@ type LoggerInterface interface {
 	// function/file names in log files. Do not use it if you are not going to wrap seelog funcs.
 	// You may reset the value to default using a SetAdditionalStackDepth(0) call.
 	SetAdditionalStackDepth(depth int) error
+
+	// Sets logger context that can be used in formatter funcs and custom receivers
+	SetContext(context interface{})
 }
 
 // innerLoggerInterface is an internal logging interface
@@ -128,11 +131,13 @@ type allowedContextCache map[string]map[string]map[LogLevel]bool
 type commonLogger struct {
 	config        *logConfig          // Config used for logging
 	contextCache  allowedContextCache // Caches whether log is enabled for specific "full path-func name-level" sets
-	closed        bool                // 'true' when all writers are closed, all data is flushed, logger is unusable.
-	m             sync.Mutex          // Mutex for main operations
+	closed        bool                // 'true' when all writers are closed, all data is flushed, logger is unusable. Must be accessed while holding closedM
+	closedM       sync.RWMutex
+	m             sync.Mutex // Mutex for main operations
 	unusedLevels  []bool
 	innerLogger   innerLoggerInterface
 	addStackDepth int // Additional stack depth needed for correct seelog caller context detection
+	customContext interface{}
 }
 
 func newCommonLogger(config *logConfig, internalLogger innerLoggerInterface) *commonLogger {
@@ -217,6 +222,10 @@ func (cLogger *commonLogger) Critical(v ...interface{}) error {
 	return errors.New(message.String())
 }
 
+func (cLogger *commonLogger) SetContext(c interface{}) {
+	cLogger.customContext = c
+}
+
 func (cLogger *commonLogger) traceWithCallDepth(callDepth int, message fmt.Stringer) {
 	cLogger.log(TraceLvl, message, callDepth)
 }
@@ -243,6 +252,8 @@ func (cLogger *commonLogger) criticalWithCallDepth(callDepth int, message fmt.St
 }
 
 func (cLogger *commonLogger) Closed() bool {
+	cLogger.closedM.RLock()
+	defer cLogger.closedM.RUnlock()
 	return cLogger.closed
 }
 
@@ -268,24 +279,18 @@ func (cLogger *commonLogger) fillUnusedLevelsByContraint(constraint logLevelCons
 
 // stackCallDepth is used to indicate the call depth of 'log' func.
 // This depth level is used in the runtime.Caller(...) call. See
-// common_context.go -> specificContext, extractCallerInfo for details.
-func (cLogger *commonLogger) log(
-	level LogLevel,
-	message fmt.Stringer,
-	stackCallDepth int) {
+// common_context.go -> specifyContext, extractCallerInfo for details.
+func (cLogger *commonLogger) log(level LogLevel, message fmt.Stringer, stackCallDepth int) {
+	if cLogger.unusedLevels[level] {
+		return
+	}
 	cLogger.m.Lock()
 	defer cLogger.m.Unlock()
 
 	if cLogger.Closed() {
 		return
 	}
-
-	if cLogger.unusedLevels[level] {
-		return
-	}
-
-	context, _ := specificContext(stackCallDepth + cLogger.addStackDepth)
-
+	context, _ := specifyContext(stackCallDepth+cLogger.addStackDepth, cLogger.customContext)
 	// Context errors are not reported because there are situations
 	// in which context errors are normal Seelog usage cases. For
 	// example in executables with stripped symbols.
@@ -294,21 +299,15 @@ func (cLogger *commonLogger) log(
 		reportInternalError(err)
 		return
 	}*/
-
 	cLogger.innerLogger.innerLog(level, context, message)
 }
 
-func (cLogger *commonLogger) processLogMsg(
-	level LogLevel,
-	message fmt.Stringer,
-	context LogContextInterface) {
-
+func (cLogger *commonLogger) processLogMsg(level LogLevel, message fmt.Stringer, context LogContextInterface) {
 	defer func() {
 		if err := recover(); err != nil {
 			reportInternalError(fmt.Errorf("recovered from panic during message processing: %s", err))
 		}
 	}()
-
 	if cLogger.config.IsAllowed(level, context) {
 		cLogger.config.RootDispatcher.Dispatch(message.String(), level, context, reportInternalError)
 	}
