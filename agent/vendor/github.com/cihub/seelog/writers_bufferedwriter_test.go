@@ -30,7 +30,7 @@ import (
 
 func TestChunkWriteOnFilling(t *testing.T) {
 	writer, _ := newBytesVerifier(t)
-	bufferedWriter, err := newBufferedWriter(writer, 1024, 0)
+	bufferedWriter, err := NewBufferedWriter(writer, 1024, 0)
 
 	if err != nil {
 		t.Fatalf("Unexpected buffered writer creation error: %s", err.Error())
@@ -45,7 +45,7 @@ func TestChunkWriteOnFilling(t *testing.T) {
 
 func TestFlushByTimePeriod(t *testing.T) {
 	writer, _ := newBytesVerifier(t)
-	bufferedWriter, err := newBufferedWriter(writer, 1024, 10)
+	bufferedWriter, err := NewBufferedWriter(writer, 1024, 10)
 
 	if err != nil {
 		t.Fatalf("Unexpected buffered writer creation error: %s", err.Error())
@@ -61,7 +61,7 @@ func TestFlushByTimePeriod(t *testing.T) {
 
 func TestBigMessageMustPassMemoryBuffer(t *testing.T) {
 	writer, _ := newBytesVerifier(t)
-	bufferedWriter, err := newBufferedWriter(writer, 1024, 0)
+	bufferedWriter, err := NewBufferedWriter(writer, 1024, 0)
 
 	if err != nil {
 		t.Fatalf("Unexpected buffered writer creation error: %s", err.Error())

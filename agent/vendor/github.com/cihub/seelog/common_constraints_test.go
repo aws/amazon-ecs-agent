@@ -29,7 +29,7 @@ import (
 )
 
 func TestInvalidminMaxConstraints(t *testing.T) {
-	constr, err := newMinMaxConstraints(CriticalLvl, WarnLvl)
+	constr, err := NewMinMaxConstraints(CriticalLvl, WarnLvl)
 
 	if err == nil || constr != nil {
 		t.Errorf("expected an error and a nil value for minmax constraints: min = %d, max = %d. Got: %v, %v",
@@ -41,7 +41,7 @@ func TestInvalidminMaxConstraints(t *testing.T) {
 func TestInvalidLogLevels(t *testing.T) {
 	var invalidMin uint8 = 123
 	var invalidMax uint8 = 124
-	minMaxConstr, errMinMax := newMinMaxConstraints(LogLevel(invalidMin), LogLevel(invalidMax))
+	minMaxConstr, errMinMax := NewMinMaxConstraints(LogLevel(invalidMin), LogLevel(invalidMax))
 
 	if errMinMax == nil || minMaxConstr != nil {
 		t.Errorf("expected an error and a nil value for minmax constraints: min = %d, max = %d. Got: %v, %v",
@@ -51,7 +51,7 @@ func TestInvalidLogLevels(t *testing.T) {
 
 	invalidList := []LogLevel{145}
 
-	listConstr, errList := newListConstraints(invalidList)
+	listConstr, errList := NewListConstraints(invalidList)
 
 	if errList == nil || listConstr != nil {
 		t.Errorf("expected an error and a nil value for constraints list: %v. Got: %v, %v",
@@ -64,7 +64,7 @@ func TestlistConstraintsWithDuplicates(t *testing.T) {
 	duplicateList := []LogLevel{TraceLvl, DebugLvl, InfoLvl,
 		WarnLvl, ErrorLvl, CriticalLvl, CriticalLvl, CriticalLvl}
 
-	listConstr, errList := newListConstraints(duplicateList)
+	listConstr, errList := NewListConstraints(duplicateList)
 
 	if errList != nil || listConstr == nil {
 		t.Errorf("expected a valid constraints list struct for: %v, got error: %v, value: %v",
@@ -88,7 +88,7 @@ func TestlistConstraintsWithDuplicates(t *testing.T) {
 func TestlistConstraintsWithOffInList(t *testing.T) {
 	offList := []LogLevel{TraceLvl, DebugLvl, Off}
 
-	listConstr, errList := newListConstraints(offList)
+	listConstr, errList := NewListConstraints(offList)
 
 	if errList == nil || listConstr != nil {
 		t.Errorf("expected an error and a nil value for constraints list with 'Off':  %v. Got: %v, %v",
@@ -115,7 +115,7 @@ var minMaxTests = []logLevelTestCase{
 
 func TestValidminMaxConstraints(t *testing.T) {
 
-	constr, err := newMinMaxConstraints(InfoLvl, WarnLvl)
+	constr, err := NewMinMaxConstraints(InfoLvl, WarnLvl)
 
 	if err != nil || constr == nil {
 		t.Errorf("expected a valid constraints struct for minmax constraints: min = %d, max = %d. Got: %v, %v",
@@ -146,7 +146,7 @@ var listTests = []logLevelTestCase{
 
 func TestValidlistConstraints(t *testing.T) {
 	validList := []LogLevel{TraceLvl, InfoLvl, WarnLvl, CriticalLvl}
-	constr, err := newListConstraints(validList)
+	constr, err := NewListConstraints(validList)
 
 	if err != nil || constr == nil {
 		t.Errorf("expected a valid constraints list struct for: %v. Got error: %v, value: %v",
@@ -177,7 +177,7 @@ var offTests = []logLevelTestCase{
 
 func TestValidListoffConstraints(t *testing.T) {
 	validList := []LogLevel{Off}
-	constr, err := newListConstraints(validList)
+	constr, err := NewListConstraints(validList)
 
 	if err != nil || constr == nil {
 		t.Errorf("expected a valid constraints list struct for: %v. Got error: %v, value: %v",

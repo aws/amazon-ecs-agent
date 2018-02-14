@@ -38,7 +38,7 @@ type fileWriter struct {
 }
 
 // Creates a new file and a corresponding writer. Returns error, if the file couldn't be created.
-func newFileWriter(fileName string) (writer *fileWriter, err error) {
+func NewFileWriter(fileName string) (writer *fileWriter, err error) {
 	newWriter := new(fileWriter)
 	newWriter.fileName = fileName
 
