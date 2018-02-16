@@ -83,6 +83,8 @@ func DefaultConfig() Config {
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             ExplicitlyDisabled,
 		PlatformVariables:           platformVariables,
+		TaskMetadataSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+		TaskMetadataBurstRate:       DefaultTaskMetadataBurstRate,
 	}
 }
 

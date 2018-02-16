@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -165,7 +166,8 @@ func TestTaskMetadata(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", metadataPath, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -192,7 +194,8 @@ func TestContainerMetadata(t *testing.T) {
 		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", metadataPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -219,7 +222,8 @@ func TestContainerStats(t *testing.T) {
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", statsPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -252,7 +256,8 @@ func TestTaskStats(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
-	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine)
+	server := setupServer(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", statsPath, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort

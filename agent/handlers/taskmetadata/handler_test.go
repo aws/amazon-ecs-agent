@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
@@ -174,7 +175,8 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog, nil, "", nil)
+	server := setupServer(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
+		config.DefaultTaskMetadataBurstRate)
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
@@ -207,7 +209,8 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := setupServer(credentialsManager, auditLog, nil, "", nil)
+	server := setupServer(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
+		config.DefaultTaskMetadataBurstRate)
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()
