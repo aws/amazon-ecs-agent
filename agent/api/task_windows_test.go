@@ -39,6 +39,9 @@ const (
 	expectedEmptyVolumeContainerCmd   = "not-applicable"
 
 	expectedMemorySwappinessDefault = memorySwappinessDefault
+
+	nonZeroMemoryReservationValue  = 1
+	expectedMemoryReservationValue = 0
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -154,4 +157,37 @@ func TestWindowsMemorySwappinessOption(t *testing.T) {
 	}
 
 	assert.EqualValues(t, expectedMemorySwappinessDefault, config.MemorySwappiness)
+}
+
+func TestWindowsMemoryReservationOption(t *testing.T) {
+	// Testing sending a task to windows overriding MemoryReservation value
+	rawHostConfigInput := docker.HostConfig{
+		MemoryReservation: nonZeroMemoryReservationValue,
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.EqualValues(t, expectedMemoryReservationValue, config.MemoryReservation)
 }
