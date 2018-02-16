@@ -60,6 +60,8 @@ func DefaultConfig() Config {
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             DefaultEnabled,
 		CgroupPath:                  defaultCgroupPath,
+		TaskMetadataSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+		TaskMetadataBurstRate:       DefaultTaskMetadataBurstRate,
 	}
 }
 

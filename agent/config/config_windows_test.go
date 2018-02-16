@@ -52,6 +52,10 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
 	assert.False(t, cfg.PlatformVariables.CPUUnbounded, "CPUUnbounded should be false by default")
+	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
+		"Default TaskMetadataSteadyStateRate is set incorrectly")
+	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
+		"Default TaskMetadataBurstRate is set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {

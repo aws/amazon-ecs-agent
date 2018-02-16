@@ -201,4 +201,10 @@ type Config struct {
 
 	// PlatformVariables consists of configuration variables specific to linux/windows
 	PlatformVariables PlatformVariables
+
+	// TaskMetadataSteadyStateRate specifies the steady state throttle for the task metadata endpoint
+	TaskMetadataSteadyStateRate int
+
+	// TaskMetadataBurstRate specifies the burst rate throttle for the task metadata endpoint
+	TaskMetadataBurstRate int
 }

@@ -58,6 +58,10 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
 	assert.False(t, cfg.AWSVPCBlockInstanceMetdata, "AWSVPCBlockInstanceMetdata default is incorrectly set")
 	assert.Equal(t, "/var/lib/ecs", cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
+	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
+		"Default TaskMetadataSteadyStateRate is set incorrectly")
+	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
+		"Default TaskMetadataBurstRate is set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
