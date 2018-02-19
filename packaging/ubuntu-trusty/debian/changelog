@@ -1,3 +1,9 @@
+amazon-ecs-init (1.17.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.17.1
+
+ -- Justin Haynes <jushay@amazon.com>  Mon, 19 Feb 2018 10:57:33 -0800
+
 amazon-ecs-init (1.17.0-2) trusty; urgency=medium
 
   * Cache Agent version 1.17.0
