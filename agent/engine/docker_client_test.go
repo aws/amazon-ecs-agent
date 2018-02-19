@@ -1271,3 +1271,14 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.Equal(t, started, metadata.StartedAt)
 	assert.Equal(t, finished, metadata.FinishedAt)
 }
+
+func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
+
+	dockerContainer := &docker.Container{
+		State: docker.State{
+			Health: docker.Health{Status: "unhealthy"},
+		}}
+
+	metadata := metadataFromContainer(dockerContainer)
+	assert.Equal(t, api.ContainerUnhealthy, metadata.Health.Status)
+}
