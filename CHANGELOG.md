@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.17.1-dev
+* Bug - Fixed a bug that was causing a runtime panic by accessing negative index in the health check log slice. [#1239](https://github.com/aws/amazon-ecs-agent/pull/1239)
+
 ## 1.17.0
 * Feature - Support a HTTP endpoint for `awsvpc` tasks to query metadata
 * Feature - Support Docker health check
