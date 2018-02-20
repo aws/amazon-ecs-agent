@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"golang.org/x/net/context"
+	"context"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"

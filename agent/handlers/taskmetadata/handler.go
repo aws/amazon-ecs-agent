@@ -40,21 +40,6 @@ const (
 	// Credentials API versions
 	apiVersion1 = 1
 	apiVersion2 = 2
-
-	// Rate limits for the metadata endpoint(s) and APIs by request ip addresses. Today, we
-	// support the following endpoints:
-	// 1. /v2/credentials: For serving IAM role credentials
-	// 2. /v2/metadata: For serving task and container metadata information (for "awsvpc" tasks)
-	// 3. /v2/stats: For serving task and container stats information (for "awsvpc" tasks)
-
-	// rateLimitPerSecond specifies the steady state throttle for the task metadata endpoint.
-	// Because all containers in a task share the same IP address in an "awsvpc" task, and a
-	// task can be constituted of up to 10 containers, the steady state rate is set at 10
-	// per second
-	rateLimitPerSecond = 10
-
-	// rateLimitBurstPerSecond specifies the burst rate throttle for the task metadata endpoint.
-	rateLimitBurstPerSecond = 15
 )
 
 // ServeHTTP serves IAM Role Credentials for Tasks being managed by the agent.
@@ -74,7 +59,8 @@ func ServeHTTP(credentialsManager credentials.Manager,
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine)
+	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine,
+		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate)
 
 	for {
 		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
@@ -93,7 +79,9 @@ func setupServer(credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
 	state dockerstate.TaskEngineState,
 	cluster string,
-	statsEngine stats.Engine) *http.Server {
+	statsEngine stats.Engine,
+	steadyStateRate int,
+	burstRate int) *http.Server {
 	serverMux := http.NewServeMux()
 	// Credentials handlers
 	serverMux.HandleFunc(credentials.V1CredentialsPath,
@@ -109,8 +97,8 @@ func setupServer(credentialsManager credentials.Manager,
 	serverMux.HandleFunc(statsPath+"/", statsV2Handler(state, statsEngine))
 	serverMux.HandleFunc(statsPath, statsV2Handler(state, statsEngine))
 
-	limiter := tollbooth.NewLimiter(rateLimitPerSecond, nil)
-	limiter.SetBurst(rateLimitBurstPerSecond)
+	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
+	limiter.SetBurst(burstRate)
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
 	loggingServeMux.Handle("/", tollbooth.LimitHandler(

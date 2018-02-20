@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -35,7 +36,6 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -51,7 +51,7 @@ func init() {
 func createTestTask(arn string) *api.Task {
 	return &api.Task{
 		Arn:                 arn,
-		Family:              arn,
+		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: api.TaskRunning,
 		Containers:          []*api.Container{createTestContainer()},
@@ -90,7 +90,7 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, resource)
-	taskEngine.Init(context.TODO())
+	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
@@ -216,12 +216,14 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 func TestSweepContainer(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
+	cfg.ContainerMetadataEnabled = true
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("testSweepContainer")
+	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testSweepContainer"
+	testTask := createTestTask(taskArn)
 
 	go taskEngine.AddTask(testTask)
 
@@ -237,19 +239,26 @@ func TestSweepContainer(t *testing.T) {
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
 
+	tasks, _ := taskEngine.ListTasks()
+	assert.Equal(t, len(tasks), 1)
+	assert.Equal(t, tasks[0].GetKnownStatus(), api.TaskStopped)
+
 	// Should be stopped, let's verify it's still listed...
-	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
 	assert.True(t, ok, "Expected task to be present still, but wasn't")
 	task.SetSentStatus(api.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
-		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn("testSweepContainer")
+		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
 		if !ok {
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
 	assert.False(t, ok, "Expected container to have been swept but was not")
+
+	tasks, _ = taskEngine.ListTasks()
+	assert.Equal(t, len(tasks), 0)
 }
 
 // TestStartStopWithCredentials starts and stops a task for which credentials id

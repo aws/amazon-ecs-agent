@@ -44,7 +44,7 @@ func LoggerFromConfigAsFile(fileName string) (LoggerInterface, error) {
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromConfigAsBytes creates a logger with config from bytes stream. Bytes should contain valid seelog xml.
@@ -54,7 +54,7 @@ func LoggerFromConfigAsBytes(data []byte) (LoggerInterface, error) {
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromConfigAsString creates a logger with config from a string. String should contain valid seelog xml.
@@ -76,7 +76,7 @@ func LoggerFromParamConfigAsFile(fileName string, parserParams *CfgParseParams) 
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromParamConfigAsBytes does the same as LoggerFromConfigAsBytes, but includes special parser options.
@@ -87,7 +87,7 @@ func LoggerFromParamConfigAsBytes(data []byte, parserParams *CfgParseParams) (Lo
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromParamConfigAsString does the same as LoggerFromConfigAsString, but includes special parser options.
@@ -109,25 +109,25 @@ func LoggerFromWriterWithMinLevel(output io.Writer, minLevel LogLevel) (LoggerIn
 //
 // Can be called for usage with non-Seelog systems
 func LoggerFromWriterWithMinLevelAndFormat(output io.Writer, minLevel LogLevel, format string) (LoggerInterface, error) {
-	constraints, err := newMinMaxConstraints(minLevel, CriticalLvl)
+	constraints, err := NewMinMaxConstraints(minLevel, CriticalLvl)
 	if err != nil {
 		return nil, err
 	}
-	formatter, err := newFormatter(format)
+	formatter, err := NewFormatter(format)
 	if err != nil {
 		return nil, err
 	}
-	dispatcher, err := newSplitDispatcher(formatter, []interface{}{output})
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := newConfig(constraints, make([]*logLevelException, 0), dispatcher, syncloggerTypeFromString, nil, nil)
+	dispatcher, err := NewSplitDispatcher(formatter, []interface{}{output})
 	if err != nil {
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	conf, err := newFullLoggerConfig(constraints, make([]*LogLevelException, 0), dispatcher, syncloggerTypeFromString, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromXMLDecoder creates logger with config from a XML decoder starting from a specific node.
@@ -138,7 +138,7 @@ func LoggerFromXMLDecoder(xmlParser *xml.Decoder, rootNode xml.Token) (LoggerInt
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	return createLoggerFromFullConfig(conf)
 }
 
 // LoggerFromCustomReceiver creates a proxy logger that uses a CustomReceiver as the
@@ -165,24 +165,24 @@ func LoggerFromXMLDecoder(xmlParser *xml.Decoder, rootNode xml.Token) (LoggerInt
 // * LoggerFromCustomReceiver takes value and uses it without modification and
 // reinstantiation, directy passing it to the dispatcher tree.
 func LoggerFromCustomReceiver(receiver CustomReceiver) (LoggerInterface, error) {
-	constraints, err := newMinMaxConstraints(TraceLvl, CriticalLvl)
+	constraints, err := NewMinMaxConstraints(TraceLvl, CriticalLvl)
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := newCustomReceiverDispatcherByValue(msgonlyformatter, receiver, "user-proxy", CustomReceiverInitArgs{})
+	output, err := NewCustomReceiverDispatcherByValue(msgonlyformatter, receiver, "user-proxy", CustomReceiverInitArgs{})
 	if err != nil {
 		return nil, err
 	}
-	dispatcher, err := newSplitDispatcher(msgonlyformatter, []interface{}{output})
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := newConfig(constraints, make([]*logLevelException, 0), dispatcher, syncloggerTypeFromString, nil, nil)
+	dispatcher, err := NewSplitDispatcher(msgonlyformatter, []interface{}{output})
 	if err != nil {
 		return nil, err
 	}
 
-	return createLoggerFromConfig(conf)
+	conf, err := newFullLoggerConfig(constraints, make([]*LogLevelException, 0), dispatcher, syncloggerTypeFromString, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return createLoggerFromFullConfig(conf)
 }

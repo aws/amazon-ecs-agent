@@ -14,7 +14,7 @@
 package app
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
 	"github.com/aws/amazon-ecs-agent/agent/logger"

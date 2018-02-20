@@ -30,13 +30,13 @@ import (
 
 func TestfilterDispatcher_Pass(t *testing.T) {
 	writer, _ := newBytesVerifier(t)
-	filter, err := newFilterDispatcher(onlyMessageFormatForTest, []interface{}{writer}, TraceLvl)
+	filter, err := NewFilterDispatcher(onlyMessageFormatForTest, []interface{}{writer}, TraceLvl)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	context, err := currentContext()
+	context, err := currentContext(nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -50,13 +50,13 @@ func TestfilterDispatcher_Pass(t *testing.T) {
 
 func TestfilterDispatcher_Deny(t *testing.T) {
 	writer, _ := newBytesVerifier(t)
-	filter, err := newFilterDispatcher(defaultformatter, []interface{}{writer})
+	filter, err := NewFilterDispatcher(DefaultFormatter, []interface{}{writer})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	context, err := currentContext()
+	context, err := currentContext(nil)
 	if err != nil {
 		t.Error(err)
 		return

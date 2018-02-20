@@ -37,9 +37,9 @@ import (
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
+	"context"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 const (

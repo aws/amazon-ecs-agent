@@ -1,6 +1,6 @@
 // +build !windows
 
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,10 +16,12 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -48,6 +50,7 @@ const (
 
 	taskVCPULimit   = 2.0
 	taskMemoryLimit = 512
+	minDockerClientAPIVersion = dockerclient.Version_1_17
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -296,4 +299,92 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
 	assert.Error(t, err)
 	assert.Empty(t, dockerHostConfig)
+}
+
+func TestDockerHostConfigRawConfigMerging(t *testing.T) {
+	// Use a struct that will marshal to the actual message we expect; not
+	// docker.HostConfig which will include a lot of zero values.
+	rawHostConfigInput := struct {
+		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
+		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
+	}{
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name:        "c1",
+				Image:       "image",
+				CPU:         50,
+				Memory:      100,
+				VolumesFrom: []VolumeFrom{{SourceContainer: "c2"}},
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+			{
+				Name: "c2",
+			},
+		},
+	}
+
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
+	assert.Nil(t, configErr)
+
+	expected := docker.HostConfig{
+		Privileged:       true,
+		SecurityOpt:      []string{"foo", "bar"},
+		VolumesFrom:      []string{"dockername-c2"},
+		MemorySwappiness: memorySwappinessDefault,
+		CPUPercent:       minimumCPUPercent,
+	}
+
+	assertSetStructFieldsEqual(t, expected, *hostConfig)
+}
+
+// TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly
+// set based on the docker client version
+func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
+	memoryMiB := 500
+	testTask := &Task{
+		Containers: []*Container{
+			{
+				Name:   "c1",
+				CPU:    uint(10),
+				Memory: uint(memoryMiB),
+			},
+		},
+	}
+
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, cerr)
+
+	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
+	assert.Equal(t, int64(10), config.CPUShares)
+	assert.Empty(t, hostconfig.CPUShares)
+	assert.Empty(t, hostconfig.Memory)
+
+	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
+	assert.Nil(t, err)
+
+	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
+	assert.Equal(t, int64(10), hostconfig.CPUShares)
+
+	assert.Empty(t, config.CPUShares)
+	assert.Empty(t, config.Memory)
 }

@@ -32,96 +32,96 @@ import (
 )
 
 const (
-	shortPath = "common_context_test.go"
+	testShortPath = "common_context_test.go"
+)
+
+var (
+	commonPrefix string
+	testFullPath string
 )
 
 func init() {
-	// Here we remove the hardcoding of the package name which breaks forks and some CI environments
-	// such as jenkins
+	// Here we remove the hardcoding of the package name which
+	// may break forks and some CI environments such as jenkins.
 	_, _, funcName, _, _ := extractCallerInfo(1)
-	commonPrefix = funcName[:strings.Index(funcName, "init·")]
-}
-
-var commonPrefix string
-var testFullPath string
-
-func fullPath(t *testing.T) string {
-	if testFullPath == "" {
-		wd, err := os.Getwd()
-
-		if err != nil {
-			t.Fatalf("Cannot get working directory: %s", err.Error())
-		}
-
-		testFullPath = filepath.Join(wd, shortPath)
+	preIndex := strings.Index(funcName, "init·")
+	if preIndex == -1 {
+		preIndex = strings.Index(funcName, "init")
 	}
-
-	return testFullPath
+	commonPrefix = funcName[:preIndex]
+	wd, err := os.Getwd()
+	if err == nil {
+		// Transform the file path into a slashed form:
+		// This is the proper platform-neutral way.
+		testFullPath = filepath.ToSlash(filepath.Join(wd, testShortPath))
+	}
 }
 
 func TestContext(t *testing.T) {
-
-	context, err := currentContext()
-
-	nameFunc := commonPrefix + "TestContext"
-
+	context, err := currentContext(nil)
 	if err != nil {
-		t.Fatalf("Unexpected error: %s", err.Error())
+		t.Fatalf("unexpected error: %s", err)
 	}
-
 	if context == nil {
-		t.Fatalf("Expected: context != nil")
+		t.Fatalf("unexpected error: context is nil")
 	}
-
-	if nf := context.Func(); nf != nameFunc {
-		// Account for a case when the func full path is bigger than commonPrefix but includes it.
-		if !strings.HasSuffix(nf, nameFunc) {
-			t.Errorf("expected context.Func == %s ; got %s", nameFunc, context.Func())
+	if fn, funcName := context.Func(), commonPrefix+"TestContext"; fn != funcName {
+		// Account for a case when the func full path is longer than commonPrefix but includes it.
+		if !strings.HasSuffix(fn, funcName) {
+			t.Errorf("expected context.Func == %s ; got %s", funcName, context.Func())
 		}
 	}
-
-	if context.ShortPath() != shortPath {
-		t.Errorf("expected context.ShortPath == %s ; got %s", shortPath, context.ShortPath())
+	if context.ShortPath() != testShortPath {
+		t.Errorf("expected context.ShortPath == %s ; got %s", testShortPath, context.ShortPath())
 	}
-
-	fp := fullPath(t)
-
-	if context.FullPath() != fp {
-		t.Errorf("expected context.FullPath == %s ; got %s", fp, context.FullPath())
+	if len(testFullPath) == 0 {
+		t.Fatal("working directory seems invalid")
+	}
+	if context.FullPath() != testFullPath {
+		t.Errorf("expected context.FullPath == %s ; got %s", testFullPath, context.FullPath())
 	}
 }
 
 func innerContext() (context LogContextInterface, err error) {
-	return currentContext()
+	return currentContext(nil)
 }
 
 func TestInnerContext(t *testing.T) {
 	context, err := innerContext()
-
-	nameFunc := commonPrefix + "innerContext"
-
 	if err != nil {
-		t.Fatalf("Unexpected error: %s", err.Error())
+		t.Fatalf("unexpected error: %s", err)
 	}
-
 	if context == nil {
-		t.Fatalf("Expected: context != nil")
+		t.Fatalf("unexpected error: context is nil")
 	}
-
-	if cf := context.Func(); cf != nameFunc {
-		// Account for a case when the func full path is bigger than commonPrefix but includes it.
-		if !strings.HasSuffix(cf, nameFunc) {
-			t.Errorf("expected context.Func == %s ; got %s", nameFunc, context.Func())
+	if fn, funcName := context.Func(), commonPrefix+"innerContext"; fn != funcName {
+		// Account for a case when the func full path is longer than commonPrefix but includes it.
+		if !strings.HasSuffix(fn, funcName) {
+			t.Errorf("expected context.Func == %s ; got %s", funcName, context.Func())
 		}
 	}
-
-	if context.ShortPath() != shortPath {
-		t.Errorf("expected context.ShortPath == %s ; got %s", shortPath, context.ShortPath())
+	if context.ShortPath() != testShortPath {
+		t.Errorf("expected context.ShortPath == %s ; got %s", testShortPath, context.ShortPath())
 	}
+	if len(testFullPath) == 0 {
+		t.Fatal("working directory seems invalid")
+	}
+	if context.FullPath() != testFullPath {
+		t.Errorf("expected context.FullPath == %s ; got %s", testFullPath, context.FullPath())
+	}
+}
 
-	fp := fullPath(t)
+type testContext struct {
+	field string
+}
 
-	if context.FullPath() != fp {
-		t.Errorf("expected context.FullPath == %s ; got %s", fp, context.FullPath())
+func TestCustomContext(t *testing.T) {
+	expected := "testStr"
+	context, err := currentContext(&testContext{expected})
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if st, _ := context.CustomContext().(*testContext); st.field != expected {
+		t.Errorf("expected context.CustomContext == %s ; got %s", expected, st.field)
 	}
 }

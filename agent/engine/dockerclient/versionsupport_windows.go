@@ -18,6 +18,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 )
 
+// minDockerAPIVersion is the min Docker API version supported by agent
 const minDockerAPIVersion = Version_1_24
 
 // GetClient will replace some versions of Docker on Windows. We need this because

@@ -36,12 +36,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
+	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 // xContainerShortTimeout is a short duration intended to be used by the
@@ -1270,4 +1270,15 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.Equal(t, created, metadata.CreatedAt)
 	assert.Equal(t, started, metadata.StartedAt)
 	assert.Equal(t, finished, metadata.FinishedAt)
+}
+
+func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
+
+	dockerContainer := &docker.Container{
+		State: docker.State{
+			Health: docker.Health{Status: "unhealthy"},
+		}}
+
+	metadata := metadataFromContainer(dockerContainer)
+	assert.Equal(t, api.ContainerUnhealthy, metadata.Health.Status)
 }

@@ -38,8 +38,8 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 
+	"context"
 	"github.com/golang/mock/gomock"
-	"golang.org/x/net/context"
 )
 
 func TestHandleEventError(t *testing.T) {

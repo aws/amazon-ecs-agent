@@ -45,6 +45,8 @@ const (
 	imageNameFormat = "%s:%s"
 	// the buffer size will ensure agent doesn't miss any event from docker
 	dockerEventBufferSize = 100
+	// healthCheckStarting is the initial status returned from docker container health check
+	healthCheckStarting = "starting"
 	// healthCheckHealthy is the healthy status returned from docker container health check
 	healthCheckHealthy = "healthy"
 	// healthCheckUnhealthy is unhealthy status returned from docker container health check
@@ -768,7 +770,7 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	if dockerContainer.State.OOMKilled {
 		metadata.Error = OutOfMemoryError{}
 	}
-	if dockerContainer.State.Health.Status == "" {
+	if dockerContainer.State.Health.Status == "" || dockerContainer.State.Health.Status == healthCheckStarting {
 		return metadata
 	}
 
@@ -785,11 +787,18 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 		health.Output = output[:size]
 	}
 
-	if dockerContainer.State.Health.Status == healthCheckHealthy {
+	switch dockerContainer.State.Health.Status {
+	case healthCheckHealthy:
 		health.Status = api.ContainerHealthy
-	} else if dockerContainer.State.Health.Status == healthCheckUnhealthy {
+	case healthCheckUnhealthy:
 		health.Status = api.ContainerUnhealthy
+		if logLength == 0 {
+			seelog.Warn("DockerGoClient: no container healthcheck data returned by Docker")
+			break
+		}
 		health.ExitCode = dockerContainer.State.Health.Log[logLength-1].ExitCode
+	default:
+		seelog.Debugf("DockerGoClient: unknown healthcheck status event from docker: %s", dockerContainer.State.Health.Status)
 	}
 
 	metadata.Health = health

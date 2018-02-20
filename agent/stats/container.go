@@ -17,10 +17,10 @@ import (
 	"errors"
 	"time"
 
+	"context"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 const (

@@ -15,13 +15,13 @@ package handler
 import (
 	"fmt"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 // refreshCredentialsHandler represents the refresh credentials operation for the ACS client

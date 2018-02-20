@@ -33,7 +33,7 @@ var onlyMessageFormatForTest *formatter
 
 func init() {
 	var err error
-	onlyMessageFormatForTest, err = newFormatter("%Msg")
+	onlyMessageFormatForTest, err = NewFormatter("%Msg")
 	if err != nil {
 		fmt.Println("Can not create only message format: " + err.Error())
 	}
@@ -42,13 +42,13 @@ func init() {
 func TestsplitDispatcher(t *testing.T) {
 	writer1, _ := newBytesVerifier(t)
 	writer2, _ := newBytesVerifier(t)
-	spliter, err := newSplitDispatcher(onlyMessageFormatForTest, []interface{}{writer1, writer2})
+	spliter, err := NewSplitDispatcher(onlyMessageFormatForTest, []interface{}{writer1, writer2})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	context, err := currentContext()
+	context, err := currentContext(nil)
 	if err != nil {
 		t.Error(err)
 		return

@@ -143,6 +143,9 @@ type Task struct {
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
 
+	// platformFields consists of fields specific to linux/windows for a task
+	platformFields platformFields
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -509,20 +512,6 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	}
 
 	return nil
-}
-
-// dockerCPUShares converts containerCPU shares if needed as per the logic stated below:
-// Docker silently converts 0 to 1024 CPU shares, which is probably not what we
-// want.  Instead, we convert 0 to 2 to be closer to expected behavior. The
-// reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
-func (task *Task) dockerCPUShares(containerCPU uint) int64 {
-	if containerCPU <= 1 {
-		seelog.Debugf(
-			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
-			task.Arn, containerCPU)
-		return 2
-	}
-	return int64(containerCPU)
 }
 
 func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struct{} {
