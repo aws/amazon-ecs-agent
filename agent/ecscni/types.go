@@ -23,8 +23,10 @@ const (
 	// capabilitiesCommand is the command used to get the capabilities of a
 	// CNI plugin
 	capabilitiesCommand = "--capabilities"
-	// defaultEthName is the name of veth pair name in the container namespace
-	defaultEthName = "ecs-eth0"
+	// defaultVethName is the name of veth pair name in the container namespace
+	defaultVethName = "ecs-eth0"
+	// defaultENIName is the name of eni interface name in the container namespace
+	defaultENIName = "eth0"
 	// defaultBridgeName is the default name of bridge created for container to
 	// communicate with ecs-agent
 	defaultBridgeName = "ecs-bridge"
