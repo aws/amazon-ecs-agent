@@ -16,6 +16,8 @@ package taskresource
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
 // ResourceStatus is an enumeration of valid states of task resource lifecycle
@@ -35,6 +37,10 @@ type TaskResource interface {
 	SetCreatedAt(time.Time)
 	// GetCreatedAt sets the timestamp for resource's creation time
 	GetCreatedAt() time.Time
+	// Create performs resource creation
+	Create(task *api.Task) error
+	// Cleanup performs resource cleanup
+	Cleanup() error
 
 	json.Marshaler
 	json.Unmarshaler
