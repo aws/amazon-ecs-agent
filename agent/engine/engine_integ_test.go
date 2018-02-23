@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -96,6 +97,34 @@ func setup(cfg *config.Config, t *testing.T) (TaskEngine, func(), credentials.Ma
 	}, credentialsManager
 }
 
+func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning,
+		"Expected container to be RUNNING")
+}
+
+func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning,
+		"Expected task to be RUNNING")
+}
+
+func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped,
+		"Expected container to be STOPPED")
+}
+
+func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped,
+		"Expected task to be STOPPED")
+}
+
 // TestDockerStateToContainerState tests convert the container status from
 // docker inspect to the status defined in agent
 func TestDockerStateToContainerState(t *testing.T) {
@@ -150,8 +179,6 @@ func TestHostVolumeMount(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
 	defer os.RemoveAll(tmpPath)
 	ioutil.WriteFile(filepath.Join(tmpPath, "test-file"), []byte("test-data"), 0644)
@@ -160,17 +187,10 @@ func TestHostVolumeMount(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
@@ -184,30 +204,17 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	// creates a task with two containers
 	testTask := createTestEmptyHostVolumeMountTask()
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code, file probably wasn't present")
@@ -220,24 +227,15 @@ func TestSweepContainer(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, t)
 	defer done()
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testSweepContainer"
 	testTask := createTestTask(taskArn)
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	tasks, _ := taskEngine.ListTasks()
 	assert.Equal(t, len(tasks), 1)
@@ -274,21 +272,12 @@ func TestStartStopWithCredentials(t *testing.T) {
 	credentialsManager.SetTaskCredentials(taskCredentials)
 	testTask.SetCredentialsID(credentialsIDIntegTest)
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	// When task is stopped, credentials should have been removed for the
 	// credentials id set in the task

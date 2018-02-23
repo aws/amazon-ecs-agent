@@ -49,6 +49,10 @@ const (
 	testAuthPass          = "swordfish"
 )
 
+var (
+	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+)
+
 func isDockerRunning() bool {
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		return false
@@ -57,9 +61,13 @@ func isDockerRunning() bool {
 }
 
 func createTestContainer() *api.Container {
+	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
+}
+
+func createTestContainerWithImageAndName(image string, name string) *api.Container {
 	return &api.Container{
-		Name:                "netcat",
-		Image:               testRegistryImage,
+		Name:                name,
+		Image:               image,
 		Command:             []string{},
 		Essential:           true,
 		DesiredStatusUnsafe: api.ContainerRunning,
@@ -67,8 +75,6 @@ func createTestContainer() *api.Container {
 		Memory:              80,
 	}
 }
-
-var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 
 func removeImage(img string) {
 	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
@@ -95,27 +101,17 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
+
 	// Ensure this image isn't pulled by deleting it
 	removeImage(testRegistryImage)
 
 	testTask := createTestTask("testStartUnpulled")
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
-
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
-
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
@@ -130,21 +126,12 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	testTask := createTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = imageDigest
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port
@@ -305,8 +292,7 @@ func TestDynamicPortForward(t *testing.T) {
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	if len(portBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
@@ -337,11 +323,8 @@ func TestDynamicPortForward(t *testing.T) {
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -363,8 +346,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	if len(portBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
@@ -413,11 +395,8 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestLinking ensures that container linking does allow networking to go
@@ -494,26 +473,18 @@ func TestDockerCfgAuth(t *testing.T) {
 	testTask := createTestTask("testDockerCfgAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	taskUpdate := createTestTask("testDockerCfgAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestDockerAuth(t *testing.T) {
@@ -532,26 +503,18 @@ func TestDockerAuth(t *testing.T) {
 	testTask := createTestTask("testDockerAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	taskUpdate := createTestTask("testDockerAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestVolumesFrom(t *testing.T) {
@@ -683,20 +646,16 @@ func TestInitOOMEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	if contEvent.ExitCode == nil {
 		t.Error("Expected exitcode to be set")
@@ -740,11 +699,8 @@ func TestSignalEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -778,11 +734,8 @@ check_events:
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	if testTask.Containers[0].GetKnownExitCode() == nil || *testTask.Containers[0].GetKnownExitCode() != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
@@ -807,18 +760,14 @@ func TestDockerStopTimeout(t *testing.T) {
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-docker-timeout"
 
-	stateChangeEvents := dockerTaskEngine.StateChangeEvents()
-
 	go dockerTaskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be running")
+	verifyContainerRunningStateChange(t, taskEngine)
 
 	startTime := ttime.Now()
 	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be stopped")
+	verifyContainerRunningStateChange(t, taskEngine)
 
 	if ttime.Since(startTime) < testDockerStopTimeout {
 		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
@@ -832,28 +781,20 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	testArn := "testSecurityOptionNoNewPrivileges"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].DockerConfig = api.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
