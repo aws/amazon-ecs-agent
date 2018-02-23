@@ -221,7 +221,7 @@ cni-plugins: get-cni-sources .out-stamp
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 run-integ-tests: test-registry gremlin container-health-check-image
-	. ./scripts/shared_env && go test -race -tags integration -timeout=5m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && go test -race -tags integration -timeout=7m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
 .PHONY: codebuild
 codebuild: get-deps test-artifacts .out-stamp

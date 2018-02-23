@@ -97,6 +97,31 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 	return conn, err
 }
 
+func createTestHealthCheckTask(arn string) *api.Task {
+	testTask := &api.Task{
+		Arn:                 arn,
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		Containers:          []*api.Container{createTestContainer()},
+	}
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Name = "test-health-check"
+	testTask.Containers[0].HealthCheckType = "docker"
+	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
+	testTask.Containers[0].DockerConfig = api.DockerConfig{
+		Config: aws.String(`{
+			"HealthCheck":{
+				"Test":["CMD-SHELL", "echo hello"],
+				"Interval":100000000,
+				"Timeout":100000000,
+				"StartPeriod":100000000,
+				"Retries":3}
+		}`),
+	}
+	return testTask
+}
+
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
