@@ -15,14 +15,13 @@
 package engine
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -40,8 +39,9 @@ import (
 )
 
 const (
-	testDockerStopTimeout  = 2 * time.Second
-	credentialsIDIntegTest = "credsid"
+	testDockerStopTimeout       = 2 * time.Second
+	credentialsIDIntegTest      = "credsid"
+	waitTaskStateChangeDuration = 2 * time.Minute
 )
 
 func init() {
@@ -283,4 +283,47 @@ func TestStartStopWithCredentials(t *testing.T) {
 	// credentials id set in the task
 	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
+}
+
+func TestContainerHealthCheck(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testTaskWithHealthCheck"
+	testTask := createTestHealthCheckTask(taskArn)
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	waitForContainerHealthStatus(t, testTask)
+	healthStatus := testTask.Containers[0].GetHealthStatus()
+	assert.Equal(t, "HEALTHY", healthStatus.Status.BackendStatus(), "container health status is not HEALTHY")
+
+	taskUpdate := createTestTask(taskArn)
+	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+}
+
+func waitForContainerHealthStatus(t *testing.T, testTask *api.Task) {
+	ctx, _ := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
+	for {
+		select {
+		case <-ctx.Done():
+			t.Error("Timed out waiting for container health status")
+		default:
+			healthStatus := testTask.Containers[0].GetHealthStatus()
+			if healthStatus.Status.BackendStatus() == "UNKNOWN" {
+				time.Sleep(time.Second)
+				continue
+			}
+			return
+		}
+	}
 }
