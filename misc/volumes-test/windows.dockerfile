@@ -17,7 +17,10 @@ MAINTAINER Amazon Web Services, Inc.
 SHELL ["powershell", "-command"]
 
 RUN mkdir C:/data
+RUN mkdir C:/volume
 RUN echo "test" > C:/data/test-file
+
+VOLUME ["C:/volume"]
 
 ENTRYPOINT ["powershell"]
 CMD ["Write-Output sleeping ; While ($true) { Start-Sleep -s 1 }"]

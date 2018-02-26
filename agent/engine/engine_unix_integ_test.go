@@ -77,26 +77,6 @@ func createTestContainerWithImageAndName(image string, name string) *api.Contain
 	}
 }
 
-func removeImage(img string) {
-	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-	client, _ := docker.NewClient(removeEndpoint)
-
-	client.RemoveImage(img)
-}
-
-func dialWithRetries(proto string, address string, tries int, timeout time.Duration) (net.Conn, error) {
-	var err error
-	var conn net.Conn
-	for i := 0; i < tries; i++ {
-		conn, err = net.DialTimeout(proto, address, timeout)
-		if err == nil {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return conn, err
-}
-
 func createTestHealthCheckTask(arn string) *api.Task {
 	testTask := &api.Task{
 		Arn:                 arn,
