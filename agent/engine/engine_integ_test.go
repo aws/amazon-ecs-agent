@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,6 +130,26 @@ func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped,
 		"Expected task to be STOPPED")
+}
+
+func dialWithRetries(proto string, address string, tries int, timeout time.Duration) (net.Conn, error) {
+	var err error
+	var conn net.Conn
+	for i := 0; i < tries; i++ {
+		conn, err = net.DialTimeout(proto, address, timeout)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return conn, err
+}
+
+func removeImage(img string) {
+	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+	client, _ := docker.NewClient(removeEndpoint)
+
+	client.RemoveImage(img)
 }
 
 // TestDockerStateToContainerState tests convert the container status from
