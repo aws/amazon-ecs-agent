@@ -242,12 +242,12 @@ func (mtask *managedTask) waitForHostResources() {
 	seelog.Infof("Managed task [%s]: waiting for any previous stops to complete. Sequence number: %d",
 		mtask.Arn, mtask.StartSequenceNumber)
 
-	othersStoppedCtx, othersStoppedCancel := context.WithCancel(mtask.ctx)
-	defer othersStoppedCancel()
+	othersStoppedCtx, cancel := context.WithCancel(mtask.ctx)
+	defer cancel()
 
 	go func() {
 		mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
-		othersStoppedCancel()
+		cancel()
 	}()
 
 	for !mtask.waitEvent(othersStoppedCtx.Done()) {
@@ -267,7 +267,8 @@ func (mtask *managedTask) waitForHostResources() {
 func (mtask *managedTask) waitSteady() {
 	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	timeoutCtx, _ := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	defer cancel()
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
@@ -292,9 +293,9 @@ func (mtask *managedTask) cleanupCredentials() {
 }
 
 // waitEvent waits for any event to occur. If an event occurs, the appropriate
-// handler is called. If the event is the passed in channel, it will return the
-// value written to the channel, otherwise it will return false.
-// TODO: Wire in context here
+// handler is called. Generally the stopWaiting arg is the context's Done
+// channel. When the Done channel is signalled by the context, waitEvent will
+// return true.
 func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 	seelog.Debugf("Managed task [%s]: waiting for event for task", mtask.Arn)
 	select {
