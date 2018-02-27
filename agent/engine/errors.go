@@ -334,3 +334,16 @@ func (err CannotGetDockerClientVersionError) ErrorName() string {
 func (err CannotGetDockerClientVersionError) Error() string {
 	return err.fromError.Error()
 }
+
+// CannotCreateVolumeError indicates any error when trying to create a volume
+type CannotCreateVolumeError struct {
+	fromError error
+}
+
+func (err CannotCreateVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotCreateVolumeError) ErrorName() string {
+	return "CannotCreateVolumeError"
+}

@@ -1282,3 +1282,59 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 	metadata := metadataFromContainer(dockerContainer)
 	assert.Equal(t, api.ContainerUnhealthy, metadata.Health.Status)
 }
+
+func TestCreateVolumeTimeout(t *testing.T) {
+	timeout := 10*time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	volumeResponse := client.CreateVolume("name", "mountpoint", "driver", nil, nil, timeout)
+	assert.Error(t, volumeResponse.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(api.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestCreateVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().CreateVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	volumeResponse := client.CreateVolume("name", "mountpoint", "driver", nil, nil, 1*time.Second)
+	assert.Equal(t, "CannotCreateVolumeError", volumeResponse.Error.(api.NamedError).ErrorName())
+}
+
+func TestCreateVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+	mountPoint := "some/mount/point"
+	driver := "driver"
+	driverOptions :=  map[string]string{
+		"opt1": "val1",
+		"opt2": "val2",
+	}
+	gomock.InOrder(
+		mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(opts docker.CreateVolumeOptions) {
+			assert.Equal(t, opts.Name, volumeName)
+			assert.Equal(t, opts.Driver, driver)
+			assert.EqualValues(t, opts.DriverOpts, driverOptions)
+		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
+	)
+	volumeResponse := client.CreateVolume(volumeName, mountPoint, driver, driverOptions, nil, 1*time.Second)
+	assert.Nil(t, volumeResponse.Error, "Did not expect error")
+	assert.Equal(t, volumeResponse.Volume.Name, volumeName)
+	assert.Equal(t, volumeResponse.Volume.Driver, driver)
+	assert.Equal(t, volumeResponse.Volume.Mountpoint, mountPoint)
+	assert.Nil(t, volumeResponse.Volume.Labels)
+}

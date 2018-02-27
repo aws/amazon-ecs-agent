@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -147,6 +148,9 @@ type DockerClient interface {
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value should be provided for
 	// the request.
 	ListContainers(bool, time.Duration) ListContainersResponse
+
+	// CreateVolume creates a docker volume. A timeout value should be provided for the request
+	CreateVolume(string, string, string, map[string]string, map[string]string, time.Duration) volumeResponse
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
@@ -960,6 +964,79 @@ func (dg *dockerGoClient) Version() (string, error) {
 		return "", err
 	}
 	return info.Get("Version"), nil
+}
+
+type volumeResponse struct {
+	Volume *taskresource.VolumeResource
+	Error       error
+}
+
+func (dg *dockerGoClient) CreateVolume(name string,
+	mountpoint string,
+	driver string,
+	driverOptions map[string]string,
+	labels map[string]string,
+	timeout time.Duration) volumeResponse {
+	// Create a context that times out after the 'timeout' duration
+	// This is defined by the const 'createContainerTimeout'. Injecting the 'timeout'
+	// makes it easier to write tests.
+	// Eventually, the context should be initialized from a parent root context
+	// instead of TODO.
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
+	response := make(chan volumeResponse, 1)
+	go func() { response <- dg.createVolume(ctx, name, mountpoint, driver, driverOptions, labels) }()
+
+	// Wait until we get a response or for the 'done' context channel
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return volumeResponse{Volume: nil, Error: &DockerTimeoutError{timeout, "created"}}
+		}
+		// Context was canceled even though there was no timeout. Send
+		// back an error.
+		return volumeResponse{Volume: nil, Error: &CannotCreateVolumeError{err}}
+	}
+}
+
+func (dg *dockerGoClient) createVolume(ctx context.Context,
+	name string,
+	mountpoint string,
+	driver string,
+	driverOptions map[string]string,
+	labels map[string]string) volumeResponse {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return volumeResponse{Volume: nil, Error: CannotGetDockerClientError{version: dg.version, err: err}}
+	}
+
+	volumeOptions := docker.CreateVolumeOptions{
+		Name:       name,
+		Driver:     driver,
+		DriverOpts: driverOptions,
+		Context:    ctx,
+		Labels:     labels,
+	}
+	dockerVolume, err := client.CreateVolume(volumeOptions)
+	if err != nil {
+		return volumeResponse{Volume: nil, Error: CannotCreateVolumeError{err}}
+	}
+
+	volume := taskresource.NewVolumeResource(
+		dockerVolume.Name,
+		dockerVolume.Mountpoint,
+		dockerVolume.Driver,
+		driverOptions,
+		dockerVolume.Labels)
+	return volumeResponse{Volume: volume, Error: nil}
 }
 
 // APIVersion returns the client api version
