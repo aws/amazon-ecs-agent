@@ -184,11 +184,7 @@ func addTaskToEngine(t *testing.T,
 	createStartEventsReported sync.WaitGroup) {
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
 	// has been invoked at least once
-	steadyStateVerify := make(chan time.Time, 1)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	gomock.InOrder(
-		mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes(),
-	)
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
