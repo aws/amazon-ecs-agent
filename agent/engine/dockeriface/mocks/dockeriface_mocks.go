@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -196,6 +196,17 @@ func (_m *MockClient) StartContainerWithContext(_param0 string, _param1 *go_dock
 
 func (_mr *_MockClientRecorder) StartContainerWithContext(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartContainerWithContext", arg0, arg1, arg2)
+}
+
+func (_m *MockClient) CreateVolume(_param0 go_dockerclient.CreateVolumeOptions) (*go_dockerclient.Volume, error) {
+	ret := _m.ctrl.Call(_m, "CreateVolume", _param0)
+	ret0, _ := ret[0].(*go_dockerclient.Volume)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockClientRecorder) CreateVolume(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateVolume", arg0)
 }
 
 func (_m *MockClient) Stats(_param0 go_dockerclient.StatsOptions) error {

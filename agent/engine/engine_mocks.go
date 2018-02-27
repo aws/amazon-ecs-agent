@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -435,6 +435,12 @@ func (_m *MockImageManager) RemoveContainerReferenceFromImageState(_param0 *api.
 
 func (_mr *_MockImageManagerRecorder) RemoveContainerReferenceFromImageState(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveContainerReferenceFromImageState", arg0)
+}
+
+func (_m *MockDockerClient) CreateVolume(_param0 string, _param1 string, _param2 string, _param3 map[string]string, _param4 map[string]string, _param5 time.Duration) volumeResponse {
+	ret := _m.ctrl.Call(_m, "CreateVolume", _param0, _param1, _param2, _param3, _param4, _param5)
+	ret0, _ := ret[0].(volumeResponse)
+	return ret0
 }
 
 func (_m *MockImageManager) SetSaver(_param0 statemanager.Saver) {

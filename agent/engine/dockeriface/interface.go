@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,6 +38,7 @@ type Client interface {
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	StopContainer(id string, timeout uint) error
 	StopContainerWithContext(id string, timeout uint, ctx context.Context) error
+	CreateVolume(opts docker.CreateVolumeOptions) (*docker.Volume, error)
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error
