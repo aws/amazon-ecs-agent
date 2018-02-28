@@ -209,6 +209,27 @@ func (_mr *_MockClientRecorder) CreateVolume(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateVolume", arg0)
 }
 
+func (_m *MockClient) InspectVolume(_param0 string) (*go_dockerclient.Volume, error) {
+	ret := _m.ctrl.Call(_m, "InspectVolume", _param0)
+	ret0, _ := ret[0].(*go_dockerclient.Volume)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockClientRecorder) InspectVolume(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectVolume", arg0)
+}
+
+func (_m *MockClient) RemoveVolume(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "RemoveVolume", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockClientRecorder) RemoveVolume(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0)
+}
+
 func (_m *MockClient) Stats(_param0 go_dockerclient.StatsOptions) error {
 	ret := _m.ctrl.Call(_m, "Stats", _param0)
 	ret0, _ := ret[0].(error)

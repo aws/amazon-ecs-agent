@@ -1332,9 +1332,106 @@ func TestCreateVolume(t *testing.T) {
 		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
 	)
 	volumeResponse := client.CreateVolume(volumeName, mountPoint, driver, driverOptions, nil, 1*time.Second)
-	assert.Nil(t, volumeResponse.Error, "Did not expect error")
+	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeResponse.Volume.Name, volumeName)
 	assert.Equal(t, volumeResponse.Volume.Driver, driver)
 	assert.Equal(t, volumeResponse.Volume.Mountpoint, mountPoint)
 	assert.Nil(t, volumeResponse.Volume.Labels)
+}
+
+func TestInspectVolumeTimeout(t *testing.T) {
+	timeout := 10*time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().InspectVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	volumeResponse := client.InspectVolume("name", timeout)
+	assert.Error(t, volumeResponse.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(api.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestInspectVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().InspectVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	volumeResponse := client.InspectVolume("name", 1*time.Second)
+	assert.Equal(t, "CannotInspectVolumeError", volumeResponse.Error.(api.NamedError).ErrorName())
+}
+
+func TestInspectVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+
+	volumeOutput := docker.Volume{
+		Name: volumeName,
+		Driver: "driver",
+		Mountpoint: "local/mount/point",
+		Labels: map[string]string{
+			"label1": "val1",
+			"label2": "val2",
+		},
+	}
+
+	mockDocker.EXPECT().InspectVolume(volumeName).Return(&volumeOutput, nil)
+
+	volumeResponse := client.InspectVolume(volumeName, inspectContainerTimeout)
+	assert.NoError(t, volumeResponse.Error)
+	assert.Equal(t, volumeOutput.Driver, volumeResponse.Volume.Driver)
+	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.Volume.Mountpoint)
+	assert.Equal(t, volumeOutput.Labels, volumeResponse.Volume.Labels)
+}
+
+func TestRemoveVolumeTimeout(t *testing.T) {
+	timeout := 10*time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	err := client.RemoveVolume("name", timeout)
+	assert.Error(t, err, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", err.(api.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestRemoveVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Return(errors.New("some docker error"))
+	err := client.RemoveVolume("name", 1*time.Second)
+	assert.Equal(t, "CannotRemoveVolumeError", err.(api.NamedError).ErrorName())
+}
+
+func TestRemoveVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+
+	mockDocker.EXPECT().RemoveVolume(volumeName).Return(nil)
+
+	err := client.RemoveVolume(volumeName, inspectContainerTimeout)
+	assert.NoError(t, err)
 }

@@ -39,6 +39,8 @@ type Client interface {
 	StopContainer(id string, timeout uint) error
 	StopContainerWithContext(id string, timeout uint, ctx context.Context) error
 	CreateVolume(opts docker.CreateVolumeOptions) (*docker.Volume, error)
+	InspectVolume(name string) (*docker.Volume, error)
+	RemoveVolume(name string) error
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error
