@@ -1034,7 +1034,6 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 		dockerVolume.Name,
 		dockerVolume.Mountpoint,
 		dockerVolume.Driver,
-		driverOptions,
 		dockerVolume.Labels)
 	return volumeResponse{Volume: volume, Error: nil}
 }

@@ -24,7 +24,6 @@ type VolumeResource struct {
 	Name                string
 	Mountpoint          string
 	Driver              string
-	DriverOptions       map[string]string
 	Labels              map[string]string
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe VolumeStatus
@@ -37,14 +36,12 @@ type VolumeResource struct {
 func NewVolumeResource(name string, 
 	mountPoint string, 
 	driver string, 
-	driverOptions map[string]string, 
 	labels map[string]string) *VolumeResource {
 
 	return &VolumeResource{
 		Name: name,
 		Mountpoint: mountPoint,
 		Driver: driver,
-		DriverOptions: driverOptions,
 		Labels: labels,
 	}
 }
@@ -105,7 +102,6 @@ type volumeResourceJSON struct {
 	Name          string            `json:"Name"`
 	Mountpoint    string            `json:"MountPoint"`
 	Driver        string            `json:"Driver"`
-	DriverOptions map[string]string `json:"DriverOptions"`
 	Labels        map[string]string `json:"Labels"`
 	CreatedAt     time.Time
 	DesiredStatus *VolumeStatus `json:"DesiredStatus"`
@@ -121,7 +117,6 @@ func (vol *VolumeResource) MarshalJSON() ([]byte, error) {
 		vol.Name,
 		vol.Mountpoint,
 		vol.Driver,
-		vol.DriverOptions,
 		vol.Labels,
 		vol.GetCreatedAt(),
 		func() *VolumeStatus { desiredState := vol.GetDesiredStatus(); return &desiredState }(),
@@ -140,7 +135,6 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	vol.Name = temp.Name
 	vol.Mountpoint = temp.Mountpoint
 	vol.Driver = temp.Driver
-	vol.DriverOptions = temp.DriverOptions
 	vol.Labels = temp.Labels
 	if temp.DesiredStatus != nil {
 		vol.SetDesiredStatus(*temp.DesiredStatus)

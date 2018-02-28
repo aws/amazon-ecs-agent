@@ -20,20 +20,15 @@ import (
 )
 
 func TestMarshall(t *testing.T) {
-	volumeStr := "{\"Name\":\"volumeName\",\"MountPoint\":\"mountPoint\",\"Driver\":\"drive\"," +
-		"\"DriverOptions\":{\"opt1\":\"val1\",\"opt2\":\"val2\"},\"Labels\":{}," +
+	volumeStr := "{\"Name\":\"volumeName\",\"MountPoint\":\"mountPoint\",\"Driver\":\"drive\",\"Labels\":{}," +
 		"\"CreatedAt\":\"0001-01-01T00:00:00Z\",\"DesiredStatus\":\"CREATED\",\"KnownStatus\":\"NONE\"}"
 	name := "volumeName"
 	mountPoint := "mountPoint"
 	driver := "drive"
-	driverOptions := map[string]string{
-		"opt1": "val1",
-		"opt2": "val2",
-	}
 
 	labels := make(map[string]string)
 
-	volume := NewVolumeResource(name, mountPoint, driver, driverOptions, labels)
+	volume := NewVolumeResource(name, mountPoint, driver, labels)
 	volume.SetDesiredStatus(VolumeCreated)
 	volume.SetKnownStatus(VolumeStatusNone)
 
@@ -45,15 +40,11 @@ func TestUnmarshall(t *testing.T) {
 	name := "volumeName"
 	mountPoint := "mountPoint"
 	driver := "drive"
-	driverOptions := map[string]string{
-		"opt1": "val1",
-	}
 
 	labels := map[string]string{
 		"lab1": "label",
 	}
-	bytes := []byte("{\"Name\":\"volumeName\",\"MountPoint\":\"mountPoint\",\"Driver\":\"drive\"," +
-		"\"DriverOptions\":{\"opt1\":\"val1\"},\"Labels\":{\"lab1\":\"label\"}," +
+	bytes := []byte("{\"Name\":\"volumeName\",\"MountPoint\":\"mountPoint\",\"Driver\":\"drive\",\"Labels\":{\"lab1\":\"label\"}," +
 		"\"CreatedAt\":\"0001-01-01T00:00:00Z\",\"DesiredStatus\":\"CREATED\",\"KnownStatus\":\"NONE\"}")
 	unmarshalledVolume := &VolumeResource{}
 	err := unmarshalledVolume.UnmarshalJSON(bytes)
@@ -62,7 +53,6 @@ func TestUnmarshall(t *testing.T) {
 	assert.Equal(t, name, unmarshalledVolume.Name)
 	assert.Equal(t, mountPoint, unmarshalledVolume.Mountpoint)
 	assert.Equal(t, driver, unmarshalledVolume.Driver)
-	assert.Equal(t, driverOptions, unmarshalledVolume.DriverOptions)
 	assert.Equal(t, labels, unmarshalledVolume.Labels)
 	assert.Equal(t, time.Time{}, unmarshalledVolume.GetCreatedAt())
 	assert.Equal(t, VolumeCreated, unmarshalledVolume.GetDesiredStatus())
