@@ -576,10 +576,7 @@ func TestSteadyStatePoll(t *testing.T) {
 			eventStream, containerName, func() {
 			})
 	}
-
-	steadyStateVerify := make(chan time.Time, 10) // channel to trigger a "steady state verify" action
-	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	testTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).AnyTimes()
+	testTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
 
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
@@ -615,8 +612,9 @@ func TestSteadyStatePoll(t *testing.T) {
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
 	// trigger steady state verification
-	for i := 0; i < 10; i++ {
-		steadyStateVerify <- time.Now()
+	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
+	for _, task := range mtasks {
+		task.cancel()
 	}
 
 	// StopContainer might be invoked if the test execution is slow, during
@@ -624,7 +622,6 @@ func TestSteadyStatePoll(t *testing.T) {
 	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
 		DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
-	close(steadyStateVerify)
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(api.TaskStopped)
 	cleanup <- time.Now()
@@ -1096,12 +1093,9 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
 		DockerContainerMetadata{DockerID: containerID})
 
-	steadyStateVerify := make(chan time.Time)
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
-	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-	// Expect steady state check once
-	mockTime.EXPECT().After(steadyStateTaskVerifyInterval).Return(steadyStateVerify).MinTimes(1)
+	mockTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
 	dockerClient.EXPECT().DescribeContainer(containerID).AnyTimes()
 	dockerClient.EXPECT().DescribeContainer(pauseContainerID).AnyTimes()
 
@@ -1111,7 +1105,12 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	verifyTaskIsRunning(stateChangeEvents, sleepTask)
-	steadyStateVerify <- time.Now()
+
+	// trigger steady state verification
+	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
+	for _, task := range mtasks {
+		task.cancel()
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -1489,10 +1488,15 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 func TestNewTaskTransitionOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	state := dockerTaskEngine.State()
@@ -1530,6 +1534,12 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 	saver := mock_statemanager.NewMockStateManager(ctrl)
+
+	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := privateTaskEngine.Init(ctx)
+	assert.NoError(t, err)
 
 	taskEngine := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine.saver = saver
