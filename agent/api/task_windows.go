@@ -88,6 +88,10 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 		hostConfig.CPUPercent = minimumCPUPercent
 	}
 	hostConfig.CPUShares = 0
+
+	// As of version  17.06.2-ee-6 of docker. MemoryReservation is not supported on windows. This ensures that
+	// this parameter is not passed, allowing to launch a container without a hard limit.
+	hostConfig.MemoryReservation = 0
 	return nil
 }
 
