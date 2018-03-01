@@ -79,13 +79,15 @@ func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
-	result, err := client.eniAdd(runtimeConfig, cfg)
+	// Invoke eni plugin ADD command
+	result, err := client.add(runtimeConfig, cfg, client.createENINetworkConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke eni plugin failed")
 	}
 	seelog.Debugf("Ecscni: Set up eni done: %s", result.String())
 
-	result, err = client.bridgeAdd(runtimeConfig, cfg)
+	// Invoke bridge plugin ADD command
+	result, err = client.add(runtimeConfig, cfg, client.createBridgeNetworkConfigWithIPAM)
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke bridge plugin failed")
 	}
@@ -118,13 +120,13 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	seelog.Debugf("Ecscni: Starting clean up the container namespace: %s", cfg.ContainerID)
 	// clean up the network namespace is separate from releasing the IP from IPAM
-	err := client.bridgeDel(runtimeConfig, cfg)
+	err := client.del(runtimeConfig, cfg, client.createBridgeNetworkConfigWithoutIPAM)
 	if err != nil {
 		return errors.Wrap(err, "cni cleanup: invoke bridge plugin failed")
 	}
 	seelog.Debugf("Ecscni: bridge cleanup done: %s", cfg.ContainerID)
 
-	err = client.eniDel(runtimeConfig, cfg)
+	err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
 	if err != nil {
 		return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
 	}
@@ -134,27 +136,23 @@ func (client *cniClient) CleanupNS(cfg *Config) error {
 
 // ReleaseIPResource marks the ip available in the ipam db
 func (client *cniClient) ReleaseIPResource(cfg *Config) error {
-	runtimeConfig := &libcni.RuntimeConf{
+	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
-		IfName:      defaultVethName,
-	}
-
-	ipamConfig, err := client.createIPAMNetworkConfig(cfg)
-	if err != nil {
-		return err
 	}
 
 	seelog.Debugf("Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
-	return client.libcni.DelNetwork(ipamConfig, runtimeConfig)
+	return client.del(runtimeConfig, cfg, client.createIPAMNetworkConfig)
 }
 
-// bridgeAdd invokes the bridge and ipam plugin to set up the bridge,
-// also it sets the veth pair and route in container namespace
-func (client *cniClient) bridgeAdd(runtimeConfig libcni.RuntimeConf, cfg *Config) (cnitypes.Result, error) {
-	deviceName, networkConfig, err := client.createBridgeNetworkConfigWithIPAM(cfg)
+// add invokes the ADD command of the given plugin
+func (client *cniClient) add(runtimeConfig libcni.RuntimeConf,
+	cfg *Config,
+	pluginConfigFunc func(*Config) (string, *libcni.NetworkConfig, error)) (cnitypes.Result, error) {
+
+	deviceName, networkConfig, err := pluginConfigFunc(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -163,36 +161,17 @@ func (client *cniClient) bridgeAdd(runtimeConfig libcni.RuntimeConf, cfg *Config
 	return client.libcni.AddNetwork(networkConfig, &runtimeConfig)
 }
 
-// eniAdd invokes the eni plugin to setup the eni in container namespace
-func (client *cniClient) eniAdd(runtimeConfig libcni.RuntimeConf, cfg *Config) (cnitypes.Result, error) {
-	deviceName, networkConfig, err := client.createENINetworkConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
+// del invokes the DEL command of the given plugin
+func (client *cniClient) del(runtimeConfig libcni.RuntimeConf,
+	cfg *Config,
+	pluginConfigFunc func(*Config) (string, *libcni.NetworkConfig, error)) error {
 
-	runtimeConfig.IfName = deviceName
-	return client.libcni.AddNetwork(networkConfig, &runtimeConfig)
-}
-
-// bridgeDel invokes the bridge plugin to clean up the container namespace
-func (client *cniClient) bridgeDel(runtimeConfig libcni.RuntimeConf, cfg *Config) error {
-	deviceName, networkConfig, err := client.createBridgeNetworkConfigWithoutIPAM(cfg)
+	deviceName, networkConfig, err := pluginConfigFunc(cfg)
 	if err != nil {
 		return err
 	}
 	runtimeConfig.IfName = deviceName
 
-	return client.libcni.DelNetwork(networkConfig, &runtimeConfig)
-}
-
-// eniDel invokes the eni plugin to clean up the eni in container namespace
-func (client *cniClient) eniDel(runtimeConfig libcni.RuntimeConf, cfg *Config) error {
-	deviceName, networkConfig, err := client.createENINetworkConfig(cfg)
-	if err != nil {
-		return err
-	}
-
-	runtimeConfig.IfName = deviceName
 	return client.libcni.DelNetwork(networkConfig, &runtimeConfig)
 }
 
@@ -268,10 +247,10 @@ func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.Ne
 }
 
 // createIPAMNetworkConfig constructs the ipam configuration accepted by libcni
-func (client *cniClient) createIPAMNetworkConfig(cfg *Config) (*libcni.NetworkConfig, error) {
+func (client *cniClient) createIPAMNetworkConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
 	ipamConfig, err := client.createIPAMConfig(cfg)
 	if err != nil {
-		return nil, err
+		return defaultVethName, nil, err
 	}
 
 	ipamNetworkConfig := IPAMNetworkConfig{
@@ -279,7 +258,9 @@ func (client *cniClient) createIPAMNetworkConfig(cfg *Config) (*libcni.NetworkCo
 		CNIVersion: client.cniVersion,
 		IPAM:       ipamConfig,
 	}
-	return client.constructNetworkConfig(ipamNetworkConfig, ECSIPAMPluginName)
+
+	networkConfig, err := client.constructNetworkConfig(ipamNetworkConfig, ECSIPAMPluginName)
+	return defaultVethName, networkConfig, err
 }
 
 func (client *cniClient) createIPAMConfig(cfg *Config) (IPAMConfig, error) {
