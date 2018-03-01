@@ -23,9 +23,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -66,11 +68,12 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 
 func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *v1.TaskResponse {
 	containers := []v1.ContainerResponse{}
-	for containerName, container := range containerMap {
+	for _, container := range containerMap {
 		if container.Container.IsInternal() {
 			continue
 		}
-		containers = append(containers, v1.ContainerResponse{DockerId: container.DockerID, DockerName: container.DockerName, Name: containerName})
+		containerResponse := newContainerResponse(container, task.GetTaskENI())
+		containers = append(containers, containerResponse)
 	}
 
 	knownStatus := task.GetKnownStatus()
@@ -90,6 +93,41 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		Version:       task.Version,
 		Containers:    containers,
 	}
+}
+
+func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1.ContainerResponse {
+	container := dockerContainer.Container
+	resp := v1.ContainerResponse{
+		Name:       container.Name,
+		DockerId:   dockerContainer.DockerID,
+		DockerName: dockerContainer.DockerName,
+	}
+
+	for _, binding := range container.GetPorts() {
+		port := v2.PortResponse{
+			ContainerPort: binding.ContainerPort,
+			Protocol:      binding.Protocol.String(),
+		}
+
+		if eni == nil {
+			port.HostPort = binding.HostPort
+		} else {
+			port.HostPort = port.ContainerPort
+		}
+
+		resp.Ports = append(resp.Ports, port)
+	}
+
+	if eni != nil {
+		resp.Networks = []containermetadata.Network{
+			{
+				NetworkMode:   "awsvpc",
+				IPv4Addresses: eni.GetIPV4Addresses(),
+				IPv6Addresses: eni.GetIPV6Addresses(),
+			},
+		}
+	}
+	return resp
 }
 
 func newTasksResponse(state dockerstate.TaskEngineState) *v1.TasksResponse {

@@ -36,6 +36,7 @@ import (
 
 const testContainerInstanceArn = "test_container_instance_arn"
 const testClusterArn = "test_cluster_arn"
+const eniIPV4Address = "10.0.0.2"
 
 func TestMetadataHandler(t *testing.T) {
 	metadataHandler := metadataV1RequestHandlerMaker(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
@@ -123,6 +124,24 @@ func TestGetTaskByTaskArn(t *testing.T) {
 	}
 
 	taskDiffHelper(t, []*api.Task{testTasks[0]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
+}
+
+func TestGetAWSVPCTaskByTaskArn(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=awsvpcTask")
+
+	var taskResponse v1.TaskResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
+
+	assert.Equal(t, eniIPV4Address, resp.Tasks[0].Containers[0].Networks[0].IPv4Addresses[0])
+	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
+	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
+
+	taskDiffHelper(t, []*api.Task{testTasks[3]}, resp)
 }
 
 func TestGetTaskByTaskArnNotFound(t *testing.T) {
@@ -300,6 +319,31 @@ var testTasks = []*api.Task{
 		Containers: []*api.Container{
 			{
 				Name: "shortId",
+			},
+		},
+	},
+	{
+		Arn:                 "awsvpcTask",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "test",
+		Version:             "1",
+		Containers: []*api.Container{
+			{
+				Name: "awsvpc",
+				Ports: []api.PortBinding{
+					{
+						ContainerPort: 80,
+						Protocol:      api.TransportProtocolTCP,
+					},
+				},
+			},
+		},
+		ENI: &api.ENI{
+			IPV4Addresses: []*api.ENIIPV4Address{
+				{
+					Address: eniIPV4Address,
+				},
 			},
 		},
 	},

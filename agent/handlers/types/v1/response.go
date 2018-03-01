@@ -13,6 +13,11 @@
 
 package v1
 
+import (
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
+)
+
 // MetadataResponse is the schema for the metadata response JSON object
 type MetadataResponse struct {
 	Cluster              string
@@ -40,4 +45,6 @@ type ContainerResponse struct {
 	DockerId   string
 	DockerName string
 	Name       string
+	Ports      []v2.PortResponse
+	Networks   []containermetadata.Network
 }

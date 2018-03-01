@@ -493,6 +493,14 @@ func (c *Container) GetLabels() map[string]string {
 	return c.labels
 }
 
+// GetPorts gets the ports for a container
+func (c *Container) GetPorts() []PortBinding {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.Ports
+}
+
 // HealthStatusShouldBeReported returns true if the health check is defined in
 // the task definition
 func (c *Container) HealthStatusShouldBeReported() bool {
