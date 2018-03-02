@@ -39,6 +39,7 @@ const (
 	dockerIdQueryField = "dockerid"
 	taskArnQueryField  = "taskarn"
 	dockerShortIdLen   = 12
+	networkModeAwsvpc  = "awsvpc"
 )
 
 type rootResponse struct {
@@ -103,7 +104,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 		DockerName: dockerContainer.DockerName,
 	}
 
-	for _, binding := range container.GetPorts() {
+	for _, binding := range container.GetKnownPortBindings() {
 		port := v2.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
@@ -121,7 +122,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
 			{
-				NetworkMode:   "awsvpc",
+				NetworkMode:   networkModeAwsvpc,
 				IPv4Addresses: eni.GetIPV4Addresses(),
 				IPv6Addresses: eni.GetIPV6Addresses(),
 			},

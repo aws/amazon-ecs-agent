@@ -331,7 +331,7 @@ var testTasks = []*api.Task{
 		Containers: []*api.Container{
 			{
 				Name: "awsvpc",
-				Ports: []api.PortBinding{
+				KnownPortBindingsUnsafe: []api.PortBinding{
 					{
 						ContainerPort: 80,
 						Protocol:      api.TransportProtocolTCP,

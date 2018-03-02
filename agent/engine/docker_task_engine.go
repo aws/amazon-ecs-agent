@@ -314,8 +314,8 @@ func updateContainerMetadata(metadata *DockerContainerMetadata, container *api.C
 	}
 
 	// Set port mappings
-	if len(metadata.PortBindings) != 0 && len(container.KnownPortBindings) == 0 {
-		container.KnownPortBindings = metadata.PortBindings
+	if len(metadata.PortBindings) != 0 && len(container.GetKnownPortBindings()) == 0 {
+		container.SetKnownPortBindings(metadata.PortBindings)
 	}
 	// update the container health information
 	if container.HealthStatusShouldBeReported() {

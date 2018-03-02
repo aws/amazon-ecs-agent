@@ -75,7 +75,7 @@ const (
               "AppliedStatus": "NONE",
               "ApplyingError": null,
               "SentStatus": "NONE",
-              "KnownPortBindings": []
+              "KnownPortBindingsUnsafe": []
             },
             {
               "Name": "~internal~ecs~pause",
@@ -110,7 +110,7 @@ const (
               "AppliedStatus": "NONE",
               "ApplyingError": null,
               "SentStatus": "NONE",
-              "KnownPortBindings": [],
+              "KnownPortBindingsUnsafe": [],
               "SteadyStateStatus": "RESOURCES_PROVISIONED"
             }
           ],
@@ -171,7 +171,7 @@ const (
             "AppliedStatus": "NONE",
             "ApplyingError": null,
             "SentStatus": "NONE",
-            "KnownPortBindings": [],
+            "KnownPortBindingsUnsafe": [],
             "SteadyStateStatus": "RESOURCES_PROVISIONED"
           }
         },
@@ -224,7 +224,7 @@ const (
             "AppliedStatus": "NONE",
             "ApplyingError": null,
             "SentStatus": "NONE",
-            "KnownPortBindings": []
+            "KnownPortBindingsUnsafe": []
           }
         }
       },

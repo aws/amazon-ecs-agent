@@ -54,7 +54,7 @@ func ContainersEqual(lhs, rhs *api.Container) bool {
 	if !utils.SlicesDeepEqual(lhs.Ports, rhs.Ports) {
 		return false
 	}
-	if !utils.SlicesDeepEqual(lhs.KnownPortBindings, rhs.KnownPortBindings) {
+	if !utils.SlicesDeepEqual(lhs.KnownPortBindingsUnsafe, rhs.KnownPortBindingsUnsafe) {
 		return false
 	}
 	if lhs.Essential != rhs.Essential {

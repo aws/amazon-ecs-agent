@@ -177,8 +177,8 @@ type Container struct {
 	// and `SetKnownExitCode`.
 	KnownExitCodeUnsafe *int `json:"KnownExitCode"`
 
-	// KnownPortBindings is an array of port bindings for the container.
-	KnownPortBindings []PortBinding
+	// KnownPortBindingsUnsafe is an array of port bindings for the container.
+	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
@@ -493,12 +493,20 @@ func (c *Container) GetLabels() map[string]string {
 	return c.labels
 }
 
-// GetPorts gets the ports for a container
-func (c *Container) GetPorts() []PortBinding {
+// SetKnownPortBindings gets the ports for a container
+func (c *Container) SetKnownPortBindings(ports []PortBinding) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.Ports
+	c.KnownPortBindingsUnsafe = ports
+}
+
+// GetKnownPortBindings gets the ports for a container
+func (c *Container) GetKnownPortBindings() []PortBinding {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.KnownPortBindingsUnsafe
 }
 
 // HealthStatusShouldBeReported returns true if the health check is defined in
