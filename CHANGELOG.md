@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.17.2
+* Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.02.0` [#1272](https://github.com/aws/amazon-ecs-agent/pull/1272)
+* Enhancement - Add container port mapping and ENI information in introspection
+API [#1271](https://github.com/aws/amazon-ecs-agent/pull/1271)
+
 ## 1.17.1
 * Bug - Fixed a bug that was causing a runtime panic by accessing negative
   index in the health check log slice [#1239](https://github.com/aws/amazon-ecs-agent/pull/1239)
