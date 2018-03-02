@@ -138,10 +138,41 @@ func TestGetAWSVPCTaskByTaskArn(t *testing.T) {
 	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
 
 	assert.Equal(t, eniIPV4Address, resp.Tasks[0].Containers[0].Networks[0].IPv4Addresses[0])
+	taskDiffHelper(t, []*api.Task{testTasks[3]}, resp)
+}
+
+func TestGetHostNeworkingTaskByTaskArn(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=hostModeNetworkingTask")
+
+	var taskResponse v1.TaskResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
+
 	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
 	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
 
-	taskDiffHelper(t, []*api.Task{testTasks[3]}, resp)
+	taskDiffHelper(t, []*api.Task{testTasks[4]}, resp)
+}
+
+func TestGetBridgeNeworkingTaskByTaskArn(t *testing.T) {
+	recorder := performMockRequest(t, "/v1/tasks?taskarn=bridgeModeNetworkingTask")
+
+	var taskResponse v1.TaskResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
+
+	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
+	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
+
+	taskDiffHelper(t, []*api.Task{testTasks[5]}, resp)
 }
 
 func TestGetTaskByTaskArnNotFound(t *testing.T) {
@@ -331,18 +362,50 @@ var testTasks = []*api.Task{
 		Containers: []*api.Container{
 			{
 				Name: "awsvpc",
-				KnownPortBindingsUnsafe: []api.PortBinding{
-					{
-						ContainerPort: 80,
-						Protocol:      api.TransportProtocolTCP,
-					},
-				},
 			},
 		},
 		ENI: &api.ENI{
 			IPV4Addresses: []*api.ENIIPV4Address{
 				{
 					Address: eniIPV4Address,
+				},
+			},
+		},
+	},
+	{
+		Arn:                 "hostModeNetworkingTask",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "test",
+		Version:             "1",
+		Containers: []*api.Container{
+			{
+				Name: "awsvpc",
+				Ports: []api.PortBinding{
+					{
+						ContainerPort: 80,
+						HostPort:      80,
+						Protocol:      api.TransportProtocolTCP,
+					},
+				},
+			},
+		},
+	},
+	{
+		Arn:                 "bridgeModeNetworkingTask",
+		DesiredStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe:   api.TaskRunning,
+		Family:              "test",
+		Version:             "1",
+		Containers: []*api.Container{
+			{
+				Name: "awsvpc",
+				KnownPortBindingsUnsafe: []api.PortBinding{
+					{
+						ContainerPort: 80,
+						HostPort:      80,
+						Protocol:      api.TransportProtocolTCP,
+					},
 				},
 			},
 		},

@@ -493,10 +493,10 @@ func (c *Container) GetLabels() map[string]string {
 	return c.labels
 }
 
-// SetKnownPortBindings gets the ports for a container
+// SetKnownPortBindings sets the ports for a container
 func (c *Container) SetKnownPortBindings(ports []PortBinding) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.KnownPortBindingsUnsafe = ports
 }

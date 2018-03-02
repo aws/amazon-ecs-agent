@@ -45,6 +45,6 @@ type ContainerResponse struct {
 	DockerId   string
 	DockerName string
 	Name       string
-	Ports      []v2.PortResponse
-	Networks   []containermetadata.Network
+	Ports      []v2.PortResponse           `json:",omitempty"`
+	Networks   []containermetadata.Network `json:",omitempty"`
 }

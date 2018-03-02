@@ -104,7 +104,33 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 		DockerName: dockerContainer.DockerName,
 	}
 
-	for _, binding := range container.GetKnownPortBindings() {
+	resp.Ports = newPortBindingsResponse(dockerContainer, eni)
+
+	if eni != nil {
+		resp.Networks = []containermetadata.Network{
+			{
+				NetworkMode:   networkModeAwsvpc,
+				IPv4Addresses: eni.GetIPV4Addresses(),
+				IPv6Addresses: eni.GetIPV6Addresses(),
+			},
+		}
+	}
+	return resp
+}
+
+func newPortBindingsResponse(dockerContainer *api.DockerContainer, eni *api.ENI) []v2.PortResponse {
+	container := dockerContainer.Container
+	resp := []v2.PortResponse{}
+
+	bindings := container.GetKnownPortBindings()
+
+	// if KnownPortBindings list is empty, then we use the port mapping
+	// information that was passed down from ACS.
+	if len(bindings) == 0 {
+		bindings = container.Ports
+	}
+
+	for _, binding := range bindings {
 		port := v2.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
@@ -116,17 +142,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 			port.HostPort = port.ContainerPort
 		}
 
-		resp.Ports = append(resp.Ports, port)
-	}
-
-	if eni != nil {
-		resp.Networks = []containermetadata.Network{
-			{
-				NetworkMode:   networkModeAwsvpc,
-				IPv4Addresses: eni.GetIPV4Addresses(),
-				IPv6Addresses: eni.GetIPV6Addresses(),
-			},
-		}
+		resp = append(resp, port)
 	}
 	return resp
 }
