@@ -1858,7 +1858,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 				assert.Equal(t, "tmp", task.Volumes[0].Volume.SourcePath())
 			}
 			if tc.stage == "started" {
-				assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindings[0].ContainerPort)
+				assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindingsUnsafe[0].ContainerPort)
 			}
 			if tc.stage == "finished" {
 				assert.False(t, task.GetExecutionStoppedAt().IsZero())
