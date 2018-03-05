@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.17.1
+Version:        1.17.2
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -152,6 +152,8 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Mon Mar 05 2018 Jacob Vallejo <jakeev@amazon.com> - 1.17.2-1
+- Cache Agent vesion 1.17.2
 * Mon Feb 19 2018 Justin Haynes <jushay@amazon.com> - 1.17.1-1
 - Cache Agent vesion 1.17.1
 * Mon Feb 05 2018 Justin Haynes <jushay@amazon.com> - 1.17.0-2
