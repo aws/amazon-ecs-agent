@@ -39,6 +39,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"context"
+
 	"github.com/golang/mock/gomock"
 )
 
@@ -389,14 +390,14 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			container := &api.Container{
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
-				TransitionDependencySet: api.TransitionDependencySet{
-					ContainerDependencies: []api.ContainerDependency{{
-						ContainerName:   dependencyName,
-						DependentStatus: tc.containerDependentStatus,
-						SatisfiedStatus: tc.dependencySatisfiedStatus,
-					}},
-				},
 			}
+			container.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
+			deps := api.TransitionDependencySet{}
+			deps.ContainerDependencies = append(deps.ContainerDependencies, api.ContainerDependency{
+				ContainerName:   dependencyName,
+				SatisfiedStatus: tc.dependencySatisfiedStatus,
+			})
+			container.TransitionDependenciesMap[tc.containerDependentStatus] = deps
 			dependency := &api.Container{
 				Name:              dependencyName,
 				KnownStatusUnsafe: tc.dependencyCurrentStatus,

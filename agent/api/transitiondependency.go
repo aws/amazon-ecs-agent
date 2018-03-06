@@ -17,5 +17,5 @@ type ContainerDependency struct {
 	SatisfiedStatus ContainerStatus `json:"SatisfiedStatus"`
 	// DependentStatus defines the status that cannot be reached until the
 	// resource satisfies the dependency
-	DependentStatus ContainerStatus `json:"DependentStatus"`
+	DependentStatus ContainerStatus `json:"DependentStatus,omitempty"`
 }

@@ -285,13 +285,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.Containers[0].TransitionDependencySet.ContainerDependencies = []api.ContainerDependency{
-		{
-			ContainerName:   "pause",
-			SatisfiedStatus: api.ContainerRunning,
-			DependentStatus: api.ContainerPulled,
-		}}
 	sleepContainer := sleepTask.Containers[0]
+	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
+	deps := api.TransitionDependencySet{}
+	deps.ContainerDependencies = append(deps.ContainerDependencies, api.ContainerDependency{
+		ContainerName:   "pause",
+		SatisfiedStatus: api.ContainerRunning,
+	})
+	sleepContainer.TransitionDependenciesMap[api.ContainerPulled] = deps
+
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
 	pauseContainer := api.NewContainerWithSteadyState(api.ContainerResourcesProvisioned)

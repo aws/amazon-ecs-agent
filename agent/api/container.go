@@ -128,11 +128,17 @@ type Container struct {
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 
+	// TransitionDependenciesMap is a map of the dependent container status to other
+	// dependencies that must be satisfied in order for this container to transition.
+	TransitionDependenciesMap map[ContainerStatus]TransitionDependencySet
+
 	// TransitionDependencySet is a set of dependencies that must be satisfied
 	// in order for this container to transition.  Each transition dependency
 	// specifies a resource upon which the transition is dependent, a status
 	// that depends on the resource, and the state of the dependency that
 	// satisfies.
+	// Deprecated: Use TransitionDependenciesMap instead. TransitionDependencySet is
+	// retained for compatibility with old state files.
 	TransitionDependencySet TransitionDependencySet `json:"TransitionDependencySet"`
 
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before

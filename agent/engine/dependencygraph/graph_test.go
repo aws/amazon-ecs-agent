@@ -445,13 +445,14 @@ func assertResolved(f func(target *api.Container, dep *api.Container) bool, targ
 	}
 }
 
-func TestTransitionDependenciesResolved(t *testing.T) {
+func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 	testcases := []struct {
 		Name             string
 		TargetKnown      api.ContainerStatus
 		TargetDesired    api.ContainerStatus
+		TargetNext       api.ContainerStatus
+		DependencyName   string
 		DependencyKnown  api.ContainerStatus
-		DependentStatus  api.ContainerStatus
 		SatisfiedStatus  api.ContainerStatus
 		ExpectedResolved bool
 	}{
@@ -459,17 +460,20 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Nothing running, pull depends on running",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerStatusNone,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerRunning,
 			ExpectedResolved: false,
 		},
+
 		{
 			Name:             "Nothing running, pull depends on resources provisioned",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerStatusNone,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerResourcesProvisioned,
 			ExpectedResolved: false,
 		},
@@ -477,8 +481,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Nothing running, create depends on running",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerCreated,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerStatusNone,
-			DependentStatus:  api.ContainerCreated,
 			SatisfiedStatus:  api.ContainerRunning,
 			ExpectedResolved: true,
 		},
@@ -486,8 +491,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency created, pull depends on running",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerCreated,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerRunning,
 			ExpectedResolved: false,
 		},
@@ -495,8 +501,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency created, pull depends on resources provisioned",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerCreated,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerResourcesProvisioned,
 			ExpectedResolved: false,
 		},
@@ -504,8 +511,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency running, pull depends on running",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerRunning,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerRunning,
 			ExpectedResolved: true,
 		},
@@ -513,8 +521,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency running, pull depends on resources provisioned",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerRunning,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerResourcesProvisioned,
 			ExpectedResolved: false,
 		},
@@ -522,8 +531,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency resources provisioned, pull depends on resources provisioned",
 			TargetKnown:      api.ContainerStatusNone,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerPulled,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerResourcesProvisioned,
-			DependentStatus:  api.ContainerPulled,
 			SatisfiedStatus:  api.ContainerResourcesProvisioned,
 			ExpectedResolved: true,
 		},
@@ -531,8 +541,9 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Dependency running, create depends on created",
 			TargetKnown:      api.ContainerPulled,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerCreated,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerRunning,
-			DependentStatus:  api.ContainerCreated,
 			SatisfiedStatus:  api.ContainerCreated,
 			ExpectedResolved: true,
 		},
@@ -540,8 +551,19 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 			Name:             "Target running, create depends on running",
 			TargetKnown:      api.ContainerRunning,
 			TargetDesired:    api.ContainerRunning,
+			TargetNext:       api.ContainerRunning,
+			DependencyName:   "container",
 			DependencyKnown:  api.ContainerRunning,
-			DependentStatus:  api.ContainerRunning,
+			SatisfiedStatus:  api.ContainerCreated,
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "Target pulled, desired stopped",
+			TargetKnown:      api.ContainerPulled,
+			TargetDesired:    api.ContainerStopped,
+			TargetNext:       api.ContainerRunning,
+			DependencyName:   "container",
+			DependencyKnown:  api.ContainerStatusNone,
 			SatisfiedStatus:  api.ContainerCreated,
 			ExpectedResolved: true,
 		},
@@ -551,18 +573,24 @@ func TestTransitionDependenciesResolved(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			containerDependency := api.ContainerDependency{
-				DependentStatus: tc.DependentStatus,
-				SatisfiedStatus: tc.SatisfiedStatus,
-			}
 			target := &api.Container{
 				KnownStatusUnsafe:   tc.TargetKnown,
 				DesiredStatusUnsafe: tc.TargetDesired,
 			}
+			target.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
+			deps := api.TransitionDependencySet{}
+			deps.ContainerDependencies = append(deps.ContainerDependencies, api.ContainerDependency{
+				ContainerName:   tc.DependencyName,
+				SatisfiedStatus: tc.SatisfiedStatus,
+			})
+			target.TransitionDependenciesMap[tc.TargetNext] = deps
 			dep := &api.Container{
+				Name:              tc.DependencyName,
 				KnownStatusUnsafe: tc.DependencyKnown,
 			}
-			resolved := resolvesContainerTransitionDependency(target, dep, containerDependency)
+			containers := make(map[string]*api.Container)
+			containers[dep.Name] = dep
+			resolved := verifyTransitionDependenciesResolved(target, containers)
 			assert.Equal(t, tc.ExpectedResolved, resolved)
 		})
 	}
