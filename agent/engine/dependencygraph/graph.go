@@ -183,36 +183,23 @@ func verifyTransitionDependenciesResolved(target *api.Container, existingContain
 		return true
 	}
 
-	for _, containerDependency := range target.TransitionDependencySet.ContainerDependencies {
-		maybeResolves, exists := existingContainers[containerDependency.ContainerName]
+	// TODO: add verifyResourceDependenciesResolved check here
+	return verifyContainerDependenciesResolved(target, existingContainers)
+}
+
+func verifyContainerDependenciesResolved(target *api.Container, existingContainers map[string]*api.Container) bool {
+	targetNext := target.GetNextKnownStateProgression()
+	containerDependencies := target.TransitionDependenciesMap[targetNext].ContainerDependencies
+	for _, containerDependency := range containerDependencies {
+		dep, exists := existingContainers[containerDependency.ContainerName]
 		if !exists {
 			return false
 		}
-		if !resolvesContainerTransitionDependency(target, maybeResolves, containerDependency) {
+		if dep.GetKnownStatus() < containerDependency.SatisfiedStatus {
 			return false
 		}
 	}
 	return true
-}
-
-func resolvesContainerTransitionDependency(target *api.Container, resource *api.Container, dependency api.ContainerDependency) bool {
-	targetDesired := target.GetDesiredStatus()
-	if targetDesired < dependency.DependentStatus {
-		// not trying to reach dependent status
-		return true
-	}
-	targetKnown := target.GetKnownStatus()
-	if targetKnown >= dependency.DependentStatus {
-		// already satisfied
-		return true
-	}
-	targetNext := targetKnown + 1
-	if targetNext < dependency.DependentStatus {
-		// next status is not the dependent status, so proceed
-		return true
-	}
-	resourceKnown := resource.GetKnownStatus()
-	return resourceKnown >= dependency.SatisfiedStatus
 }
 
 func linkCanResolve(target *api.Container, link *api.Container) bool {

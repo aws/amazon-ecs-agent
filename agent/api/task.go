@@ -171,14 +171,19 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.TransitionDependencySet.ContainerDependencies == nil {
-					container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
+				if container.TransitionDependenciesMap == nil {
+					container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
 				}
-				container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+				contDep := ContainerDependency{
 					ContainerName:   emptyHostVolumeName,
 					SatisfiedStatus: ContainerRunning,
-					DependentStatus: ContainerCreated,
-				})
+				}
+				if _, ok := container.TransitionDependenciesMap[ContainerCreated]; !ok {
+					container.TransitionDependenciesMap[ContainerCreated] = TransitionDependencySet{}
+				}
+				deps := container.TransitionDependenciesMap[ContainerCreated]
+				deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
+				container.TransitionDependenciesMap[ContainerCreated] = deps
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -286,14 +291,19 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		if container.TransitionDependencySet.ContainerDependencies == nil {
-			container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
-		}
-		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
+		contDep := ContainerDependency{
 			ContainerName:   PauseContainerName,
 			SatisfiedStatus: ContainerResourcesProvisioned,
-			DependentStatus: ContainerPulled,
-		})
+		}
+		if container.TransitionDependenciesMap == nil {
+			container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+		}
+		if _, ok := container.TransitionDependenciesMap[ContainerPulled]; !ok {
+			container.TransitionDependenciesMap[ContainerPulled] = TransitionDependencySet{}
+		}
+		deps := container.TransitionDependenciesMap[ContainerPulled]
+		deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
+		container.TransitionDependenciesMap[ContainerPulled] = deps
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
