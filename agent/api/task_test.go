@@ -281,6 +281,21 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"169.254.169.253"}, config.DNS)
 	assert.Equal(t, []string{"us-west-2.compute.internal"}, config.DNSSearch)
+
+	// Verify eni ExtraHosts  added to HostConfig for "pause" container
+	ipaddr := &ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
+	testTask.ENI.IPV4Addresses = []*ENIIPV4Address{ipaddr}
+	testTask.ENI.PrivateDNSName = "eni.ip.region.compute.internal"
+
+	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"eni.ip.region.compute.internal:10.0.1.1"}, config.ExtraHosts)
+
+	// Verify eni Hostname is added to DockerConfig for "pause" container
+	dockerconfig, dockerConfigErr := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	assert.Nil(t, dockerConfigErr)
+	assert.Equal(t, "eni.ip.region.compute.internal", dockerconfig.Hostname)
+
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
