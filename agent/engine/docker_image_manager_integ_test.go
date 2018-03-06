@@ -54,7 +54,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	cfg.MinimumImageDeletionAge = 1 * time.Second
 	cfg.NumImagesToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -166,7 +166,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	// Set to delete three images, but in this test we expect only two images to be removed
 	cfg.NumImagesToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
@@ -280,7 +280,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 
 	dockerClient := taskEngine.(*DockerTaskEngine).client
@@ -418,7 +418,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 
 	dockerClient := taskEngine.(*DockerTaskEngine).client

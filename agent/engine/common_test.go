@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	containerID = "containerID"
+	containerID                 = "containerID"
+	waitTaskStateChangeDuration = 2 * time.Minute
 )
 
 var (
@@ -242,5 +243,36 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
+	}
+}
+
+func triggerSteadyStateCheck(times int, task *managedTask) {
+	for i := 0; i < times; {
+		err := task.cancelSteadyStateWait()
+		if err != nil {
+			// Wait for the waitSteady to be invoked
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		i++
+	}
+}
+
+func waitForContainerHealthStatus(t *testing.T, testTask *api.Task) {
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Error("Timed out waiting for container health status")
+		default:
+			healthStatus := testTask.Containers[0].GetHealthStatus()
+			if healthStatus.Status.BackendStatus() == "UNKNOWN" {
+				time.Sleep(time.Second)
+				continue
+			}
+			return
+		}
 	}
 }
