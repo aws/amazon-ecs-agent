@@ -1298,7 +1298,7 @@ func TestCreateVolumeTimeout(t *testing.T) {
 		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
 		// when issue #1212 is resolved
 	}).MaxTimes(1)
-	volumeResponse := client.CreateVolume("name", "mountpoint", "driver", nil, nil, timeout)
+	volumeResponse := client.CreateVolume("name", "driver", nil, nil, timeout)
 	assert.Error(t, volumeResponse.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(api.NamedError).ErrorName())
 	wait.Done()
@@ -1309,7 +1309,7 @@ func TestCreateVolumeError(t *testing.T) {
 	defer done()
 
 	mockDocker.EXPECT().CreateVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
-	volumeResponse := client.CreateVolume("name", "mountpoint", "driver", nil, nil, 1*time.Second)
+	volumeResponse := client.CreateVolume("name", "driver", nil, nil, 1*time.Second)
 	assert.Equal(t, "CannotCreateVolumeError", volumeResponse.Error.(api.NamedError).ErrorName())
 }
 
@@ -1331,7 +1331,7 @@ func TestCreateVolume(t *testing.T) {
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
 		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
 	)
-	volumeResponse := client.CreateVolume(volumeName, mountPoint, driver, driverOptions, nil, 1*time.Second)
+	volumeResponse := client.CreateVolume(volumeName, driver, driverOptions, nil, 1*time.Second)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeResponse.Volume.Name, volumeName)
 	assert.Equal(t, volumeResponse.Volume.Driver, driver)

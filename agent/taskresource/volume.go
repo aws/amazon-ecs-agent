@@ -22,6 +22,7 @@ import (
 // VolumeResource represents docker volume resource
 type VolumeResource struct {
 	Name                string
+	// Mountpoint is a read-only field returned from docker
 	Mountpoint          string
 	Driver              string
 	Labels              map[string]string

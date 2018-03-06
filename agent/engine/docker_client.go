@@ -150,7 +150,7 @@ type DockerClient interface {
 	ListContainers(bool, time.Duration) ListContainersResponse
 
 	// CreateVolume creates a docker volume. A timeout value should be provided for the request
-	CreateVolume(string, string, string, map[string]string, map[string]string, time.Duration) volumeResponse
+	CreateVolume(string, string, map[string]string, map[string]string, time.Duration) volumeResponse
 
 	// InspectVolume returns a volume by its name. A timeout value should be provided for the request
 	InspectVolume(string, time.Duration) volumeResponse
@@ -978,7 +978,6 @@ type volumeResponse struct {
 }
 
 func (dg *dockerGoClient) CreateVolume(name string,
-	mountpoint string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
@@ -993,7 +992,7 @@ func (dg *dockerGoClient) CreateVolume(name string,
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan volumeResponse, 1)
-	go func() { response <- dg.createVolume(ctx, name, mountpoint, driver, driverOptions, labels) }()
+	go func() { response <- dg.createVolume(ctx, name, driver, driverOptions, labels) }()
 
 	// Wait until we get a response or for the 'done' context channel
 	select {
@@ -1014,7 +1013,6 @@ func (dg *dockerGoClient) CreateVolume(name string,
 
 func (dg *dockerGoClient) createVolume(ctx context.Context,
 	name string,
-	mountpoint string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string) volumeResponse {
