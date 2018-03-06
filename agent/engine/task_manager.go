@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -46,8 +47,9 @@ const (
 )
 
 var (
-	_stoppedSentWaitInterval = stoppedSentWaitInterval
-	_maxStoppedWaitTimes     = int(maxStoppedWaitTimes)
+	_stoppedSentWaitInterval       = stoppedSentWaitInterval
+	_maxStoppedWaitTimes           = int(maxStoppedWaitTimes)
+	taskNotWaitForSteadyStateError = errors.New("managed task: steady state check context is nil")
 )
 
 type acsTaskUpdate struct {
@@ -94,8 +96,11 @@ type containerTransition struct {
 // task's statuses yourself)
 type managedTask struct {
 	*api.Task
-	ctx                context.Context
-	cancel             context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
+	// waitSteadyCancel is the function to timeout the context for waiting for
+	// task steady state of which timeout duration is `steadyStateTaskVerifyInterval`
+	waitSteadyCancel   context.CancelFunc
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -121,6 +126,7 @@ type managedTask struct {
 	_timeOnce sync.Once
 
 	resource resources.Resource
+	lock     sync.RWMutex
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -164,6 +170,13 @@ func (mtask *managedTask) overseeTask() {
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
+		select {
+		case <-mtask.ctx.Done():
+			seelog.Infof("Managed task [%s]: parent context cancelled, exit", mtask.Arn)
+			return
+		default:
+		}
+
 		// If it's steadyState, just spin until we need to do work
 		for mtask.steadyState() {
 			mtask.waitSteady()
@@ -269,12 +282,36 @@ func (mtask *managedTask) waitSteady() {
 
 	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
 	defer cancel()
+	mtask.setWaitSteadyCheckCancelFunc(cancel)
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
 		go mtask.engine.CheckTaskState(mtask.Task)
 	}
+}
+
+// cancelSteadyStateWait checks if the task is waiting for steady state and stop
+// the waiting if it it. This is currently only used in test
+func (mtask *managedTask) cancelSteadyStateWait() error {
+	mtask.lock.Lock()
+	defer mtask.lock.Unlock()
+
+	if mtask.waitSteadyCancel == nil {
+		return taskNotWaitForSteadyStateError
+	}
+
+	mtask.waitSteadyCancel()
+	// reset the cancel func to nil to indicate the task isn't waiting for steady state
+	mtask.waitSteadyCancel = nil
+	return nil
+}
+
+// setWaitSteadyCheckCancelFunc record the steadyStateCheck cancel function in mtask
+func (mtask *managedTask) setWaitSteadyCheckCancelFunc(cancel context.CancelFunc) {
+	mtask.lock.Lock()
+	defer mtask.lock.Unlock()
+	mtask.waitSteadyCancel = cancel
 }
 
 // steadyState returns if the task is in a steady state. Steady state is when task's desired

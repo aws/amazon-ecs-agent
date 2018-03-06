@@ -614,7 +614,8 @@ func TestSteadyStatePoll(t *testing.T) {
 	// trigger steady state verification
 	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
 	for _, task := range mtasks {
-		task.cancel()
+		// Trigger the steadyState check at least twice
+		triggerSteadyStateCheck(4, task)
 	}
 
 	// StopContainer might be invoked if the test execution is slow, during
@@ -1109,7 +1110,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	// trigger steady state verification
 	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
 	for _, task := range mtasks {
-		task.cancel()
+		triggerSteadyStateCheck(1, task)
 	}
 
 	var wg sync.WaitGroup

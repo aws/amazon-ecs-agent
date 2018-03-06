@@ -489,7 +489,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	cfg.EngineAuthType = "dockercfg"
 
 	removeImage(testAuthRegistryImage)
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
@@ -522,7 +522,7 @@ func TestDockerAuth(t *testing.T) {
 		cfg.EngineAuthType = ""
 	}()
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 	removeImage(testAuthRegistryImage)
 
@@ -773,7 +773,7 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := defaultTestConfigIntegTest()
 
-	taskEngine, _, _ := setup(cfg, t)
+	taskEngine, _, _ := setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
