@@ -16,8 +16,6 @@ package taskresource
 import (
 	"errors"
 	"strings"
-
-	"github.com/aws/amazon-ecs-agent/agent/api"
 )
 
 // CgroupStatus defines resource statuses for cgroups
@@ -28,14 +26,14 @@ const (
 	CgroupStatusNone CgroupStatus = iota
 	// CgroupCreated represents a task resource which has been created
 	CgroupCreated
-	// CgroupCleaned represents a task resource which has been cleaned up
-	CgroupCleaned
+	// CgroupRemoved represents a task resource which has been cleaned up
+	CgroupRemoved
 )
 
 var cgroupStatusMap = map[string]CgroupStatus{
 	"NONE":    CgroupStatusNone,
 	"CREATED": CgroupCreated,
-	"CLEANED": CgroupCleaned,
+	"REMOVED": CgroupRemoved,
 }
 
 // StatusString returns a human readable string representation of this object
@@ -46,19 +44,6 @@ func (cs CgroupStatus) String() string {
 		}
 	}
 	return "NONE"
-}
-
-// TaskStatus maps the resource status to the corresponding task status.
-func (cs CgroupStatus) TaskStatus() api.TaskStatus {
-	switch cs {
-	case CgroupStatusNone:
-		return api.TaskStatusNone
-	case CgroupCreated:
-		return api.TaskCreated
-	case CgroupCleaned:
-		return api.TaskZombie
-	}
-	return api.TaskStatusNone
 }
 
 // MarshalJSON overrides the logic for JSON-encoding the ResourceStatus type

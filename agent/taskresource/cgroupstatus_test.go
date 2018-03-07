@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,19 +27,8 @@ func TestCgroupStatusString(t *testing.T) {
 	assert.Equal(t, resourceStatus.String(), "NONE")
 	resourceStatus = CgroupCreated
 	assert.Equal(t, resourceStatus.String(), "CREATED")
-	resourceStatus = CgroupCleaned
-	assert.Equal(t, resourceStatus.String(), "CLEANED")
-}
-
-func TestCgroupTaskStatus(t *testing.T) {
-	var resourceStatus CgroupStatus
-
-	resourceStatus = CgroupStatusNone
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskStatusNone)
-	resourceStatus = CgroupCreated
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskCreated)
-	resourceStatus = CgroupCleaned
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskZombie)
+	resourceStatus = CgroupRemoved
+	assert.Equal(t, resourceStatus.String(), "REMOVED")
 }
 
 func TestMarshalCgroupStatus(t *testing.T) {
@@ -71,9 +59,9 @@ func TestUnmarshalCgroupStatus(t *testing.T) {
 	assert.Equal(t, CgroupCreated, status, "CREATED should unmarshal to CREATED, not "+status.String())
 
 	var testStatus testCgroupStatus
-	err = json.Unmarshal([]byte(`{"status":"CLEANED"}`), &testStatus)
+	err = json.Unmarshal([]byte(`{"status":"REMOVED"}`), &testStatus)
 	assert.NoError(t, err)
-	assert.Equal(t, CgroupCleaned, testStatus.SomeStatus, "CLEANED should unmarshal to CLEANED, not "+testStatus.SomeStatus.String())
+	assert.Equal(t, CgroupRemoved, testStatus.SomeStatus, "REMOVED should unmarshal to REMOVED, not "+testStatus.SomeStatus.String())
 }
 
 func TestUnmarshalNullCgroupStatus(t *testing.T) {
@@ -91,7 +79,7 @@ func TestUnmarshalNonStringCgroupStatusDefaultNone(t *testing.T) {
 }
 
 func TestUnmarshalUnmappedCgroupStatusDefaultNone(t *testing.T) {
-	status := CgroupCleaned
+	status := CgroupRemoved
 	err := json.Unmarshal([]byte(`"SOMEOTHER"`), &status)
 	assert.NotNil(t, err)
 	assert.Equal(t, CgroupStatusNone, status, "Unmapped status should unmarshal to None, not "+status.String())
