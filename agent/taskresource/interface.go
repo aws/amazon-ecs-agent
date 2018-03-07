@@ -38,9 +38,9 @@ type TaskResource interface {
 	// GetCreatedAt sets the timestamp for resource's creation time
 	GetCreatedAt() time.Time
 	// Create performs resource creation
-	Create(task *api.Task)
+	Create(task *api.Task) error
 	// Cleanup performs resource cleanup
-	Cleanup()
+	Cleanup() error
 
 	json.Marshaler
 	json.Unmarshaler

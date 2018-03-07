@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
@@ -55,10 +54,9 @@ type CgroupResource struct {
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
-func NewCgroupResource(cgroupRoot string, cgroupMountPath string) *CgroupResource {
+func NewCgroupResource(control cgroup.Control, cgroupRoot string, cgroupMountPath string) *CgroupResource {
 	return &CgroupResource{
-		// control creates interface to cgroups library methods
-		control:         cgroup.New(),
+		control:         control,
 		CgroupRoot:      cgroupRoot,
 		CgroupMountPath: cgroupMountPath,
 		ioutil:          ioutilwrapper.NewIOUtil(),
@@ -116,40 +114,28 @@ func (c *CgroupResource) GetCreatedAt() time.Time {
 	return c.createdAt
 }
 
+// Create creates cgroup root for the task
 func (c *CgroupResource) Create(task *api.Task) error {
-	err := c.cgroupInit()
+	err := c.setupTaskCgroup(task)
 	if err != nil {
-		seelog.Criticalf("unable to setup '/ecs' cgroup: %v", err)
-		return err
-	}
-	err = c.setupTaskCgroup(task)
-	if err != nil {
-		seelog.Criticalf("unable to setup platform resources: %v", err)
+		seelog.Criticalf("Cgroup resource [%s]: unable to setup cgroup root: %v", task.Arn, err)
 		return err
 	}
 	return nil
 }
 
-func (c *CgroupResource) cgroupInit() error {
-	if c.control.Exists(config.DefaultTaskCgroupPrefix) {
-		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)
-		return nil
-	}
-	return c.control.Init()
-}
-
 func (c *CgroupResource) setupTaskCgroup(task *api.Task) error {
 	cgroupRoot := c.CgroupRoot
-	seelog.Debugf("Setting up cgroup at: %s for task: %s", cgroupRoot, task.Arn)
+	seelog.Debugf("Cgroup resource [%s]: setting up cgroup at: %s", task.Arn, cgroupRoot)
 
 	if c.control.Exists(cgroupRoot) {
-		seelog.Debugf("Cgroup at %s already exists, skipping creation", cgroupRoot)
+		seelog.Debugf("Cgroup resource [%s]: cgroup at %s already exists, skipping creation", task.Arn, cgroupRoot)
 		return nil
 	}
 
 	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
 	if err != nil {
-		return errors.Wrapf(err, "resource: setup cgroup: unable to build resource spec for task: %s", task.Arn)
+		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to build resource spec for task", task.Arn)
 	}
 
 	cgroupSpec := cgroup.Spec{
@@ -159,19 +145,20 @@ func (c *CgroupResource) setupTaskCgroup(task *api.Task) error {
 
 	_, err = c.control.Create(&cgroupSpec)
 	if err != nil {
-		return errors.Wrapf(err, "resource: setup cgroup: unable to create cgroup at %s for task: %s", cgroupRoot, task.Arn)
+		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to create cgroup at %s", task.Arn, cgroupRoot)
 	}
 
-	// echo 1 > memory.use_hierarchy
+	// enabling cgroup memory hierarchy by doing 'echo 1 > memory.use_hierarchy'
 	memoryHierarchyPath := filepath.Join(c.CgroupMountPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
 	err = c.ioutil.WriteFile(memoryHierarchyPath, enableMemoryHierarchy, rootReadOnlyPermissions)
 	if err != nil {
-		return errors.Wrap(err, "resource: setup cgroup: unable to set use hierarchy flag")
+		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to set use hierarchy flag", task.Arn)
 	}
 
 	return nil
 }
 
+// Cleanup removes the cgroup root created for the task
 func (c *CgroupResource) Cleanup() error {
 	err := c.control.Remove(c.CgroupRoot)
 	// Explicitly handle cgroup deleted error
@@ -187,15 +174,18 @@ func (c *CgroupResource) Cleanup() error {
 
 // cgroupResourceJSON duplicates CgroupResource fields, only for marshalling and unmarshalling purposes
 type cgroupResourceJSON struct {
-	CgroupRoot      string `json:"CgroupRoot"`
-	CgroupMountPath string `json:"CgroupMountPath"`
-	CreatedAt       time.Time `json:",omitempty"`
+	CgroupRoot      string        `json:"CgroupRoot"`
+	CgroupMountPath string        `json:"CgroupMountPath"`
+	CreatedAt       time.Time     `json:",omitempty"`
 	DesiredStatus   *CgroupStatus `json:"DesiredStatus"`
 	KnownStatus     *CgroupStatus `json:"KnownStatus"`
 }
 
 // MarshalJSON marshals CgroupResource object using duplicate struct CgroupResourceJSON
 func (c *CgroupResource) MarshalJSON() ([]byte, error) {
+	if c == nil {
+		return nil, errors.New("cgroup resource is nil")
+	}
 	return json.Marshal(cgroupResourceJSON{
 		c.CgroupRoot,
 		c.CgroupMountPath,
@@ -207,7 +197,7 @@ func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals CgroupResource object using duplicate struct CgroupResourceJSON
 func (c *CgroupResource) UnmarshalJSON(b []byte) error {
-	temp := &cgroupResourceJSON{}
+	temp := cgroupResourceJSON{}
 
 	if err := json.Unmarshal(b, &temp); err != nil {
 		return err
