@@ -189,7 +189,7 @@ func (c *CgroupResource) Cleanup() error {
 type cgroupResourceJSON struct {
 	CgroupRoot      string `json:"CgroupRoot"`
 	CgroupMountPath string `json:"CgroupMountPath"`
-	CreatedAt       time.Time
+	CreatedAt       time.Time `json:",omitempty"`
 	DesiredStatus   *CgroupStatus `json:"DesiredStatus"`
 	KnownStatus     *CgroupStatus `json:"KnownStatus"`
 }
