@@ -212,7 +212,7 @@ get-cni-sources:
 cni-plugins: get-cni-sources .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	docker run --rm --net=none \
-		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short HEAD) \
+		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-e GIT_PORCELAIN=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l | sed 's/^ *//') \
 		-u "$(USERID)" \
 		-v "$(PWD)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
