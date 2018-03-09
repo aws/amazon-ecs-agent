@@ -391,13 +391,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
 			}
-			container.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
-			deps := api.TransitionDependencySet{}
-			deps.ContainerDependencies = append(deps.ContainerDependencies, api.ContainerDependency{
-				ContainerName:   dependencyName,
-				SatisfiedStatus: tc.dependencySatisfiedStatus,
-			})
-			container.TransitionDependenciesMap[tc.containerDependentStatus] = deps
+			container.BuildContainerDependency(dependencyName, tc.dependencySatisfiedStatus, tc.containerDependentStatus)
 			dependency := &api.Container{
 				Name:              dependencyName,
 				KnownStatusUnsafe: tc.dependencyCurrentStatus,

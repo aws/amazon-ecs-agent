@@ -205,3 +205,15 @@ func TestHealthStatusShouldBeReported(t *testing.T) {
 	container.HealthCheckType = "unknown"
 	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that has non-docker HealthCheckType set should not be reported")
 }
+
+func TestBuildContainerDependency(t *testing.T) {
+	container := Container{}
+	depContName := "dep"
+	container.BuildContainerDependency(depContName, ContainerRunning, ContainerRunning)
+	assert.NotNil(t, container.TransitionDependenciesMap)
+	contDep := container.TransitionDependenciesMap[ContainerRunning].ContainerDependencies
+	assert.Len(t, container.TransitionDependenciesMap, 1)
+	assert.Len(t, contDep, 1)
+	assert.Equal(t, contDep[0].ContainerName, depContName)
+	assert.Equal(t, contDep[0].SatisfiedStatus, ContainerRunning)
+}
