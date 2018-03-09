@@ -577,13 +577,7 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 				KnownStatusUnsafe:   tc.TargetKnown,
 				DesiredStatusUnsafe: tc.TargetDesired,
 			}
-			target.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
-			deps := api.TransitionDependencySet{}
-			deps.ContainerDependencies = append(deps.ContainerDependencies, api.ContainerDependency{
-				ContainerName:   tc.DependencyName,
-				SatisfiedStatus: tc.SatisfiedStatus,
-			})
-			target.TransitionDependenciesMap[tc.TargetNext] = deps
+			target.BuildContainerDependency(tc.DependencyName, tc.SatisfiedStatus, tc.TargetNext)
 			dep := &api.Container{
 				Name:              tc.DependencyName,
 				KnownStatusUnsafe: tc.DependencyKnown,

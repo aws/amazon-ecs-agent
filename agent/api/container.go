@@ -538,3 +538,23 @@ func (c *Container) GetHealthStatus() HealthStatus {
 
 	return copyHealth
 }
+
+// BuildContainerDependency adds a new dependency container and satisfied status
+// to the dependent container
+func (c *Container) BuildContainerDependency(contName string,
+	satisfiedStatus ContainerStatus,
+	dependentStatus ContainerStatus) {
+	if c.TransitionDependenciesMap == nil {
+		c.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+	}
+	contDep := ContainerDependency{
+		ContainerName:   contName,
+		SatisfiedStatus: satisfiedStatus,
+	}
+	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
+		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+	}
+	deps := c.TransitionDependenciesMap[dependentStatus]
+	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
+	c.TransitionDependenciesMap[dependentStatus] = deps
+}

@@ -171,19 +171,7 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.TransitionDependenciesMap == nil {
-					container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
-				}
-				contDep := ContainerDependency{
-					ContainerName:   emptyHostVolumeName,
-					SatisfiedStatus: ContainerRunning,
-				}
-				if _, ok := container.TransitionDependenciesMap[ContainerCreated]; !ok {
-					container.TransitionDependenciesMap[ContainerCreated] = TransitionDependencySet{}
-				}
-				deps := container.TransitionDependenciesMap[ContainerCreated]
-				deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
-				container.TransitionDependenciesMap[ContainerCreated] = deps
+				container.BuildContainerDependency(emptyHostVolumeName, ContainerRunning, ContainerCreated)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -291,19 +279,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		contDep := ContainerDependency{
-			ContainerName:   PauseContainerName,
-			SatisfiedStatus: ContainerResourcesProvisioned,
-		}
-		if container.TransitionDependenciesMap == nil {
-			container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
-		}
-		if _, ok := container.TransitionDependenciesMap[ContainerPulled]; !ok {
-			container.TransitionDependenciesMap[ContainerPulled] = TransitionDependencySet{}
-		}
-		deps := container.TransitionDependenciesMap[ContainerPulled]
-		deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
-		container.TransitionDependenciesMap[ContainerPulled] = deps
+		container.BuildContainerDependency(PauseContainerName, ContainerResourcesProvisioned, ContainerPulled)
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
