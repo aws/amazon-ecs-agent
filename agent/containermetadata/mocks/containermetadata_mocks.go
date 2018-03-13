@@ -21,6 +21,8 @@ import (
 	reflect "reflect"
 	time "time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
+
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -61,7 +63,7 @@ func (mr *MockManagerMockRecorder) Clean(arg0 interface{}) *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockManager) Create(arg0 *go_dockerclient.Config, arg1 *go_dockerclient.HostConfig, arg2, arg3 string) error {
+func (m *MockManager) Create(arg0 *go_dockerclient.Config, arg1 *go_dockerclient.HostConfig, arg2 *api.Task, arg3 string) error {
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,7 +85,7 @@ func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *go
 }
 
 // Update mocks base method
-func (m *MockManager) Update(arg0, arg1, arg2 string) error {
+func (m *MockManager) Update(arg0 string, arg1 *api.Task, arg2 string) error {
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0

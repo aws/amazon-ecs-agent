@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -39,8 +40,8 @@ const (
 // operations
 type Manager interface {
 	SetContainerInstanceARN(string)
-	Create(*docker.Config, *docker.HostConfig, string, string) error
-	Update(string, string, string) error
+	Create(*docker.Config, *docker.HostConfig, *api.Task, string) error
+	Update(string, *api.Task, string) error
 	Clean(string) error
 }
 
@@ -86,22 +87,22 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker.HostConfig, taskARN string, containerName string) error {
+func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker.HostConfig, task *api.Task, containerName string) error {
 	// Create task and container directories if they do not yet exist
-	metadataDirectoryPath, err := getMetadataFilePath(taskARN, containerName, manager.dataDir)
+	metadataDirectoryPath, err := getMetadataFilePath(task.Arn, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason
 	if err != nil {
-		return fmt.Errorf("container metadata create for task %s container %s: %v", taskARN, containerName, err)
+		return fmt.Errorf("container metadata create for task %s container %s: %v", task.Arn, containerName, err)
 	}
 
 	err = manager.osWrap.MkdirAll(metadataDirectoryPath, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("creating metadata directory for task %s: %v", taskARN, err)
+		return fmt.Errorf("creating metadata directory for task %s: %v", task.Arn, err)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadataAtContainerCreate(taskARN, containerName)
-	err = manager.marshalAndWrite(metadata, taskARN, containerName)
+	metadata := manager.parseMetadataAtContainerCreate(task, containerName)
+	err = manager.marshalAndWrite(metadata, task.Arn, containerName)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 }
 
 // Update updates the metadata file after container starts and dynamic metadata is available
-func (manager *metadataManager) Update(dockerID string, taskARN string, containerName string) error {
+func (manager *metadataManager) Update(dockerID string, task *api.Task, containerName string) error {
 	// Get docker container information through api call
 	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
 	if err != nil {
@@ -124,12 +125,12 @@ func (manager *metadataManager) Update(dockerID string, taskARN string, containe
 
 	// Ensure we do not update a container that is invalid or is not running
 	if dockerContainer == nil || !dockerContainer.State.Running {
-		return fmt.Errorf("container metadata update for contiainer %s in task %s: container not running or invalid", containerName, taskARN)
+		return fmt.Errorf("container metadata update for container %s in task %s: container not running or invalid", containerName, task.Arn)
 	}
 
 	// Acquire the metadata then write it in JSON format to the file
-	metadata := manager.parseMetadata(dockerContainer, taskARN, containerName)
-	return manager.marshalAndWrite(metadata, taskARN, containerName)
+	metadata := manager.parseMetadata(dockerContainer, task, containerName)
+	return manager.marshalAndWrite(metadata, task.Arn, containerName)
 }
 
 // Clean removes the metadata files of all containers associated with a task
