@@ -21,7 +21,7 @@ export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
 
 if [ -d "${TOPWD}/.git" ]; then
     version=$(cat "${TOPWD}/ecs-init/VERSION")
-    git_hash=$(git rev-parse --short HEAD)
+    git_hash=$(git rev-parse --short=8 HEAD)
     git_dirty=false
 
     if [[ "$(git status --porcelain)" != "" ]]; then
