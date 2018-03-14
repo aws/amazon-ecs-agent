@@ -454,6 +454,28 @@ func (_m *MockDockerClient) RemoveVolume(_param0 string, _param1 time.Duration) 
 	ret0, _ := ret[0].(error)
 	return ret0
 }
+
+func (_m *MockDockerClient) ListPluginsWithFilters(_param0 bool, _param1 []string, _param2 time.Duration) ([]string, error) {
+	ret := _m.ctrl.Call(_m, "ListPluginsWithFilters", _param0, _param1, _param2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDockerClientRecorder) ListPluginsWithFilters(_param0, _param1, _param2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListPluginsWithFilters", _param0, _param1, _param2)
+}
+
+func (_m *MockDockerClient) ListPlugins(_param0 time.Duration) listPluginsResponse {
+	ret := _m.ctrl.Call(_m, "ListPlugins", _param0)
+	ret0, _ := ret[0].(listPluginsResponse)
+	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) ListPlugins(_param0 time.Duration) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListPlugins", _param0)
+}
+
 func (_m *MockImageManager) SetSaver(_param0 statemanager.Saver) {
 	_m.ctrl.Call(_m, "SetSaver", _param0)
 }
