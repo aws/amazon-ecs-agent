@@ -68,7 +68,6 @@ type DockerInfo struct {
 	Architecture       string
 	IndexServerAddress string
 	RegistryConfig     *ServiceConfig
-	SecurityOptions    []string
 	NCPU               int
 	MemTotal           int64
 	DockerRootDir      string

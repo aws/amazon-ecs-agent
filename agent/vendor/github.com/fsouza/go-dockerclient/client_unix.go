@@ -9,24 +9,21 @@ package docker
 import (
 	"context"
 	"net"
-	"net/http"
 )
 
 // initializeNativeClient initializes the native Unix domain socket client on
 // Unix-style operating systems
-func (c *Client) initializeNativeClient(trFunc func() *http.Transport) {
+func (c *Client) initializeNativeClient() {
 	if c.endpointURL.Scheme != unixProtocol {
 		return
 	}
-	sockPath := c.endpointURL.Path
-
-	tr := trFunc()
-
+	socketPath := c.endpointURL.Path
+	tr := defaultTransport()
 	tr.Dial = func(network, addr string) (net.Conn, error) {
-		return c.Dialer.Dial(unixProtocol, sockPath)
+		return c.Dialer.Dial(unixProtocol, socketPath)
 	}
 	tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		return c.Dialer.Dial(unixProtocol, sockPath)
+		return c.Dialer.Dial(unixProtocol, socketPath)
 	}
 	c.HTTPClient.Transport = tr
 }
