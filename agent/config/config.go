@@ -448,6 +448,10 @@ func getTaskCPUMemLimitEnabled() Conditional {
 func getTaskMetadataThrottles() (int, int) {
 	var steadyStateRate, burstRate int
 	rpsLimitEnvVal := os.Getenv("ECS_TASK_METADATA_RPS_LIMIT")
+	if rpsLimitEnvVal == "" {
+		seelog.Debug("Environment variable empty: ECS_TASK_METADATA_RPS_LIMIT")
+		return 0, 0
+	}
 	rpsLimitSplits := strings.Split(rpsLimitEnvVal, ",")
 	if len(rpsLimitSplits) != 2 {
 		seelog.Warn(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected: "rateLimit,burst"`)

@@ -21,7 +21,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\container-health-windows\build.ps1"
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -race -tags integration -timeout=15m -v ../agent/engine ../agent/stats ../agent/app
+  go test -race -tags integration -timeout=20m -v ../agent/engine ../agent/stats ../agent/app
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"

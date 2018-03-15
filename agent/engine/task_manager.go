@@ -95,6 +95,7 @@ type containerTransition struct {
 type managedTask struct {
 	*api.Task
 	ctx                context.Context
+	cancel             context.CancelFunc
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -126,8 +127,10 @@ type managedTask struct {
 // This method must only be called when the engine.processTasks write lock is
 // already held.
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
+	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                        engine.ctx,
+		ctx:                        ctx,
+		cancel:                     cancel,
 		Task:                       task,
 		acsMessages:                make(chan acsTransition),
 		dockerMessages:             make(chan dockerContainerChange),
@@ -238,12 +241,16 @@ func (mtask *managedTask) waitForHostResources() {
 
 	seelog.Infof("Managed task [%s]: waiting for any previous stops to complete. Sequence number: %d",
 		mtask.Arn, mtask.StartSequenceNumber)
-	othersStopped := make(chan bool, 1)
+
+	othersStoppedCtx, cancel := context.WithCancel(mtask.ctx)
+	defer cancel()
+
 	go func() {
 		mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
-		othersStopped <- true
+		cancel()
 	}()
-	for !mtask.waitEvent(othersStopped) {
+
+	for !mtask.waitEvent(othersStoppedCtx.Done()) {
 		if mtask.GetDesiredStatus().Terminal() {
 			// If we end up here, that means we received a start then stop for this
 			// task before a task that was expected to stop before it could
@@ -260,14 +267,9 @@ func (mtask *managedTask) waitForHostResources() {
 func (mtask *managedTask) waitSteady() {
 	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	maxWait := make(chan bool, 1)
-	timer := mtask.time().After(steadyStateTaskVerifyInterval)
-	go func() {
-		// TODO: Wire in context here
-		<-timer
-		maxWait <- true
-	}()
-	timedOut := mtask.waitEvent(maxWait)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	defer cancel()
+	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
@@ -291,10 +293,10 @@ func (mtask *managedTask) cleanupCredentials() {
 }
 
 // waitEvent waits for any event to occur. If an event occurs, the appropriate
-// handler is called. If the event is the passed in channel, it will return the
-// value written to the channel, otherwise it will return false.
-// TODO: Wire in context here
-func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
+// handler is called. Generally the stopWaiting arg is the context's Done
+// channel. When the Done channel is signalled by the context, waitEvent will
+// return true.
+func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 	seelog.Debugf("Managed task [%s]: waiting for event for task", mtask.Arn)
 	select {
 	case acsTransition := <-mtask.acsMessages:
@@ -306,9 +308,9 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
 			mtask.Arn, dockerChange.container.Name, dockerChange.event.Status.String())
 		mtask.handleContainerChange(dockerChange)
 		return false
-	case b := <-stopWaiting:
+	case <-stopWaiting:
 		seelog.Debugf("Managed task [%s]: no longer waiting", mtask.Arn)
-		return b
+		return true
 	}
 }
 
@@ -596,13 +598,13 @@ func (mtask *managedTask) progressContainers() {
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
-	transitionChange := make(chan bool, len(mtask.Containers))
+	transitionChange := make(chan struct{}, len(mtask.Containers))
 	transitionChangeContainer := make(chan string, len(mtask.Containers))
 
 	anyCanTransition, transitions, reasons := mtask.startContainerTransitions(
 		func(container *api.Container, nextStatus api.ContainerStatus) {
 			mtask.engine.transitionContainer(mtask.Task, container, nextStatus)
-			transitionChange <- true
+			transitionChange <- struct{}{}
 			transitionChangeContainer <- container.Name
 		})
 
@@ -635,14 +637,12 @@ func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bo
 		if reason == dependencygraph.CredentialsNotResolvedErr {
 			seelog.Debugf("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
 
-			maxWait := make(chan bool, 1)
-			timer := mtask.time().AfterFunc(waitForPullCredentialsTimeout, func() {
-				maxWait <- true
-			})
-			// Have a timeout in case we missed the acs message but the credentials
-			// were already in the credentials manager
-			if !mtask.waitEvent(maxWait) {
-				timer.Stop()
+			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForPullCredentialsTimeout)
+			defer timeoutCancel()
+
+			timedOut := mtask.waitEvent(timeoutCtx.Done())
+			if timedOut {
+				seelog.Debugf("Managed task [%s]: timed out waiting for acs credentials message", mtask.Arn)
 			}
 			return true
 		}
@@ -769,8 +769,9 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 }
 
 func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus,
-	transitionChange <-chan bool,
+	transitionChange <-chan struct{},
 	transitionChangeContainer <-chan string) {
+
 	for len(transitions) > 0 {
 		if mtask.waitEvent(transitionChange) {
 			changedContainer := <-transitionChangeContainer
@@ -817,10 +818,10 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
 	cleanupTime := mtask.time().After(cleanupTimeDuration)
-	cleanupTimeBool := make(chan bool)
+	cleanupTimeBool := make(chan struct{})
 	go func() {
 		<-cleanupTime
-		cleanupTimeBool <- true
+		cleanupTimeBool <- struct{}{}
 		close(cleanupTimeBool)
 	}()
 	// wait for the cleanup time to elapse, signalled by cleanupTimeBool
@@ -879,7 +880,7 @@ func (mtask *managedTask) discardPendingMessages() {
 // waitForStopReported will wait for the task to be reported stopped and return true, or will time-out and return false.
 // Messages on the mtask.dockerMessages and mtask.acsMessages channels will be handled while this function is waiting.
 func (mtask *managedTask) waitForStopReported() bool {
-	stoppedSentBool := make(chan bool)
+	stoppedSentBool := make(chan struct{})
 	taskStopped := false
 	go func() {
 		for i := 0; i < _maxStoppedWaitTimes; i++ {
@@ -893,7 +894,7 @@ func (mtask *managedTask) waitForStopReported() bool {
 				mtask.Arn, sentStatus.String(), i+1, _maxStoppedWaitTimes)
 			mtask._time.Sleep(_stoppedSentWaitInterval)
 		}
-		stoppedSentBool <- true
+		stoppedSentBool <- struct{}{}
 		close(stoppedSentBool)
 	}()
 	// wait for api.TaskStopped to be sent

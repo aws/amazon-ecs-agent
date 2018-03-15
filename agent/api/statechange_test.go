@@ -49,7 +49,7 @@ func TestShouldBeReported(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(fmt.Sprintf("task change status: %s, container change: %s", tc.status, len(tc.containerChange) > 0),
+		t.Run(fmt.Sprintf("task change status: %s, container change: %t", tc.status, len(tc.containerChange) > 0),
 			func(t *testing.T) {
 				taskChange := TaskStateChange{
 					Status:     tc.status,
