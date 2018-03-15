@@ -361,6 +361,19 @@ func (err CannotInspectVolumeError) ErrorName() string {
 	return "CannotInspectVolumeError"
 }
 
+// CannotListPluginsError indicates any error when trying to list docker plugins
+type CannotListPluginsError struct {
+	fromError error
+}
+
+func (err CannotListPluginsError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotListPluginsError) ErrorName() string {
+	return "CannotListPluginsError"
+}
+
 // CannotRemoveVolumeError indicates any error when trying to inspect a volume
 type CannotRemoveVolumeError struct {
 	fromError error
