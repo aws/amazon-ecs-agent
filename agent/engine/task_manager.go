@@ -655,8 +655,8 @@ func (mtask *managedTask) progressContainers() {
 	// We've kicked off one or more transitions, wait for them to
 	// complete, but keep reading events as we do. in fact, we have to for
 	// transitions to complete
-	mtask.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
-	seelog.Debugf("Managed task [%s]: done transitioning all containers", mtask.Arn)
+	mtask.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
+	seelog.Debugf("Managed task [%s]: wait for container transition done", mtask.Arn)
 
 	// update the task status
 	changed := mtask.UpdateStatus()
@@ -700,16 +700,30 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 			reasons = append(reasons, transition.reason)
 			continue
 		}
+
+		// If the container is already in a transition, skip
+		if transition.actionRequired && !cont.SetAppliedStatus(transition.nextState) {
+			// At least one container is able to be moved forwards, so we're not deadlocked
+			anyCanTransition = true
+			continue
+		}
+
 		// At least one container is able to be moved forwards, so we're not deadlocked
 		anyCanTransition = true
 
 		if !transition.actionRequired {
-			mtask.handleContainerChange(dockerContainerChange{
-				container: cont,
-				event: DockerContainerChangeEvent{
-					Status: transition.nextState,
-				},
-			})
+			// Updating the container status without calling any docker API, send in
+			// a goroutine so that it won't block here before the waitForContainerTransition
+			// was called after this function. And all the events sent to mtask.dockerMessages
+			// will be handled by handleContainerChange.
+			go func(cont *api.Container, status api.ContainerStatus) {
+				mtask.dockerMessages <- dockerContainerChange{
+					container: cont,
+					event: DockerContainerChangeEvent{
+						Status: status,
+					},
+				}
+			}(cont, transition.nextState)
 			continue
 		}
 		transitions[cont.Name] = transition.nextState
@@ -800,39 +814,23 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
 	} else {
-		seelog.Criticalf("Managed task [%s]: voving task to stopped due to bad state", mtask.Arn)
+		seelog.Criticalf("Managed task [%s]: moving task to stopped due to bad state", mtask.Arn)
 		mtask.handleDesiredStatusChange(api.TaskStopped, 0)
 	}
 }
 
-func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus,
+func (mtask *managedTask) waitForContainerTransition(transitions map[string]api.ContainerStatus,
 	transitionChange <-chan struct{},
 	transitionChangeContainer <-chan string) {
-
-	for len(transitions) > 0 {
-		if mtask.waitEvent(transitionChange) {
-			changedContainer := <-transitionChangeContainer
-			seelog.Debugf("Managed task [%s]: transition for container[%s] finished",
-				mtask.Arn, changedContainer)
-			delete(transitions, changedContainer)
-			seelog.Debugf("Managed task [%s]: still waiting for: %v", mtask.Arn, transitions)
-		}
-		if mtask.GetDesiredStatus().Terminal() || mtask.GetKnownStatus().Terminal() {
-			allWaitingOnPulled := true
-			for _, desired := range transitions {
-				if desired != api.ContainerPulled {
-					allWaitingOnPulled = false
-				}
-			}
-			if allWaitingOnPulled {
-				// We don't actually care to wait for 'pull' transitions to finish if
-				// we're just heading to stopped since those resources aren't
-				// inherently linked to this task anyways for e.g. gc and so on.
-				seelog.Debugf("Managed task [%s]: all containers are waiting for pulled transition; exiting early: %v",
-					mtask.Arn, transitions)
-				break
-			}
-		}
+	// There could be multiple transitions, but we just need to wait for one of them
+	// to ensure that there is at least one container can be processed in the next
+	// progressContainers. This is done by waiting for one transition/acs/docker message.
+	if mtask.waitEvent(transitionChange) {
+		changedContainer := <-transitionChangeContainer
+		seelog.Debugf("Managed task [%s]: transition for container[%s] finished",
+			mtask.Arn, changedContainer)
+		delete(transitions, changedContainer)
+		seelog.Debugf("Managed task [%s]: still waiting for: %v", mtask.Arn, transitions)
 	}
 }
 
