@@ -603,17 +603,25 @@ func TestVolumesFromRO(t *testing.T) {
 	}
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
+	// make all the three containers non-essential to make sure all of the
+	// container can be transitioned to running even one of them finished first
+	testTask.Containers[1].Essential = false
 	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
+	testTask.Containers[2].Essential = false
 	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
+	testTask.Containers[3].Essential = false
 
 	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, testTask.Containers[0])
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	if testTask.Containers[1].GetKnownExitCode() == nil || *testTask.Containers[1].GetKnownExitCode() != 42 {
-		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
+		t.Error("Didn't exit due to failure to touch ro fs as expected: ", testTask.Containers[1].GetKnownExitCode())
 	}
 	if testTask.Containers[2].GetKnownExitCode() == nil || *testTask.Containers[2].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with default of rw")

@@ -2,6 +2,7 @@
 
 ## 1.17.3-dev
 * Bug - Fixed a bug where a stale websocket connection could linger [#1310](https://github.com/aws/amazon-ecs-agent/pull/1310)
+* Enhancement - Parallize the container transition in the same task [#1305](https://github.com/aws/amazon-ecs-agent/pull/1306)
 
 ## 1.17.2
 * Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.02.0` [#1272](https://github.com/aws/amazon-ecs-agent/pull/1272)
