@@ -734,7 +734,7 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		},
 	}
 
-	transitionChange := make(chan bool, 2)
+	transitionChange := make(chan struct{}, 2)
 	transitionChangeContainer := make(chan string, 2)
 
 	firstContainerName := "container1"
@@ -751,9 +751,9 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		// Send "transitions completed" messages. These are being
 		// sent out of order for no particular reason. We should be
 		// resilient to the ordering of these messages anyway.
-		transitionChange <- true
+		transitionChange <- struct{}{}
 		transitionChangeContainer <- secondContainerName
-		transitionChange <- true
+		transitionChange <- struct{}{}
 		transitionChangeContainer <- firstContainerName
 	}()
 
@@ -781,7 +781,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 		ctx: ctx,
 	}
 
-	transitionChange := make(chan bool, 2)
+	transitionChange := make(chan struct{}, 2)
 	transitionChangeContainer := make(chan string, 2)
 
 	firstContainerName := "container1"
@@ -794,7 +794,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 	// only one event. This tests that `waitForContainerTransitions` doesn't
 	// block to receive two events and will still progress
 	go func() {
-		transitionChange <- true
+		transitionChange <- struct{}{}
 		transitionChangeContainer <- secondContainerName
 	}()
 	task.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
@@ -1463,7 +1463,11 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 func TestWaitForHostResources(t *testing.T) {
 	taskStopWG := utilsync.NewSequentialWaitGroup()
 	taskStopWG.Add(1, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	mtask := &managedTask{
+		ctx:        ctx,
+		cancel:     cancel,
 		taskStopWG: taskStopWG,
 		Task: &api.Task{
 			StartSequenceNumber: 1,

@@ -15,7 +15,10 @@
 
 package engine
 
-import "github.com/aws/amazon-ecs-agent/agent/api"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/aws-sdk-go/aws"
+)
 
 const (
 	dockerEndpoint  = "npipe:////./pipe/docker_engine"
@@ -59,5 +62,30 @@ func createTestEmptyHostVolumeMountTask() *api.Task {
 	testTask.Containers[1].MountPoints = []api.MountPoint{{ContainerPath: "C:/alsoempty/", SourceVolume: "test-tmp"}}
 	testTask.Containers[1].Command = []string{`New-Item -Path C:\alsoempty\file`}
 	testTask.Containers[1].Essential = false
+	return testTask
+}
+
+func createTestHealthCheckTask(arn string) *api.Task {
+	testTask := &api.Task{
+		Arn:                 arn,
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		Containers:          []*api.Container{createTestContainer()},
+	}
+	testTask.Containers[0].Image = "microsoft/nanoserver:latest"
+	testTask.Containers[0].Name = "test-health-check"
+	testTask.Containers[0].HealthCheckType = "docker"
+	testTask.Containers[0].Command = []string{"powershell", "-command", "Start-Sleep -s 300"}
+	testTask.Containers[0].DockerConfig = api.DockerConfig{
+		Config: aws.String(`{
+			"HealthCheck":{
+				"Test":["CMD-SHELL", "echo hello"],
+				"Interval":100000000,
+				"Timeout":100000000,
+				"StartPeriod":100000000,
+				"Retries":3}
+		}`),
+	}
 	return testTask
 }

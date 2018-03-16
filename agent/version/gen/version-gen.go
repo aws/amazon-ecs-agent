@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -72,7 +72,7 @@ func gitDirty() bool {
 }
 
 func gitHash() string {
-	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	cmd := exec.Command("git", "rev-parse", "--short=8", "HEAD")
 	hash, err := cmd.Output()
 	if err != nil {
 		return "UNKNOWN"

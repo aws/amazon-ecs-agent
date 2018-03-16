@@ -128,7 +128,7 @@ func NewContainerStateChangeEvent(task *Task, cont *Container, reason string) (C
 		ContainerName: cont.Name,
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
-		PortBindings:  cont.KnownPortBindings,
+		PortBindings:  cont.GetKnownPortBindings(),
 		Reason:        reason,
 		Container:     cont,
 	}

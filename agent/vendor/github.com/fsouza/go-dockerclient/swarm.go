@@ -5,7 +5,6 @@
 package docker
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/docker/docker/api/types/swarm"
+	"golang.org/x/net/context"
 )
 
 var (

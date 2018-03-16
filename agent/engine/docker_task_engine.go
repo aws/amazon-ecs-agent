@@ -38,6 +38,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"context"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -313,8 +314,8 @@ func updateContainerMetadata(metadata *DockerContainerMetadata, container *api.C
 	}
 
 	// Set port mappings
-	if len(metadata.PortBindings) != 0 && len(container.KnownPortBindings) == 0 {
-		container.KnownPortBindings = metadata.PortBindings
+	if len(metadata.PortBindings) != 0 && len(container.GetKnownPortBindings()) == 0 {
+		container.SetKnownPortBindings(metadata.PortBindings)
 	}
 	// update the container health information
 	if container.HealthStatusShouldBeReported() {
@@ -1101,28 +1102,6 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
 	return engine.client.Version()
-}
-
-// isParallelPullCompatible checks the docker version and return true if docker version >= 1.11.1
-func (engine *DockerTaskEngine) isParallelPullCompatible() bool {
-	version, err := engine.Version()
-	if err != nil {
-		seelog.Warnf("Task engine: failed to get docker version: %v", err)
-		return false
-	}
-
-	match, err := utils.Version(version).Matches(">=1.11.1")
-	if err != nil {
-		seelog.Warnf("Task engine: Could not compare docker version: %v", err)
-		return false
-	}
-
-	if match {
-		seelog.Debugf("Task engine: Found Docker version [%s]. Enabling concurrent pull", version)
-		return true
-	}
-
-	return false
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {

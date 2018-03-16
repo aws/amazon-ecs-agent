@@ -1,6 +1,6 @@
 // +build windows,!integration
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -27,6 +27,15 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	// dockerVersionCheckDuringInit specifies if Docker client's Version()
+	// API needs to be mocked in engine tests
+	//
+	// isParallelPullCompatible is not invoked during engin intialization
+	// on windows. No need for mock Docker client's Version() call
+	dockerVersionCheckDuringInit = false
 )
 
 func TestPullEmptyVolumeImage(t *testing.T) {
