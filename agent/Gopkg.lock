@@ -171,7 +171,7 @@
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"
   packages = ["."]
-  revision = "d25e8d2941bd448756b336a2ec3abf79802d6ddf"
+  revision = "bf3bc17bb026cbe5e9203374f9a1ce37e521a364"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -298,7 +298,6 @@
   name = "golang.org/x/net"
   packages = [
     "context",
-    "context/ctxhttp",
     "html",
     "html/atom",
     "proxy"
@@ -334,6 +333,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "713d8f979105f22ad8c8b3f1649e660f14837da0ea3957c19c94838beec2dbb4"
+  inputs-digest = "aac6617ed5c6df8d43f076324e4d16db9319e4475bf857e9d4da4eaa3f645fc1"
   solver-name = "gps-cdcl"
   solver-version = 1
