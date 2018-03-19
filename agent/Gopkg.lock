@@ -142,17 +142,23 @@
     "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
+    "pkg/plugins",
+    "pkg/plugins/transport",
     "pkg/pools",
     "pkg/stdcopy",
     "pkg/system",
     "pkg/term",
     "pkg/term/windows"
   ]
-  revision = "e4d0fe84f9ea88b0e0cfd847412c9f29442cc62d"
+  revision = "7270b01e5dd1fca3fd7fed0d6fb9d2769ec5f4ba"
 
 [[projects]]
   name = "github.com/docker/go-connections"
-  packages = ["nat"]
+  packages = [
+    "nat",
+    "sockets",
+    "tlsconfig"
+  ]
   revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
   version = "v0.3.0"
 
@@ -294,7 +300,8 @@
     "context",
     "context/ctxhttp",
     "html",
-    "html/atom"
+    "html/atom",
+    "proxy"
   ]
   revision = "a337091b0525af65de94df2eb7e98bd9962dcbe2"
 
@@ -327,6 +334,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "51cd6532582aaef6e5ff0b6e7920fe74c1786d5dbbcc1e26bba7bff2e00fadc0"
+  inputs-digest = "713d8f979105f22ad8c8b3f1649e660f14837da0ea3957c19c94838beec2dbb4"
   solver-name = "gps-cdcl"
   solver-version = 1
