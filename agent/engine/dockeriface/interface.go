@@ -41,6 +41,7 @@ type Client interface {
 	CreateVolume(opts docker.CreateVolumeOptions) (*docker.Volume, error)
 	InspectVolume(name string) (*docker.Volume, error)
 	RemoveVolume(name string) error
+	ListPlugins(ctx context.Context) ([]docker.PluginDetail, error)
 	Stats(opts docker.StatsOptions) error
 	Version() (*docker.Env, error)
 	RemoveImage(imageName string) error

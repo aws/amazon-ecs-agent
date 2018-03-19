@@ -230,6 +230,17 @@ func (_mr *_MockClientRecorder) RemoveVolume(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0)
 }
 
+func (_m *MockClient) ListPlugins(_param0 context.Context) ([]go_dockerclient.PluginDetail, error) {
+	ret := _m.ctrl.Call(_m, "ListPlugins", _param0)
+	ret0, _ := ret[0].([]go_dockerclient.PluginDetail)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockClientRecorder) ListPlugins(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListPlugins", arg0)
+}
+
 func (_m *MockClient) Stats(_param0 go_dockerclient.StatsOptions) error {
 	ret := _m.ctrl.Call(_m, "Stats", _param0)
 	ret0, _ := ret[0].(error)

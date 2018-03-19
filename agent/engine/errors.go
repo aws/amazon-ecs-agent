@@ -373,3 +373,16 @@ func (err CannotRemoveVolumeError) Error() string {
 func (err CannotRemoveVolumeError) ErrorName() string {
 	return "CannotRemoveVolumeError"
 }
+
+// CannotListPluginsError indicates any error when trying to list docker plugins
+type CannotListPluginsError struct {
+	fromError error
+}
+
+func (err CannotListPluginsError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotListPluginsError) ErrorName() string {
+	return "CannotListPluginsError"
+}

@@ -1435,3 +1435,101 @@ func TestRemoveVolume(t *testing.T) {
 	err := client.RemoveVolume(volumeName, inspectContainerTimeout)
 	assert.NoError(t, err)
 }
+
+func TestListPluginsTimeout(t *testing.T) {
+	timeout := 10*time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	response := client.ListPlugins(timeout)
+	assert.Error(t, response.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", response.Error.(api.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestListPluginsError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(nil, errors.New("some docker error"))
+	response := client.ListPlugins(1*time.Second)
+	assert.Equal(t, "CannotListPluginsError", response.Error.(api.NamedError).ErrorName())
+}
+
+func TestListPlugins(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	pluginID := "id"
+	pluginName := "name"
+	pluginTag := "tag"
+	pluginDetail := docker.PluginDetail{
+		ID: pluginID,
+		Name: pluginName,
+		Tag: pluginTag,
+		Active: true,
+	}
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return([]docker.PluginDetail{pluginDetail}, nil)
+
+	response := client.ListPlugins(inspectContainerTimeout)
+	assert.NoError(t, response.Error)
+	assert.Equal(t, pluginDetail, response.Plugins[0])
+}
+
+func TestListPluginsWithFilter(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	plugins := []docker.PluginDetail{
+		docker.PluginDetail{
+			ID: "id1",
+			Name: "name1",
+			Tag: "tag1",
+			Active: false,
+		},
+		docker.PluginDetail{
+			ID: "id2",
+			Name: "name2",
+			Tag: "tag2",
+			Active: true,
+			Config: docker.PluginConfig{
+				Description:   "A sample volume plugin for Docker",
+				Interface: docker.PluginInterface{
+					Types:  []string{"docker.volumedriver/1.0"},
+					Socket: "plugins.sock",
+				},
+			},
+		},
+		docker.PluginDetail{
+			ID: "id3",
+			Name: "name3",
+			Tag: "tag3",
+			Active: true,
+			Config: docker.PluginConfig{
+				Description:   "A sample network plugin for Docker",
+				Interface: docker.PluginInterface{
+					Types:  []string{"docker.networkdriver/1.0"},
+					Socket: "plugins.sock",
+				},
+			},
+		},
+	}
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(plugins, nil)
+
+	pluginNames, error := client.ListPluginsWithFilters(true, []string{VolumeDriverType}, inspectContainerTimeout)
+	assert.NoError(t, error)
+	assert.Equal(t, 1, len(pluginNames))
+	assert.Equal(t, "name2", pluginNames[0])
+}
