@@ -290,7 +290,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	sleepTask.Containers[0].TransitionDependencySet.ContainerDependencies = []api.ContainerDependency{
 		{
 			ContainerName:   "pause",
-			SatisfiedStatus: api.ContainerRunning,
+			SatisfiedStatus: api.ContainerResourcesProvisioned,
 			DependentStatus: api.ContainerPulled,
 		}}
 	sleepContainer := sleepTask.Containers[0]
@@ -432,6 +432,7 @@ func TestRemoveEvents(t *testing.T) {
 		client.EXPECT().Version()
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).AnyTimes()
 	containerName := make(chan string)
 	go func() {
 		name := <-containerName
@@ -477,7 +478,6 @@ func TestRemoveEvents(t *testing.T) {
 			eventStream <- createDockerEvent(api.ContainerStopped)
 		}).Return(nil)
 
-	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).AnyTimes()
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 
 	// This ensures that managedTask.waitForStopReported makes progress
