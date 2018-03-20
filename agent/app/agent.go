@@ -45,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -104,6 +105,7 @@ type ecsAgent struct {
 	metadataManager       containermetadata.Manager
 	resource              resources.Resource
 	terminationHandler    sighandlers.TerminationHandler
+	mobyPlugins           mobypkgwrapper.Plugins
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -167,6 +169,7 @@ func newAgent(
 		metadataManager:    metadataManager,
 		resource:           resources.New(),
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
+		mobyPlugins:        mobypkgwrapper.NewPlugins(),
 	}, nil
 }
 
