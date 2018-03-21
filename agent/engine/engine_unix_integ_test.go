@@ -109,7 +109,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	defer done()
 
 	// Ensure this image isn't pulled by deleting it
-	removeImage(testRegistryImage)
+	removeImage(t, testRegistryImage)
 
 	testTask := createTestTask("testStartUnpulled")
 
@@ -127,7 +127,7 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(imageDigest)
+	removeImage(t, imageDigest)
 
 	testTask := createTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = imageDigest
@@ -151,21 +151,17 @@ func TestPortForward(t *testing.T) {
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
 
 	err := verifyTaskIsRunning(stateChangeEvents, testTask)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	_, err = net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
-	if err == nil {
-		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
-	}
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), dialTimeout)
+	assert.Error(t, err, "Did not expect to be able to dial %s:%d but didn't get error", localhost, containerPortOne)
 
 	// Kill the existing container now to make the test run more quickly.
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -181,8 +177,8 @@ func TestPortForward(t *testing.T) {
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	taskEngine.AddTask(testTask)
 
@@ -191,8 +187,8 @@ func TestPortForward(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -212,8 +208,8 @@ func TestPortForward(t *testing.T) {
 		t.Log("Retrying getting response from container; got nothing")
 		time.Sleep(100 * time.Millisecond)
 	}
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Stop the existing container now
@@ -234,13 +230,13 @@ func TestMultiplePortForwards(t *testing.T) {
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container1"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "1"}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
-	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24752}}
+	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "2"}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -249,25 +245,25 @@ func TestMultiplePortForwards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container 1 " + err.Error())
 	}
 	t.Log("Dialed first container")
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container1" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container1'")
+	if string(response) != serverContent+"1" {
+		t.Error("Got response: " + string(response) + " instead of" + serverContent + "1")
 	}
 	t.Log("Read first container")
-	conn, err = dialWithRetries("tcp", "127.0.0.1:24752", 10, 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortTwo), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container 2 " + err.Error())
 	}
 	t.Log("Dialed second container")
 	response, _ = ioutil.ReadAll(conn)
-	if string(response) != "ecs test container2" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container2'")
+	if string(response) != serverContent+"2" {
+		t.Error("Got response: " + string(response) + " instead of" + serverContent + "2")
 	}
 	t.Log("Read second container")
 
@@ -287,9 +283,9 @@ func TestDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -303,25 +299,25 @@ func TestDynamicPortForward(t *testing.T) {
 	if len(portBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
 	}
-	var bindingFor24751 uint16
+	var bindingForcontainerPortOne uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
-			bindingFor24751 = binding.HostPort
+		if binding.ContainerPort == containerPortOne {
+			bindingForcontainerPortOne = binding.HostPort
 		}
 	}
-	if bindingFor24751 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Kill the existing container now
@@ -341,9 +337,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward2"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container", `-loop`}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}, {ContainerPort: 24751, HostPort: 0}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -357,43 +353,43 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	if len(portBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
 	}
-	var bindingFor24751_1 uint16
-	var bindingFor24751_2 uint16
+	var bindingForcontainerPortOne_1 uint16
+	var bindingForcontainerPortOne_2 uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
-			if bindingFor24751_1 == 0 {
-				bindingFor24751_1 = binding.HostPort
+		if binding.ContainerPort == containerPortOne {
+			if bindingForcontainerPortOne_1 == 0 {
+				bindingForcontainerPortOne_1 = binding.HostPort
 			} else {
-				bindingFor24751_2 = binding.HostPort
+				bindingForcontainerPortOne_2 = binding.HostPort
 			}
 		}
 	}
-	if bindingFor24751_1 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne_1 == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
-	if bindingFor24751_2 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne_2 == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne_1)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
-	conn, err = dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_2)), 10, 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne_2)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ = ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Kill the existing container now
@@ -417,9 +413,9 @@ func TestLinking(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
 	testTask.Containers[0].Name = "linkee"
-	testTask.Containers[1].Command = []string{"-l=24751", "linkee_alias:80"}
+	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -434,7 +430,7 @@ func TestLinking(t *testing.T) {
 
 	var response []byte
 	for i := 0; i < 10; i++ {
-		conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), dialTimeout)
 		if err != nil {
 			t.Log("Error dialing simple container" + err.Error())
 		}
@@ -468,7 +464,7 @@ func TestDockerCfgAuth(t *testing.T) {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
 
-	removeImage(testAuthRegistryImage)
+	removeImage(t, testAuthRegistryImage)
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 	defer func() {
@@ -504,7 +500,7 @@ func TestDockerAuth(t *testing.T) {
 
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
-	removeImage(testAuthRegistryImage)
+	removeImage(t, testAuthRegistryImage)
 
 	testTask := createTestTask("testDockerAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
@@ -536,7 +532,7 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers[1].Image = testVolumeImage
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -545,8 +541,8 @@ func TestVolumesFrom(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Error("Could not dial listening container" + err.Error())
 	}
@@ -816,8 +812,8 @@ func TestSerialImagePull(t *testing.T) {
 	dockerTaskEngine.enableConcurrentPull = false
 
 	// Ensure this image isn't pulled by deleting it
-	removeImage(testRegistryImage)
-	removeImage(testBusyboxImage)
+	removeImage(t, testRegistryImage)
+	removeImage(t, testBusyboxImage)
 
 	testTask := createTestTask("testSerialImagePull")
 	testTask.Containers = append(testTask.Containers,

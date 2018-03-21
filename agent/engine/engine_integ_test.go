@@ -34,7 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +42,12 @@ import (
 const (
 	testDockerStopTimeout  = 2 * time.Second
 	credentialsIDIntegTest = "credsid"
+	containerPortOne       = 24751
+	containerPortTwo       = 24752
+	serverContent          = "ecs test container"
+	dialTimeout            = 200 * time.Millisecond
+	localhost              = "127.0.0.1"
+	waitForDockerDuration  = 50 * time.Millisecond
 )
 
 func init() {
@@ -145,10 +150,9 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 	return conn, err
 }
 
-func removeImage(img string) {
-	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-	client, _ := docker.NewClient(removeEndpoint)
-
+func removeImage(t *testing.T, img string) {
+	client, err := docker.NewClient(endpoint)
+	require.NoError(t, err, "create docker client failed")
 	client.RemoveImage(img)
 }
 

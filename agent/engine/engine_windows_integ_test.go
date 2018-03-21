@@ -33,9 +33,10 @@ import (
 )
 
 const (
-	dockerEndpoint    = "npipe:////./pipe/docker_engine"
-	testVolumeImage   = "amazon/amazon-ecs-volumes-test:make"
-	testRegistryImage = "amazon/amazon-ecs-netkitten:make"
+	dockerEndpoint      = "npipe:////./pipe/docker_engine"
+	testVolumeImage     = "amazon/amazon-ecs-volumes-test:make"
+	testRegistryImage   = "amazon/amazon-ecs-netkitten:make"
+	testHelloworldImage = "cggruszka/microsoft-windows-helloworld:latest"
 )
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
@@ -130,9 +131,10 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(testRegistryImage)
+	removeImage(t, testHelloworldImage)
 
 	testTask := createTestTask("testStartUnpulled")
+	testTask.Containers[0].Image = testHelloworldImage
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -158,7 +160,7 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(imageDigest)
+	removeImage(t, imageDigest)
 
 	testTask := createTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = imageDigest
@@ -193,7 +195,7 @@ func TestPortForward(t *testing.T) {
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testRegistryImage
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
@@ -206,11 +208,9 @@ func TestPortForward(t *testing.T) {
 	cip, err := getContainerIP(client, cid)
 	require.NoError(t, err, "failed to acquire container ip from docker")
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:24751", cip), 200*time.Millisecond)
-	if err == nil {
-		t.Error("Did not expect to be able to dial port 24751 but didn't get error")
-	}
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", cip, containerPortOne), dialTimeout)
+	assert.Error(t, err, "Did not expect to be able to dial port %d but didn't get error", containerPortOne)
 
 	// Kill the existing container now to make the test run more quickly.
 	err = client.KillContainer(docker.KillContainerOptions{ID: cid})
@@ -222,8 +222,8 @@ func TestPortForward(t *testing.T) {
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
 	testTask.Containers[0].Image = testRegistryImage
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	taskEngine.AddTask(testTask)
 
@@ -235,8 +235,8 @@ func TestPortForward(t *testing.T) {
 	cip, err = getContainerIP(client, cid)
 	require.NoError(t, err, "failed to acquire container ip from docker")
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:24751", cip), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", cip, containerPortOne), 10, dialTimeout)
 	require.NoError(t, err, "error dialing simple container ")
 
 	var response []byte
@@ -252,7 +252,7 @@ func TestPortForward(t *testing.T) {
 		t.Log("Retrying getting response from container; got nothing")
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Equal(t, string(response), "ecs test container", "got response: "+string(response)+" instead of 'ecs test container'")
+	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of ", serverContent)
 
 	// Stop the existing container now
 	taskUpdate := *testTask
@@ -274,14 +274,14 @@ func TestMultiplePortForwards(t *testing.T) {
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testRegistryImage
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container1"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "1"}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Image = testRegistryImage
-	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24752}}
+	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "2"}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -297,19 +297,19 @@ func TestMultiplePortForwards(t *testing.T) {
 	cip2, err := getContainerIP(client, cid2)
 	require.NoError(t, err, "failed to acquire the container ip from docker")
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:24751", cip1), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", cip1, containerPortOne), 10, dialTimeout)
 	require.NoError(t, err, "error dialing simple container 1 ")
 	t.Log("Dialed first container")
 	response, _ := ioutil.ReadAll(conn)
-	assert.Equal(t, string(response), "ecs test container1", "got response: "+string(response)+" instead of 'ecs test container1'")
+	assert.Equal(t, string(response), serverContent+"1", "got response: "+string(response)+" instead of "+serverContent+"1")
 
 	t.Log("Read first container")
-	conn, err = dialWithRetries("tcp", fmt.Sprintf("%s:24751", cip2), 10, 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", fmt.Sprintf("%s:%d", cip2, containerPortOne), 10, dialTimeout)
 	require.NoError(t, err, "error dialing simple container 2")
 	t.Log("Dialed second container")
 	response, _ = ioutil.ReadAll(conn)
-	assert.Equal(t, string(response), "ecs test container2", "got response: "+string(response)+" instead of 'ecs test container2'")
+	assert.Equal(t, string(response), serverContent+"2", "got response: "+string(response)+" instead of "+serverContent+"2")
 	t.Log("Read second container")
 
 	taskUpdate := *testTask
@@ -329,9 +329,9 @@ func TestDynamicPortForward(t *testing.T) {
 	testArn := "testDynamicPortForward"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testRegistryImage
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -347,11 +347,11 @@ func TestDynamicPortForward(t *testing.T) {
 
 	var bindingFor24751 uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
+		if binding.ContainerPort == containerPortOne {
 			bindingFor24751 = binding.HostPort
 		}
 	}
-	assert.NotEqual(t, bindingFor24751, 0, "could not find the port mapping for 24751!")
+	assert.NotEqual(t, bindingFor24751, 0, "could not find the port mapping for %d", containerPortOne)
 
 	client, _ := docker.NewClient(endpoint)
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -359,12 +359,12 @@ func TestDynamicPortForward(t *testing.T) {
 	cip, err := getContainerIP(client, cid)
 	assert.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", cip+":24751", 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", cip+fmt.Sprintf(":%d", containerPortOne), 10, dialTimeout)
 	require.NoError(t, err, "error dialing simple container")
 
 	response, _ := ioutil.ReadAll(conn)
-	assert.Equal(t, string(response), "ecs test container", "got response: "+string(response)+" instead of 'ecs test container'")
+	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of %s", serverContent)
 
 	// Kill the existing container now
 	taskUpdate := *testTask
@@ -387,9 +387,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	testArn := "testDynamicPortForward2"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testRegistryImage
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container", `-loop`}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}, {ContainerPort: 24751, HostPort: 0}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -405,7 +405,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	var bindingFor24751_1 uint16
 	var bindingFor24751_2 uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
+		if binding.ContainerPort == containerPortOne {
 			if bindingFor24751_1 == 0 {
 				bindingFor24751_1 = binding.HostPort
 			} else {
@@ -413,8 +413,8 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 			}
 		}
 	}
-	assert.NotZero(t, bindingFor24751_1, "could not find the port mapping for 24751!")
-	assert.NotZero(t, bindingFor24751_2, "could not find the port mapping for 24751!")
+	assert.NotZero(t, bindingFor24751_1, "could not find the port mapping for ", containerPortOne)
+	assert.NotZero(t, bindingFor24751_2, "could not find the port mapping for ", containerPortOne)
 
 	client, _ := docker.NewClient(endpoint)
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -422,12 +422,12 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	cip, err := getContainerIP(client, cid)
 	assert.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:24751", cip), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", cip, containerPortOne), 10, dialTimeout)
 	require.NoError(t, err, "error dialing simple container")
 
 	response, _ := ioutil.ReadAll(conn)
-	assert.Equal(t, string(response), "ecs test container", "got response: "+string(response)+" instead of 'ecs test container'")
+	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of %s", serverContent)
 
 	// Kill the existing container now
 	taskUpdate := *testTask
@@ -480,13 +480,22 @@ func TestVolumesFromRO(t *testing.T) {
 	}
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"New-Item c:/volume/readonly-fs; if ($?) { Exit 0 } else { Exit 42 }"}
+	testTask.Containers[1].Essential = false
 	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"New-Item c:/volume/readonly-fs-2; if ($?) { Exit 0 } else { Exit 42 }"}
+	testTask.Containers[2].Essential = false
 	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"New-Item c:/volume/readonly-fs-3; if ($?) { Exit 0 } else { Exit 42 }"}
+	testTask.Containers[3].Essential = false
 
 	go taskEngine.AddTask(testTask)
-
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	// Make sure all the three test container stopped first
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	// Stop the task by stopping the essential container
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, testTask.Containers[0])
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotEqual(t, *testTask.Containers[1].GetKnownExitCode(), 0, "didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
