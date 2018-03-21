@@ -103,8 +103,6 @@ type ClientServer interface {
 	io.Closer
 }
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/$GOFILE
-
 // ClientServerImpl wraps commonly used methods defined in ClientServer interface.
 type ClientServerImpl struct {
 	// AgentConfig is the user-specified runtime configuration
@@ -235,7 +233,7 @@ func (cs *ClientServerImpl) SetConnection(conn wsconn.WebsocketConn) {
 func (cs *ClientServerImpl) SetReadDeadline(t time.Time) error {
 	err := cs.conn.SetReadDeadline(t)
 	if err == nil {
-		return err
+		return nil
 	}
 	seelog.Warnf("Unable to set read deadline for websocket connection: %v for %s", err, cs.URL)
 	// If we get connection closed error from SetReadDeadline, break out of the for loop and
@@ -248,26 +246,27 @@ func (cs *ClientServerImpl) SetReadDeadline(t time.Time) error {
 	// Try asynchronously closing the connection. We don't want to be blocked on stale connections
 	// taking too long to close. The flip side is that we might start accumulating stale connections.
 	// But, that still seems more desirable than waiting for ever for the connection to close
+	cs.forceCloseConnection()
+	return err
+}
+
+func (cs *ClientServerImpl) forceCloseConnection() {
 	closeChan := make(chan error)
 	go func() {
 		closeChan <- cs.Close()
 	}()
 	ctx, cancel := context.WithTimeout(context.TODO(), wsConnectTimeout)
 	defer cancel()
-	for {
-		select {
-		case closeErr := <-closeChan:
-			if closeErr != nil {
-				seelog.Warnf("Unable to close websocket connection: %v for %s",
-					closeErr, cs.URL)
-			}
-			return err
-		case <-ctx.Done():
-			if ctx.Err() != nil {
-				seelog.Warnf("Context canceled waiting for termination of websocket connection: %v for %s",
-					ctx.Err(), cs.URL)
-			}
-			return err
+	select {
+	case closeErr := <-closeChan:
+		if closeErr != nil {
+			seelog.Warnf("Unable to close websocket connection: %v for %s",
+				closeErr, cs.URL)
+		}
+	case <-ctx.Done():
+		if ctx.Err() != nil {
+			seelog.Warnf("Context canceled waiting for termination of websocket connection: %v for %s",
+				ctx.Err(), cs.URL)
 		}
 	}
 }
