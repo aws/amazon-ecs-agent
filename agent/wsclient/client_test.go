@@ -40,7 +40,9 @@ import (
 
 const dockerEndpoint = "/var/run/docker.sock"
 
-// Close closes the underlying connection
+// Close closes the underlying connection. Implement Close() in this file
+// as ClientServerImpl doesn't implement it. This is needed by the
+// TestSetReadDeadline* tests
 func (cs *ClientServerImpl) Close() error {
 	return cs.Disconnect()
 }
