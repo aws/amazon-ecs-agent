@@ -54,7 +54,7 @@
 
 [[constraint]]
   name = "github.com/golang/mock"
-  revision ="bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
+  revision ="58cd061d09382b6011f84c1291ebe50ef2e25bab"
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
