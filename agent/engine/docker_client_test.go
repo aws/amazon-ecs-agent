@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"context"
+
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -1021,7 +1022,7 @@ func TestLoadImageTimeoutError(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().LoadImage(gomock.Any()).Do(func(x interface{}) {
 		wait.Wait()
-	})
+	}).MaxTimes(1)
 
 	err := client.LoadImage(nil, time.Millisecond)
 	assert.Error(t, err)
