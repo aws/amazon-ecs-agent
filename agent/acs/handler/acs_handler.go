@@ -429,6 +429,7 @@ func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, 
 		if err := client.Close(); err != nil {
 			seelog.Warnf("Error disconnecting: %v", err)
 		}
+		seelog.Info("Disconnected from ACS")
 	})
 
 	return timer
