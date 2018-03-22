@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 )
 
@@ -42,9 +42,11 @@ var (
 
 // CgroupResource represents Cgroup resource
 type CgroupResource struct {
+	taskARN             string
 	control             cgroup.Control
-	CgroupRoot          string
-	CgroupMountPath     string
+	cgroupRoot          string
+	cgroupMountPath     string
+	resourceSpec        specs.LinuxResources
 	ioutil              ioutilwrapper.IOUtil
 	createdAt           time.Time
 	desiredStatusUnsafe CgroupStatus
@@ -54,11 +56,17 @@ type CgroupResource struct {
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
-func NewCgroupResource(control cgroup.Control, cgroupRoot string, cgroupMountPath string) *CgroupResource {
+func NewCgroupResource(taskARN string,
+	control cgroup.Control,
+	cgroupRoot string,
+	cgroupMountPath string,
+	resourceSpec specs.LinuxResources) *CgroupResource {
 	return &CgroupResource{
+		taskARN:         taskARN,
 		control:         control,
-		CgroupRoot:      cgroupRoot,
-		CgroupMountPath: cgroupMountPath,
+		cgroupRoot:      cgroupRoot,
+		cgroupMountPath: cgroupMountPath,
+		resourceSpec:    resourceSpec,
 		ioutil:          ioutilwrapper.NewIOUtil(),
 	}
 }
@@ -115,44 +123,39 @@ func (c *CgroupResource) GetCreatedAt() time.Time {
 }
 
 // Create creates cgroup root for the task
-func (c *CgroupResource) Create(task *api.Task) error {
-	err := c.setupTaskCgroup(task)
+func (c *CgroupResource) Create() error {
+	err := c.setupTaskCgroup()
 	if err != nil {
-		seelog.Criticalf("Cgroup resource [%s]: unable to setup cgroup root: %v", task.Arn, err)
+		seelog.Criticalf("Cgroup resource [%s]: unable to setup cgroup root: %v", c.taskARN, err)
 		return err
 	}
 	return nil
 }
 
-func (c *CgroupResource) setupTaskCgroup(task *api.Task) error {
-	cgroupRoot := c.CgroupRoot
-	seelog.Debugf("Cgroup resource [%s]: setting up cgroup at: %s", task.Arn, cgroupRoot)
+func (c *CgroupResource) setupTaskCgroup() error {
+	cgroupRoot := c.cgroupRoot
+	seelog.Debugf("Cgroup resource [%s]: setting up cgroup at: %s", c.taskARN, cgroupRoot)
 
 	if c.control.Exists(cgroupRoot) {
-		seelog.Debugf("Cgroup resource [%s]: cgroup at %s already exists, skipping creation", task.Arn, cgroupRoot)
+		seelog.Debugf("Cgroup resource [%s]: cgroup at %s already exists, skipping creation", c.taskARN, cgroupRoot)
 		return nil
-	}
-
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec()
-	if err != nil {
-		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to build resource spec for task", task.Arn)
 	}
 
 	cgroupSpec := cgroup.Spec{
 		Root:  cgroupRoot,
-		Specs: &linuxResourceSpec,
+		Specs: &c.resourceSpec,
 	}
 
-	_, err = c.control.Create(&cgroupSpec)
+	_, err := c.control.Create(&cgroupSpec)
 	if err != nil {
-		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to create cgroup at %s", task.Arn, cgroupRoot)
+		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to create cgroup at %s", c.taskARN, cgroupRoot)
 	}
 
 	// enabling cgroup memory hierarchy by doing 'echo 1 > memory.use_hierarchy'
-	memoryHierarchyPath := filepath.Join(c.CgroupMountPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
+	memoryHierarchyPath := filepath.Join(c.cgroupMountPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
 	err = c.ioutil.WriteFile(memoryHierarchyPath, enableMemoryHierarchy, rootReadOnlyPermissions)
 	if err != nil {
-		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to set use hierarchy flag", task.Arn)
+		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to set use hierarchy flag", c.taskARN)
 	}
 
 	return nil
@@ -160,14 +163,14 @@ func (c *CgroupResource) setupTaskCgroup(task *api.Task) error {
 
 // Cleanup removes the cgroup root created for the task
 func (c *CgroupResource) Cleanup() error {
-	err := c.control.Remove(c.CgroupRoot)
+	err := c.control.Remove(c.cgroupRoot)
 	// Explicitly handle cgroup deleted error
 	if err != nil {
 		if err == cgroups.ErrCgroupDeleted {
-			seelog.Warnf("Cgroup at %s has already been removed: %v", c.CgroupRoot, err)
+			seelog.Warnf("Cgroup at %s has already been removed: %v", c.cgroupRoot, err)
 			return nil
 		}
-		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s", c.CgroupRoot)
+		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s", c.cgroupRoot)
 	}
 	return nil
 }
@@ -187,8 +190,8 @@ func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 		return nil, errors.New("cgroup resource is nil")
 	}
 	return json.Marshal(cgroupResourceJSON{
-		c.CgroupRoot,
-		c.CgroupMountPath,
+		c.cgroupRoot,
+		c.cgroupMountPath,
 		c.GetCreatedAt(),
 		func() *CgroupStatus { desiredState := c.GetDesiredStatus(); return &desiredState }(),
 		func() *CgroupStatus { knownState := c.GetKnownStatus(); return &knownState }(),
@@ -203,8 +206,8 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	c.CgroupRoot = temp.CgroupRoot
-	c.CgroupMountPath = temp.CgroupMountPath
+	c.cgroupRoot = temp.CgroupRoot
+	c.cgroupMountPath = temp.CgroupMountPath
 	if temp.DesiredStatus != nil {
 		c.SetDesiredStatus(*temp.DesiredStatus)
 	}
