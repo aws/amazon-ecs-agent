@@ -17,7 +17,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 )
 
@@ -47,19 +46,6 @@ func (vs VolumeStatus) String() string {
 		}
 	}
 	return "NONE"
-}
-
-// TaskStatus maps the resource status to the corresponding task status.
-func (vs VolumeStatus) TaskStatus() api.TaskStatus {
-	switch vs {
-	case VolumeStatusNone:
-		return api.TaskStatusNone
-	case VolumeCreated:
-		return api.TaskCreated
-	case VolumeCleaned:
-		return api.TaskZombie
-	}
-	return api.TaskStatusNone
 }
 
 // MarshalJSON overrides the logic for JSON-encoding the ResourceStatus type

@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,17 +31,6 @@ func TestStatusString(t *testing.T) {
 	assert.Equal(t, resourceStatus.String(), "CLEANED")
 }
 
-func TestTaskStatus(t *testing.T) {
-	var resourceStatus VolumeStatus
-
-	resourceStatus = VolumeStatusNone
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskStatusNone)
-	resourceStatus = VolumeCreated
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskCreated)
-	resourceStatus = VolumeCleaned
-	assert.Equal(t, resourceStatus.TaskStatus(), api.TaskZombie)
-}
-
 func TestMarshalVolumeStatus(t *testing.T) {
 	status := VolumeStatusNone
 	bytes, err := status.MarshalJSON()
@@ -54,7 +42,7 @@ func TestMarshalVolumeStatus(t *testing.T) {
 func TestMarshalNilVolumeStatus(t *testing.T) {
 	var status *VolumeStatus
 	bytes, err := status.MarshalJSON()
-	
+
 	assert.Nil(t, bytes)
 	assert.Nil(t, err)
 }
@@ -68,31 +56,31 @@ func TestUnmarshalVolumeStatus(t *testing.T) {
 
 	err := json.Unmarshal([]byte(`"CREATED"`), &status)
 	assert.NoError(t, err)
-	assert.Equal(t, VolumeCreated, status, "CREATED should unmarshal to CREATED, not " + status.String())
+	assert.Equal(t, VolumeCreated, status, "CREATED should unmarshal to CREATED, not "+status.String())
 
 	var testStatus testVolumeStatus
 	err = json.Unmarshal([]byte(`{"status":"CLEANED"}`), &testStatus)
 	assert.NoError(t, err)
-	assert.Equal(t, VolumeCleaned, testStatus.SomeStatus, "CLEANED should unmarshal to CLEANED, not " + testStatus.SomeStatus.String())
+	assert.Equal(t, VolumeCleaned, testStatus.SomeStatus, "CLEANED should unmarshal to CLEANED, not "+testStatus.SomeStatus.String())
 }
 
 func TestUnmarshalNullVolumeStatus(t *testing.T) {
 	status := VolumeCreated
 	err := json.Unmarshal([]byte("null"), &status)
 	assert.NoError(t, err)
-	assert.Equal(t, VolumeStatusNone, status, "null should unmarshal to None, not " + status.String())
+	assert.Equal(t, VolumeStatusNone, status, "null should unmarshal to None, not "+status.String())
 }
 
 func TestUnmarshalNonStringVolumeStatusDefaultNone(t *testing.T) {
 	status := VolumeCreated
 	err := json.Unmarshal([]byte(`1`), &status)
 	assert.NotNil(t, err)
-	assert.Equal(t, VolumeStatusNone, status, "non-string status should unmarshal to None, not " + status.String())
+	assert.Equal(t, VolumeStatusNone, status, "non-string status should unmarshal to None, not "+status.String())
 }
 
 func TestUnmarshalUnmappedVolumeStatusDefaultNone(t *testing.T) {
 	status := VolumeCleaned
 	err := json.Unmarshal([]byte(`"SOMEOTHER"`), &status)
 	assert.NotNil(t, err)
-	assert.Equal(t, VolumeStatusNone, status, "Unmapped status should unmarshal to None, not " + status.String())
+	assert.Equal(t, VolumeStatusNone, status, "Unmapped status should unmarshal to None, not "+status.String())
 }

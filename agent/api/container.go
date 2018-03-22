@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -551,9 +552,6 @@ func (c *Container) GetHealthStatus() HealthStatus {
 func (c *Container) BuildContainerDependency(contName string,
 	satisfiedStatus ContainerStatus,
 	dependentStatus ContainerStatus) {
-	if c.TransitionDependenciesMap == nil {
-		c.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
-	}
 	contDep := ContainerDependency{
 		ContainerName:   contName,
 		SatisfiedStatus: satisfiedStatus,
@@ -564,4 +562,27 @@ func (c *Container) BuildContainerDependency(contName string,
 	deps := c.TransitionDependenciesMap[dependentStatus]
 	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
 	c.TransitionDependenciesMap[dependentStatus] = deps
+}
+
+// BuildResourceDependency adds a new resource dependency and status that satisfies
+// the dependency
+func (c *Container) BuildResourceDependency(resourceName string,
+	requiredStatus taskresource.ResourceStatus,
+	dependentStatus ContainerStatus) {
+	resourceDep := ResourceDependency{
+		Name:           resourceName,
+		RequiredStatus: requiredStatus,
+	}
+	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
+		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+	}
+	deps := c.TransitionDependenciesMap[dependentStatus]
+	deps.ResourceDependencies = append(deps.ResourceDependencies, resourceDep)
+	c.TransitionDependenciesMap[dependentStatus] = deps
+}
+
+func (c *Container) initializeDependenciesMap() {
+	if c.TransitionDependenciesMap == nil {
+		c.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+	}
 }

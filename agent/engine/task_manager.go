@@ -721,7 +721,7 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 		}
 	}
 	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
-		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager); err != nil {
+		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager, mtask.Resources); err != nil {
 		seelog.Debugf("Managed task [%s]: can't apply state to container [%s] yet due to unresolved dependencies: %v",
 			mtask.Arn, container.Name, err)
 		return &containerTransition{

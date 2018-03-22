@@ -207,7 +207,7 @@ func TestHealthStatusShouldBeReported(t *testing.T) {
 }
 
 func TestBuildContainerDependency(t *testing.T) {
-	container := Container{}
+	container := Container{TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet)}
 	depContName := "dep"
 	container.BuildContainerDependency(depContName, ContainerRunning, ContainerRunning)
 	assert.NotNil(t, container.TransitionDependenciesMap)

@@ -1,5 +1,5 @@
 // +build !integration
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -116,7 +116,7 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 			},
 		},
 	}
-	err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil)
+	err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil)
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
@@ -133,28 +133,28 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 		},
 	}
 
-	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Shouldn't be resolved; db isn't running")
 
-	err = DependenciesAreResolved(db, task.Containers, "", nil)
+	err = DependenciesAreResolved(db, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Shouldn't be resolved; dbdatavolume isn't created")
 
-	err = DependenciesAreResolved(dbdata, task.Containers, "", nil)
+	err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "data volume with no deps should resolve")
 
 	dbdata.KnownStatusUnsafe = api.ContainerCreated
-	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Php shouldn't run, db is not created")
 
 	db.KnownStatusUnsafe = api.ContainerCreated
-	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Php shouldn't run, db is not running")
 
-	err = DependenciesAreResolved(db, task.Containers, "", nil)
+	err = DependenciesAreResolved(db, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "db should be resolved, dbdata volume is Created")
 	db.KnownStatusUnsafe = api.ContainerRunning
 
-	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -171,15 +171,15 @@ func TestRunDependencies(t *testing.T) {
 	}
 	task := &api.Task{Containers: []*api.Container{c1, c2}}
 
-	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should not be resolved")
+	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should not be resolved")
 	task.Containers[1].SetDesiredStatus(api.ContainerRunning)
-	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should not be resolved")
+	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should not be resolved")
 
 	task.Containers[0].KnownStatusUnsafe = api.ContainerRunning
-	assert.NoError(t, DependenciesAreResolved(c2, task.Containers, "", nil), "Dependencies should be resolved")
+	assert.NoError(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should be resolved")
 
 	task.Containers[1].SetDesiredStatus(api.ContainerCreated)
-	assert.NoError(t, DependenciesAreResolved(c1, task.Containers, "", nil), "Dependencies should be resolved")
+	assert.NoError(t, DependenciesAreResolved(c1, task.Containers, "", nil, nil), "Dependencies should be resolved")
 }
 
 func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *testing.T) {
@@ -205,11 +205,11 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 			continue
 		}
 		container.SteadyStateDependencies = []string{"pause"}
-		err := DependenciesAreResolved(container, task.Containers, "", nil)
+		err := DependenciesAreResolved(container, task.Containers, "", nil, nil)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 
-	err := DependenciesAreResolved(pause, task.Containers, "", nil)
+	err := DependenciesAreResolved(pause, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "Pause container's dependencies should be resolved")
 
 	// Transition pause container to RUNNING
@@ -223,13 +223,13 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 		}
 		// Assert that dependencies remain unresolved until the pause container reaches
 		// RESOURCES_PROVISIONED
-		err = DependenciesAreResolved(container, task.Containers, "", nil)
+		err = DependenciesAreResolved(container, task.Containers, "", nil, nil)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 	pause.KnownStatusUnsafe = api.ContainerResourcesProvisioned
 	// Dependecies should be resolved now that the 'pause' container has
 	// transitioned into RESOURCES_PROVISIONED
-	err = DependenciesAreResolved(php, task.Containers, "", nil)
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -447,125 +447,119 @@ func assertResolved(f func(target *api.Container, dep *api.Container) bool, targ
 
 func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 	testcases := []struct {
-		Name             string
-		TargetKnown      api.ContainerStatus
-		TargetDesired    api.ContainerStatus
-		TargetNext       api.ContainerStatus
-		DependencyName   string
-		DependencyKnown  api.ContainerStatus
-		SatisfiedStatus  api.ContainerStatus
-		ExpectedResolved bool
+		Name            string
+		TargetKnown     api.ContainerStatus
+		TargetDesired   api.ContainerStatus
+		TargetNext      api.ContainerStatus
+		DependencyName  string
+		DependencyKnown api.ContainerStatus
+		SatisfiedStatus api.ContainerStatus
+		ResolvedErr     error
 	}{
 		{
-			Name:             "Nothing running, pull depends on running",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerStatusNone,
-			SatisfiedStatus:  api.ContainerRunning,
-			ExpectedResolved: false,
+			Name:            "Nothing running, pull depends on running",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerStatusNone,
+			SatisfiedStatus: api.ContainerRunning,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 
 		{
-			Name:             "Nothing running, pull depends on resources provisioned",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerStatusNone,
-			SatisfiedStatus:  api.ContainerResourcesProvisioned,
-			ExpectedResolved: false,
+			Name:            "Nothing running, pull depends on resources provisioned",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerStatusNone,
+			SatisfiedStatus: api.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:             "Nothing running, create depends on running",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerCreated,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerStatusNone,
-			SatisfiedStatus:  api.ContainerRunning,
-			ExpectedResolved: true,
+			Name:            "Nothing running, create depends on running",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerCreated,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerStatusNone,
+			SatisfiedStatus: api.ContainerRunning,
 		},
 		{
-			Name:             "Dependency created, pull depends on running",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerCreated,
-			SatisfiedStatus:  api.ContainerRunning,
-			ExpectedResolved: false,
+			Name:            "Dependency created, pull depends on running",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerCreated,
+			SatisfiedStatus: api.ContainerRunning,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:             "Dependency created, pull depends on resources provisioned",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerCreated,
-			SatisfiedStatus:  api.ContainerResourcesProvisioned,
-			ExpectedResolved: false,
+			Name:            "Dependency created, pull depends on resources provisioned",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerCreated,
+			SatisfiedStatus: api.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:             "Dependency running, pull depends on running",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerRunning,
-			SatisfiedStatus:  api.ContainerRunning,
-			ExpectedResolved: true,
+			Name:            "Dependency running, pull depends on running",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerRunning,
+			SatisfiedStatus: api.ContainerRunning,
 		},
 		{
-			Name:             "Dependency running, pull depends on resources provisioned",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerRunning,
-			SatisfiedStatus:  api.ContainerResourcesProvisioned,
-			ExpectedResolved: false,
+			Name:            "Dependency running, pull depends on resources provisioned",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerRunning,
+			SatisfiedStatus: api.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:             "Dependency resources provisioned, pull depends on resources provisioned",
-			TargetKnown:      api.ContainerStatusNone,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerPulled,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerResourcesProvisioned,
-			SatisfiedStatus:  api.ContainerResourcesProvisioned,
-			ExpectedResolved: true,
+			Name:            "Dependency resources provisioned, pull depends on resources provisioned",
+			TargetKnown:     api.ContainerStatusNone,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerPulled,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerResourcesProvisioned,
+			SatisfiedStatus: api.ContainerResourcesProvisioned,
 		},
 		{
-			Name:             "Dependency running, create depends on created",
-			TargetKnown:      api.ContainerPulled,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerCreated,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerRunning,
-			SatisfiedStatus:  api.ContainerCreated,
-			ExpectedResolved: true,
+			Name:            "Dependency running, create depends on created",
+			TargetKnown:     api.ContainerPulled,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerCreated,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerRunning,
+			SatisfiedStatus: api.ContainerCreated,
 		},
 		{
-			Name:             "Target running, create depends on running",
-			TargetKnown:      api.ContainerRunning,
-			TargetDesired:    api.ContainerRunning,
-			TargetNext:       api.ContainerRunning,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerRunning,
-			SatisfiedStatus:  api.ContainerCreated,
-			ExpectedResolved: true,
+			Name:            "Target running, create depends on running",
+			TargetKnown:     api.ContainerRunning,
+			TargetDesired:   api.ContainerRunning,
+			TargetNext:      api.ContainerRunning,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerRunning,
+			SatisfiedStatus: api.ContainerCreated,
 		},
 		{
-			Name:             "Target pulled, desired stopped",
-			TargetKnown:      api.ContainerPulled,
-			TargetDesired:    api.ContainerStopped,
-			TargetNext:       api.ContainerRunning,
-			DependencyName:   "container",
-			DependencyKnown:  api.ContainerStatusNone,
-			SatisfiedStatus:  api.ContainerCreated,
-			ExpectedResolved: true,
+			Name:            "Target pulled, desired stopped",
+			TargetKnown:     api.ContainerPulled,
+			TargetDesired:   api.ContainerStopped,
+			TargetNext:      api.ContainerRunning,
+			DependencyName:  "container",
+			DependencyKnown: api.ContainerStatusNone,
+			SatisfiedStatus: api.ContainerCreated,
 		},
 		// Note: Not all possible situations are tested here.  The only situations tested here are ones that are
 		// expected to reasonably happen at the time this code was written.  Other behavior is not expected to occur,
@@ -574,8 +568,9 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
 			target := &api.Container{
-				KnownStatusUnsafe:   tc.TargetKnown,
-				DesiredStatusUnsafe: tc.TargetDesired,
+				KnownStatusUnsafe:         tc.TargetKnown,
+				DesiredStatusUnsafe:       tc.TargetDesired,
+				TransitionDependenciesMap: make(map[api.ContainerStatus]api.TransitionDependencySet),
 			}
 			target.BuildContainerDependency(tc.DependencyName, tc.SatisfiedStatus, tc.TargetNext)
 			dep := &api.Container{
@@ -584,8 +579,8 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 			}
 			containers := make(map[string]*api.Container)
 			containers[dep.Name] = dep
-			resolved := verifyTransitionDependenciesResolved(target, containers)
-			assert.Equal(t, tc.ExpectedResolved, resolved)
+			resolved := verifyTransitionDependenciesResolved(target, containers, nil)
+			assert.Equal(t, tc.ResolvedErr, resolved)
 		})
 	}
 }

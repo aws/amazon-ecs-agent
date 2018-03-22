@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package cgroup
 
 import (
 	"errors"
@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -162,8 +163,8 @@ func TestMarshal(t *testing.T) {
 	cgroupMountPath := "/sys/fs/cgroup"
 
 	cgroup := NewCgroupResource("", cgroup.New(), cgroupRoot, cgroupMountPath, specs.LinuxResources{})
-	cgroup.SetDesiredStatus(CgroupCreated)
-	cgroup.SetKnownStatus(CgroupStatusNone)
+	cgroup.SetDesiredStatus(taskresource.ResourceStatus(CgroupCreated))
+	cgroup.SetKnownStatus(taskresource.ResourceStatus(CgroupStatusNone))
 
 	bytes, err := cgroup.MarshalJSON()
 	assert.NoError(t, err)
@@ -182,6 +183,6 @@ func TestUnmarshal(t *testing.T) {
 	assert.Equal(t, cgroupRoot, unmarshalledCgroup.cgroupRoot)
 	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.cgroupMountPath)
 	assert.Equal(t, time.Time{}, unmarshalledCgroup.GetCreatedAt())
-	assert.Equal(t, CgroupCreated, unmarshalledCgroup.GetDesiredStatus())
-	assert.Equal(t, CgroupStatusNone, unmarshalledCgroup.GetKnownStatus())
+	assert.Equal(t, taskresource.ResourceStatus(CgroupCreated), unmarshalledCgroup.GetDesiredStatus())
+	assert.Equal(t, taskresource.ResourceStatus(CgroupStatusNone), unmarshalledCgroup.GetKnownStatus())
 }
