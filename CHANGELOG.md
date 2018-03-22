@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.17.3-dev
+* Enhancement - Add support for containers to inhereit ENI private DNS hostnames for `awsvpc` tasks [#1278](https://github.com/aws/amazon-ecs-agent/pull/1278)
 * Enhancement - Expose task definition family and task definition revision in container metadata file [#1295](https://github.com/aws/amazon-ecs-agent/pull/1295)
 * Enhancement - Fail image pulls if there's inactivity during image pull progress [#1290](https://github.com/aws/amazon-ecs-agent/pull/1290)
 * Bug - Fixed a bug where a stale websocket connection could linger [#1310](https://github.com/aws/amazon-ecs-agent/pull/1310)
