@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -32,6 +33,12 @@ var (
 	ContainerPastDesiredStatusErr = errors.New("container transition: container status is equal or greater than desired status")
 	volumeUnresolvedErr           = errors.New("dependency graph: container volume dependency not resolved")
 	linkUnresolvedErr             = errors.New("dependency graph: container links dependency not resolved")
+	// ErrContainerDependencyNotResolved is when the container's dependencies
+	// on other containers are not resolved
+	ErrContainerDependencyNotResolved = errors.New("dependency graph: dependency on containers not resolved")
+	// ErrResourceDependencyNotResolved is when the container's dependencies
+	// on task resources are not resolved
+	ErrResourceDependencyNotResolved = errors.New("dependency graph: dependency on resources not resolved")
 )
 
 // Because a container may depend on another container being created
@@ -101,7 +108,8 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 func DependenciesAreResolved(target *api.Container,
 	by []*api.Container,
 	id string,
-	manager credentials.Manager) error {
+	manager credentials.Manager,
+	resources []taskresource.TaskResource) error {
 	if !executionCredentialsResolved(target, id, manager) {
 		return CredentialsNotResolvedErr
 	}
@@ -115,6 +123,11 @@ func DependenciesAreResolved(target *api.Container,
 		neededVolumeContainers[i] = volume.SourceContainer
 	}
 
+	resourcesMap := make(map[string]taskresource.TaskResource)
+	for _, resource := range resources {
+		resourcesMap[resource.GetName()] = resource
+	}
+
 	if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
 		return volumeUnresolvedErr
 	}
@@ -123,9 +136,12 @@ func DependenciesAreResolved(target *api.Container,
 		return linkUnresolvedErr
 	}
 
-	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) ||
-		!verifyTransitionDependenciesResolved(target, nameMap) {
+	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
 		return DependentContainerNotResolvedErr
+	}
+
+	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
+		return err
 	}
 
 	return nil
@@ -175,16 +191,23 @@ func verifyStatusResolvable(target *api.Container, existingContainers map[string
 	return true
 }
 
-func verifyTransitionDependenciesResolved(target *api.Container, existingContainers map[string]*api.Container) bool {
+func verifyTransitionDependenciesResolved(target *api.Container,
+	existingContainers map[string]*api.Container,
+	existingResources map[string]taskresource.TaskResource) error {
 	targetGoal := target.GetDesiredStatus()
 	if targetGoal >= api.ContainerStopped {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
-		return true
+		return nil
 	}
 
-	// TODO: add verifyResourceDependenciesResolved check here
-	return verifyContainerDependenciesResolved(target, existingContainers)
+	if !verifyContainerDependenciesResolved(target, existingContainers) {
+		return ErrContainerDependencyNotResolved
+	}
+	if !verifyResourceDependenciesResolved(target, existingResources) {
+		return ErrResourceDependencyNotResolved
+	}
+	return nil
 }
 
 func verifyContainerDependenciesResolved(target *api.Container, existingContainers map[string]*api.Container) bool {
@@ -196,6 +219,21 @@ func verifyContainerDependenciesResolved(target *api.Container, existingContaine
 			return false
 		}
 		if dep.GetKnownStatus() < containerDependency.SatisfiedStatus {
+			return false
+		}
+	}
+	return true
+}
+
+func verifyResourceDependenciesResolved(target *api.Container, existingResources map[string]taskresource.TaskResource) bool {
+	targetNext := target.GetNextKnownStateProgression()
+	resourceDependencies := target.TransitionDependenciesMap[targetNext].ResourceDependencies
+	for _, resourceDependency := range resourceDependencies {
+		dep, exists := existingResources[resourceDependency.Name]
+		if !exists {
+			return false
+		}
+		if dep.GetKnownStatus() < resourceDependency.GetRequiredStatus() {
 			return false
 		}
 	}

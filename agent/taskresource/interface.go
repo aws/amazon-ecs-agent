@@ -39,6 +39,8 @@ type TaskResource interface {
 	Create() error
 	// Cleanup performs resource cleanup
 	Cleanup() error
+	// GetName returns the unique name of the resource
+	GetName() string
 
 	json.Marshaler
 	json.Unmarshaler

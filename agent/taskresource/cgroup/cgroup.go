@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package cgroup
 
 import (
 	"encoding/json"
@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
@@ -34,6 +35,7 @@ const (
 	memorySubsystem         = "/memory"
 	memoryUseHierarchy      = "memory.use_hierarchy"
 	rootReadOnlyPermissions = os.FileMode(400)
+	resourceName            = "cgroup"
 )
 
 var (
@@ -49,8 +51,8 @@ type CgroupResource struct {
 	resourceSpec        specs.LinuxResources
 	ioutil              ioutilwrapper.IOUtil
 	createdAt           time.Time
-	desiredStatusUnsafe CgroupStatus
-	knownStatusUnsafe   CgroupStatus
+	desiredStatusUnsafe taskresource.ResourceStatus
+	knownStatusUnsafe   taskresource.ResourceStatus
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -72,7 +74,7 @@ func NewCgroupResource(taskARN string,
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
-func (c *CgroupResource) SetDesiredStatus(status CgroupStatus) {
+func (c *CgroupResource) SetDesiredStatus(status taskresource.ResourceStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -80,15 +82,23 @@ func (c *CgroupResource) SetDesiredStatus(status CgroupStatus) {
 }
 
 // GetDesiredStatus safely returns the desired status of the task
-func (c *CgroupResource) GetDesiredStatus() CgroupStatus {
+func (c *CgroupResource) GetDesiredStatus() taskresource.ResourceStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	return c.desiredStatusUnsafe
 }
 
+// GetName safely returns the name of the resource
+func (c *CgroupResource) GetName() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return resourceName
+}
+
 // SetKnownStatus safely sets the currently known status of the resource
-func (c *CgroupResource) SetKnownStatus(status CgroupStatus) {
+func (c *CgroupResource) SetKnownStatus(status taskresource.ResourceStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -96,7 +106,7 @@ func (c *CgroupResource) SetKnownStatus(status CgroupStatus) {
 }
 
 // GetKnownStatus safely returns the currently known status of the task
-func (c *CgroupResource) GetKnownStatus() CgroupStatus {
+func (c *CgroupResource) GetKnownStatus() taskresource.ResourceStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -193,8 +203,16 @@ func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 		c.cgroupRoot,
 		c.cgroupMountPath,
 		c.GetCreatedAt(),
-		func() *CgroupStatus { desiredState := c.GetDesiredStatus(); return &desiredState }(),
-		func() *CgroupStatus { knownState := c.GetKnownStatus(); return &knownState }(),
+		func() *CgroupStatus {
+			desiredState := c.GetDesiredStatus()
+			status := CgroupStatus(desiredState)
+			return &status
+		}(),
+		func() *CgroupStatus {
+			knownState := c.GetKnownStatus()
+			status := CgroupStatus(knownState)
+			return &status
+		}(),
 	})
 }
 
@@ -209,10 +227,10 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 	c.cgroupRoot = temp.CgroupRoot
 	c.cgroupMountPath = temp.CgroupMountPath
 	if temp.DesiredStatus != nil {
-		c.SetDesiredStatus(*temp.DesiredStatus)
+		c.SetDesiredStatus(taskresource.ResourceStatus(*temp.DesiredStatus))
 	}
 	if temp.KnownStatus != nil {
-		c.SetKnownStatus(*temp.KnownStatus)
+		c.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
 	}
 	return nil
 }

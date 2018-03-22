@@ -43,7 +43,7 @@ const (
 	expectedEmptyVolumeContainerCmd   = "not-applicable"
 
 	expectedMemorySwappinessDefault = memorySwappinessDefault
-	minDockerClientAPIVersion = dockerclient.Version_1_24
+	minDockerClientAPIVersion       = dockerclient.Version_1_24
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -88,6 +88,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 						SourceVolume:  "sourceVolume",
 					},
 				},
+				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -202,7 +203,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
-		Memory:		  DockerContainerMinimumMemoryInBytes,
+		Memory:           DockerContainerMinimumMemoryInBytes,
 		Privileged:       true,
 		SecurityOpt:      []string{"foo", "bar"},
 		VolumesFrom:      []string{"dockername-c2"},
@@ -243,9 +244,9 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 	cpuShareScaleFactor := runtime.NumCPU() * cpuSharesPerCore
 	testcases := []struct {
-		cpu           int64
-		cpuUnbounded  bool
-		cpuPercent    int64
+		cpu          int64
+		cpuUnbounded bool
+		cpuPercent   int64
 	}{
 		{
 			cpu:          0,
@@ -284,8 +285,8 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 			testTask := &Task{
 				Containers: []*Container{
 					{
-						Name:   "c1",
-						CPU:    uint(tc.cpu),
+						Name: "c1",
+						CPU:  uint(tc.cpu),
 					},
 				},
 				platformFields: platformFields{
