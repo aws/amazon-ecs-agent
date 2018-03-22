@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
@@ -56,10 +57,9 @@ func TestCreateHappyPath(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
 		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 	)
-
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	cgroupResource.ioutil = mockIO
-	assert.NoError(t, cgroupResource.Create(task))
+	assert.NoError(t, cgroupResource.Create())
 }
 
 func TestCreateCgroupPathExists(t *testing.T) {
@@ -78,31 +78,9 @@ func TestCreateCgroupPathExists(t *testing.T) {
 		mockControl.EXPECT().Exists(gomock.Any()).Return(true),
 	)
 
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	cgroupResource.ioutil = mockIO
-	assert.NoError(t, cgroupResource.Create(task))
-}
-
-func TestCreateInvalidResourceSpec(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockControl := mock_cgroup.NewMockControl(ctrl)
-	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-
-	task := testdata.LoadTask(taskName)
-	task.CPU = float64(100)
-	taskID, err := task.GetID()
-	assert.NoError(t, err)
-	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
-
-	gomock.InOrder(
-		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-	)
-
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
-	cgroupResource.ioutil = mockIO
-	assert.Error(t, cgroupResource.Create(task))
+	assert.NoError(t, cgroupResource.Create())
 }
 
 func TestCreateCgroupError(t *testing.T) {
@@ -123,9 +101,9 @@ func TestCreateCgroupError(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(mockCgroup, errors.New("cgroup create error")),
 	)
 
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	cgroupResource.ioutil = mockIO
-	assert.Error(t, cgroupResource.Create(task))
+	assert.Error(t, cgroupResource.Create())
 }
 
 func TestCleanupHappyPath(t *testing.T) {
@@ -140,7 +118,7 @@ func TestCleanupHappyPath(t *testing.T) {
 
 	mockControl.EXPECT().Remove(cgroupRoot).Return(nil)
 
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	assert.NoError(t, cgroupResource.Cleanup())
 }
 
@@ -156,7 +134,7 @@ func TestCleanupRemoveError(t *testing.T) {
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(errors.New("cgroup remove error"))
 
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	assert.Error(t, cgroupResource.Cleanup())
 }
 
@@ -172,7 +150,7 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(cgroups.ErrCgroupDeleted)
 
-	cgroupResource := NewCgroupResource(mockControl, cgroupRoot, cgroupMountPath)
+	cgroupResource := NewCgroupResource(task.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	assert.NoError(t, cgroupResource.Cleanup())
 }
 
@@ -183,7 +161,7 @@ func TestMarshal(t *testing.T) {
 	cgroupRoot := "/ecs/taskid"
 	cgroupMountPath := "/sys/fs/cgroup"
 
-	cgroup := NewCgroupResource(cgroup.New(), cgroupRoot, cgroupMountPath)
+	cgroup := NewCgroupResource("", cgroup.New(), cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 	cgroup.SetDesiredStatus(CgroupCreated)
 	cgroup.SetKnownStatus(CgroupStatusNone)
 
@@ -201,8 +179,8 @@ func TestUnmarshal(t *testing.T) {
 	err := unmarshalledCgroup.UnmarshalJSON(bytes)
 	assert.NoError(t, err)
 
-	assert.Equal(t, cgroupRoot, unmarshalledCgroup.CgroupRoot)
-	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.CgroupMountPath)
+	assert.Equal(t, cgroupRoot, unmarshalledCgroup.cgroupRoot)
+	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.cgroupMountPath)
 	assert.Equal(t, time.Time{}, unmarshalledCgroup.GetCreatedAt())
 	assert.Equal(t, CgroupCreated, unmarshalledCgroup.GetDesiredStatus())
 	assert.Equal(t, CgroupStatusNone, unmarshalledCgroup.GetKnownStatus())
