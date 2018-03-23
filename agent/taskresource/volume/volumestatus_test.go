@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package volume
 
 import (
 	"encoding/json"
@@ -96,4 +96,3 @@ func TestUnmarshalUnmappedVolumeStatusDefaultNone(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, VolumeStatusNone, status, "Unmapped status should unmarshal to None, not " + status.String())
 }
-

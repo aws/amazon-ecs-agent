@@ -11,17 +11,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package volume
 
 import (
 	"errors"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 )
 
 // VolumeStatus defines resource statuses for docker volume
-type VolumeStatus ResourceStatus 
+type VolumeStatus taskresource.ResourceStatus
 
 const (
 	// VolumeStatusNone is the zero state of a task resource

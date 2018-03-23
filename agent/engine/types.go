@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -77,6 +78,12 @@ type ListContainersResponse struct {
 	DockerIDs []string
 	// Error contains any error returned when listing containers
 	Error error
+}
+
+// VolumeResponse wrapper for CreateVolume and InspectVolume
+type VolumeResponse struct {
+	DockerVolume *docker.Volume
+	Error  error
 }
 
 // String returns a human readable string of the container change event

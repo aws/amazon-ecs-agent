@@ -11,9 +11,12 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package volume
 
 import (
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/cihub/seelog"
+
 	"encoding/json"
 	"sync"
 	"time"
@@ -22,28 +25,32 @@ import (
 // VolumeResource represents docker volume resource
 type VolumeResource struct {
 	Name                string
-	// Mountpoint is a read-only field returned from docker
-	Mountpoint          string
+	// mountpoint is a read-only field returned from docker
+	mountpoint          string
 	Driver              string
+	DriverOpts          map[string]string
 	Labels              map[string]string
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe VolumeStatus
 	knownStatusUnsafe   VolumeStatus
+	client              engine.DockerClient
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
 
 // NewVolumeResource returns a docker volume wrapper object
-func NewVolumeResource(name string, 
-	mountPoint string, 
-	driver string, 
-	labels map[string]string) *VolumeResource {
+func NewVolumeResource(name string,
+	driver string,
+	driverOptions map[string]string,
+	labels map[string]string,
+	client engine.DockerClient) *VolumeResource {
 
 	return &VolumeResource{
 		Name: name,
-		Mountpoint: mountPoint,
 		Driver: driver,
+		DriverOpts: driverOptions,
 		Labels: labels,
+		client: client,
 	}
 }
 
@@ -98,11 +105,58 @@ func (vol *VolumeResource) GetCreatedAt() time.Time {
 	return vol.createdAtUnsafe
 }
 
+// setMountPoint sets the mountpoint of the created volume.
+// This is a read-only field, hence making this a private function.
+func (vol *VolumeResource) setMountPoint(mountPoint string) {
+	vol.lock.Lock()
+	defer vol.lock.Unlock()
+
+	vol.mountpoint = mountPoint
+}
+
+// GetMountPoint gets the mountpoint of the created volume.
+func (vol *VolumeResource) GetMountPoint() string {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	return vol.mountpoint
+}
+// Create performs resource creation
+func (vol *VolumeResource) Create() error {
+	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.Driver)
+	volumeResponse := vol.client.CreateVolume(
+		vol.Name,
+		vol.Driver,
+		vol.DriverOpts,
+		vol.Labels,
+		engine.CreateVolumeTimeout)
+
+	if volumeResponse.Error != nil {
+		return volumeResponse.Error
+	}
+
+	// set readonly field after creation
+	vol.setMountPoint(volumeResponse.DockerVolume.Mountpoint)
+	return nil
+}
+
+// Cleanup performs resource cleanup
+func  (vol *VolumeResource) Cleanup() error {
+	seelog.Debugf("Removing volume with name %s", vol.Name)
+	err := vol.client.RemoveVolume(vol.Name, engine.RemoveVolumeTimeout)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // volumeResourceJSON duplicates VolumeResource fields, only for marshalling and unmarshalling purposes
 type volumeResourceJSON struct {
 	Name          string            `json:"Name"`
 	Mountpoint    string            `json:"MountPoint"`
 	Driver        string            `json:"Driver"`
+	DriverOpts    map[string]string `json:"DriverOpts"`
 	Labels        map[string]string `json:"Labels"`
 	CreatedAt     time.Time
 	DesiredStatus *VolumeStatus `json:"DesiredStatus"`
@@ -116,8 +170,9 @@ func (vol *VolumeResource) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(volumeResourceJSON{
 		vol.Name,
-		vol.Mountpoint,
+		vol.mountpoint,
 		vol.Driver,
+		vol.DriverOpts,
 		vol.Labels,
 		vol.GetCreatedAt(),
 		func() *VolumeStatus { desiredState := vol.GetDesiredStatus(); return &desiredState }(),
@@ -134,7 +189,7 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	}
 
 	vol.Name = temp.Name
-	vol.Mountpoint = temp.Mountpoint
+	vol.mountpoint = temp.Mountpoint
 	vol.Driver = temp.Driver
 	vol.Labels = temp.Labels
 	if temp.DesiredStatus != nil {

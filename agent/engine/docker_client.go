@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -59,6 +58,7 @@ const (
 )
 
 // Timelimits for docker operations enforced above docker
+// TODO: Make these limits configurable.
 const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
 	ListContainersTimeout = 10 * time.Minute
@@ -77,7 +77,11 @@ const (
 	removeImageTimeout      = 3 * time.Minute
 	// ListPluginsTimeout is the timout for ListPlugins API.
 	ListPluginsTimeout      = 1 * time.Minute
-
+	// CreateVolumeTimeout is the timout for CreateVolume API.
+	CreateVolumeTimeout      = 5 * time.Minute
+	// RemoveVolumeTimeout is the timout for RemoveVolume API.
+	RemoveVolumeTimeout      = 5 * time.Minute
+	
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
 	// tokenCacheTTL is the default ttl of the docker auth for ECR
@@ -154,10 +158,10 @@ type DockerClient interface {
 	ListContainers(bool, time.Duration) ListContainersResponse
 
 	// CreateVolume creates a docker volume. A timeout value should be provided for the request
-	CreateVolume(string, string, map[string]string, map[string]string, time.Duration) volumeResponse
+	CreateVolume(string, string, map[string]string, map[string]string, time.Duration) VolumeResponse
 
 	// InspectVolume returns a volume by its name. A timeout value should be provided for the request
-	InspectVolume(string, time.Duration) volumeResponse
+	InspectVolume(string, time.Duration) VolumeResponse
 
 	// RemoveVolume removes a volume by its name. A timeout value should be provided for the request
 	RemoveVolume(string, time.Duration) error
@@ -984,16 +988,11 @@ func (dg *dockerGoClient) Version() (string, error) {
 	return info.Get("Version"), nil
 }
 
-type volumeResponse struct {
-	Volume *taskresource.VolumeResource
-	Error  error
-}
-
 func (dg *dockerGoClient) CreateVolume(name string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
-	timeout time.Duration) volumeResponse {
+	timeout time.Duration) VolumeResponse {
 	// Create a context that times out after the 'timeout' duration
 	// Injecting the 'timeout' makes it easier to write tests.
 	// Eventually, the context should be initialized from a parent root context
@@ -1003,7 +1002,7 @@ func (dg *dockerGoClient) CreateVolume(name string,
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
-	response := make(chan volumeResponse, 1)
+	response := make(chan VolumeResponse, 1)
 	go func() { response <- dg.createVolume(ctx, name, driver, driverOptions, labels) }()
 
 	// Wait until we get a response or for the 'done' context channel
@@ -1015,11 +1014,11 @@ func (dg *dockerGoClient) CreateVolume(name string,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return volumeResponse{Volume: nil, Error: &DockerTimeoutError{timeout, "creating volume"}}
+			return VolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "creating volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
-		return volumeResponse{Volume: nil, Error: &CannotCreateVolumeError{err}}
+		return VolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 }
 
@@ -1027,10 +1026,10 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 	name string,
 	driver string,
 	driverOptions map[string]string,
-	labels map[string]string) volumeResponse {
+	labels map[string]string) VolumeResponse {
 	client, err := dg.dockerClient()
 	if err != nil {
-		return volumeResponse{Volume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
+		return VolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
 	volumeOptions := docker.CreateVolumeOptions{
@@ -1042,18 +1041,13 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 	}
 	dockerVolume, err := client.CreateVolume(volumeOptions)
 	if err != nil {
-		return volumeResponse{Volume: nil, Error: &CannotCreateVolumeError{err}}
+		return VolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 
-	volume := taskresource.NewVolumeResource(
-		dockerVolume.Name,
-		dockerVolume.Mountpoint,
-		dockerVolume.Driver,
-		dockerVolume.Labels)
-	return volumeResponse{Volume: volume, Error: nil}
+	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
 }
 
-func (dg *dockerGoClient) InspectVolume(name string, timeout time.Duration) volumeResponse {
+func (dg *dockerGoClient) InspectVolume(name string, timeout time.Duration) VolumeResponse {
 	// Create a context that times out after the 'timeout' duration
 	// Injecting the 'timeout' makes it easier to write tests.
 	// Eventually, the context should be initialized from a parent root context
@@ -1063,7 +1057,7 @@ func (dg *dockerGoClient) InspectVolume(name string, timeout time.Duration) volu
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
-	response := make(chan volumeResponse, 1)
+	response := make(chan VolumeResponse, 1)
 	go func() { response <- dg.inspectVolume(ctx, name) }()
 
 	// Wait until we get a response or for the 'done' context channel
@@ -1075,31 +1069,28 @@ func (dg *dockerGoClient) InspectVolume(name string, timeout time.Duration) volu
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return volumeResponse{Volume: nil, Error: &DockerTimeoutError{timeout, "inspecting volume"}}
+			return VolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "inspecting volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
-		return volumeResponse{Volume: nil, Error: &CannotInspectVolumeError{err}}
+		return VolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 }
 
-func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) volumeResponse {
+func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) VolumeResponse {
 	client, err := dg.dockerClient()
 	if err != nil {
-		return volumeResponse{Volume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
+		return VolumeResponse{
+			DockerVolume: nil,
+			Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
 	dockerVolume, err := client.InspectVolume(name)
 	if err != nil {
-		return volumeResponse{Volume: nil, Error: &CannotInspectVolumeError{err}}
+		return VolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 
-	volume := taskresource.NewVolumeResource(
-		dockerVolume.Name,
-		dockerVolume.Mountpoint,
-		dockerVolume.Driver,
-		dockerVolume.Labels)
-	return volumeResponse{Volume: volume, Error: nil}
+	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
 }
 
 func (dg *dockerGoClient) RemoveVolume(name string, timeout time.Duration) error {

@@ -1333,10 +1333,10 @@ func TestCreateVolume(t *testing.T) {
 	)
 	volumeResponse := client.CreateVolume(volumeName, driver, driverOptions, nil, 1*time.Second)
 	assert.NoError(t, volumeResponse.Error)
-	assert.Equal(t, volumeResponse.Volume.Name, volumeName)
-	assert.Equal(t, volumeResponse.Volume.Driver, driver)
-	assert.Equal(t, volumeResponse.Volume.Mountpoint, mountPoint)
-	assert.Nil(t, volumeResponse.Volume.Labels)
+	assert.Equal(t, volumeResponse.DockerVolume.Name, volumeName)
+	assert.Equal(t, volumeResponse.DockerVolume.Driver, driver)
+	assert.Equal(t, volumeResponse.DockerVolume.Mountpoint, mountPoint)
+	assert.Nil(t, volumeResponse.DockerVolume.Labels)
 }
 
 func TestInspectVolumeTimeout(t *testing.T) {
@@ -1389,9 +1389,9 @@ func TestInspectVolume(t *testing.T) {
 
 	volumeResponse := client.InspectVolume(volumeName, inspectContainerTimeout)
 	assert.NoError(t, volumeResponse.Error)
-	assert.Equal(t, volumeOutput.Driver, volumeResponse.Volume.Driver)
-	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.Volume.Mountpoint)
-	assert.Equal(t, volumeOutput.Labels, volumeResponse.Volume.Labels)
+	assert.Equal(t, volumeOutput.Driver, volumeResponse.DockerVolume.Driver)
+	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.DockerVolume.Mountpoint)
+	assert.Equal(t, volumeOutput.Labels, volumeResponse.DockerVolume.Labels)
 }
 
 func TestRemoveVolumeTimeout(t *testing.T) {

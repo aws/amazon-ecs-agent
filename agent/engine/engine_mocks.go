@@ -437,22 +437,34 @@ func (_mr *_MockImageManagerRecorder) RemoveContainerReferenceFromImageState(arg
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveContainerReferenceFromImageState", arg0)
 }
 
-func (_m *MockDockerClient) CreateVolume(_param0 string, _param1 string, _param2 map[string]string, _param3 map[string]string, _param4 time.Duration) volumeResponse {
+func (_m *MockDockerClient) CreateVolume(_param0 string, _param1 string, _param2 map[string]string, _param3 map[string]string, _param4 time.Duration) VolumeResponse {
 	ret := _m.ctrl.Call(_m, "CreateVolume", _param0, _param1, _param2, _param3, _param4)
-	ret0, _ := ret[0].(volumeResponse)
+	ret0, _ := ret[0].(VolumeResponse)
 	return ret0
 }
 
-func (_m *MockDockerClient) InspectVolume(_param0 string, _param1 time.Duration) volumeResponse {
+func (_mr *_MockDockerClientRecorder) CreateVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateVolume", arg0, arg1, arg2, arg3, arg4)
+}
+
+func (_m *MockDockerClient) InspectVolume(_param0 string, _param1 time.Duration) VolumeResponse {
 	ret := _m.ctrl.Call(_m, "InspectVolume", _param0, _param1)
-	ret0, _ := ret[0].(volumeResponse)
+	ret0, _ := ret[0].(VolumeResponse)
 	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) InspectVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InspectVolume", arg0, arg1)
 }
 
 func (_m *MockDockerClient) RemoveVolume(_param0 string, _param1 time.Duration) error {
-	ret := _m.ctrl.Call(_m, "InspectVolume", _param0, _param1)
+	ret := _m.ctrl.Call(_m, "RemoveVolume", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+func (_mr *_MockDockerClientRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
 }
 
 func (_m *MockDockerClient) ListPluginsWithFilters(_param0 bool, _param1 []string, _param2 time.Duration) ([]string, error) {
