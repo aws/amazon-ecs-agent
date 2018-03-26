@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -69,6 +69,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_RESERVED_PORTS_UDP", "[42,99]")()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "60s")()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "5m")()
 	defer setTestEnv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")()
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
 	defer setTestEnv("ECS_APPARMOR_CAPABLE", "true")()
@@ -95,8 +96,10 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(99))
 	assert.Equal(t, uint16(20), conf.ReservedMemory)
-	expectedDuration, _ := time.ParseDuration("60s")
-	assert.Equal(t, expectedDuration, conf.DockerStopTimeout)
+	expectedDurationDockerStopTimeout, _ := time.ParseDuration("60s")
+	assert.Equal(t, expectedDurationDockerStopTimeout, conf.DockerStopTimeout)
+	expectedDurationContainerStartTimeout, _ := time.ParseDuration("5m")
+	assert.Equal(t, expectedDurationContainerStartTimeout, conf.ContainerStartTimeout)
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
 	assert.True(t, conf.PrivilegedDisabled)
 	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
@@ -195,23 +198,61 @@ func TestCheckpointWithoutECSDataDir(t *testing.T) {
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
-	conf, err := environmentConfig()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
-	assert.Zero(t, conf.DockerStopTimeout, "Wrong value for DockerStopTimeout")
+	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
 
-func TestInvalideValueDockerStopTimeout(t *testing.T) {
+func TestZeroValueDockerStopTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "0s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
+}
+
+func TestInvalidValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")()
-	conf, err := environmentConfig()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
-	assert.Zero(t, conf.DockerStopTimeout)
+	assert.Equal(t, conf.DockerStopTimeout, minimumDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
 
-func TestInvalidDockerStopTimeout(t *testing.T) {
-	conf := DefaultConfig()
-	conf.DockerStopTimeout = -1 * time.Second
-	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with negative DockerStopTimeout")
+func TestInvalidFormatContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "invalid")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestZeroValueContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "0s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestInvalidValueContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, minimumContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {

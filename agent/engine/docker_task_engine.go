@@ -862,7 +862,8 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			},
 		}
 	}
-	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
+
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start

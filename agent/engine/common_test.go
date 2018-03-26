@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
@@ -162,8 +163,8 @@ func validateContainerRunWorkflow(t *testing.T,
 				containerEventsWG.Done()
 			}()
 		}).Return(DockerContainerMetadata{DockerID: containerID})
-
-	client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
+	defaultConfig := config.DefaultConfig()
+	client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
 		func(id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
