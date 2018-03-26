@@ -67,7 +67,6 @@ const (
 	LoadImageTimeout        = 10 * time.Minute
 	pullImageTimeout        = 2 * time.Hour
 	createContainerTimeout  = 4 * time.Minute
-	startContainerTimeout   = 3 * time.Minute
 	stopContainerTimeout    = 30 * time.Second
 	removeContainerTimeout  = 5 * time.Minute
 	inspectContainerTimeout = 30 * time.Second
@@ -531,8 +530,8 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 
 func (dg *dockerGoClient) StartContainer(id string, timeout time.Duration) DockerContainerMetadata {
 	// Create a context that times out after the 'timeout' duration
-	// This is defined by the const 'startContainerTimeout'. Injecting the 'timeout'
-	// makes it easier to write tests.
+	// This is defined by the const 'ContainerStartTimeout' in config. Injecting
+	// the 'timeout' makes it easier to write tests.
 	// Eventually, the context should be initialized from a parent root context
 	// instead of TODO.
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)

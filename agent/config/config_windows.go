@@ -16,6 +16,7 @@ package config
 
 import (
 	"os"
+	"time"
 	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -41,6 +42,10 @@ const (
 	dnsPort = 53
 	// NetBIOS over TCP/IP
 	netBIOSPort = 139
+	// defaultContainerStartTimeout specifies the value for container start timeout duration
+	defaultContainerStartTimeout = 8 * time.Minute
+	// minimumContainerStartTimeout specifies the minimum value for starting a container
+	minimumContainerStartTimeout = 2 * time.Minute
 )
 
 // DefaultConfig returns the default configuration for Windows
@@ -73,7 +78,8 @@ func DefaultConfig() Config {
 		ReservedMemory:              0,
 		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
-		DockerStopTimeout:           DefaultDockerStopTimeout,
+		DockerStopTimeout:           defaultDockerStopTimeout,
+		ContainerStartTimeout:       defaultContainerStartTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled: false,
 		ImageCleanupDisabled:        false,

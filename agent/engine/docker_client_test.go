@@ -462,7 +462,7 @@ func TestStartContainer(t *testing.T) {
 		mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.StartContainer("id", startContainerTimeout)
+	metadata := client.StartContainer("id", defaultConfig.ContainerStartTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -804,7 +804,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().StartContainerWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
 
-	vclient.StartContainer("foo", startContainerTimeout)
+	vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
 }
 
 func TestUnavailableVersionError(t *testing.T) {
@@ -823,7 +823,7 @@ func TestUnavailableVersionError(t *testing.T) {
 
 	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 
-	metadata := vclient.StartContainer("foo", startContainerTimeout)
+	metadata := vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
 
 	if metadata.Error == nil {
 		t.Fatal("Expected error, didn't get one")

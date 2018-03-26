@@ -351,7 +351,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				}()
 			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
 		// Ensure that the pause container is started after it's created
-		client.EXPECT().StartContainer(containerID+":"+pauseContainer.Name, startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID+":"+pauseContainer.Name, defaultConfig.ContainerStartTimeout).Do(
 			func(id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
@@ -379,7 +379,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				}()
 			}).Return(DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 		// Next, the sleep container is started
-		client.EXPECT().StartContainer(containerID+":"+sleepContainer.Name, startContainerTimeout).Do(
+		client.EXPECT().StartContainer(containerID+":"+sleepContainer.Name, defaultConfig.ContainerStartTimeout).Do(
 			func(id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
@@ -521,7 +521,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 				go func() { eventStream <- createDockerEvent(api.ContainerCreated) }()
 			}).Return(DockerContainerMetadata{DockerID: containerID})
 
-		client.EXPECT().StartContainer(containerID, startContainerTimeout).Return(DockerContainerMetadata{
+		client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Return(DockerContainerMetadata{
 			Error: &DockerTimeoutError{},
 		})
 	}
@@ -790,7 +790,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 			}).Return(DockerContainerMetadata{DockerID: containerID})
 
 		gomock.InOrder(
-			client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
+			client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
 				func(id string, timeout time.Duration) {
 					go func() {
 						eventStream <- createDockerEvent(api.ContainerRunning)
@@ -886,7 +886,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 					}()
 				}).Return(DockerContainerMetadata{DockerID: containerID}),
 			// Simulate successful start container
-			client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
+			client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
 				func(id string, timeout time.Duration) {
 					containerEventsWG.Add(1)
 					go func() {
@@ -955,7 +955,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 				DockerContainerMetadata{DockerID: containerID}),
 			// Simulate successful start container
-			client.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
+			client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Return(
 				DockerContainerMetadata{DockerID: containerID}),
 			// StopContainer errors out a couple of times
 			client.EXPECT().StopContainer(containerID, gomock.Any()).Return(containerStoppingError).Times(2),
@@ -1073,7 +1073,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				assert.True(t, ok)
 				assert.Equal(t, api.PauseContainerName, name)
 			}).Return(DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().StartContainer(pauseContainerID, startContainerTimeout).Return(
+		dockerClient.EXPECT().StartContainer(pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
 			DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any()).Return(
 			&docker.Container{
@@ -1091,7 +1091,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(DockerContainerMetadata{DockerID: containerID})
-	dockerClient.EXPECT().StartContainer(containerID, startContainerTimeout).Return(
+	dockerClient.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Return(
 		DockerContainerMetadata{DockerID: containerID})
 
 	cleanup := make(chan time.Time)
