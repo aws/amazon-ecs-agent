@@ -656,7 +656,6 @@ func (mtask *managedTask) progressContainers() {
 	// complete, but keep reading events as we do. in fact, we have to for
 	// transitions to complete
 	mtask.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
-	seelog.Debugf("Managed task [%s]: wait for container transition done", mtask.Arn)
 
 	// update the task status
 	changed := mtask.UpdateStatus()
@@ -820,18 +819,20 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 }
 
 func (mtask *managedTask) waitForContainerTransition(transitions map[string]api.ContainerStatus,
-	transitionChange <-chan struct{},
+	transition <-chan struct{},
 	transitionChangeContainer <-chan string) {
 	// There could be multiple transitions, but we just need to wait for one of them
 	// to ensure that there is at least one container can be processed in the next
 	// progressContainers. This is done by waiting for one transition/acs/docker message.
-	if mtask.waitEvent(transitionChange) {
-		changedContainer := <-transitionChangeContainer
-		seelog.Debugf("Managed task [%s]: transition for container[%s] finished",
-			mtask.Arn, changedContainer)
-		delete(transitions, changedContainer)
-		seelog.Debugf("Managed task [%s]: still waiting for: %v", mtask.Arn, transitions)
+	if !mtask.waitEvent(transition) {
+		seelog.Debugf("Managed task [%s]: received non-transition events", mtask.Arn)
+		return
 	}
+	transitionedContainer := <-transitionChangeContainer
+	seelog.Debugf("Managed task [%s]: transition for container[%s] finished",
+		mtask.Arn, transitionedContainer)
+	delete(transitions, transitionedContainer)
+	seelog.Debugf("Managed task [%s]: still waiting for: %v", mtask.Arn, transitions)
 }
 
 func (mtask *managedTask) time() ttime.Time {
