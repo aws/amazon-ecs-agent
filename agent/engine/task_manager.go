@@ -39,7 +39,7 @@ const (
 	// credentials from acs, after the timeout it will check the credentials manager
 	// and start processing the task or start another round of waiting
 	waitForPullCredentialsTimeout         = 1 * time.Minute
-	steadyStateTaskVerifyInterval         = 5 * time.Minute
+	defaultTaskSteadyStatePollInterval    = 5 * time.Minute
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
@@ -98,9 +98,7 @@ type managedTask struct {
 	*api.Task
 	ctx    context.Context
 	cancel context.CancelFunc
-	// waitSteadyCancel is the function to timeout the context for waiting for
-	// task steady state of which timeout duration is `steadyStateTaskVerifyInterval`
-	waitSteadyCancel   context.CancelFunc
+
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -125,8 +123,15 @@ type managedTask struct {
 	_time     ttime.Time
 	_timeOnce sync.Once
 
+	// taskSteadyStatePollInterval is the duration that a managed task waits
+	// once the task gets into steady state before polling the state of all of
+	// the task's containers to re-evaluate if the task is still in steady state
+	// This is set to defaultTaskSteadyStatePollInterval in production code.
+	// This can be used by tests that are looking to ensure that the steady state
+	// verification logic gets executed to set it to a low interval
+	taskSteadyStatePollInterval time.Duration
+
 	resource resources.Resource
-	lock     sync.RWMutex
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -145,10 +150,11 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:              engine.saver,
-		credentialsManager: engine.credentialsManager,
-		cniClient:          engine.cniClient,
-		taskStopWG:         engine.taskStopGroup,
+		saver:                       engine.saver,
+		credentialsManager:          engine.credentialsManager,
+		cniClient:                   engine.cniClient,
+		taskStopWG:                  engine.taskStopGroup,
+		taskSteadyStatePollInterval: engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -278,40 +284,16 @@ func (mtask *managedTask) waitForHostResources() {
 // waitSteady waits for a task to leave steady-state by waiting for a new
 // event, or a timeout.
 func (mtask *managedTask) waitSteady() {
-	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
+	seelog.Infof("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, mtask.taskSteadyStatePollInterval)
 	defer cancel()
-	mtask.setWaitSteadyCheckCancelFunc(cancel)
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
 		go mtask.engine.CheckTaskState(mtask.Task)
 	}
-}
-
-// cancelSteadyStateWait checks if the task is waiting for steady state and stop
-// the waiting if it it. This is currently only used in test
-func (mtask *managedTask) cancelSteadyStateWait() error {
-	mtask.lock.Lock()
-	defer mtask.lock.Unlock()
-
-	if mtask.waitSteadyCancel == nil {
-		return taskNotWaitForSteadyStateError
-	}
-
-	mtask.waitSteadyCancel()
-	// reset the cancel func to nil to indicate the task isn't waiting for steady state
-	mtask.waitSteadyCancel = nil
-	return nil
-}
-
-// setWaitSteadyCheckCancelFunc record the steadyStateCheck cancel function in mtask
-func (mtask *managedTask) setWaitSteadyCheckCancelFunc(cancel context.CancelFunc) {
-	mtask.lock.Lock()
-	defer mtask.lock.Unlock()
-	mtask.waitSteadyCancel = cancel
 }
 
 // steadyState returns if the task is in a steady state. Steady state is when task's desired

@@ -247,18 +247,6 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	}
 }
 
-func triggerSteadyStateCheck(times int, task *managedTask) {
-	for i := 0; i < times; {
-		err := task.cancelSteadyStateWait()
-		if err != nil {
-			// Wait for the waitSteady to be invoked
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
-		i++
-	}
-}
-
 func waitForContainerHealthStatus(t *testing.T, testTask *api.Task) {
 	ctx, cancel := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
 	defer cancel()
