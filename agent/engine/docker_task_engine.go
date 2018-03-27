@@ -111,15 +111,26 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	resource                            resources.Resource
+
+	// taskSteadyStatePollInterval is the duration that a managed task waits
+	// once the task gets into steady state before polling the state of all of
+	// the task's containers to re-evaluate if the task is still in steady state
+	// This is set to defaultTaskSteadyStatePollInterval in production code.
+	// This can be used by tests that are looking to ensure that the steady state
+	// verification logic gets executed to set it to a low interval
+	taskSteadyStatePollInterval time.Duration
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
-	credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream,
-	imageManager ImageManager, state dockerstate.TaskEngineState,
+func NewDockerTaskEngine(cfg *config.Config,
+	client DockerClient,
+	credentialsManager credentials.Manager,
+	containerChangeEventStream *eventstream.EventStream,
+	imageManager ImageManager,
+	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resource resources.Resource) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
@@ -143,8 +154,9 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
 
-		metadataManager: metadataManager,
-		resource:        resource,
+		metadataManager:             metadataManager,
+		resource:                    resource,
+		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()

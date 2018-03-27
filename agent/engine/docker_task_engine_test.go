@@ -43,21 +43,23 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"context"
 )
 
 const (
-	credentialsID       = "credsid"
-	ipv4                = "10.0.0.1"
-	mac                 = "1.2.3.4"
-	ipv6                = "f0:234:23"
-	dockerContainerName = "docker-container-name"
-	containerPid        = 123
-	taskIP              = "169.254.170.3"
-	exitCode            = 1
-	labelsTaskARN       = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
+	credentialsID               = "credsid"
+	ipv4                        = "10.0.0.1"
+	mac                         = "1.2.3.4"
+	ipv6                        = "f0:234:23"
+	dockerContainerName         = "docker-container-name"
+	containerPid                = 123
+	taskIP                      = "169.254.170.3"
+	exitCode                    = 1
+	labelsTaskARN               = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
+	taskSteadyStatePollInterval = time.Millisecond
 )
 
 var (
@@ -558,8 +560,10 @@ func TestSteadyStatePoll(t *testing.T) {
 	ctrl, client, testTime, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
+	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
 	containerEventsWG := sync.WaitGroup{}
 	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.Arn = uuid.New()
 	eventStream := make(chan DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
 		client.EXPECT().Version()
@@ -579,6 +583,23 @@ func TestSteadyStatePoll(t *testing.T) {
 	}
 	testTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	client.EXPECT().DescribeContainer(containerID).Return(
+		api.ContainerStopped,
+		DockerContainerMetadata{
+			DockerID: containerID,
+		}).Do(func(x interface{}) {
+		wg.Done()
+	})
+	client.EXPECT().DescribeContainer(containerID).Return(
+		api.ContainerStopped,
+		DockerContainerMetadata{
+			DockerID: containerID,
+		}).AnyTimes()
+	client.EXPECT().StopContainer(containerID, stopContainerTimeout).AnyTimes()
+
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
 	taskEngine.AddTask(sleepTask) // actually add the task we created
@@ -588,23 +609,9 @@ func TestSteadyStatePoll(t *testing.T) {
 	dockerContainer, ok := containerMap[sleepTask.Containers[0].Name]
 	assert.True(t, ok)
 
-	// Two steady state oks, one stop
-	gomock.InOrder(
-		client.EXPECT().DescribeContainer(containerID).Return(
-			api.ContainerRunning,
-			DockerContainerMetadata{
-				DockerID: containerID,
-			}).Times(2),
-		client.EXPECT().DescribeContainer(containerID).Return(
-			api.ContainerStopped,
-			DockerContainerMetadata{
-				DockerID: containerID,
-			}).MinTimes(1),
-		// the engine *may* call StopContainer even though it's already stopped
-		client.EXPECT().StopContainer(containerID, stopContainerTimeout).AnyTimes(),
-	)
 	// Wait for container create and start events to be processed
 	containerEventsWG.Wait()
+	wg.Wait()
 
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
@@ -612,17 +619,6 @@ func TestSteadyStatePoll(t *testing.T) {
 	client.EXPECT().RemoveContainer(dockerContainer.DockerName, removeContainerTimeout).Return(nil)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
-	// trigger steady state verification
-	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
-	for _, task := range mtasks {
-		// Trigger the steadyState check at least twice
-		triggerSteadyStateCheck(4, task)
-	}
-
-	// StopContainer might be invoked if the test execution is slow, during
-	// the cleanup phase. Account for that.
-	client.EXPECT().StopContainer(gomock.Any(), gomock.Any()).Return(
-		DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(api.TaskStopped)
@@ -1043,6 +1039,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
 	eventStream := make(chan DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
 
@@ -1107,12 +1104,6 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	verifyTaskIsRunning(stateChangeEvents, sleepTask)
-
-	// trigger steady state verification
-	mtasks := taskEngine.(*DockerTaskEngine).managedTasks
-	for _, task := range mtasks {
-		triggerSteadyStateCheck(1, task)
-	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
