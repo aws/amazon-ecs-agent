@@ -878,6 +878,10 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		DesiredStatusUnsafe: api.ContainerRunning,
 		Name:                secondContainerName,
 	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	mTask := &managedTask{
 		Task: &api.Task{
 			Containers: []*api.Container{
@@ -890,6 +894,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		saver:          taskEngine.saver,
+		ctx:            ctx,
 	}
 	taskEngine.managedTasks = make(map[string]*managedTask)
 	taskEngine.managedTasks["task1"] = mTask
@@ -963,6 +968,7 @@ func TestCleanupTask(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
 	taskEngine := &DockerTaskEngine{
 		ctx:          ctx,
 		cfg:          &cfg,
@@ -973,6 +979,7 @@ func TestCleanupTask(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1017,6 +1024,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
 	taskEngine := &DockerTaskEngine{
 		ctx:          ctx,
 		cfg:          &cfg,
@@ -1027,6 +1035,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1094,6 +1103,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1148,6 +1158,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1276,6 +1287,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1334,6 +1346,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1393,6 +1406,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,

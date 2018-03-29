@@ -17,7 +17,6 @@ package engine
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -94,15 +93,7 @@ func TestDeleteTask(t *testing.T) {
 		mockSaver.EXPECT().Save(),
 	)
 
-	var cleanupDone sync.WaitGroup
-	handleCleanupDone := make(chan struct{})
-	cleanupDone.Add(1)
-	go func() {
-		<-handleCleanupDone
-		cleanupDone.Done()
-	}()
-	taskEngine.deleteTask(task, handleCleanupDone)
-	cleanupDone.Wait()
+	taskEngine.deleteTask(task)
 }
 
 func TestEngineDisableConcurrentPull(t *testing.T) {

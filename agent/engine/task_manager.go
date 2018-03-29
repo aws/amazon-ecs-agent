@@ -123,13 +123,13 @@ type managedTask struct {
 	_time     ttime.Time
 	_timeOnce sync.Once
 
-	// taskSteadyStatePollInterval is the duration that a managed task waits
+	// steadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
 	// the task's containers to re-evaluate if the task is still in steady state
 	// This is set to defaultTaskSteadyStatePollInterval in production code.
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
-	taskSteadyStatePollInterval time.Duration
+	steadyStatePollInterval time.Duration
 
 	resource resources.Resource
 }
@@ -150,11 +150,11 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:                       engine.saver,
-		credentialsManager:          engine.credentialsManager,
-		cniClient:                   engine.cniClient,
-		taskStopWG:                  engine.taskStopGroup,
-		taskSteadyStatePollInterval: engine.taskSteadyStatePollInterval,
+		saver:                   engine.saver,
+		credentialsManager:      engine.credentialsManager,
+		cniClient:               engine.cniClient,
+		taskStopWG:              engine.taskStopGroup,
+		steadyStatePollInterval: engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -286,13 +286,13 @@ func (mtask *managedTask) waitForHostResources() {
 func (mtask *managedTask) waitSteady() {
 	seelog.Infof("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, mtask.taskSteadyStatePollInterval)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, mtask.steadyStatePollInterval)
 	defer cancel()
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
-		go mtask.engine.CheckTaskState(mtask.Task)
+		go mtask.engine.checkTaskState(mtask.Task)
 	}
 }
 
@@ -449,6 +449,22 @@ func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container
 	mtask.stateChangeEvents <- event
 	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
 		mtask.Arn, cont.Name, event.String())
+}
+
+func (mtask *managedTask) emitDockerContainerChange(change dockerContainerChange) {
+	if mtask.ctx.Err() != nil {
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to closed context: %v",
+			mtask.Arn, mtask.ctx.Err())
+	}
+	mtask.dockerMessages <- change
+}
+
+func (mtask *managedTask) emitACSTransition(transition acsTransition) {
+	if mtask.ctx.Err() != nil {
+		seelog.Infof("Managed task [%s]: unable to emit acs transition due to closed context: %v",
+			mtask.Arn, mtask.ctx.Err())
+	}
+	mtask.acsMessages <- transition
 }
 
 func (mtask *managedTask) isContainerFound(container *api.Container) bool {
@@ -858,38 +874,26 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks
-	handleCleanupDone := make(chan struct{})
 	// discard events while the task is being removed from engine state
-	go mtask.discardEventsUntil(handleCleanupDone)
+	go mtask.discardEvents()
 	mtask.engine.sweepTask(mtask.Task)
-	mtask.engine.deleteTask(mtask.Task, handleCleanupDone)
+	mtask.engine.deleteTask(mtask.Task)
 
-	// Cleanup any leftover messages before closing their channels. No new
-	// messages possible because we deleted ourselves from managedTasks, so this
-	// removes all stale ones
-	mtask.discardPendingMessages()
-
-	close(mtask.dockerMessages)
-	close(mtask.acsMessages)
+	// The last thing to do here is to cancel the context, which should cancel
+	// all outstanding go routines associated with this managed task.
+	mtask.cancel()
 }
 
-func (mtask *managedTask) discardEventsUntil(done chan struct{}) {
+func (mtask *managedTask) discardEvents() {
 	for {
 		select {
 		case <-mtask.dockerMessages:
 		case <-mtask.acsMessages:
-		case <-done:
-			return
-		}
-	}
-}
-
-func (mtask *managedTask) discardPendingMessages() {
-	for {
-		select {
-		case <-mtask.dockerMessages:
-		case <-mtask.acsMessages:
-		default:
+		case <-mtask.ctx.Done():
+			// The task has been cancelled. No need to process any more
+			// events
+			close(mtask.dockerMessages)
+			close(mtask.acsMessages)
 			return
 		}
 	}
