@@ -391,9 +391,9 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 	task.RecordExecutionStoppedAt(container.Container)
 }
 
-// CheckTaskState inspects the state of all containers within a task and writes
+// checkTaskState inspects the state of all containers within a task and writes
 // their state to the managed task's container channel.
-func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
+func (engine *DockerTaskEngine) checkTaskState(task *api.Task) {
 	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		seelog.Warnf("Task engine [%s]: could not check task state; no task in state", task.Arn)
@@ -410,13 +410,13 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 		engine.processTasks.RUnlock()
 
 		if ok {
-			managedTask.dockerMessages <- dockerContainerChange{
+			managedTask.emitDockerContainerChange(dockerContainerChange{
 				container: container,
 				event: DockerContainerChangeEvent{
 					Status:                  status,
 					DockerContainerMetadata: metadata,
 				},
-			}
+			})
 		}
 	}
 }
@@ -450,7 +450,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	engine.saver.Save()
 }
 
-func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone chan<- struct{}) {
+func (engine *DockerTaskEngine) deleteTask(task *api.Task) {
 	if engine.cfg.TaskCPUMemLimit.Enabled() {
 		err := engine.resource.Cleanup(task)
 		if err != nil {
@@ -471,7 +471,6 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone cha
 	}
 	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
-	handleCleanupDone <- struct{}{}
 	engine.processTasks.Unlock()
 	engine.saver.Save()
 }
@@ -577,7 +576,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	}
 	seelog.Debugf("Task engine [%s]: writing docker event to the task: %s",
 		task.Arn, event.String())
-	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
+	managedTask.emitDockerContainerChange(dockerContainerChange{container: cont.Container, event: event})
 	seelog.Debugf("Task engine [%s]: wrote docker event to the task: %s",
 		task.Arn, event.String())
 }
@@ -1045,9 +1044,10 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *api.Task, update *api.Tas
 	updateDesiredStatus := update.GetDesiredStatus()
 	seelog.Debugf("Task engine [%s]: putting update on the acs channel: [%s] with seqnum [%d]",
 		task.Arn, updateDesiredStatus.String(), update.StopSequenceNumber)
-	transition := acsTransition{desiredStatus: updateDesiredStatus}
-	transition.seqnum = update.StopSequenceNumber
-	managedTask.acsMessages <- transition
+	managedTask.emitACSTransition(acsTransition{
+		desiredStatus: updateDesiredStatus,
+		seqnum:        update.StopSequenceNumber,
+	})
 	seelog.Debugf("Task engine [%s]: update taken off the acs channel: [%s] with seqnum [%d]",
 		task.Arn, updateDesiredStatus.String(), update.StopSequenceNumber)
 }
@@ -1062,16 +1062,16 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 
 	engine.processTasks.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
+	engine.processTasks.RUnlock()
 	if ok {
-		managedTask.dockerMessages <- dockerContainerChange{
+		managedTask.emitDockerContainerChange(dockerContainerChange{
 			container: container,
 			event: DockerContainerChangeEvent{
 				Status:                  to,
 				DockerContainerMetadata: metadata,
 			},
-		}
+		})
 	}
-	engine.processTasks.RUnlock()
 }
 
 // applyContainerState moves the container to the given state by calling the
