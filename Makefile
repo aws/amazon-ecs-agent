@@ -1,4 +1,4 @@
-# Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -78,7 +78,7 @@ ubuntu-trusty:
 	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
 
 get-deps:
-	go get github.com/tools/godep
+	go get github.com/x/lint/golint
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
 	go get golang.org/x/tools/cmd/goimports
