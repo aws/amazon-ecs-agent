@@ -45,14 +45,22 @@
     "aws/request",
     "aws/session",
     "aws/signer/v4",
+    "internal/sdkio",
+    "internal/sdkrand",
+    "internal/shareddefaults",
     "private/protocol",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
+    "service/s3",
+    "service/s3/s3iface",
+    "service/s3/s3manager",
     "service/sts"
   ]
-  revision = "e0112057684ab452d83f534c09f9f96f8dfa2290"
+  revision = "4b5324816e154564ef4e490842c2e40560971f75"
+  version = "v1.13.24"
 
 [[projects]]
   branch = "master"
@@ -128,7 +136,7 @@
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
-  revision = "bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d"
+  revision = "0b12d6b5"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -175,6 +183,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dd5599b7cbace191a1cbd90a4afc0bb914cd44e6bf9918f50615ef9c0e1d5286"
+  inputs-digest = "a4cdcd4c272db12bebd3125d2a64a7302ebf88486ec8063457d6e4fb5b2e5160"
   solver-name = "gps-cdcl"
   solver-version = 1

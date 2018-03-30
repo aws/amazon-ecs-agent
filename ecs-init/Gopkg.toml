@@ -33,6 +33,10 @@
   name = "github.com/golang/mock"
   revision = "58cd061d09382b6011f84c1291ebe50ef2e25bab"
 
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go"
+  version = "1.10.30"
+
 [prune]
   go-tests = true
   unused-packages = true

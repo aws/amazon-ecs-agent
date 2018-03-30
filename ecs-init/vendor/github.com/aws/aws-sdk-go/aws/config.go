@@ -53,6 +53,13 @@ type Config struct {
 	// to use based on region.
 	EndpointResolver endpoints.Resolver
 
+	// EnforceShouldRetryCheck is used in the AfterRetryHandler to always call
+	// ShouldRetry regardless of whether or not if request.Retryable is set.
+	// This will utilize ShouldRetry method of custom retryers. If EnforceShouldRetryCheck
+	// is not set, then ShouldRetry will only be called if request.Retryable is nil.
+	// Proper handling of the request.Retryable field is important when setting this field.
+	EnforceShouldRetryCheck *bool
+
 	// The region to send requests to. This parameter is required and must
 	// be configured globally or on a per-client basis unless otherwise
 	// noted. A full list of regions is found in the "Regions and Endpoints"
@@ -88,7 +95,7 @@ type Config struct {
 	// recoverable failures.
 	//
 	// When nil or the value does not implement the request.Retryer interface,
-	// the request.DefaultRetryer will be used.
+	// the client.DefaultRetryer will be used.
 	//
 	// When both Retryer and MaxRetries are non-nil, the former is used and
 	// the latter ignored.
@@ -144,6 +151,15 @@ type Config struct {
 	// with accelerate.
 	S3UseAccelerate *bool
 
+	// S3DisableContentMD5Validation config option is temporarily disabled,
+	// For S3 GetObject API calls, #1837.
+	//
+	// Set this to `true` to disable the S3 service client from automatically
+	// adding the ContentMD5 to S3 Object Put and Upload API calls. This option
+	// will also disable the SDK from performing object ContentMD5 validation
+	// on GetObject API calls.
+	S3DisableContentMD5Validation *bool
+
 	// Set this to `true` to disable the EC2Metadata client from overriding the
 	// default http.Client's Timeout. This is helpful if you do not want the
 	// EC2Metadata client to create a new http.Client. This options is only
@@ -161,7 +177,7 @@ type Config struct {
 	//
 	EC2MetadataDisableTimeoutOverride *bool
 
-	// Instructs the endpiont to be generated for a service client to
+	// Instructs the endpoint to be generated for a service client to
 	// be the dual stack endpoint. The dual stack endpoint will support
 	// both IPv4 and IPv6 addressing.
 	//
@@ -329,6 +345,15 @@ func (c *Config) WithS3Disable100Continue(disable bool) *Config {
 func (c *Config) WithS3UseAccelerate(enable bool) *Config {
 	c.S3UseAccelerate = &enable
 	return c
+
+}
+
+// WithS3DisableContentMD5Validation sets a config
+// S3DisableContentMD5Validation value returning a Config pointer for chaining.
+func (c *Config) WithS3DisableContentMD5Validation(enable bool) *Config {
+	c.S3DisableContentMD5Validation = &enable
+	return c
+
 }
 
 // WithUseDualStack sets a config UseDualStack value returning a Config
@@ -428,6 +453,10 @@ func mergeInConfig(dst *Config, other *Config) {
 		dst.S3UseAccelerate = other.S3UseAccelerate
 	}
 
+	if other.S3DisableContentMD5Validation != nil {
+		dst.S3DisableContentMD5Validation = other.S3DisableContentMD5Validation
+	}
+
 	if other.UseDualStack != nil {
 		dst.UseDualStack = other.UseDualStack
 	}
@@ -442,6 +471,10 @@ func mergeInConfig(dst *Config, other *Config) {
 
 	if other.DisableRestProtocolURICleaning != nil {
 		dst.DisableRestProtocolURICleaning = other.DisableRestProtocolURICleaning
+	}
+
+	if other.EnforceShouldRetryCheck != nil {
+		dst.EnforceShouldRetryCheck = other.EnforceShouldRetryCheck
 	}
 }
 
