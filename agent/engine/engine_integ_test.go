@@ -206,6 +206,9 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 
 	// creates a task with two containers
 	testTask := createTestEmptyHostVolumeMountTask()
+	for _, container := range testTask.Containers {
+		container.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
+	}
 
 	go taskEngine.AddTask(testTask)
 

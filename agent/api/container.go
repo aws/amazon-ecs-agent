@@ -564,8 +564,11 @@ func (c *Container) BuildContainerDependency(contName string,
 	c.TransitionDependenciesMap[dependentStatus] = deps
 }
 
-// BuildResourceDependency adds a new resource dependency and status that satisfies
-// the dependency
+// BuildResourceDependency adds a new resource dependency by taking in the required status
+// of the resource that satisfies the dependency and the dependent container status,
+// whose transition is dependent on the resource.
+// example: if container's PULLED transition is dependent on volume resource's
+// CREATED status, then RequiredStatus=VolumeCreated and dependentStatus=ContainerPulled
 func (c *Container) BuildResourceDependency(resourceName string,
 	requiredStatus taskresource.ResourceStatus,
 	dependentStatus ContainerStatus) {
@@ -579,10 +582,4 @@ func (c *Container) BuildResourceDependency(resourceName string,
 	deps := c.TransitionDependenciesMap[dependentStatus]
 	deps.ResourceDependencies = append(deps.ResourceDependencies, resourceDep)
 	c.TransitionDependenciesMap[dependentStatus] = deps
-}
-
-func (c *Container) initializeDependenciesMap() {
-	if c.TransitionDependenciesMap == nil {
-		c.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
-	}
 }

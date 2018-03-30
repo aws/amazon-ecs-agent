@@ -153,23 +153,45 @@ type Task struct {
 	lock sync.RWMutex
 }
 
+// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
+// ecsacs.Task to json and unmrashaling it as api.Task
+func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+	data, err := jsonutil.BuildJSON(acsTask)
+	if err != nil {
+		return nil, err
+	}
+	task := &Task{}
+	err = json.Unmarshal(data, task)
+	if err != nil {
+		return nil, err
+	}
+	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
+		task.StartSequenceNumber = *envelope.SeqNum
+	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
+		task.StopSequenceNumber = *envelope.SeqNum
+	}
+
+	// Overrides the container command if it's set
+	for _, container := range task.Containers {
+		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
+			container.Command = *container.Overrides.Command
+		}
+		container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+	}
+
+	return task, nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.initializeContainerDependenciesMap()
 	task.adjustForPlatform(cfg)
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
-}
-
-func (task *Task) initializeContainerDependenciesMap() {
-	for _, c := range task.Containers {
-		c.initializeDependenciesMap()
-	}
 }
 
 func (task *Task) initializeEmptyVolumes() {
@@ -778,34 +800,6 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	}
 
 	return binds, nil
-}
-
-// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
-// ecsacs.Task to json and unmrashaling it as api.Task
-func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
-	data, err := jsonutil.BuildJSON(acsTask)
-	if err != nil {
-		return nil, err
-	}
-	task := &Task{}
-	err = json.Unmarshal(data, task)
-	if err != nil {
-		return nil, err
-	}
-	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
-		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
-		task.StopSequenceNumber = *envelope.SeqNum
-	}
-
-	// Overrides the container command if it's set
-	for _, container := range task.Containers {
-		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
-			container.Command = *container.Overrides.Command
-		}
-	}
-
-	return task, nil
 }
 
 // UpdateStatus updates a task's known and desired statuses to be compatible

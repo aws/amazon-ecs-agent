@@ -1039,6 +1039,8 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	eventStream := make(chan DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
+	sleepContainer := sleepTask.Containers[0]
+	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.SetTaskENI(&api.ENI{
