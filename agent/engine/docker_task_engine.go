@@ -839,6 +839,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		}
 	}
 
+	createContainerBegin := time.Now()
 	metadata := client.CreateContainer(engine.ctx, config, hostConfig, dockerContainerName, dockerapi.CreateContainerTimeout)
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
@@ -848,6 +849,8 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 			Container:  container}, task)
 	}
 	container.SetLabels(config.Labels)
+	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
+		task.Arn, container.Name, metadata.DockerID, time.Since(createContainerBegin))
 	return metadata
 }
 
@@ -875,6 +878,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			},
 		}
 	}
+	startContainerBegin := time.Now()
 	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
@@ -896,6 +900,8 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 				task.Arn, container.Name)
 		}()
 	}
+	seelog.Infof("Task engine [%s]: started docker container for task: %s -> %s, took %s",
+		task.Arn, container.Name, dockerContainerMD.DockerID, time.Since(startContainerBegin))
 	return dockerContainerMD
 }
 
