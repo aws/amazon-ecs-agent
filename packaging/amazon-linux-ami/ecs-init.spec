@@ -13,7 +13,7 @@
 # limitations under the License.
 
 Name:           ecs-init
-Version:        1.17.2
+Version:        1.17.3
 Release:        1%{?dist}
 Group:          System Environment/Base
 Vendor:         Amazon.com
@@ -152,6 +152,9 @@ if [ -e %{running_semaphore} ]; then
 fi
 
 %changelog
+* Fri Mar 30 2018 Justin Haynes <jushay@amazon.com> - 1.17.3-1
+- Cache Agent vesion 1.17.3
+- Use s3client instead of httpclient when downloading
 * Mon Mar 05 2018 Jacob Vallejo <jakeev@amazon.com> - 1.17.2-1
 - Cache Agent vesion 1.17.2
 * Mon Feb 19 2018 Justin Haynes <jushay@amazon.com> - 1.17.1-1

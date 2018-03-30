@@ -34,7 +34,7 @@ const (
 	ProcFS = "/proc"
 
 	// AgentFilename is the filename, including version number, of the agent to be downloaded.
-	AgentFilename = "ecs-agent-v1.17.2.tar"
+	AgentFilename = "ecs-agent-v1.17.3.tar"
 
 	// AgentRemoteBucketName is the name of the s3 bucket that stores the agent
 	AgentRemoteBucketName = "amazon-ecs-agent"

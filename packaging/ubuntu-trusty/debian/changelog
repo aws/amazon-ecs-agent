@@ -1,3 +1,9 @@
+amazon-ecs-init (1.17.3-1) trusty; urgency=medium
+
+  * Cache Agent version 1.17.3
+  * Use s3client instead of httpclient when downloading
+ -- Justin Haynes <jushay@amazon.com>  Fri, 30 Mar 2018 12:20:41 -0800
+
 amazon-ecs-init (1.17.2-1) trusty; urgency=medium
 
   * Cache Agent version 1.17.2
