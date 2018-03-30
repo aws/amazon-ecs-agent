@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVerifyResourceDependenciesResolved(t *testing.T) {
+func TestVerifyCgroupDependenciesResolved(t *testing.T) {
 	testcases := []struct {
 		Name             string
 		TargetKnown      api.ContainerStatus
