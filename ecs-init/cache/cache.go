@@ -20,13 +20,16 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/cihub/seelog"
 )
 
@@ -36,28 +39,41 @@ const (
 
 // Downloader is responsible for cache operations relating to downloading the agent
 type Downloader struct {
-	getter   httpGetter
-	fs       fileSystem
-	metadata instanceMetadata
-	region   string
+	s3downloader s3Downloader
+	fs           fileSystem
+	metadata     instanceMetadata
+	region       string
 }
 
 // NewDownloader returns a Downloader with default dependencies
-func NewDownloader() *Downloader {
+func NewDownloader() (*Downloader, error) {
 	downloader := &Downloader{
-		getter: customGetter,
-		fs:     &standardFS{},
+		fs: &standardFS{},
 	}
 
 	// If metadata cannot be initialized the region string is populated with the default value to prevent future
 	// calls to retrieve the region from metadata
 	sessionInstance, err := session.NewSession()
 	if err != nil {
+		log.Debugf("Get error when initializing session instance: %v. Use default region: %s", 
+			err, config.DefaultRegionName)
 		downloader.region = config.DefaultRegionName
-		return downloader
+	} else {
+		// metadata is only used for retrieving the user's region
+		downloader.metadata = ec2metadata.New(sessionInstance)
 	}
-	downloader.metadata = ec2metadata.New(sessionInstance)
-	return downloader
+
+	log.Debugf("Setting region for s3 client to: %s", downloader.getBucketRegion())
+	s3Session, err := session.NewSession(&aws.Config{
+		Credentials: credentials.AnonymousCredentials,
+		Region:      aws.String(downloader.getBucketRegion()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	downloader.s3downloader = s3manager.NewDownloader(s3Session)
+
+	return downloader, nil
 }
 
 // IsAgentCached returns true if there is a cached copy of the Agent present
@@ -91,6 +107,18 @@ func (d *Downloader) getRegion() string {
 	return d.region
 }
 
+// getBucketRegion returns a region that contains the agent's bucket
+func (d *Downloader) getBucketRegion() string {
+	region := d.getRegion()
+	if config.IsSupportedRegion(region) {
+		return region
+	}
+
+	log.Debugf("Current region (%s) does not contain the agent's s3 bucket, using the default region (%s) for downloader.",
+		region, config.DefaultRegionName)
+	return config.DefaultRegionName
+}
+
 // DownloadAgent downloads a fresh copy of the Agent and performs an
 // integrity check on the downloaded image
 func (d *Downloader) DownloadAgent() error {
@@ -104,28 +132,26 @@ func (d *Downloader) DownloadAgent() error {
 		return err
 	}
 
-	publishedTarballReader, err := d.getPublishedTarball()
+	tempFileName, err := d.getPublishedTarball()
+	if err != nil {
+		return err
+	}
+
+	defer func() { // clean up temp file
+		if _, err := d.fs.Stat(tempFileName); err == nil { // if temp file exists, remove it
+			log.Debugf("Removing temp file %s", tempFileName)
+			d.fs.Remove(tempFileName)
+		}
+	}()
+
+	publishedTarballReader, err := d.fs.Open(tempFileName)
 	if err != nil {
 		return err
 	}
 	defer publishedTarballReader.Close()
 
 	md5hash := md5.New()
-	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar")
-	if err != nil {
-		return err
-	}
-	log.Debugf("Temp file %s", tempFile.Name())
-	defer func() {
-		if err != nil {
-			log.Debugf("Removing temp file %s", tempFile.Name())
-			d.fs.Remove(tempFile.Name())
-		}
-	}()
-	defer tempFile.Close()
-
-	teeReader := d.fs.TeeReader(publishedTarballReader, md5hash)
-	_, err = d.fs.Copy(tempFile, teeReader)
+	_, err = d.fs.Copy(md5hash, publishedTarballReader)
 	if err != nil {
 		return err
 	}
@@ -134,48 +160,64 @@ func (d *Downloader) DownloadAgent() error {
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
 	log.Debugf("Expected %s", publishedMd5Sum)
 	log.Debugf("Calculated %s", calculatedMd5SumString)
-	agentRemoteTarball := config.AgentRemoteTarball(d.getRegion())
+	agentRemoteTarball := config.AgentRemoteTarballKey()
 	if publishedMd5Sum != calculatedMd5SumString {
 		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
 		return err
 	}
 
-	log.Debugf("Attempting to rename %s to %s", tempFile.Name(), config.AgentTarball())
-	return d.fs.Rename(tempFile.Name(), config.AgentTarball())
+	log.Debugf("Attempting to rename %s to %s", tempFileName, config.AgentTarball())
+	return d.fs.Rename(tempFileName, config.AgentTarball())
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	region := d.getRegion()
-	agentRemoteTarballMD5 := config.AgentRemoteTarballMD5(region)
-	log.Debugf("Downloading published md5sum from %s", agentRemoteTarballMD5)
-	resp, err := d.getter.Get(agentRemoteTarballMD5)
+	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar.md5")
 	if err != nil {
 		return "", err
 	}
+	log.Debugf("Created temporary file for md5sum: %s", tempFile.Name())
 	defer func() {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
+		log.Debugf("Removing temp file %s", tempFile.Name())
+		d.fs.Remove(tempFile.Name())
 	}()
-	body, err := d.fs.ReadAll(resp.Body)
+	defer tempFile.Close()
+
+	_, err = d.s3downloader.Download(tempFile, &s3.GetObjectInput{
+		Bucket: aws.String(config.AgentRemoteBucketName),
+		Key:    aws.String(config.AgentRemoteTarballMD5Key()),
+	})
 	if err != nil {
 		return "", err
 	}
+
+	body, err := d.fs.ReadAll(tempFile)
+	if err != nil {
+		return "", err
+	}
+
 	return strings.TrimSpace(string(body)), nil
 }
 
-func (d *Downloader) getPublishedTarball() (io.ReadCloser, error) {
-	region := d.getRegion()
-	agentRemoteTarball := config.AgentRemoteTarball(region)
-	log.Debugf("Downloading Amazon Elastic Container Service Agent from %s", agentRemoteTarball)
-	resp, err := d.getter.Get(agentRemoteTarball)
+func (d *Downloader) getPublishedTarball() (string, error) {
+	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar")
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response code %d", resp.StatusCode)
+	log.Debugf("Created temporary file for agent tarball: %s", tempFile.Name())
+
+	_, err = d.s3downloader.Download(tempFile, &s3.GetObjectInput{
+		Bucket: aws.String(config.AgentRemoteBucketName),
+		Key:    aws.String(config.AgentRemoteTarballKey()),
+	})
+	if err != nil {
+		tempFile.Close()
+		log.Debugf("Removing temp file %s", tempFile.Name())
+		d.fs.Remove(tempFile.Name())
+		return "", err
 	}
-	return resp.Body, nil
+
+	tempFile.Close()
+	return tempFile.Name(), nil
 }
 
 // LoadCachedAgent returns an io.ReadCloser of the Agent from the cache

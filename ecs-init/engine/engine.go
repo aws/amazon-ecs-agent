@@ -43,7 +43,10 @@ type Engine struct {
 
 // New creates an instance of Engine
 func New() (*Engine, error) {
-	downloader := cache.NewDownloader()
+	downloader, err := cache.NewDownloader()
+	if err != nil {
+		return nil, err
+	}
 	docker, err := docker.NewClient()
 	if err != nil {
 		return nil, err

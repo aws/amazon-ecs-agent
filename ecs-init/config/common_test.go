@@ -47,24 +47,22 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
-func TestGetS3BucketMapByRegion(t *testing.T) {
-
+func TestIsSupportedRegion(t *testing.T) {
 	var cases = []struct {
 		region         string
-		expectedBucket string
+		expectedResult bool
 	}{
-		{DefaultRegionName, regionToS3BucketURL[DefaultRegionName]},
-		{"cn-north-1", regionToS3BucketURL["cn-north-1"]},
-		{"missing-region", regionToS3BucketURL[DefaultRegionName]},
+		{DefaultRegionName, true},
+		{"cn-north-1", true},
+		{"missing-region", false},
 	}
 
 	for _, c := range cases {
 		t.Run(c.region, func(t *testing.T) {
-			bucket := getBaseLocationForRegion(DefaultRegionName)
-			if bucket != regionToS3BucketURL[DefaultRegionName] {
-				t.Errorf("Region Bucket for default region did not match default. Region bucket returned: " + bucket)
+			result := IsSupportedRegion(c.region)
+			if result != c.expectedResult {
+				t.Errorf("IsSupportedRegion did not get correct result. Result returned: %t", result)
 			}
 		})
 	}
 }
-

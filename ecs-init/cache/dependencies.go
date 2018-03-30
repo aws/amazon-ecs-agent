@@ -23,16 +23,16 @@ package cache
 import (
 	"io"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"time"
+
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-// httpGetter captures the only method used from the net/http package
-type httpGetter interface {
-	Get(url string) (resp *http.Response, err error)
+// s3Downloader captures the only method used from the s3 client
+type s3Downloader interface {
+	Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
 }
 
 // fileSystem captures related functions from os, io, and io/ioutil packages
@@ -103,26 +103,4 @@ func (s *standardFS) Base(path string) string {
 
 func (s *standardFS) WriteFile(filename string, data []byte, perm os.FileMode) error {
 	return ioutil.WriteFile(filename, data, perm)
-}
-
-// customGetter is very similar to http.DefaultClient, but sets a shorter
-// timeout
-type _customGetter struct {
-	client *http.Client
-}
-
-var customGetter = &_customGetter{
-	client: &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout: 10 * time.Second,
-		}},
-}
-
-func (c *_customGetter) Get(url string) (resp *http.Response, err error) {
-	return c.client.Get(url)
 }

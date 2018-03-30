@@ -36,16 +36,25 @@ const (
 	// AgentFilename is the filename, including version number, of the agent to be downloaded.
 	AgentFilename = "ecs-agent-v1.17.2.tar"
 
-	// DefaultRegionName is the name of the region to fall back to if no entry for the region name is found in the
-	// S3BucketMap.
-	DefaultRegionName = "default"
+	// AgentRemoteBucketName is the name of the s3 bucket that stores the agent
+	AgentRemoteBucketName = "amazon-ecs-agent"
+
+	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
+	// the agent bucket
+	DefaultRegionName = "us-east-1"
 )
 
-// regionToS3BucketURL provides a mapping of region names to specific URI's for the region.
-var regionToS3BucketURL = map[string]string{
-	"cn-north-1":      "https://s3.cn-north-1.amazonaws.com.cn/amazon-ecs-agent/",
-	"us-gov-west-1":   "https://s3-fips-us-gov-west-1.amazonaws.com/amazon-ecs-agent/",
-	DefaultRegionName: "https://s3.amazonaws.com/amazon-ecs-agent/",
+// supportedRegions stores a list of regions that contains the agent bucket
+var supportedRegions = []string{"cn-north-1", "us-gov-west-1", DefaultRegionName}
+
+// IsSupportedRegion checks whether the given region is a region that contains the agent bucket
+func IsSupportedRegion(region string) bool {
+	for _, supportedRegion := range supportedRegions {
+		if region == supportedRegion {
+			return true
+		}
+	}
+	return false
 }
 
 // AgentConfigDirectory returns the location on disk for configuration
@@ -98,16 +107,14 @@ func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"
 }
 
-// AgentRemoteTarball is the remote location of the Agent image, used for populating the cache. This is retrieved
-// by region and the agent filename is appended.
-func AgentRemoteTarball(region string) string {
-	baseURI := getBaseLocationForRegion(region)
-	return baseURI + AgentFilename
+// AgentRemoteTarball is the remote filename of the Agent image, used for populating the cache
+func AgentRemoteTarballKey() string {
+	return AgentFilename
 }
 
-// AgentRemoteTarballMD5 is the remote location of a md5sum used to verify the integrity of the AgentRemoteTarball
-func AgentRemoteTarballMD5(region string) string {
-	return AgentRemoteTarball(region) + ".md5"
+// AgentRemoteTarballMD5 is the remote file of a md5sum used to verify the integrity of the AgentRemoteTarball
+func AgentRemoteTarballMD5Key() string {
+	return AgentRemoteTarballKey() + ".md5"
 }
 
 // DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
@@ -128,14 +135,4 @@ func DockerUnixSocket() (string, bool) {
 // CgroupMountpoint returns the cgroup mountpoint for the system
 func CgroupMountpoint() string {
 	return cgroupMountpoint
-}
-
-// getBaseLocationForRegion fetches the bucket URI from list of S3 Buckets by region name or default if key is not found
-func getBaseLocationForRegion(regionName string) string {
-	s3BucketURL, ok := regionToS3BucketURL[regionName]
-	if !ok {
-		return regionToS3BucketURL[DefaultRegionName]
-	}
-
-	return s3BucketURL
 }
