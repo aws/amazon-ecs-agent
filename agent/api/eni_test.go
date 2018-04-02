@@ -46,6 +46,7 @@ func TestENIFromACS(t *testing.T) {
 			MacAddress:        aws.String("mac"),
 			DomainNameServers: []*string{aws.String(defaultDNS), aws.String(customDNS)},
 			DomainName:        []*string{aws.String(customSearchDomain)},
+			PrivateDnsName:    aws.String("ip.region.compute.internal"),
 		},
 	}
 
@@ -66,6 +67,7 @@ func TestENIFromACS(t *testing.T) {
 	assert.Equal(t, customDNS, eni.DomainNameServers[1])
 	assert.Len(t, eni.DomainNameSearchList, 1)
 	assert.Equal(t, customSearchDomain, eni.DomainNameSearchList[0])
+	assert.Equal(t, aws.StringValue(acsenis[0].PrivateDnsName), eni.PrivateDNSName)
 }
 
 // TestValidateENIFromACS tests the validation of enis from acs

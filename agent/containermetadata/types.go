@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -113,8 +113,10 @@ type DockerContainerMetadata struct {
 // TaskMetadata keeps track of all metadata associated with a task
 // provided by AWS, does not depend on the creation of the container
 type TaskMetadata struct {
-	containerName string
-	taskARN       string
+	containerName          string
+	taskARN                string
+	taskDefinitionFamily   string
+	taskDefinitionRevision string
 }
 
 // Metadata packages all acquired metadata and is used to format it
@@ -130,34 +132,38 @@ type Metadata struct {
 }
 
 // metadataSerializer is an intermediate struct that converts the information
-// in Metadata into information to encode into JSOn
+// in Metadata into information to encode into JSON
 type metadataSerializer struct {
-	Cluster              string            `json:"Cluster,omitempty"`
-	ContainerInstanceARN string            `json:"ContainerInstanceARN,omitempty"`
-	TaskARN              string            `json:"TaskARN,omitempty"`
-	ContainerID          string            `json:"ContainerID,omitempty"`
-	ContainerName        string            `json:"ContainerName,omitempty"`
-	DockerContainerName  string            `json:"DockerContainerName,omitempty"`
-	ImageID              string            `json:"ImageID,omitempty"`
-	ImageName            string            `json:"ImageName,omitempty"`
-	Ports                []api.PortBinding `json:"PortMappings,omitempty"`
-	Networks             []Network         `json:"Networks,omitempty"`
-	MetadataFileStatus   MetadataStatus    `json:"MetadataFileStatus,omitempty"`
+	Cluster                string            `json:"Cluster,omitempty"`
+	ContainerInstanceARN   string            `json:"ContainerInstanceARN,omitempty"`
+	TaskARN                string            `json:"TaskARN,omitempty"`
+	TaskDefinitionFamily   string            `json:"TaskDefinitionFamily,omitempty"`
+	TaskDefinitionRevision string            `json:"TaskDefinitionRevision,omitempty"`
+	ContainerID            string            `json:"ContainerID,omitempty"`
+	ContainerName          string            `json:"ContainerName,omitempty"`
+	DockerContainerName    string            `json:"DockerContainerName,omitempty"`
+	ImageID                string            `json:"ImageID,omitempty"`
+	ImageName              string            `json:"ImageName,omitempty"`
+	Ports                  []api.PortBinding `json:"PortMappings,omitempty"`
+	Networks               []Network         `json:"Networks,omitempty"`
+	MetadataFileStatus     MetadataStatus    `json:"MetadataFileStatus,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		metadataSerializer{
-			Cluster:              m.cluster,
-			ContainerInstanceARN: m.containerInstanceARN,
-			TaskARN:              m.taskMetadata.taskARN,
-			ContainerID:          m.dockerContainerMetadata.containerID,
-			ContainerName:        m.taskMetadata.containerName,
-			DockerContainerName:  m.dockerContainerMetadata.dockerContainerName,
-			ImageID:              m.dockerContainerMetadata.imageID,
-			ImageName:            m.dockerContainerMetadata.imageName,
-			Ports:                m.dockerContainerMetadata.ports,
-			Networks:             m.dockerContainerMetadata.networkInfo.networks,
-			MetadataFileStatus:   m.metadataStatus,
+			Cluster:                m.cluster,
+			ContainerInstanceARN:   m.containerInstanceARN,
+			TaskARN:                m.taskMetadata.taskARN,
+			TaskDefinitionFamily:   m.taskMetadata.taskDefinitionFamily,
+			TaskDefinitionRevision: m.taskMetadata.taskDefinitionRevision,
+			ContainerID:            m.dockerContainerMetadata.containerID,
+			ContainerName:          m.taskMetadata.containerName,
+			DockerContainerName:    m.dockerContainerMetadata.dockerContainerName,
+			ImageID:                m.dockerContainerMetadata.imageID,
+			ImageName:              m.dockerContainerMetadata.imageName,
+			Ports:                  m.dockerContainerMetadata.ports,
+			Networks:               m.dockerContainerMetadata.networkInfo.networks,
+			MetadataFileStatus:     m.metadataStatus,
 		})
 }

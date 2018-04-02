@@ -194,7 +194,7 @@
 [[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
-  revision = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
+  revision = "58cd061d09382b6011f84c1291ebe50ef2e25bab"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -333,6 +333,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "aac6617ed5c6df8d43f076324e4d16db9319e4475bf857e9d4da4eaa3f645fc1"
+  inputs-digest = "c0e0b4718e880bd5a0d7519da02bedbaf33f6ae2afb7c94b3aca0bc60e2f571a"
   solver-name = "gps-cdcl"
   solver-version = 1

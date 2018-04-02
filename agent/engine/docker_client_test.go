@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"context"
+
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -165,6 +166,19 @@ func TestPullImageGlobalTimeout(t *testing.T) {
 
 	// cleanup
 	wait.Done()
+}
+
+func TestPullImageInactivityTimeout(t *testing.T) {
+	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
+	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Return(
+		docker.ErrInactivityTimeout).Times(maximumPullRetries) // expected number of retries
+
+	metadata := client.PullImage("image", nil)
+	assert.Error(t, metadata.Error, "Expected error for pull inactivity timeout")
+	assert.Equal(t, "CannotPullContainerError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
 }
 
 func TestPullImage(t *testing.T) {
@@ -448,7 +462,7 @@ func TestStartContainer(t *testing.T) {
 		mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.StartContainer("id", startContainerTimeout)
+	metadata := client.StartContainer("id", defaultConfig.ContainerStartTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -790,7 +804,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().StartContainerWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
 
-	vclient.StartContainer("foo", startContainerTimeout)
+	vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
 }
 
 func TestUnavailableVersionError(t *testing.T) {
@@ -809,7 +823,7 @@ func TestUnavailableVersionError(t *testing.T) {
 
 	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 
-	metadata := vclient.StartContainer("foo", startContainerTimeout)
+	metadata := vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
 
 	if metadata.Error == nil {
 		t.Fatal("Expected error, didn't get one")
@@ -1008,7 +1022,7 @@ func TestLoadImageTimeoutError(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().LoadImage(gomock.Any()).Do(func(x interface{}) {
 		wait.Wait()
-	})
+	}).MaxTimes(1)
 
 	err := client.LoadImage(nil, time.Millisecond)
 	assert.Error(t, err)

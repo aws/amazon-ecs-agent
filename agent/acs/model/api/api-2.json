@@ -206,7 +206,8 @@
         "ipv4Addresses":{"shape":"IPv4AddressList"},
         "ipv6Addresses":{"shape":"IPv6AddressList"},
         "domainName":{"shape":"StringList"},
-        "domainNameServers":{"shape":"StringList"}
+        "domainNameServers":{"shape":"StringList"},
+        "privateDnsName":{"shape":"String"}
       }
     },
     "ElasticNetworkInterfaceList":{

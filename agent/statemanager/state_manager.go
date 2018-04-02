@@ -59,8 +59,11 @@ const (
 	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
 	// 9) Add 'ipToTask' map to state file
 	// 10) Add 'healthCheckType' field in 'api.Container'
-	// 11) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'api.Container'
-	ECSDataVersion = 11
+	// 11)
+	//  a) Add 'PrivateDNSName' field to 'api.ENI'
+	//  b)Remove `AppliedStatus` field form 'api.Container'
+	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'api.Container'
+	ECSDataVersion = 12
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

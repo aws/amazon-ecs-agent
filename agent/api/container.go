@@ -151,7 +151,9 @@ type Container struct {
 
 	// AppliedStatus is the status that has been "applied" (e.g., we've called Pull,
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
-	AppliedStatus ContainerStatus
+	// No need to save it in the state file, as agent will synchronize the container status
+	// on restart and for some operation eg: pull, it has to be recalled again.
+	AppliedStatus ContainerStatus `json:"-"`
 	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
@@ -239,12 +241,14 @@ func (c *Container) GetKnownStatus() ContainerStatus {
 	return c.KnownStatusUnsafe
 }
 
-// SetKnownStatus sets the known status of the container
+// SetKnownStatus sets the known status of the container and update the container
+// applied status
 func (c *Container) SetKnownStatus(status ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	c.KnownStatusUnsafe = status
+	c.updateAppliedStatusUnsafe(status)
 }
 
 // GetDesiredStatus gets the desired status of the container
@@ -583,3 +587,39 @@ func (c *Container) BuildResourceDependency(resourceName string,
 	deps.ResourceDependencies = append(deps.ResourceDependencies, resourceDep)
 	c.TransitionDependenciesMap[dependentStatus] = deps
 }
+
+// updateAppliedStatusUnsafe updates the container transitioning status
+func (c *Container) updateAppliedStatusUnsafe(knownStatus ContainerStatus) {
+	if c.AppliedStatus == ContainerStatusNone {
+		return
+	}
+
+	// Check if the container transition has already finished
+	if c.AppliedStatus <= knownStatus {
+		c.AppliedStatus = ContainerStatusNone
+	}
+}
+
+// SetAppliedStatus sets the applied status of container and returns whether
+// the container is already in a transition
+func (c *Container) SetAppliedStatus(status ContainerStatus) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.AppliedStatus != ContainerStatusNone {
+		// return false to indicate the set operation failed
+		return false
+	}
+
+	c.AppliedStatus = status
+	return true
+}
+
+// GetAppliedStatus returns the transitioning status of container
+func (c *Container) GetAppliedStatus() ContainerStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.AppliedStatus
+}
+
