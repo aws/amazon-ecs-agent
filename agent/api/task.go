@@ -491,6 +491,11 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 		config.Labels = make(map[string]string)
 	}
 
+	if container.Type == ContainerCNIPause {
+		// apply hostname to pause container's docker config
+		return task.applyENIHostname(config), nil
+	}
+
 	return config, nil
 }
 
@@ -643,6 +648,12 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 	hostConfig.NetworkMode = networkMode
 	// Override 'awsvpc' parameters if needed
 	if container.Type == ContainerCNIPause {
+
+		// apply ExtraHosts to HostConfig for pause container
+		if hosts := task.generateENIExtraHosts(); hosts != nil {
+			hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
+		}
+
 		// Override the DNS settings for the pause container if ENI has custom
 		// DNS settings
 		return task.overrideDNS(hostConfig), nil
@@ -711,6 +722,46 @@ func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig 
 	hostConfig.DNSSearch = eni.DomainNameSearchList
 
 	return hostConfig
+}
+
+// applyENIHostname adds the hostname provided by the ENI message to the
+// container's docker config. At the time of implmentation, we are only using it
+// to configure the pause container for awsvpc tasks
+func (task *Task) applyENIHostname(dockerConfig *docker.Config) *docker.Config {
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return dockerConfig
+	}
+
+	hostname := eni.GetHostname()
+	if hostname == "" {
+		return dockerConfig
+	}
+
+	dockerConfig.Hostname = hostname
+	return dockerConfig
+}
+
+// generateENIExtraHosts returns a slice of strings of the form "hostname:ip"
+// that is generated using the hostname and ip addresses allocated to the ENI
+func (task *Task) generateENIExtraHosts() []string {
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return nil
+	}
+
+	hostname := eni.GetHostname()
+	if hostname == "" {
+		return nil
+	}
+
+	extraHosts := []string{}
+
+	for _, ip := range eni.GetIPV4Addresses() {
+		host := fmt.Sprintf("%s:%s", hostname, ip)
+		extraHosts = append(extraHosts, host)
+	}
+	return extraHosts
 }
 
 func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {

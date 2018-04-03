@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -91,7 +91,7 @@ func TestMakeUnrecognizedRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
@@ -108,7 +108,7 @@ func TestWriteAckRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(2)
 	conn.EXPECT().Close()
 	cs := testCS(conn)
@@ -135,7 +135,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
@@ -167,7 +167,7 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
@@ -206,7 +206,7 @@ func TestClosingConnection(t *testing.T) {
 	defer ctrl.Finish()
 
 	// Returning EOF tells the ClientServer that the connection is closed
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().ReadMessage().Return(0, nil, io.EOF)
 	// SetWriteDeadline will be invoked once for WriteMessage() and
@@ -313,7 +313,7 @@ func TestConnectClientError(t *testing.T) {
 	assert.EqualError(t, err, "InvalidClusterException: Invalid cluster")
 }
 
-func testCS(conn *mock_wsclient.MockWebsocketConn) wsclient.ClientServer {
+func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
 	testCreds := credentials.AnonymousCredentials
 	foo := New("localhost:443", testCfg, testCreds, rwTimeout)
 	cs := foo.(*clientServer)
@@ -361,7 +361,7 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 	defer cs.Close()
 

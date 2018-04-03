@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
@@ -33,7 +34,8 @@ import (
 )
 
 const (
-	containerID = "containerID"
+	containerID                 = "containerID"
+	waitTaskStateChangeDuration = 2 * time.Minute
 )
 
 var (
@@ -161,8 +163,8 @@ func validateContainerRunWorkflow(t *testing.T,
 				containerEventsWG.Done()
 			}()
 		}).Return(DockerContainerMetadata{DockerID: containerID})
-
-	client.EXPECT().StartContainer(containerID, startContainerTimeout).Do(
+	defaultConfig := config.DefaultConfig()
+	client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
 		func(id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
@@ -242,5 +244,36 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
+	}
+}
+
+func triggerSteadyStateCheck(times int, task *managedTask) {
+	for i := 0; i < times; {
+		err := task.cancelSteadyStateWait()
+		if err != nil {
+			// Wait for the waitSteady to be invoked
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		i++
+	}
+}
+
+func waitForContainerHealthStatus(t *testing.T, testTask *api.Task) {
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Error("Timed out waiting for container health status")
+		default:
+			healthStatus := testTask.Containers[0].GetHealthStatus()
+			if healthStatus.Status.BackendStatus() == "UNKNOWN" {
+				time.Sleep(time.Second)
+				continue
+			}
+			return
+		}
 	}
 }

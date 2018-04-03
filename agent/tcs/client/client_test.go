@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	docker "github.com/fsouza/go-dockerclient"
@@ -129,7 +129,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
 	// Messages should be read from the connection at least once
@@ -158,7 +158,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	// Invoked when closing the connection
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(2)
 	conn.EXPECT().Close()
@@ -236,7 +236,7 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	}
 }
 
-func testCS(conn *mock_wsclient.MockWebsocketConn) wsclient.ClientServer {
+func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
 	testCreds := credentials.AnonymousCredentials
 	cfg := &config.Config{
 		AWSRegion:          "us-east-1",
@@ -254,7 +254,7 @@ func TestCloseClientServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
 	gomock.InOrder(
@@ -275,7 +275,7 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
 	// Messages should be read from the connection at least once
@@ -305,7 +305,7 @@ func TestMetricsDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 
 	cfg := config.DefaultConfig()
@@ -337,7 +337,7 @@ func TestCreatePublishHealthRequestsEmpty(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 	testCreds := credentials.AnonymousCredentials
@@ -358,7 +358,7 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 	testCreds := credentials.AnonymousCredentials
@@ -415,7 +415,7 @@ func TestSessionClosed(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	conn := mock_wsclient.NewMockWebsocketConn(ctrl)
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
 	// Messages should be read from the connection at least once

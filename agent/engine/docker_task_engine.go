@@ -819,7 +819,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
-		mderr := engine.metadataManager.Create(config, hostConfig, task.Arn, container.Name)
+		mderr := engine.metadataManager.Create(config, hostConfig, task, container.Name)
 		if mderr != nil {
 			seelog.Warnf("Task engine [%s]: unable to create metadata for container %s: %v",
 				task.Arn, container.Name, mderr)
@@ -862,7 +862,8 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			},
 		}
 	}
-	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, startContainerTimeout)
+	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
+
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
@@ -872,7 +873,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 		engine.cfg.ContainerMetadataEnabled &&
 		!container.IsInternal() {
 		go func() {
-			err := engine.metadataManager.Update(dockerContainer.DockerID, task.Arn, container.Name)
+			err := engine.metadataManager.Update(dockerContainer.DockerID, task, container.Name)
 			if err != nil {
 				seelog.Warnf("Task engine [%s]: failed to update metadata file for container %s: %v",
 					task.Arn, container.Name, err)
@@ -1105,7 +1106,7 @@ func (engine *DockerTaskEngine) Version() (string, error) {
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
-	err := engine.metadataManager.Update(cont.DockerID, task.Arn, cont.Container.Name)
+	err := engine.metadataManager.Update(cont.DockerID, task, cont.Container.Name)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: failed to update metadata file for container %s: %v",
 			task.Arn, cont.Container.Name, err)

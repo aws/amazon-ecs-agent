@@ -689,6 +689,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		},
 		stateChangeEvents:          stateChangeEvents,
 		containerChangeEventStream: containerChangeEventStream,
+		dockerMessages:             make(chan dockerContainerChange),
 	}
 
 	eventsGenerated := sync.WaitGroup{}
@@ -712,6 +713,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		eventsGenerated.Done()
 	}()
 
+	go task.waitEvent(nil)
 	canTransition, transitions, _ := task.startContainerTransitions(
 		func(cont *api.Container, nextStatus api.ContainerStatus) {
 			t.Error("Invalid code path. The transition function should not be invoked when transitioning container from CREATED -> STOPPED")
@@ -743,7 +745,7 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 
 	// populate the transitions map with transitions for two
 	// containers. We expect two sets of events to be consumed
-	// by `waitForContainerTransitions`
+	// by `waitForContainerTransition`
 	transitions := make(map[string]api.ContainerStatus)
 	transitions[firstContainerName] = api.ContainerRunning
 	transitions[secondContainerName] = api.ContainerRunning
@@ -758,13 +760,13 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		transitionChangeContainer <- firstContainerName
 	}()
 
-	// waitForContainerTransitions will block until it receives events
+	// waitForContainerTransition will block until it receives events
 	// sent by the go routine defined above
-	task.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
+	task.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
 }
 
 // TestWaitForContainerTransitionsForTerminalTask verifies that the
-// `waitForContainerTransitions` method doesn't wait for any container
+// `waitForContainerTransition` method doesn't wait for any container
 // transitions when the task's desired status is STOPPED and if all
 // containers in the task are in PULLED state
 func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
@@ -792,13 +794,13 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 	transitions[secondContainerName] = api.ContainerPulled
 
 	// Event though there are two keys in the transitions map, send
-	// only one event. This tests that `waitForContainerTransitions` doesn't
+	// only one event. This tests that `waitForContainerTransition` doesn't
 	// block to receive two events and will still progress
 	go func() {
 		transitionChange <- struct{}{}
 		transitionChangeContainer <- secondContainerName
 	}()
-	task.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
+	task.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {

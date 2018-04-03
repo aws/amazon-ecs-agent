@@ -1,5 +1,5 @@
 // +build !integration, windows
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,8 @@ package containermetadata
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
+
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -28,6 +30,7 @@ func TestCreate(t *testing.T) {
 	defer done()
 
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockConfig := &docker.Config{Env: make([]string, 0)}
 	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
@@ -43,7 +46,7 @@ func TestCreate(t *testing.T) {
 	newManager := &metadataManager{
 		osWrap: mockOS,
 	}
-	err := newManager.Create(mockConfig, mockHostConfig, mockTaskARN, mockContainerName)
+	err := newManager.Create(mockConfig, mockHostConfig, mockTask, mockContainerName)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(mockConfig.Env), "Unexpected number of environment variables in config")
@@ -57,6 +60,7 @@ func TestUpdate(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
+	mockTask := &api.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockState := docker.State{
 		Running: true,
@@ -85,7 +89,7 @@ func TestUpdate(t *testing.T) {
 		mockFile.EXPECT().Sync().Return(nil),
 		mockFile.EXPECT().Close().Return(nil),
 	)
-	err := newManager.Update(mockDockerID, mockTaskARN, mockContainerName)
+	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
 
 	assert.NoError(t, err)
 }

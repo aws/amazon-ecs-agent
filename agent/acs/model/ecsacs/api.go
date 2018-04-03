@@ -217,6 +217,8 @@ type ElasticNetworkInterface struct {
 	Ipv6Addresses []*IPv6AddressAssignment `locationName:"ipv6Addresses" type:"list"`
 
 	MacAddress *string `locationName:"macAddress" type:"string"`
+
+	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
 }
 
 // String returns the string representation
