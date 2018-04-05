@@ -828,13 +828,13 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 
 	metadata := client.CreateContainer(config, hostConfig, dockerContainerName, createContainerTimeout)
 	if metadata.DockerID != "" {
+		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
+			task.Arn, container.Name, metadata.DockerID)
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID,
 			DockerName: dockerContainerName,
 			Container:  container}, task)
 	}
 	container.SetLabels(config.Labels)
-	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
-		task.Arn, container.Name, metadata.DockerID)
 	return metadata
 }
 
