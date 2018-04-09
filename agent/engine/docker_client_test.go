@@ -28,12 +28,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"context"
@@ -237,9 +238,9 @@ func TestPullImageECRSuccess(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -291,9 +292,9 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1045,9 +1046,9 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 	endpointOverride := "my.endpoint"
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "myimage:tag"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1096,9 +1097,9 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	endpointOverride := "my.endpoint"
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1147,9 +1148,9 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1197,9 +1198,9 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,

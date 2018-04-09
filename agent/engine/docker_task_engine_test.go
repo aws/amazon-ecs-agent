@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -1460,9 +1461,9 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	// Configure the task and container to use execution role
 	testTask.SetExecutionRoleCredentialsID(credentialsID)
-	testTask.Containers[0].RegistryAuthentication = &api.RegistryAuthenticationData{
+	testTask.Containers[0].RegistryAuthentication = &ecr.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &ecr.ECRAuthData{
 			UseExecutionRole: true,
 		},
 	}
@@ -1474,7 +1475,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 		IAMRoleCredentials: executionRoleCredentials,
 	}, true)
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
-		func(image string, auth *api.RegistryAuthenticationData) {
+		func(image string, auth *ecr.RegistryAuthenticationData) {
 			assert.Equal(t, container.Image, image)
 			assert.Equal(t, auth.ECRAuthData.GetPullCredentials(), executionRoleCredentials)
 		}).Return(DockerContainerMetadata{})

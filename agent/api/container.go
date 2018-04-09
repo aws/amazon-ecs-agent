@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -95,7 +96,7 @@ type Container struct {
 	// DockerConfig is the configuration used to create the container
 	DockerConfig DockerConfig `json:"dockerConfig"`
 	// RegistryAuthentication is the auth data used to pull image
-	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
+	RegistryAuthentication *ecr.RegistryAuthenticationData `json:"registryAuthentication"`
 	// HealthCheckType is the mechnism to use for the container health check
 	// currently it only supports 'DOCKER'
 	HealthCheckType string `json:"healthCheckType,omitempty"`

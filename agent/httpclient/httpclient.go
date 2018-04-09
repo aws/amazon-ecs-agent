@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -40,7 +40,7 @@ type ecsRoundTripper struct {
 }
 
 func userAgent() string {
-	return fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", version.String(), api.OSType)
+	return fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", version.String(), config.OSType)
 }
 
 func (client *ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

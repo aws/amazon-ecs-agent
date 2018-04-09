@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package config
 
 // OSType is the type of operating system where agent is running
 const OSType = "linux"
