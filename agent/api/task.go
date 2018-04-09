@@ -255,6 +255,7 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 	cfg.ENIID = eni.ID
 	cfg.ID = eni.MacAddress
 	cfg.ENIMACAddress = eni.MacAddress
+	cfg.SubnetGatewayIPV4Address = eni.GetSubnetGatewayIPV4Address()
 	for _, ipv4 := range eni.IPV4Addresses {
 		if ipv4.Primary {
 			cfg.ENIIPV4Address = ipv4.Address
