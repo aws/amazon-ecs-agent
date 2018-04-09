@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -39,6 +40,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"context"
+
 	"github.com/golang/mock/gomock"
 )
 
@@ -521,9 +523,9 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			container := &api.Container{
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
-				RegistryAuthentication: &api.RegistryAuthenticationData{
+				RegistryAuthentication: &ecr.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &api.ECRAuthData{
+					ECRAuthData: &ecr.ECRAuthData{
 						UseExecutionRole: tc.useExecutionRole,
 					},
 				},

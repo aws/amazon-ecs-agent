@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
@@ -57,7 +57,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -90,7 +90,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 	client := mock_ecr.NewMockECRClient(ctrl)
 
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -121,7 +121,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 	client := mock_ecr.NewMockECRClient(ctrl)
 
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -152,7 +152,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -181,7 +181,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -258,7 +258,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -309,7 +309,7 @@ func TestAuthorizationTokenCacheHit(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -347,7 +347,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -390,7 +390,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now()),
 	}
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -444,7 +444,7 @@ func TestExtractECRTokenError(t *testing.T) {
 		AuthorizationToken: aws.String("-"),
 		ExpiresAt:          aws.Time(time.Now().Add(1 * time.Hour)),
 	}
-	authData := &api.ECRAuthData{
+	authData := &ecr.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",

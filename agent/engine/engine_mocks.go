@@ -24,6 +24,7 @@ import (
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -334,7 +335,7 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1 interface{}) *gomoc
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 string, arg1 *api.RegistryAuthenticationData) DockerContainerMetadata {
+func (m *MockDockerClient) PullImage(arg0 string, arg1 *ecr.RegistryAuthenticationData) DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "PullImage", arg0, arg1)
 	ret0, _ := ret[0].(DockerContainerMetadata)
 	return ret0

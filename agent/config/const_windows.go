@@ -1,4 +1,4 @@
-// +build !windows,!linux
+// +build windows
 
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -13,6 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package config
 
-const OSType = "unknown"
+// OSType is the type of operating system where agent is running
+const OSType = "windows"
