@@ -219,6 +219,8 @@ type ElasticNetworkInterface struct {
 	MacAddress *string `locationName:"macAddress" type:"string"`
 
 	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
+
+	SubnetGatewayIpv4Address *string `locationName:"subnetGatewayIpv4Address" type:"string"`
 }
 
 // String returns the string representation
@@ -742,7 +744,15 @@ func (s VersionInfo) GoString() string {
 type Volume struct {
 	_ struct{} `type:"structure"`
 
+	Driver *string `locationName:"driver" type:"string"`
+
+	DriverOpts map[string]*string `locationName:"driverOpts" type:"map"`
+
+	DriverType *string `locationName:"driverType" type:"string" enum:"DriverType"`
+
 	Host *HostVolumeProperties `locationName:"host" type:"structure"`
+
+	Labels map[string]*string `locationName:"labels" type:"map"`
 
 	Name *string `locationName:"name" type:"string"`
 }
