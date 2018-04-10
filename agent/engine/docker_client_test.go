@@ -27,14 +27,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"context"
@@ -76,7 +76,7 @@ func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
 	ctrl := gomock.NewController(t)
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 
@@ -223,7 +223,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	defer ctrl.Finish()
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	client, _ := NewDockerGoClient(factory, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
@@ -277,7 +277,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	defer ctrl.Finish()
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	client, _ := NewDockerGoClient(factory, defaultTestConfig())
 	goClient, _ := client.(*dockerGoClient)
@@ -779,7 +779,7 @@ func TestPingFailError(t *testing.T) {
 	defer ctrl.Finish()
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().Return(errors.New("err"))
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
 	_, err := NewDockerGoClient(factory, defaultTestConfig())
 	if err == nil {
@@ -792,7 +792,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	defer ctrl.Finish()
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().Return(nil)
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
 	client, err := NewDockerGoClient(factory, defaultTestConfig())
 	if err != nil {
@@ -813,7 +813,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	defer ctrl.Finish()
 	mockDocker := mock_dockeriface.NewMockClient(ctrl)
 	mockDocker.EXPECT().Ping().Return(nil)
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(mockDocker, nil)
 	client, err := NewDockerGoClient(factory, defaultTestConfig())
 	if err != nil {
@@ -946,7 +946,7 @@ func TestStatsErrorReading(t *testing.T) {
 func TestStatsClientError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	factory := mock_dockerclient.NewMockFactory(ctrl)
+	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().Return(nil, errors.New("No client"))
 	client := &dockerGoClient{
 		clientFactory: factory,

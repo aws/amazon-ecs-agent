@@ -24,8 +24,8 @@ import (
 	time "time"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
-	dockerclient "github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
