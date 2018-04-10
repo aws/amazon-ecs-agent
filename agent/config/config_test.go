@@ -175,6 +175,13 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
 }
 
+func TestGCPLoggingDriver(t *testing.T) {
+	conf := DefaultConfig()
+	conf.AWSRegion = "us-west-2"
+	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"gcplogs"}
+	assert.NoError(t, conf.validateAndOverrideBounds())
+}
+
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
