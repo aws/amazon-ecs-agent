@@ -16,10 +16,10 @@ package config
 
 import (
 	"os"
-	"time"
 	"path/filepath"
+	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 

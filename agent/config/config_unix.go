@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 )
 
 const (

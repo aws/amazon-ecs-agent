@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"

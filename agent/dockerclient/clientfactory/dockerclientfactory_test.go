@@ -12,13 +12,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package dockerclient
+package clientfactory
 
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface/mocks"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +54,7 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 	defer ctrl.Finish()
 
 	agentVersions := getAgentVersions()
-	allVersions := getKnownAPIVersions()
+	allVersions := dockerclient.GetKnownAPIVersions()
 
 	// Set up the mocks and expectations
 	mockClients := make(map[string]*mock_dockeriface.MockClient)
@@ -81,7 +82,7 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 }
 
 func TestVerifyAgentVersions(t *testing.T) {
-	var isKnown = func(v1 DockerVersion) bool {
+	var isKnown = func(v1 dockerclient.DockerVersion) bool {
 		for _, v2 := range getAgentVersions() {
 			if v1 == v2 {
 				return true
@@ -101,7 +102,7 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	defer ctrl.Finish()
 
 	agentVersions := getAgentVersions()
-	allVersions := getKnownAPIVersions()
+	allVersions := dockerclient.GetKnownAPIVersions()
 
 	// Set up the mocks and expectations
 	mockClients := make(map[string]*mock_dockeriface.MockClient)

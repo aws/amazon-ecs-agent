@@ -11,10 +11,11 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package dockerclient
+package clientfactory
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
@@ -41,14 +42,14 @@ type Factory interface {
 
 	// GetClient returns a client with the specified version or an error
 	// if the client doesn't exist.
-	GetClient(version DockerVersion) (dockeriface.Client, error)
+	GetClient(version dockerclient.DockerVersion) (dockeriface.Client, error)
 
 	// FindSupportedAPIVersions returns a slice of agent-supported Docker API
 	// versions. Versions are tested by making calls against the Docker daemon
 	// and may occur either at Factory creation time or lazily upon invocation
 	// of this function. The slice represents the intersection of
 	// agent-supported versions and daemon-supported versions.
-	FindSupportedAPIVersions() []DockerVersion
+	FindSupportedAPIVersions() []dockerclient.DockerVersion
 
 	// FindKnownAPIVersions returns a slice of Docker API versions that are
 	// known to the Docker daemon. Versions are tested by making calls against
@@ -57,15 +58,15 @@ type Factory interface {
 	// intersection of the API versions that the agent knows exist (but does
 	// not necessarily fully support) and the versions that result in
 	// successful responses by the Docker daemon.
-	FindKnownAPIVersions() []DockerVersion
+	FindKnownAPIVersions() []dockerclient.DockerVersion
 
 	// FindClientAPIVersion returns the client api version
-	FindClientAPIVersion(dockeriface.Client) DockerVersion
+	FindClientAPIVersion(dockeriface.Client) dockerclient.DockerVersion
 }
 
 type factory struct {
 	endpoint string
-	clients  map[DockerVersion]dockeriface.Client
+	clients  map[dockerclient.DockerVersion]dockeriface.Client
 }
 
 // newVersionedClient is a variable such that the implementation can be
@@ -86,8 +87,8 @@ func (f *factory) GetDefaultClient() (dockeriface.Client, error) {
 	return f.GetClient(getDefaultVersion())
 }
 
-func (f *factory) FindSupportedAPIVersions() []DockerVersion {
-	var supportedVersions []DockerVersion
+func (f *factory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
+	var supportedVersions []dockerclient.DockerVersion
 	for _, testVersion := range getAgentVersions() {
 		_, err := f.GetClient(testVersion)
 		if err != nil {
@@ -98,9 +99,9 @@ func (f *factory) FindSupportedAPIVersions() []DockerVersion {
 	return supportedVersions
 }
 
-func (f *factory) FindKnownAPIVersions() []DockerVersion {
-	var knownVersions []DockerVersion
-	for _, testVersion := range getKnownAPIVersions() {
+func (f *factory) FindKnownAPIVersions() []dockerclient.DockerVersion {
+	var knownVersions []dockerclient.DockerVersion
+	for _, testVersion := range dockerclient.GetKnownAPIVersions() {
 		_, err := f.GetClient(testVersion)
 		if err != nil {
 			continue
@@ -112,7 +113,7 @@ func (f *factory) FindKnownAPIVersions() []DockerVersion {
 
 // FindClientAPIVersion returns the version of the client from the map
 // TODO we should let go docker client return this version information
-func (f *factory) FindClientAPIVersion(client dockeriface.Client) DockerVersion {
+func (f *factory) FindClientAPIVersion(client dockeriface.Client) dockerclient.DockerVersion {
 	for k, v := range f.clients {
 		if v == client {
 			return k
@@ -124,7 +125,7 @@ func (f *factory) FindClientAPIVersion(client dockeriface.Client) DockerVersion 
 
 // getClient returns a client specified by the docker version. Its wrapped
 // by GetClient so that it can do platform-specific magic
-func (f *factory) getClient(version DockerVersion) (dockeriface.Client, error) {
+func (f *factory) getClient(version dockerclient.DockerVersion) (dockeriface.Client, error) {
 	client, ok := f.clients[version]
 	if ok {
 		return client, nil
@@ -135,7 +136,7 @@ func (f *factory) getClient(version DockerVersion) (dockeriface.Client, error) {
 
 // findDockerVersions loops over all known API versions and finds which ones
 // are supported by the docker daemon on the host
-func findDockerVersions(endpoint string) map[DockerVersion]dockeriface.Client {
+func findDockerVersions(endpoint string) map[dockerclient.DockerVersion]dockeriface.Client {
 	// if the client version returns a MinAPIVersion and APIVersion, then use it to return
 	// all the Docker clients between MinAPIVersion and APIVersion, else try pinging
 	// the clients in getKnownAPIVersions
@@ -156,8 +157,8 @@ func findDockerVersions(endpoint string) map[DockerVersion]dockeriface.Client {
 		}
 	}
 
-	clients := make(map[DockerVersion]dockeriface.Client)
-	for _, version := range getKnownAPIVersions() {
+	clients := make(map[dockerclient.DockerVersion]dockeriface.Client)
+	for _, version := range dockerclient.GetKnownAPIVersions() {
 		dockerClient, err := getDockerClientForVersion(endpoint, string(version), minAPIVersion, apiVersion)
 		if err != nil {
 			log.Infof("Unable to get Docker client for version %s: %v", version, err)

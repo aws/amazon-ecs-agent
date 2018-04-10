@@ -27,11 +27,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerauth"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -185,7 +186,7 @@ type DockerClient interface {
 //    appropriately there.
 // Implements DockerClient
 type dockerGoClient struct {
-	clientFactory    dockerclient.Factory
+	clientFactory    clientfactory.Factory
 	version          dockerclient.DockerVersion
 	ecrClientFactory ecr.ECRFactory
 	auth             dockerauth.DockerAuthProvider
@@ -209,7 +210,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory dockerclient.Factory, cfg *config.Config) (DockerClient, error) {
+func NewDockerGoClient(clientFactory clientfactory.Factory, cfg *config.Config) (DockerClient, error) {
 	client, err := clientFactory.GetDefaultClient()
 
 	if err != nil {

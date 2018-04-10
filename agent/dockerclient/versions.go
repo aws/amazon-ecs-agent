@@ -34,7 +34,7 @@ const (
 
 // getKnownAPIVersions returns all of the API versions that we know about.
 // It doesn't care if the version is supported by Docker or ECS agent
-func getKnownAPIVersions() []DockerVersion {
+func GetKnownAPIVersions() []DockerVersion {
 	return []DockerVersion{
 		Version_1_17,
 		Version_1_18,

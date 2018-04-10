@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -48,8 +48,8 @@ const (
 
 	expectedCgroupRoot = "/ecs/task-id"
 
-	taskVCPULimit   = 2.0
-	taskMemoryLimit = 512
+	taskVCPULimit             = 2.0
+	taskMemoryLimit           = 512
 	minDockerClientAPIVersion = dockerclient.Version_1_17
 )
 

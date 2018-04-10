@@ -12,43 +12,44 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package dockerclient
+package clientfactory
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 )
 
 const (
 	// minDockerAPIVersion is the min Docker API version supported by agent
-	minDockerAPIVersion = Version_1_17
+	minDockerAPIVersion = dockerclient.Version_1_17
 )
 
 // GetClient on linux will simply return the cached client from the map
-func (f *factory) GetClient(version DockerVersion) (dockeriface.Client, error) {
+func (f *factory) GetClient(version dockerclient.DockerVersion) (dockeriface.Client, error) {
 	return f.getClient(version)
 }
 
 // getAgentVersions returns a list of supported agent-supported versions for linux
-func getAgentVersions() []DockerVersion {
-	return []DockerVersion{
-		Version_1_17,
-		Version_1_18,
-		Version_1_19,
-		Version_1_20,
-		Version_1_21,
-		Version_1_22,
-		Version_1_23,
-		Version_1_24,
-		Version_1_25,
-		Version_1_26,
-		Version_1_27,
-		Version_1_28,
-		Version_1_29,
-		Version_1_30,
+func getAgentVersions() []dockerclient.DockerVersion {
+	return []dockerclient.DockerVersion{
+		dockerclient.Version_1_17,
+		dockerclient.Version_1_18,
+		dockerclient.Version_1_19,
+		dockerclient.Version_1_20,
+		dockerclient.Version_1_21,
+		dockerclient.Version_1_22,
+		dockerclient.Version_1_23,
+		dockerclient.Version_1_24,
+		dockerclient.Version_1_25,
+		dockerclient.Version_1_26,
+		dockerclient.Version_1_27,
+		dockerclient.Version_1_28,
+		dockerclient.Version_1_29,
+		dockerclient.Version_1_30,
 	}
 }
 
 // getDefaultVersion will return the default Docker API version for linux
-func getDefaultVersion() DockerVersion {
-	return Version_1_17
+func getDefaultVersion() dockerclient.DockerVersion {
+	return dockerclient.Version_1_17
 }

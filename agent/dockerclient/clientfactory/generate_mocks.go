@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package dockeriface
+package clientfactory
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/engine/dockeriface Client mocks/dockeriface_mocks.go
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory Factory mocks/clientfactory_mocks.go
