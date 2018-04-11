@@ -20,7 +20,7 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
@@ -36,7 +36,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -209,7 +208,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
-			"", utils.NewAttributeError("error")),
+			"", apierrors.NewAttributeError("error")),
 	)
 
 	cfg := getTestConfig()
@@ -604,7 +603,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
-			"", awserr.New("", api.InstanceTypeChangedErrorMessage, errors.New(""))),
+			"", awserr.New("", apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
 	cfg := getTestConfig()
@@ -639,7 +638,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
-			"", utils.NewAttributeError("error")),
+			"", apierrors.NewAttributeError("error")),
 	)
 
 	cfg := getTestConfig()
@@ -738,7 +737,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	retriableError := utils.NewRetriableError(utils.NewRetriable(true), errors.New("error"))
+	retriableError := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
@@ -772,7 +771,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 
-	cannotRetryError := utils.NewRetriableError(utils.NewRetriable(false), errors.New("error"))
+	cannotRetryError := apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
@@ -811,7 +810,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(
-			"", utils.NewAttributeError("error")),
+			"", apierrors.NewAttributeError("error")),
 	)
 
 	cfg := getTestConfig()

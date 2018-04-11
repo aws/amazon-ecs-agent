@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine
+package dockerapi
 
 import (
 	"archive/tar"
@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -65,13 +66,18 @@ const (
 	// image from either a file or STDIN
 	// calls involved.
 	// TODO: Benchmark and re-evaluate this value
-	LoadImageTimeout        = 10 * time.Minute
-	pullImageTimeout        = 2 * time.Hour
-	createContainerTimeout  = 4 * time.Minute
-	stopContainerTimeout    = 30 * time.Second
-	removeContainerTimeout  = 5 * time.Minute
-	inspectContainerTimeout = 30 * time.Second
-	removeImageTimeout      = 3 * time.Minute
+	LoadImageTimeout = 10 * time.Minute
+	pullImageTimeout = 2 * time.Hour
+	// CreateContainerTimeout is the timeout for the CreateContainer API.
+	CreateContainerTimeout = 4 * time.Minute
+	// StopContainerTimeout is the timeout for the StopContainer API.
+	StopContainerTimeout = 30 * time.Second
+	// RemoveContainerTimeout is the timeout for the RemoveContainer API.
+	RemoveContainerTimeout = 5 * time.Minute
+	// InspectContainerTimeout is the timeout for the InspectContainer API.
+	InspectContainerTimeout = 30 * time.Second
+	// RemoveImageTimeout is the timeout for the RemoveImage API.
+	RemoveImageTimeout = 3 * time.Minute
 
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
@@ -272,7 +278,7 @@ func (dg *dockerGoClient) PullImage(image string, authData *ecr.RegistryAuthenti
 				}
 				return err
 			})
-		response <- DockerContainerMetadata{Error: wrapPullErrorAsEngineError(err)}
+		response <- DockerContainerMetadata{Error: wrapPullErrorAsNamedError(err)}
 	}()
 	select {
 	case resp := <-response:
@@ -283,10 +289,10 @@ func (dg *dockerGoClient) PullImage(image string, authData *ecr.RegistryAuthenti
 	}
 }
 
-func wrapPullErrorAsEngineError(err error) engineError {
-	var retErr engineError
+func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
+	var retErr apierrors.NamedError
 	if err != nil {
-		engErr, ok := err.(engineError)
+		engErr, ok := err.(apierrors.NamedError)
 		if !ok {
 			engErr = CannotPullContainerError{err}
 		}
@@ -295,7 +301,7 @@ func wrapPullErrorAsEngineError(err error) engineError {
 	return retErr
 }
 
-func (dg *dockerGoClient) pullImage(image string, authData *ecr.RegistryAuthenticationData) engineError {
+func (dg *dockerGoClient) pullImage(image string, authData *ecr.RegistryAuthenticationData) apierrors.NamedError {
 	seelog.Debugf("DockerGoClient: pulling image: %s", image)
 	client, err := dg.dockerClient()
 	if err != nil {
@@ -304,7 +310,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *ecr.RegistryAuthenti
 
 	authConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return wrapPullErrorAsEngineError(err)
+		return wrapPullErrorAsNamedError(err)
 	}
 
 	pullDebugOut, pullWriter := io.Pipe()
@@ -403,7 +409,7 @@ func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata 
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
 		err := dg.createScratchImageIfNotExists()
-		var wrapped engineError
+		var wrapped apierrors.NamedError
 		if err != nil {
 			wrapped = CreateEmptyVolumeError{err}
 		}
@@ -571,9 +577,9 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	return metadata
 }
 
-// dockerStateToState converts the container status from docker to status recognized by the agent
+// DockerStateToState converts the container status from docker to status recognized by the agent
 // Ref: https://github.com/fsouza/go-dockerclient/blob/fd53184a1439b6d7b82ca54c1cd9adac9a5278f2/container.go#L133
-func dockerStateToState(state docker.State) api.ContainerStatus {
+func DockerStateToState(state docker.State) api.ContainerStatus {
 	if state.Running {
 		return api.ContainerRunning
 	}
@@ -590,11 +596,11 @@ func dockerStateToState(state docker.State) api.ContainerStatus {
 }
 
 func (dg *dockerGoClient) DescribeContainer(dockerID string) (api.ContainerStatus, DockerContainerMetadata) {
-	dockerContainer, err := dg.InspectContainer(dockerID, inspectContainerTimeout)
+	dockerContainer, err := dg.InspectContainer(dockerID, InspectContainerTimeout)
 	if err != nil {
 		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
-	return dockerStateToState(dockerContainer.State), metadataFromContainer(dockerContainer)
+	return DockerStateToState(dockerContainer.State), MetadataFromContainer(dockerContainer)
 }
 
 func (dg *dockerGoClient) InspectContainer(dockerID string, timeout time.Duration) (*docker.Container, error) {
@@ -707,7 +713,7 @@ func (dg *dockerGoClient) RemoveContainer(dockerID string, timeout time.Duration
 		// Context has either expired or canceled. If it has timed out,
 		// send back the DockerTimeoutError
 		if err == context.DeadlineExceeded {
-			return &DockerTimeoutError{removeContainerTimeout, "removing"}
+			return &DockerTimeoutError{RemoveContainerTimeout, "removing"}
 		}
 		return &CannotRemoveContainerError{err}
 	}
@@ -727,22 +733,23 @@ func (dg *dockerGoClient) removeContainer(dockerID string, ctx context.Context) 
 }
 
 func (dg *dockerGoClient) containerMetadata(id string) DockerContainerMetadata {
-	dockerContainer, err := dg.InspectContainer(id, inspectContainerTimeout)
+	dockerContainer, err := dg.InspectContainer(id, InspectContainerTimeout)
 	if err != nil {
 		return DockerContainerMetadata{DockerID: id, Error: CannotInspectContainerError{err}}
 	}
-	return metadataFromContainer(dockerContainer)
+	return MetadataFromContainer(dockerContainer)
 }
 
-func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
+// MetadataFromContainer translates dockerContainer into DockerContainerMetadata
+func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
 	var bindings []api.PortBinding
-	var err api.NamedError
+	var err apierrors.NamedError
 	if dockerContainer.NetworkSettings != nil {
 		// Convert port bindings into the format our container expects
 		bindings, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 		if err != nil {
 			seelog.Criticalf("DockerGoClient: Docker had network bindings we couldn't understand: %v", err)
-			return DockerContainerMetadata{Error: api.NamedError(err)}
+			return DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
 	}
 	metadata := DockerContainerMetadata{
@@ -756,15 +763,9 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	if dockerContainer.Config != nil {
 		metadata.Labels = dockerContainer.Config.Labels
 	}
-	// Workaround for https://github.com/docker/docker/issues/27601
-	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
-	// for how Docker handles API compatibility on Linux
-	if len(metadata.Volumes) == 0 {
-		metadata.Volumes = make(map[string]string)
-		for _, m := range dockerContainer.Mounts {
-			metadata.Volumes[m.Destination] = m.Source
-		}
-	}
+
+	metadata = getMetadataVolumes(metadata, dockerContainer)
+
 	if !dockerContainer.State.Running && !dockerContainer.State.FinishedAt.IsZero() {
 		// Only record an exitcode if it has exited
 		metadata.ExitCode = &dockerContainer.State.ExitCode
@@ -780,6 +781,24 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	}
 
 	// Record the health check information if exists
+	metadata.Health = getMetadataHealthCheck(dockerContainer)
+	return metadata
+}
+
+func getMetadataVolumes(metadata DockerContainerMetadata, dockerContainer *docker.Container) DockerContainerMetadata {
+	// Workaround for https://github.com/docker/docker/issues/27601
+	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
+	// for how Docker handles API compatibility on Linux
+	if len(metadata.Volumes) == 0 {
+		metadata.Volumes = make(map[string]string)
+		for _, m := range dockerContainer.Mounts {
+			metadata.Volumes[m.Destination] = m.Source
+		}
+	}
+	return metadata
+}
+
+func getMetadataHealthCheck(dockerContainer *docker.Container) api.HealthStatus {
 	health := api.HealthStatus{}
 	logLength := len(dockerContainer.State.Health.Log)
 	if logLength != 0 {
@@ -805,9 +824,7 @@ func metadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	default:
 		seelog.Debugf("DockerGoClient: unknown healthcheck status event from docker: %s", dockerContainer.State.Health.Status)
 	}
-
-	metadata.Health = health
-	return metadata
+	return health
 }
 
 // Listen to the docker event stream for container changes and pass them up

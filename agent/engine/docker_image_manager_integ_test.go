@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -667,18 +668,18 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...str
 }
 
 func cleanupImagesHappy(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test1", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer("test2", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer("test3", dockerapi.RemoveContainerTimeout)
 	imageManager.client.RemoveImage(test1Image1Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(test1Image2Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(test1Image3Name, imageRemovalTimeout)
 }
 
 func cleanupImagesThreshold(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
+	imageManager.client.RemoveContainer("test1", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer("test2", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer("test3", dockerapi.RemoveContainerTimeout)
 	imageManager.client.RemoveImage(test2Image1Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(test2Image2Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(test2Image3Name, imageRemovalTimeout)

@@ -18,7 +18,8 @@ import (
 	"time"
 
 	"context"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/cihub/seelog"
 )
@@ -32,7 +33,7 @@ const (
 	ContainerStatsBufferLength = 120
 )
 
-func newStatsContainer(dockerID string, client ecsengine.DockerClient, resolver resolver.ContainerMetadataResolver) *StatsContainer {
+func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) *StatsContainer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsContainer{
 		containerMetadata: &ContainerMetadata{

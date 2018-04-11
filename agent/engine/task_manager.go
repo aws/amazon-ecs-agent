@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -58,7 +60,7 @@ type acsTaskUpdate struct {
 
 type dockerContainerChange struct {
 	container *api.Container
-	event     DockerContainerChangeEvent
+	event     dockerapi.DockerContainerChangeEvent
 }
 
 type acsTransition struct {
@@ -535,7 +537,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	container := containerChange.container
 	event := containerChange.event
 	if container.ApplyingError == nil {
-		container.ApplyingError = api.NewNamedError(event.Error)
+		container.ApplyingError = apierrors.NewNamedError(event.Error)
 	}
 	switch event.Status {
 	// event.Status is the desired container transition from container's known status
@@ -567,7 +569,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(api.ContainerStopped)
 		errorName := event.Error.ErrorName()
-		if errorName == dockerTimeoutErrorName || errorName == cannotInspectContainerErrorName {
+		if errorName == dockerapi.DockerTimeoutErrorName || errorName == dockerapi.CannotInspectContainerErrorName {
 			// If there's an error with inspecting the container or in case of timeout error,
 			// we'll also assume that the container has transitioned to RUNNING and issue
 			// a stop. See #1043 for details
@@ -583,7 +585,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 // handleContainerStoppedTransitionError handles an error when transitioning a container to
 // STOPPED. It returns a boolean indicating whether the tak can continue with updating its
 // state
-func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerContainerChangeEvent,
+func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.DockerContainerChangeEvent,
 	container *api.Container,
 	currentKnownStatus api.ContainerStatus) bool {
 	// If we were trying to transition to stopped and had a timeout error
@@ -593,9 +595,9 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerCont
 	// responsible for the transition. Alternatively, the steadyState check
 	// could also trigger the progress and have another go at stopping the
 	// container
-	if event.Error.ErrorName() == dockerTimeoutErrorName {
+	if event.Error.ErrorName() == dockerapi.DockerTimeoutErrorName {
 		seelog.Infof("Managed task [%s]: '%s' error stopping container [%s]. Ignoring state change: %v",
-			mtask.Arn, dockerTimeoutErrorName, container.Name, event.Error.Error())
+			mtask.Arn, dockerapi.DockerTimeoutErrorName, container.Name, event.Error.Error())
 		container.SetKnownStatus(currentKnownStatus)
 		return false
 	}
@@ -716,7 +718,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 			go func(cont *api.Container, status api.ContainerStatus) {
 				mtask.dockerMessages <- dockerContainerChange{
 					container: cont,
-					event: DockerContainerChangeEvent{
+					event: dockerapi.DockerContainerChangeEvent{
 						Status: status,
 					},
 				}

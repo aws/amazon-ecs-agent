@@ -25,6 +25,7 @@ import (
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -223,9 +224,9 @@ func (mr *MockDockerClientMockRecorder) APIVersion() *gomock.Call {
 }
 
 // ContainerEvents mocks base method
-func (m *MockDockerClient) ContainerEvents(arg0 context.Context) (<-chan DockerContainerChangeEvent, error) {
+func (m *MockDockerClient) ContainerEvents(arg0 context.Context) (<-chan dockerapi.DockerContainerChangeEvent, error) {
 	ret := m.ctrl.Call(m, "ContainerEvents", arg0)
-	ret0, _ := ret[0].(<-chan DockerContainerChangeEvent)
+	ret0, _ := ret[0].(<-chan dockerapi.DockerContainerChangeEvent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -236,9 +237,9 @@ func (mr *MockDockerClientMockRecorder) ContainerEvents(arg0 interface{}) *gomoc
 }
 
 // CreateContainer mocks base method
-func (m *MockDockerClient) CreateContainer(arg0 *go_dockerclient.Config, arg1 *go_dockerclient.HostConfig, arg2 string, arg3 time.Duration) DockerContainerMetadata {
+func (m *MockDockerClient) CreateContainer(arg0 *go_dockerclient.Config, arg1 *go_dockerclient.HostConfig, arg2 string, arg3 time.Duration) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(DockerContainerMetadata)
+	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
@@ -248,10 +249,10 @@ func (mr *MockDockerClientMockRecorder) CreateContainer(arg0, arg1, arg2, arg3 i
 }
 
 // DescribeContainer mocks base method
-func (m *MockDockerClient) DescribeContainer(arg0 string) (api.ContainerStatus, DockerContainerMetadata) {
+func (m *MockDockerClient) DescribeContainer(arg0 string) (api.ContainerStatus, dockerapi.DockerContainerMetadata) {
 	ret := m.ctrl.Call(m, "DescribeContainer", arg0)
 	ret0, _ := ret[0].(api.ContainerStatus)
-	ret1, _ := ret[1].(DockerContainerMetadata)
+	ret1, _ := ret[1].(dockerapi.DockerContainerMetadata)
 	return ret0, ret1
 }
 
@@ -261,9 +262,9 @@ func (mr *MockDockerClientMockRecorder) DescribeContainer(arg0 interface{}) *gom
 }
 
 // ImportLocalEmptyVolumeImage mocks base method
-func (m *MockDockerClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata {
+func (m *MockDockerClient) ImportLocalEmptyVolumeImage() dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "ImportLocalEmptyVolumeImage")
-	ret0, _ := ret[0].(DockerContainerMetadata)
+	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
@@ -311,9 +312,9 @@ func (mr *MockDockerClientMockRecorder) KnownVersions() *gomock.Call {
 }
 
 // ListContainers mocks base method
-func (m *MockDockerClient) ListContainers(arg0 bool, arg1 time.Duration) ListContainersResponse {
+func (m *MockDockerClient) ListContainers(arg0 bool, arg1 time.Duration) dockerapi.ListContainersResponse {
 	ret := m.ctrl.Call(m, "ListContainers", arg0, arg1)
-	ret0, _ := ret[0].(ListContainersResponse)
+	ret0, _ := ret[0].(dockerapi.ListContainersResponse)
 	return ret0
 }
 
@@ -335,9 +336,9 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1 interface{}) *gomoc
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 string, arg1 *ecr.RegistryAuthenticationData) DockerContainerMetadata {
+func (m *MockDockerClient) PullImage(arg0 string, arg1 *ecr.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "PullImage", arg0, arg1)
-	ret0, _ := ret[0].(DockerContainerMetadata)
+	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
@@ -371,9 +372,9 @@ func (mr *MockDockerClientMockRecorder) RemoveImage(arg0, arg1 interface{}) *gom
 }
 
 // StartContainer mocks base method
-func (m *MockDockerClient) StartContainer(arg0 string, arg1 time.Duration) DockerContainerMetadata {
+func (m *MockDockerClient) StartContainer(arg0 string, arg1 time.Duration) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "StartContainer", arg0, arg1)
-	ret0, _ := ret[0].(DockerContainerMetadata)
+	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
@@ -396,9 +397,9 @@ func (mr *MockDockerClientMockRecorder) Stats(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // StopContainer mocks base method
-func (m *MockDockerClient) StopContainer(arg0 string, arg1 time.Duration) DockerContainerMetadata {
+func (m *MockDockerClient) StopContainer(arg0 string, arg1 time.Duration) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "StopContainer", arg0, arg1)
-	ret0, _ := ret[0].(DockerContainerMetadata)
+	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
@@ -433,9 +434,9 @@ func (mr *MockDockerClientMockRecorder) Version() *gomock.Call {
 }
 
 // WithVersion mocks base method
-func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) DockerClient {
+func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) dockerapi.DockerClient {
 	ret := m.ctrl.Call(m, "WithVersion", arg0)
-	ret0, _ := ret[0].(DockerClient)
+	ret0, _ := ret[0].(dockerapi.DockerClient)
 	return ret0
 }
 

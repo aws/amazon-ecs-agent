@@ -22,8 +22,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func TestLoadFromFileWithReaderError(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, err := engine.NewDockerGoClient(factory, &defaultConfig)
+	client, err := dockerapi.NewDockerGoClient(factory, &defaultConfig)
 	assert.NoError(t, err)
 
 	mockfs := mock_os.NewMockFileSystem(ctrl)
@@ -65,7 +65,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, err := engine.NewDockerGoClient(factory, &defaultConfig)
+	client, err := dockerapi.NewDockerGoClient(factory, &defaultConfig)
 	assert.NoError(t, err)
 
 	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
@@ -87,7 +87,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, err := engine.NewDockerGoClient(factory, &defaultConfig)
+	client, err := dockerapi.NewDockerGoClient(factory, &defaultConfig)
 	assert.NoError(t, err)
 
 	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(
@@ -108,7 +108,7 @@ func TestGetPauseContainerImageInspectImageError(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, err := engine.NewDockerGoClient(factory, &defaultConfig)
+	client, err := dockerapi.NewDockerGoClient(factory, &defaultConfig)
 	assert.NoError(t, err)
 
 	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(
@@ -126,7 +126,7 @@ func TestGetPauseContainerHappyPath(t *testing.T) {
 	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
 	factory := mock_clientfactory.NewMockFactory(ctrl)
 	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	client, err := engine.NewDockerGoClient(factory, &defaultConfig)
+	client, err := dockerapi.NewDockerGoClient(factory, &defaultConfig)
 	assert.NoError(t, err)
 
 	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(nil, nil)

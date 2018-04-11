@@ -8,7 +8,7 @@
 //
 // Modifications are Copyright 2016 Amazon.com, Inc. or its affiliates. Licensed under the Apache License 2.0
 
-package engine
+package dockerapi
 
 import "strings"
 

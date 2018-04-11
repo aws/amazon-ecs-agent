@@ -21,10 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
@@ -49,7 +51,7 @@ func TestHandleEventError(t *testing.T) {
 		Name                         string
 		EventStatus                  api.ContainerStatus
 		CurrentKnownStatus           api.ContainerStatus
-		Error                        engineError
+		Error                        apierrors.NamedError
 		ExpectedKnownStatusSet       bool
 		ExpectedKnownStatus          api.ContainerStatus
 		ExpectedDesiredStatusStopped bool
@@ -59,7 +61,7 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Stop timed out",
 			EventStatus:        api.ContainerStopped,
 			CurrentKnownStatus: api.ContainerRunning,
-			Error:              &DockerTimeoutError{},
+			Error:              &dockerapi.DockerTimeoutError{},
 			ExpectedKnownStatusSet: true,
 			ExpectedKnownStatus:    api.ContainerRunning,
 			ExpectedOK:             false,
@@ -68,8 +70,8 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Retriable error with stop",
 			EventStatus:        api.ContainerStopped,
 			CurrentKnownStatus: api.ContainerRunning,
-			Error: &CannotStopContainerError{
-				fromError: errors.New(""),
+			Error: &dockerapi.CannotStopContainerError{
+				FromError: errors.New(""),
 			},
 			ExpectedKnownStatusSet: true,
 			ExpectedKnownStatus:    api.ContainerRunning,
@@ -79,8 +81,8 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Unretriable error with Stop",
 			EventStatus:        api.ContainerStopped,
 			CurrentKnownStatus: api.ContainerRunning,
-			Error: &CannotStopContainerError{
-				fromError: &docker.ContainerNotRunning{},
+			Error: &dockerapi.CannotStopContainerError{
+				FromError: &docker.ContainerNotRunning{},
 			},
 			ExpectedKnownStatusSet:       true,
 			ExpectedKnownStatus:          api.ContainerStopped,
@@ -89,7 +91,7 @@ func TestHandleEventError(t *testing.T) {
 		},
 		{
 			Name:        "Pull failed",
-			Error:       &DockerTimeoutError{},
+			Error:       &dockerapi.DockerTimeoutError{},
 			EventStatus: api.ContainerPulled,
 			ExpectedOK:  true,
 		},
@@ -107,8 +109,8 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Inspect failed during start",
 			EventStatus:        api.ContainerRunning,
 			CurrentKnownStatus: api.ContainerCreated,
-			Error: &CannotInspectContainerError{
-				fromError: errors.New("error"),
+			Error: &dockerapi.CannotInspectContainerError{
+				FromError: errors.New("error"),
 			},
 			ExpectedKnownStatusSet:       true,
 			ExpectedKnownStatus:          api.ContainerCreated,
@@ -119,7 +121,7 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Start timed out",
 			EventStatus:        api.ContainerRunning,
 			CurrentKnownStatus: api.ContainerCreated,
-			Error:              &DockerTimeoutError{},
+			Error:              &dockerapi.DockerTimeoutError{},
 			ExpectedKnownStatusSet:       true,
 			ExpectedKnownStatus:          api.ContainerCreated,
 			ExpectedDesiredStatusStopped: true,
@@ -129,8 +131,8 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Inspect failed during create",
 			EventStatus:        api.ContainerCreated,
 			CurrentKnownStatus: api.ContainerPulled,
-			Error: &CannotInspectContainerError{
-				fromError: errors.New("error"),
+			Error: &dockerapi.CannotInspectContainerError{
+				FromError: errors.New("error"),
 			},
 			ExpectedKnownStatusSet:       true,
 			ExpectedKnownStatus:          api.ContainerPulled,
@@ -141,7 +143,7 @@ func TestHandleEventError(t *testing.T) {
 			Name:               "Create timed out",
 			EventStatus:        api.ContainerCreated,
 			CurrentKnownStatus: api.ContainerPulled,
-			Error:              &DockerTimeoutError{},
+			Error:              &dockerapi.DockerTimeoutError{},
 			ExpectedKnownStatusSet:       true,
 			ExpectedKnownStatus:          api.ContainerPulled,
 			ExpectedDesiredStatusStopped: true,
@@ -156,9 +158,9 @@ func TestHandleEventError(t *testing.T) {
 			}
 			containerChange := dockerContainerChange{
 				container: container,
-				event: DockerContainerChangeEvent{
+				event: dockerapi.DockerContainerChangeEvent{
 					Status: tc.EventStatus,
-					DockerContainerMetadata: DockerContainerMetadata{
+					DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 						Error: tc.Error,
 					},
 				},
@@ -704,7 +706,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		assert.NotNil(t, events)
 		assert.Len(t, events, 1)
 		event := events[0]
-		containerChangeEvent, ok := event.(DockerContainerChangeEvent)
+		containerChangeEvent, ok := event.(dockerapi.DockerContainerChangeEvent)
 		assert.True(t, ok)
 		assert.Equal(t, containerChangeEvent.Status, api.ContainerStopped)
 		eventsGenerated.Done()
@@ -901,11 +903,11 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 
 	var waitForTransitionFunctionInvocation sync.WaitGroup
 	waitForTransitionFunctionInvocation.Add(1)
-	transitionFunction := func(task *api.Task, container *api.Container) DockerContainerMetadata {
+	transitionFunction := func(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 		assert.Equal(t, firstContainerName, container.Name,
 			"Mismatch in container reference in transition function")
 		waitForTransitionFunctionInvocation.Done()
-		return DockerContainerMetadata{}
+		return dockerapi.DockerContainerMetadata{}
 	}
 
 	taskEngine.containerStatusToTransitionFunction = map[api.ContainerStatus]transitionApplyFunc{
@@ -1464,9 +1466,9 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 
 	containerChange := dockerContainerChange{
 		container: container,
-		event: DockerContainerChangeEvent{
+		event: dockerapi.DockerContainerChangeEvent{
 			Status: api.ContainerRunning,
-			DockerContainerMetadata: DockerContainerMetadata{
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 				DockerID: "dockerID",
 				Health: api.HealthStatus{
 					Status: api.ContainerHealthy,

@@ -11,12 +11,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package utils
+package errors
 
 import (
 	"fmt"
 	"strings"
 )
+
+// NamedError defines an interface that wraps error and add additional 'ErrorName' method
+type NamedError interface {
+	error
+	ErrorName() string
+}
 
 // Retriable defines an interface for retriable methods
 type Retriable interface {
