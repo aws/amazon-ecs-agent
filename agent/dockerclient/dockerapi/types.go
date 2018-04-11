@@ -11,13 +11,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine
+package dockerapi
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -55,7 +56,7 @@ type DockerContainerMetadata struct {
 	PortBindings []api.PortBinding
 	// Error wraps various container transition errors and is set if engine
 	// is unable to perform any of the required container transitions
-	Error engineError
+	Error apierrors.NamedError
 	// Volumes contains volume informaton for the container
 	Volumes map[string]string
 	// Labels contains labels set for the container

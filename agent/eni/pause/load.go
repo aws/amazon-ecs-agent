@@ -15,14 +15,14 @@ package pause
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 // Loader defines an interface for loading the pause container image. This is mostly
 // to facilitate mocking and testing of the LoadImage method
 type Loader interface {
-	LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error)
+	LoadImage(cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error)
 }
 
 type loader struct{}

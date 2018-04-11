@@ -16,6 +16,7 @@ package api
 import (
 	"strconv"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -40,23 +41,23 @@ type PortBinding struct {
 
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
-func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, NamedError) {
+func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, apierrors.NamedError) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
 	for port, bindings := range dockerPortBindings {
 		containerPort, err := strconv.Atoi(port.Port())
 		if err != nil {
-			return nil, &DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing docker port as int " + err.Error()}
+			return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing docker port as int " + err.Error()}
 		}
 		protocol, err := NewTransportProtocol(port.Proto())
 		if err != nil {
-			return nil, &DefaultNamedError{Name: UnrecognizedTransportProtocolErrorName, Err: err.Error()}
+			return nil, &apierrors.DefaultNamedError{Name: UnrecognizedTransportProtocolErrorName, Err: err.Error()}
 		}
 
 		for _, binding := range bindings {
 			hostPort, err := strconv.Atoi(binding.HostPort)
 			if err != nil {
-				return nil, &DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing port binding as int " + err.Error()}
+				return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing port binding as int " + err.Error()}
 			}
 			portBindings = append(portBindings, PortBinding{
 				ContainerPort: uint16(containerPort),

@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package engine
+package dockerapi
 
 import (
 	"encoding/base64"
@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -122,7 +123,7 @@ func TestPullImageOutputTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 
@@ -156,7 +157,7 @@ func TestPullImageGlobalTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 
@@ -179,7 +180,7 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 
 	metadata := client.PullImage("image", nil)
 	assert.Error(t, metadata.Error, "Expected error for pull inactivity timeout")
-	assert.Equal(t, "CannotPullContainerError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
+	assert.Equal(t, "CannotPullContainerError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
 }
 
 func TestPullImage(t *testing.T) {
@@ -375,7 +376,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 	}).MaxTimes(1)
 	metadata := client.CreateContainer(config.Config, nil, config.Name, xContainerShortTimeout)
 	assert.Error(t, metadata.Error, "expected error for pull timeout")
-	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName())
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
@@ -450,7 +451,7 @@ func TestStartContainerTimeout(t *testing.T) {
 	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
 	metadata := client.StartContainer("id", xContainerShortTimeout)
 	assert.NotNil(t, metadata.Error, "Expected error for pull timeout")
-	assert.Equal(t, "DockerTimeoutError", metadata.Error.(api.NamedError).ErrorName(), "Wrong error type")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
 	wait.Done()
 	<-testDone
 }
@@ -463,7 +464,7 @@ func TestStartContainer(t *testing.T) {
 		mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
-	metadata := client.StartContainer("id", defaultConfig.ContainerStartTimeout)
+	metadata := client.StartContainer("id", defaultTestConfig().ContainerStartTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -490,7 +491,7 @@ func TestStopContainerTimeout(t *testing.T) {
 	if metadata.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if metadata.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
@@ -504,7 +505,7 @@ func TestStopContainer(t *testing.T) {
 		mockDocker.EXPECT().StopContainerWithContext("id", uint(client.config.DockerStopTimeout/time.Second), gomock.Any()).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
-	metadata := client.StopContainer("id", stopContainerTimeout)
+	metadata := client.StopContainer("id", StopContainerTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -529,7 +530,7 @@ func TestInspectContainerTimeout(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for inspect timeout")
 	}
-	if err.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+	if err.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	wait.Done()
@@ -554,7 +555,7 @@ func TestInspectContainer(t *testing.T) {
 	gomock.InOrder(
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&containerOutput, nil),
 	)
-	container, err := client.InspectContainer("id", inspectContainerTimeout)
+	container, err := client.InspectContainer("id", InspectContainerTimeout)
 	if err != nil {
 		t.Error("Did not expect error")
 	}
@@ -767,7 +768,7 @@ func TestListContainersTimeout(t *testing.T) {
 	if response.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
-	if response.Error.(api.NamedError).ErrorName() != "DockerTimeoutError" {
+	if response.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
 		t.Error("Wrong error type")
 	}
 	<-warp
@@ -805,7 +806,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	mockDocker.EXPECT().StartContainerWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
 
-	vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
+	vclient.StartContainer("foo", defaultTestConfig().ContainerStartTimeout)
 }
 
 func TestUnavailableVersionError(t *testing.T) {
@@ -824,12 +825,12 @@ func TestUnavailableVersionError(t *testing.T) {
 
 	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 
-	metadata := vclient.StartContainer("foo", defaultConfig.ContainerStartTimeout)
+	metadata := vclient.StartContainer("foo", defaultTestConfig().ContainerStartTimeout)
 
 	if metadata.Error == nil {
 		t.Fatal("Expected error, didn't get one")
 	}
-	if namederr, ok := metadata.Error.(api.NamedError); ok {
+	if namederr, ok := metadata.Error.(apierrors.NamedError); ok {
 		if namederr.ErrorName() != "CannotGetDockerclientError" {
 			t.Fatal("Wrong error name, expected CannotGetDockerclientError but got " + namederr.ErrorName())
 		}
@@ -1277,7 +1278,7 @@ func TestMetadataFromContainer(t *testing.T) {
 		},
 	}
 
-	metadata := metadataFromContainer(dockerContainer)
+	metadata := MetadataFromContainer(dockerContainer)
 	assert.Equal(t, "1234", metadata.DockerID)
 	assert.Equal(t, volumes, metadata.Volumes)
 	assert.Equal(t, labels, metadata.Labels)
@@ -1294,6 +1295,6 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 			Health: docker.Health{Status: "unhealthy"},
 		}}
 
-	metadata := metadataFromContainer(dockerContainer)
+	metadata := MetadataFromContainer(dockerContainer)
 	assert.Equal(t, api.ContainerUnhealthy, metadata.Health.Status)
 }

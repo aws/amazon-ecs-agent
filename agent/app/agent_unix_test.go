@@ -27,6 +27,7 @@ import (
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/app/oswrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
@@ -60,7 +61,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failues
@@ -68,7 +69,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-		engine.ListContainersResponse{}).AnyTimes()
+		dockerapi.ListContainersResponse{}).AnyTimes()
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 		// Ensures that the test waits until acs session has bee started
 		discoverEndpointsInvoked.Done()
@@ -119,7 +120,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -135,7 +136,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().Version().AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-		engine.ListContainersResponse{}).AnyTimes()
+		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 		// Ensures that the test waits until acs session has bee started
@@ -459,7 +460,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockResource := mock_resources.NewMockResource(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
@@ -488,7 +489,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 			"tele-endpoint", nil).AnyTimes(),
 		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-			engine.ListContainersResponse{}).AnyTimes(),
+			dockerapi.ListContainersResponse{}).AnyTimes(),
 	)
 
 	cfg := config.DefaultConfig()

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package errors
 
 import (
 	"strings"
@@ -33,19 +33,18 @@ func IsInstanceTypeChangedError(err error) bool {
 	return false
 }
 
-type badVolumeError struct {
-	msg string
+// BadVolumeError represents an error caused by bad volume
+type BadVolumeError struct {
+	Msg string
 }
 
-func (err *badVolumeError) Error() string     { return err.msg }
-func (err *badVolumeError) ErrorName() string { return "InvalidVolumeError" }
-func (err *badVolumeError) Retry() bool       { return false }
+func (err *BadVolumeError) Error() string { return err.Msg }
 
-// NamedError defines an interface that wraps error and add additional 'ErrorName' method
-type NamedError interface {
-	error
-	ErrorName() string
-}
+// ErrorName returns name of the BadVolumeError
+func (err *BadVolumeError) ErrorName() string { return "InvalidVolumeError" }
+
+// Retry implements Retirable interface
+func (err *BadVolumeError) Retry() bool { return false }
 
 // DefaultNamedError is a wrapper type for 'error' which adds an optional name and provides a symmetric
 // marshal/unmarshal
@@ -77,22 +76,22 @@ func NewNamedError(err error) *DefaultNamedError {
 
 // HostConfigError represents an error caused by host configuration
 type HostConfigError struct {
-	msg string
+	Msg string
 }
 
 // Error returns the error as a string
-func (err *HostConfigError) Error() string { return err.msg }
+func (err *HostConfigError) Error() string { return err.Msg }
 
 // ErrorName returns the name of the error
 func (err *HostConfigError) ErrorName() string { return "HostConfigError" }
 
 // DockerClientConfigError represents the error caused by docker client
 type DockerClientConfigError struct {
-	msg string
+	Msg string
 }
 
 // Error returns the error as a string
-func (err *DockerClientConfigError) Error() string { return err.msg }
+func (err *DockerClientConfigError) Error() string { return err.Msg }
 
 // ErrorName returns the name of the error
 func (err *DockerClientConfigError) ErrorName() string { return "DockerClientConfigError" }

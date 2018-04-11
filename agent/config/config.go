@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -359,7 +360,7 @@ func environmentConfig() (Config, error) {
 	steadyStateRate, burstRate := getTaskMetadataThrottles()
 
 	if len(errs) > 0 {
-		err = utils.NewMultiError(errs...)
+		err = apierrors.NewMultiError(errs...)
 	} else {
 		err = nil
 	}
@@ -554,7 +555,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
 			errs = append(errs, errTmp)
 		}
 		if len(errs) != 0 {
-			err = utils.NewMultiError(errs...)
+			err = apierrors.NewMultiError(errs...)
 		} else {
 			err = nil
 		}

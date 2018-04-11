@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
@@ -61,7 +62,7 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	client.EXPECT().ImportLocalEmptyVolumeImage()
 
 	metadata := taskEngine.pullContainer(task, container)
-	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 }
 
 func TestDeleteTask(t *testing.T) {

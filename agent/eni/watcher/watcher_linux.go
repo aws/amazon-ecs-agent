@@ -26,6 +26,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
@@ -311,7 +312,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.
 				return sendErr
 			}
 			// Not unmanagedENIError. Stop retrying when this happens
-			return utils.NewRetriableError(utils.NewRetriable(false), sendErr)
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false), sendErr)
 		}
 
 		return nil

@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
@@ -114,7 +115,7 @@ func TestRetryWithBackoff(t *testing.T) {
 	t.Run("no retries", func(t *testing.T) {
 		// no sleeps
 		RetryWithBackoff(NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
-			return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
 		})
 	})
 }
@@ -142,7 +143,7 @@ func TestRetryWithBackoffCtx(t *testing.T) {
 	t.Run("no retries", func(t *testing.T) {
 		// no sleeps
 		RetryWithBackoffCtx(context.TODO(), NewSimpleBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
-			return NewRetriableError(NewRetriable(false), errors.New("can't retry"))
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
 		})
 	})
 

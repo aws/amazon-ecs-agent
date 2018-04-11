@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/aws-sdk-go/aws"
@@ -160,7 +161,7 @@ type Container struct {
 	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
-	ApplyingError *DefaultNamedError
+	ApplyingError *apierrors.DefaultNamedError
 
 	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS
 	// SubmitContainerStateChange API.

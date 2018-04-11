@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
@@ -381,7 +382,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"))
 	engine.resolver = resolver
 
-	client.EXPECT().ListContainers(false, gomock.Any()).Return(ecsengine.ListContainersResponse{
+	client.EXPECT().ListContainers(false, gomock.Any()).Return(dockerapi.ListContainersResponse{
 		DockerIDs: []string{containerID},
 	})
 	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {

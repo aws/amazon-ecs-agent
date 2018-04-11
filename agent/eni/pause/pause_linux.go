@@ -20,7 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	docker "github.com/fsouza/go-dockerclient"
 
 	log "github.com/cihub/seelog"
@@ -28,7 +28,7 @@ import (
 )
 
 // LoadImage helps load the pause container image for the agent
-func (*loader) LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error) {
+func (*loader) LoadImage(cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
 	if err := loadFromFile(cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (*loader) LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (
 		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
 }
 
-func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSystem) error {
+func loadFromFile(path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {
 	pauseContainerReader, err := fs.Open(path)
 	if err != nil {
 		if err.Error() == noSuchFile {
@@ -48,7 +48,7 @@ func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSyste
 		return errors.Wrapf(err,
 			"pause container load: failed to read pause container image: %s", path)
 	}
-	if err := dockerClient.LoadImage(pauseContainerReader, engine.LoadImageTimeout); err != nil {
+	if err := dockerClient.LoadImage(pauseContainerReader, dockerapi.LoadImageTimeout); err != nil {
 		return errors.Wrapf(err,
 			"pause container load: failed to load pause container image: %s", path)
 	}
@@ -57,7 +57,7 @@ func loadFromFile(path string, dockerClient engine.DockerClient, fs os.FileSyste
 
 }
 
-func getPauseContainerImage(name string, tag string, dockerClient engine.DockerClient) (*docker.Image, error) {
+func getPauseContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
 	imageName := fmt.Sprintf("%s:%s", name, tag)
 	log.Debugf("Inspecting pause container image: %s", imageName)
 
