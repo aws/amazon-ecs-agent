@@ -428,7 +428,8 @@
       "errors":[
         {"shape":"ServerException"},
         {"shape":"ClientException"},
-        {"shape":"AccessDeniedException"}
+        {"shape":"AccessDeniedException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "UpdateContainerAgent":{
@@ -602,8 +603,7 @@
         "registeredContainerInstancesCount":{"shape":"Integer"},
         "runningTasksCount":{"shape":"Integer"},
         "pendingTasksCount":{"shape":"Integer"},
-        "activeServicesCount":{"shape":"Integer"},
-        "statistics":{"shape":"Statistics"}
+        "activeServicesCount":{"shape":"Integer"}
       }
     },
     "ClusterContainsContainerInstancesException":{
@@ -790,8 +790,7 @@
       "type":"structure",
       "required":[
         "serviceName",
-        "taskDefinition",
-        "desiredCount"
+        "taskDefinition"
       ],
       "members":{
         "cluster":{"shape":"String"},
@@ -864,7 +863,7 @@
         "id":{"shape":"String"},
         "status":{"shape":"String"},
         "taskDefinition":{"shape":"String"},
-        "desiredCount":{"shape":"Integer"},
+        "desiredCount":{"shape":"BoxedInteger"},
         "pendingCount":{"shape":"Integer"},
         "runningCount":{"shape":"Integer"},
         "createdAt":{"shape":"Timestamp"},
@@ -1536,7 +1535,7 @@
         "loadBalancers":{"shape":"LoadBalancers"},
         "serviceRegistries":{"shape":"ServiceRegistries"},
         "status":{"shape":"String"},
-        "desiredCount":{"shape":"Integer"},
+        "desiredCount":{"shape":"BoxedInteger"},
         "runningCount":{"shape":"Integer"},
         "pendingCount":{"shape":"Integer"},
         "launchType":{"shape":"LaunchType"},
@@ -1622,10 +1621,6 @@
         "tasks":{"shape":"Tasks"},
         "failures":{"shape":"Failures"}
       }
-    },
-    "Statistics":{
-      "type":"list",
-      "member":{"shape":"KeyValuePair"}
     },
     "StopTaskRequest":{
       "type":"structure",

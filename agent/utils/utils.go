@@ -27,6 +27,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 var log = logger.ForModule("util")
@@ -198,4 +199,12 @@ func ParseBool(str string, default_ bool) bool {
 		return default_
 	}
 	return res
+}
+
+// IsAwsErrAndEqualToEcsErrCode returns true if the err implements
+// the Error interface of awserr and it has the same error code as
+// the passed in ecs error code.
+func IsAwsErrAndEqualToEcsErrCode(err error, ecsErrCode string) bool {
+	awsErr, ok := err.(awserr.Error)
+	return ok && awsErr.Code() == ecsErrCode
 }
