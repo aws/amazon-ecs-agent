@@ -27,6 +27,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"
@@ -123,8 +125,8 @@ func waitForTaskStoppedByCheckStatus(task *api.Task) {
 func validateContainerRunWorkflow(t *testing.T,
 	container *api.Container,
 	task *api.Task,
-	imageManager *MockImageManager,
-	client *MockDockerClient,
+	imageManager *mock_engine.MockImageManager,
+	client *mock_dockerapi.MockDockerClient,
 	roleCredentials *credentials.TaskIAMRoleCredentials,
 	containerEventsWG sync.WaitGroup,
 	eventStream chan dockerapi.DockerContainerChangeEvent,

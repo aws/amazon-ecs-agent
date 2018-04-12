@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -341,13 +342,13 @@ func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testin
 
 func setupMocksForInitializeTaskENIDependencies(t *testing.T) (*gomock.Controller,
 	*mock_dockerstate.MockTaskEngineState,
-	*engine.MockTaskEngine,
+	*mock_engine.MockTaskEngine,
 	*mock_oswrapper.MockOS) {
 	ctrl := gomock.NewController(t)
 
 	return ctrl,
 		mock_dockerstate.NewMockTaskEngineState(ctrl),
-		engine.NewMockTaskEngine(ctrl),
+		mock_engine.NewMockTaskEngine(ctrl),
 		mock_oswrapper.NewMockOS(ctrl)
 }
 

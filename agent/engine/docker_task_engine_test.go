@@ -30,11 +30,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
@@ -98,16 +100,16 @@ func setCreatedContainerName(name string) {
 }
 
 func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Controller,
-	*MockDockerClient, *mock_ttime.MockTime, TaskEngine,
-	*mock_credentials.MockManager, *MockImageManager, *mock_containermetadata.MockManager) {
+	*mock_dockerapi.MockDockerClient, *mock_ttime.MockTime, TaskEngine,
+	*mock_credentials.MockManager, *mock_engine.MockImageManager, *mock_containermetadata.MockManager) {
 	ctrl := gomock.NewController(t)
-	client := NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
 	containerChangeEventStream := eventstream.NewEventStream("TESTTASKENGINE", ctx)
 	containerChangeEventStream.StartListening()
-	imageManager := NewMockImageManager(ctrl)
+	imageManager := mock_engine.NewMockImageManager(ctrl)
 	metadataManager := mock_containermetadata.NewMockManager(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 
