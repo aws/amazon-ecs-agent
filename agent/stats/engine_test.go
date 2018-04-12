@@ -21,7 +21,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -34,7 +35,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
-	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	t2 := &api.Task{Arn: "t2", Family: "f2"}
 	t3 := &api.Task{Arn: "t3"}
@@ -163,7 +164,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	mockDockerClient := ecsengine.NewMockDockerClient(mockCtrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&api.DockerContainer{
@@ -375,13 +376,13 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	containerID := "containerID"
 	statsChan := make(chan *docker.Stats)
 	statsStarted := make(chan struct{})
-	client := ecsengine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
 	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"))
 	engine.resolver = resolver
 
-	client.EXPECT().ListContainers(false, gomock.Any()).Return(ecsengine.ListContainersResponse{
+	client.EXPECT().ListContainers(false, gomock.Any()).Return(dockerapi.ListContainersResponse{
 		DockerIDs: []string{containerID},
 	})
 	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {

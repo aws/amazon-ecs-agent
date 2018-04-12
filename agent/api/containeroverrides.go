@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
@@ -49,14 +50,14 @@ func (overrides *ContainerOverrides) UnmarshalJSON(b []byte) error {
 			*overrides = ContainerOverrides(regular)
 			return nil
 		}
-		err = utils.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err)
+		err = apierrors.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err)
 	}
 
 	// Now the strongly typed way
 	var str string
 	err2 := json.Unmarshal(b, &str)
 	if err2 != nil {
-		return utils.NewMultiError(errors.New("Could not unmarshal ContainerOverrides into either an object or string respectively"), err, err2)
+		return apierrors.NewMultiError(errors.New("Could not unmarshal ContainerOverrides into either an object or string respectively"), err, err2)
 	}
 
 	// We have a string, let's try to unmarshal that into a typed object
@@ -67,8 +68,8 @@ func (overrides *ContainerOverrides) UnmarshalJSON(b []byte) error {
 			*overrides = ContainerOverrides(regular)
 			return nil
 		}
-		err3 = utils.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err3)
+		err3 = apierrors.NewMultiError(errors.New("Error unmarshalling ContainerOverrides"), err3)
 	}
 
-	return utils.NewMultiError(errors.New("Could not unmarshal ContainerOverrides in any supported way"), err, err2, err3)
+	return apierrors.NewMultiError(errors.New("Could not unmarshal ContainerOverrides in any supported way"), err, err2, err3)
 }

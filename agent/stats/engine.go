@@ -27,6 +27,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
@@ -37,7 +38,7 @@ import (
 const (
 	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
 	listContainersTimeout  = 10 * time.Minute
-	queueResetThreshold    = 2 * ecsengine.StatsInactivityTimeout
+	queueResetThreshold    = 2 * dockerapi.StatsInactivityTimeout
 )
 
 var (
@@ -66,7 +67,7 @@ type Engine interface {
 // DockerStatsEngine is used to monitor docker container events and to report
 // utlization metrics of the same.
 type DockerStatsEngine struct {
-	client                     ecsengine.DockerClient
+	client                     dockerapi.DockerClient
 	cluster                    string
 	containerInstanceArn       string
 	lock                       sync.RWMutex
@@ -109,7 +110,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
-func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
+func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
 	return &DockerStatsEngine{
 		client:                       client,
 		resolver:                     nil,
@@ -123,7 +124,7 @@ func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient, con
 
 // synchronizeState goes through all the containers on the instance to synchronize the state on agent start
 func (engine *DockerStatsEngine) synchronizeState() error {
-	listContainersResponse := engine.client.ListContainers(false, ecsengine.ListContainersTimeout)
+	listContainersResponse := engine.client.ListContainers(false, dockerapi.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
 		return listContainersResponse.Error
 	}
@@ -479,7 +480,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 // event that it reads from the docker event stream.
 func (engine *DockerStatsEngine) handleDockerEvents(events ...interface{}) error {
 	for _, event := range events {
-		dockerContainerChangeEvent, ok := event.(ecsengine.DockerContainerChangeEvent)
+		dockerContainerChangeEvent, ok := event.(dockerapi.DockerContainerChangeEvent)
 		if !ok {
 			return fmt.Errorf("Unexpected event received, expected docker container change event")
 		}

@@ -20,8 +20,10 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -47,7 +49,7 @@ type ImageManager interface {
 // It also has the cleanup policy configuration.
 type dockerImageManager struct {
 	imageStates                      []*image.ImageState
-	client                           DockerClient
+	client                           dockerapi.DockerClient
 	updateLock                       sync.RWMutex
 	imageCleanupTicker               *time.Ticker
 	state                            dockerstate.TaskEngineState
@@ -62,7 +64,7 @@ type dockerImageManager struct {
 type ImageStatesForDeletion []*image.ImageState
 
 // NewImageManager returns a new ImageManager
-func NewImageManager(cfg *config.Config, client DockerClient, state dockerstate.TaskEngineState) ImageManager {
+func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state dockerstate.TaskEngineState) ImageManager {
 	return &dockerImageManager{
 		client: client,
 		state:  state,
@@ -345,7 +347,7 @@ func (imageManager *dockerImageManager) deleteImage(imageID string, imageState *
 		return
 	}
 	seelog.Infof("Removing Image: %s", imageID)
-	err := imageManager.client.RemoveImage(imageID, removeImageTimeout)
+	err := imageManager.client.RemoveImage(imageID, dockerapi.RemoveImageTimeout)
 	if err != nil {
 		if err.Error() == imageNotFoundForDeletionError {
 			seelog.Errorf("Image already removed from the instance: %v", err)

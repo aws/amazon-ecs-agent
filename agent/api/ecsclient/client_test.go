@@ -298,7 +298,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type": api.OSType,
+		"ecs.os-type": config.OSType,
 	}
 	for i := range fakeCapabilities {
 		expectedAttributes[fakeCapabilities[i]] = ""
@@ -358,7 +358,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type":               api.OSType,
+		"ecs.os-type":               config.OSType,
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
@@ -465,7 +465,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	client.(*APIECSClient).SetSDK(mc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type": api.OSType,
+		"ecs.os-type": config.OSType,
 	}
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(

@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
@@ -129,7 +130,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 
 		err = fn()
 
-		retriableErr, isRetriableErr := err.(Retriable)
+		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
 		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
 			return err

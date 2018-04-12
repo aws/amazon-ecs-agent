@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -80,7 +81,7 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
+	retriable := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("test"))
 	taskEvent := taskEvent(taskARN)
 
 	gomock.InOrder(

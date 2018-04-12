@@ -25,10 +25,10 @@ import (
 	"syscall"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
 )
@@ -91,7 +91,7 @@ func FinalSave(saver statemanager.Saver, taskEngine engine.TaskEngine) error {
 	saveErr := <-stateSaved
 
 	if disableErr != nil || saveErr != nil {
-		return utils.NewMultiError(disableErr, saveErr)
+		return apierrors.NewMultiError(disableErr, saveErr)
 	}
 	return nil
 }

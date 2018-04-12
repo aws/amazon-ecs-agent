@@ -18,11 +18,12 @@ import (
 	"testing"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
@@ -42,7 +43,7 @@ const (
 type testHelper struct {
 	ctrl               *gomock.Controller
 	payloadHandler     payloadRequestHandler
-	mockTaskEngine     *engine.MockTaskEngine
+	mockTaskEngine     *mock_engine.MockTaskEngine
 	ecsClient          api.ECSClient
 	mockWsClient       *mock_wsclient.MockClientServer
 	saver              statemanager.Saver
@@ -54,7 +55,7 @@ type testHelper struct {
 
 func setup(t *testing.T) *testHelper {
 	ctrl := gomock.NewController(t)
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	stateManager := statemanager.NewNoopStateManager()

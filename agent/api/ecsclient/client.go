@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -237,7 +238,7 @@ func findMissingAttributes(expectedAttributes, actualAttributes map[string]strin
 		}
 	}
 	if len(missingAttributes) > 0 {
-		err = utils.NewAttributeError("Attribute validation failed")
+		err = apierrors.NewAttributeError("Attribute validation failed")
 	}
 	return missingAttributes, err
 }
@@ -271,7 +272,7 @@ func getCpuAndMemory() (int64, int64) {
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 	return []*ecs.Attribute{&ecs.Attribute{
 		Name:  aws.String("ecs.os-type"),
-		Value: aws.String(api.OSType),
+		Value: aws.String(config.OSType),
 	}}
 }
 
