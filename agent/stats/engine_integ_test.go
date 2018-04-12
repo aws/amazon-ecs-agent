@@ -16,6 +16,7 @@
 package stats
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -87,7 +88,9 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	// Simulate container start prior to listener initialization.
 	time.Sleep(checkPointSleep)
-	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
@@ -144,7 +147,9 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 		},
 		testTask)
 
-	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
@@ -222,7 +227,9 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 	// Simulate container start prior to listener initialization.
 	time.Sleep(checkPointSleep)
-	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	assert.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
@@ -286,7 +293,9 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 		},
 		testTask)
 
-	err = engine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
@@ -360,7 +369,9 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 
 	// Create a new docker stats engine
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
-	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = statsEngine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer statsEngine.removeAll()
 	defer statsEngine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
@@ -440,7 +451,9 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 
 	// Create a new docker stats engine
 	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream)
-	err = statsEngine.MustInit(taskEngine, defaultCluster, defaultContainerInstance)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = statsEngine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer statsEngine.removeAll()
 	defer statsEngine.containerChangeEventStream.Unsubscribe(containerChangeHandler)

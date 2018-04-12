@@ -16,6 +16,7 @@
 package pause
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
@@ -28,9 +29,9 @@ import (
 )
 
 // LoadImage helps load the pause container image for the agent
-func (*loader) LoadImage(cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
+func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
-	if err := loadFromFile(cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
+	if err := loadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
 		return nil, err
 	}
 
@@ -38,7 +39,7 @@ func (*loader) LoadImage(cfg *config.Config, dockerClient dockerapi.DockerClient
 		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
 }
 
-func loadFromFile(path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {
+func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {
 	pauseContainerReader, err := fs.Open(path)
 	if err != nil {
 		if err.Error() == noSuchFile {
@@ -48,7 +49,7 @@ func loadFromFile(path string, dockerClient dockerapi.DockerClient, fs os.FileSy
 		return errors.Wrapf(err,
 			"pause container load: failed to read pause container image: %s", path)
 	}
-	if err := dockerClient.LoadImage(pauseContainerReader, dockerapi.LoadImageTimeout); err != nil {
+	if err := dockerClient.LoadImage(ctx, pauseContainerReader, dockerapi.LoadImageTimeout); err != nil {
 		return errors.Wrapf(err,
 			"pause container load: failed to load pause container image: %s", path)
 	}

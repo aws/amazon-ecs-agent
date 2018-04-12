@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@
 package pause
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -52,7 +53,9 @@ func TestLoadFromFileWithReaderError(t *testing.T) {
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(pauseTarballPath).Return(nil, errors.New("Dummy Reader Error"))
 
-	err = loadFromFile(pauseTarballPath, client, mockfs)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = loadFromFile(ctx, pauseTarballPath, client, mockfs)
 	assert.Error(t, err)
 }
 
@@ -73,7 +76,9 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(pauseTarballPath).Return(nil, nil)
 
-	err = loadFromFile(pauseTarballPath, client, mockfs)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = loadFromFile(ctx, pauseTarballPath, client, mockfs)
 	assert.NoError(t, err)
 }
 
@@ -96,7 +101,9 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(pauseTarballPath).Return(nil, nil)
 
-	err = loadFromFile(pauseTarballPath, client, mockfs)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err = loadFromFile(ctx, pauseTarballPath, client, mockfs)
 	assert.Error(t, err)
 }
 

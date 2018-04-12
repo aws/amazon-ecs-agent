@@ -536,6 +536,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
+		Ctx:                           agent.ctx,
 		CredentialProvider:            agent.credentialProvider,
 		Cfg:                           agent.cfg,
 		ContainerInstanceArn:          agent.containerInstanceARN,

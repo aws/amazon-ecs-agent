@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -275,7 +275,7 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 	for {
 		select {
 		case <-imageManager.imageCleanupTicker.C:
-			go imageManager.removeUnusedImages()
+			go imageManager.removeUnusedImages(ctx)
 		case <-ctx.Done():
 			imageManager.imageCleanupTicker.Stop()
 			return
@@ -283,7 +283,7 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 	}
 }
 
-func (imageManager *dockerImageManager) removeUnusedImages() {
+func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) {
 	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
 	ImagePullDeleteLock.Lock()
 	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
@@ -299,7 +299,7 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
 	}
 	for i := 0; i < imageManager.numImagesToDelete; i++ {
-		err := imageManager.removeLeastRecentlyUsedImage()
+		err := imageManager.removeLeastRecentlyUsedImage(ctx)
 		if err != nil {
 			seelog.Infof("End of eligible images for deletion: %v; Still have %d image states being managed", err, len(imageManager.getAllImageStates()))
 			break
@@ -307,12 +307,12 @@ func (imageManager *dockerImageManager) removeUnusedImages() {
 	}
 }
 
-func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage() error {
+func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage(ctx context.Context) error {
 	leastRecentlyUsedImage := imageManager.getUnusedImageForDeletion()
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")
 	}
-	imageManager.removeImage(leastRecentlyUsedImage)
+	imageManager.removeImage(ctx, leastRecentlyUsedImage)
 	return nil
 }
 
@@ -326,28 +326,28 @@ func (imageManager *dockerImageManager) getUnusedImageForDeletion() *image.Image
 	return imageManager.getLeastRecentlyUsedImage(candidateImageStatesForDeletion)
 }
 
-func (imageManager *dockerImageManager) removeImage(leastRecentlyUsedImage *image.ImageState) {
+func (imageManager *dockerImageManager) removeImage(ctx context.Context, leastRecentlyUsedImage *image.ImageState) {
 	// Handling deleting while traversing a slice
 	imageNames := make([]string, len(leastRecentlyUsedImage.Image.Names))
 	copy(imageNames, leastRecentlyUsedImage.Image.Names)
 	if len(imageNames) == 0 {
 		// potentially untagged image of format <none>:<none>; remove by ID
-		imageManager.deleteImage(leastRecentlyUsedImage.Image.ImageID, leastRecentlyUsedImage)
+		imageManager.deleteImage(ctx, leastRecentlyUsedImage.Image.ImageID, leastRecentlyUsedImage)
 	} else {
 		// Image has multiple tags/repos. Untag each name and delete the final reference to image
 		for _, imageName := range imageNames {
-			imageManager.deleteImage(imageName, leastRecentlyUsedImage)
+			imageManager.deleteImage(ctx, imageName, leastRecentlyUsedImage)
 		}
 	}
 }
 
-func (imageManager *dockerImageManager) deleteImage(imageID string, imageState *image.ImageState) {
+func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID string, imageState *image.ImageState) {
 	if imageID == "" {
 		seelog.Errorf("Image ID to be deleted is null")
 		return
 	}
 	seelog.Infof("Removing Image: %s", imageID)
-	err := imageManager.client.RemoveImage(imageID, dockerapi.RemoveImageTimeout)
+	err := imageManager.client.RemoveImage(ctx, imageID, dockerapi.RemoveImageTimeout)
 	if err != nil {
 		if err.Error() == imageNotFoundForDeletionError {
 			seelog.Errorf("Image already removed from the instance: %v", err)

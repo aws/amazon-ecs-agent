@@ -16,6 +16,7 @@ package stats
 //go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -67,6 +68,8 @@ type Engine interface {
 // DockerStatsEngine is used to monitor docker container events and to report
 // utlization metrics of the same.
 type DockerStatsEngine struct {
+	ctx                        context.Context
+	stopEngine                 context.CancelFunc
 	client                     dockerapi.DockerClient
 	cluster                    string
 	containerInstanceArn       string
@@ -124,7 +127,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 
 // synchronizeState goes through all the containers on the instance to synchronize the state on agent start
 func (engine *DockerStatsEngine) synchronizeState() error {
-	listContainersResponse := engine.client.ListContainers(false, dockerapi.ListContainersTimeout)
+	listContainersResponse := engine.client.ListContainers(engine.ctx, false, dockerapi.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
 		return listContainersResponse.Error
 	}
@@ -153,7 +156,11 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 }
 
 // MustInit initializes fields of the DockerStatsEngine object.
-func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
+func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
+	derivedCtx, cancel := context.WithCancel(ctx)
+	engine.stopEngine = cancel
+
+	engine.ctx = derivedCtx
 	// TODO ensure that this is done only once per engine object
 	seelog.Info("Initializing stats engine")
 	engine.cluster = cluster
@@ -178,6 +185,17 @@ func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, clust
 
 	go engine.waitToStop()
 	return nil
+}
+
+// Shutdown cleans up the resources after the statas engine.
+func (engine *DockerStatsEngine) Shutdown() {
+	engine.stopEngine()
+	engine.Disable()
+}
+
+// Disable prevents this engine from managing any additional tasks.
+func (engine *DockerStatsEngine) Disable() {
+	engine.lock.Lock()
 }
 
 // waitToStop waits for the container change event stream close ans stop collection metrics
