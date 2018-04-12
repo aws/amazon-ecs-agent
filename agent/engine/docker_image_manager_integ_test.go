@@ -19,6 +19,7 @@ package engine
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -123,7 +124,9 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	}
 
 	// Call Image removal
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify top 2 LRU images are deleted from image manager
 	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState2ImageID)
@@ -241,7 +244,9 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	}
 
 	// Call Image removal
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify Image1 & Image3 are removed from ImageManager as they are beyond the minimumAge threshold
 	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState3ImageID)
@@ -395,7 +400,9 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
 	assert.NoError(t, err, "task3")
 
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify all the three images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1, imageID2, imageID3)
@@ -524,7 +531,9 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
 	assert.NoError(t, err, "task3")
 
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify all the images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1)
@@ -668,19 +677,23 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...str
 }
 
 func cleanupImagesHappy(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer("test2", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer("test3", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveImage(test1Image1Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test1Image2Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test1Image3Name, imageRemovalTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.client.RemoveContainer(ctx, "test1", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image3Name, imageRemovalTimeout)
 }
 
 func cleanupImagesThreshold(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer("test2", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer("test3", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveImage(test2Image1Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test2Image2Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test2Image3Name, imageRemovalTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.client.RemoveContainer(ctx, "test1", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image3Name, imageRemovalTimeout)
 }

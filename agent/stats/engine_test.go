@@ -53,6 +53,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.resolver = resolver
 	engine.client = mockDockerClient
 	engine.cluster = defaultCluster
@@ -173,6 +176,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.resolver = resolver
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -229,7 +235,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"))
 	taskEngine := &MockTaskEngine{}
-	err := statsEngine.MustInit(taskEngine, "", "")
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := statsEngine.MustInit(ctx, taskEngine, "", "")
 	if err == nil {
 		t.Error("Expected error in engine initialization, got nil")
 	}
@@ -256,6 +264,9 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 		Family:            "f1",
 	}, nil)
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	defer engine.removeAll()
 
 	engine.cluster = defaultCluster
@@ -285,6 +296,9 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
@@ -324,6 +338,9 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	}, nil)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
@@ -362,6 +379,9 @@ func TestMetricsDisabled(t *testing.T) {
 	}, nil)
 
 	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.resolver = resolver
 	engine.addAndStartStatsContainer(containerID)
 
@@ -380,9 +400,12 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
 	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
 	engine.resolver = resolver
 
-	client.EXPECT().ListContainers(false, gomock.Any()).Return(dockerapi.ListContainersResponse{
+	client.EXPECT().ListContainers(gomock.Any(), false, gomock.Any()).Return(dockerapi.ListContainersResponse{
 		DockerIDs: []string{containerID},
 	})
 	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {

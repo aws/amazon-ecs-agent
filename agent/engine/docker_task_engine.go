@@ -343,7 +343,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		seelog.Debugf("Task engine [%s]: found container potentially created while we were down: %s",
 			task.Arn, container.DockerName)
 		// Figure out the dockerid
-		describedContainer, err := engine.client.InspectContainer(container.DockerName, dockerapi.InspectContainerTimeout)
+		describedContainer, err := engine.client.InspectContainer(engine.ctx, container.DockerName, dockerapi.InspectContainerTimeout)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: could not find matching container for expected name [%s]: %v",
 				task.Arn, container.DockerName, err)
@@ -361,7 +361,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		return
 	}
 
-	currentState, metadata := engine.client.DescribeContainer(container.DockerID)
+	currentState, metadata := engine.client.DescribeContainer(engine.ctx, container.DockerID)
 	if metadata.Error != nil {
 		currentState = api.ContainerStopped
 		// If this is a Docker API error
@@ -406,7 +406,7 @@ func (engine *DockerTaskEngine) checkTaskState(task *api.Task) {
 		if !ok {
 			continue
 		}
-		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerID)
+		status, metadata := engine.client.DescribeContainer(engine.ctx, dockerContainer.DockerID)
 		engine.processTasks.RLock()
 		managedTask, ok := engine.managedTasks[task.Arn]
 		engine.processTasks.RUnlock()
@@ -839,7 +839,7 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		}
 	}
 
-	metadata := client.CreateContainer(config, hostConfig, dockerContainerName, dockerapi.CreateContainerTimeout)
+	metadata := client.CreateContainer(engine.ctx, config, hostConfig, dockerContainerName, dockerapi.CreateContainerTimeout)
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
 			task.Arn, container.Name, metadata.DockerID)
@@ -875,7 +875,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 			},
 		}
 	}
-	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
+	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
@@ -885,7 +885,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 		engine.cfg.ContainerMetadataEnabled &&
 		!container.IsInternal() {
 		go func() {
-			err := engine.metadataManager.Update(dockerContainer.DockerID, task, container.Name)
+			err := engine.metadataManager.Update(engine.ctx, dockerContainer.DockerID, task, container.Name)
 			if err != nil {
 				seelog.Warnf("Task engine [%s]: failed to update metadata file for container %s: %v",
 					task.Arn, container.Name, err)
@@ -970,7 +970,11 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	if !ok {
 		return nil, errors.New("engine: failed to find the pause container")
 	}
-	containerInspectOutput, err := engine.client.InspectContainer(pauseContainer.DockerName, dockerapi.InspectContainerTimeout)
+	containerInspectOutput, err := engine.client.InspectContainer(
+		engine.ctx,
+		pauseContainer.DockerName,
+		dockerapi.InspectContainerTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1009,8 +1013,9 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
-
-	return engine.client.StopContainer(dockerContainer.DockerID, dockerapi.StopContainerTimeout)
+	// timeout is defined by the const 'stopContainerTimeout' and the 'DockerStopTimeout' in the config
+	timeout := engine.cfg.DockerStopTimeout + dockerapi.StopContainerTimeout
+	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, timeout)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
@@ -1026,7 +1031,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
 
-	return engine.client.RemoveContainer(dockerContainer.DockerName, dockerapi.RemoveContainerTimeout)
+	return engine.client.RemoveContainer(engine.ctx, dockerContainer.DockerName, dockerapi.RemoveContainerTimeout)
 }
 
 // updateTaskUnsafe determines if a new transition needs to be applied to the
@@ -1119,7 +1124,7 @@ func (engine *DockerTaskEngine) Version() (string, error) {
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
-	err := engine.metadataManager.Update(cont.DockerID, task, cont.Container.Name)
+	err := engine.metadataManager.Update(engine.ctx, cont.DockerID, task, cont.Container.Name)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: failed to update metadata file for container %s: %v",
 			task.Arn, cont.Container.Name, err)

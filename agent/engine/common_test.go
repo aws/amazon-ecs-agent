@@ -153,8 +153,8 @@ func validateContainerRunWorkflow(t *testing.T,
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = task.Family
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = task.Version
 	dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
-	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx interface{}, config *docker.Config, y interface{}, containerName string, z time.Duration) {
 			assert.True(t, reflect.DeepEqual(dockerConfig, config),
 				"Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
 			// sleep5 task contains only one container. Just assign
@@ -167,8 +167,8 @@ func validateContainerRunWorkflow(t *testing.T,
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 	defaultConfig := config.DefaultConfig()
-	client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
-		func(id string, timeout time.Duration) {
+	client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Do(
+		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
 				eventStream <- createDockerEvent(api.ContainerRunning)

@@ -14,6 +14,7 @@
 package containermetadata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -79,7 +80,7 @@ func (status *MetadataStatus) UnmarshalText(text []byte) error {
 // The problems described above are indications dockerapi.DockerClient needs to be moved
 // outside the engine package
 type DockerMetadataClient interface {
-	InspectContainer(string, time.Duration) (*docker.Container, error)
+	InspectContainer(context.Context, string, time.Duration) (*docker.Container, error)
 }
 
 // Network is a struct that keeps track of metadata of a network interface

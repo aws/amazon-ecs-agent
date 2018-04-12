@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -77,7 +77,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 
 	if agent.cfg.ShouldLoadPauseContainerTarball() {
 		// Load the pause container's image from the 'disk'
-		if _, err := agent.pauseLoader.LoadImage(agent.cfg, agent.dockerClient); err != nil {
+		if _, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient); err != nil {
 			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
 				// If the pause container's image tarball doesn't exist or if the
 				// invocation is done for an unsupported platform, we cannot recover.
