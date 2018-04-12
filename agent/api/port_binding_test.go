@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"testing"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -112,7 +113,7 @@ func TestPortBindingErrors(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected error converting port binding pair #%v", i)
 		}
-		namedErr, ok := err.(NamedError)
+		namedErr, ok := err.(apierrors.NamedError)
 		if !ok {
 			t.Errorf("Expected err to implement NamedError")
 		}

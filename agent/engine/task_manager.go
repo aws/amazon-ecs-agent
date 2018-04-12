@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -39,7 +41,7 @@ const (
 	// credentials from acs, after the timeout it will check the credentials manager
 	// and start processing the task or start another round of waiting
 	waitForPullCredentialsTimeout         = 1 * time.Minute
-	steadyStateTaskVerifyInterval         = 5 * time.Minute
+	defaultTaskSteadyStatePollInterval    = 5 * time.Minute
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
@@ -58,7 +60,7 @@ type acsTaskUpdate struct {
 
 type dockerContainerChange struct {
 	container *api.Container
-	event     DockerContainerChangeEvent
+	event     dockerapi.DockerContainerChangeEvent
 }
 
 type acsTransition struct {
@@ -98,9 +100,7 @@ type managedTask struct {
 	*api.Task
 	ctx    context.Context
 	cancel context.CancelFunc
-	// waitSteadyCancel is the function to timeout the context for waiting for
-	// task steady state of which timeout duration is `steadyStateTaskVerifyInterval`
-	waitSteadyCancel   context.CancelFunc
+
 	engine             *DockerTaskEngine
 	cfg                *config.Config
 	saver              statemanager.Saver
@@ -125,8 +125,15 @@ type managedTask struct {
 	_time     ttime.Time
 	_timeOnce sync.Once
 
+	// steadyStatePollInterval is the duration that a managed task waits
+	// once the task gets into steady state before polling the state of all of
+	// the task's containers to re-evaluate if the task is still in steady state
+	// This is set to defaultTaskSteadyStatePollInterval in production code.
+	// This can be used by tests that are looking to ensure that the steady state
+	// verification logic gets executed to set it to a low interval
+	steadyStatePollInterval time.Duration
+
 	resource resources.Resource
-	lock     sync.RWMutex
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -145,10 +152,11 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:              engine.saver,
-		credentialsManager: engine.credentialsManager,
-		cniClient:          engine.cniClient,
-		taskStopWG:         engine.taskStopGroup,
+		saver:                   engine.saver,
+		credentialsManager:      engine.credentialsManager,
+		cniClient:               engine.cniClient,
+		taskStopWG:              engine.taskStopGroup,
+		steadyStatePollInterval: engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -278,40 +286,16 @@ func (mtask *managedTask) waitForHostResources() {
 // waitSteady waits for a task to leave steady-state by waiting for a new
 // event, or a timeout.
 func (mtask *managedTask) waitSteady() {
-	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
+	seelog.Infof("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, mtask.steadyStatePollInterval)
 	defer cancel()
-	mtask.setWaitSteadyCheckCancelFunc(cancel)
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
 		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
-		go mtask.engine.CheckTaskState(mtask.Task)
+		go mtask.engine.checkTaskState(mtask.Task)
 	}
-}
-
-// cancelSteadyStateWait checks if the task is waiting for steady state and stop
-// the waiting if it it. This is currently only used in test
-func (mtask *managedTask) cancelSteadyStateWait() error {
-	mtask.lock.Lock()
-	defer mtask.lock.Unlock()
-
-	if mtask.waitSteadyCancel == nil {
-		return taskNotWaitForSteadyStateError
-	}
-
-	mtask.waitSteadyCancel()
-	// reset the cancel func to nil to indicate the task isn't waiting for steady state
-	mtask.waitSteadyCancel = nil
-	return nil
-}
-
-// setWaitSteadyCheckCancelFunc record the steadyStateCheck cancel function in mtask
-func (mtask *managedTask) setWaitSteadyCheckCancelFunc(cancel context.CancelFunc) {
-	mtask.lock.Lock()
-	defer mtask.lock.Unlock()
-	mtask.waitSteadyCancel = cancel
 }
 
 // steadyState returns if the task is in a steady state. Steady state is when task's desired
@@ -469,6 +453,22 @@ func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container
 		mtask.Arn, cont.Name, event.String())
 }
 
+func (mtask *managedTask) emitDockerContainerChange(change dockerContainerChange) {
+	if mtask.ctx.Err() != nil {
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to closed context: %v",
+			mtask.Arn, mtask.ctx.Err())
+	}
+	mtask.dockerMessages <- change
+}
+
+func (mtask *managedTask) emitACSTransition(transition acsTransition) {
+	if mtask.ctx.Err() != nil {
+		seelog.Infof("Managed task [%s]: unable to emit acs transition due to closed context: %v",
+			mtask.Arn, mtask.ctx.Err())
+	}
+	mtask.acsMessages <- transition
+}
+
 func (mtask *managedTask) isContainerFound(container *api.Container) bool {
 	found := false
 	for _, c := range mtask.Containers {
@@ -537,7 +537,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	container := containerChange.container
 	event := containerChange.event
 	if container.ApplyingError == nil {
-		container.ApplyingError = api.NewNamedError(event.Error)
+		container.ApplyingError = apierrors.NewNamedError(event.Error)
 	}
 	switch event.Status {
 	// event.Status is the desired container transition from container's known status
@@ -569,7 +569,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(api.ContainerStopped)
 		errorName := event.Error.ErrorName()
-		if errorName == dockerTimeoutErrorName || errorName == cannotInspectContainerErrorName {
+		if errorName == dockerapi.DockerTimeoutErrorName || errorName == dockerapi.CannotInspectContainerErrorName {
 			// If there's an error with inspecting the container or in case of timeout error,
 			// we'll also assume that the container has transitioned to RUNNING and issue
 			// a stop. See #1043 for details
@@ -585,7 +585,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 // handleContainerStoppedTransitionError handles an error when transitioning a container to
 // STOPPED. It returns a boolean indicating whether the tak can continue with updating its
 // state
-func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerContainerChangeEvent,
+func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.DockerContainerChangeEvent,
 	container *api.Container,
 	currentKnownStatus api.ContainerStatus) bool {
 	// If we were trying to transition to stopped and had a timeout error
@@ -595,9 +595,9 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerCont
 	// responsible for the transition. Alternatively, the steadyState check
 	// could also trigger the progress and have another go at stopping the
 	// container
-	if event.Error.ErrorName() == dockerTimeoutErrorName {
+	if event.Error.ErrorName() == dockerapi.DockerTimeoutErrorName {
 		seelog.Infof("Managed task [%s]: '%s' error stopping container [%s]. Ignoring state change: %v",
-			mtask.Arn, dockerTimeoutErrorName, container.Name, event.Error.Error())
+			mtask.Arn, dockerapi.DockerTimeoutErrorName, container.Name, event.Error.Error())
 		container.SetKnownStatus(currentKnownStatus)
 		return false
 	}
@@ -718,7 +718,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 			go func(cont *api.Container, status api.ContainerStatus) {
 				mtask.dockerMessages <- dockerContainerChange{
 					container: cont,
-					event: DockerContainerChangeEvent{
+					event: dockerapi.DockerContainerChangeEvent{
 						Status: status,
 					},
 				}
@@ -876,38 +876,26 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks
-	handleCleanupDone := make(chan struct{})
 	// discard events while the task is being removed from engine state
-	go mtask.discardEventsUntil(handleCleanupDone)
+	go mtask.discardEvents()
 	mtask.engine.sweepTask(mtask.Task)
-	mtask.engine.deleteTask(mtask.Task, handleCleanupDone)
+	mtask.engine.deleteTask(mtask.Task)
 
-	// Cleanup any leftover messages before closing their channels. No new
-	// messages possible because we deleted ourselves from managedTasks, so this
-	// removes all stale ones
-	mtask.discardPendingMessages()
-
-	close(mtask.dockerMessages)
-	close(mtask.acsMessages)
+	// The last thing to do here is to cancel the context, which should cancel
+	// all outstanding go routines associated with this managed task.
+	mtask.cancel()
 }
 
-func (mtask *managedTask) discardEventsUntil(done chan struct{}) {
+func (mtask *managedTask) discardEvents() {
 	for {
 		select {
 		case <-mtask.dockerMessages:
 		case <-mtask.acsMessages:
-		case <-done:
-			return
-		}
-	}
-}
-
-func (mtask *managedTask) discardPendingMessages() {
-	for {
-		select {
-		case <-mtask.dockerMessages:
-		case <-mtask.acsMessages:
-		default:
+		case <-mtask.ctx.Done():
+			// The task has been cancelled. No need to process any more
+			// events
+			close(mtask.dockerMessages)
+			close(mtask.acsMessages)
 			return
 		}
 	}

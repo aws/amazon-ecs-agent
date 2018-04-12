@@ -21,7 +21,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -29,5 +29,5 @@ var (
 	testImageName = "amazon/amazon-ecs-stats:make"
 	endpoint      = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), "npipe:////./pipe/docker_engine")
 	client, _     = docker.NewClient(endpoint)
-	clientFactory = dockerclient.NewFactory(endpoint)
+	clientFactory = clientfactory.NewFactory(endpoint)
 )

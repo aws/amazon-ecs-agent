@@ -23,12 +23,12 @@ import (
 	"context"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -40,7 +40,7 @@ func TestCapabilities(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
@@ -136,7 +136,7 @@ func TestCapabilitiesECR(t *testing.T) {
 	conf := &config.Config{}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
@@ -177,7 +177,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
@@ -210,7 +210,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	conf := &config.Config{
 		TaskIAMRoleEnabled: true,
 	}
@@ -249,7 +249,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	conf := &config.Config{
 		TaskIAMRoleEnabledForNetworkHost: true,
 	}
@@ -288,7 +288,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	conf := &config.Config{
 		TaskIAMRoleEnabledForNetworkHost: true,
 	}
@@ -327,7 +327,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	conf := &config.Config{
@@ -396,7 +396,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	conf := &config.Config{
 		OverrideAWSLogsExecutionRole: true,
@@ -440,7 +440,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	gomock.InOrder(
@@ -479,7 +479,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.DefaultEnabled}
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	gomock.InOrder(
@@ -518,7 +518,7 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
@@ -542,7 +542,7 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -579,7 +579,7 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 	defer ctrl.Finish()
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
@@ -610,7 +610,7 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	defer ctrl.Finish()
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
-	client := engine.NewMockDockerClient(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),

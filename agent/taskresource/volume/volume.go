@@ -14,7 +14,7 @@
 package volume
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/cihub/seelog"
 
 	"encoding/json"
@@ -24,7 +24,7 @@ import (
 
 // VolumeResource represents docker volume resource
 type VolumeResource struct {
-	Name                string
+	Name string
 	// mountpoint is a read-only field returned from docker
 	mountpoint          string
 	Driver              string
@@ -33,7 +33,7 @@ type VolumeResource struct {
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe VolumeStatus
 	knownStatusUnsafe   VolumeStatus
-	client              engine.DockerClient
+	client              dockerapi.DockerClient
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -43,14 +43,14 @@ func NewVolumeResource(name string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
-	client engine.DockerClient) *VolumeResource {
+	client dockerapi.DockerClient) *VolumeResource {
 
 	return &VolumeResource{
-		Name: name,
-		Driver: driver,
+		Name:       name,
+		Driver:     driver,
 		DriverOpts: driverOptions,
-		Labels: labels,
-		client: client,
+		Labels:     labels,
+		client:     client,
 	}
 }
 
@@ -121,6 +121,7 @@ func (vol *VolumeResource) GetMountPoint() string {
 
 	return vol.mountpoint
 }
+
 // Create performs resource creation
 func (vol *VolumeResource) Create() error {
 	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.Driver)
@@ -129,7 +130,7 @@ func (vol *VolumeResource) Create() error {
 		vol.Driver,
 		vol.DriverOpts,
 		vol.Labels,
-		engine.CreateVolumeTimeout)
+		dockerapi.CreateVolumeTimeout)
 
 	if volumeResponse.Error != nil {
 		return volumeResponse.Error
@@ -141,9 +142,9 @@ func (vol *VolumeResource) Create() error {
 }
 
 // Cleanup performs resource cleanup
-func  (vol *VolumeResource) Cleanup() error {
+func (vol *VolumeResource) Cleanup() error {
 	seelog.Debugf("Removing volume with name %s", vol.Name)
-	err := vol.client.RemoveVolume(vol.Name, engine.RemoveVolumeTimeout)
+	err := vol.client.RemoveVolume(vol.Name, dockerapi.RemoveVolumeTimeout)
 
 	if err != nil {
 		return err
