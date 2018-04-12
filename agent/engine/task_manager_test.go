@@ -29,8 +29,10 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
@@ -964,8 +966,8 @@ func TestCleanupTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1020,8 +1022,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1088,8 +1090,8 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -1144,8 +1146,8 @@ func TestCleanupTaskENIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1272,8 +1274,8 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -1328,8 +1330,8 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 
@@ -1388,8 +1390,8 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 

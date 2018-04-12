@@ -33,8 +33,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -153,7 +153,7 @@ func (m *mockSessionResources) getSendCredentialsURLParameter() string {
 func TestACSWSURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 
 	taskEngine.EXPECT().Version().Return("Docker version result", nil)
 
@@ -196,7 +196,7 @@ func TestACSWSURL(t *testing.T) {
 func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -334,7 +334,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -397,7 +397,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -459,7 +459,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -519,7 +519,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -587,7 +587,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -643,7 +643,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -694,7 +694,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -763,7 +763,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 func TestConnectionIsClosedOnIdle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
@@ -815,7 +815,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -898,7 +898,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1019,7 +1019,7 @@ func TestACSSessionResourcesCorrectlySetsSendCredentials(t *testing.T) {
 func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	stateManager := statemanager.NewNoopStateManager()
 	ctx, cancel := context.WithCancel(context.Background())
