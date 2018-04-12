@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -347,11 +348,21 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			if handler.isInvalidParameterException(err) {
+				// Remove the event when its parameters are invalid to reduce the redundant API call
+				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
+				taskEvents.events.Remove(eventToSubmit)
+			}
 			return false, err
 		}
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			if handler.isInvalidParameterException(err) {
+				// Remove the event when its parameters are invalid to reduce the redundant API call
+				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
+				taskEvents.events.Remove(eventToSubmit)
+			}
 			return false, err
 		}
 	} else {
@@ -381,4 +392,8 @@ func (handler *TaskHandler) getTasksToEventsLen() int {
 	defer handler.lock.RUnlock()
 
 	return len(handler.tasksToEvents)
+}
+
+func (handler *TaskHandler) isInvalidParameterException(err error) bool {
+	return utils.IsAwsErrAndEqualToEcsErrCode(err, ecs.ErrCodeInvalidParameterException)
 }

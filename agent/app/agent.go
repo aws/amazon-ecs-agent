@@ -14,10 +14,9 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
-
-	"context"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -46,9 +45,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
@@ -468,7 +467,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return err
 		}
-		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecs.ErrCodeInvalidParameterException {
+		if utils.IsAwsErrAndEqualToEcsErrCode(err, ecs.ErrCodeInvalidParameterException) {
 			seelog.Critical("Instance registration attempt with an invalid parameter")
 			return err
 		}
