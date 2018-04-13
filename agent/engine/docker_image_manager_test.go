@@ -998,8 +998,8 @@ func TestGetImageStateFromImageName(t *testing.T) {
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
-	imageState := imageManager.GetImageStateFromImageName(container.Image)
-	if imageState == nil {
+	_, ok := imageManager.GetImageStateFromImageName(container.Image)
+	if !ok {
 		t.Error("Error retrieving image state by image name")
 	}
 }
@@ -1022,8 +1022,8 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
-	imageState := imageManager.GetImageStateFromImageName("noSuchImage")
-	if imageState != nil {
+	_, ok := imageManager.GetImageStateFromImageName("noSuchImage")
+	if ok {
 		t.Error("Incorrect image state retrieved by image name")
 	}
 }
@@ -1094,4 +1094,18 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 	close(ok)
 	waitGroup.Wait()
 	require.Equal(t, 0, len(imageManager.imageStates))
+}
+
+func TestImageCleanupProcessNotStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	cfg := defaultTestConfig()
+	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
+	imageManager := NewImageManager(cfg, client, dockerstate.NewTaskEngineState())
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.StartImageCleanupProcess(ctx)
+	// Nothing should happen.
 }

@@ -45,9 +45,13 @@ var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), docker
 func isDockerRunning() bool { return true }
 
 func createTestContainer() *api.Container {
+	return createTestContainerWithImageAndName("microsoft/windowsservercore:latest", "windows")
+}
+
+func createTestContainerWithImageAndName(image string, name string) *api.Container {
 	return &api.Container{
-		Name:                "windows",
-		Image:               "microsoft/windowsservercore:latest",
+		Name:                name,
+		Image:               image,
 		Essential:           true,
 		DesiredStatusUnsafe: api.ContainerRunning,
 		CPU:                 512,

@@ -51,18 +51,19 @@ const (
 	//   e) Deprecate 'SteadyStateDependencies' in favor of 'TransitionDependencySet'
 	// 7)
 	//   a) Add 'MetadataUpdated' field to 'api.Container'
-	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in `api.ENI`
+	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in 'api.ENI'
 	// 8)
-	//   a) Add 'UseExecutionRole' in `api.ECRAuthData`
-	//   b) Add `executionCredentialsID` in `api.Task`
+	//   a) Add 'UseExecutionRole' in 'api.ECRAuthData'
+	//   b) Add 'executionCredentialsID' in 'api.Task'
 	//   c) Add 'LogsAuthStrategy' field to 'api.Container'
 	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
 	// 9) Add 'ipToTask' map to state file
 	// 10) Add 'healthCheckType' field in 'api.Container'
 	// 11)
 	//  a) Add 'PrivateDNSName' field to 'api.ENI'
-	//  b)Remove `AppliedStatus` field form 'api.Container'
-	ECSDataVersion = 11
+	//  b)Remove 'AppliedStatus' field from 'api.Container'
+	// 12) Add 'PullSucceeded' field to 'ImageState'
+	ECSDataVersion = 12
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

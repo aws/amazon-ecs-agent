@@ -226,10 +226,10 @@ func (mtask *managedTask) overseeTask() {
 	}
 	// We only break out of the above if this task is known to be stopped. Do
 	// onetime cleanup here, including removing the task after a timeout
-	seelog.Debugf("Managed task [%s]: Task has reached stopped. Waiting for container cleanup", mtask.Arn)
+	seelog.Debugf("Managed task [%s]: task has reached stopped. Waiting for container cleanup", mtask.Arn)
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
-		seelog.Debugf("Managed task [%s]: Marking done for this sequence: %d",
+		seelog.Debugf("Managed task [%s]: marking done for this sequence: %d",
 			mtask.Arn, mtask.StopSequenceNumber)
 		mtask.taskStopWG.Done(mtask.StopSequenceNumber)
 	}
@@ -543,10 +543,26 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	// event.Status is the desired container transition from container's known status
 	// (* -> event.Status)
 	case api.ContainerPulled:
-		// Container's desired transition was to 'PULLED'. A failure to pull might
-		// not be fatal if e.g. the image already exists.
-		seelog.Errorf("Managed task [%s]: Error while pulling container %s, will try to run anyway: %v",
-			mtask.Arn, container.Name, event.Error)
+		// If the agent pull behavior is always or once, we receive the error because
+		// the image pull fails, the task should fail. If we don't fail task here,
+		// then the cached image will probably be used for creating container, and we
+		// don't want to use cached image for both cases.
+		if mtask.cfg.ImagePullBehavior == config.ImagePullAlwaysBehavior ||
+			mtask.cfg.ImagePullBehavior == config.ImagePullOnceBehavior {
+			seelog.Errorf("Managed task [%s]: error while pulling image %s for container %s , moving task to STOPPED: %v",
+				mtask.Arn, container.Image, container.Name, event.Error)
+			// The task should be stopped regardless of whether this container is
+			// essential or non-essential.
+			mtask.SetDesiredStatus(api.TaskStopped)
+			return false
+		}
+		// If the agent pull behavior is prefer-cached, we receive the error because
+		// the image pull fails and there is no cached image in local, we don't make
+		// the task fail here, will let create container handle it instead.
+		// If the agent pull behavior is default, use local image cache directly,
+		// assuming it exists.
+		seelog.Errorf("Managed task [%s]: error while pulling container %s and image %s, will try to run anyway: %v",
+			mtask.Arn, container.Name, container.Image, event.Error)
 		// proceed anyway
 		return true
 	case api.ContainerStopped:
@@ -556,7 +572,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 		fallthrough
 	case api.ContainerCreated:
 		// No need to explicitly stop containers if this is a * -> NONE/CREATED transition
-		seelog.Warnf("Managed task [%s]: Error creating container [%s]; marking its desired status as STOPPED: %v",
+		seelog.Warnf("Managed task [%s]: error creating container [%s]; marking its desired status as STOPPED: %v",
 			mtask.Arn, container.Name, event.Error)
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(api.ContainerStopped)
@@ -564,7 +580,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	default:
 		// If this is a * -> RUNNING / RESOURCES_PROVISIONED transition, we need to stop
 		// the container.
-		seelog.Warnf("Managed task [%s]: Error starting/provisioning container[%s]; marking its desired status as STOPPED: %v",
+		seelog.Warnf("Managed task [%s]: error starting/provisioning container[%s]; marking its desired status as STOPPED: %v",
 			mtask.Arn, container.Name, event.Error)
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(api.ContainerStopped)
@@ -573,7 +589,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 			// If there's an error with inspecting the container or in case of timeout error,
 			// we'll also assume that the container has transitioned to RUNNING and issue
 			// a stop. See #1043 for details
-			seelog.Warnf("Managed task [%s]: Forcing container [%s] to stop",
+			seelog.Warnf("Managed task [%s]: forcing container [%s] to stop",
 				mtask.Arn, container.Name)
 			go mtask.engine.transitionContainer(mtask.Task, container, api.ContainerStopped)
 		}
@@ -605,7 +621,7 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.
 	// reset the known status to the current status and return
 	cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
 	if ok && cannotStopContainerError.IsRetriableError() {
-		seelog.Infof("Managed task [%s]: Error stopping the container [%s]. Ignoring state change: %v",
+		seelog.Infof("Managed task [%s]: error stopping the container [%s]. Ignoring state change: %v",
 			mtask.Arn, container.Name, cannotStopContainerError.Error())
 		container.SetKnownStatus(currentKnownStatus)
 		return false
@@ -808,7 +824,7 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 	if mtask.GetDesiredStatus().Terminal() {
 		// Ack, really bad. We want it to stop but the containers don't think
 		// that's possible. let's just break out and hope for the best!
-		seelog.Criticalf("Managed task [%s]: The state is so bad that we're just giving up on it", mtask.Arn)
+		seelog.Criticalf("Managed task [%s]: the state is so bad that we're just giving up on it", mtask.Arn)
 		mtask.SetKnownStatus(api.TaskStopped)
 		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
@@ -867,7 +883,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// wait for api.TaskStopped to be sent
 	ok := mtask.waitForStopReported()
 	if !ok {
-		seelog.Errorf("Managed task [%s]: Aborting cleanup for task as it is not reported as stopped. SentStatus: %s",
+		seelog.Errorf("Managed task [%s]: aborting cleanup for task as it is not reported as stopped. SentStatus: %s",
 			mtask.Arn, mtask.GetSentStatus().String())
 		return
 	}
@@ -914,7 +930,7 @@ func (mtask *managedTask) waitForStopReported() bool {
 				taskStopped = true
 				break
 			}
-			seelog.Warnf("Managed task [%s]: Blocking cleanup until the task has been reported stopped. SentStatus: %s (%d/%d)",
+			seelog.Warnf("Managed task [%s]: blocking cleanup until the task has been reported stopped. SentStatus: %s (%d/%d)",
 				mtask.Arn, sentStatus.String(), i+1, _maxStoppedWaitTimes)
 			mtask._time.Sleep(_stoppedSentWaitInterval)
 		}

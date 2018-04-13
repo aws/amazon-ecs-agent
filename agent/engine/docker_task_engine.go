@@ -638,18 +638,59 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	// Record the pullStoppedAt timestamp
-	defer func() {
-		timestamp := engine.time().Now()
-		task.SetPullStoppedAt(timestamp)
-	}()
+	if engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.Arn) {
+		// Record the pullStoppedAt timestamp
+		defer func() {
+			timestamp := engine.time().Now()
+			task.SetPullStoppedAt(timestamp)
+		}()
 
-	if engine.enableConcurrentPull {
-		seelog.Infof("Task engine [%s]: pulling container %s concurrently", task.Arn, container.Name)
-		return engine.concurrentPull(task, container)
+		if engine.enableConcurrentPull {
+			seelog.Infof("Task engine [%s]: pulling container %s concurrently", task.Arn, container.Name)
+			return engine.concurrentPull(task, container)
+		}
+		seelog.Infof("Task engine [%s]: pulling container %s serially", task.Arn, container.Name)
+		return engine.serialPull(task, container)
 	}
-	seelog.Infof("Task engine [%s]: pulling container %s serially", task.Arn, container.Name)
-	return engine.serialPull(task, container)
+
+	// No pull image is required, just update container reference and use cached image.
+	engine.updateContainerReference(false, container, task.Arn)
+	// Return the metadata without any error
+	return dockerapi.DockerContainerMetadata{Error: nil}
+}
+
+// imagePullRequired returns true if pulling image is required, or return false if local image cache
+// should be used, by inspecting the agent pull behavior variable defined in config. The caller has
+// to make sure the container passed in is not an internal container.
+func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.ImagePullBehaviorType,
+	container *api.Container,
+	taskArn string) bool {
+	switch imagePullBehavior {
+	case config.ImagePullOnceBehavior:
+		// If this image has been pulled successfully before, don't pull the image,
+		// otherwise pull the image as usual, regardless whether the image exists or not
+		// (the image can be prepopulated with the AMI and never be pulled).
+		imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
+		if ok && imageState.GetPullSucceeded() {
+			seelog.Infof("Task engine [%s]: image %s has been pulled once, not pulling it again",
+				taskArn, container.Image)
+			return false
+		}
+		return true
+	case config.ImagePullPreferCachedBehavior:
+		// If the behavior is prefer cached, don't pull if we found cached image
+		// by inspecting the image.
+		_, err := engine.client.InspectImage(container.Image)
+		if err != nil {
+			return true
+		}
+		seelog.Infof("Task engine [%s]: found cached image %s, use it directly for container %s",
+			taskArn, container.Image, container.Name)
+		return false
+	default:
+		// Need to pull the image for always and default agent pull behavior
+		return true
+	}
 }
 
 func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
@@ -736,16 +777,23 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	if container.IsInternal() {
 		return metadata
 	}
+	pullSucceeded := metadata.Error == nil
+	engine.updateContainerReference(pullSucceeded, container, task.Arn)
+	return metadata
+}
 
+func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *api.Container, taskArn string) {
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Unable to add container reference to image state: %v",
-			task.Arn, err)
+			taskArn, err)
 	}
-	imageState := engine.imageManager.GetImageStateFromImageName(container.Image)
+	imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
+	if ok && pullSucceeded {
+		imageState.SetPullSucceeded(true)
+	}
 	engine.state.AddImageState(imageState)
 	engine.saver.Save()
-	return metadata
 }
 
 func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {

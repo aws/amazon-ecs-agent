@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -43,53 +44,53 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 
-	"context"
-
 	"github.com/golang/mock/gomock"
 )
 
 func TestHandleEventError(t *testing.T) {
 	testCases := []struct {
-		Name                         string
-		EventStatus                  api.ContainerStatus
-		CurrentKnownStatus           api.ContainerStatus
-		Error                        apierrors.NamedError
-		ExpectedKnownStatusSet       bool
-		ExpectedKnownStatus          api.ContainerStatus
-		ExpectedDesiredStatusStopped bool
-		ExpectedOK                   bool
+		Name                                  string
+		EventStatus                           api.ContainerStatus
+		CurrentContainerKnownStatus           api.ContainerStatus
+		ImagePullBehavior                     config.ImagePullBehaviorType
+		Error                                 apierrors.NamedError
+		ExpectedContainerKnownStatusSet       bool
+		ExpectedContainerKnownStatus          api.ContainerStatus
+		ExpectedContainerDesiredStatusStopped bool
+		ExpectedTaskDesiredStatusStopped      bool
+		ExpectedOK                            bool
 	}{
 		{
-			Name:               "Stop timed out",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
-			Error:              &dockerapi.DockerTimeoutError{},
-			ExpectedKnownStatusSet: true,
-			ExpectedKnownStatus:    api.ContainerRunning,
-			ExpectedOK:             false,
+			Name:                        "Stop timed out",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet: true,
+			ExpectedContainerKnownStatus:    api.ContainerRunning,
+			ExpectedOK:                      false,
 		},
 		{
-			Name:               "Retriable error with stop",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
+			Name:                        "Retriable error with stop",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
 			Error: &dockerapi.CannotStopContainerError{
 				FromError: errors.New(""),
 			},
-			ExpectedKnownStatusSet: true,
-			ExpectedKnownStatus:    api.ContainerRunning,
-			ExpectedOK:             false,
+			ExpectedContainerKnownStatusSet: true,
+			ExpectedContainerKnownStatus:    api.ContainerRunning,
+			ExpectedOK:                      false,
 		},
 		{
-			Name:               "Unretriable error with Stop",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
+			Name:                        "Unretriable error with Stop",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
 			Error: &dockerapi.CannotStopContainerError{
 				FromError: &docker.ContainerNotRunning{},
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerStopped,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   true,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerStopped,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            true,
 		},
 		{
 			Name:        "Pull failed",
@@ -98,65 +99,76 @@ func TestHandleEventError(t *testing.T) {
 			ExpectedOK:  true,
 		},
 		{
-			Name:               "Container vanished betweeen pull and running",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerPulled,
-			Error:              &ContainerVanishedError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Container vanished betweeen pull and running",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerPulled,
+			Error: &ContainerVanishedError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Inspect failed during start",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerCreated,
+			Name:                        "Inspect failed during start",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerCreated,
 			Error: &dockerapi.CannotInspectContainerError{
 				FromError: errors.New("error"),
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerCreated,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerCreated,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Start timed out",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerCreated,
-			Error:              &dockerapi.DockerTimeoutError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerCreated,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Start timed out",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerCreated,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerCreated,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Inspect failed during create",
-			EventStatus:        api.ContainerCreated,
-			CurrentKnownStatus: api.ContainerPulled,
+			Name:                        "Inspect failed during create",
+			EventStatus:                 api.ContainerCreated,
+			CurrentContainerKnownStatus: api.ContainerPulled,
 			Error: &dockerapi.CannotInspectContainerError{
 				FromError: errors.New("error"),
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Create timed out",
-			EventStatus:        api.ContainerCreated,
-			CurrentKnownStatus: api.ContainerPulled,
-			Error:              &dockerapi.DockerTimeoutError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Create timed out",
+			EventStatus:                 api.ContainerCreated,
+			CurrentContainerKnownStatus: api.ContainerPulled,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
+		},
+		{
+			Name:        "Pull image fails and task fails",
+			EventStatus: api.ContainerPulled,
+			Error: &dockerapi.CannotPullContainerError{
+				FromError: errors.New("error"),
+			},
+			ImagePullBehavior:                config.ImagePullAlwaysBehavior,
+			ExpectedContainerKnownStatusSet:  false,
+			ExpectedTaskDesiredStatusStopped: true,
+			ExpectedOK:                       false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			container := &api.Container{
-				KnownStatusUnsafe: tc.CurrentKnownStatus,
+				KnownStatusUnsafe: tc.CurrentContainerKnownStatus,
 			}
 			containerChange := dockerContainerChange{
 				container: container,
@@ -172,18 +184,24 @@ func TestHandleEventError(t *testing.T) {
 					Arn: "task1",
 				},
 				engine: &DockerTaskEngine{},
+				cfg:    &config.Config{ImagePullBehavior: tc.ImagePullBehavior},
 			}
-			ok := mtask.handleEventError(containerChange, tc.CurrentKnownStatus)
+			ok := mtask.handleEventError(containerChange, tc.CurrentContainerKnownStatus)
 			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")
-			if tc.ExpectedKnownStatusSet {
+			if tc.ExpectedContainerKnownStatusSet {
 				containerKnownStatus := containerChange.container.GetKnownStatus()
-				assert.Equal(t, tc.ExpectedKnownStatus, containerKnownStatus,
-					"expected known status %s != %s", tc.ExpectedKnownStatus.String(), containerKnownStatus.String())
+				assert.Equal(t, tc.ExpectedContainerKnownStatus, containerKnownStatus,
+					"expected container known status %s != %s", tc.ExpectedContainerKnownStatus.String(), containerKnownStatus.String())
 			}
-			if tc.ExpectedDesiredStatusStopped {
+			if tc.ExpectedContainerDesiredStatusStopped {
 				containerDesiredStatus := containerChange.container.GetDesiredStatus()
 				assert.Equal(t, api.ContainerStopped, containerDesiredStatus,
-					"desired status %s != %s", api.ContainerStopped.String(), containerDesiredStatus.String())
+					"desired container status %s != %s", api.ContainerStopped.String(), containerDesiredStatus.String())
+			}
+			if tc.ExpectedTaskDesiredStatusStopped {
+				taskDesiredStatus := mtask.GetDesiredStatus()
+				assert.Equal(t, api.TaskStopped, taskDesiredStatus,
+					"desired task status %s != %s", api.TaskStopped.String(), taskDesiredStatus.String())
 			}
 			assert.Equal(t, tc.Error.ErrorName(), containerChange.container.ApplyingError.ErrorName())
 		})

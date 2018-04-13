@@ -65,7 +65,7 @@ const (
 	// image cleanup.
 	DefaultNumImagesToDeletePerCycle = 5
 
-	//DefaultImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
+	// DefaultImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
 	// has been pulled before it can be deleted.
 	DefaultImageDeletionAge = 1 * time.Hour
 
@@ -100,6 +100,25 @@ const (
 
 	// DefaultTaskMetadataBurstRate is set to handle 60 burst requests at once
 	DefaultTaskMetadataBurstRate = 60
+)
+
+const (
+	// ImagePullDefaultBehavior specifies the behavior that if an image pull API call fails,
+	// agent tries to start from the Docker image cache anyway, assuming that the image has not changed.
+	ImagePullDefaultBehavior ImagePullBehaviorType = iota
+
+	// ImagePullAlwaysBehavior specifies the behavior that if an image pull API call fails,
+	// the task fails instead of using cached image.
+	ImagePullAlwaysBehavior
+
+	// ImagePullOnceBehavior specifies the behavior that agent will only attempt to pull
+	// the same image once, once an image is pulled, local image cache will be used
+	// for all the containers.
+	ImagePullOnceBehavior
+
+	// ImagePullPreferCachedBehavior specifies the behavior that agent will only attempt to pull
+	// the image if there is no cached image.
+	ImagePullPreferCachedBehavior
 )
 
 var (
@@ -386,6 +405,7 @@ func environmentConfig() (Config, error) {
 		MinimumImageDeletionAge:          parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
 		ImageCleanupInterval:             parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
 		NumImagesToDeletePerCycle:        parseNumImagesToDeletePerCycle(),
+		ImagePullBehavior:                parseImagePullBehavior(),
 		InstanceAttributes:               instanceAttributes,
 		CNIPluginsPath:                   os.Getenv("ECS_CNI_PLUGINS_PATH"),
 		AWSVPCBlockInstanceMetdata:       utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),
