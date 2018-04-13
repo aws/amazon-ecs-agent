@@ -117,6 +117,22 @@ func parseNumImagesToDeletePerCycle() int {
 	return numImagesToDeletePerCycle
 }
 
+func parseImagePullBehavior() ImagePullBehaviorType {
+	ImagePullBehaviorString := os.Getenv("ECS_IMAGE_PULL_BEHAVIOR")
+	switch ImagePullBehaviorString {
+	case "always":
+		return ImagePullAlwaysBehavior
+	case "once":
+		return ImagePullOnceBehavior
+	case "prefer-cached":
+		return ImagePullPreferCachedBehavior
+	default:
+		// Use the default image pull behavior when ECS_IMAGE_PULL_BEHAVIOR is
+		// "default" or not valid
+		return ImagePullDefaultBehavior
+	}
+}
+
 func parseInstanceAttributes(errs []error) (map[string]string, []error) {
 	var instanceAttributes map[string]string
 	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")

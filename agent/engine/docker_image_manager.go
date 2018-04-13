@@ -14,12 +14,11 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
-
-	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -41,7 +40,7 @@ type ImageManager interface {
 	RecordContainerReference(container *api.Container) error
 	RemoveContainerReferenceFromImageState(container *api.Container) error
 	AddAllImageStates(imageStates []*image.ImageState)
-	GetImageStateFromImageName(containerImageName string) *image.ImageState
+	GetImageStateFromImageName(containerImageName string) (*image.ImageState, bool)
 	StartImageCleanupProcess(ctx context.Context)
 	SetSaver(stateManager statemanager.Saver)
 }
@@ -59,6 +58,7 @@ type dockerImageManager struct {
 	minimumAgeBeforeDeletion         time.Duration
 	numImagesToDelete                int
 	imageCleanupTimeInterval         time.Duration
+	imagePullBehavior                config.ImagePullBehaviorType
 }
 
 // ImageStatesForDeletion is used for implementing the sort interface
@@ -72,6 +72,7 @@ func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state do
 		minimumAgeBeforeDeletion: cfg.MinimumImageDeletionAge,
 		numImagesToDelete:        cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: cfg.ImageCleanupInterval,
+		imagePullBehavior:        cfg.ImagePullBehavior,
 	}
 }
 
@@ -267,6 +268,12 @@ func (imageManager *dockerImageManager) removeExistingImageNameOfDifferentID(con
 }
 
 func (imageManager *dockerImageManager) StartImageCleanupProcess(ctx context.Context) {
+	// If the image pull behavior is prefer cached, don't clean up the image,
+	// because the cached image is needed.
+	if imageManager.imagePullBehavior == config.ImagePullPreferCachedBehavior {
+		seelog.Info("Pull behavior is set to always use cache. Disabling cleanup")
+		return
+	}
 	// passing the cleanup interval as argument which would help during testing
 	imageManager.performPeriodicImageCleanup(ctx, imageManager.imageCleanupTimeInterval)
 }
@@ -369,15 +376,15 @@ func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID
 	}
 }
 
-func (imageManager *dockerImageManager) GetImageStateFromImageName(containerImageName string) *image.ImageState {
+func (imageManager *dockerImageManager) GetImageStateFromImageName(containerImageName string) (*image.ImageState, bool) {
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
 	for _, imageState := range imageManager.getAllImageStates() {
 		for _, imageName := range imageState.Image.Names {
 			if imageName == containerImageName {
-				return imageState
+				return imageState, true
 			}
 		}
 	}
-	return nil
+	return nil, false
 }

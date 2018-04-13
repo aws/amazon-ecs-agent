@@ -441,7 +441,7 @@ func TestStartContainerTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
-	})
+	}).MaxTimes(1)
 	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

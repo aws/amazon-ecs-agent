@@ -215,10 +215,11 @@ func (mr *MockImageManagerMockRecorder) AddAllImageStates(arg0 interface{}) *gom
 }
 
 // GetImageStateFromImageName mocks base method
-func (m *MockImageManager) GetImageStateFromImageName(arg0 string) *image.ImageState {
+func (m *MockImageManager) GetImageStateFromImageName(arg0 string) (*image.ImageState, bool) {
 	ret := m.ctrl.Call(m, "GetImageStateFromImageName", arg0)
 	ret0, _ := ret[0].(*image.ImageState)
-	return ret0
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
 }
 
 // GetImageStateFromImageName indicates an expected call of GetImageStateFromImageName

@@ -317,6 +317,23 @@ func TestStartStopWithCredentials(t *testing.T) {
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
 }
 
+func TestTaskStopWhenPullImageFail(t *testing.T) {
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	testTask := createTestTask("testTaskStopWhenPullImageFail")
+	// Assign an invalid image to the task, and verify the task fails
+	// when the pull image behavior is "always".
+	testTask.Containers = []*api.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
 func TestContainerHealthCheck(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
