@@ -22,8 +22,9 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -49,7 +50,7 @@ var statsData = []*StatTestData{
 func TestContainerStatsCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -125,7 +126,7 @@ func TestContainerStatsCollection(t *testing.T) {
 func TestContainerStatsCollectionReconnection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
 	dockerID := "container1"
@@ -167,7 +168,7 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockDockerClient := ecsengine.NewMockDockerClient(ctrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
 	dockerID := "container1"

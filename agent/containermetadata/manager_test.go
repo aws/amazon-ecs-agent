@@ -15,13 +15,14 @@
 package containermetadata
 
 import (
+	"context"
 	"errors"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/api"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -108,8 +109,10 @@ func TestUpdateInspectFail(t *testing.T) {
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
-	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)
 
 	assert.Error(t, err, "Expected inspect error to result in update fail")
 }
@@ -134,8 +137,10 @@ func TestUpdateNotRunningFail(t *testing.T) {
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
-	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)
 	assert.Error(t, err)
 }
 

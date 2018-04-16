@@ -14,15 +14,16 @@
 package containermetadata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	"github.com/aws/amazon-ecs-agent/agent/api"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -41,7 +42,7 @@ const (
 type Manager interface {
 	SetContainerInstanceARN(string)
 	Create(*docker.Config, *docker.HostConfig, *api.Task, string) error
-	Update(string, *api.Task, string) error
+	Update(context.Context, string, *api.Task, string) error
 	Clean(string) error
 }
 
@@ -116,9 +117,9 @@ func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker
 }
 
 // Update updates the metadata file after container starts and dynamic metadata is available
-func (manager *metadataManager) Update(dockerID string, task *api.Task, containerName string) error {
+func (manager *metadataManager) Update(ctx context.Context, dockerID string, task *api.Task, containerName string) error {
 	// Get docker container information through api call
-	dockerContainer, err := manager.client.InspectContainer(dockerID, inspectContainerTimeout)
+	dockerContainer, err := manager.client.InspectContainer(ctx, dockerID, inspectContainerTimeout)
 	if err != nil {
 		return err
 	}

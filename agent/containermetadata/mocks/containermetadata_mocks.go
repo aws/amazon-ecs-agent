@@ -18,11 +18,11 @@
 package mock_containermetadata
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
-
+	api "github.com/aws/amazon-ecs-agent/agent/api"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -85,15 +85,15 @@ func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *go
 }
 
 // Update mocks base method
-func (m *MockManager) Update(arg0 string, arg1 *api.Task, arg2 string) error {
-	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
+func (m *MockManager) Update(arg0 context.Context, arg1 string, arg2 *api.Task, arg3 string) error {
+	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update
-func (mr *MockManagerMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockManager)(nil).Update), arg0, arg1, arg2)
+func (mr *MockManagerMockRecorder) Update(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockManager)(nil).Update), arg0, arg1, arg2, arg3)
 }
 
 // MockDockerMetadataClient is a mock of DockerMetadataClient interface
@@ -120,14 +120,14 @@ func (m *MockDockerMetadataClient) EXPECT() *MockDockerMetadataClientMockRecorde
 }
 
 // InspectContainer mocks base method
-func (m *MockDockerMetadataClient) InspectContainer(arg0 string, arg1 time.Duration) (*go_dockerclient.Container, error) {
-	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1)
+func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*go_dockerclient.Container, error) {
+	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*go_dockerclient.Container)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InspectContainer indicates an expected call of InspectContainer
-func (mr *MockDockerMetadataClientMockRecorder) InspectContainer(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectContainer", reflect.TypeOf((*MockDockerMetadataClient)(nil).InspectContainer), arg0, arg1)
+func (mr *MockDockerMetadataClientMockRecorder) InspectContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectContainer", reflect.TypeOf((*MockDockerMetadataClient)(nil).InspectContainer), arg0, arg1, arg2)
 }

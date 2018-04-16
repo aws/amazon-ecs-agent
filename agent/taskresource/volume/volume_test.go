@@ -18,7 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -27,21 +28,21 @@ import (
 func TestCreateSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockClient := engine.NewMockDockerClient(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	name := "volumeName"
 	mountPoint := "some/mount/point"
 	driver := "driver"
-	driverOptions :=  map[string]string{
+	driverOptions := map[string]string{
 		"opt1": "val1",
 		"opt2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(name, driver, driverOptions, nil, engine.CreateVolumeTimeout).Return(
-		engine.VolumeResponse{
+	mockClient.EXPECT().CreateVolume(name, driver, driverOptions, nil, dockerapi.CreateVolumeTimeout).Return(
+		dockerapi.VolumeResponse{
 			DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
-			Error: nil,
-	})
+			Error:        nil,
+		})
 
 	volume := NewVolumeResource(name, driver, driverOptions, nil, mockClient)
 	err := volume.Create()
@@ -52,20 +53,20 @@ func TestCreateSuccess(t *testing.T) {
 func TestCreateError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockClient := engine.NewMockDockerClient(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	name := "volumeName"
 	driver := "driver"
-	labels :=  map[string]string{
+	labels := map[string]string{
 		"label1": "val1",
 		"label2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(name, driver, nil, labels, engine.CreateVolumeTimeout).Return(
-		engine.VolumeResponse{
+	mockClient.EXPECT().CreateVolume(name, driver, nil, labels, dockerapi.CreateVolumeTimeout).Return(
+		dockerapi.VolumeResponse{
 			DockerVolume: nil,
-			Error: errors.New("some error"),
-	})
+			Error:        errors.New("some error"),
+		})
 
 	volume := NewVolumeResource(name, driver, nil, labels, mockClient)
 	err := volume.Create()
@@ -75,12 +76,12 @@ func TestCreateError(t *testing.T) {
 func TestCleanupSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockClient := engine.NewMockDockerClient(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	name := "volumeName"
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(name, engine.RemoveVolumeTimeout).Return(nil)
+	mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Return(nil)
 
 	volume := NewVolumeResource(name, driver, nil, nil, mockClient)
 	err := volume.Cleanup()
@@ -90,12 +91,12 @@ func TestCleanupSuccess(t *testing.T) {
 func TestCleanupError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockClient := engine.NewMockDockerClient(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	name := "volumeName"
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(name, engine.RemoveVolumeTimeout).Return(errors.New("some error"))
+	mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Return(errors.New("some error"))
 
 	volume := NewVolumeResource(name, driver, nil, nil, mockClient)
 	err := volume.Cleanup()

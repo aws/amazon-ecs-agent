@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -27,6 +27,7 @@ import (
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/app/oswrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
@@ -34,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -62,15 +64,15 @@ func TestDoStartHappyPath(t *testing.T) {
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failues
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-		engine.ListContainersResponse{}).AnyTimes()
+	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		dockerapi.ListContainersResponse{}).AnyTimes()
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 		// Ensures that the test waits until acs session has bee started
 		discoverEndpointsInvoked.Done()
@@ -124,7 +126,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -140,8 +142,8 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	// invoked via go routines, which will lead to occasional test failues
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().Version().AnyTimes()
-	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-		engine.ListContainersResponse{}).AnyTimes()
+	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 		// Ensures that the test waits until acs session has bee started
@@ -163,7 +165,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
-		mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil),
+		mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
 		state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).AnyTimes(),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
@@ -349,13 +351,13 @@ func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testin
 
 func setupMocksForInitializeTaskENIDependencies(t *testing.T) (*gomock.Controller,
 	*mock_dockerstate.MockTaskEngineState,
-	*engine.MockTaskEngine,
+	*mock_engine.MockTaskEngine,
 	*mock_oswrapper.MockOS) {
 	ctrl := gomock.NewController(t)
 
 	return ctrl,
 		mock_dockerstate.NewMockTaskEngineState(ctrl),
-		engine.NewMockTaskEngine(ctrl),
+		mock_engine.NewMockTaskEngine(ctrl),
 		mock_oswrapper.NewMockOS(ctrl)
 }
 
@@ -438,7 +440,7 @@ func TestInitializeTaskENIDependenciesPauseLoaderError(t *testing.T) {
 				cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 				cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 				cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
-				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, loadErr),
+				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, loadErr),
 			)
 			cfg := getTestConfig()
 			agent := &ecsAgent{
@@ -469,7 +471,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
-	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	dockerClient.EXPECT().Version().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
@@ -499,8 +501,8 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		}).Return("telemetry-endpoint", nil),
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 			"tele-endpoint", nil).AnyTimes(),
-		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any()).Return(
-			engine.ListContainersResponse{}).AnyTimes(),
+		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			dockerapi.ListContainersResponse{}).AnyTimes(),
 	)
 
 	cfg := config.DefaultConfig()

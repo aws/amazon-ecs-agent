@@ -16,7 +16,7 @@ package config
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
@@ -63,7 +63,7 @@ type Config struct {
 	Checkpoint bool
 
 	// EngineAuthType configures what type of data is in EngineAuthData.
-	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/engine/dockerauth
+	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth
 	EngineAuthType string `trim:"true"`
 	// EngineAuthData contains authentication data. Please see the documentation
 	// for EngineAuthType for more information.

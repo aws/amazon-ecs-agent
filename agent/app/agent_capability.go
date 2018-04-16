@@ -15,10 +15,10 @@ package app
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -206,7 +206,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	// for non-standardized plugins, call docker pkg's plugins.Scan()
 	nonStandardizedPlugins, err := agent.mobyPlugins.Scan()
-	if err  != nil {
+	if err != nil {
 		seelog.Warnf("Scanning plugins failed: %v", err)
 		// do not return yet, we need the list of plugins below. range handles nil slice.
 	}
@@ -217,8 +217,8 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 
 	// for standardized plugins, call docker's plugin ls API
 	pluginEnabled := true
-	volumeDriverType := []string{ecsengine.VolumeDriverType}
-	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(pluginEnabled, volumeDriverType, ecsengine.ListPluginsTimeout)
+	volumeDriverType := []string{dockerapi.VolumeDriverType}
+	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(pluginEnabled, volumeDriverType, dockerapi.ListPluginsTimeout)
 	if err != nil {
 		seelog.Warnf("Listing plugins with filters enabled=%t, capabilities=%v failed: %v", pluginEnabled, volumeDriverType, err)
 		return capabilities
