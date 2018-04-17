@@ -17,10 +17,11 @@ import (
 	"testing"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -198,7 +199,7 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 	defer ctrl.Finish()
 	credentialsManager := credentials.NewManager()
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return task not found from the engine for GetTaskByArn
 	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(nil, false)
 
@@ -242,7 +243,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 		cancel()
 	}).Times(1)
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
 	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
 
@@ -288,7 +289,7 @@ func TestRefreshCredentialsHandler(t *testing.T) {
 		cancel()
 	}).Times(1)
 
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
 	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
 

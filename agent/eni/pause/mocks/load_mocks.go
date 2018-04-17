@@ -18,10 +18,11 @@
 package mock_pause
 
 import (
+	context "context"
 	reflect "reflect"
 
 	config "github.com/aws/amazon-ecs-agent/agent/config"
-	engine "github.com/aws/amazon-ecs-agent/agent/engine"
+	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -50,14 +51,14 @@ func (m *MockLoader) EXPECT() *MockLoaderMockRecorder {
 }
 
 // LoadImage mocks base method
-func (m *MockLoader) LoadImage(arg0 *config.Config, arg1 engine.DockerClient) (*go_dockerclient.Image, error) {
-	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1)
+func (m *MockLoader) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 dockerapi.DockerClient) (*go_dockerclient.Image, error) {
+	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*go_dockerclient.Image)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LoadImage indicates an expected call of LoadImage
-func (mr *MockLoaderMockRecorder) LoadImage(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockLoader)(nil).LoadImage), arg0, arg1)
+func (mr *MockLoaderMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockLoader)(nil).LoadImage), arg0, arg1, arg2)
 }

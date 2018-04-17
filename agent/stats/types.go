@@ -17,7 +17,8 @@ import (
 	"time"
 
 	"context"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 )
 
@@ -46,7 +47,7 @@ type StatsContainer struct {
 	containerMetadata *ContainerMetadata
 	ctx               context.Context
 	cancel            context.CancelFunc
-	client            ecsengine.DockerClient
+	client            dockerapi.DockerClient
 	statsQueue        *Queue
 	resolver          resolver.ContainerMetadataResolver
 }

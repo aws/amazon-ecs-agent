@@ -13,4 +13,4 @@
 
 package engine
 
-//go:generate mockgen_engine.sh
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/engine TaskEngine,ImageManager mocks/engine_mocks.go

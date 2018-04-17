@@ -15,6 +15,7 @@
 package containermetadata
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -83,13 +84,15 @@ func TestUpdate(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		mockClient.EXPECT().InspectContainer(mockDockerID, inspectContainerTimeout).Return(mockContainer, nil),
+		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil),
 		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
 		mockFile.EXPECT().Sync().Return(nil),
 		mockFile.EXPECT().Close().Return(nil),
 	)
-	err := newManager.Update(mockDockerID, mockTask, mockContainerName)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)
 
 	assert.NoError(t, err)
 }
