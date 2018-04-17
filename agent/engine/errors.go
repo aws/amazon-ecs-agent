@@ -334,3 +334,55 @@ func (err CannotGetDockerClientVersionError) ErrorName() string {
 func (err CannotGetDockerClientVersionError) Error() string {
 	return err.fromError.Error()
 }
+
+// CannotCreateVolumeError indicates any error when trying to create a volume
+type CannotCreateVolumeError struct {
+	fromError error
+}
+
+func (err CannotCreateVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotCreateVolumeError) ErrorName() string {
+	return "CannotCreateVolumeError"
+}
+
+// CannotInspectVolumeError indicates any error when trying to inspect a volume
+type CannotInspectVolumeError struct {
+	fromError error
+}
+
+func (err CannotInspectVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotInspectVolumeError) ErrorName() string {
+	return "CannotInspectVolumeError"
+}
+
+// CannotRemoveVolumeError indicates any error when trying to inspect a volume
+type CannotRemoveVolumeError struct {
+	fromError error
+}
+
+func (err CannotRemoveVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotRemoveVolumeError) ErrorName() string {
+	return "CannotRemoveVolumeError"
+}
+
+// CannotListPluginsError indicates any error when trying to list docker plugins
+type CannotListPluginsError struct {
+	fromError error
+}
+
+func (err CannotListPluginsError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotListPluginsError) ErrorName() string {
+	return "CannotListPluginsError"
+}

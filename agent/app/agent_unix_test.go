@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -58,6 +59,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
@@ -85,6 +87,8 @@ func TestDoStartHappyPath(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
@@ -102,6 +106,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -126,6 +131,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	mockOS := mock_oswrapper.NewMockOS(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -163,6 +169,8 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
 		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Do(
 			func(x interface{}, attributes []*ecs.Attribute) {
 				vpcFound := false
@@ -201,6 +209,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		os:                 mockOS,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -457,6 +466,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan engine.DockerContainerChangeEvent)
@@ -471,6 +481,8 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
@@ -502,6 +514,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		dockerClient:       dockerClient,
 		resource:           mockResource,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),

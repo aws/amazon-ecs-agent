@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -128,12 +129,9 @@ type Container struct {
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
 
-	// TransitionDependencySet is a set of dependencies that must be satisfied
-	// in order for this container to transition.  Each transition dependency
-	// specifies a resource upon which the transition is dependent, a status
-	// that depends on the resource, and the state of the dependency that
-	// satisfies.
-	TransitionDependencySet TransitionDependencySet `json:"TransitionDependencySet"`
+	// TransitionDependenciesMap is a map of the dependent container status to other
+	// dependencies that must be satisfied in order for this container to transition.
+	TransitionDependenciesMap TransitionDependenciesMap `json:"TransitionDependencySet"`
 
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
@@ -553,6 +551,43 @@ func (c *Container) GetHealthStatus() HealthStatus {
 	return copyHealth
 }
 
+// BuildContainerDependency adds a new dependency container and satisfied status
+// to the dependent container
+func (c *Container) BuildContainerDependency(contName string,
+	satisfiedStatus ContainerStatus,
+	dependentStatus ContainerStatus) {
+	contDep := ContainerDependency{
+		ContainerName:   contName,
+		SatisfiedStatus: satisfiedStatus,
+	}
+	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
+		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+	}
+	deps := c.TransitionDependenciesMap[dependentStatus]
+	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
+	c.TransitionDependenciesMap[dependentStatus] = deps
+}
+
+// BuildResourceDependency adds a new resource dependency by taking in the required status
+// of the resource that satisfies the dependency and the dependent container status,
+// whose transition is dependent on the resource.
+// example: if container's PULLED transition is dependent on volume resource's
+// CREATED status, then RequiredStatus=VolumeCreated and dependentStatus=ContainerPulled
+func (c *Container) BuildResourceDependency(resourceName string,
+	requiredStatus taskresource.ResourceStatus,
+	dependentStatus ContainerStatus) {
+	resourceDep := ResourceDependency{
+		Name:           resourceName,
+		RequiredStatus: requiredStatus,
+	}
+	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
+		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+	}
+	deps := c.TransitionDependenciesMap[dependentStatus]
+	deps.ResourceDependencies = append(deps.ResourceDependencies, resourceDep)
+	c.TransitionDependenciesMap[dependentStatus] = deps
+}
+
 // updateAppliedStatusUnsafe updates the container transitioning status
 func (c *Container) updateAppliedStatusUnsafe(knownStatus ContainerStatus) {
 	if c.AppliedStatus == ContainerStatusNone {
@@ -587,3 +622,4 @@ func (c *Container) GetAppliedStatus() ContainerStatus {
 
 	return c.AppliedStatus
 }
+

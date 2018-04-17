@@ -701,6 +701,7 @@ func TestTaskFromACS(t *testing.T) {
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
+				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{

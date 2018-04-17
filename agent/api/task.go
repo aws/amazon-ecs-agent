@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -76,6 +77,8 @@ type Task struct {
 	Version string
 	// Containers are the containers for the task
 	Containers []*Container
+	// Resources are the resources for the task
+	Resources []taskresource.TaskResource
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 	// CPU is a task-level limit for compute resources. A value of 1 means that
@@ -150,6 +153,35 @@ type Task struct {
 	lock sync.RWMutex
 }
 
+// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
+// ecsacs.Task to json and unmrashaling it as api.Task
+func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+	data, err := jsonutil.BuildJSON(acsTask)
+	if err != nil {
+		return nil, err
+	}
+	task := &Task{}
+	err = json.Unmarshal(data, task)
+	if err != nil {
+		return nil, err
+	}
+	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
+		task.StartSequenceNumber = *envelope.SeqNum
+	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
+		task.StopSequenceNumber = *envelope.SeqNum
+	}
+
+	// Overrides the container command if it's set
+	for _, container := range task.Containers {
+		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
+			container.Command = *container.Overrides.Command
+		}
+		container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+	}
+
+	return task, nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
@@ -171,14 +203,7 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				if container.TransitionDependencySet.ContainerDependencies == nil {
-					container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
-				}
-				container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
-					ContainerName:   emptyHostVolumeName,
-					SatisfiedStatus: ContainerRunning,
-					DependentStatus: ContainerCreated,
-				})
+				container.BuildContainerDependency(emptyHostVolumeName, ContainerRunning, ContainerCreated)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -286,14 +311,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		if container.TransitionDependencySet.ContainerDependencies == nil {
-			container.TransitionDependencySet.ContainerDependencies = make([]ContainerDependency, 0)
-		}
-		container.TransitionDependencySet.ContainerDependencies = append(container.TransitionDependencySet.ContainerDependencies, ContainerDependency{
-			ContainerName:   PauseContainerName,
-			SatisfiedStatus: ContainerResourcesProvisioned,
-			DependentStatus: ContainerPulled,
-		})
+		container.BuildContainerDependency(PauseContainerName, ContainerResourcesProvisioned, ContainerPulled)
 	}
 	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
@@ -833,34 +851,6 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	}
 
 	return binds, nil
-}
-
-// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
-// ecsacs.Task to json and unmrashaling it as api.Task
-func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
-	data, err := jsonutil.BuildJSON(acsTask)
-	if err != nil {
-		return nil, err
-	}
-	task := &Task{}
-	err = json.Unmarshal(data, task)
-	if err != nil {
-		return nil, err
-	}
-	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
-		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
-		task.StopSequenceNumber = *envelope.SeqNum
-	}
-
-	// Overrides the container command if it's set
-	for _, container := range task.Containers {
-		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
-			container.Command = *container.Overrides.Command
-		}
-	}
-
-	return task, nil
 }
 
 // UpdateStatus updates a task's known and desired statuses to be compatible

@@ -62,7 +62,8 @@ const (
 	// 11)
 	//  a) Add 'PrivateDNSName' field to 'api.ENI'
 	//  b)Remove `AppliedStatus` field form 'api.Container'
-	ECSDataVersion = 11
+	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'api.Container'
+	ECSDataVersion = 12
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

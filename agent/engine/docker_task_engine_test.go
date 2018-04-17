@@ -287,13 +287,9 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.Containers[0].TransitionDependencySet.ContainerDependencies = []api.ContainerDependency{
-		{
-			ContainerName:   "pause",
-			SatisfiedStatus: api.ContainerResourcesProvisioned,
-			DependentStatus: api.ContainerPulled,
-		}}
 	sleepContainer := sleepTask.Containers[0]
+	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
+	sleepContainer.BuildContainerDependency("pause", api.ContainerRunning, api.ContainerPulled)
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
 	pauseContainer := api.NewContainerWithSteadyState(api.ContainerResourcesProvisioned)
@@ -1044,6 +1040,8 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	eventStream := make(chan DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
+	sleepContainer := sleepTask.Containers[0]
+	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.SetTaskENI(&api.ENI{

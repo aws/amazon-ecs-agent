@@ -246,6 +246,18 @@ func (mr *MockDockerClientMockRecorder) CreateContainer(arg0, arg1, arg2, arg3 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockDockerClient)(nil).CreateContainer), arg0, arg1, arg2, arg3)
 }
 
+// CreateVolume mocks base method
+func (m *MockDockerClient) CreateVolume(arg0, arg1 string, arg2, arg3 map[string]string, arg4 time.Duration) VolumeResponse {
+	ret := m.ctrl.Call(m, "CreateVolume", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(VolumeResponse)
+	return ret0
+}
+
+// CreateVolume indicates an expected call of CreateVolume
+func (mr *MockDockerClientMockRecorder) CreateVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVolume", reflect.TypeOf((*MockDockerClient)(nil).CreateVolume), arg0, arg1, arg2, arg3, arg4)
+}
+
 // DescribeContainer mocks base method
 func (m *MockDockerClient) DescribeContainer(arg0 string) (api.ContainerStatus, DockerContainerMetadata) {
 	ret := m.ctrl.Call(m, "DescribeContainer", arg0)
@@ -297,6 +309,18 @@ func (mr *MockDockerClientMockRecorder) InspectImage(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectImage", reflect.TypeOf((*MockDockerClient)(nil).InspectImage), arg0)
 }
 
+// InspectVolume mocks base method
+func (m *MockDockerClient) InspectVolume(arg0 string, arg1 time.Duration) VolumeResponse {
+	ret := m.ctrl.Call(m, "InspectVolume", arg0, arg1)
+	ret0, _ := ret[0].(VolumeResponse)
+	return ret0
+}
+
+// InspectVolume indicates an expected call of InspectVolume
+func (mr *MockDockerClientMockRecorder) InspectVolume(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectVolume", reflect.TypeOf((*MockDockerClient)(nil).InspectVolume), arg0, arg1)
+}
+
 // KnownVersions mocks base method
 func (m *MockDockerClient) KnownVersions() []dockerclient.DockerVersion {
 	ret := m.ctrl.Call(m, "KnownVersions")
@@ -319,6 +343,31 @@ func (m *MockDockerClient) ListContainers(arg0 bool, arg1 time.Duration) ListCon
 // ListContainers indicates an expected call of ListContainers
 func (mr *MockDockerClientMockRecorder) ListContainers(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContainers", reflect.TypeOf((*MockDockerClient)(nil).ListContainers), arg0, arg1)
+}
+
+// ListPlugins mocks base method
+func (m *MockDockerClient) ListPlugins(arg0 time.Duration) listPluginsResponse {
+	ret := m.ctrl.Call(m, "ListPlugins", arg0)
+	ret0, _ := ret[0].(listPluginsResponse)
+	return ret0
+}
+
+// ListPlugins indicates an expected call of ListPlugins
+func (mr *MockDockerClientMockRecorder) ListPlugins(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockDockerClient)(nil).ListPlugins), arg0)
+}
+
+// ListPluginsWithFilters mocks base method
+func (m *MockDockerClient) ListPluginsWithFilters(arg0 bool, arg1 []string, arg2 time.Duration) ([]string, error) {
+	ret := m.ctrl.Call(m, "ListPluginsWithFilters", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPluginsWithFilters indicates an expected call of ListPluginsWithFilters
+func (mr *MockDockerClientMockRecorder) ListPluginsWithFilters(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPluginsWithFilters", reflect.TypeOf((*MockDockerClient)(nil).ListPluginsWithFilters), arg0, arg1, arg2)
 }
 
 // LoadImage mocks base method
@@ -367,6 +416,18 @@ func (m *MockDockerClient) RemoveImage(arg0 string, arg1 time.Duration) error {
 // RemoveImage indicates an expected call of RemoveImage
 func (mr *MockDockerClientMockRecorder) RemoveImage(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveImage", reflect.TypeOf((*MockDockerClient)(nil).RemoveImage), arg0, arg1)
+}
+
+// RemoveVolume mocks base method
+func (m *MockDockerClient) RemoveVolume(arg0 string, arg1 time.Duration) error {
+	ret := m.ctrl.Call(m, "RemoveVolume", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveVolume indicates an expected call of RemoveVolume
+func (mr *MockDockerClientMockRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveVolume", reflect.TypeOf((*MockDockerClient)(nil).RemoveVolume), arg0, arg1)
 }
 
 // StartContainer mocks base method

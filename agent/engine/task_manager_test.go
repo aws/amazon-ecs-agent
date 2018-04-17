@@ -39,6 +39,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"context"
+
 	"github.com/golang/mock/gomock"
 )
 
@@ -331,7 +332,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			dependencySatisfiedStatus:    api.ContainerCreated,
 			expectedContainerStatus:      api.ContainerStatusNone,
 			expectedTransitionActionable: false,
-			reason: dependencygraph.DependentContainerNotResolvedErr,
+			reason: dependencygraph.ErrContainerDependencyNotResolved,
 		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
 		{
@@ -343,7 +344,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			dependencySatisfiedStatus:    api.ContainerRunning,
 			expectedContainerStatus:      api.ContainerStatusNone,
 			expectedTransitionActionable: false,
-			reason: dependencygraph.DependentContainerNotResolvedErr,
+			reason: dependencygraph.ErrContainerDependencyNotResolved,
 		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
 		// The expected next status is Pulled
@@ -387,16 +388,11 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dependencyName := "dependency"
 			container := &api.Container{
-				DesiredStatusUnsafe: tc.containerDesiredStatus,
-				KnownStatusUnsafe:   tc.containerCurrentStatus,
-				TransitionDependencySet: api.TransitionDependencySet{
-					ContainerDependencies: []api.ContainerDependency{{
-						ContainerName:   dependencyName,
-						DependentStatus: tc.containerDependentStatus,
-						SatisfiedStatus: tc.dependencySatisfiedStatus,
-					}},
-				},
+				DesiredStatusUnsafe:       tc.containerDesiredStatus,
+				KnownStatusUnsafe:         tc.containerCurrentStatus,
+				TransitionDependenciesMap: make(map[api.ContainerStatus]api.TransitionDependencySet),
 			}
+			container.BuildContainerDependency(dependencyName, tc.dependencySatisfiedStatus, tc.containerDependentStatus)
 			dependency := &api.Container{
 				Name:              dependencyName,
 				KnownStatusUnsafe: tc.dependencyCurrentStatus,

@@ -73,6 +73,19 @@ func (mr *MockClientMockRecorder) CreateContainer(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockClient)(nil).CreateContainer), arg0)
 }
 
+// CreateVolume mocks base method
+func (m *MockClient) CreateVolume(arg0 go_dockerclient.CreateVolumeOptions) (*go_dockerclient.Volume, error) {
+	ret := m.ctrl.Call(m, "CreateVolume", arg0)
+	ret0, _ := ret[0].(*go_dockerclient.Volume)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateVolume indicates an expected call of CreateVolume
+func (mr *MockClientMockRecorder) CreateVolume(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVolume", reflect.TypeOf((*MockClient)(nil).CreateVolume), arg0)
+}
+
 // ImportImage mocks base method
 func (m *MockClient) ImportImage(arg0 go_dockerclient.ImportImageOptions) error {
 	ret := m.ctrl.Call(m, "ImportImage", arg0)
@@ -124,6 +137,19 @@ func (mr *MockClientMockRecorder) InspectImage(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectImage", reflect.TypeOf((*MockClient)(nil).InspectImage), arg0)
 }
 
+// InspectVolume mocks base method
+func (m *MockClient) InspectVolume(arg0 string) (*go_dockerclient.Volume, error) {
+	ret := m.ctrl.Call(m, "InspectVolume", arg0)
+	ret0, _ := ret[0].(*go_dockerclient.Volume)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InspectVolume indicates an expected call of InspectVolume
+func (mr *MockClientMockRecorder) InspectVolume(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectVolume", reflect.TypeOf((*MockClient)(nil).InspectVolume), arg0)
+}
+
 // ListContainers mocks base method
 func (m *MockClient) ListContainers(arg0 go_dockerclient.ListContainersOptions) ([]go_dockerclient.APIContainers, error) {
 	ret := m.ctrl.Call(m, "ListContainers", arg0)
@@ -135,6 +161,19 @@ func (m *MockClient) ListContainers(arg0 go_dockerclient.ListContainersOptions) 
 // ListContainers indicates an expected call of ListContainers
 func (mr *MockClientMockRecorder) ListContainers(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContainers", reflect.TypeOf((*MockClient)(nil).ListContainers), arg0)
+}
+
+// ListPlugins mocks base method
+func (m *MockClient) ListPlugins(arg0 context.Context) ([]go_dockerclient.PluginDetail, error) {
+	ret := m.ctrl.Call(m, "ListPlugins", arg0)
+	ret0, _ := ret[0].([]go_dockerclient.PluginDetail)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPlugins indicates an expected call of ListPlugins
+func (mr *MockClientMockRecorder) ListPlugins(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockClient)(nil).ListPlugins), arg0)
 }
 
 // LoadImage mocks base method
@@ -207,6 +246,18 @@ func (m *MockClient) RemoveImage(arg0 string) error {
 // RemoveImage indicates an expected call of RemoveImage
 func (mr *MockClientMockRecorder) RemoveImage(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveImage", reflect.TypeOf((*MockClient)(nil).RemoveImage), arg0)
+}
+
+// RemoveVolume mocks base method
+func (m *MockClient) RemoveVolume(arg0 string) error {
+	ret := m.ctrl.Call(m, "RemoveVolume", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveVolume indicates an expected call of RemoveVolume
+func (mr *MockClientMockRecorder) RemoveVolume(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveVolume", reflect.TypeOf((*MockClient)(nil).RemoveVolume), arg0)
 }
 
 // StartContainer mocks base method

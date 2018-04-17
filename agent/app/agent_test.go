@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -203,11 +204,14 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
@@ -222,6 +226,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -233,12 +238,15 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)
@@ -252,6 +260,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		cfg:                &cfg,
 		dockerClient:       dockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -566,11 +575,14 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(containerInstanceARN, nil),
 	)
 	cfg := getTestConfig()
@@ -583,6 +595,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
@@ -598,11 +611,14 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", awserr.New("", api.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
@@ -617,6 +633,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
@@ -633,11 +650,14 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
@@ -652,6 +672,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
@@ -668,11 +689,14 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", errors.New("error")),
 	)
@@ -687,6 +711,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 	agent.containerInstanceARN = containerInstanceARN
 
@@ -703,11 +728,14 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(containerInstanceARN, nil),
 		stateManager.EXPECT().Save(),
 	)
@@ -722,6 +750,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
@@ -737,12 +766,15 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	retriableError := utils.NewRetriableError(utils.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", retriableError),
 	)
 
@@ -756,6 +788,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
@@ -771,12 +804,15 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	cannotRetryError := utils.NewRetriableError(utils.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", cannotRetryError),
 	)
 
@@ -790,6 +826,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
@@ -805,11 +842,14 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	client := mock_api.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(
 			"", utils.NewAttributeError("error")),
 	)
@@ -824,6 +864,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		cfg:                &cfg,
 		dockerClient:       mockDockerClient,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	err := agent.registerContainerInstance(stateManager, client, nil)
@@ -837,11 +878,14 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", awserr.New("InvalidParameterException", "", nil)),
 	)
@@ -855,6 +899,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),

@@ -48,8 +48,8 @@ const (
 
 	expectedCgroupRoot = "/ecs/task-id"
 
-	taskVCPULimit   = 2.0
-	taskMemoryLimit = 512
+	taskVCPULimit             = 2.0
+	taskMemoryLimit           = 512
 	minDockerClientAPIVersion = dockerclient.Version_1_17
 )
 
@@ -71,6 +71,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		Containers: []*Container{
 			{
 				Name: "c1",
+				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
 			},
 		},
 	}

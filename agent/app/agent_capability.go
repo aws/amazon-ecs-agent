@@ -17,6 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -25,6 +26,7 @@ import (
 )
 
 const (
+	// capabilityPrefix is deprecated. For new capabilities, use attributePrefix.
 	capabilityPrefix                            = "com.amazonaws.ecs.capability."
 	attributePrefix                             = "ecs.capability."
 	capabilityTaskIAMRole                       = "task-iam-role"
@@ -33,6 +35,7 @@ const (
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
+	capabilityDockerVolumeDriverInfix           = "docker-volume-driver."
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -54,6 +57,7 @@ const (
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
+//    ecs.capability.docker-volume-driver.${driverName}
 //    ecs.capability.task-eni
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
@@ -98,6 +102,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if agent.cfg.OverrideAWSLogsExecutionRole {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
+
+	capabilities = agent.appendVolumeDriverCapabilities(capabilities)
 
 	return capabilities, nil
 }
@@ -193,6 +199,33 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
+	}
+	return capabilities
+}
+
+func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	// for non-standardized plugins, call docker pkg's plugins.Scan()
+	nonStandardizedPlugins, err := agent.mobyPlugins.Scan()
+	if err  != nil {
+		seelog.Warnf("Scanning plugins failed: %v", err)
+		// do not return yet, we need the list of plugins below. range handles nil slice.
+	}
+
+	for _, pluginName := range nonStandardizedPlugins {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
+	}
+
+	// for standardized plugins, call docker's plugin ls API
+	pluginEnabled := true
+	volumeDriverType := []string{ecsengine.VolumeDriverType}
+	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(pluginEnabled, volumeDriverType, ecsengine.ListPluginsTimeout)
+	if err != nil {
+		seelog.Warnf("Listing plugins with filters enabled=%t, capabilities=%v failed: %v", pluginEnabled, volumeDriverType, err)
+		return capabilities
+	}
+
+	for _, pluginName := range standardizedPlugins {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
 	}
 	return capabilities
 }
