@@ -111,42 +111,6 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	assert.Error(t, err, "Expected error while adding a task with no message id")
 }
 
-// TestHandlePayloadMessageAddTaskError tests that agent does not ack payload messages
-// when task engine fails to add tasks
-func TestHandlePayloadMessageAddTaskError(t *testing.T) {
-	tester := setup(t)
-	defer tester.ctrl.Finish()
-
-	// Return error from AddTask
-	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Return(fmt.Errorf("oops")).Times(2)
-
-	// Test AddTask error with RUNNING task
-	payloadMessage := &ecsacs.PayloadMessage{
-		Tasks: []*ecsacs.Task{
-			{
-				Arn:           aws.String("t1"),
-				DesiredStatus: aws.String("RUNNING"),
-			},
-		},
-		MessageId: aws.String(payloadMessageId),
-	}
-	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
-	assert.Error(t, err, "Expected error while adding the task")
-
-	payloadMessage = &ecsacs.PayloadMessage{
-		Tasks: []*ecsacs.Task{
-			{
-				Arn:           aws.String("t1"),
-				DesiredStatus: aws.String("STOPPED"),
-			},
-		},
-		MessageId: aws.String(payloadMessageId),
-	}
-	// Test AddTask error with STOPPED task
-	err = tester.payloadHandler.handleSingleMessage(payloadMessage)
-	assert.Error(t, err, "Expected error while adding the task")
-}
-
 // TestHandlePayloadMessageStateSaveError tests that agent does not ack payload messages
 // when state saver fails to save state
 func TestHandlePayloadMessageStateSaveError(t *testing.T) {

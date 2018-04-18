@@ -19,7 +19,10 @@ import (
 	"path/filepath"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -42,12 +45,32 @@ const (
 )
 
 // platformFields consists of fields specific to Linux for a task
-type platformFields struct {}
+type platformFields struct{}
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
+}
+
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields *taskresource.ResourceFields) error {
+	cgroupRoot, err := task.BuildCgroupRoot()
+	if err != nil {
+		return errors.Wrapf(err, "cgroup resource: unable to determine cgroup root for task")
+	}
+	resSpec, err := task.BuildLinuxResourceSpec()
+	if err != nil {
+		return errors.Wrapf(err, "cgroup resource: unable to build resource spec for task")
+	}
+	cgroupResource := cgroup.NewCgroupResource(task.Arn, resourceFields.Control,
+		resourceFields.IOUtil, cgroupRoot, cgroupPath, resSpec)
+	task.Resources = append(task.Resources, cgroupResource)
+	for _, container := range task.Containers {
+		container.BuildResourceDependency(cgroupResource.GetName(),
+			taskresource.ResourceStatus(cgroup.CgroupCreated),
+			apicontainer.ContainerPulled)
+	}
+	return nil
 }
 
 func getCanonicalPath(path string) string { return path }

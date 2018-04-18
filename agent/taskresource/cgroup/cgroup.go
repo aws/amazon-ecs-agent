@@ -60,22 +60,23 @@ type CgroupResource struct {
 	appliedStatus                      taskresource.ResourceStatus
 	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
 	// lock is used for fields that are accessed and updated concurrently
-	lock sync.RWMutex
+	lock				   sync.RWMutex
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
 func NewCgroupResource(taskARN string,
 	control cgroupres.Control,
+	ioutil ioutilwrapper.IOUtil,
 	cgroupRoot string,
 	cgroupMountPath string,
 	resourceSpec specs.LinuxResources) *CgroupResource {
 	c := &CgroupResource{
 		taskARN:         taskARN,
 		control:         control,
+		ioutil:          ioutil,
 		cgroupRoot:      cgroupRoot,
 		cgroupMountPath: cgroupMountPath,
 		resourceSpec:    resourceSpec,
-		ioutil:          ioutilwrapper.NewIOUtil(),
 	}
 	c.initializeResourceStatusToTransitionFunction()
 	return c

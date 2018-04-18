@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -263,12 +264,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 		if skipAddTask(task.GetDesiredStatus()) {
 			continue
 		}
-		err := payloadHandler.taskEngine.AddTask(task)
-		if err != nil {
-			seelog.Warnf("Could not add task; taskengine probably disabled, err: %v", err)
-			// Don't ack
-			allTasksOK = false
-		}
+		payloadHandler.taskEngine.AddTask(task)
 
 		ackCredentials := func(id string, description string) {
 			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)

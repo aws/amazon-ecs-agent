@@ -187,13 +187,22 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
-func (task *Task) PostUnmarshalTask(cfg *config.Config, credentialsManager credentials.Manager) {
+func (task *Task) PostUnmarshalTask(cfg *config.Config,
+	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
+	if task.MemoryCPULimitsEnabled {
+		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, resourceFields)
+		if err != nil {
+			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
+	return nil
 }
 
 func (task *Task) initializeEmptyVolumes() {

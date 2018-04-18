@@ -67,8 +67,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	assert.NoError(t, err)
 	cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
-	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
-	cgroupResource.SetIOUtil(mockIO)
+	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, mockIO, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
 	sleepTask.Resources = []taskresource.TaskResource{cgroupResource}
 	sleepTask.Resources[0].SetDesiredStatus(taskresource.ResourceCreated)
@@ -143,7 +142,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	taskID, err := sleepTask.GetID()
 	assert.NoError(t, err)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
-	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
+	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
 	sleepTask.Resources = []taskresource.TaskResource{cgroupResource}
 	sleepTask.Resources[0].SetDesiredStatus(taskresource.ResourceCreated)

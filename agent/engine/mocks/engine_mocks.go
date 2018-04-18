@@ -53,10 +53,8 @@ func (m *MockTaskEngine) EXPECT() *MockTaskEngineMockRecorder {
 }
 
 // AddTask mocks base method
-func (m *MockTaskEngine) AddTask(arg0 *api.Task) error {
-	ret := m.ctrl.Call(m, "AddTask", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (m *MockTaskEngine) AddTask(arg0 *api.Task) {
+	m.ctrl.Call(m, "AddTask", arg0)
 }
 
 // AddTask indicates an expected call of AddTask
