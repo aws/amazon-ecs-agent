@@ -16,11 +16,13 @@
 package api
 
 import (
+	"errors"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -113,4 +115,8 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 		return 2
 	}
 	return int64(containerCPU)
+}
+
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields *taskresource.ResourceFields) error {
+	return errors.New("unsupported platform")
 }

@@ -23,6 +23,11 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	"github.com/golang/mock/gomock"
+
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -388,4 +393,88 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 
 	assert.Empty(t, config.CPUShares)
 	assert.Empty(t, config.Memory)
+}
+
+func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
+	taskMemoryLimit := int64(taskMemoryLimit)
+	task := &Task{
+		Arn:    validTaskArn,
+		CPU:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		MemoryCPULimitsEnabled: true,
+	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+	assert.NoError(t, task.initializeCgroupResourceSpec("cgroupPath", &taskresource.ResourceFields{
+		Control: mockControl,
+		IOUtil:  mockIO,
+	}))
+	assert.Equal(t, 1, len(task.Resources))
+	assert.Equal(t, 1, len(task.Containers[0].TransitionDependenciesMap))
+}
+
+func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
+	task := &Task{
+		Arn:     "arn", // malformed arn
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		MemoryCPULimitsEnabled: true,
+	}
+	assert.Error(t, task.initializeCgroupResourceSpec("", nil))
+	assert.Equal(t, 0, len(task.Resources))
+	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
+}
+
+func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
+	taskMemoryLimit := int64(taskMemoryLimit)
+	task := &Task{
+		Arn:    validTaskArn,
+		CPU:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
+		Containers: []*apicontainer.Container{
+			{
+				Name:   "C1",
+				Memory: uint(2048), // container memory > task memory
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		MemoryCPULimitsEnabled: true,
+	}
+	assert.Error(t, task.initializeCgroupResourceSpec("", nil))
+	assert.Equal(t, 0, len(task.Resources))
+	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
+}
+
+func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
+	task := &Task{
+		Arn:     "arn", // malformed arn
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := config.Config{
+		TaskCPUMemLimit: config.ExplicitlyEnabled,
+	}
+	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil))
+	assert.Equal(t, 0, len(task.Resources))
+	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }

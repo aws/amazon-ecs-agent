@@ -267,8 +267,7 @@ func (engine *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {
 }
 
-func (engine *MockTaskEngine) AddTask(*api.Task) error {
-	return nil
+func (engine *MockTaskEngine) AddTask(*api.Task) {
 }
 
 func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {

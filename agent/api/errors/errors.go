@@ -14,6 +14,7 @@
 package errors
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -95,3 +96,25 @@ func (err *DockerClientConfigError) Error() string { return err.Msg }
 
 // ErrorName returns the name of the error
 func (err *DockerClientConfigError) ErrorName() string { return "DockerClientConfigError" }
+
+// ResourceInitError is a task error for which a required resource cannot
+// be initialized
+type ResourceInitError struct {
+	taskARN string
+	origErr error
+}
+
+// NewResourceInitError creates an error for resource initialize failure
+func NewResourceInitError(taskARN string, origErr error) *ResourceInitError {
+	return &ResourceInitError{taskARN, origErr}
+}
+
+// Error returns the error as a string
+func (err *ResourceInitError) Error() string {
+	return fmt.Sprintf("resource cannot be initialized for task %s: %v", err.taskARN, err.origErr)
+}
+
+// ErrorName is the name of the error
+func (err *ResourceInitError) ErrorName() string {
+	return "ResourceInitializationError"
+}

@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -153,8 +152,6 @@ type managedTask struct {
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
 	steadyStatePollInterval time.Duration
-
-	resource resources.Resource
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -170,7 +167,6 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 		dockerMessages:           make(chan dockerContainerChange),
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		engine:                     engine,
-		resource:                   engine.resource,
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
@@ -218,17 +214,6 @@ func (mtask *managedTask) overseeTask() {
 			seelog.Debugf("Managed task [%s]: task not steady state or terminal; progressing it",
 				mtask.Arn)
 
-			// TODO: Add new resource provisioned state ?
-			if mtask.cfg.TaskCPUMemLimit.Enabled() {
-				err := mtask.resource.Setup(mtask.Task)
-				if err != nil {
-					seelog.Criticalf("Managed task [%s]: unable to setup platform resources: %v",
-						mtask.Arn, err)
-					mtask.SetDesiredStatus(api.TaskStopped)
-					mtask.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
-				}
-				seelog.Infof("Managed task [%s]: Cgroup resource set up for task complete", mtask.Arn)
-			}
 			mtask.progressTask()
 		}
 
