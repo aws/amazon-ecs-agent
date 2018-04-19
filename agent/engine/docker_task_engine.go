@@ -266,6 +266,14 @@ func (engine *DockerTaskEngine) Disable() {
 	engine.processTasks.Lock()
 }
 
+// isTaskManaged checks if task for the corresponding arn is present
+func (engine *DockerTaskEngine) isTaskManaged(arn string) bool {
+	engine.processTasks.RLock()
+	defer engine.processTasks.RUnlock()
+	_, ok := engine.managedTasks[arn]
+	return ok
+}
+
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
@@ -458,6 +466,17 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task) {
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: unable to cleanup platform resources: %v",
 				task.Arn, err)
+		}
+	}
+
+	for _, resource := range task.Resources {
+		err := resource.Cleanup()
+		if err != nil {
+			seelog.Warnf("Task engine [%s]: unable to cleanup resource %s: %v",
+				task.Arn, resource.GetName(), err)
+		} else {
+			seelog.Debugf("Task engine [%s]: resource %s cleanup complete", task.Arn,
+				resource.GetName())
 		}
 	}
 
@@ -1066,7 +1085,7 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *api.Task, update *api.Tas
 }
 
 // transitionContainer calls applyContainerState, and then notifies the managed
-// task of the change. transitionContainer is called by progressContainers and
+// task of the change. transitionContainer is called by progressTask and
 // by handleStoppedToRunningContainerTransition.
 func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *api.Container, to api.ContainerStatus) {
 	// Let docker events operate async so that we can continue to handle ACS / other requests
