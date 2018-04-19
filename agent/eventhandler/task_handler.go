@@ -348,7 +348,7 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			if handler.isInvalidParameterException(err) {
+			if isInvalidParameterException(err) {
 				// Remove the event when its parameters are invalid to reduce the redundant API call
 				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
 				taskEvents.events.Remove(eventToSubmit)
@@ -358,7 +358,7 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			if handler.isInvalidParameterException(err) {
+			if isInvalidParameterException(err) {
 				// Remove the event when its parameters are invalid to reduce the redundant API call
 				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
 				taskEvents.events.Remove(eventToSubmit)
@@ -394,6 +394,6 @@ func (handler *TaskHandler) getTasksToEventsLen() int {
 	return len(handler.tasksToEvents)
 }
 
-func (handler *TaskHandler) isInvalidParameterException(err error) bool {
-	return utils.IsAwsErrAndEqualToEcsErrCode(err, ecs.ErrCodeInvalidParameterException)
+func isInvalidParameterException(err error) bool {
+	return utils.IsErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException)
 }

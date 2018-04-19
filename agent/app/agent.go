@@ -467,7 +467,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return err
 		}
-		if utils.IsAwsErrAndEqualToEcsErrCode(err, ecs.ErrCodeInvalidParameterException) {
+		if utils.IsErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
 			seelog.Critical("Instance registration attempt with an invalid parameter")
 			return err
 		}
