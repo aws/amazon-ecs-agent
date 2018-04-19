@@ -48,6 +48,18 @@ func (m *MockTaskResource) EXPECT() *MockTaskResourceMockRecorder {
 	return m.recorder
 }
 
+// ApplyTransition mocks base method
+func (m *MockTaskResource) ApplyTransition(arg0 taskresource.ResourceStatus) error {
+	ret := m.ctrl.Call(m, "ApplyTransition", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplyTransition indicates an expected call of ApplyTransition
+func (mr *MockTaskResourceMockRecorder) ApplyTransition(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyTransition", reflect.TypeOf((*MockTaskResource)(nil).ApplyTransition), arg0)
+}
+
 // Cleanup mocks base method
 func (m *MockTaskResource) Cleanup() error {
 	ret := m.ctrl.Call(m, "Cleanup")
@@ -70,6 +82,18 @@ func (m *MockTaskResource) Create() error {
 // Create indicates an expected call of Create
 func (mr *MockTaskResourceMockRecorder) Create() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTaskResource)(nil).Create))
+}
+
+// DesiredTerminal mocks base method
+func (m *MockTaskResource) DesiredTerminal() bool {
+	ret := m.ctrl.Call(m, "DesiredTerminal")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// DesiredTerminal indicates an expected call of DesiredTerminal
+func (mr *MockTaskResourceMockRecorder) DesiredTerminal() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DesiredTerminal", reflect.TypeOf((*MockTaskResource)(nil).DesiredTerminal))
 }
 
 // GetCreatedAt mocks base method
@@ -120,6 +144,18 @@ func (mr *MockTaskResourceMockRecorder) GetName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockTaskResource)(nil).GetName))
 }
 
+// KnownCreated mocks base method
+func (m *MockTaskResource) KnownCreated() bool {
+	ret := m.ctrl.Call(m, "KnownCreated")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// KnownCreated indicates an expected call of KnownCreated
+func (mr *MockTaskResourceMockRecorder) KnownCreated() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownCreated", reflect.TypeOf((*MockTaskResource)(nil).KnownCreated))
+}
+
 // MarshalJSON mocks base method
 func (m *MockTaskResource) MarshalJSON() ([]byte, error) {
 	ret := m.ctrl.Call(m, "MarshalJSON")
@@ -131,6 +167,30 @@ func (m *MockTaskResource) MarshalJSON() ([]byte, error) {
 // MarshalJSON indicates an expected call of MarshalJSON
 func (mr *MockTaskResourceMockRecorder) MarshalJSON() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarshalJSON", reflect.TypeOf((*MockTaskResource)(nil).MarshalJSON))
+}
+
+// NextKnownState mocks base method
+func (m *MockTaskResource) NextKnownState() taskresource.ResourceStatus {
+	ret := m.ctrl.Call(m, "NextKnownState")
+	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	return ret0
+}
+
+// NextKnownState indicates an expected call of NextKnownState
+func (mr *MockTaskResourceMockRecorder) NextKnownState() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextKnownState", reflect.TypeOf((*MockTaskResource)(nil).NextKnownState))
+}
+
+// SetAppliedStatus mocks base method
+func (m *MockTaskResource) SetAppliedStatus(arg0 taskresource.ResourceStatus) bool {
+	ret := m.ctrl.Call(m, "SetAppliedStatus", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// SetAppliedStatus indicates an expected call of SetAppliedStatus
+func (mr *MockTaskResourceMockRecorder) SetAppliedStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAppliedStatus", reflect.TypeOf((*MockTaskResource)(nil).SetAppliedStatus), arg0)
 }
 
 // SetCreatedAt mocks base method
@@ -161,6 +221,42 @@ func (m *MockTaskResource) SetKnownStatus(arg0 taskresource.ResourceStatus) {
 // SetKnownStatus indicates an expected call of SetKnownStatus
 func (mr *MockTaskResourceMockRecorder) SetKnownStatus(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKnownStatus", reflect.TypeOf((*MockTaskResource)(nil).SetKnownStatus), arg0)
+}
+
+// StatusString mocks base method
+func (m *MockTaskResource) StatusString(arg0 taskresource.ResourceStatus) string {
+	ret := m.ctrl.Call(m, "StatusString", arg0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// StatusString indicates an expected call of StatusString
+func (mr *MockTaskResourceMockRecorder) StatusString(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusString", reflect.TypeOf((*MockTaskResource)(nil).StatusString), arg0)
+}
+
+// SteadyState mocks base method
+func (m *MockTaskResource) SteadyState() taskresource.ResourceStatus {
+	ret := m.ctrl.Call(m, "SteadyState")
+	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	return ret0
+}
+
+// SteadyState indicates an expected call of SteadyState
+func (mr *MockTaskResourceMockRecorder) SteadyState() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SteadyState", reflect.TypeOf((*MockTaskResource)(nil).SteadyState))
+}
+
+// TerminalStatus mocks base method
+func (m *MockTaskResource) TerminalStatus() taskresource.ResourceStatus {
+	ret := m.ctrl.Call(m, "TerminalStatus")
+	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	return ret0
+}
+
+// TerminalStatus indicates an expected call of TerminalStatus
+func (mr *MockTaskResourceMockRecorder) TerminalStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TerminalStatus", reflect.TypeOf((*MockTaskResource)(nil).TerminalStatus))
 }
 
 // UnmarshalJSON mocks base method
