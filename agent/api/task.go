@@ -866,36 +866,55 @@ func (task *Task) UpdateStatus() bool {
 
 // UpdateDesiredStatus sets the known status of the task
 func (task *Task) UpdateDesiredStatus() {
-	task.updateTaskDesiredStatus()
-	task.updateContainerDesiredStatus()
+	task.lock.Lock()
+	defer task.lock.Unlock()
+	task.updateTaskDesiredStatusUnsafe()
+	task.updateContainerDesiredStatusUnsafe(task.DesiredStatusUnsafe)
+	task.updateResourceDesiredStatusUnsafe(task.DesiredStatusUnsafe)
 }
 
-// updateTaskDesiredStatus determines what status the task should properly be at based on the containers' statuses
+// updateTaskDesiredStatusUnsafe determines what status the task should properly be at based on the containers' statuses
 // Invariant: task desired status must be stopped if any essential container is stopped
-func (task *Task) updateTaskDesiredStatus() {
-	seelog.Debugf("Updating task: [%s]", task.String())
+func (task *Task) updateTaskDesiredStatusUnsafe() {
+	seelog.Debugf("Updating task: [%s]", task.stringUnsafe())
 
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			seelog.Debugf("Updating task desired status to stopped because of container: [%s]; task: [%s]",
-				cont.Name, task.String())
-			task.SetDesiredStatus(TaskStopped)
+				cont.Name, task.stringUnsafe())
+			task.DesiredStatusUnsafe = TaskStopped
 		}
 	}
 }
 
-// updateContainerDesiredStatus sets all container's desired status's to the
+// updateContainerDesiredStatusUnsafe sets all container's desired status's to the
 // task's desired status
 // Invariant: container desired status is <= task desired status converted to container status
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
-func (task *Task) updateContainerDesiredStatus() {
+func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
 	for _, c := range task.Containers {
-		taskDesiredStatus := task.GetDesiredStatus()
 		taskDesiredStatusToContainerStatus := taskDesiredStatus.ContainerStatus(c.GetSteadyStateStatus())
 		if c.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
 			c.SetDesiredStatus(taskDesiredStatusToContainerStatus)
+		}
+	}
+}
+
+// updateResourceDesiredStatusUnsafe sets all resources' desired status depending on the
+// task's desired status
+// TODO: Create a mapping of resource status to the corresponding task status and use it here
+func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
+	for _, r := range task.Resources {
+		if taskDesiredStatus == TaskRunning {
+			if r.GetDesiredStatus() < r.SteadyState() {
+				r.SetDesiredStatus(r.SteadyState())
+			}
+		} else {
+			if r.GetDesiredStatus() < r.TerminalStatus() {
+				r.SetDesiredStatus(r.TerminalStatus())
+			}
 		}
 	}
 }
@@ -1094,7 +1113,11 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 func (task *Task) String() string {
 	task.lock.Lock()
 	defer task.lock.Unlock()
+	return task.stringUnsafe()
+}
 
+// stringUnsafe returns a human readable string representation of this object
+func (task *Task) stringUnsafe() string {
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
 		task.Family, task.Version, task.Arn,
 		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String())
