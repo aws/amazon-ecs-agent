@@ -23,6 +23,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -751,9 +753,9 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 	// populate the transitions map with transitions for two
 	// containers. We expect two sets of events to be consumed
 	// by `waitForContainerTransition`
-	transitions := make(map[string]api.ContainerStatus)
-	transitions[firstContainerName] = api.ContainerRunning
-	transitions[secondContainerName] = api.ContainerRunning
+	transitions := make(map[string]string)
+	transitions[firstContainerName] = api.ContainerRunning.String()
+	transitions[secondContainerName] = api.ContainerRunning.String()
 
 	go func() {
 		// Send "transitions completed" messages. These are being
@@ -765,9 +767,9 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		transitionChangeContainer <- firstContainerName
 	}()
 
-	// waitForContainerTransition will block until it receives events
+	// waitForTransition will block until it receives events
 	// sent by the go routine defined above
-	task.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
+	task.waitForTransition(transitions, transitionChange, transitionChangeContainer)
 }
 
 // TestWaitForContainerTransitionsForTerminalTask verifies that the
@@ -794,9 +796,9 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 
 	firstContainerName := "container1"
 	secondContainerName := "container2"
-	transitions := make(map[string]api.ContainerStatus)
-	transitions[firstContainerName] = api.ContainerPulled
-	transitions[secondContainerName] = api.ContainerPulled
+	transitions := make(map[string]string)
+	transitions[firstContainerName] = api.ContainerPulled.String()
+	transitions[secondContainerName] = api.ContainerPulled.String()
 
 	// Event though there are two keys in the transitions map, send
 	// only one event. This tests that `waitForContainerTransition` doesn't
@@ -805,7 +807,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 		transitionChange <- struct{}{}
 		transitionChangeContainer <- secondContainerName
 	}()
-	task.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
+	task.waitForTransition(transitions, transitionChange, transitionChangeContainer)
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
@@ -963,6 +965,7 @@ func TestCleanupTask(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockImageManager := mock_engine.NewMockImageManager(ctrl)
+	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -977,16 +980,18 @@ func TestCleanupTask(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		cfg:            taskEngine.cfg,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:			  taskEngine.cfg,
+		saver:			  taskEngine.saver,
 	}
+	mTask.Task.Resources = []taskresource.TaskResource{mockResource}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
 	container := mTask.Containers[0]
@@ -1009,6 +1014,8 @@ func TestCleanupTask(t *testing.T) {
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
+	mockResource.EXPECT().Cleanup()
+	mockResource.EXPECT().GetName()
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
@@ -1033,15 +1040,16 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		cfg:            taskEngine.cfg,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:			  taskEngine.cfg,
+		saver:			  taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskRunning)
@@ -1156,15 +1164,16 @@ func TestCleanupTaskENIs(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		cfg:            taskEngine.cfg,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:			  taskEngine.cfg,
+		saver:			  taskEngine.saver,
 	}
 	mTask.SetTaskENI(&api.ENI{
 		ID: "TestCleanupTaskENIs",
@@ -1285,15 +1294,16 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		imageManager: mockImageManager,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		cfg:            taskEngine.cfg,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:			  taskEngine.cfg,
+		saver:			  taskEngine.saver,
 	}
 
 	mTask.SetKnownStatus(api.TaskStopped)
@@ -1344,16 +1354,17 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		resource:     mockResource,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5TaskCgroup"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		resource:       mockResource,
-		cfg:            taskEngine.cfg,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5TaskCgroup"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		resource:                 mockResource,
+		cfg:                      taskEngine.cfg,
+		saver:                    taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
@@ -1404,16 +1415,17 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		resource:     mockResource,
 	}
 	mTask := &managedTask{
-		ctx:            ctx,
-		cancel:         cancel,
-		Task:           testdata.LoadTask("sleep5TaskCgroup"),
-		_time:          mockTime,
-		engine:         taskEngine,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		cfg:            taskEngine.cfg,
-		resource:       mockResource,
-		saver:          taskEngine.saver,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5TaskCgroup"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:			  taskEngine.cfg,
+		resource:		  mockResource,
+		saver:			  taskEngine.saver,
 	}
 	mTask.SetKnownStatus(api.TaskStopped)
 	mTask.SetSentStatus(api.TaskStopped)
@@ -1505,6 +1517,90 @@ func TestWaitForHostResources(t *testing.T) {
 
 	taskStopWG.Done(1)
 	waitForHostResourcesWG.Wait()
+}
+
+func TestWaitForResourceTransition(t *testing.T) {
+	task := &managedTask{
+		Task: &api.Task{
+			Resources: []taskresource.TaskResource{},
+		},
+	}
+	transition := make(chan struct{}, 1)
+	transitionChangeResource := make(chan string, 1)
+	resName := "cgroup"
+	// populate the transitions map with transition for the
+	// resource. We expect the event to be consumed
+	// by `waitForTransition`
+	transitions := make(map[string]string)
+	transitions[resName] = "ResourceCreated"
+
+	go func() {
+		// Send "transition complete" message
+		transition <- struct{}{}
+		transitionChangeResource <- resName
+	}()
+
+	// waitForTransition will block until it receives the event
+	// sent by the go routine defined above
+	task.waitForTransition(transitions, transition, transitionChangeResource)
+}
+
+func TestApplyResourceStateHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+	task := &managedTask{
+		Task: &api.Task{
+			Arn:       "arn",
+			Resources: []taskresource.TaskResource{},
+		},
+	}
+	gomock.InOrder(
+		mockResource.EXPECT().GetName(),
+		mockResource.EXPECT().ApplyTransition(taskresource.ResourceCreated).Return(nil),
+		mockResource.EXPECT().GetName().AnyTimes(),
+		mockResource.EXPECT().StatusString(taskresource.ResourceCreated).AnyTimes(),
+	)
+	assert.NoError(t, task.applyResourceState(mockResource, taskresource.ResourceCreated))
+}
+
+func TestApplyResourceStateFailures(t *testing.T) {
+	testCases := []struct {
+		Name      string
+		ResStatus taskresource.ResourceStatus
+		Error     error
+	}{
+		{
+			Name:      "no valid state transition",
+			ResStatus: taskresource.ResourceRemoved,
+			Error:     errors.New("transition impossible"),
+		},
+		{
+			Name:      "transition error",
+			ResStatus: taskresource.ResourceCreated,
+			Error:     errors.New("transition failed"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+			task := &managedTask{
+				Task: &api.Task{
+					Arn:       "arn",
+					Resources: []taskresource.TaskResource{},
+				},
+			}
+			gomock.InOrder(
+				mockResource.EXPECT().GetName(),
+				mockResource.EXPECT().ApplyTransition(tc.ResStatus).Return(tc.Error),
+				mockResource.EXPECT().GetName().AnyTimes(),
+				mockResource.EXPECT().StatusString(tc.ResStatus).AnyTimes(),
+			)
+			assert.Error(t, task.applyResourceState(mockResource, tc.ResStatus))
+		})
+	}
 }
 
 func getTestConfig() config.Config {
