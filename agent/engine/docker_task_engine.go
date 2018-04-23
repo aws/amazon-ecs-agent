@@ -61,6 +61,7 @@ const (
 	labelTaskDefinitionFamily    = labelPrefix + "task-definition-family"
 	labelTaskDefinitionVersion   = labelPrefix + "task-definition-version"
 	labelCluster                 = labelPrefix + "cluster"
+	cniSetupTimeout              = 1 * time.Minute
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -911,8 +912,10 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 			},
 		}
 	}
+	ctx, cancel := context.WithTimeout(engine.ctx, cniSetupTimeout)
+	defer cancel()
 	// Invoke the libcni to config the network namespace for the container
-	result, err := engine.cniClient.SetupNS(cniConfig)
+	result, err := engine.cniClient.SetupNS(cniConfig, ctx)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)

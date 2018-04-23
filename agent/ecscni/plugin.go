@@ -14,6 +14,7 @@
 package ecscni
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -38,7 +39,7 @@ type CNIClient interface {
 	// Capabilities returns the capabilities supported by a plugin
 	Capabilities(string) ([]string, error)
 	// SetupNS sets up the namespace of container
-	SetupNS(*Config) (*current.Result, error)
+	SetupNS(*Config, context.Context) (*current.Result, error)
 	// CleanupNS cleans up the container namespace
 	CleanupNS(*Config) error
 	// ReleaseIPResource marks the ip available in the ipam db
@@ -69,7 +70,24 @@ func NewClient(cfg *Config) CNIClient {
 
 // SetupNS will set up the namespace of container, including create the bridge
 // and the veth pair, move the eni to container namespace, setup the routes
-func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
+func (client *cniClient) SetupNS(cfg *Config, ctx context.Context) (*current.Result, error) {
+	var result *current.Result
+	var err error
+	setupDone := make(chan struct{})
+	go func() {
+		result, err = client.setupNS(cfg)
+		setupDone <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("cni setup: container namespace setup timed out")
+	case <-setupDone:
+		return result, err
+	}
+}
+
+func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
