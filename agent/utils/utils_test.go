@@ -279,7 +279,7 @@ func TestParseBool(t *testing.T) {
 	}
 }
 
-func TestIsErrorCodeEqual(t *testing.T) {
+func TestIsAWSErrorCodeEqual(t *testing.T) {
 	testcases := []struct {
 		name string
 		err  error
@@ -304,7 +304,7 @@ func TestIsErrorCodeEqual(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, IsErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
+			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
 		})
 	}
 }

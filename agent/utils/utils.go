@@ -201,10 +201,10 @@ func ParseBool(str string, default_ bool) bool {
 	return res
 }
 
-// IsErrorCodeEqual returns true if the err implements Error
+// IsAWSErrorCodeEqual returns true if the err implements Error
 // interface of awserr and it has the same error code as
 // the passed in error code.
-func IsErrorCodeEqual(err error, code string) bool {
+func IsAWSErrorCodeEqual(err error, code string) bool {
 	awsErr, ok := err.(awserr.Error)
 	return ok && awsErr.Code() == code
 }
