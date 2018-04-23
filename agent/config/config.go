@@ -172,6 +172,8 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	}
 	config.Merge(fcfg)
 
+	config.Merge(userDataConfig(ec2client))
+
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
 		config.Merge(ec2MetadataConfig(ec2client))
@@ -353,6 +355,40 @@ func fileConfig() (Config, error) {
 		cfg.Cluster = cfg.ClusterArn
 	}
 	return cfg, nil
+}
+
+// userDataConfig reads configuration JSON from instance's userdata. It doesn't
+// return any error as it's entirely optional to configure the ECS agent using
+// this method.
+// Example:
+// {"ECSAgentConfiguration":{"Cluster":"default"}}
+func userDataConfig(ec2Client ec2.EC2MetadataClient) Config {
+	type userDataParser struct {
+		Config Config `json:"ECSAgentConfiguration"`
+	}
+
+	parsedUserData := userDataParser{
+		Config: Config{},
+	}
+
+	userData, err := ec2Client.GetUserData()
+	if err != nil {
+		seelog.Warnf("Unable to fetch user data: %v", err)
+		// Unable to read userdata from instance metadata. Just
+		// return early
+		return parsedUserData.Config
+	}
+	// In the future, if we want to support base64 encoded config,
+	// we'd need to add logic to decode the string here.
+	err = json.Unmarshal([]byte(userData), &parsedUserData)
+	if err != nil {
+		seelog.Warnf("Unable to parse user data: %v", err)
+		// Unable to parse userdata as a valid JSON. Return the
+		// empty config
+		return parsedUserData.Config
+	}
+
+	return parsedUserData.Config
 }
 
 // environmentConfig reads the given configs from the environment and attempts
