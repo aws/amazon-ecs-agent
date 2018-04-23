@@ -1,9 +1,12 @@
 package ecscni
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/containernetworking/cni/libcni"
@@ -43,8 +46,35 @@ func TestSetupNS(t *testing.T) {
 			}),
 	)
 
-	_, err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
+	_, err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes}, context.TODO())
 	assert.NoError(t, err)
+}
+
+func TestSetupNSTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	gomock.InOrder(
+		// ENI plugin was called first
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				wg.Wait()
+			}).MaxTimes(1),
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).MaxTimes(1),
+	)
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
+	defer cancel()
+
+	_, err := ecscniClient.SetupNS(&Config{}, ctx)
+	assert.Error(t, err)
+	wg.Done()
 }
 
 func TestCleanupNS(t *testing.T) {

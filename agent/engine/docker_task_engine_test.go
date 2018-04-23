@@ -372,7 +372,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			State: docker.State{Pid: 23},
 		}, nil),
 		// Then setting up the pause container network namespace
-		mockCNIClient.EXPECT().SetupNS(gomock.Any()).Return(nsResult, nil),
+		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nsResult, nil),
 
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -1084,7 +1084,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				ID:    pauseContainerID,
 				State: docker.State{Pid: containerPid},
 			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any()).Return(nsResult, nil),
+		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nsResult, nil),
 	)
 
 	// For the other container
