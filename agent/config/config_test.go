@@ -532,6 +532,22 @@ func TestTaskMetadataRPSLimits(t *testing.T) {
 	}
 }
 
+func TestUserDataConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	userDataResponse := `{
+		"ECSAgentConfiguration":{
+			"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+			"APIEndpoint":"https://some-endpoint.com"
+		}
+}`
+
+	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
+	cfg := userDataConfig(mockEc2Metadata)
+	assert.Equal(t, "https://some-endpoint.com", cfg.APIEndpoint)
+	assert.Equal(t, "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster", cfg.Cluster)
+}
+
 func setTestRegion() func() {
 	return setTestEnv("AWS_DEFAULT_REGION", "us-west-2")
 }
