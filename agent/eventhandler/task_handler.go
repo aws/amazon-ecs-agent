@@ -348,21 +348,13 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			if isInvalidParameterException(err) {
-				// Remove the event when its parameters are invalid to reduce the redundant API call
-				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
-				taskEvents.events.Remove(eventToSubmit)
-			}
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit, event)
 			return false, err
 		}
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			if isInvalidParameterException(err) {
-				// Remove the event when its parameters are invalid to reduce the redundant API call
-				seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
-				taskEvents.events.Remove(eventToSubmit)
-			}
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit, event)
 			return false, err
 		}
 	} else {
@@ -394,6 +386,11 @@ func (handler *TaskHandler) getTasksToEventsLen() int {
 	return len(handler.tasksToEvents)
 }
 
-func isInvalidParameterException(err error) bool {
-	return utils.IsErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException)
+// handleInvalidParamException removes the event from event queue when its parameters are
+// invalid to reduce redundant API call
+func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element, event *sendableEvent) {
+	if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
+		seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
+		events.Remove(eventToSubmit)
+	}
 }
