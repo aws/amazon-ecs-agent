@@ -188,6 +188,10 @@
       }
     },
     "Double":{"type":"double"},
+    "DriverType":{
+      "type":"string",
+      "enum":["Docker"]
+    },
     "ECRAuthData":{
       "type":"structure",
       "members":{
@@ -207,7 +211,8 @@
         "ipv6Addresses":{"shape":"IPv6AddressList"},
         "domainName":{"shape":"StringList"},
         "domainNameServers":{"shape":"StringList"},
-        "privateDnsName":{"shape":"String"}
+        "privateDnsName":{"shape":"String"},
+        "subnetGatewayIpv4Address":{"shape":"String"}
       }
     },
     "ElasticNetworkInterfaceList":{
@@ -415,6 +420,11 @@
       "type":"list",
       "member":{"shape":"String"}
     },
+    "StringMap":{
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
+    },
     "Task":{
       "type":"structure",
       "members":{
@@ -463,7 +473,11 @@
       "type":"structure",
       "members":{
         "name":{"shape":"String"},
-        "host":{"shape":"HostVolumeProperties"}
+        "host":{"shape":"HostVolumeProperties"},
+        "driver":{"shape":"String"},
+        "driverOpts":{"shape":"StringMap"},
+        "labels":{"shape":"StringMap"},
+        "driverType":{"shape":"DriverType"}
       }
     },
     "VolumeFrom":{
