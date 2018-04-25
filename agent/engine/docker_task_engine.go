@@ -62,6 +62,7 @@ const (
 	labelTaskDefinitionVersion   = labelPrefix + "task-definition-version"
 	labelCluster                 = labelPrefix + "cluster"
 	cniSetupTimeout              = 1 * time.Minute
+	cniCleanupTimeout            = 30 * time.Second
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -912,10 +913,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 			},
 		}
 	}
-	ctx, cancel := context.WithTimeout(engine.ctx, cniSetupTimeout)
-	defer cancel()
 	// Invoke the libcni to config the network namespace for the container
-	result, err := engine.cniClient.SetupNS(cniConfig, ctx)
+	result, err := engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
@@ -944,7 +943,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 			"engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(cniConfig)
+	return engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
 }
 
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {

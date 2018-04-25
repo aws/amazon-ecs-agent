@@ -46,7 +46,7 @@ func TestSetupNS(t *testing.T) {
 			}),
 	)
 
-	_, err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes}, context.TODO())
+	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -69,10 +69,8 @@ func TestSetupNSTimeout(t *testing.T) {
 			}).MaxTimes(1),
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).MaxTimes(1),
 	)
-	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
-	defer cancel()
 
-	_, err := ecscniClient.SetupNS(&Config{}, ctx)
+	_, err := ecscniClient.SetupNS(context.TODO(), &Config{}, time.Millisecond)
 	assert.Error(t, err)
 	wg.Done()
 }
@@ -92,8 +90,36 @@ func TestCleanupNS(t *testing.T) {
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
-	err = ecscniClient.CleanupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
+	err = ecscniClient.CleanupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
 	assert.NoError(t, err)
+}
+
+func TestCleanupNSTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	// This will be called for both bridge and eni plugin
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Do(
+		func(x interface{}, y interface{}) {
+			wg.Wait()
+		}).Return(nil).MaxTimes(2)
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
+	defer cancel()
+	err = ecscniClient.CleanupNS(ctx, &Config{AdditionalLocalRoutes: additionalRoutes}, time.Millisecond)
+	assert.Error(t, err)
+	wg.Done()
 }
 
 func TestReleaseIPInIPAM(t *testing.T) {

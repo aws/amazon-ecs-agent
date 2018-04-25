@@ -18,6 +18,7 @@ package mock_ecscni
 
 import (
 	context "context"
+	time "time"
 
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
 	current "github.com/containernetworking/cni/pkg/types/current"
@@ -56,14 +57,14 @@ func (_mr *_MockCNIClientRecorder) Capabilities(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Capabilities", arg0)
 }
 
-func (_m *MockCNIClient) CleanupNS(_param0 *ecscni.Config) error {
-	ret := _m.ctrl.Call(_m, "CleanupNS", _param0)
+func (_m *MockCNIClient) CleanupNS(_param0 context.Context, _param1 *ecscni.Config, _param2 time.Duration) error {
+	ret := _m.ctrl.Call(_m, "CleanupNS", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockCNIClientRecorder) CleanupNS(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0)
+func (_mr *_MockCNIClientRecorder) CleanupNS(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanupNS", arg0, arg1, arg2)
 }
 
 func (_m *MockCNIClient) ReleaseIPResource(_param0 *ecscni.Config) error {
@@ -76,15 +77,15 @@ func (_mr *_MockCNIClientRecorder) ReleaseIPResource(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseIPResource", arg0)
 }
 
-func (_m *MockCNIClient) SetupNS(_param0 *ecscni.Config, _param1 context.Context) (*current.Result, error) {
-	ret := _m.ctrl.Call(_m, "SetupNS", _param0, _param1)
+func (_m *MockCNIClient) SetupNS(_param0 context.Context, _param1 *ecscni.Config, _param2 time.Duration) (*current.Result, error) {
+	ret := _m.ctrl.Call(_m, "SetupNS", _param0, _param1, _param2)
 	ret0, _ := ret[0].(*current.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockCNIClientRecorder) SetupNS(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetupNS", arg0, arg1)
+func (_mr *_MockCNIClientRecorder) SetupNS(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetupNS", arg0, arg1, arg2)
 }
 
 func (_m *MockCNIClient) Version(_param0 string) (string, error) {
