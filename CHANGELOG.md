@@ -2,7 +2,7 @@
 
 ## 1.17.4-dev
 * Bug - Fixed a bug where Docker Version() API never returns by adding a timeout [#1363](https://github.com/aws/amazon-ecs-agent/pull/1363)
-* Bug - Fixed a bug where task stuck in pending due to the cni setup process hangs [#1358](https://github.com/aws/amazon-ecs-agent/pull/1358)
+* Bug - Fixed a bug where tasks could get stuck waiting for execution of CNI plugin [#1358](https://github.com/aws/amazon-ecs-agent/pull/1358)
 
 ## 1.17.3
 * Enhancement - Distinct startContainerTimeouts for windows/linux, introduce a new environment variable `ECS_CONTAINER_START_TIMEOUT` to make it configurable [#1321](https://github.com/aws/amazon-ecs-agent/pull/1321)

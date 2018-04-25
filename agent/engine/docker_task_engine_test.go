@@ -372,7 +372,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			State: docker.State{Pid: 23},
 		}, nil),
 		// Then setting up the pause container network namespace
-		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -407,7 +407,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		ID:    containerID,
 		State: docker.State{Pid: 23},
 	}, nil)
-	mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
+	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer(gomock.Any(), containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
 	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil).MaxTimes(1)
 
@@ -1084,7 +1084,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				ID:    pauseContainerID,
 				State: docker.State{Pid: containerPid},
 			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 	)
 
 	// For the other container
@@ -1118,7 +1118,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		ID:    pauseContainerID,
 		State: docker.State{Pid: containerPid},
 	}, nil)
-	cniClient.EXPECT().CleanupNS(gomock.Any()).Return(nil)
+	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(
 		dockerapi.DockerContainerMetadata{DockerID: pauseContainerID})
 	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Do(func(cfg *ecscni.Config) {
@@ -1268,7 +1268,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 			ID:    containerID,
 			State: docker.State{Pid: containerPid},
 		}, nil),
-		mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().StopContainer(gomock.Any(),
 			containerID,
 			defaultConfig.DockerStopTimeout+dockerclient.StopContainerTimeout,
