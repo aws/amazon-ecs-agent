@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +55,7 @@ const (
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 			},
@@ -68,10 +68,10 @@ func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask := &Task{
 		ENI: &ENI{},
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 	}
@@ -84,7 +84,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		"addNetworkResourceProvisioningDependency should add another container")
 	pauseContainer, ok := testTask.ContainerByName(PauseContainerName)
 	require.True(t, ok, "Expected to find pause container")
-	assert.Equal(t, ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
+	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
 		"pause container should use configured image")
@@ -169,7 +169,7 @@ func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 	task := &Task{
 		Arn: validTaskArn,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "C1",
 			},
@@ -192,7 +192,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 func TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits(t *testing.T) {
 	task := &Task{
 		Arn: validTaskArn,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "C1",
 				CPU:  uint(512),
@@ -220,7 +220,7 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 		Arn:    validTaskArn,
 		CPU:    float64(taskVCPULimit),
 		Memory: taskMemoryLimit,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:   "C1",
 				Memory: uint(2048),
@@ -290,7 +290,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		CPU:                    float64(taskVCPULimit),
 		Memory:                 int64(taskMemoryLimit),
 		MemoryCPULimitsEnabled: true,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 			},
@@ -322,14 +322,14 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:        "c1",
 				Image:       "image",
 				CPU:         50,
 				Memory:      100,
-				VolumesFrom: []VolumeFrom{{SourceContainer: "c2"}},
-				DockerConfig: DockerConfig{
+				VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "c2"}},
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -358,7 +358,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	memoryMiB := 500
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:   "c1",
 				CPU:    uint(10),

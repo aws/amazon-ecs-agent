@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
@@ -45,8 +46,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
-	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&api.DockerContainer{
-		Container: &api.Container{},
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
+		Container: &apicontainer.Container{},
 	}, nil)
 	mockStatsChannel := make(chan *docker.Stats)
 	defer close(mockStatsChannel)
@@ -170,8 +171,8 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
 	t1 := &api.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
-	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&api.DockerContainer{
-		Container: &api.Container{},
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
+		Container: &apicontainer.Container{},
 	}, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
@@ -283,13 +284,13 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 
 	containerID := "containerID"
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
-		Container: &api.Container{
-			KnownStatusUnsafe: api.ContainerRunning,
+		Container: &apicontainer.Container{
+			KnownStatusUnsafe: apicontainer.ContainerRunning,
 			HealthCheckType:   "docker",
-			Health: api.HealthStatus{
-				Status: api.ContainerHealthy,
+			Health: apicontainer.HealthStatus{
+				Status: apicontainer.ContainerHealthy,
 				Since:  aws.Time(time.Now()),
 			},
 		},
@@ -325,13 +326,13 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 
 	containerID := "containerID"
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
-		Container: &api.Container{
-			KnownStatusUnsafe: api.ContainerStopped,
+		Container: &apicontainer.Container{
+			KnownStatusUnsafe: apicontainer.ContainerStopped,
 			HealthCheckType:   "docker",
-			Health: api.HealthStatus{
-				Status: api.ContainerHealthy,
+			Health: apicontainer.HealthStatus{
+				Status: apicontainer.ContainerHealthy,
 				Since:  aws.Time(time.Now()),
 			},
 		},
@@ -371,9 +372,9 @@ func TestMetricsDisabled(t *testing.T) {
 		KnownStatusUnsafe: api.TaskRunning,
 		Family:            "f1",
 	}, nil)
-	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
 	}, nil)
@@ -417,9 +418,9 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		KnownStatusUnsafe: api.TaskRunning,
 		Family:            "f1",
 	}, nil)
-	resolver.EXPECT().ResolveContainer(containerID).Return(&api.DockerContainer{
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
 	}, nil)

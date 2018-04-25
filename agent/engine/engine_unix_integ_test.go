@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -62,17 +63,17 @@ func isDockerRunning() bool {
 	return true
 }
 
-func createTestContainer() *api.Container {
+func createTestContainer() *apicontainer.Container {
 	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
 }
 
-func createTestContainerWithImageAndName(image string, name string) *api.Container {
-	return &api.Container{
+func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
+	return &apicontainer.Container{
 		Name:                name,
 		Image:               image,
 		Command:             []string{},
 		Essential:           true,
-		DesiredStatusUnsafe: api.ContainerRunning,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
 		CPU:                 100,
 		Memory:              80,
 	}
@@ -84,13 +85,13 @@ func createTestHealthCheckTask(arn string) *api.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: api.TaskRunning,
-		Containers:          []*api.Container{createTestContainer()},
+		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-health-check"
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
-	testTask.Containers[0].DockerConfig = api.DockerConfig{
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
 		Config: aws.String(`{
 			"HealthCheck":{
 				"Test":["CMD-SHELL", "echo hello"],
@@ -179,7 +180,7 @@ func TestPortForward(t *testing.T) {
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	taskEngine.AddTask(testTask)
 
@@ -232,12 +233,12 @@ func TestMultiplePortForwards(t *testing.T) {
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "1"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "2"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -286,12 +287,12 @@ func TestDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -340,12 +341,12 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -416,7 +417,7 @@ func TestLinking(t *testing.T) {
 	testTask.Containers[0].Name = "linkee"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -531,9 +532,9 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -578,15 +579,15 @@ func TestVolumesFromRO(t *testing.T) {
 		cont.Essential = i > 0
 		testTask.Containers = append(testTask.Containers, cont)
 	}
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
+	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
 	// make all the three containers non-essential to make sure all of the
 	// container can be transitioned to running even one of them finished first
 	testTask.Containers[1].Essential = false
-	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[2].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
 	testTask.Containers[2].Essential = false
-	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
+	testTask.Containers[3].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
 	testTask.Containers[3].Essential = false
 
@@ -612,7 +613,7 @@ func createTestHostVolumeMountTask(tmpPath string) *api.Task {
 	testTask := createTestTask("testHostVolumeMount")
 	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
 	return testTask
 }
@@ -621,12 +622,12 @@ func createTestEmptyHostVolumeMountTask() *api.Task {
 	testTask := createTestTask("testEmptyHostVolumeMount")
 	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].MountPoints = []api.MountPoint{{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
+	testTask.Containers[1].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
 	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
 	testTask.Containers[1].Essential = false
 	return testTask
@@ -661,7 +662,7 @@ func TestInitOOMEvent(t *testing.T) {
 	verifyTaskRunningStateChange(t, taskEngine)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
@@ -794,7 +795,7 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	testArn := "testSecurityOptionNoNewPrivileges"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].DockerConfig = api.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
 
 	go taskEngine.AddTask(testTask)
 

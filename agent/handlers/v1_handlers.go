@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -67,7 +68,7 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	}
 }
 
-func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *v1.TaskResponse {
+func newTaskResponse(task *api.Task, containerMap map[string]*apicontainer.DockerContainer) *v1.TaskResponse {
 	containers := []v1.ContainerResponse{}
 	for _, container := range containerMap {
 		if container.Container.IsInternal() {
@@ -96,7 +97,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 	}
 }
 
-func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1.ContainerResponse {
+func newContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *api.ENI) v1.ContainerResponse {
 	container := dockerContainer.Container
 	resp := v1.ContainerResponse{
 		Name:       container.Name,
@@ -118,7 +119,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 	return resp
 }
 
-func newPortBindingsResponse(dockerContainer *api.DockerContainer, eni *api.ENI) []v2.PortResponse {
+func newPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *api.ENI) []v2.PortResponse {
 	container := dockerContainer.Container
 	resp := []v2.PortResponse{}
 

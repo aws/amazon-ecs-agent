@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -41,20 +42,20 @@ var defaultDockerClientAPIVersion = dockerclient.Version_1_17
 
 func strptr(s string) *string { return &s }
 
-func dockerMap(task *Task) map[string]*DockerContainer {
-	m := make(map[string]*DockerContainer)
-	for _, c := range task.Containers {
-		m[c.Name] = &DockerContainer{DockerID: dockerIDPrefix + c.Name, DockerName: "dockername-" + c.Name, Container: c}
+func dockerMap(task *Task) map[string]*apicontainer.DockerContainer {
+	m := make(map[string]*apicontainer.DockerContainer)
+	for _, container := range task.Containers {
+		m[container.Name] = &apicontainer.DockerContainer{DockerID: dockerIDPrefix + container.Name, DockerName: "dockername-" + container.Name, Container: container}
 	}
 	return m
 }
 
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:  "c1",
-				Ports: []PortBinding{{10, 10, "", TransportProtocolTCP}, {20, 20, "", TransportProtocolUDP}},
+				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
 			},
 		},
 	}
@@ -76,7 +77,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 
 func TestDockerConfigCPUShareZero(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 				CPU:  0,
@@ -96,7 +97,7 @@ func TestDockerConfigCPUShareZero(t *testing.T) {
 
 func TestDockerConfigCPUShareMinimum(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 				CPU:  1,
@@ -116,7 +117,7 @@ func TestDockerConfigCPUShareMinimum(t *testing.T) {
 
 func TestDockerConfigCPUShareUnchanged(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 				CPU:  100,
@@ -136,10 +137,10 @@ func TestDockerConfigCPUShareUnchanged(t *testing.T) {
 
 func TestDockerHostConfigPortBinding(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:  "c1",
-				Ports: []PortBinding{{10, 10, "", TransportProtocolTCP}, {20, 20, "", TransportProtocolUDP}},
+				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
 			},
 		},
 	}
@@ -160,13 +161,13 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 
 func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
 			},
 			{
 				Name:        "c2",
-				VolumesFrom: []VolumeFrom{{SourceContainer: "c1"}},
+				VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "c1"}},
 			},
 		},
 	}
@@ -205,10 +206,10 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -232,17 +233,17 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 		ENI: &ENI{
 			ID: "eniID",
 		},
-		Containers: []*Container{
-			&Container{
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
 				Name: "c1",
 			},
-			&Container{
+			&apicontainer.Container{
 				Name: emptyHostVolumeName,
-				Type: ContainerEmptyHostVolume,
+				Type: apicontainer.ContainerEmptyHostVolume,
 			},
-			&Container{
+			&apicontainer.Container{
 				Name: PauseContainerName,
-				Type: ContainerCNIPause,
+				Type: apicontainer.ContainerCNIPause,
 			},
 		},
 	}
@@ -304,10 +305,10 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 			Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 			Family:  "myFamily",
 			Version: "1",
-			Containers: []*Container{
+			Containers: []*apicontainer.Container{
 				{
 					Name: "c1",
-					DockerConfig: DockerConfig{
+					DockerConfig: apicontainer.DockerConfig{
 						HostConfig: strptr(badHostConfig),
 					},
 				},
@@ -337,10 +338,10 @@ func TestDockerConfigRawConfig(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					Config: strptr(string(rawConfig)),
 				},
 			},
@@ -368,10 +369,10 @@ func TestDockerConfigRawConfigNilLabel(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					Config: strptr(string(rawConfig)),
 				},
 			},
@@ -402,13 +403,13 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:   "c1",
 				Image:  "image",
 				CPU:    50,
 				Memory: 1000,
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					Config: strptr(string(rawConfig)),
 				},
 			},
@@ -436,10 +437,10 @@ func TestBadDockerConfigRawConfig(t *testing.T) {
 			Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 			Family:  "myFamily",
 			Version: "1",
-			Containers: []*Container{
+			Containers: []*apicontainer.Container{
 				{
 					Name: "c1",
-					DockerConfig: DockerConfig{
+					DockerConfig: apicontainer.DockerConfig{
 						Config: strptr(badConfig),
 					},
 				},
@@ -459,7 +460,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 
 	credentialsIDInTask := "credsid"
 	task := Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:        "c1",
 				Environment: make(map[string]string),
@@ -494,7 +495,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
 	task := Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:        "c1",
 				Environment: make(map[string]string),
@@ -567,7 +568,7 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
 	assert.True(t, ok, "Should find empty volume container")
 	assert.Equal(t, 2, len(emptyContainer.MountPoints), "Should have two mount points")
-	assert.Equal(t, []MountPoint{
+	assert.Equal(t, []apicontainer.MountPoint{
 		{
 			SourceVolume:  emptyVolumeName1,
 			ContainerPath: expectedEmptyVolumeGeneratedPath1,
@@ -662,7 +663,7 @@ func TestTaskFromACS(t *testing.T) {
 		DesiredStatusUnsafe: TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:        "myName",
 				Image:       "image:tag",
@@ -673,35 +674,35 @@ func TestTaskFromACS(t *testing.T) {
 				Environment: map[string]string{"key": "value"},
 				CPU:         10,
 				Memory:      100,
-				MountPoints: []MountPoint{
+				MountPoints: []apicontainer.MountPoint{
 					{
 						ContainerPath: "/container/path",
 						ReadOnly:      true,
 						SourceVolume:  "sourceVolume",
 					},
 				},
-				Overrides: ContainerOverrides{
+				Overrides: apicontainer.ContainerOverrides{
 					Command: &[]string{"a", "b", "c"},
 				},
-				Ports: []PortBinding{
+				Ports: []apicontainer.PortBinding{
 					{
 						HostPort:      800,
 						ContainerPort: 900,
-						Protocol:      TransportProtocolUDP,
+						Protocol:      apicontainer.TransportProtocolUDP,
 					},
 				},
-				VolumesFrom: []VolumeFrom{
+				VolumesFrom: []apicontainer.VolumeFrom{
 					{
 						ReadOnly:        true,
 						SourceContainer: "volumeLink",
 					},
 				},
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					Config:     strptr("config json"),
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
-				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -727,16 +728,16 @@ func TestTaskFromACS(t *testing.T) {
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: ContainerCreated,
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: ContainerStopped,
+				KnownStatusUnsafe: apicontainer.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: ContainerRunning,
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
 		},
 	}
@@ -751,17 +752,17 @@ func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskCreated,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: ContainerRunning,
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: ContainerStopped,
+				KnownStatusUnsafe: apicontainer.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: ContainerRunning,
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
 		},
 	}
@@ -776,17 +777,17 @@ func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t 
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: ContainerCreated,
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: ContainerStopped,
+				KnownStatusUnsafe: apicontainer.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: ContainerCreated,
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 			},
 		},
 	}
@@ -800,20 +801,20 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 // tests when there is one essential container is stopped while other container status are prior to
 // ResourcesProvisioned, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
-	resourcesProvisioned := ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{
-				KnownStatusUnsafe: ContainerCreated,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 				Essential:         true,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerStopped,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerStopped,
 				Essential:         true,
 			},
-			&Container{
-				KnownStatusUnsafe:       ContainerCreated,
+			&apicontainer.Container{
+				KnownStatusUnsafe:       apicontainer.ContainerCreated,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -839,9 +840,9 @@ func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{},
-			&Container{},
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{},
+			&apicontainer.Container{},
 		},
 	}
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
@@ -850,12 +851,12 @@ func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{
-				KnownStatusUnsafe: ContainerCreated,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
 		},
 	}
@@ -865,23 +866,23 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
 	// Ensure that both containers are RUNNING, which means that the earliest known status
 	// for the task based on its container statuses must be `TaskRunning`
-	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{
-				KnownStatusUnsafe: ContainerCreated,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
-			&Container{
-				KnownStatusUnsafe:       ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe:       apicontainer.ContainerRunning,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
@@ -890,7 +891,7 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 	// Since a container is still in CREATED state, the earliest known status
 	// for the task based on its container statuses must be `TaskCreated`
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
-	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
 	// Even if all containers transition to RUNNING, the earliest known status
 	// for the task based on its container statuses would still be `TaskCreated`
 	// as one of the containers has RESOURCES_PROVISIONED as its steady state
@@ -898,22 +899,22 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 	// All of the containers in the task have reached their steady state. Ensure
 	// that the earliest known status for the task based on its container states
 	// is now `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{
-				KnownStatusUnsafe: ContainerCreated,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 			},
 		},
 	}
@@ -926,27 +927,27 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 
 	// All of the containers are in RUNNING state, expect task to be updated
 	// to TaskRunning
-	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
-		Containers: []*Container{
-			&Container{
-				KnownStatusUnsafe: ContainerCreated,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerCreated,
 				Essential:         true,
 			},
-			&Container{
-				KnownStatusUnsafe: ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe: apicontainer.ContainerRunning,
 				Essential:         true,
 			},
-			&Container{
-				KnownStatusUnsafe:       ContainerRunning,
+			&apicontainer.Container{
+				KnownStatusUnsafe:       apicontainer.ContainerRunning,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -962,14 +963,14 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 	// All of the containers are in RUNNING state, but one of the containers
 	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
 	// updated to TaskRunning
-	testTask.Containers[0].SetKnownStatus(ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers have reached their steady states, expect the task
 	// to be updated to `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(ContainerResourcesProvisioned)
+	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
@@ -1135,10 +1136,10 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "testFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -1184,10 +1185,10 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "testFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -1226,10 +1227,10 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "testFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -1250,7 +1251,7 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 // TestSetMinimumMemoryLimit ensures that we set the correct minimum memory limit when the limit is too low
 func TestSetMinimumMemoryLimit(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:   "c1",
 				Memory: uint(1),
@@ -1264,7 +1265,7 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	assert.Nil(t, cerr)
 
-	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), config.Memory)
+	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), config.Memory)
 	assert.Empty(t, hostconfig.Memory)
 
 	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
@@ -1272,18 +1273,18 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 
 	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
+	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 	assert.Empty(t, config.Memory)
 }
 
 // TestContainerHealthConfig tests that we set the correct container health check config
 func TestContainerHealthConfig(t *testing.T) {
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:            "c1",
-				HealthCheckType: dockerHealthCheckType,
-				DockerConfig: DockerConfig{
+				HealthCheckType: apicontainer.DockerHealthCheckType,
+				DockerConfig: apicontainer.DockerConfig{
 					Config: aws.String(`{
 						"HealthCheck":{
 							"Test":["command"],
@@ -1310,25 +1311,25 @@ func TestContainerHealthConfig(t *testing.T) {
 func TestRecordExecutionStoppedAt(t *testing.T) {
 	testCases := []struct {
 		essential             bool
-		status                ContainerStatus
+		status                apicontainer.ContainerStatus
 		executionStoppedAtSet bool
 		msg                   string
 	}{
 		{
 			essential:             true,
-			status:                ContainerStopped,
+			status:                apicontainer.ContainerStopped,
 			executionStoppedAtSet: true,
 			msg: "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
-			status:                ContainerStopped,
+			status:                apicontainer.ContainerStopped,
 			executionStoppedAtSet: false,
 			msg: "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
-			status:                ContainerRunning,
+			status:                apicontainer.ContainerRunning,
 			executionStoppedAtSet: false,
 			msg: "essential non-stop status change should not cause executionStoppedAt set",
 		},
@@ -1337,7 +1338,7 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Container status: %s, essential: %v, executionStoppedAt should be set: %v", tc.status, tc.essential, tc.executionStoppedAtSet), func(t *testing.T) {
 			task := &Task{}
-			task.RecordExecutionStoppedAt(&Container{
+			task.RecordExecutionStoppedAt(&apicontainer.Container{
 				Essential:         tc.essential,
 				KnownStatusUnsafe: tc.status,
 			})

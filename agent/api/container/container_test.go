@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package container
 
 import (
 	"fmt"
@@ -202,7 +202,7 @@ func TestSetHealtStatus(t *testing.T) {
 func TestHealthStatusShouldBeReported(t *testing.T) {
 	container := Container{}
 	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that does not have HealthCheckType set should not be reported")
-	container.HealthCheckType = dockerHealthCheckType
+	container.HealthCheckType = DockerHealthCheckType
 	assert.True(t, container.HealthStatusShouldBeReported(), "Health status of container that has docker HealthCheckType set should be reported")
 	container.HealthCheckType = "unknown"
 	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that has non-docker HealthCheckType set should not be reported")

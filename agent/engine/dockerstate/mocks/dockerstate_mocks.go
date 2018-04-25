@@ -21,6 +21,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -49,7 +50,7 @@ func (m *MockTaskEngineState) EXPECT() *MockTaskEngineStateMockRecorder {
 }
 
 // AddContainer mocks base method
-func (m *MockTaskEngineState) AddContainer(arg0 *api.DockerContainer, arg1 *api.Task) {
+func (m *MockTaskEngineState) AddContainer(arg0 *container.DockerContainer, arg1 *api.Task) {
 	m.ctrl.Call(m, "AddContainer", arg0, arg1)
 }
 
@@ -123,9 +124,9 @@ func (mr *MockTaskEngineStateMockRecorder) AllTasks() *gomock.Call {
 }
 
 // ContainerByID mocks base method
-func (m *MockTaskEngineState) ContainerByID(arg0 string) (*api.DockerContainer, bool) {
+func (m *MockTaskEngineState) ContainerByID(arg0 string) (*container.DockerContainer, bool) {
 	ret := m.ctrl.Call(m, "ContainerByID", arg0)
-	ret0, _ := ret[0].(*api.DockerContainer)
+	ret0, _ := ret[0].(*container.DockerContainer)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -136,9 +137,9 @@ func (mr *MockTaskEngineStateMockRecorder) ContainerByID(arg0 interface{}) *gomo
 }
 
 // ContainerMapByArn mocks base method
-func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*api.DockerContainer, bool) {
+func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*container.DockerContainer, bool) {
 	ret := m.ctrl.Call(m, "ContainerMapByArn", arg0)
-	ret0, _ := ret[0].(map[string]*api.DockerContainer)
+	ret0, _ := ret[0].(map[string]*container.DockerContainer)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

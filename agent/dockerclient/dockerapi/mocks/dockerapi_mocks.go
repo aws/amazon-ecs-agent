@@ -23,7 +23,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
@@ -105,9 +105,9 @@ func (mr *MockDockerClientMockRecorder) CreateVolume(arg0, arg1, arg2, arg3, arg
 }
 
 // DescribeContainer mocks base method
-func (m *MockDockerClient) DescribeContainer(arg0 context.Context, arg1 string) (api.ContainerStatus, dockerapi.DockerContainerMetadata) {
+func (m *MockDockerClient) DescribeContainer(arg0 context.Context, arg1 string) (container.ContainerStatus, dockerapi.DockerContainerMetadata) {
 	ret := m.ctrl.Call(m, "DescribeContainer", arg0, arg1)
-	ret0, _ := ret[0].(api.ContainerStatus)
+	ret0, _ := ret[0].(container.ContainerStatus)
 	ret1, _ := ret[1].(dockerapi.DockerContainerMetadata)
 	return ret0, ret1
 }

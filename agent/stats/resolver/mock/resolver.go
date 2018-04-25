@@ -21,6 +21,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -48,9 +49,9 @@ func (m *MockContainerMetadataResolver) EXPECT() *MockContainerMetadataResolverM
 }
 
 // ResolveContainer mocks base method
-func (m *MockContainerMetadataResolver) ResolveContainer(arg0 string) (*api.DockerContainer, error) {
+func (m *MockContainerMetadataResolver) ResolveContainer(arg0 string) (*container.DockerContainer, error) {
 	ret := m.ctrl.Call(m, "ResolveContainer", arg0)
-	ret0, _ := ret[0].(*api.DockerContainer)
+	ret0, _ := ret[0].(*container.DockerContainer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

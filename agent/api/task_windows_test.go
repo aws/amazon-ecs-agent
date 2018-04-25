@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 
@@ -79,16 +80,16 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		DesiredStatusUnsafe: TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "myName",
-				MountPoints: []MountPoint{
+				MountPoints: []apicontainer.MountPoint{
 					{
 						ContainerPath: `c:\container\path`,
 						SourceVolume:  "sourceVolume",
 					},
 				},
-				TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -144,10 +145,10 @@ func TestWindowsMemorySwappinessOption(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -182,14 +183,14 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:        "c1",
 				Image:       "image",
 				CPU:         10,
 				Memory:      100,
-				VolumesFrom: []VolumeFrom{{SourceContainer: "c2"}},
-				DockerConfig: DockerConfig{
+				VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "c2"}},
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
@@ -203,7 +204,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
-		Memory:           DockerContainerMinimumMemoryInBytes,
+		Memory:           apicontainer.DockerContainerMinimumMemoryInBytes,
 		Privileged:       true,
 		SecurityOpt:      []string{"foo", "bar"},
 		VolumesFrom:      []string{"dockername-c2"},
@@ -219,7 +220,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	memoryMiB := 500
 	testTask := &Task{
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name:   "c1",
 				CPU:    uint(10),
@@ -283,7 +284,7 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 		t.Run(fmt.Sprintf("container cpu-%d,cpu unbounded tasks enabled- %t,expected cpu percent-%d",
 			tc.cpu, tc.cpuUnbounded, tc.cpuPercent), func(t *testing.T) {
 			testTask := &Task{
-				Containers: []*Container{
+				Containers: []*apicontainer.Container{
 					{
 						Name: "c1",
 						CPU:  uint(tc.cpu),

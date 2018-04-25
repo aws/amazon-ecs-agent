@@ -22,6 +22,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -227,7 +228,7 @@ func (mr *MockImageManagerMockRecorder) GetImageStateFromImageName(arg0 interfac
 }
 
 // RecordContainerReference mocks base method
-func (m *MockImageManager) RecordContainerReference(arg0 *api.Container) error {
+func (m *MockImageManager) RecordContainerReference(arg0 *container.Container) error {
 	ret := m.ctrl.Call(m, "RecordContainerReference", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -239,7 +240,7 @@ func (mr *MockImageManagerMockRecorder) RecordContainerReference(arg0 interface{
 }
 
 // RemoveContainerReferenceFromImageState mocks base method
-func (m *MockImageManager) RemoveContainerReferenceFromImageState(arg0 *api.Container) error {
+func (m *MockImageManager) RemoveContainerReferenceFromImageState(arg0 *container.Container) error {
 	ret := m.ctrl.Call(m, "RemoveContainerReferenceFromImageState", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

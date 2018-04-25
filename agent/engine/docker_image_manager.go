@@ -21,7 +21,7 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -37,8 +37,8 @@ const (
 // ImageManager is responsible for saving the Image states,
 // adding and removing container references to ImageStates
 type ImageManager interface {
-	RecordContainerReference(container *api.Container) error
-	RemoveContainerReferenceFromImageState(container *api.Container) error
+	RecordContainerReference(container *apicontainer.Container) error
+	RemoveContainerReferenceFromImageState(container *apicontainer.Container) error
 	AddAllImageStates(imageStates []*image.ImageState)
 	GetImageStateFromImageName(containerImageName string) *image.ImageState
 	StartImageCleanupProcess(ctx context.Context)
@@ -93,7 +93,7 @@ func (imageManager *dockerImageManager) GetImageStatesCount() int {
 }
 
 // RecordContainerReference adds container reference to the corresponding imageState object
-func (imageManager *dockerImageManager) RecordContainerReference(container *api.Container) error {
+func (imageManager *dockerImageManager) RecordContainerReference(container *apicontainer.Container) error {
 	// the image state has been updated, save the new state
 	defer imageManager.saver.ForceSave()
 	// On agent restart, container ID was retrieved from agent state file
@@ -124,7 +124,7 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *api.
 	return nil
 }
 
-func (imageManager *dockerImageManager) addContainerReferenceToExistingImageState(container *api.Container) bool {
+func (imageManager *dockerImageManager) addContainerReferenceToExistingImageState(container *apicontainer.Container) bool {
 	// this lock is used for reading the image states in the image manager
 	imageManager.updateLock.RLock()
 	defer imageManager.updateLock.RUnlock()
@@ -136,7 +136,7 @@ func (imageManager *dockerImageManager) addContainerReferenceToExistingImageStat
 	return ok
 }
 
-func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(container *api.Container, imageSize int64) {
+func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(container *apicontainer.Container, imageSize int64) {
 	// this lock is used while creating and adding new image state to image manager
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
@@ -161,7 +161,7 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 }
 
 // RemoveContainerReferenceFromImageState removes container reference from the corresponding imageState object
-func (imageManager *dockerImageManager) RemoveContainerReferenceFromImageState(container *api.Container) error {
+func (imageManager *dockerImageManager) RemoveContainerReferenceFromImageState(container *apicontainer.Container) error {
 	// the image state has been updated, save the new state
 	defer imageManager.saver.ForceSave()
 	// this lock is for reading image states and finding the one that the container belongs to

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -77,7 +78,7 @@ type Task struct {
 	// Version is the version of the task definition
 	Version string
 	// Containers are the containers for the task
-	Containers []*Container
+	Containers []*apicontainer.Container
 	// Resources are the resources for the task
 	Resources []taskresource.TaskResource
 	// Volumes are the volumes for the task
@@ -174,10 +175,10 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
-		if (container.Overrides != ContainerOverrides{}) && container.Overrides.Command != nil {
+		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
-		container.TransitionDependenciesMap = make(map[ContainerStatus]TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 
 	return task, nil
@@ -204,7 +205,7 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				container.BuildContainerDependency(emptyHostVolumeName, ContainerRunning, ContainerCreated)
+				container.BuildContainerDependency(emptyHostVolumeName, apicontainer.ContainerRunning, apicontainer.ContainerCreated)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -219,20 +220,20 @@ func (task *Task) initializeEmptyVolumes() {
 	// of them
 	_, ok := task.ContainerByName(emptyHostVolumeName)
 	if !ok {
-		mountPoints := make([]MountPoint, len(requiredEmptyVolumes))
+		mountPoints := make([]apicontainer.MountPoint, len(requiredEmptyVolumes))
 		for i, volume := range requiredEmptyVolumes {
 			// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
 			containerPath := getCanonicalPath(emptyvolume.ContainerPathPrefix + volume)
-			mountPoints[i] = MountPoint{SourceVolume: volume, ContainerPath: containerPath}
+			mountPoints[i] = apicontainer.MountPoint{SourceVolume: volume, ContainerPath: containerPath}
 		}
-		sourceContainer := &Container{
+		sourceContainer := &apicontainer.Container{
 			Name:                emptyHostVolumeName,
 			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
 			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
 			MountPoints:         mountPoints,
 			Essential:           false,
-			Type:                ContainerEmptyHostVolume,
-			DesiredStatusUnsafe: ContainerRunning,
+			Type:                apicontainer.ContainerEmptyHostVolume,
+			DesiredStatusUnsafe: apicontainer.ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -312,18 +313,18 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(PauseContainerName, ContainerResourcesProvisioned, ContainerPulled)
+		container.BuildContainerDependency(PauseContainerName, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled)
 	}
-	pauseContainer := NewContainerWithSteadyState(ContainerResourcesProvisioned)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
-	pauseContainer.Type = ContainerCNIPause
+	pauseContainer.Type = apicontainer.ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)
 }
 
 // ContainerByName returns the *Container for the given name
-func (task *Task) ContainerByName(name string) (*Container, bool) {
+func (task *Task) ContainerByName(name string) (*apicontainer.Container, bool) {
 	for _, container := range task.Containers {
 		if container.Name == name {
 			return container, true
@@ -346,7 +347,7 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 // UpdateMountPoints updates the mount points of volumes that were created
 // without specifying a host path.  This is used as part of the empty host
 // volume feature.
-func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
 	for _, mountPoint := range cont.MountPoints {
 		containerPath := getCanonicalPath(mountPoint.ContainerPath)
 		hostPath, ok := vols[containerPath]
@@ -372,12 +373,12 @@ func (task *Task) UpdateMountPoints(cont *Container, vols map[string]string) {
 func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 	seelog.Debugf("Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
-	containerEarliestKnownStatus := ContainerZombie
-	var earliestKnownStatusContainer *Container
+	containerEarliestKnownStatus := apicontainer.ContainerZombie
+	var earliestKnownStatusContainer *apicontainer.Container
 	essentialContainerStopped := false
 	for _, container := range task.Containers {
 		containerKnownStatus := container.GetKnownStatus()
-		if containerKnownStatus == ContainerStopped && container.Essential {
+		if containerKnownStatus == apicontainer.ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
 		if containerKnownStatus < containerEarliestKnownStatus {
@@ -425,8 +426,7 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 	// Set earliest container status to an impossible to reach 'high' task status
 	earliest := TaskZombie
 	for _, container := range task.Containers {
-		containerKnownStatus := container.GetKnownStatus()
-		containerTaskStatus := containerKnownStatus.TaskStatus(container.GetSteadyStateStatus())
+		containerTaskStatus := MapToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
 		if containerTaskStatus < earliest {
 			earliest = containerTaskStatus
 		}
@@ -437,11 +437,11 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
+func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
 	return task.dockerConfig(container, apiVersion)
 }
 
-func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
+func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
 		return nil, &apierrors.DockerClientConfigError{err.Error()}
@@ -454,8 +454,8 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
-	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
-		dockerMem = DockerContainerMinimumMemoryInBytes
+	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
+		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
 
 	var entryPoint []string
@@ -483,7 +483,7 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 			return nil, &apierrors.DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
-	if container.HealthCheckType == dockerHealthCheckType && config.Healthcheck == nil {
+	if container.HealthCheckType == apicontainer.DockerHealthCheckType && config.Healthcheck == nil {
 		return nil, &apierrors.DockerClientConfigError{
 			"docker health check is nil while container health check type is DOCKER"}
 	}
@@ -492,7 +492,7 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 		config.Labels = make(map[string]string)
 	}
 
-	if container.Type == ContainerCNIPause {
+	if container.Type == apicontainer.ContainerCNIPause {
 		// apply hostname to pause container's docker config
 		return task.applyENIHostname(config), nil
 	}
@@ -501,13 +501,13 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 }
 
 // SetConfigHostconfigBasedOnVersion sets the fields in both Config and HostConfig based on api version for backward compatibility
-func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config *docker.Config, hc *docker.HostConfig, apiVersion dockerclient.DockerVersion) error {
+func (task *Task) SetConfigHostconfigBasedOnVersion(container *apicontainer.Container, config *docker.Config, hc *docker.HostConfig, apiVersion dockerclient.DockerVersion) error {
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
-	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
+	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
 		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
-			task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
-		dockerMem = DockerContainerMinimumMemoryInBytes
+			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
+		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
 	cpuShare := task.dockerCPUShares(container.CPU)
 
@@ -538,7 +538,7 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	return nil
 }
 
-func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struct{} {
+func (task *Task) dockerExposedPorts(container *apicontainer.Container) map[docker.Port]struct{} {
 	dockerExposedPorts := make(map[docker.Port]struct{})
 
 	for _, portBinding := range container.Ports {
@@ -548,7 +548,7 @@ func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struc
 	return dockerExposedPorts
 }
 
-func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}, error) {
+func (task *Task) dockerConfigVolumes(container *apicontainer.Container) (map[string]struct{}, error) {
 	volumeMap := make(map[string]struct{})
 	for _, m := range container.MountPoints {
 		vol, exists := task.HostVolumeByName(m.SourceVolume)
@@ -558,7 +558,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 		// you can handle most volume mount types in the HostConfig at run-time;
 		// empty mounts are created by docker at create-time (Config) so set
 		// them here.
-		if container.Type == ContainerEmptyHostVolume {
+		if container.Type == apicontainer.ContainerEmptyHostVolume {
 			// if container.Name == emptyHostVolumeName && container.Type {
 			_, ok := vol.(*EmptyHostVolume)
 			if !ok {
@@ -572,7 +572,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
@@ -598,7 +598,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, cred
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{err.Error()}
@@ -648,7 +648,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 	}
 	hostConfig.NetworkMode = networkMode
 	// Override 'awsvpc' parameters if needed
-	if container.Type == ContainerCNIPause {
+	if container.Type == apicontainer.ContainerCNIPause {
 
 		// apply ExtraHosts to HostConfig for pause container
 		if hosts := task.generateENIExtraHosts(); hosts != nil {
@@ -666,7 +666,7 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 // shouldOverrideNetworkMode returns true if the network mode of the container needs
 // to be overridden. It also returns the override string in this case. It returns
 // false otherwise
-func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContainerMap map[string]*DockerContainer) (bool, string) {
+func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
 	// TODO. We can do an early return here by determining which kind of task it is
 	// Example: Does this task have ENIs in its payload, what is its networking mode etc
 	if container.IsInternal() {
@@ -688,7 +688,7 @@ func (task *Task) shouldOverrideNetworkMode(container *Container, dockerContaine
 
 	pauseContName := ""
 	for _, cont := range task.Containers {
-		if cont.Type == ContainerCNIPause {
+		if cont.Type == apicontainer.ContainerCNIPause {
 			pauseContName = cont.Name
 			break
 		}
@@ -765,7 +765,7 @@ func (task *Task) generateENIExtraHosts() []string {
 	return extraHosts
 }
 
-func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
+func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) ([]string, error) {
 	dockerLinkArr := make([]string, len(container.Links))
 	for i, link := range container.Links {
 		linkParts := strings.Split(link, ":")
@@ -792,7 +792,7 @@ func (task *Task) dockerLinks(container *Container, dockerContainerMap map[strin
 	return dockerLinkArr, nil
 }
 
-func (task *Task) dockerPortMap(container *Container) map[docker.Port][]docker.PortBinding {
+func (task *Task) dockerPortMap(container *apicontainer.Container) map[docker.Port][]docker.PortBinding {
 	dockerPortMap := make(map[docker.Port][]docker.PortBinding)
 
 	for _, portBinding := range container.Ports {
@@ -807,7 +807,7 @@ func (task *Task) dockerPortMap(container *Container) map[docker.Port][]docker.P
 	return dockerPortMap
 }
 
-func (task *Task) dockerVolumesFrom(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
+func (task *Task) dockerVolumesFrom(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) ([]string, error) {
 	volumesFrom := make([]string, len(container.VolumesFrom))
 	for i, volume := range container.VolumesFrom {
 		targetContainer, ok := dockerContainerMap[volume.SourceContainer]
@@ -823,7 +823,7 @@ func (task *Task) dockerVolumesFrom(container *Container, dockerContainerMap map
 	return volumesFrom, nil
 }
 
-func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
+func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, error) {
 	if container.Name == emptyHostVolumeName {
 		// emptyHostVolumes are handled as a special case in config, not
 		// hostConfig
@@ -894,10 +894,10 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 // Invariant: container desired status is <= task desired status converted to container status
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
 func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
-	for _, c := range task.Containers {
-		taskDesiredStatusToContainerStatus := taskDesiredStatus.ContainerStatus(c.GetSteadyStateStatus())
-		if c.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
-			c.SetDesiredStatus(taskDesiredStatusToContainerStatus)
+	for _, container := range task.Containers {
+		taskDesiredStatusToContainerStatus := taskDesiredStatus.ContainerStatus(container.GetSteadyStateStatus())
+		if container.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
+			container.SetDesiredStatus(taskDesiredStatusToContainerStatus)
 		}
 	}
 }
@@ -1122,8 +1122,8 @@ func (task *Task) stringUnsafe() string {
 		task.Family, task.Version, task.Arn,
 		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String())
 	res += " Containers: ["
-	for _, c := range task.Containers {
-		res += fmt.Sprintf("%s (%s->%s),", c.Name, c.GetKnownStatus().String(), c.GetDesiredStatus().String())
+	for _, container := range task.Containers {
+		res += fmt.Sprintf("%s (%s->%s),", container.Name, container.GetKnownStatus().String(), container.GetDesiredStatus().String())
 	}
 
 	if task.ENI != nil {
@@ -1160,11 +1160,11 @@ func (task *Task) GetID() (string, error) {
 
 // RecordExecutionStoppedAt checks if this is an essential container stopped
 // and set the task executionStoppedAt timestamps
-func (task *Task) RecordExecutionStoppedAt(container *Container) {
+func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	if !container.Essential {
 		return
 	}
-	if container.GetKnownStatus() != ContainerStopped {
+	if container.GetKnownStatus() != apicontainer.ContainerStopped {
 		return
 	}
 	// If the essential container is stopped, set the ExecutionStoppedAt timestamp

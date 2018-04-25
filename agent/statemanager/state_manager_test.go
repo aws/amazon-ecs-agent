@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -66,9 +67,9 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 
 	require.NotNil(t, deadTask)
 	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, api.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainer.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainer.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainer.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)

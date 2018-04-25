@@ -3,18 +3,20 @@ package api
 import (
 	"encoding/json"
 	"testing"
+
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 )
 
 func TestVolumesFromUnmarshal(t *testing.T) {
-	var vols []VolumeFrom
+	var vols []apicontainer.VolumeFrom
 	err := json.Unmarshal([]byte(`[{"sourceContainer":"c1"},{"sourceContainer":"c2","readOnly":true}]`), &vols)
 	if err != nil {
 		t.Fatal("Unable to unmarshal json")
 	}
-	if (vols[0] != VolumeFrom{SourceContainer: "c1", ReadOnly: false}) {
+	if (vols[0] != apicontainer.VolumeFrom{SourceContainer: "c1", ReadOnly: false}) {
 		t.Error("VolumeFrom 1 didn't match expected output")
 	}
-	if (vols[1] != VolumeFrom{SourceContainer: "c2", ReadOnly: true}) {
+	if (vols[1] != apicontainer.VolumeFrom{SourceContainer: "c2", ReadOnly: true}) {
 		t.Error("VolumeFrom 2 didn't match expected output")
 	}
 }

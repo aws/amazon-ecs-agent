@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
 	"github.com/stretchr/testify/assert"
@@ -107,12 +108,12 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*api.Container{{
+	testTask := &api.Task{Arn: "test", Containers: []*apicontainer.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)
 
-	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
+	state.AddContainer(&apicontainer.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
 
 	if len(state.AllTasks()) != 1 {
 		t.Fatal("Should have 1 task")
@@ -142,7 +143,7 @@ func TestTwophaseAddContainer(t *testing.T) {
 		t.Fatal("DockerID Should be blank")
 	}
 
-	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerID: "did"}, testTask)
+	state.AddContainer(&apicontainer.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerID: "did"}, testTask)
 
 	containerMap, ok = state.ContainerMapByArn("test")
 	if !ok {
@@ -171,26 +172,26 @@ func TestTwophaseAddContainer(t *testing.T) {
 
 func TestRemoveTask(t *testing.T) {
 	state := NewTaskEngineState()
-	testContainer1 := &api.Container{
+	testContainer1 := &apicontainer.Container{
 		Name: "c1",
 	}
 
 	containerID := "did"
-	testDockerContainer1 := &api.DockerContainer{
+	testDockerContainer1 := &apicontainer.DockerContainer{
 		DockerID:  containerID,
 		Container: testContainer1,
 	}
-	testContainer2 := &api.Container{
+	testContainer2 := &apicontainer.Container{
 		Name: "c2",
 	}
-	testDockerContainer2 := &api.DockerContainer{
+	testDockerContainer2 := &apicontainer.DockerContainer{
 		// DockerName is used before the DockerID is assigned
 		DockerName: "docker-name-2",
 		Container:  testContainer2,
 	}
 	testTask := &api.Task{
 		Arn:        "t1",
-		Containers: []*api.Container{testContainer1, testContainer2},
+		Containers: []*apicontainer.Container{testContainer1, testContainer2},
 	}
 
 	state.AddTask(testTask)
@@ -313,9 +314,9 @@ func TestAddContainerNameAndID(t *testing.T) {
 	task := &api.Task{
 		Arn: "taskArn",
 	}
-	container := &api.DockerContainer{
+	container := &apicontainer.DockerContainer{
 		DockerName: "ecs-test-container-1",
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			Name: "test",
 		},
 	}
@@ -330,10 +331,10 @@ func TestAddContainerNameAndID(t *testing.T) {
 	_, ok = state.ContainerByID(container.DockerName)
 	assert.True(t, ok, "container with DockerName should be added to the state")
 
-	container = &api.DockerContainer{
+	container = &apicontainer.DockerContainer{
 		DockerName: "ecs-test-container-1",
 		DockerID:   "dockerid",
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			Name: "test",
 		},
 	}

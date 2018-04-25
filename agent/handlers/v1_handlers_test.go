@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
@@ -198,7 +199,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 
 	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
 
-	containers := []*api.Container{
+	containers := []*apicontainer.Container{
 		{
 			Name: "c1",
 		},
@@ -320,7 +321,7 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "one",
 			},
@@ -335,7 +336,7 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "2",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "foo",
 			},
@@ -347,7 +348,7 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "2",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "shortId",
 			},
@@ -359,7 +360,7 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
 			},
@@ -378,14 +379,14 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				Ports: []api.PortBinding{
+				Ports: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			},
@@ -397,14 +398,14 @@ var testTasks = []*api.Task{
 		KnownStatusUnsafe:   api.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				KnownPortBindingsUnsafe: []api.PortBinding{
+				KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			},
@@ -416,7 +417,7 @@ func stateSetupHelper(state dockerstate.TaskEngineState, tasks []*api.Task) {
 	for _, task := range tasks {
 		state.AddTask(task)
 		for _, container := range task.Containers {
-			state.AddContainer(&api.DockerContainer{
+			state.AddContainer(&apicontainer.DockerContainer{
 				Container:  container,
 				DockerID:   "dockerid-" + task.Arn + "-" + container.Name,
 				DockerName: "dockername-" + task.Arn + "-" + container.Name,

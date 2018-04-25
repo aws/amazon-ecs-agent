@@ -29,6 +29,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -1140,11 +1141,11 @@ func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
 
 // validateAddedContainer validates fields in addedContainer for expected values
 // It returns an error if there's a mismatch
-func validateAddedContainer(expectedContainer *api.Container, addedContainer *api.Container) error {
-	// The ecsacs.Task -> api.Task conversion initializes all fields in api.Container
+func validateAddedContainer(expectedContainer *apicontainer.Container, addedContainer *apicontainer.Container) error {
+	// The ecsacs.Task -> api.Task conversion initializes all fields in apicontainer.Container
 	// with empty objects. So, we create a new object to compare with only those
 	// fields that we are intrested in for comparison
-	containerToCompareFromAdded := &api.Container{
+	containerToCompareFromAdded := &apicontainer.Container{
 		Name:      addedContainer.Name,
 		CPU:       addedContainer.CPU,
 		Essential: addedContainer.Essential,

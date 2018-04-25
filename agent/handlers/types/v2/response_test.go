@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -65,19 +66,19 @@ func TestTaskResponse(t *testing.T) {
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
 	}
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: api.ContainerRunning,
-		KnownStatusUnsafe:   api.ContainerRunning,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainer.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
-		Type:                api.ContainerNormal,
-		Ports: []api.PortBinding{
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      api.TransportProtocolTCP,
+				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
 	}
@@ -87,8 +88,8 @@ func TestTaskResponse(t *testing.T) {
 		"foo": "bar",
 	}
 	container.SetLabels(labels)
-	containerNameToDockerContainer := map[string]*api.DockerContainer{
-		taskARN: &api.DockerContainer{
+	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
+		taskARN: &apicontainer.DockerContainer{
 			DockerID:   containerID,
 			DockerName: containerName,
 			Container:  container,
@@ -128,24 +129,24 @@ func TestContainerResponse(t *testing.T) {
 			defer ctrl.Finish()
 
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-			container := &api.Container{
+			container := &apicontainer.Container{
 				Name:                containerName,
 				Image:               imageName,
 				ImageID:             imageID,
-				DesiredStatusUnsafe: api.ContainerRunning,
-				KnownStatusUnsafe:   api.ContainerRunning,
+				DesiredStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe:   apicontainer.ContainerRunning,
 				CPU:                 cpu,
 				Memory:              memory,
-				Type:                api.ContainerNormal,
+				Type:                apicontainer.ContainerNormal,
 				HealthCheckType:     tc.healthCheckType,
-				Health: api.HealthStatus{
-					Status: api.ContainerHealthy,
+				Health: apicontainer.HealthStatus{
+					Status: apicontainer.ContainerHealthy,
 					Since:  aws.Time(time.Now()),
 				},
-				Ports: []api.PortBinding{
+				Ports: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			}
@@ -155,7 +156,7 @@ func TestContainerResponse(t *testing.T) {
 				"foo": "bar",
 			}
 			container.SetLabels(labels)
-			dockerContainer := &api.DockerContainer{
+			dockerContainer := &apicontainer.DockerContainer{
 				DockerID:   containerID,
 				DockerName: containerName,
 				Container:  container,

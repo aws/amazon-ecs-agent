@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
@@ -52,8 +53,8 @@ var (
 // order.  ValidDependencies is called during DockerTaskEngine.AddTask to
 // verify that a startup order can exist.
 func ValidDependencies(task *api.Task) bool {
-	unresolved := make([]*api.Container, len(task.Containers))
-	resolved := make([]*api.Container, 0, len(task.Containers))
+	unresolved := make([]*apicontainer.Container, len(task.Containers))
+	resolved := make([]*apicontainer.Container, 0, len(task.Containers))
 
 	copy(unresolved, task.Containers)
 
@@ -83,8 +84,8 @@ OuterLoop:
 // This function is used for verifying that a state should be resolvable, not
 // for actually deciding what to do. `DependenciesAreResolved` should be used for
 // that purpose instead.
-func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool {
-	nameMap := make(map[string]*api.Container)
+func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontainer.Container) bool {
+	nameMap := make(map[string]*apicontainer.Container)
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
@@ -105,8 +106,8 @@ func dependenciesCanBeResolved(target *api.Container, by []*api.Container) bool 
 // Transitions are between known statuses (whether the container can move to
 // the next known status), not desired statuses; the desired status typically
 // is either RUNNING or STOPPED.
-func DependenciesAreResolved(target *api.Container,
-	by []*api.Container,
+func DependenciesAreResolved(target *apicontainer.Container,
+	by []*apicontainer.Container,
 	id string,
 	manager credentials.Manager,
 	resources []taskresource.TaskResource) error {
@@ -114,7 +115,7 @@ func DependenciesAreResolved(target *api.Container,
 		return CredentialsNotResolvedErr
 	}
 
-	nameMap := make(map[string]*api.Container)
+	nameMap := make(map[string]*apicontainer.Container)
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
@@ -156,10 +157,10 @@ func linksToContainerNames(links []string) []string {
 	return names
 }
 
-func executionCredentialsResolved(target *api.Container, id string, manager credentials.Manager) bool {
-	if target.GetKnownStatus() >= api.ContainerPulled ||
+func executionCredentialsResolved(target *apicontainer.Container, id string, manager credentials.Manager) bool {
+	if target.GetKnownStatus() >= apicontainer.ContainerPulled ||
 		!target.ShouldPullWithExecutionRole() ||
-		target.GetDesiredStatus() >= api.ContainerStopped {
+		target.GetDesiredStatus() >= apicontainer.ContainerStopped {
 		return true
 	}
 
@@ -171,9 +172,10 @@ func executionCredentialsResolved(target *api.Container, id string, manager cred
 // target depends on `dependencies` (which are container names) and there are
 // `existingContainers` (map from name to container). The `resolves` function
 // passed should return true if the named container is resolved.
-func verifyStatusResolvable(target *api.Container, existingContainers map[string]*api.Container, dependencies []string, resolves func(*api.Container, *api.Container) bool) bool {
+func verifyStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
+	dependencies []string, resolves func(*apicontainer.Container, *apicontainer.Container) bool) bool {
 	targetGoal := target.GetDesiredStatus()
-	if targetGoal != target.GetSteadyStateStatus() && targetGoal != api.ContainerCreated {
+	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainer.ContainerCreated {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
 		return true
@@ -191,11 +193,11 @@ func verifyStatusResolvable(target *api.Container, existingContainers map[string
 	return true
 }
 
-func verifyTransitionDependenciesResolved(target *api.Container,
-	existingContainers map[string]*api.Container,
+func verifyTransitionDependenciesResolved(target *apicontainer.Container,
+	existingContainers map[string]*apicontainer.Container,
 	existingResources map[string]taskresource.TaskResource) error {
 	targetGoal := target.GetDesiredStatus()
-	if targetGoal >= api.ContainerStopped {
+	if targetGoal >= apicontainer.ContainerStopped {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
 		return nil
@@ -210,7 +212,7 @@ func verifyTransitionDependenciesResolved(target *api.Container,
 	return nil
 }
 
-func verifyContainerDependenciesResolved(target *api.Container, existingContainers map[string]*api.Container) bool {
+func verifyContainerDependenciesResolved(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container) bool {
 	targetNext := target.GetNextKnownStateProgression()
 	containerDependencies := target.TransitionDependenciesMap[targetNext].ContainerDependencies
 	for _, containerDependency := range containerDependencies {
@@ -225,7 +227,7 @@ func verifyContainerDependenciesResolved(target *api.Container, existingContaine
 	return true
 }
 
-func verifyResourceDependenciesResolved(target *api.Container, existingResources map[string]taskresource.TaskResource) bool {
+func verifyResourceDependenciesResolved(target *apicontainer.Container, existingResources map[string]taskresource.TaskResource) bool {
 	targetNext := target.GetNextKnownStateProgression()
 	resourceDependencies := target.TransitionDependenciesMap[targetNext].ResourceDependencies
 	for _, resourceDependency := range resourceDependencies {
@@ -240,14 +242,14 @@ func verifyResourceDependenciesResolved(target *api.Container, existingResources
 	return true
 }
 
-func linkCanResolve(target *api.Container, link *api.Container) bool {
+func linkCanResolve(target *apicontainer.Container, link *apicontainer.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
 	linkDesiredStatus := link.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated {
+	if targetDesiredStatus == apicontainer.ContainerCreated {
 		// The 'target' container desires to be moved to 'Created' state.
 		// Allow this only if the desired status of the linked container is
 		// 'Created' or if the linked container is in 'steady state'
-		return linkDesiredStatus == api.ContainerCreated || linkDesiredStatus == link.GetSteadyStateStatus()
+		return linkDesiredStatus == apicontainer.ContainerCreated || linkDesiredStatus == link.GetSteadyStateStatus()
 	} else if targetDesiredStatus == target.GetSteadyStateStatus() {
 		// The 'target' container desires to be moved to its 'steady' state.
 		// Allow this only if the linked container is in 'steady state' as well
@@ -257,14 +259,14 @@ func linkCanResolve(target *api.Container, link *api.Container) bool {
 	return false
 }
 
-func linkIsResolved(target *api.Container, link *api.Container) bool {
+func linkIsResolved(target *apicontainer.Container, link *apicontainer.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus == api.ContainerCreated {
+	if targetDesiredStatus == apicontainer.ContainerCreated {
 		// The 'target' container desires to be moved to 'Created' state.
 		// Allow this only if the known status of the linked container is
 		// 'Created' or if the linked container is in 'steady state'
 		linkKnownStatus := link.GetKnownStatus()
-		return linkKnownStatus == api.ContainerCreated || link.IsKnownSteadyState()
+		return linkKnownStatus == apicontainer.ContainerCreated || link.IsKnownSteadyState()
 	} else if targetDesiredStatus == target.GetSteadyStateStatus() {
 		// The 'target' container desires to be moved to its 'steady' state.
 		// Allow this only if the linked container is in 'steady state' as well
@@ -274,9 +276,9 @@ func linkIsResolved(target *api.Container, link *api.Container) bool {
 	return false
 }
 
-func volumeCanResolve(target *api.Container, volume *api.Container) bool {
+func volumeCanResolve(target *apicontainer.Container, volume *apicontainer.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus != api.ContainerCreated && targetDesiredStatus != target.GetSteadyStateStatus() {
+	if targetDesiredStatus != apicontainer.ContainerCreated && targetDesiredStatus != target.GetSteadyStateStatus() {
 		// The 'target' container doesn't desire to move to either 'Created' or the 'steady' state,
 		// which is not allowed
 		log.Errorf("Failed to resolve the desired status of the volume [%v] for the target [%v]", volume, target)
@@ -287,14 +289,14 @@ func volumeCanResolve(target *api.Container, volume *api.Container) bool {
 	// Allow this only if the known status of the source volume container is
 	// any of 'Created', 'steady state' or 'Stopped'
 	volumeDesiredStatus := volume.GetDesiredStatus()
-	return volumeDesiredStatus == api.ContainerCreated ||
+	return volumeDesiredStatus == apicontainer.ContainerCreated ||
 		volumeDesiredStatus == volume.GetSteadyStateStatus() ||
-		volumeDesiredStatus == api.ContainerStopped
+		volumeDesiredStatus == apicontainer.ContainerStopped
 }
 
-func volumeIsResolved(target *api.Container, volume *api.Container) bool {
+func volumeIsResolved(target *apicontainer.Container, volume *apicontainer.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus != api.ContainerCreated && targetDesiredStatus != api.ContainerRunning {
+	if targetDesiredStatus != apicontainer.ContainerCreated && targetDesiredStatus != apicontainer.ContainerRunning {
 		// The 'target' container doesn't desire to be moved to 'Created' or the 'steady' state.
 		// Do not allow it.
 		log.Errorf("Failed to resolve if the volume [%v] has been resolved for the target [%v]", volume, target)
@@ -305,19 +307,19 @@ func volumeIsResolved(target *api.Container, volume *api.Container) bool {
 	// Allow this only if the known status of the source volume container is
 	// any of 'Created', 'steady state' or 'Stopped'
 	knownStatus := volume.GetKnownStatus()
-	return knownStatus == api.ContainerCreated ||
+	return knownStatus == apicontainer.ContainerCreated ||
 		knownStatus == volume.GetSteadyStateStatus() ||
-		knownStatus == api.ContainerStopped
+		knownStatus == apicontainer.ContainerStopped
 }
 
-func onSteadyStateCanResolve(target *api.Container, run *api.Container) bool {
-	return target.GetDesiredStatus() >= api.ContainerCreated &&
+func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.Container) bool {
+	return target.GetDesiredStatus() >= apicontainer.ContainerCreated &&
 		run.GetDesiredStatus() >= run.GetSteadyStateStatus()
 }
 
 // onSteadyStateIsResolved defines a relationship where a target cannot be
 // created until 'dependency' has reached the steady state. Transitions include pulling.
-func onSteadyStateIsResolved(target *api.Container, run *api.Container) bool {
-	return target.GetDesiredStatus() >= api.ContainerCreated &&
+func onSteadyStateIsResolved(target *apicontainer.Container, run *apicontainer.Container) bool {
+	return target.GetDesiredStatus() >= apicontainer.ContainerCreated &&
 		run.GetKnownStatus() >= run.GetSteadyStateStatus()
 }

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
@@ -50,12 +51,12 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	taskEngine.SetSaver(saver)
 
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerEmptyHostVolume,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerEmptyHostVolume,
 		Image: imageName,
 	}
 	task := &api.Task{
-		Containers: []*api.Container{container},
+		Containers: []*apicontainer.Container{container},
 	}
 
 	assert.True(t, emptyvolume.LocalImage, "empty volume image is local")

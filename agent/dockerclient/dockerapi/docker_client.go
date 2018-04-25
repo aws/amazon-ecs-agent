@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -155,7 +155,7 @@ type DockerClient interface {
 
 	// DescribeContainer returns status information about the specified container. A context should be provided
 	// for the request
-	DescribeContainer(context.Context, string) (api.ContainerStatus, DockerContainerMetadata)
+	DescribeContainer(context.Context, string) (apicontainer.ContainerStatus, DockerContainerMetadata)
 
 	// RemoveContainer removes a container (typically the rootfs, logs, and associated metadata) identified by the name.
 	// A timeout value and a context should be provided for the request.
@@ -600,26 +600,26 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 
 // DockerStateToState converts the container status from docker to status recognized by the agent
 // Ref: https://github.com/fsouza/go-dockerclient/blob/fd53184a1439b6d7b82ca54c1cd9adac9a5278f2/container.go#L133
-func DockerStateToState(state docker.State) api.ContainerStatus {
+func DockerStateToState(state docker.State) apicontainer.ContainerStatus {
 	if state.Running {
-		return api.ContainerRunning
+		return apicontainer.ContainerRunning
 	}
 
 	if state.Dead {
-		return api.ContainerStopped
+		return apicontainer.ContainerStopped
 	}
 
 	if state.StartedAt.IsZero() && state.Error == "" {
-		return api.ContainerCreated
+		return apicontainer.ContainerCreated
 	}
 
-	return api.ContainerStopped
+	return apicontainer.ContainerStopped
 }
 
-func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (api.ContainerStatus, DockerContainerMetadata) {
+func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (apicontainer.ContainerStatus, DockerContainerMetadata) {
 	dockerContainer, err := dg.InspectContainer(ctx, dockerID, InspectContainerTimeout)
 	if err != nil {
-		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
+		return apicontainer.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
 	return DockerStateToState(dockerContainer.State), MetadataFromContainer(dockerContainer)
 }
@@ -749,11 +749,11 @@ func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) Dock
 
 // MetadataFromContainer translates dockerContainer into DockerContainerMetadata
 func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
-	var bindings []api.PortBinding
+	var bindings []apicontainer.PortBinding
 	var err apierrors.NamedError
 	if dockerContainer.NetworkSettings != nil {
 		// Convert port bindings into the format our container expects
-		bindings, err = api.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
+		bindings, err = apicontainer.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 		if err != nil {
 			seelog.Criticalf("DockerGoClient: Docker had network bindings we couldn't understand: %v", err)
 			return DockerContainerMetadata{Error: apierrors.NamedError(err)}
@@ -805,8 +805,8 @@ func getMetadataVolumes(metadata DockerContainerMetadata, dockerContainer *docke
 	return metadata
 }
 
-func getMetadataHealthCheck(dockerContainer *docker.Container) api.HealthStatus {
-	health := api.HealthStatus{}
+func getMetadataHealthCheck(dockerContainer *docker.Container) apicontainer.HealthStatus {
+	health := apicontainer.HealthStatus{}
 	logLength := len(dockerContainer.State.Health.Log)
 	if logLength != 0 {
 		// Only save the last log from the health check
@@ -820,9 +820,9 @@ func getMetadataHealthCheck(dockerContainer *docker.Container) api.HealthStatus 
 
 	switch dockerContainer.State.Health.Status {
 	case healthCheckHealthy:
-		health.Status = api.ContainerHealthy
+		health.Status = apicontainer.ContainerHealthy
 	case healthCheckUnhealthy:
-		health.Status = api.ContainerUnhealthy
+		health.Status = apicontainer.ContainerUnhealthy
 		if logLength == 0 {
 			seelog.Warn("DockerGoClient: no container healthcheck data returned by Docker")
 			break
@@ -871,11 +871,11 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		containerID := event.ID
 		seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
 
-		var status api.ContainerStatus
-		eventType := api.ContainerStatusEvent
+		var status apicontainer.ContainerStatus
+		eventType := apicontainer.ContainerStatusEvent
 		switch event.Status {
 		case "create":
-			status = api.ContainerCreated
+			status = apicontainer.ContainerCreated
 			// TODO no need to inspect containers here.
 			// There's no need to inspect containers after they are created when we
 			// adopt Docker's volume APIs. Today, that's the only information we need
@@ -883,11 +883,11 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 			// there's no need to `inspect` containers on `Create` anymore. This will
 			// save us a lot of `inspect` calls in the future.
 		case "start":
-			status = api.ContainerRunning
+			status = apicontainer.ContainerRunning
 		case "stop":
 			fallthrough
 		case "die":
-			status = api.ContainerStopped
+			status = apicontainer.ContainerStopped
 		case "oom":
 			containerInfo := event.ID
 			// events only contain the container's name in newer Docker API
@@ -904,7 +904,7 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		case "health_status: healthy":
 			fallthrough
 		case "health_status: unhealthy":
-			eventType = api.ContainerHealthEvent
+			eventType = apicontainer.ContainerHealthEvent
 		default:
 			// Because docker emits new events even when you use an old event api
 			// version, it's not that big a deal

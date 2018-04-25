@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package container
 
 import (
 	"fmt"
@@ -37,8 +37,8 @@ const (
 	// execution role
 	awslogsAuthExecutionRole = "ExecutionRole"
 
-	// dockerHealthCheckType is the type of container health check provided by docker
-	dockerHealthCheckType = "docker"
+	// DockerHealthCheckType is the type of container health check provided by docker
+	DockerHealthCheckType = "docker"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -205,6 +205,20 @@ type DockerContainer struct {
 	DockerName string // needed for linking
 
 	Container *Container
+}
+
+// MountPoint describes the in-container location of a Volume and references
+// that Volume by name.
+type MountPoint struct {
+	SourceVolume  string `json:"sourceVolume"`
+	ContainerPath string `json:"containerPath"`
+	ReadOnly      bool   `json:"readOnly"`
+}
+
+// VolumeFrom is a volume which references another container as its source.
+type VolumeFrom struct {
+	SourceContainer string `json:"sourceContainer"`
+	ReadOnly        bool   `json:"readOnly"`
 }
 
 // String returns a human readable string representation of DockerContainer
@@ -516,7 +530,7 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 // HealthStatusShouldBeReported returns true if the health check is defined in
 // the task definition
 func (c *Container) HealthStatusShouldBeReported() bool {
-	return c.HealthCheckType == dockerHealthCheckType
+	return c.HealthCheckType == DockerHealthCheckType
 }
 
 // SetHealthStatus sets the container health status

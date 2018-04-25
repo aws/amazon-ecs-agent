@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
@@ -35,10 +36,10 @@ type TaskEngineState interface {
 	AllImageStates() []*image.ImageState
 	// GetAllContainerIDs returns all of the Container Ids
 	GetAllContainerIDs() []string
-	// ContainerByID returns an api.DockerContainer for a given container ID
-	ContainerByID(id string) (*api.DockerContainer, bool)
+	// ContainerByID returns an apicontainer.DockerContainer for a given container ID
+	ContainerByID(id string) (*apicontainer.DockerContainer, bool)
 	// ContainerMapByArn returns a map of containers belonging to a particular task ARN
-	ContainerMapByArn(arn string) (map[string]*api.DockerContainer, bool)
+	ContainerMapByArn(arn string) (map[string]*apicontainer.DockerContainer, bool)
 	// TaskByShortID retrieves the task of a given docker short container id
 	TaskByShortID(cid string) ([]*api.Task, bool)
 	// TaskByID returns an api.Task for a given container ID
@@ -48,7 +49,7 @@ type TaskEngineState interface {
 	// AddTask adds a task to the state to be stored
 	AddTask(task *api.Task)
 	// AddContainer adds a container to the state to be stored for a given task
-	AddContainer(container *api.DockerContainer, task *api.Task)
+	AddContainer(container *apicontainer.DockerContainer, task *api.Task)
 	// AddImageState adds an image.ImageState to be stored
 	AddImageState(imageState *image.ImageState)
 	// AddENIAttachment adds an eni attachment from acs to be stored
@@ -87,11 +88,11 @@ type TaskEngineState interface {
 type DockerTaskEngineState struct {
 	lock sync.RWMutex
 
-	tasks          map[string]*api.Task                       // taskarn -> api.Task
-	idToTask       map[string]string                          // DockerId -> taskarn
-	taskToID       map[string]map[string]*api.DockerContainer // taskarn -> (containername -> api.DockerContainer)
-	idToContainer  map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
-	eniAttachments map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
+	tasks          map[string]*api.Task                                // taskarn -> api.Task
+	idToTask       map[string]string                                   // DockerId -> taskarn
+	taskToID       map[string]map[string]*apicontainer.DockerContainer // taskarn -> (containername -> c.DockerContainer)
+	idToContainer  map[string]*apicontainer.DockerContainer            // DockerId -> c.DockerContainer
+	eniAttachments map[string]*api.ENIAttachment                       // ENIMac -> api.ENIAttachment
 	imageStates    map[string]*image.ImageState
 	ipToTask       map[string]string // ip address -> task arn
 }
@@ -113,8 +114,8 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 
 	state.tasks = make(map[string]*api.Task)
 	state.idToTask = make(map[string]string)
-	state.taskToID = make(map[string]map[string]*api.DockerContainer)
-	state.idToContainer = make(map[string]*api.DockerContainer)
+	state.taskToID = make(map[string]map[string]*apicontainer.DockerContainer)
+	state.idToContainer = make(map[string]*apicontainer.DockerContainer)
 	state.imageStates = make(map[string]*image.ImageState)
 	state.eniAttachments = make(map[string]*api.ENIAttachment)
 	state.ipToTask = make(map[string]string)
@@ -232,8 +233,8 @@ func (state *DockerTaskEngineState) GetAllContainerIDs() []string {
 	return ids
 }
 
-// ContainerByID returns an api.DockerContainer for a given container ID
-func (state *DockerTaskEngineState) ContainerByID(id string) (*api.DockerContainer, bool) {
+// ContainerByID returns an apicontainer.DockerContainer for a given container ID
+func (state *DockerTaskEngineState) ContainerByID(id string) (*apicontainer.DockerContainer, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
@@ -242,7 +243,7 @@ func (state *DockerTaskEngineState) ContainerByID(id string) (*api.DockerContain
 }
 
 // ContainerMapByArn returns a map of containers belonging to a particular task ARN
-func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*api.DockerContainer, bool) {
+func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*apicontainer.DockerContainer, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
@@ -250,7 +251,7 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 
 	// Copy the map to avoid data race
 	if ok {
-		mc := make(map[string]*api.DockerContainer)
+		mc := make(map[string]*apicontainer.DockerContainer)
 		for k, v := range ret {
 			mc[k] = v
 		}
@@ -310,7 +311,7 @@ func (state *DockerTaskEngineState) AddTask(task *api.Task) {
 // AddContainer adds a container to the state.
 // If the container has been added with only a name and no docker-id, this
 // updates the state to include the docker id
-func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer, task *api.Task) {
+func (state *DockerTaskEngineState) AddContainer(container *apicontainer.DockerContainer, task *api.Task) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 	if task == nil || container == nil {
@@ -328,7 +329,7 @@ func (state *DockerTaskEngineState) AddContainer(container *api.DockerContainer,
 
 	existingMap, exists := state.taskToID[task.Arn]
 	if !exists {
-		existingMap = make(map[string]*api.DockerContainer, len(task.Containers))
+		existingMap = make(map[string]*apicontainer.DockerContainer, len(task.Containers))
 		state.taskToID[task.Arn] = existingMap
 	}
 	existingMap[container.Container.Name] = container
@@ -392,7 +393,7 @@ func (state *DockerTaskEngineState) taskToIPUnsafe(arn string) (string, bool) {
 // storeIDToContainerTaskUnsafe stores the container in the idToContainer and idToTask maps.  The key to the maps is
 // either the Docker-generated ID or the agent-generated name (if the ID is not available).  If the container is updated
 // with an ID, a subsequent call to this function will update the map to use the ID as the key.
-func (state *DockerTaskEngineState) storeIDToContainerTaskUnsafe(container *api.DockerContainer, task *api.Task) {
+func (state *DockerTaskEngineState) storeIDToContainerTaskUnsafe(container *apicontainer.DockerContainer, task *api.Task) {
 	if container.DockerID != "" {
 		// Update the container id to the state
 		state.idToContainer[container.DockerID] = container
@@ -411,7 +412,7 @@ func (state *DockerTaskEngineState) storeIDToContainerTaskUnsafe(container *api.
 // removeIDToContainerTaskUnsafe removes the container from the idToContainer and idToTask maps.  They key to the maps
 // is either the Docker-generated ID or the agent-generated name (if the ID is not available).  This function assumes
 // that the ID takes precedence and will delete by the ID when the ID is available.
-func (state *DockerTaskEngineState) removeIDToContainerTaskUnsafe(container *api.DockerContainer) {
+func (state *DockerTaskEngineState) removeIDToContainerTaskUnsafe(container *apicontainer.DockerContainer) {
 	// The key to these maps is either the Docker ID or agent-generated name.  We use the agent-generated name
 	// before a Docker ID is available.
 	key := container.DockerID

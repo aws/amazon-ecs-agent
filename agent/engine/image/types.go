@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/cihub/seelog"
 )
 
@@ -38,19 +38,21 @@ func (image *Image) String() string {
 // and its state information such as containers associated with it
 type ImageState struct {
 	Image      *Image
-	Containers []*api.Container `json:"-"`
+	Containers []*apicontainer.Container `json:"-"`
 	PulledAt   time.Time
 	LastUsedAt time.Time
 	updateLock sync.RWMutex
 }
 
-func (imageState *ImageState) UpdateContainerReference(container *api.Container) {
+// UpdateContainerReference updates container reference in image state
+func (imageState *ImageState) UpdateContainerReference(container *apicontainer.Container) {
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
 	seelog.Infof("Updating container reference %v in Image State - %v", container.Name, imageState.Image.ImageID)
 	imageState.Containers = append(imageState.Containers, container)
 }
 
+// AddImageName adds image name to image state
 func (imageState *ImageState) AddImageName(imageName string) {
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
@@ -60,21 +62,25 @@ func (imageState *ImageState) AddImageName(imageName string) {
 	}
 }
 
+// GetImageNamesCount returns number of image names
 func (imageState *ImageState) GetImageNamesCount() int {
 	imageState.updateLock.RLock()
 	defer imageState.updateLock.RUnlock()
 	return len(imageState.Image.Names)
 }
 
+// HasNoAssociatedContainers returns true if image has no associated containers, false otherwise
 func (imageState *ImageState) HasNoAssociatedContainers() bool {
 	return len(imageState.Containers) == 0
 }
 
-func (imageState *ImageState) UpdateImageState(container *api.Container) {
+// UpdateImageState updates image name and container reference in image state
+func (imageState *ImageState) UpdateImageState(container *apicontainer.Container) {
 	imageState.AddImageName(container.Image)
 	imageState.UpdateContainerReference(container)
 }
 
+// RemoveImageName removes image name from image state
 func (imageState *ImageState) RemoveImageName(containerImageName string) {
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
@@ -85,6 +91,7 @@ func (imageState *ImageState) RemoveImageName(containerImageName string) {
 	}
 }
 
+// HasImageName returns true if image state contains the containerImageName
 func (imageState *ImageState) HasImageName(containerImageName string) bool {
 	for _, imageName := range imageState.Image.Names {
 		if imageName == containerImageName {
@@ -94,7 +101,8 @@ func (imageState *ImageState) HasImageName(containerImageName string) bool {
 	return false
 }
 
-func (imageState *ImageState) RemoveContainerReference(container *api.Container) error {
+// RemoveContainerReference removes container reference from image state
+func (imageState *ImageState) RemoveContainerReference(container *apicontainer.Container) error {
 	// Get the image state write lock for updating container reference
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()
@@ -111,6 +119,7 @@ func (imageState *ImageState) RemoveContainerReference(container *api.Container)
 	return fmt.Errorf("Container reference is not found in the image state container: %s", container.String())
 }
 
+// MarshalJSON marshals image state
 func (imageState *ImageState) MarshalJSON() ([]byte, error) {
 	imageState.updateLock.Lock()
 	defer imageState.updateLock.Unlock()

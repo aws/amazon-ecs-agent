@@ -19,12 +19,13 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldContainerEventBeSent(t *testing.T) {
 	event := newSendableContainerEvent(api.ContainerStateChange{
-		Status: api.ContainerStopped,
+		Status: apicontainer.ContainerStopped,
 	})
 	assert.Equal(t, true, event.containerShouldBeSent())
 	assert.Equal(t, false, event.taskShouldBeSent())
@@ -83,15 +84,15 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainer.ContainerRunning,
+							KnownStatusUnsafe: apicontainer.ContainerRunning,
 						},
 					},
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerStopped,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainer.ContainerRunning,
+							KnownStatusUnsafe: apicontainer.ContainerStopped,
 						},
 					},
 				},
@@ -108,9 +109,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerStatusNone,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainer.ContainerStatusNone,
+							KnownStatusUnsafe: apicontainer.ContainerRunning,
 						},
 					},
 				},
@@ -126,15 +127,15 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainer.ContainerRunning,
+							KnownStatusUnsafe: apicontainer.ContainerRunning,
 						},
 					},
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerStopped,
-							KnownStatusUnsafe: api.ContainerStopped,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainer.ContainerStopped,
+							KnownStatusUnsafe: apicontainer.ContainerStopped,
 						},
 					},
 				},

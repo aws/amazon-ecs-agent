@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -154,9 +155,9 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
 		assert.Equal(t, 2, len(change.Containers))
 		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
-		assert.Equal(t, api.ContainerRunning, change.Containers[0].Status)
+		assert.Equal(t, apicontainer.ContainerRunning, change.Containers[0].Status)
 		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
-		assert.Equal(t, api.ContainerStopped, change.Containers[1].Status)
+		assert.Equal(t, apicontainer.ContainerStopped, change.Containers[1].Status)
 		wg.Done()
 	})
 
@@ -237,7 +238,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	task1 := taskEvent(taskARNA)
 	task1.(api.TaskStateChange).Task.SetSentStatus(api.TaskRunning)
 	cont1 := containerEvent(taskARNA)
-	cont1.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
+	cont1.(api.ContainerStateChange).Container.SetSentStatus(apicontainer.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
 	handler.AddStateChangeEvent(task1, client)
@@ -245,7 +246,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	task2 := taskEvent(taskARNB)
 	task2.(api.TaskStateChange).Task.SetSentStatus(api.TaskStatusNone)
 	cont2 := containerEvent(taskARNB)
-	cont2.(api.ContainerStateChange).Container.SetSentStatus(api.ContainerRunning)
+	cont2.(api.ContainerStateChange).Container.SetSentStatus(apicontainer.ContainerRunning)
 
 	// Expect to send a task status but not a container status
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
@@ -304,11 +305,11 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 }
 
 func containerEvent(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerRunning, Container: &api.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainer.ContainerRunning, Container: &apicontainer.Container{}}
 }
 
 func containerEventStopped(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: api.ContainerStopped, Container: &api.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainer.ContainerStopped, Container: &apicontainer.Container{}}
 }
 
 func taskEvent(arn string) statechange.Event {

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package container
 
 import (
 	"encoding/json"
@@ -20,41 +20,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestTaskStatus(t *testing.T) {
-	// Effectively set containerStatus := ContainerStatusNone, we expect the task state
-	// to be TaskStatusNone
-	var containerStatus ContainerStatus
-	assert.Equal(t, containerStatus.TaskStatus(ContainerRunning), TaskStatusNone)
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskStatusNone)
-
-	// When container state is PULLED, Task state is still NONE
-	containerStatus = ContainerPulled
-	assert.Equal(t, containerStatus.TaskStatus(ContainerRunning), TaskStatusNone)
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskStatusNone)
-
-	// When container state is CREATED, Task state is CREATED as well
-	containerStatus = ContainerCreated
-	assert.Equal(t, containerStatus.TaskStatus(ContainerRunning), TaskCreated)
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskCreated)
-
-	containerStatus = ContainerRunning
-	// When container state is RUNNING and steadyState is RUNNING, Task state is RUNNING as well
-	assert.Equal(t, containerStatus.TaskStatus(ContainerRunning), TaskRunning)
-	// When container state is RUNNING and steadyState is RESOURCES_PROVISIONED, Task state
-	// still CREATED
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskCreated)
-
-	containerStatus = ContainerResourcesProvisioned
-	// When container state is RESOURCES_PROVISIONED and steadyState is RESOURCES_PROVISIONED,
-	// Task state is RUNNING
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskRunning)
-
-	// When container state is STOPPED, Task state is STOPPED as well
-	containerStatus = ContainerStopped
-	assert.Equal(t, containerStatus.TaskStatus(ContainerRunning), TaskStopped)
-	assert.Equal(t, containerStatus.TaskStatus(ContainerResourcesProvisioned), TaskStopped)
-}
 
 func TestShouldReportToBackend(t *testing.T) {
 	// ContainerStatusNone is not reported to backend

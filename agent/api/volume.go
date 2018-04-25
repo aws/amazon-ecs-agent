@@ -13,14 +13,6 @@
 
 package api
 
-// MountPoint describes the in-container location of a Volume and references
-// that Volume by name.
-type MountPoint struct {
-	SourceVolume  string `json:"sourceVolume"`
-	ContainerPath string `json:"containerPath"`
-	ReadOnly      bool   `json:"readOnly"`
-}
-
 // HostVolume is an interface for something that may be used as the host half of a
 // docker volume mount
 type HostVolume interface {
@@ -46,10 +38,4 @@ type EmptyHostVolume struct {
 // SourcePath returns the generated host path for the volume
 func (e *EmptyHostVolume) SourcePath() string {
 	return e.HostPath
-}
-
-// VolumeFrom is a volume which references another container as its source.
-type VolumeFrom struct {
-	SourceContainer string `json:"sourceContainer"`
-	ReadOnly        bool   `json:"readOnly"`
 }

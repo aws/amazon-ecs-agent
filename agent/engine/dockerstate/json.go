@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 )
 
@@ -25,8 +26,8 @@ import (
 // DockerTaskEngine state
 type savedState struct {
 	Tasks          []*api.Task
-	IdToContainer  map[string]*api.DockerContainer `json:"IdToContainer"` // DockerId -> api.DockerContainer
-	IdToTask       map[string]string               `json:"IdToTask"`      // DockerId -> taskarn
+	IdToContainer  map[string]*apicontainer.DockerContainer `json:"IdToContainer"` // DockerId -> apicontainer.DockerContainer
+	IdToTask       map[string]string                        `json:"IdToTask"`      // DockerId -> taskarn
 	ImageStates    []*image.ImageState
 	ENIAttachments []*api.ENIAttachment `json:"ENIAttachments"`
 	IPToTask       map[string]string    `json:"IPToTask"`

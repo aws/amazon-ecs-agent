@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package container
 
 import (
 	"errors"
@@ -89,31 +89,6 @@ func (cs ContainerStatus) String() string {
 		}
 	}
 	return "NONE"
-}
-
-// TaskStatus maps the container status to the corresponding task status. The
-// transition map is illustrated below.
-//
-// Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
-//
-// Task     : None ->     Created       ->         Running        -> Stopped
-func (cs *ContainerStatus) TaskStatus(steadyStateStatus ContainerStatus) TaskStatus {
-	switch *cs {
-	case ContainerStatusNone:
-		return TaskStatusNone
-	case steadyStateStatus:
-		return TaskRunning
-	case ContainerCreated:
-		return TaskCreated
-	case ContainerStopped:
-		return TaskStopped
-	}
-
-	if *cs == ContainerRunning && steadyStateStatus == ContainerResourcesProvisioned {
-		return TaskCreated
-	}
-
-	return TaskStatusNone
 }
 
 // ShouldReportToBackend returns true if the container status is recognized as a

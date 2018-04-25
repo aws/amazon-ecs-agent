@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -58,8 +58,8 @@ func TestResourceContainerProgression(t *testing.T) {
 
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, api.ContainerPulled)
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
@@ -96,7 +96,7 @@ func TestResourceContainerProgression(t *testing.T) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(api.ContainerCreated)
+					eventStream <- createDockerEvent(apicontainer.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -105,7 +105,7 @@ func TestResourceContainerProgression(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(api.ContainerRunning)
+					eventStream <- createDockerEvent(apicontainer.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -118,7 +118,7 @@ func TestResourceContainerProgression(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: api.ContainerStopped,
+		Status: apicontainer.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID + ":" + sleepContainer.Name,
 			ExitCode: aws.Int(exitCode),
@@ -136,8 +136,8 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	defer ctrl.Finish()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[api.ContainerStatus]api.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, api.ContainerPulled)
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	taskID, err := sleepTask.GetID()

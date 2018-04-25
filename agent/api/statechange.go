@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/pkg/errors"
 
@@ -32,7 +33,7 @@ type ContainerStateChange struct {
 	// ContainerName is the name of the container
 	ContainerName string
 	// Status is the status to send
-	Status ContainerStatus
+	Status apicontainer.ContainerStatus
 
 	// Reason may contain details of why the container stopped
 	Reason string
@@ -40,11 +41,11 @@ type ContainerStateChange struct {
 	ExitCode *int
 	// PortBindings are the details of the host ports picked for the specified
 	// container ports
-	PortBindings []PortBinding
+	PortBindings []apicontainer.PortBinding
 
 	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
 	// storing what status was sent.  This is used to ensure the same event is handled only once.
-	Container *Container
+	Container *apicontainer.Container
 }
 
 // TaskStateChange represents a state change that needs to be sent to the
@@ -101,7 +102,7 @@ func NewTaskStateChangeEvent(task *Task, reason string) (TaskStateChange, error)
 }
 
 // NewContainerStateChangeEvent creates a new container state change event
-func NewContainerStateChangeEvent(task *Task, cont *Container, reason string) (ContainerStateChange, error) {
+func NewContainerStateChangeEvent(task *Task, cont *apicontainer.Container, reason string) (ContainerStateChange, error) {
 	var event ContainerStateChange
 	contKnownStatus := cont.GetKnownStatus()
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {

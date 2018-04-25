@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
@@ -49,12 +50,12 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	taskEngine._time = nil
 
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerEmptyHostVolume,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerEmptyHostVolume,
 		Image: imageName,
 	}
 	task := &api.Task{
-		Containers: []*api.Container{container},
+		Containers: []*apicontainer.Container{container},
 	}
 
 	assert.False(t, emptyvolume.LocalImage, "Windows empty volume image is not local")

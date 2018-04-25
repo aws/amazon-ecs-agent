@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	. "github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +33,7 @@ func TestTaskEqual(t *testing.T) {
 		{Task{Arn: "a"}, Task{Arn: "a"}, true},
 		{Task{Family: "a"}, Task{Family: "a"}, true},
 		{Task{Version: "a"}, Task{Version: "a"}, true},
-		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "a"}}}, true},
+		{Task{Containers: []*apicontainer.Container{{Name: "a"}}}, Task{Containers: []*apicontainer.Container{{Name: "a"}}}, true},
 		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskRunning}, true},
 		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskRunning}, true},
 
@@ -40,7 +41,7 @@ func TestTaskEqual(t *testing.T) {
 		{Task{Arn: "a"}, Task{Arn: "あ"}, false},
 		{Task{Family: "a"}, Task{Family: "あ"}, false},
 		{Task{Version: "a"}, Task{Version: "あ"}, false},
-		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "あ"}}}, false},
+		{Task{Containers: []*apicontainer.Container{{Name: "a"}}}, Task{Containers: []*apicontainer.Container{{Name: "あ"}}}, false},
 		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskStopped}, false},
 		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskStopped}, false},
 	}
