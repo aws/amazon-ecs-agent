@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.17.4-dev
+* Bug - Fixed a bug where Docker Version() API never returns by adding a timeout [#1363](https://github.com/aws/amazon-ecs-agent/pull/1363)
+
 ## 1.17.3
 * Enhancement - Distinct startContainerTimeouts for windows/linux, introduce a new environment variable `ECS_CONTAINER_START_TIMEOUT` to make it configurable [#1321](https://github.com/aws/amazon-ecs-agent/pull/1321)
 * Enhancement - Add support for containers to inhereit ENI private DNS hostnames for `awsvpc` tasks [#1278](https://github.com/aws/amazon-ecs-agent/pull/1278)
