@@ -348,13 +348,13 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			handleInvalidParamException(err, taskEvents.events, eventToSubmit, event)
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
-			handleInvalidParamException(err, taskEvents.events, eventToSubmit, event)
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}
 	} else {
@@ -388,8 +388,9 @@ func (handler *TaskHandler) getTasksToEventsLen() int {
 
 // handleInvalidParamException removes the event from event queue when its parameters are
 // invalid to reduce redundant API call
-func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element, event *sendableEvent) {
+func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element) {
 	if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
+		event := eventToSubmit.Value.(*sendableEvent)
 		seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
 		events.Remove(eventToSubmit)
 	}
