@@ -16,6 +16,7 @@
 package stats
 
 import (
+	"context"
 	"os"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -29,5 +30,5 @@ var (
 	testImageName = "amazon/amazon-ecs-stats:make"
 	endpoint      = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), "npipe:////./pipe/docker_engine")
 	client, _     = docker.NewClient(endpoint)
-	clientFactory = clientfactory.NewFactory(endpoint)
+	clientFactory = clientfactory.NewFactory(context.TODO(), endpoint)
 )

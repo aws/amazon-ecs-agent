@@ -57,28 +57,8 @@ const (
 	maxHealthCheckOutputLength = 1024
 )
 
-// Timelimits for docker operations enforced above docker
 const (
-	// ListContainersTimeout is the timeout for the ListContainers API.
-	ListContainersTimeout = 10 * time.Minute
-	// LoadImageTimeout is the timeout for the LoadImage API. It's set
-	// to much lower value than pullImageTimeout as it involves loading
-	// image from either a file or STDIN
-	// calls involved.
-	// TODO: Benchmark and re-evaluate this value
-	LoadImageTimeout = 10 * time.Minute
 	pullImageTimeout = 2 * time.Hour
-	// CreateContainerTimeout is the timeout for the CreateContainer API.
-	CreateContainerTimeout = 4 * time.Minute
-	// StopContainerTimeout is the timeout for the StopContainer API.
-	StopContainerTimeout = 30 * time.Second
-	// RemoveContainerTimeout is the timeout for the RemoveContainer API.
-	RemoveContainerTimeout = 5 * time.Minute
-	// InspectContainerTimeout is the timeout for the InspectContainer API.
-	InspectContainerTimeout = 30 * time.Second
-	// RemoveImageTimeout is the timeout for the RemoveImage API.
-	RemoveImageTimeout = 3 * time.Minute
-
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
 	// tokenCacheTTL is the default ttl of the docker auth for ECR
@@ -164,7 +144,8 @@ type DockerClient interface {
 	Stats(string, context.Context) (<-chan *docker.Stats, error)
 
 	// Version returns the version of the Docker daemon.
-	Version() (string, error)
+	Version(context.Context, time.Duration) (string, error)
+
 	// APIVersion returns the api version of the client
 	APIVersion() (dockerclient.DockerVersion, error)
 
@@ -590,7 +571,7 @@ func DockerStateToState(state docker.State) api.ContainerStatus {
 }
 
 func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (api.ContainerStatus, DockerContainerMetadata) {
-	dockerContainer, err := dg.InspectContainer(ctx, dockerID, InspectContainerTimeout)
+	dockerContainer, err := dg.InspectContainer(ctx, dockerID, dockerclient.InspectContainerTimeout)
 	if err != nil {
 		return api.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
@@ -691,7 +672,7 @@ func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, 
 		// Context has either expired or canceled. If it has timed out,
 		// send back the DockerTimeoutError
 		if err == context.DeadlineExceeded {
-			return &DockerTimeoutError{RemoveContainerTimeout, "removing"}
+			return &DockerTimeoutError{dockerclient.RemoveContainerTimeout, "removing"}
 		}
 		return &CannotRemoveContainerError{err}
 	}
@@ -711,9 +692,9 @@ func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) 
 }
 
 func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) DockerContainerMetadata {
-	ctx, cancel := context.WithTimeout(ctx, InspectContainerTimeout)
+	ctx, cancel := context.WithTimeout(ctx, dockerclient.InspectContainerTimeout)
 	defer cancel()
-	dockerContainer, err := dg.InspectContainer(ctx, id, InspectContainerTimeout)
+	dockerContainer, err := dg.InspectContainer(ctx, id, dockerclient.InspectContainerTimeout)
 	if err != nil {
 		return DockerContainerMetadata{DockerID: id, Error: CannotInspectContainerError{err}}
 	}
@@ -949,12 +930,15 @@ func (dg *dockerGoClient) KnownVersions() []dockerclient.DockerVersion {
 	return dg.clientFactory.FindKnownAPIVersions()
 }
 
-func (dg *dockerGoClient) Version() (string, error) {
+func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (string, error) {
+	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	client, err := dg.dockerClient()
 	if err != nil {
 		return "", err
 	}
-	info, err := client.Version()
+	info, err := client.VersionWithContext(derivedCtx)
 	if err != nil {
 		return "", err
 	}

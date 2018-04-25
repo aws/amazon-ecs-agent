@@ -15,6 +15,7 @@
 package clientfactory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -36,12 +37,14 @@ func TestGetClientMinimumVersion(t *testing.T) {
 		if version == string(minDockerAPIVersion) {
 			mockClient = expectedClient
 		}
-		mockClient.EXPECT().Version().Return(&docker.Env{}, nil).AnyTimes()
+		mockClient.EXPECT().VersionWithContext(gomock.Any()).Return(&docker.Env{}, nil).AnyTimes()
 		mockClient.EXPECT().Ping().AnyTimes()
 		return mockClient, nil
 	}
 
-	factory := NewFactory(expectedEndpoint)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
 	actualClient, err := factory.GetClient(dockerclient.Version_1_19)
 
 	assert.NoError(t, err)
@@ -49,7 +52,9 @@ func TestGetClientMinimumVersion(t *testing.T) {
 }
 
 func TestFindClientAPIVersion(t *testing.T) {
-	factory := NewFactory(expectedEndpoint)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
 
 	for _, version := range getAgentVersions() {
 		client, err := factory.GetClient(version)

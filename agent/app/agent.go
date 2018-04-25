@@ -132,7 +132,8 @@ func newAgent(
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
-	dockerClient, err := dockerapi.NewDockerGoClient(clientfactory.NewFactory(cfg.DockerEndpoint), cfg)
+	dockerClient, err := dockerapi.NewDockerGoClient(
+		clientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg)
 	if err != nil {
 		// This is also non terminal in the current config
 		seelog.Criticalf("Error creating Docker client: %v", err)

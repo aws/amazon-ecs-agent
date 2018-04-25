@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -127,7 +128,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 
 // synchronizeState goes through all the containers on the instance to synchronize the state on agent start
 func (engine *DockerStatsEngine) synchronizeState() error {
-	listContainersResponse := engine.client.ListContainers(engine.ctx, false, dockerapi.ListContainersTimeout)
+	listContainersResponse := engine.client.ListContainers(engine.ctx, false, dockerclient.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
 		return listContainersResponse.Error
 	}

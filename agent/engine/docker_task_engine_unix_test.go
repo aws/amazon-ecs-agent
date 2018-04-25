@@ -104,7 +104,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 	defer ctrl.Finish()
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version().Return("1.11.0", nil)
+		client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.11.0", nil)
 	}
 	client.EXPECT().ContainerEvents(gomock.Any())
 

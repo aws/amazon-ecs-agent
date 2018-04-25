@@ -121,6 +121,9 @@ type DockerTaskEngine struct {
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
 	taskSteadyStatePollInterval time.Duration
+
+	// dockerVersion is used to store the Docker version string
+	dockerVersion string
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -343,7 +346,8 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		seelog.Debugf("Task engine [%s]: found container potentially created while we were down: %s",
 			task.Arn, container.DockerName)
 		// Figure out the dockerid
-		describedContainer, err := engine.client.InspectContainer(engine.ctx, container.DockerName, dockerapi.InspectContainerTimeout)
+		describedContainer, err := engine.client.InspectContainer(engine.ctx,
+			container.DockerName, dockerclient.InspectContainerTimeout)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: could not find matching container for expected name [%s]: %v",
 				task.Arn, container.DockerName, err)
@@ -840,7 +844,8 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	}
 
 	createContainerBegin := time.Now()
-	metadata := client.CreateContainer(engine.ctx, config, hostConfig, dockerContainerName, dockerapi.CreateContainerTimeout)
+	metadata := client.CreateContainer(engine.ctx, config, hostConfig,
+		dockerContainerName, dockerclient.CreateContainerTimeout)
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
 			task.Arn, container.Name, metadata.DockerID)
@@ -979,7 +984,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	containerInspectOutput, err := engine.client.InspectContainer(
 		engine.ctx,
 		pauseContainer.DockerName,
-		dockerapi.InspectContainerTimeout,
+		dockerclient.InspectContainerTimeout,
 	)
 	if err != nil {
 		return nil, err
@@ -1020,7 +1025,7 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
 	// timeout is defined by the const 'stopContainerTimeout' and the 'DockerStopTimeout' in the config
-	timeout := engine.cfg.DockerStopTimeout + dockerapi.StopContainerTimeout
+	timeout := engine.cfg.DockerStopTimeout + dockerclient.StopContainerTimeout
 	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, timeout)
 }
 
@@ -1037,7 +1042,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
 
-	return engine.client.RemoveContainer(engine.ctx, dockerContainer.DockerName, dockerapi.RemoveContainerTimeout)
+	return engine.client.RemoveContainer(engine.ctx, dockerContainer.DockerName, dockerclient.RemoveContainerTimeout)
 }
 
 // updateTaskUnsafe determines if a new transition needs to be applied to the
@@ -1126,7 +1131,18 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
-	return engine.client.Version()
+	if engine.dockerVersion != "" {
+		// If the version string has already been populated, return it
+		return engine.dockerVersion, nil
+	}
+	// Version string is empty. Try getting it from Docker client
+	version, err := engine.client.Version(engine.ctx, dockerclient.VersionTimeout)
+	if err != nil {
+		return "", err
+	}
+	// Successfully retrieved the version string. Save it for future re-use
+	engine.dockerVersion = version
+	return engine.dockerVersion, nil
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {

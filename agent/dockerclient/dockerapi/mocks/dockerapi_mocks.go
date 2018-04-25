@@ -265,16 +265,16 @@ func (mr *MockDockerClientMockRecorder) SupportedVersions() *gomock.Call {
 }
 
 // Version mocks base method
-func (m *MockDockerClient) Version() (string, error) {
-	ret := m.ctrl.Call(m, "Version")
+func (m *MockDockerClient) Version(arg0 context.Context, arg1 time.Duration) (string, error) {
+	ret := m.ctrl.Call(m, "Version", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Version indicates an expected call of Version
-func (mr *MockDockerClientMockRecorder) Version() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockDockerClient)(nil).Version))
+func (mr *MockDockerClientMockRecorder) Version(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockDockerClient)(nil).Version), arg0, arg1)
 }
 
 // WithVersion mocks base method
