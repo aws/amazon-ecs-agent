@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	docker "github.com/fsouza/go-dockerclient"
 
@@ -49,7 +50,7 @@ func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.Docke
 		return errors.Wrapf(err,
 			"pause container load: failed to read pause container image: %s", path)
 	}
-	if err := dockerClient.LoadImage(ctx, pauseContainerReader, dockerapi.LoadImageTimeout); err != nil {
+	if err := dockerClient.LoadImage(ctx, pauseContainerReader, dockerclient.LoadImageTimeout); err != nil {
 		return errors.Wrapf(err,
 			"pause container load: failed to load pause container image: %s", path)
 	}

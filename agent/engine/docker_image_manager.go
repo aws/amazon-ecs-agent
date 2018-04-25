@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -347,7 +348,7 @@ func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID
 		return
 	}
 	seelog.Infof("Removing Image: %s", imageID)
-	err := imageManager.client.RemoveImage(ctx, imageID, dockerapi.RemoveImageTimeout)
+	err := imageManager.client.RemoveImage(ctx, imageID, dockerclient.RemoveImageTimeout)
 	if err != nil {
 		if err.Error() == imageNotFoundForDeletionError {
 			seelog.Errorf("Image already removed from the instance: %v", err)

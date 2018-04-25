@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -679,9 +679,9 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...str
 func cleanupImagesHappy(imageManager *dockerImageManager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	imageManager.client.RemoveContainer(ctx, "test1", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer(ctx, "test2", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer(ctx, "test3", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test1", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerclient.RemoveContainerTimeout)
 	imageManager.client.RemoveImage(ctx, test1Image1Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(ctx, test1Image2Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(ctx, test1Image3Name, imageRemovalTimeout)
@@ -690,9 +690,9 @@ func cleanupImagesHappy(imageManager *dockerImageManager) {
 func cleanupImagesThreshold(imageManager *dockerImageManager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	imageManager.client.RemoveContainer(ctx, "test1", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer(ctx, "test2", dockerapi.RemoveContainerTimeout)
-	imageManager.client.RemoveContainer(ctx, "test3", dockerapi.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test1", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerclient.RemoveContainerTimeout)
 	imageManager.client.RemoveImage(ctx, test2Image1Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(ctx, test2Image2Name, imageRemovalTimeout)
 	imageManager.client.RemoveImage(ctx, test2Image3Name, imageRemovalTimeout)

@@ -15,6 +15,7 @@
 package clientfactory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -37,13 +38,15 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 		if version == string(getDefaultVersion()) {
 			mockClient = expectedClient
 		}
-		mockClient.EXPECT().Version().Return(&docker.Env{}, nil).AnyTimes()
+		mockClient.EXPECT().VersionWithContext(gomock.Any()).Return(&docker.Env{}, nil).AnyTimes()
 		mockClient.EXPECT().Ping().AnyTimes()
 
 		return mockClient, nil
 	}
 
-	factory := NewFactory(expectedEndpoint)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
 	actualClient, err := factory.GetDefaultClient()
 	assert.Nil(t, err)
 	assert.Equal(t, expectedClient, actualClient)
@@ -62,7 +65,7 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_dockeriface.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().VersionWithContext(gomock.Any()).Return(&docker.Env{}, nil).AnyTimes()
 		mockClients[string(allVersions[i])].EXPECT().Ping().AnyTimes()
 	}
 
@@ -72,7 +75,9 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 		return mockClients[version], nil
 	}
 
-	factory := NewFactory(expectedEndpoint)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
 	actualVersions := factory.FindSupportedAPIVersions()
 
 	assert.Equal(t, len(agentVersions), len(actualVersions))
@@ -110,7 +115,8 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_dockeriface.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().Version().Return(&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.30"}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().VersionWithContext(gomock.Any()).Return(
+			&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.30"}, nil).AnyTimes()
 		mockClients[string(allVersions[i])].EXPECT().Ping().AnyTimes()
 	}
 
@@ -120,7 +126,9 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 		return mockClients[version], nil
 	}
 
-	factory := NewFactory(expectedEndpoint)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
 	actualVersions := factory.FindSupportedAPIVersions()
 
 	assert.Equal(t, len(agentVersions), len(actualVersions))

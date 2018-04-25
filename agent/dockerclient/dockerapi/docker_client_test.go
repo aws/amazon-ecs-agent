@@ -505,7 +505,7 @@ func TestStopContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.StopContainer(ctx, "id", StopContainerTimeout)
+	metadata := client.StopContainer(ctx, "id", dockerclient.StopContainerTimeout)
 	if metadata.Error != nil {
 		t.Error("Did not expect error")
 	}
@@ -557,7 +557,7 @@ func TestInspectContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	container, err := client.InspectContainer(ctx, "id", InspectContainerTimeout)
+	container, err := client.InspectContainer(ctx, "id", dockerclient.InspectContainerTimeout)
 	if err != nil {
 		t.Error("Did not expect error")
 	}
@@ -722,9 +722,11 @@ func TestDockerVersion(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().Version().Return(&docker.Env{"Version=1.6.0"}, nil)
+	mockDocker.EXPECT().VersionWithContext(gomock.Any()).Return(&docker.Env{"Version=1.6.0"}, nil)
 
-	str, err := client.Version()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	str, err := client.Version(ctx, dockerclient.VersionTimeout)
 	if err != nil {
 		t.Error(err)
 	}
@@ -741,7 +743,7 @@ func TestListContainers(t *testing.T) {
 	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListContainers(ctx, true, ListContainersTimeout)
+	response := client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
 	if response.Error != nil {
 		t.Error("Did not expect error")
 	}

@@ -87,7 +87,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	clientFactory := clientfactory.NewFactory(dockerEndpoint)
+	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)

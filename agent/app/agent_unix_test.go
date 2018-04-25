@@ -66,7 +66,7 @@ func TestDoStartHappyPath(t *testing.T) {
 
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failues
-	dockerClient.EXPECT().Version().AnyTimes()
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
@@ -135,7 +135,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failues
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	dockerClient.EXPECT().Version().AnyTimes()
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
@@ -463,7 +463,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
-	dockerClient.EXPECT().Version().AnyTimes()
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
@@ -526,7 +526,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 
-	dockerClient.EXPECT().Version().AnyTimes()
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 

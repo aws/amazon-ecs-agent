@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,6 +14,8 @@
 package clientfactory
 
 import (
+	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -76,10 +78,10 @@ var newVersionedClient = func(endpoint, version string) (dockeriface.Client, err
 }
 
 // NewFactory initializes a client factory using a specified endpoint.
-func NewFactory(endpoint string) Factory {
+func NewFactory(ctx context.Context, endpoint string) Factory {
 	return &factory{
 		endpoint: endpoint,
-		clients:  findDockerVersions(endpoint),
+		clients:  findDockerVersions(ctx, endpoint),
 	}
 }
 
@@ -136,7 +138,7 @@ func (f *factory) getClient(version dockerclient.DockerVersion) (dockeriface.Cli
 
 // findDockerVersions loops over all known API versions and finds which ones
 // are supported by the docker daemon on the host
-func findDockerVersions(endpoint string) map[dockerclient.DockerVersion]dockeriface.Client {
+func findDockerVersions(ctx context.Context, endpoint string) map[dockerclient.DockerVersion]dockeriface.Client {
 	// if the client version returns a MinAPIVersion and APIVersion, then use it to return
 	// all the Docker clients between MinAPIVersion and APIVersion, else try pinging
 	// the clients in getKnownAPIVersions
@@ -144,7 +146,10 @@ func findDockerVersions(endpoint string) map[dockerclient.DockerVersion]dockerif
 	// get a Docker client with the default supported version
 	client, err := newVersionedClient(endpoint, string(minDockerAPIVersion))
 	if err == nil {
-		clientVersion, err := client.Version()
+		derivedCtx, cancel := context.WithTimeout(ctx, dockerclient.VersionTimeout)
+		defer cancel()
+
+		clientVersion, err := client.VersionWithContext(derivedCtx)
 		if err == nil {
 			// check if the docker.Env obj has MinAPIVersion key
 			if clientVersion.Exists(minAPIVersionKey) {

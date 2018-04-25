@@ -269,15 +269,15 @@ func (mr *MockClientMockRecorder) StopContainerWithContext(arg0, arg1, arg2 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopContainerWithContext", reflect.TypeOf((*MockClient)(nil).StopContainerWithContext), arg0, arg1, arg2)
 }
 
-// Version mocks base method
-func (m *MockClient) Version() (*go_dockerclient.Env, error) {
-	ret := m.ctrl.Call(m, "Version")
+// VersionWithContext mocks base method
+func (m *MockClient) VersionWithContext(arg0 context.Context) (*go_dockerclient.Env, error) {
+	ret := m.ctrl.Call(m, "VersionWithContext", arg0)
 	ret0, _ := ret[0].(*go_dockerclient.Env)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Version indicates an expected call of Version
-func (mr *MockClientMockRecorder) Version() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockClient)(nil).Version))
+// VersionWithContext indicates an expected call of VersionWithContext
+func (mr *MockClientMockRecorder) VersionWithContext(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VersionWithContext", reflect.TypeOf((*MockClient)(nil).VersionWithContext), arg0)
 }

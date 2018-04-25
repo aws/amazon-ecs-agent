@@ -17,6 +17,7 @@ package dockeriface
 
 import (
 	"context"
+
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -39,7 +40,7 @@ type Client interface {
 	StopContainer(id string, timeout uint) error
 	StopContainerWithContext(id string, timeout uint, ctx context.Context) error
 	Stats(opts docker.StatsOptions) error
-	Version() (*docker.Env, error)
+	VersionWithContext(context.Context) (*docker.Env, error)
 	RemoveImage(imageName string) error
 	LoadImage(opts docker.LoadImageOptions) error
 }

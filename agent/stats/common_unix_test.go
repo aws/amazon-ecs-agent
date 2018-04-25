@@ -16,6 +16,7 @@
 package stats
 
 import (
+	"context"
 	"os"
 
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -29,5 +30,5 @@ var (
 	testImageName = "amazon/amazon-ecs-gremlin:make"
 	endpoint      = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
 	client, _     = docker.NewClient(endpoint)
-	clientFactory = clientfactory.NewFactory(endpoint)
+	clientFactory = clientfactory.NewFactory(context.TODO(), endpoint)
 )

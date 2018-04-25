@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
@@ -188,7 +189,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			containerEventsWG := sync.WaitGroup{}
 
 			if dockerVersionCheckDuringInit {
-				client.EXPECT().Version().Return("1.12.6", nil)
+				client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.12.6", nil)
 			}
 			client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 			containerName := make(chan string)
@@ -318,7 +319,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	containerEventsWG := sync.WaitGroup{}
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	// We cannot rely on the order of pulls between images as they can still be downloaded in
@@ -436,7 +437,7 @@ func TestRemoveEvents(t *testing.T) {
 	// events are processed
 	containerEventsWG := sync.WaitGroup{}
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	client.EXPECT().StopContainer(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
@@ -513,7 +514,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any())
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
@@ -571,7 +572,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	containerName := make(chan string)
@@ -603,7 +604,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).AnyTimes()
-	client.EXPECT().StopContainer(gomock.Any(), containerID, dockerapi.StopContainerTimeout).AnyTimes()
+	client.EXPECT().StopContainer(gomock.Any(), containerID, dockerclient.StopContainerTimeout).AnyTimes()
 
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
@@ -621,7 +622,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
 	testTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
-	client.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, dockerapi.RemoveContainerTimeout).Return(nil)
+	client.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, dockerclient.RemoveContainerTimeout).Return(nil)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
@@ -652,7 +653,7 @@ func TestStopWithPendingStops(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version().Return("1.7.0", nil)
+		client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.7.0", nil)
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	err := taskEngine.Init(ctx)
@@ -767,7 +768,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -775,7 +776,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	containerStopTimeoutError := dockerapi.DockerContainerMetadata{
 		Error: &dockerapi.DockerTimeoutError{
 			Transition: "stop",
-			Duration:   dockerapi.StopContainerTimeout,
+			Duration:   dockerclient.StopContainerTimeout,
 		},
 	}
 	dockerEventSent := make(chan int)
@@ -865,7 +866,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -938,7 +939,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	sleepTask := testdata.LoadTask("sleep5")
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -993,7 +994,7 @@ func TestGetTaskByArn(t *testing.T) {
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -1024,7 +1025,7 @@ func TestEngineEnableConcurrentPull(t *testing.T) {
 	defer ctrl.Finish()
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version().Return("1.11.1", nil)
+		client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.11.1", nil)
 	}
 	client.EXPECT().ContainerEvents(gomock.Any())
 
@@ -1061,7 +1062,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	})
 
 	if dockerVersionCheckDuringInit {
-		dockerClient.EXPECT().Version()
+		dockerClient.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 
@@ -1270,7 +1271,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any()).Return(nil),
 		dockerClient.EXPECT().StopContainer(gomock.Any(),
 			containerID,
-			defaultConfig.DockerStopTimeout+dockerapi.StopContainerTimeout,
+			defaultConfig.DockerStopTimeout+dockerclient.StopContainerTimeout,
 		).Return(dockerapi.DockerContainerMetadata{}),
 	)
 
@@ -1286,7 +1287,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 	defer ctrl.Finish()
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version().Return("1.12.6", nil)
+		client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.12.6", nil)
 	}
 	client.EXPECT().ContainerEvents(gomock.Any())
 
@@ -1414,7 +1415,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	state.AddTask(task)
 	state.AddContainer(dockerContainer, task)
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
@@ -1493,7 +1494,7 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
-	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
 
 	err := taskEngine.Init(ctx)
@@ -1536,7 +1537,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 	saver := mock_statemanager.NewMockStateManager(ctrl)
 
-	client.EXPECT().Version().MaxTimes(1)
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
 
 	err := privateTaskEngine.Init(ctx)
@@ -1905,7 +1906,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	var waitForFastPullContainer sync.WaitGroup
 	waitForFastPullContainer.Add(1)
 
-	client.EXPECT().Version().Return("17.12.0", nil).AnyTimes()
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("17.12.0", nil).AnyTimes()
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
