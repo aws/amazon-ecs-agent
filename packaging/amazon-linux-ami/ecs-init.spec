@@ -1,4 +1,4 @@
-# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -24,6 +24,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Source0:        sources.tgz
 Source1:        ecs.conf
+Source2:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
 
 BuildRequires:  golang >= 1.7
 
@@ -33,7 +34,6 @@ Requires:       iptables
 Requires:       procps
 Requires:       dhclient
 
-Provides:       bundled(docker)
 Provides:       bundled(golang(github.com/docker/docker/pkg/archive))
 Provides:       bundled(golang(github.com/docker/docker/pkg/fileutils))
 Provides:       bundled(golang(github.com/docker/docker/pkg/ioutils))
@@ -44,13 +44,13 @@ Provides:       bundled(golang(github.com/docker/docker/pkg/units))
 Provides:       bundled(golang(github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar))
 Provides:       bundled(golang(github.com/fsouza/go-dockerclient))
 Provides:       bundled(golang(github.com/golang/mock/gomock))
-Provides:       bundled(golang-logrus)
 Provides:       bundled(golang(github.com/Sirupsen/logrus))
 Provides:       bundled(golang(github.com/cihub/seelog))
 
+%global bundled_agent_version %{version}
 %global init_dir %{_sysconfdir}/init
 %global bin_dir %{_libexecdir}
-%global	conf_dir %{_sysconfdir}/ecs
+%global conf_dir %{_sysconfdir}/ecs
 %global cache_dir %{_localstatedir}/cache/ecs
 %global data_dir %{_sharedstatedir}/ecs/data
 %global dhclient_dir %{_sharedstatedir}/ecs/dhclient
@@ -80,11 +80,11 @@ mkdir -p $RPM_BUILD_ROOT/%{dhclient_dir}
 mkdir -p $RPM_BUILD_ROOT/%{man_dir}
 
 install %{SOURCE1} $RPM_BUILD_ROOT/%{init_dir}/ecs.conf
+install %{SOURCE2} $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent-v%{bundled_agent_version}.tar
 install amazon-ecs-init $RPM_BUILD_ROOT/%{bin_dir}/amazon-ecs-init
 install scripts/amazon-ecs-init.1.gz $RPM_BUILD_ROOT/%{man_dir}/amazon-ecs-init.1.gz
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
-touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
 touch $RPM_BUILD_ROOT/%{cache_dir}/state
 
 %files
@@ -95,6 +95,7 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/state
 %config(noreplace) %ghost %{conf_dir}/ecs.config
 %config(noreplace) %ghost %{conf_dir}/ecs.config.json
 %ghost %{cache_dir}/ecs-agent.tar
+%{cache_dir}/ecs-agent-v%{bundled_agent_version}.tar
 %{cache_dir}/state
 %dir %{data_dir}
 %ghost %{dhclient_dir}
@@ -107,48 +108,53 @@ rm -rf $RPM_BUILD_ROOT
 # record whether or not our service was running when docker is upgraded
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	if [ "$1" -ge 1 ]; then
-		# write semaphore if this package is still installed
-		touch %{running_semaphore} >/dev/null 2>&1 || :
-	fi
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    if [ "$1" -ge 1 ]; then
+        # write semaphore if this package is still installed
+        touch %{running_semaphore} >/dev/null 2>&1 || :
+    fi
 fi
 
 %triggerpostun -- docker
 # ensures that ecs-init is restarted after docker or ecs-init is upgraded
 if [ "$1" -ge 1 ] && [ -e %{running_semaphore} ]; then
-	/sbin/start ecs >/dev/null 2>&1 || :
-	rm %{running_semaphore} >/dev/null 2>&1 ||:
+    /sbin/start ecs >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 ||:
 fi
+
+%post
+# Symlink the bundled ECS Agent at loadable path.
+ln -sf ecs-agent-v%{bundled_agent_version}.tar %{cache_dir}/ecs-agent.tar
+echo 1 > %{cache_dir}/state
 
 %postun
 # record whether or not our service was running when ecs-init is upgraded
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	if [ "$1" -ge 1 ]; then
-		# write semaphore if this package is upgraded
-		touch %{running_semaphore} >/dev/null 2>&1 || :
-	fi
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    if [ "$1" -ge 1 ]; then
+        # write semaphore if this package is upgraded
+        touch %{running_semaphore} >/dev/null 2>&1 || :
+    fi
 fi
 # remove semaphore if this package is erased
 if [ "$1" -eq 0 ]; then
-	rm %{running_semaphore} >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %triggerun -- ecs-init <= 1.0-3
 # handle old ecs-init package that does not properly stop
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	touch %{running_semaphore} >/dev/null 2>&1 || :
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    touch %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %posttrans
 # ensure that we restart after the transaction
 if [ -e %{running_semaphore} ]; then
-	/sbin/start ecs >/dev/null 2>&1 || :
-	rm %{running_semaphore} >/dev/null 2>&1 || :
+    /sbin/start ecs >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %changelog
