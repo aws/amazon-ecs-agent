@@ -91,19 +91,18 @@ type DockerTaskEngine struct {
 	stateChangeEvents chan statechange.Event
 	saver             statemanager.Saver
 
-	client     dockerapi.DockerClient
-	clientLock sync.Mutex
-	cniClient  ecscni.CNIClient
+	client    dockerapi.DockerClient
+	cniClient ecscni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
 	stopEngine context.CancelFunc
 
-	// processTasks is a mutex that the task engine must acquire before changing
+	// tasksLock is a mutex that the task engine must acquire before changing
 	// any task's state which it manages. Since this is a lock that encompasses
 	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
-	processTasks sync.RWMutex
+	tasksLock sync.RWMutex
 
 	enableConcurrentPull                bool
 	credentialsManager                  credentials.Manager
@@ -121,9 +120,6 @@ type DockerTaskEngine struct {
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
 	taskSteadyStatePollInterval time.Duration
-
-	// dockerVersion is used to store the Docker version string
-	dockerVersion string
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -221,13 +217,6 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
 
-// SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
-func (engine *DockerTaskEngine) SetDockerClient(client dockerapi.DockerClient) {
-	engine.clientLock.Lock()
-	engine.clientLock.Unlock()
-	engine.client = client
-}
-
 // MustInit blocks and retries until an engine can be initialized.
 func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	if engine.initialized {
@@ -266,15 +255,15 @@ func (engine *DockerTaskEngine) Shutdown() {
 
 // Disable prevents this engine from managing any additional tasks.
 func (engine *DockerTaskEngine) Disable() {
-	engine.processTasks.Lock()
+	engine.tasksLock.Lock()
 }
 
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
 func (engine *DockerTaskEngine) synchronizeState() {
-	engine.processTasks.Lock()
-	defer engine.processTasks.Unlock()
+	engine.tasksLock.Lock()
+	defer engine.tasksLock.Unlock()
 	imageStates := engine.state.AllImageStates()
 	if len(imageStates) != 0 {
 		engine.imageManager.AddAllImageStates(imageStates)
@@ -411,9 +400,9 @@ func (engine *DockerTaskEngine) checkTaskState(task *api.Task) {
 			continue
 		}
 		status, metadata := engine.client.DescribeContainer(engine.ctx, dockerContainer.DockerID)
-		engine.processTasks.RLock()
+		engine.tasksLock.RLock()
 		managedTask, ok := engine.managedTasks[task.Arn]
-		engine.processTasks.RUnlock()
+		engine.tasksLock.RUnlock()
 
 		if ok {
 			managedTask.emitDockerContainerChange(dockerContainerChange{
@@ -466,7 +455,7 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task) {
 	}
 
 	// Now remove ourselves from the global state and cleanup channels
-	engine.processTasks.Lock()
+	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
 	eni := task.GetTaskENI()
 	if eni == nil {
@@ -477,7 +466,7 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task) {
 	}
 	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
-	engine.processTasks.Unlock()
+	engine.tasksLock.Unlock()
 	engine.saver.Save()
 }
 
@@ -571,10 +560,10 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 		return
 	}
 
-	engine.processTasks.RLock()
+	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
 	// hold the lock until the message is sent so we don't send on a closed channel
-	defer engine.processTasks.RUnlock()
+	defer engine.tasksLock.RUnlock()
 	if !ok {
 		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %s",
 			task.Arn, event.String())
@@ -598,8 +587,8 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask(engine.cfg, engine.credentialsManager)
 
-	engine.processTasks.Lock()
-	defer engine.processTasks.Unlock()
+	engine.tasksLock.Lock()
+	defer engine.tasksLock.Unlock()
 
 	existingTask, exists := engine.state.TaskByArn(task.Arn)
 	if !exists {
@@ -1078,9 +1067,9 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 	// This is safe because 'applyContainerState' will not mutate the task
 	metadata := engine.applyContainerState(task, container, to)
 
-	engine.processTasks.RLock()
+	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
-	engine.processTasks.RUnlock()
+	engine.tasksLock.RUnlock()
 	if ok {
 		managedTask.emitDockerContainerChange(dockerContainerChange{
 			container: container,
@@ -1131,18 +1120,7 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
-	if engine.dockerVersion != "" {
-		// If the version string has already been populated, return it
-		return engine.dockerVersion, nil
-	}
-	// Version string is empty. Try getting it from Docker client
-	version, err := engine.client.Version(engine.ctx, dockerclient.VersionTimeout)
-	if err != nil {
-		return "", err
-	}
-	// Successfully retrieved the version string. Save it for future re-use
-	engine.dockerVersion = version
-	return engine.dockerVersion, nil
+	return engine.client.Version(engine.ctx, dockerclient.VersionTimeout)
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {

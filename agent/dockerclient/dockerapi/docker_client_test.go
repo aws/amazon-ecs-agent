@@ -735,6 +735,24 @@ func TestDockerVersion(t *testing.T) {
 	}
 }
 
+func TestDockerVersionCached(t *testing.T) {
+	_, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	// Explicitly set daemon version so that mockDocker (the docker client)
+	// is not invoked again
+	client.setDaemonVersion("1.6.0")
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	str, err := client.Version(ctx, dockerclient.VersionTimeout)
+	if err != nil {
+		t.Error(err)
+	}
+	if str != "1.6.0" {
+		t.Error("Got unexpected version string: " + str)
+	}
+}
+
 func TestListContainers(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()

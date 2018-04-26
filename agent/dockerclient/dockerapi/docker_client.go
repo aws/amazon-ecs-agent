@@ -184,6 +184,9 @@ type dockerGoClient struct {
 
 	_time     ttime.Time
 	_timeOnce sync.Once
+
+	daemonVersionUnsafe string
+	lock                sync.Mutex
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
@@ -931,6 +934,11 @@ func (dg *dockerGoClient) KnownVersions() []dockerclient.DockerVersion {
 }
 
 func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (string, error) {
+	version := dg.getDaemonVersion()
+	if version != "" {
+		return version, nil
+	}
+
 	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -942,7 +950,24 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	if err != nil {
 		return "", err
 	}
-	return info.Get("Version"), nil
+
+	version = info.Get("Version")
+	dg.setDaemonVersion(version)
+	return version, nil
+}
+
+func (dg *dockerGoClient) getDaemonVersion() string {
+	dg.lock.Lock()
+	defer dg.lock.Unlock()
+
+	return dg.daemonVersionUnsafe
+}
+
+func (dg *dockerGoClient) setDaemonVersion(version string) {
+	dg.lock.Lock()
+	defer dg.lock.Unlock()
+
+	dg.daemonVersionUnsafe = version
 }
 
 // APIVersion returns the client api version
