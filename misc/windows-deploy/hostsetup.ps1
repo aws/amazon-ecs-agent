@@ -21,13 +21,13 @@ $credentialAddress = "169.254.170.2"
 $credentialPort = "51679"
 $loopbackAddress = "127.0.0.1"
 
-$Adapter = ( Get-NetAdapter -Name "*APIPA*" )
+$adapter = ( Get-NetAdapter -Name "*APIPA*" )
 if( -not $adapter ) {
 	# APIPA nat adapter controls IP range 169.254.x.x on windows.
 	Add-VMNetworkAdapter -VMNetworkAdapterName "APIPA" -SwitchName nat -ManagementOS
 }
 
-$ifIndex = $Adapter.ifIndex
+$ifIndex = $adapter.ifIndex
 
 $dockerSubnet = ( docker network inspect nat | ConvertFrom-Json ).IPAM.Config.Subnet
 
