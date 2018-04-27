@@ -20,7 +20,7 @@ cp C:\nk\netkitten.exe C:\netkitten
 
 docker run `
   --volume ${PSScriptRoot}:C:\netkitten `
-  golang:1.7-windowsservercore `
+  golang:1.9-windowsservercore `
   powershell ${buildscript}
 
 docker build -t "amazon/amazon-ecs-netkitten:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}
