@@ -44,15 +44,15 @@ var (
 
 // CgroupResource represents Cgroup resource
 type CgroupResource struct {
-	taskARN				   string
-	control				   cgroupres.Control
-	cgroupRoot			   string
-	cgroupMountPath			   string
-	resourceSpec			   specs.LinuxResources
-	ioutil				   ioutilwrapper.IOUtil
-	createdAt			   time.Time
-	desiredStatusUnsafe		   taskresource.ResourceStatus
-	knownStatusUnsafe		   taskresource.ResourceStatus
+	taskARN             string
+	control             cgroupres.Control
+	cgroupRoot          string
+	cgroupMountPath     string
+	resourceSpec        specs.LinuxResources
+	ioutil              ioutilwrapper.IOUtil
+	createdAt           time.Time
+	desiredStatusUnsafe taskresource.ResourceStatus
+	knownStatusUnsafe   taskresource.ResourceStatus
 	// appliedStatus is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
@@ -60,7 +60,7 @@ type CgroupResource struct {
 	appliedStatus                      taskresource.ResourceStatus
 	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
 	// lock is used for fields that are accessed and updated concurrently
-	lock				   sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
@@ -330,4 +330,18 @@ func (cgroup *CgroupResource) UnmarshalJSON(b []byte) error {
 		cgroup.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
 	}
 	return nil
+}
+
+// GetCgroupRoot returns cgroup root of the resource
+func (cgroup *CgroupResource) GetCgroupRoot() string {
+	cgroup.lock.RLock()
+	defer cgroup.lock.RUnlock()
+	return cgroup.cgroupRoot
+}
+
+// GetCgroupMountPath returns cgroup mount path of the resource
+func (cgroup *CgroupResource) GetCgroupMountPath() string {
+	cgroup.lock.RLock()
+	defer cgroup.lock.RUnlock()
+	return cgroup.cgroupMountPath
 }

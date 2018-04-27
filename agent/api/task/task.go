@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -80,8 +81,8 @@ type Task struct {
 	Version string
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
-	// Resources are the resources for the task
-	Resources []taskresource.TaskResource
+	// ResourcesMapUnsafe is the map of resource type to corresponding resources
+	ResourcesMapUnsafe resourcetypes.ResourcesMap `json:"resources"`
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 	// CPU is a task-level limit for compute resources. A value of 1 means that
@@ -181,7 +182,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		}
 		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
-
+	// initialize resources map for task
+	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	return task, nil
 }
 
@@ -916,7 +918,8 @@ func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatu
 // task's desired status
 // TODO: Create a mapping of resource status to the corresponding task status and use it here
 func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
-	for _, r := range task.Resources {
+	resources := task.getResourcesUnsafe()
+	for _, r := range resources {
 		if taskDesiredStatus == TaskRunning {
 			if r.GetDesiredStatus() < r.SteadyState() {
 				r.SetDesiredStatus(r.SteadyState())
@@ -1186,4 +1189,27 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	}
 	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
 		task.Arn, container.Name, now.String())
+}
+
+// GetResources returns the list of task resources from ResourcesMap
+func (task *Task) GetResources() []taskresource.TaskResource {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.getResourcesUnsafe()
+}
+
+// getResourcesUnsafe returns the list of task resources from ResourcesMap
+func (task *Task) getResourcesUnsafe() []taskresource.TaskResource {
+	var resourceList []taskresource.TaskResource
+	for _, resources := range task.ResourcesMapUnsafe {
+		resourceList = append(resourceList, resources...)
+	}
+	return resourceList
+}
+
+// AddResource adds a resource to ResourcesMap
+func (task *Task) AddResource(resourceType string, resource taskresource.TaskResource) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+	task.ResourcesMapUnsafe[resourceType] = append(task.ResourcesMapUnsafe[resourceType], resource)
 }

@@ -539,7 +539,7 @@ func (mtask *managedTask) isContainerFound(container *apicontainer.Container) bo
 }
 
 func (mtask *managedTask) isResourceFound(res taskresource.TaskResource) bool {
-	for _, r := range mtask.Resources {
+	for _, r := range mtask.GetResources() {
 		if res.GetName() == r.GetName() {
 			return true
 		}
@@ -702,8 +702,9 @@ func (mtask *managedTask) progressTask() {
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
-	transitionChange := make(chan struct{}, len(mtask.Containers)+len(mtask.Resources))
-	transitionChangeEntity := make(chan string, len(mtask.Containers)+len(mtask.Resources))
+	resources := mtask.GetResources()
+	transitionChange := make(chan struct{}, len(mtask.Containers)+len(resources))
+	transitionChangeEntity := make(chan string, len(mtask.Containers)+len(resources))
 
 	// startResourceTransitions should always be called before startContainerTransitions,
 	// else it might result in a state where none of the containers can transition and
@@ -824,7 +825,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransitionFunc) (bool, map[string]string) {
 	anyCanTransition := false
 	transitions := make(map[string]string)
-	for _, res := range mtask.Resources {
+	for _, res := range mtask.GetResources() {
 		knownStatus := res.GetKnownStatus()
 		desiredStatus := res.GetDesiredStatus()
 		if knownStatus >= desiredStatus {
@@ -853,7 +854,6 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 		transitions[res.GetName()] = transition.status
 		go transitionFunc(res, transition.nextState)
 	}
-
 	return anyCanTransition, transitions
 }
 
@@ -930,7 +930,7 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 		}
 	}
 	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
-		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager, mtask.Resources); err != nil {
+		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager, mtask.GetResources()); err != nil {
 		seelog.Debugf("Managed task [%s]: can't apply state to container [%s] yet due to unresolved dependencies: %v",
 			mtask.Arn, container.Name, err)
 		return &containerTransition{
