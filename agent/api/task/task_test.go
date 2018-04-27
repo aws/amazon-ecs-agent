@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -717,6 +718,7 @@ func TestTaskFromACS(t *testing.T) {
 		StartSequenceNumber: 42,
 		CPU:                 2.0,
 		Memory:              512,
+		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
 
 	seqNum := int64(42)

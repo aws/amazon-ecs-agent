@@ -67,11 +67,12 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			mtask := managedTask{
 				Task: &apitask.Task{
 					Arn:                 "task1",
-					Resources:           []taskresource.TaskResource{res},
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
+			mtask.AddResource("cgroup", res)
 			mtask.engine.SetSaver(mockSaver)
 			gomock.InOrder(
 				mockSaver.EXPECT().Save(),
@@ -118,10 +119,11 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			mtask := managedTask{
 				Task: &apitask.Task{
 					Arn:                 "task1",
-					Resources:           []taskresource.TaskResource{res},
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 			}
+			mtask.AddResource("cgroup", res)
 			mtask.handleResourceStateChange(resourceStateChange{
 				res, tc.DesiredKnownStatus, tc.Err,
 			})
@@ -197,10 +199,11 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 
 			task := &managedTask{
 				Task: &apitask.Task{
-					Resources:           []taskresource.TaskResource{res},
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 			}
+			task.AddResource("cgroup", res)
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			canTransition, transitions := task.startResourceTransitions(
@@ -252,15 +255,16 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 			res.SetKnownStatus(tc.KnownStatus)
 			res.SetDesiredStatus(tc.DesiredStatus)
 
-			task := &managedTask{
+			mtask := &managedTask{
 				Task: &apitask.Task{
-					Resources:           []taskresource.TaskResource{res},
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				ctx: ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
-			canTransition, transitions := task.startResourceTransitions(
+			mtask.Task.AddResource("cgroup", res)
+			canTransition, transitions := mtask.startResourceTransitions(
 				func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
 					t.Error("Transition function should not be called when no transitions are possible")
 				})

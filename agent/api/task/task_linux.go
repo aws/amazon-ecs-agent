@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	restype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -77,7 +78,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields
 	}
 	cgroupResource := cgroup.NewCgroupResource(task.Arn, resourceFields.Control,
 		resourceFields.IOUtil, cgroupRoot, cgroupPath, resSpec)
-	task.Resources = append(task.Resources, cgroupResource)
+	task.AddResource(restype.CgroupKey, cgroupResource)
 	for _, container := range task.Containers {
 		container.BuildResourceDependency(cgroupResource.GetName(),
 			taskresource.ResourceStatus(cgroup.CgroupCreated),

@@ -159,8 +159,8 @@ func TestUnmarshal(t *testing.T) {
 	err := unmarshalledCgroup.UnmarshalJSON(bytes)
 	assert.NoError(t, err)
 
-	assert.Equal(t, cgroupRoot, unmarshalledCgroup.cgroupRoot)
-	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.cgroupMountPath)
+	assert.Equal(t, cgroupRoot, unmarshalledCgroup.GetCgroupRoot())
+	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.GetCgroupMountPath())
 	assert.Equal(t, time.Time{}, unmarshalledCgroup.GetCreatedAt())
 	assert.Equal(t, taskresource.ResourceStatus(CgroupCreated), unmarshalledCgroup.GetDesiredStatus())
 	assert.Equal(t, taskresource.ResourceStatus(CgroupStatusNone), unmarshalledCgroup.GetKnownStatus())

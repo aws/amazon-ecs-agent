@@ -74,9 +74,8 @@ func TestResourceContainerProgression(t *testing.T) {
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, mockIO, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
-	sleepTask.Resources = []taskresource.TaskResource{cgroupResource}
-	sleepTask.Resources[0].SetDesiredStatus(taskresource.ResourceCreated)
-
+	sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	sleepTask.AddResource("cgroup", cgroupResource)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	// containerEventsWG is used to force the test to wait until the container created and started
 	// events are processed
@@ -141,9 +140,9 @@ func TestDeleteTask(t *testing.T) {
 		ENI: &apieni.ENI{
 			MacAddress: mac,
 		},
-		Resources: []taskresource.TaskResource{cgroupResource},
 	}
-
+	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	task.AddResource("cgroup", cgroupResource)
 	cfg := defaultConfig
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -183,9 +182,8 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
-	sleepTask.Resources = []taskresource.TaskResource{cgroupResource}
-	sleepTask.Resources[0].SetDesiredStatus(taskresource.ResourceCreated)
-
+	sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	sleepTask.AddResource("cgroup", cgroupResource)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
 		client.EXPECT().Version()
@@ -242,6 +240,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 			sleepTask := testdata.LoadTask("sleep5")
+			sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 			sleepContainer := sleepTask.Containers[0]
 			sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 			sleepTask.SetCredentialsID(credentialsID)
@@ -318,6 +317,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
 
 			sleepTaskStop := testdata.LoadTask("sleep5")
+			sleepTaskStop.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 			sleepContainer = sleepTaskStop.Containers[0]
 			sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 			sleepTaskStop.SetCredentialsID(credentialsID)
