@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// macAddressBackoffMin specifies the mimimum duration for the backoff
+	// macAddressBackoffMin specifies the minimum duration for the backoff
 	// when looking for an ENI's mac address on the host
 	macAddressBackoffMin = 2 * time.Millisecond
 

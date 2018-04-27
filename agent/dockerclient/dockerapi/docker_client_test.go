@@ -313,16 +313,16 @@ func TestPullImageECRAuthFail(t *testing.T) {
 
 func TestGetRepositoryWithTaggedImage(t *testing.T) {
 	image := "registry.endpoint/myimage:tag"
-	respository := getRepository(image)
+	repository := getRepository(image)
 
-	assert.Equal(t, image, respository)
+	assert.Equal(t, image, repository)
 }
 
 func TestGetRepositoryWithUntaggedImage(t *testing.T) {
 	image := "registry.endpoint/myimage"
-	respository := getRepository(image)
+	repository := getRepository(image)
 
-	assert.Equal(t, image+":"+dockerDefaultTag, respository)
+	assert.Equal(t, image+":"+dockerDefaultTag, repository)
 }
 
 func TestImportLocalEmptyVolumeImage(t *testing.T) {
