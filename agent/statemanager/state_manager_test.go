@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -59,7 +59,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	assert.True(t, sequenceNumber == 0)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
-	var deadTask *api.Task
+	var deadTask *apitask.Task
 	for _, task := range tasks {
 		if task.Arn == "arn:aws:ecs:us-west-2:1234567890:task/f44b4fc9-adb0-4f4f-9dff-871512310588" {
 			deadTask = task
@@ -67,7 +67,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	}
 
 	require.NotNil(t, deadTask)
-	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
+	assert.Equal(t, deadTask.GetSentStatus(), apitask.TaskStopped)
 	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainer.ContainerStopped)
 	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainer.ContainerStopped)
 	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainer.ContainerStopped)

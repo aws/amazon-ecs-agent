@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 import (
 	"encoding/json"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
@@ -59,7 +60,7 @@ func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 
 func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask := &Task{
-		ENI: &ENI{},
+		ENI: &apieni.ENI{},
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",

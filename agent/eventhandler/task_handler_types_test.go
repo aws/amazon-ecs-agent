@@ -20,6 +20,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,9 +41,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// We don't send a task event to backend if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskStatusNone,
+				Status: apitask.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskStatusNone,
 				},
 			}),
 			shouldBeSent: false,
@@ -49,17 +51,17 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// task status == RUNNING should be sent to backend
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task:   &api.Task{},
+				Status: apitask.TaskRunning,
+				Task:   &apitask.Task{},
 			}),
 			shouldBeSent: true,
 		},
 		{
 			// task event will not be sent if sent status >= task status
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitask.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskRunning,
 				},
 			}),
 			shouldBeSent: false,
@@ -67,9 +69,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// this is a valid event as task status >= sent status
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStopped,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitask.TaskStopped,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskRunning,
 				},
 			}),
 			shouldBeSent: true,
@@ -78,9 +80,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// Even though the task has been sent, there's a container
 			// state change that needs to be sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitask.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskRunning,
 				},
 				Containers: []api.ContainerStateChange{
 					{
@@ -103,9 +105,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// Container state change should be sent regardless of task
 			// status.
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskStatusNone,
+				Status: apitask.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskStatusNone,
 				},
 				Containers: []api.ContainerStateChange{
 					{
@@ -121,9 +123,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// All states sent, nothing to send
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitask.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitask.TaskRunning,
 				},
 				Containers: []api.ContainerStateChange{
 					{
@@ -160,8 +162,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		{
 			// ENI Attachment is only sent if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStopped,
-				Task:   &api.Task{},
+				Status: apitask.TaskStopped,
+				Task:   &apitask.Task{},
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       true,
@@ -170,7 +172,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ENI Attachment is only sent if task status == NONE and if
 			// the event has a non nil attachment object
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
+				Status: apitask.TaskStatusNone,
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       false,
@@ -180,8 +182,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// the event has a non nil attachment object and if expiration
 			// ack timeout is set for future
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitask.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
 					AttachStatusSent: false,
 				},
@@ -195,8 +197,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ack timeout is set for future and if attachment status hasn't
 			// already been sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitask.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 					AttachStatusSent: true,
 				},
@@ -207,8 +209,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		{
 			// Valid attachment event, ensure that its sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitask.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 					AttachStatusSent: false,
 				},

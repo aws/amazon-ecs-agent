@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -56,12 +57,12 @@ func init() {
 	_stoppedSentWaitInterval = 1 * time.Second
 }
 
-func createTestTask(arn string) *api.Task {
-	return &api.Task{
+func createTestTask(arn string) *apitask.Task {
+	return &apitask.Task{
 		Arn:                 arn,
 		Family:              "family",
 		Version:             "1",
-		DesiredStatusUnsafe: api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 }
@@ -118,7 +119,7 @@ func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning,
 		"Expected task to be RUNNING")
 }
 
@@ -132,7 +133,7 @@ func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped,
 		"Expected task to be STOPPED")
 }
 
@@ -272,12 +273,12 @@ func TestSweepContainer(t *testing.T) {
 
 	tasks, _ := taskEngine.ListTasks()
 	assert.Equal(t, len(tasks), 1)
-	assert.Equal(t, tasks[0].GetKnownStatus(), api.TaskStopped)
+	assert.Equal(t, tasks[0].GetKnownStatus(), apitask.TaskStopped)
 
 	// Should be stopped, let's verify it's still listed...
 	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
 	assert.True(t, ok, "Expected task to be present still, but wasn't")
-	task.SetSentStatus(api.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
+	task.SetSentStatus(apitask.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
@@ -337,7 +338,7 @@ func TestContainerHealthCheck(t *testing.T) {
 	assert.Equal(t, "HEALTHY", healthStatus.Status.BackendStatus(), "container health status is not HEALTHY")
 
 	taskUpdate := createTestTask(taskArn)
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -375,14 +376,14 @@ func TestEngineSynchronize(t *testing.T) {
 		SentStatusUnsafe:    apicontainer.ContainerRunning,
 		DesiredStatusUnsafe: apicontainer.ContainerRunning,
 	}
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: taskArn,
 		Containers: []*apicontainer.Container{
 			containerSaved,
 		},
-		KnownStatusUnsafe:   api.TaskRunning,
-		DesiredStatusUnsafe: api.TaskRunning,
-		SentStatusUnsafe:    api.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		SentStatusUnsafe:    apitask.TaskRunning,
 	}
 
 	state = dockerstate.NewTaskEngineState()
@@ -414,7 +415,7 @@ func TestEngineSynchronize(t *testing.T) {
 	assert.Len(t, imageStateAfterSync, 1)
 	assert.Equal(t, *imageStateAfterSync[0], *imageStates[0])
 
-	testTask.SetDesiredStatus(api.TaskStopped)
+	testTask.SetDesiredStatus(apitask.TaskStopped)
 	go taskEngine.AddTask(testTask)
 
 	verifyContainerStoppedStateChange(t, taskEngine)

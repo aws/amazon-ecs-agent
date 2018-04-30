@@ -26,8 +26,8 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -87,7 +87,7 @@ type DockerStatsEngine struct {
 }
 
 // ResolveTask resolves the api task object, given container id.
-func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*api.Task, error) {
+func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*apitask.Task, error) {
 	if resolver.dockerTaskEngine == nil {
 		return nil, fmt.Errorf("Docker task engine uninitialized")
 	}

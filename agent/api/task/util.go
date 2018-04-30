@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 // RemoveFromTaskArray removes the element at ndx from an array of task
 // pointers, arr. If the ndx is out of bounds, it returns arr unchanged.

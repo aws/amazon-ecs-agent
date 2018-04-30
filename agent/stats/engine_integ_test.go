@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -38,11 +38,11 @@ func init() {
 	dockerClient, _ = dockerapi.NewDockerGoClient(clientFactory, &cfg)
 }
 
-func createRunningTask() *api.Task {
-	return &api.Task{
+func createRunningTask() *apitask.Task {
+	return &apitask.Task{
 		Arn:                 taskArn,
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              taskDefinitionFamily,
 		Version:             taskDefinitionVersion,
 		Containers: []*apicontainer.Container{

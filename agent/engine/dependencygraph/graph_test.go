@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 
@@ -55,11 +55,11 @@ func createdContainer(name string, links, volumes []string, steadyState apiconta
 
 func TestValidDependencies(t *testing.T) {
 	// Empty task
-	task := &api.Task{}
+	task := &apitask.Task{}
 	resolveable := ValidDependencies(task)
 	assert.True(t, resolveable, "The zero dependency graph should resolve")
 
-	task = &api.Task{
+	task = &apitask.Task{
 		Containers: []*apicontainer.Container{
 			{
 				Name:                "redis",
@@ -78,7 +78,7 @@ func TestValidDependencies(t *testing.T) {
 	htmldata := steadyStateContainer("htmldata", []string{}, []string{"sharedcssfiles"}, apicontainer.ContainerRunning, apicontainer.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{}, apicontainer.ContainerRunning)
 
-	task = &api.Task{
+	task = &apitask.Task{
 		Containers: []*apicontainer.Container{
 			php, db, dbdata, webserver, htmldata, sharedcssfiles,
 		},
@@ -90,7 +90,7 @@ func TestValidDependencies(t *testing.T) {
 
 func TestValidDependenciesWithCycles(t *testing.T) {
 	// Unresolveable: cycle
-	task := &api.Task{
+	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
 			steadyStateContainer("a", []string{"b"}, []string{}, apicontainer.ContainerRunning, apicontainer.ContainerRunning),
 			steadyStateContainer("b", []string{"a"}, []string{}, apicontainer.ContainerRunning, apicontainer.ContainerRunning),
@@ -102,7 +102,7 @@ func TestValidDependenciesWithCycles(t *testing.T) {
 
 func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 	// Unresolveable, reference doesn't exist
-	task := &api.Task{
+	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
 			steadyStateContainer("php", []string{"db"}, []string{}, apicontainer.ContainerRunning, apicontainer.ContainerRunning),
 		},
@@ -112,7 +112,7 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 }
 
 func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
-	task := &api.Task{
+	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
 			{
 				Name:                "redis",
@@ -131,7 +131,7 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	htmldata := steadyStateContainer("htmldata", []string{}, []string{"sharedcssfiles"}, apicontainer.ContainerRunning, apicontainer.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{}, apicontainer.ContainerRunning)
 
-	task = &api.Task{
+	task = &apitask.Task{
 		Containers: []*apicontainer.Container{
 			php, db, dbdata, webserver, htmldata, sharedcssfiles,
 		},
@@ -173,7 +173,7 @@ func TestRunDependencies(t *testing.T) {
 		DesiredStatusUnsafe:     apicontainer.ContainerCreated,
 		SteadyStateDependencies: []string{"a"},
 	}
-	task := &api.Task{Containers: []*apicontainer.Container{c1, c2}}
+	task := &apitask.Task{Containers: []*apicontainer.Container{c1, c2}}
 
 	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should not be resolved")
 	task.Containers[1].SetDesiredStatus(apicontainer.ContainerRunning)
@@ -197,7 +197,7 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 	// The Pause container, being added to the webserver stack
 	pause := steadyStateContainer("pause", []string{}, []string{}, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerResourcesProvisioned)
 
-	task := &api.Task{
+	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
 			php, db, dbdata, webserver, htmldata, sharedcssfiles, pause,
 		},

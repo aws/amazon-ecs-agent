@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -58,14 +59,14 @@ const (
 
 var (
 	now  = time.Now()
-	task = &api.Task{
+	task = &apitask.Task{
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
 					Address: eniIPv4Address,
 				},

@@ -14,7 +14,7 @@
 package resources
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
@@ -24,9 +24,9 @@ type Resource interface {
 	// Init is used to initialize the resource
 	Init() error
 	// Setup sets up the resource
-	Setup(task *api.Task) error
+	Setup(task *apitask.Task) error
 	// Cleanup removes the resource
-	Cleanup(task *api.Task) error
+	Cleanup(task *apitask.Task) error
 	// ApplyConfigDependencies applies config parameters for the resources
 	ApplyConfigDependencies(cfg *config.Config)
 }

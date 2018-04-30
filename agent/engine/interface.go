@@ -18,7 +18,7 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
@@ -40,13 +40,13 @@ type TaskEngine interface {
 
 	// AddTask adds a new task to the task engine and manages its container's
 	// lifecycle. If it returns an error, the task was not added.
-	AddTask(*api.Task)
+	AddTask(*apitask.Task)
 
 	// ListTasks lists all the tasks being managed by the TaskEngine.
-	ListTasks() ([]*api.Task, error)
+	ListTasks() ([]*apitask.Task, error)
 
 	// GetTaskByArn gets a managed task, given a task arn.
-	GetTaskByArn(string) (*api.Task, bool)
+	GetTaskByArn(string) (*apitask.Task, bool)
 
 	Version() (string, error)
 

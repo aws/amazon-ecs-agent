@@ -16,8 +16,8 @@ package dependencygraph
 import (
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
@@ -52,7 +52,7 @@ var (
 // containers within it to reach the desired status by proceeding in some
 // order.  ValidDependencies is called during DockerTaskEngine.AddTask to
 // verify that a startup order can exist.
-func ValidDependencies(task *api.Task) bool {
+func ValidDependencies(task *apitask.Task) bool {
 	unresolved := make([]*apicontainer.Container, len(task.Containers))
 	resolved := make([]*apicontainer.Container, 0, len(task.Containers))
 

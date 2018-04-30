@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
@@ -114,7 +114,7 @@ func TestSetupInvalidTaskARN(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: invalidTaskArn,
 	}
 
@@ -209,7 +209,7 @@ func TestCleanupInvalidTaskARN(t *testing.T) {
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: invalidTaskArn,
 	}
 

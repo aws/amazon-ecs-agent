@@ -16,7 +16,7 @@
 package resources
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
@@ -34,12 +34,12 @@ func (r *unimplementedResource) Init() error {
 }
 
 // Setup sets up the resource
-func (r *unimplementedResource) Setup(task *api.Task) error {
+func (r *unimplementedResource) Setup(task *apitask.Task) error {
 	return nil
 }
 
 // Cleanup removes the resource
-func (r *unimplementedResource) Cleanup(task *api.Task) error {
+func (r *unimplementedResource) Cleanup(task *apitask.Task) error {
 	return nil
 }
 

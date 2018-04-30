@@ -18,32 +18,33 @@ import (
 	"testing"
 	"time"
 
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldBeReported(t *testing.T) {
 	cases := []struct {
-		status          TaskStatus
+		status          apitask.TaskStatus
 		containerChange []ContainerStateChange
 		result          bool
 	}{
 		{ // Normal task state change to running
-			status: TaskRunning,
+			status: apitask.TaskRunning,
 			result: true,
 		},
 		{ // Normal task state change to stopped
-			status: TaskStopped,
+			status: apitask.TaskStopped,
 			result: true,
 		},
 		{ // Container changed while task is not in steady state
-			status: TaskCreated,
+			status: apitask.TaskCreated,
 			containerChange: []ContainerStateChange{
 				{TaskArn: "taskarn"},
 			},
 			result: true,
 		},
 		{ // No container change and task status not recognized
-			status: TaskCreated,
+			status: apitask.TaskCreated,
 			result: false,
 		},
 	}
@@ -67,7 +68,7 @@ func TestSetTaskTimestamps(t *testing.T) {
 	t3 := t2.Add(time.Second)
 
 	change := &TaskStateChange{
-		Task: &Task{
+		Task: &apitask.Task{
 			PullStartedAtUnsafe:      t1,
 			PullStoppedAtUnsafe:      t2,
 			ExecutionStoppedAtUnsafe: t3,

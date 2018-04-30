@@ -6,16 +6,16 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
-func LoadTask(name string) *api.Task {
+func LoadTask(name string) *apitask.Task {
 	_, filename, _, _ := runtime.Caller(0)
 	filedata, err := ioutil.ReadFile(filepath.Join(filepath.Dir(filename), "test_tasks", name+".json"))
 	if err != nil {
 		panic(err)
 	}
-	t := &api.Task{}
+	t := &apitask.Task{}
 	if err := json.Unmarshal(filedata, t); err != nil {
 		panic(err)
 	}

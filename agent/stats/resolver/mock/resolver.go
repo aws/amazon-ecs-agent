@@ -20,8 +20,8 @@ package mock_resolver
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -62,9 +62,9 @@ func (mr *MockContainerMetadataResolverMockRecorder) ResolveContainer(arg0 inter
 }
 
 // ResolveTask mocks base method
-func (m *MockContainerMetadataResolver) ResolveTask(arg0 string) (*api.Task, error) {
+func (m *MockContainerMetadataResolver) ResolveTask(arg0 string) (*apitask.Task, error) {
 	ret := m.ctrl.Call(m, "ResolveTask", arg0)
-	ret0, _ := ret[0].(*api.Task)
+	ret0, _ := ret[0].(*apitask.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

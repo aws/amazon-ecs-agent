@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,12 +35,12 @@ func createTestContainer(num int) *apicontainer.Container {
 	}
 }
 
-func createTestTask(arn string, numContainers int) *api.Task {
-	task := &api.Task{
+func createTestTask(arn string, numContainers int) *apitask.Task {
+	task := &apitask.Task{
 		Arn:                 arn,
 		Family:              arn,
 		Version:             "1",
-		DesiredStatusUnsafe: api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
 		Containers:          []*apicontainer.Container{},
 	}
 

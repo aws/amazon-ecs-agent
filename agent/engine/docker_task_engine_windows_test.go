@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
@@ -54,7 +54,7 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 		Type:  apicontainer.ContainerEmptyHostVolume,
 		Image: imageName,
 	}
-	task := &api.Task{
+	task := &apitask.Task{
 		Containers: []*apicontainer.Container{container},
 	}
 
@@ -69,7 +69,7 @@ func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	task := &api.Task{}
+	task := &apitask.Task{}
 
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)

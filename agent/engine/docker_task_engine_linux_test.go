@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -136,8 +137,8 @@ func TestDeleteTask(t *testing.T) {
 
 	mockControl := mock_cgroup.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
-	task := &api.Task{
-		ENI: &api.ENI{
+	task := &apitask.Task{
+		ENI: &apieni.ENI{
 			MacAddress: mac,
 		},
 		Resources: []taskresource.TaskResource{cgroupResource},
@@ -311,7 +312,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 			// This ensures that managedTask.waitForStopReported makes progress
-			sleepTask.SetSentStatus(api.TaskStopped)
+			sleepTask.SetSentStatus(apitask.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
 			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
 			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
@@ -320,7 +321,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			sleepContainer = sleepTaskStop.Containers[0]
 			sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 			sleepTaskStop.SetCredentialsID(credentialsID)
-			sleepTaskStop.SetDesiredStatus(api.TaskStopped)
+			sleepTaskStop.SetDesiredStatus(apitask.TaskStopped)
 			taskEngine.AddTask(sleepTaskStop)
 			// As above, duplicate events should not be a problem
 			taskEngine.AddTask(sleepTaskStop)

@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -56,7 +57,7 @@ var (
 )
 
 type acsTaskUpdate struct {
-	api.TaskStatus
+	apitask.TaskStatus
 }
 
 type dockerContainerChange struct {
@@ -73,7 +74,7 @@ type resourceStateChange struct {
 
 type acsTransition struct {
 	seqnum        int64
-	desiredStatus api.TaskStatus
+	desiredStatus apitask.TaskStatus
 }
 
 // containerTransition defines the struct for a container to transition
@@ -116,7 +117,7 @@ type resourceTransition struct {
 // (obviously once you kick off a goroutine you give up the right to write the
 // task's statuses yourself)
 type managedTask struct {
-	*api.Task
+	*apitask.Task
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -157,7 +158,7 @@ type managedTask struct {
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
 // This method must only be called when the engine.processTasks write lock is
 // already held.
-func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
+func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
 		ctx:                      ctx,
@@ -309,7 +310,7 @@ func (mtask *managedTask) waitSteady() {
 // and known status are both RUNNING
 func (mtask *managedTask) steadyState() bool {
 	taskKnownStatus := mtask.GetKnownStatus()
-	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.GetDesiredStatus()
+	return taskKnownStatus == apitask.TaskRunning && taskKnownStatus >= mtask.GetDesiredStatus()
 }
 
 // cleanupCredentials removes credentials for a stopped task
@@ -352,7 +353,7 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 // only occur if the new desired status is "compatible" (farther along than the
 // current desired state); "redundant" (less-than or equal desired states) are
 // ignored and dropped.
-func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus, seqnum int64) {
+func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitask.TaskStatus, seqnum int64) {
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
 	seelog.Debugf("Managed task [%s]: new acs transition to: %s; sequence number: %d; task stop sequence number: %d",
@@ -362,7 +363,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 			mtask.Arn, mtask.GetDesiredStatus().String(), desiredStatus.String())
 		return
 	}
-	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
+	if desiredStatus == apitask.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
 		seelog.Debugf("Managed task [%s]: task moving to stopped, adding to stopgroup with sequence number: %d",
 			mtask.Arn, seqnum)
 		mtask.SetStopSequenceNumber(seqnum)
@@ -467,7 +468,7 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 	if status == res.SteadyState() {
 		seelog.Errorf("Managed task [%s]: error while creating resource %s, setting the task's desired status to STOPPED",
 			mtask.Arn, res.GetName())
-		mtask.SetDesiredStatus(api.TaskStopped)
+		mtask.SetDesiredStatus(apitask.TaskStopped)
 		mtask.engine.saver.Save()
 	}
 }
@@ -480,7 +481,7 @@ func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
 	mtask.resourceStateChangeEvent <- change
 }
 
-func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
+func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		seelog.Infof("Managed task [%s]: unable to create task state change event [%s]: %v",
@@ -495,7 +496,7 @@ func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
 
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
 // It will omit events the backend would not process and will perform best-effort deduplication of events.
-func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *apicontainer.Container, reason string) {
+func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
 		seelog.Debugf("Managed task [%s]: unable to create state change event for container [%s]: %v",
@@ -984,12 +985,12 @@ func (mtask *managedTask) onContainersUnableToTransitionState() {
 		// Ack, really bad. We want it to stop but the containers don't think
 		// that's possible. let's just break out and hope for the best!
 		seelog.Criticalf("Managed task [%s]: The state is so bad that we're just giving up on it", mtask.Arn)
-		mtask.SetKnownStatus(api.TaskStopped)
+		mtask.SetKnownStatus(apitask.TaskStopped)
 		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
 	} else {
 		seelog.Criticalf("Managed task [%s]: moving task to stopped due to bad state", mtask.Arn)
-		mtask.handleDesiredStatusChange(api.TaskStopped, 0)
+		mtask.handleDesiredStatusChange(apitask.TaskStopped, 0)
 	}
 }
 
@@ -1039,7 +1040,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	for !mtask.waitEvent(cleanupTimeBool) {
 	}
 
-	// wait for api.TaskStopped to be sent
+	// wait for apitask.TaskStopped to be sent
 	ok := mtask.waitForStopReported()
 	if !ok {
 		seelog.Errorf("Managed task [%s]: Aborting cleanup for task as it is not reported as stopped. SentStatus: %s",
@@ -1085,9 +1086,9 @@ func (mtask *managedTask) waitForStopReported() bool {
 	taskStopped := false
 	go func() {
 		for i := 0; i < _maxStoppedWaitTimes; i++ {
-			// ensure that we block until api.TaskStopped is actually sent
+			// ensure that we block until apitask.TaskStopped is actually sent
 			sentStatus := mtask.GetSentStatus()
-			if sentStatus >= api.TaskStopped {
+			if sentStatus >= apitask.TaskStopped {
 				taskStopped = true
 				break
 			}
@@ -1098,7 +1099,7 @@ func (mtask *managedTask) waitForStopReported() bool {
 		stoppedSentBool <- struct{}{}
 		close(stoppedSentBool)
 	}()
-	// wait for api.TaskStopped to be sent
+	// wait for apitask.TaskStopped to be sent
 	for !mtask.waitEvent(stoppedSentBool) {
 	}
 	return taskStopped

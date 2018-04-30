@@ -17,8 +17,9 @@ package dockerstate
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,7 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 func TestAddTask(t *testing.T) {
 	state := NewTaskEngineState()
 
-	testTask := &api.Task{Arn: "test"}
+	testTask := &apitask.Task{Arn: "test"}
 	state.AddTask(testTask)
 
 	if len(state.AllTasks()) != 1 {
@@ -82,7 +83,7 @@ func TestAddTask(t *testing.T) {
 func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
-	attachment := &api.ENIAttachment{
+	attachment := &apieni.ENIAttachment{
 		TaskARN:       "taskarn",
 		AttachmentARN: "eni1",
 		MACAddress:    "mac1",
@@ -108,7 +109,7 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*apicontainer.Container{{
+	testTask := &apitask.Task{Arn: "test", Containers: []*apicontainer.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)
@@ -189,7 +190,7 @@ func TestRemoveTask(t *testing.T) {
 		DockerName: "docker-name-2",
 		Container:  testContainer2,
 	}
-	testTask := &api.Task{
+	testTask := &apitask.Task{
 		Arn:        "t1",
 		Containers: []*apicontainer.Container{testContainer1, testContainer2},
 	}
@@ -311,7 +312,7 @@ func TestRemoveNonExistingImageState(t *testing.T) {
 func TestAddContainerNameAndID(t *testing.T) {
 	state := NewTaskEngineState()
 
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: "taskArn",
 	}
 	container := &apicontainer.DockerContainer{

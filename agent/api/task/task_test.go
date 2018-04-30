@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 import (
 	"encoding/json"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -230,7 +231,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 
 func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask := &Task{
-		ENI: &ENI{
+		ENI: &apieni.ENI{
 			ID: "eniID",
 		},
 		Containers: []*apicontainer.Container{
@@ -284,8 +285,8 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	assert.Equal(t, []string{"us-west-2.compute.internal"}, config.DNSSearch)
 
 	// Verify eni ExtraHosts  added to HostConfig for "pause" container
-	ipaddr := &ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
-	testTask.ENI.IPV4Addresses = []*ENIIPV4Address{ipaddr}
+	ipaddr := &apieni.ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
+	testTask.ENI.IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
 	testTask.ENI.PrivateDNSName = "eni.ip.region.compute.internal"
 
 	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion)
@@ -1027,7 +1028,7 @@ func TestGetIDHappyPath(t *testing.T) {
 
 // TestTaskGetENI tests the eni can be correctly acquired by calling GetTaskENI
 func TestTaskGetENI(t *testing.T) {
-	enisOfTask := &ENI{
+	enisOfTask := &apieni.ENI{
 		ID: "id",
 	}
 	testTask := &Task{

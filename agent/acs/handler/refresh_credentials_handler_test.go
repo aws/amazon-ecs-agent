@@ -19,7 +19,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -245,7 +245,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
-	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
+	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
 
 	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
 	go handler.sendAcks()
@@ -291,7 +291,7 @@ func TestRefreshCredentialsHandler(t *testing.T) {
 
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
-	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
+	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
 
 	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
 	go handler.start()

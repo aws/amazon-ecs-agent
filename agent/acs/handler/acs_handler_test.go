@@ -28,9 +28,9 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -947,7 +947,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	}()
 
 	updatedCredentials := rolecredentials.TaskIAMRoleCredentials{}
-	taskFromEngine := &api.Task{}
+	taskFromEngine := &apitask.Task{}
 	credentialsIdInRefreshMessage := "credsId"
 	// Ensure that credentials manager interface methods are invoked in the
 	// correct order, with expected arguments
@@ -1120,11 +1120,11 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 
 // validateAddedTask validates fields in addedTask for expected values
 // It returns an error if there's a mismatch
-func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
-	// The ecsacs.Task -> api.Task conversion initializes all fields in api.Task
+func validateAddedTask(expectedTask apitask.Task, addedTask apitask.Task) error {
+	// The ecsacs.Task -> apitask.Task conversion initializes all fields in apitask.Task
 	// with empty objects. So, we create a new object to compare with only those
 	// fields that we are intrested in for comparison
-	taskToCompareFromAdded := api.Task{
+	taskToCompareFromAdded := apitask.Task{
 		Arn:                 addedTask.Arn,
 		Family:              addedTask.Family,
 		Version:             addedTask.Version,
@@ -1142,7 +1142,7 @@ func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
 // validateAddedContainer validates fields in addedContainer for expected values
 // It returns an error if there's a mismatch
 func validateAddedContainer(expectedContainer *apicontainer.Container, addedContainer *apicontainer.Container) error {
-	// The ecsacs.Task -> api.Task conversion initializes all fields in apicontainer.Container
+	// The ecsacs.Task -> apitask.Task conversion initializes all fields in apicontainer.Container
 	// with empty objects. So, we create a new object to compare with only those
 	// fields that we are intrested in for comparison
 	containerToCompareFromAdded := &apicontainer.Container{

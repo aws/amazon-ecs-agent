@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
@@ -64,12 +64,12 @@ func (c *cgroupWrapper) Init() error {
 }
 
 // Setup sets up the resource
-func (c *cgroupWrapper) Setup(task *api.Task) error {
+func (c *cgroupWrapper) Setup(task *apitask.Task) error {
 	return c.setupCgroup(task)
 }
 
 // Cleanup removes the resource
-func (c *cgroupWrapper) Cleanup(task *api.Task) error {
+func (c *cgroupWrapper) Cleanup(task *apitask.Task) error {
 	return c.cleanupCgroup(task)
 }
 
@@ -89,7 +89,7 @@ func (c *cgroupWrapper) cgroupInit() error {
 
 // setupCgroup is used to create the task cgroup
 // and enable memory.use_hierarchy at the '/ecs/<task-id>' level
-func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
+func (c *cgroupWrapper) setupCgroup(task *apitask.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to determine cgroup root for task: %s", task.Arn)
@@ -128,7 +128,7 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 }
 
 // cleanupCgroup is used to remove the task cgroup
-func (c *cgroupWrapper) cleanupCgroup(task *api.Task) error {
+func (c *cgroupWrapper) cleanupCgroup(task *apitask.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
 		return errors.Wrapf(err, "resource: cleanup cgroup: unable to determine cgroup root for task: %s", task.Arn)

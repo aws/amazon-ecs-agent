@@ -26,7 +26,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -668,9 +670,9 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Attachment: &api.ENIAttachment{
+		Attachment: &apieni.ENIAttachment{
 			AttachmentARN: "eni_arn",
-			Status:        api.ENIAttached,
+			Status:        apieni.ENIAttached,
 		},
 	})
 	assert.NoError(t, err, "Unable to submit task state change with attachments")
@@ -692,7 +694,7 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Status:  api.TaskRunning,
+		Status:  apitask.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }
@@ -704,21 +706,21 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	testCases := []struct {
-		taskStatus api.TaskStatus
+		taskStatus apitask.TaskStatus
 	}{
 		{
-			api.TaskStatusNone,
+			apitask.TaskStatusNone,
 		},
 		{
-			api.TaskPulled,
+			apitask.TaskPulled,
 		},
 		{
-			api.TaskCreated,
+			apitask.TaskCreated,
 		},
 	}
 
 	taskStateChangePending := api.TaskStateChange{
-		Status:  api.TaskCreated,
+		Status:  apitask.TaskCreated,
 		TaskARN: "arn",
 		Containers: []api.ContainerStateChange{
 			{

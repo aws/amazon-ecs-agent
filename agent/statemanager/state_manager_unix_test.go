@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -52,7 +52,7 @@ func TestStateManager(t *testing.T) {
 
 	containerInstanceArn = "containerInstanceArn"
 
-	testTask := &api.Task{Arn: "test-arn"}
+	testTask := &apitask.Task{Arn: "test-arn"}
 	taskEngine.(*engine.DockerTaskEngine).State().AddTask(testTask)
 
 	err = manager.Save()

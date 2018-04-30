@@ -29,7 +29,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -170,7 +172,7 @@ func TestHandleEventError(t *testing.T) {
 				},
 			}
 			mtask := managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Arn: "task1",
 				},
 				engine: &DockerTaskEngine{},
@@ -299,11 +301,11 @@ func TestContainerNextState(t *testing.T) {
 				container.DesiredStatusUnsafe = tc.containerDesiredStatus
 				container.KnownStatusUnsafe = tc.containerCurrentStatus
 				task := &managedTask{
-					Task: &api.Task{
+					Task: &apitask.Task{
 						Containers: []*apicontainer.Container{
 							container,
 						},
-						DesiredStatusUnsafe: api.TaskRunning,
+						DesiredStatusUnsafe: apitask.TaskRunning,
 					},
 					engine: &DockerTaskEngine{},
 				}
@@ -405,12 +407,12 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 				KnownStatusUnsafe: tc.dependencyCurrentStatus,
 			}
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Containers: []*apicontainer.Container{
 						container,
 						dependency,
 					},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -459,12 +461,12 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 				KnownStatusUnsafe: tc.dependencyCurrentStatus,
 			}
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Containers: []*apicontainer.Container{
 						container,
 						dependency,
 					},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -533,12 +535,12 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			}
 
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Containers: []*apicontainer.Container{
 						container,
 					},
 					ExecutionCredentialsID: tc.credentialsID,
-					DesiredStatusUnsafe:    api.TaskRunning,
+					DesiredStatusUnsafe:    apitask.TaskRunning,
 				},
 				engine:             taskEngine,
 				credentialsManager: taskEngine.credentialsManager,
@@ -569,12 +571,12 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 			secondContainer.Name = secondContainerName
 
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Containers: []*apicontainer.Container{
 						firstContainer,
 						secondContainer,
 					},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -642,13 +644,13 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 	pauseContainer.DesiredStatusUnsafe = apicontainer.ContainerResourcesProvisioned
 	pauseContainer.Name = pauseContainerName
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers: []*apicontainer.Container{
 				firstContainer,
 				secondContainer,
 				pauseContainer,
 			},
-			DesiredStatusUnsafe: api.TaskRunning,
+			DesiredStatusUnsafe: apitask.TaskRunning,
 		},
 		engine: &DockerTaskEngine{},
 	}
@@ -684,11 +686,11 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	stateChangeEvents := make(chan statechange.Event)
 
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers: []*apicontainer.Container{
 				firstContainer,
 			},
-			DesiredStatusUnsafe: api.TaskRunning,
+			DesiredStatusUnsafe: apitask.TaskRunning,
 		},
 		engine: &DockerTaskEngine{
 			containerChangeEventStream: containerChangeEventStream,
@@ -739,7 +741,7 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 		ctx:            ctx,
 		acsMessages:    acsMessages,
 		dockerMessages: dockerMessages,
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers: []*apicontainer.Container{},
 		},
 	}
@@ -784,9 +786,9 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 	task := &managedTask{
 		acsMessages:    acsMessages,
 		dockerMessages: dockerMessages,
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers:        []*apicontainer.Container{},
-			KnownStatusUnsafe: api.TaskStopped,
+			KnownStatusUnsafe: apitask.TaskStopped,
 		},
 		ctx: ctx,
 	}
@@ -813,9 +815,9 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
 	stateChangeEvents := make(chan statechange.Event)
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers:          []*apicontainer.Container{},
-			DesiredStatusUnsafe: api.TaskStopped,
+			DesiredStatusUnsafe: apitask.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
 			stateChangeEvents: stateChangeEvents,
@@ -834,7 +836,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 	task.onContainersUnableToTransitionState()
 	eventsGenerated.Wait()
 
-	assert.Equal(t, task.GetDesiredStatus(), api.TaskStopped)
+	assert.Equal(t, task.GetDesiredStatus(), apitask.TaskStopped)
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) {
@@ -845,16 +847,16 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 		Name:                firstContainerName,
 	}
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers: []*apicontainer.Container{
 				firstContainer,
 			},
-			DesiredStatusUnsafe: api.TaskRunning,
+			DesiredStatusUnsafe: apitask.TaskRunning,
 		},
 	}
 
 	task.onContainersUnableToTransitionState()
-	assert.Equal(t, task.GetDesiredStatus(), api.TaskStopped)
+	assert.Equal(t, task.GetDesiredStatus(), apitask.TaskStopped)
 	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainer.ContainerStopped)
 }
 
@@ -884,7 +886,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	defer cancel()
 
 	mTask := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Containers: []*apicontainer.Container{
 				firstContainer,
 				secondContainer,
@@ -902,7 +904,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 
 	var waitForTransitionFunctionInvocation sync.WaitGroup
 	waitForTransitionFunctionInvocation.Add(1)
-	transitionFunction := func(task *api.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
+	transitionFunction := func(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 		assert.Equal(t, firstContainerName, container.Name,
 			"Mismatch in container reference in transition function")
 		waitForTransitionFunctionInvocation.Done()
@@ -992,8 +994,8 @@ func TestCleanupTask(t *testing.T) {
 		saver: taskEngine.saver,
 	}
 	mTask.Task.Resources = []taskresource.TaskResource{mockResource}
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskStopped)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1051,8 +1053,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		cfg:   taskEngine.cfg,
 		saver: taskEngine.saver,
 	}
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskRunning)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskRunning)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1072,12 +1074,12 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockTime.EXPECT().Sleep(gomock.Any()).AnyTimes().Do(func(_ interface{}) {
 		timesCalled++
 		if timesCalled == callsExpected {
-			mTask.SetSentStatus(api.TaskStopped)
+			mTask.SetSentStatus(apitask.TaskStopped)
 		} else if timesCalled > callsExpected {
 			t.Errorf("Sleep called too many times, called %d but expected %d", timesCalled, callsExpected)
 		}
 	})
-	assert.Equal(t, api.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(
@@ -1086,7 +1088,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
-	assert.Equal(t, api.TaskStopped, mTask.GetSentStatus())
+	assert.Equal(t, apitask.TaskStopped, mTask.GetSentStatus())
 }
 
 func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
@@ -1119,8 +1121,8 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		cfg:            taskEngine.cfg,
 		saver:          taskEngine.saver,
 	}
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskRunning)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskRunning)
 
 	// Expectations for triggering cleanup
 	now := mTask.GetKnownStatusTime()
@@ -1137,11 +1139,11 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		_maxStoppedWaitTimes = int(maxStoppedWaitTimes)
 	}()
 	mockTime.EXPECT().Sleep(gomock.Any()).Times(_maxStoppedWaitTimes)
-	assert.Equal(t, api.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
 
 	// No cleanup expected
 	mTask.cleanupTask(taskStoppedDuration)
-	assert.Equal(t, api.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
 }
 
 func TestCleanupTaskENIs(t *testing.T) {
@@ -1175,24 +1177,24 @@ func TestCleanupTaskENIs(t *testing.T) {
 		cfg:   taskEngine.cfg,
 		saver: taskEngine.saver,
 	}
-	mTask.SetTaskENI(&api.ENI{
+	mTask.SetTaskENI(&apieni.ENI{
 		ID: "TestCleanupTaskENIs",
-		IPV4Addresses: []*api.ENIIPV4Address{
+		IPV4Addresses: []*apieni.ENIIPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,
 			},
 		},
 		MacAddress: mac,
-		IPV6Addresses: []*api.ENIIPV6Address{
+		IPV6Addresses: []*apieni.ENIIPV6Address{
 			{
 				Address: ipv6,
 			},
 		},
 	})
 
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskStopped)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1256,9 +1258,9 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			defer cancel()
 			task := &managedTask{
 				ctx: ctx,
-				Task: &api.Task{
-					KnownStatusUnsafe:   api.TaskRunning,
-					DesiredStatusUnsafe: api.TaskRunning,
+				Task: &apitask.Task{
+					KnownStatusUnsafe:   apitask.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				_time:       mockTime,
 				acsMessages: make(chan acsTransition),
@@ -1266,7 +1268,7 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			if tc.result {
 				mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).Return(mockTimer)
 				mockTimer.EXPECT().Stop()
-				go func() { task.acsMessages <- acsTransition{desiredStatus: api.TaskRunning} }()
+				go func() { task.acsMessages <- acsTransition{desiredStatus: apitask.TaskRunning} }()
 			}
 
 			assert.Equal(t, tc.result, task.waitForExecutionCredentialsFromACS(tc.errs), tc.msg)
@@ -1306,8 +1308,8 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		saver: taskEngine.saver,
 	}
 
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskStopped)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1361,12 +1363,12 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		acsMessages:              make(chan acsTransition),
 		dockerMessages:           make(chan dockerContainerChange),
 		resourceStateChangeEvent: make(chan resourceStateChange),
-		cfg:			  taskEngine.cfg,
-		saver:			  taskEngine.saver,
+		cfg:   taskEngine.cfg,
+		saver: taskEngine.saver,
 	}
 	mTask.Task.Resources = []taskresource.TaskResource{mockResource}
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskStopped)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1422,12 +1424,13 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		acsMessages:              make(chan acsTransition),
 		dockerMessages:           make(chan dockerContainerChange),
 		resourceStateChangeEvent: make(chan resourceStateChange),
-		cfg:			  taskEngine.cfg,
-		saver:			  taskEngine.saver,
+		cfg:   taskEngine.cfg,
+		saver: taskEngine.saver,
 	}
 	mTask.Task.Resources = []taskresource.TaskResource{mockResource}
-	mTask.SetKnownStatus(api.TaskStopped)
-	mTask.SetSentStatus(api.TaskStopped)
+	mTask.SetKnownStatus(apitask.TaskStopped)
+	mTask.SetSentStatus(apitask.TaskStopped)
+
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1468,8 +1471,8 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 	// Disgard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
 
-	mTask.SetKnownStatus(api.TaskRunning)
-	mTask.SetSentStatus(api.TaskRunning)
+	mTask.SetKnownStatus(apitask.TaskRunning)
+	mTask.SetSentStatus(apitask.TaskRunning)
 	container := mTask.Containers[0]
 	container.HealthCheckType = "docker"
 
@@ -1503,7 +1506,7 @@ func TestWaitForHostResources(t *testing.T) {
 		ctx:        ctx,
 		cancel:     cancel,
 		taskStopWG: taskStopWG,
-		Task: &api.Task{
+		Task: &apitask.Task{
 			StartSequenceNumber: 1,
 		},
 	}
@@ -1521,7 +1524,7 @@ func TestWaitForHostResources(t *testing.T) {
 
 func TestWaitForResourceTransition(t *testing.T) {
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Resources: []taskresource.TaskResource{},
 		},
 	}
@@ -1550,7 +1553,7 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
 	task := &managedTask{
-		Task: &api.Task{
+		Task: &apitask.Task{
 			Arn:       "arn",
 			Resources: []taskresource.TaskResource{},
 		},
@@ -1587,7 +1590,7 @@ func TestApplyResourceStateFailures(t *testing.T) {
 			defer ctrl.Finish()
 			mockResource := mock_taskresource.NewMockTaskResource(ctrl)
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Arn:       "arn",
 					Resources: []taskresource.TaskResource{},
 				},

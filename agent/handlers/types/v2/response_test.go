@@ -19,8 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -47,14 +48,14 @@ func TestTaskResponse(t *testing.T) {
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	now := time.Now()
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
 					Address: eniIPv4Address,
 				},
@@ -161,9 +162,9 @@ func TestContainerResponse(t *testing.T) {
 				DockerName: containerName,
 				Container:  container,
 			}
-			task := &api.Task{
-				ENI: &api.ENI{
-					IPV4Addresses: []*api.ENIIPV4Address{
+			task := &apitask.Task{
+				ENI: &apieni.ENI{
+					IPV4Addresses: []*apieni.ENIIPV4Address{
 						{
 							Address: eniIPv4Address,
 						},

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 import (
 	"testing"
@@ -24,33 +24,33 @@ func TestTaskStatus(t *testing.T) {
 	// Effectively set containerStatus := ContainerStatusNone, we expect the task state
 	// to be TaskStatusNone
 	var containerStatus apicontainer.ContainerStatus
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStatusNone)
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStatusNone)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStatusNone)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStatusNone)
 
 	// When container state is PULLED, Task state is still NONE
 	containerStatus = apicontainer.ContainerPulled
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStatusNone)
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStatusNone)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStatusNone)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStatusNone)
 
 	// When container state is CREATED, Task state is CREATED as well
 	containerStatus = apicontainer.ContainerCreated
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskCreated)
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskCreated)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskCreated)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskCreated)
 
 	containerStatus = apicontainer.ContainerRunning
 	// When container state is RUNNING and steadyState is RUNNING, Task state is RUNNING as well
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskRunning)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskRunning)
 	// When container state is RUNNING and steadyState is RESOURCES_PROVISIONED, Task state
 	// still CREATED
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskCreated)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskCreated)
 
 	containerStatus = apicontainer.ContainerResourcesProvisioned
 	// When container state is RESOURCES_PROVISIONED and steadyState is RESOURCES_PROVISIONED,
 	// Task state is RUNNING
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskRunning)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskRunning)
 
 	// When container state is STOPPED, Task state is STOPPED as well
 	containerStatus = apicontainer.ContainerStopped
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStopped)
-	assert.Equal(t, MapToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStopped)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerRunning), TaskStopped)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainer.ContainerResourcesProvisioned), TaskStopped)
 }

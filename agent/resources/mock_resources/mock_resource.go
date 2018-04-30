@@ -20,7 +20,7 @@ package mock_resources
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	config "github.com/aws/amazon-ecs-agent/agent/config"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -59,7 +59,7 @@ func (mr *MockResourceMockRecorder) ApplyConfigDependencies(arg0 interface{}) *g
 }
 
 // Cleanup mocks base method
-func (m *MockResource) Cleanup(arg0 *api.Task) error {
+func (m *MockResource) Cleanup(arg0 *apitask.Task) error {
 	ret := m.ctrl.Call(m, "Cleanup", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,7 +83,7 @@ func (mr *MockResourceMockRecorder) Init() *gomock.Call {
 }
 
 // Setup mocks base method
-func (m *MockResource) Setup(arg0 *api.Task) error {
+func (m *MockResource) Setup(arg0 *apitask.Task) error {
 	ret := m.ctrl.Call(m, "Setup", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

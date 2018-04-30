@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +38,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 		DesiredKnownStatus taskresource.ResourceStatus
 		Err                error
 		ChangedKnownStatus taskresource.ResourceStatus
-		TaskDesiredStatus  api.TaskStatus
+		TaskDesiredStatus  apitask.TaskStatus
 	}{
 		{
 			Name:               "error while steady state transition",
@@ -46,7 +46,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
 			Err:                errors.New("transition error"),
 			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			TaskDesiredStatus:  api.TaskStopped,
+			TaskDesiredStatus:  apitask.TaskStopped,
 		},
 		{
 			Name:               "steady state transition",
@@ -54,7 +54,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
 			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  api.TaskRunning,
+			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 	}
 	for _, tc := range testCases {
@@ -65,10 +65,10 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			res := &cgroup.CgroupResource{}
 			res.SetKnownStatus(tc.KnownStatus)
 			mtask := managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Arn:                 "task1",
 					Resources:           []taskresource.TaskResource{res},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -92,7 +92,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 		DesiredKnownStatus taskresource.ResourceStatus
 		Err                error
 		ChangedKnownStatus taskresource.ResourceStatus
-		TaskDesiredStatus  api.TaskStatus
+		TaskDesiredStatus  apitask.TaskStatus
 	}{
 		{
 			Name:               "steady state transition already done",
@@ -100,7 +100,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
 			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  api.TaskRunning,
+			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 		{
 			Name:               "transition state less than known status",
@@ -108,7 +108,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			Err:                nil,
 			KnownStatus:        taskresource.ResourceStatus(cgroup.CgroupCreated),
 			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  api.TaskRunning,
+			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 	}
 	for _, tc := range testCases {
@@ -116,10 +116,10 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			res := &cgroup.CgroupResource{}
 			res.SetKnownStatus(tc.KnownStatus)
 			mtask := managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Arn:                 "task1",
 					Resources:           []taskresource.TaskResource{res},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 			}
 			mtask.handleResourceStateChange(resourceStateChange{
@@ -160,7 +160,7 @@ func TestResourceNextState(t *testing.T) {
 			res.SetKnownStatus(tc.ResKnownStatus)
 			res.SetDesiredStatus(tc.ResDesiredStatus)
 			mtask := managedTask{
-				Task: &api.Task{},
+				Task: &apitask.Task{},
 			}
 			transition := mtask.resourceNextState(&res)
 			assert.Equal(t, tc.NextState, transition.nextState)
@@ -196,9 +196,9 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 			res.SetDesiredStatus(tc.ResDesiredStatus)
 
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Resources:           []taskresource.TaskResource{res},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 			}
 			wg := sync.WaitGroup{}
@@ -253,9 +253,9 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 			res.SetDesiredStatus(tc.DesiredStatus)
 
 			task := &managedTask{
-				Task: &api.Task{
+				Task: &apitask.Task{
 					Resources:           []taskresource.TaskResource{res},
-					DesiredStatusUnsafe: api.TaskRunning,
+					DesiredStatusUnsafe: apitask.TaskRunning,
 				},
 				ctx: ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),

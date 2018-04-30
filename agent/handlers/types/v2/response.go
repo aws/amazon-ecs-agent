@@ -16,8 +16,8 @@ package v2
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/aws-sdk-go/aws"
@@ -152,7 +152,7 @@ func NewContainerResponse(containerID string,
 }
 
 func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
-	eni *api.ENI,
+	eni *apieni.ENI,
 	state dockerstate.TaskEngineState) ContainerResponse {
 	container := dockerContainer.Container
 	resp := ContainerResponse{

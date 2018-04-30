@@ -11,19 +11,19 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 )
 
-// MapToTaskStatus maps the container status to the corresponding task status. The
+// MapContainerToTaskStatus maps the container status to the corresponding task status. The
 // transition map is illustrated below.
 //
 // Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
 //
 // Task     : None ->     Created       ->         Running        -> Stopped
-func MapToTaskStatus(knownState apicontainer.ContainerStatus, steadyState apicontainer.ContainerStatus) TaskStatus {
+func MapContainerToTaskStatus(knownState apicontainer.ContainerStatus, steadyState apicontainer.ContainerStatus) TaskStatus {
 	switch knownState {
 	case apicontainer.ContainerStatusNone:
 		return TaskStatusNone
@@ -42,9 +42,9 @@ func MapToTaskStatus(knownState apicontainer.ContainerStatus, steadyState apicon
 	return TaskStatusNone
 }
 
-// ContainerStatus maps the task status to the corresponding container status
-func (ts *TaskStatus) ContainerStatus(steadyState apicontainer.ContainerStatus) apicontainer.ContainerStatus {
-	switch *ts {
+// MapTaskToContainerStatus maps the task status to the corresponding container status
+func MapTaskToContainerStatus(desiredState TaskStatus, steadyState apicontainer.ContainerStatus) apicontainer.ContainerStatus {
+	switch desiredState {
 	case TaskStatusNone:
 		return apicontainer.ContainerStatusNone
 	case TaskCreated:

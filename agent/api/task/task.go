@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package task
 
 import (
 	"encoding/json"
@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -143,7 +144,7 @@ type Task struct {
 	credentialsID string
 
 	// ENI is the elastic network interface specified by this task
-	ENI *ENI
+	ENI *apieni.ENI
 
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
@@ -155,8 +156,8 @@ type Task struct {
 	lock sync.RWMutex
 }
 
-// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
-// ecsacs.Task to json and unmrashaling it as api.Task
+// TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
+// ecsacs.Task to json and unmrashaling it as apitask.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
@@ -435,7 +436,7 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 	// Set earliest container status to an impossible to reach 'high' task status
 	earliest := TaskZombie
 	for _, container := range task.Containers {
-		containerTaskStatus := MapToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
+		containerTaskStatus := MapContainerToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
 		if containerTaskStatus < earliest {
 			earliest = containerTaskStatus
 		}
@@ -904,7 +905,7 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
 func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
 	for _, container := range task.Containers {
-		taskDesiredStatusToContainerStatus := taskDesiredStatus.ContainerStatus(container.GetSteadyStateStatus())
+		taskDesiredStatusToContainerStatus := MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
 		if container.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
 			container.SetDesiredStatus(taskDesiredStatusToContainerStatus)
 		}
@@ -1029,7 +1030,7 @@ func (task *Task) SetSentStatus(status TaskStatus) {
 }
 
 // SetTaskENI sets the eni information of the task
-func (task *Task) SetTaskENI(eni *ENI) {
+func (task *Task) SetTaskENI(eni *apieni.ENI) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -1037,7 +1038,7 @@ func (task *Task) SetTaskENI(eni *ENI) {
 }
 
 // GetTaskENI returns the eni of task, for now task can only have one enis
-func (task *Task) GetTaskENI() *ENI {
+func (task *Task) GetTaskENI() *apieni.ENI {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 

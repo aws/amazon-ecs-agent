@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -94,20 +94,20 @@ func createHealthContainer(client *docker.Client) (*docker.Container, error) {
 }
 
 type IntegContainerMetadataResolver struct {
-	containerIDToTask            map[string]*api.Task
+	containerIDToTask            map[string]*apitask.Task
 	containerIDToDockerContainer map[string]*apicontainer.DockerContainer
 }
 
 func newIntegContainerMetadataResolver() *IntegContainerMetadataResolver {
 	resolver := IntegContainerMetadataResolver{
-		containerIDToTask:            make(map[string]*api.Task),
+		containerIDToTask:            make(map[string]*apitask.Task),
 		containerIDToDockerContainer: make(map[string]*apicontainer.DockerContainer),
 	}
 
 	return &resolver
 }
 
-func (resolver *IntegContainerMetadataResolver) ResolveTask(containerID string) (*api.Task, error) {
+func (resolver *IntegContainerMetadataResolver) ResolveTask(containerID string) (*apitask.Task, error) {
 	task, exists := resolver.containerIDToTask[containerID]
 	if !exists {
 		return nil, fmt.Errorf("unmapped container")
@@ -267,14 +267,14 @@ func (engine *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {
 }
 
-func (engine *MockTaskEngine) AddTask(*api.Task) {
+func (engine *MockTaskEngine) AddTask(*apitask.Task) {
 }
 
-func (engine *MockTaskEngine) ListTasks() ([]*api.Task, error) {
+func (engine *MockTaskEngine) ListTasks() ([]*apitask.Task, error) {
 	return nil, nil
 }
 
-func (engine *MockTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
+func (engine *MockTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 	return nil, false
 }
 

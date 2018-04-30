@@ -54,9 +54,9 @@ const (
 	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in `api.ENI`
 	// 8)
 	//   a) Add 'UseExecutionRole' in `api.ECRAuthData`
-	//   b) Add `executionCredentialsID` in `api.Task`
+	//   b) Add `executionCredentialsID` in `apitask.Task`
 	//   c) Add 'LogsAuthStrategy' field to 'apicontainer.Container'
-	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
+	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'apitask.Task'
 	// 9) Add 'ipToTask' map to state file
 	// 10) Add 'healthCheckType' field in 'apicontainer.Container'
 	// 11)

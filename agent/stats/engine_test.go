@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
@@ -37,9 +37,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	t1 := &api.Task{Arn: "t1", Family: "f1"}
-	t2 := &api.Task{Arn: "t2", Family: "f2"}
-	t3 := &api.Task{Arn: "t3"}
+	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
+	t2 := &apitask.Task{Arn: "t2", Family: "f2"}
+	t3 := &apitask.Task{Arn: "t3"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
@@ -169,7 +169,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-	t1 := &api.Task{Arn: "t1", Family: "f1"}
+	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{},
@@ -259,9 +259,9 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveTask("c1").Return(&api.Task{
+	resolver.EXPECT().ResolveTask("c1").Return(&apitask.Task{
 		Arn:               "t1",
-		KnownStatusUnsafe: api.TaskStopped,
+		KnownStatusUnsafe: apitask.TaskStopped,
 		Family:            "f1",
 	}, nil)
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
@@ -367,9 +367,9 @@ func TestMetricsDisabled(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveTask(containerID).Return(&api.Task{
+	resolver.EXPECT().ResolveTask(containerID).Return(&apitask.Task{
 		Arn:               "t1",
-		KnownStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe: apitask.TaskRunning,
 		Family:            "f1",
 	}, nil)
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
@@ -413,9 +413,9 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		statsStarted <- struct{}{}
 	}).Return(statsChan, nil)
 
-	resolver.EXPECT().ResolveTask(containerID).Return(&api.Task{
+	resolver.EXPECT().ResolveTask(containerID).Return(&apitask.Task{
 		Arn:               "t1",
-		KnownStatusUnsafe: api.TaskRunning,
+		KnownStatusUnsafe: apitask.TaskRunning,
 		Family:            "f1",
 	}, nil)
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
