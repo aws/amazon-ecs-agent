@@ -22,6 +22,13 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
+const (
+	// expectedAgentBinds is the total number of agent host config binds.
+	// Note: Change this value every time when a new bind mount is added to agent for
+	// the tests to pass
+	expectedAgentBinds = 13
+)
+
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -237,8 +244,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 
 	hostCfg := opts.HostConfig
 
-	if len(hostCfg.Binds) != 10 {
-		t.Errorf("Expected exactly 10 elements to be in Binds, but was %d", len(hostCfg.Binds))
+	if len(hostCfg.Binds) != expectedAgentBinds {
+		t.Errorf("Expected exactly %d elements to be in Binds, but was %d", expectedAgentBinds, len(hostCfg.Binds))
 	}
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
@@ -254,6 +261,9 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.AgentDHClientLeasesDirectory()+":"+dhclientLeasesLocation, binds, t)
 	expectKey(dhclientLibDir+":"+dhclientLibDir+":ro", binds, t)
 	expectKey(dhclientExecutableDir+":"+dhclientExecutableDir+":ro", binds, t)
+	for _, pluginDir := range pluginDirs {
+		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
+	}
 
 	if hostCfg.NetworkMode != networkMode {
 		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)

@@ -83,7 +83,22 @@ const (
 	CapSysAdmin = "SYS_ADMIN"
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
 	DefaultCgroupMountpoint = "/sys/fs/cgroup"
+	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
+	// Docker plugins
+	pluginSocketFilesDir = "/run/docker/plugins"
+	// pluginSpecFilesEtcDir specifies one of the locations of spec or json files
+	// of Docker plugins
+	pluginSpecFilesEtcDir = "/etc/docker/plugins"
+	// pluginSpecFilesUsrDir specifies one of the locations of spec or json files
+	// of Docker plugins
+	pluginSpecFilesUsrDir = "/usr/lib/docker/plugins"
 )
+
+var pluginDirs = []string{
+	pluginSocketFilesDir,
+	pluginSpecFilesEtcDir,
+	pluginSpecFilesUsrDir,
+}
 
 // Client enables business logic for running the Agent inside Docker
 type Client struct {
@@ -261,7 +276,16 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 	}
+	binds = append(binds, getDockerPluginDirBinds()...)
 	return createHostConfig(binds)
+}
+
+func getDockerPluginDirBinds() []string {
+	var pluginBinds []string
+	for _, pluginDir := range pluginDirs {
+		pluginBinds = append(pluginBinds, pluginDir+":"+pluginDir+readOnly)
+	}
+	return pluginBinds
 }
 
 // StopAgent stops the Agent in docker if one is running
