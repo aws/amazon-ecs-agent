@@ -151,4 +151,7 @@ type Config struct {
 	BlockInstanceMetdata bool
 	// AdditionalLocalRoutes specifies additional routes to be added to the task namespace
 	AdditionalLocalRoutes []cnitypes.IPNet
+	// WIP
+	// SubnetGatewayIPV4Address is the address to the subnet gate for the eni
+	SubnetGatewayIPV4Address string
 }

@@ -41,6 +41,9 @@ type ENI struct {
 
 	// PrivateDNSName is the dns name assigned by the vpc to this eni
 	PrivateDNSName string `json:",omitempty"`
+	// SubnetGatewayIPV4Address is the address to the subnet gateway for
+	// the eni
+	SubnetGatewayIPV4Address string `json:",omitempty"`
 }
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
@@ -66,6 +69,11 @@ func (eni *ENI) GetIPV6Addresses() []string {
 // GetHostname returns the hostname assigned to the ENI
 func (eni *ENI) GetHostname() string {
 	return eni.PrivateDNSName
+}
+
+// GetSubnetGatewayIPV4Address returns the hostname assigned to the ENI
+func (eni *ENI) GetSubnetGatewayIPV4Address() string {
+	return eni.SubnetGatewayIPV4Address
 }
 
 // String returns a human readable version of the ENI object
@@ -124,11 +132,12 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	}
 
 	eni := &ENI{
-		ID:             aws.StringValue(acsenis[0].Ec2Id),
-		IPV4Addresses:  ipv4,
-		IPV6Addresses:  ipv6,
-		MacAddress:     aws.StringValue(acsenis[0].MacAddress),
-		PrivateDNSName: aws.StringValue(acsenis[0].PrivateDnsName),
+		ID:                       aws.StringValue(acsenis[0].Ec2Id),
+		IPV4Addresses:            ipv4,
+		IPV6Addresses:            ipv6,
+		MacAddress:               aws.StringValue(acsenis[0].MacAddress),
+		PrivateDNSName:           aws.StringValue(acsenis[0].PrivateDnsName),
+		SubnetGatewayIPV4Address: aws.StringValue(acsenis[0].SubnetGatewayIpv4Address),
 	}
 	for _, nameserverIP := range acsenis[0].DomainNameServers {
 		eni.DomainNameServers = append(eni.DomainNameServers, aws.StringValue(nameserverIP))
