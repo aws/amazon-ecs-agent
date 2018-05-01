@@ -1,0 +1,13 @@
+[Unit]
+Description=ECS Agent
+Requires=docker.service
+After=docker.service
+
+[Service]
+ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
+ExecStart=/usr/libexec/amazon-ecs-init start
+ExecStopPre=/usr/libexec/amazon-ecs-init pre-stop
+ExecStopPost=/usr/libexec/amazon-ecs-init post-stop
+
+[Install]
+WantedBy=multi-user.target
