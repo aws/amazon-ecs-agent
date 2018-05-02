@@ -14,6 +14,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -47,22 +48,37 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
-func TestIsSupportedRegion(t *testing.T) {
-	var cases = []struct {
-		region         string
-		expectedResult bool
+func TestGetAgentBucketRegion(t *testing.T) {
+	testCases := []struct {
+		region      string
+		destination string
+		err         error
 	}{
-		{DefaultRegionName, true},
-		{"cn-north-1", true},
-		{"missing-region", false},
+		{
+			region:      "us-west-2",
+			destination: "us-east-1",
+		}, {
+			region:      "us-gov-west-1",
+			destination: "us-gov-west-1",
+		}, {
+			region:      "cn-north-1",
+			destination: "cn-north-1",
+		}, {
+			region: "invalid",
+			err:    fmt.Errorf("Partition not found"),
+		},
 	}
 
-	for _, c := range cases {
-		t.Run(c.region, func(t *testing.T) {
-			result := IsSupportedRegion(c.region)
-			if result != c.expectedResult {
-				t.Errorf("IsSupportedRegion did not get correct result. Result returned: %t", result)
-			}
-		})
+	for _, testcase := range testCases {
+		t.Run(fmt.Sprintf("%s -> %s", testcase.region, testcase.destination),
+			func(t *testing.T) {
+				region, err := GetAgentBucketRegion(testcase.region)
+				if region != "" && region != testcase.destination && err != nil {
+					t.Errorf("GetAgentBucketRegion returned unexpected region: %s, err: %v", region, err)
+				}
+				if testcase.err != nil && err == nil {
+					t.Error("GetAgentBucketRegion should return an error if the destination is not found")
+				}
+			})
 	}
 }

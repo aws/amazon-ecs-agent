@@ -55,7 +55,7 @@ func NewDownloader() (*Downloader, error) {
 	// calls to retrieve the region from metadata
 	sessionInstance, err := session.NewSession()
 	if err != nil {
-		log.Debugf("Get error when initializing session instance: %v. Use default region: %s", 
+		log.Debugf("Get error when initializing session instance: %v. Use default region: %s",
 			err, config.DefaultRegionName)
 		downloader.region = config.DefaultRegionName
 	} else {
@@ -110,13 +110,14 @@ func (d *Downloader) getRegion() string {
 // getBucketRegion returns a region that contains the agent's bucket
 func (d *Downloader) getBucketRegion() string {
 	region := d.getRegion()
-	if config.IsSupportedRegion(region) {
-		return region
+
+	destination, err := config.GetAgentBucketRegion(region)
+	if err != nil {
+		log.Warnf("Current region not supported, using the default region (%s) for downloader, err: %v", config.DefaultRegionName, err)
+		return config.DefaultRegionName
 	}
 
-	log.Debugf("Current region (%s) does not contain the agent's s3 bucket, using the default region (%s) for downloader.",
-		region, config.DefaultRegionName)
-	return config.DefaultRegionName
+	return destination
 }
 
 // DownloadAgent downloads a fresh copy of the Agent and performs an

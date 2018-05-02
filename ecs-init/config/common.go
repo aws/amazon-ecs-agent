@@ -16,6 +16,9 @@ package config
 import (
 	"os"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -41,20 +44,28 @@ const (
 
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
-	DefaultRegionName = "us-east-1"
+	DefaultRegionName = endpoints.UsEast1RegionID
 )
 
-// supportedRegions stores a list of regions that contains the agent bucket
-var supportedRegions = []string{"cn-north-1", "us-gov-west-1", DefaultRegionName}
+var partitionBucketMap = map[string]string{
+	endpoints.AwsPartitionID:      endpoints.UsEast1RegionID,
+	endpoints.AwsCnPartitionID:    endpoints.CnNorth1RegionID,
+	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
+}
 
-// IsSupportedRegion checks whether the given region is a region that contains the agent bucket
-func IsSupportedRegion(region string) bool {
-	for _, supportedRegion := range supportedRegions {
-		if region == supportedRegion {
-			return true
-		}
+// GetAgentBucketRegion returns the s3 bucket region where ECS Agent artifact is located
+func GetAgentBucketRegion(region string) (string, error) {
+	regionPartition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
+	if !ok {
+		return "", errors.Errorf("GetAgentBucketRegion: partition not found for region: %s", region)
 	}
-	return false
+
+	bucketRegion, ok := partitionBucketMap[regionPartition.ID()]
+	if !ok {
+		return "", errors.Errorf("GetAgentBucketRegion: partition not found: %s", regionPartition)
+	}
+
+	return bucketRegion, nil
 }
 
 // AgentConfigDirectory returns the location on disk for configuration
