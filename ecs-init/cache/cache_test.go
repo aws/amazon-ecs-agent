@@ -51,6 +51,7 @@ func TestIsAgentCachedFalseEmptyState(t *testing.T) {
 	mockFSInfo := NewMockfileSizeInfo(mockCtrl)
 	mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
 	mockFSInfo.EXPECT().Size().Return(int64(0))
+	mockFS.EXPECT().Open(gomock.Any()).Times(0)
 
 	d := &Downloader{
 		fs: mockFS,
@@ -84,11 +85,13 @@ func TestIsAgentCachedTrue(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	file := ioutil.NopCloser(bytes.NewBufferString(fmt.Sprintf("%d", StatusCached)))
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockFSInfo := NewMockfileSizeInfo(mockCtrl)
 	mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
 	mockFS.EXPECT().Stat(config.AgentTarball()).Return(mockFSInfo, nil)
 	mockFSInfo.EXPECT().Size().Return(int64(1)).Times(2)
+	mockFS.EXPECT().Open(config.CacheState()).Return(file, nil)
 
 	d := &Downloader{
 		fs: mockFS,
@@ -96,6 +99,46 @@ func TestIsAgentCachedTrue(t *testing.T) {
 
 	if !d.IsAgentCached() {
 		t.Error("Expected d.IsAgentCached() to be true")
+	}
+}
+
+func TestAgentCacheStatus(t *testing.T) {
+	var cases = []struct {
+		data     string
+		expected CacheStatus
+	}{
+		// Expected states:
+		{"0", StatusUncached},
+		{"1", StatusCached},
+		{"2", StatusReloadNeeded},
+		{"1\n", StatusCached},
+		// Invalid states:
+		{"spurious", StatusUncached},
+		{" ", StatusUncached},
+		{"256", StatusUncached},
+	}
+
+	for _, testcase := range cases {
+		t.Run(string(testcase.data), func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			file := ioutil.NopCloser(bytes.NewBufferString(testcase.data))
+			mockFS := NewMockfileSystem(mockCtrl)
+			mockFSInfo := NewMockfileSizeInfo(mockCtrl)
+
+			mockFS.EXPECT().Stat(config.CacheState()).Return(mockFSInfo, nil)
+			mockFS.EXPECT().Stat(config.AgentTarball()).Return(mockFSInfo, nil)
+			mockFSInfo.EXPECT().Size().Return(int64(1)).Times(2)
+			mockFS.EXPECT().Open(config.CacheState()).Return(file, nil)
+
+			d := &Downloader{fs: mockFS}
+
+			actual := d.AgentCacheStatus()
+			if actual != testcase.expected {
+				t.Errorf("Unexpected output %d for input %s, expected %d", actual, testcase.data, testcase.expected)
+			}
+		})
 	}
 }
 

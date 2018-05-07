@@ -155,7 +155,8 @@ install amazon-ecs-init $RPM_BUILD_ROOT/%{bin_dir}/amazon-ecs-init
 install scripts/amazon-ecs-init.1.gz $RPM_BUILD_ROOT/%{man_dir}/amazon-ecs-init.1.gz
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
-touch $RPM_BUILD_ROOT/%{cache_dir}/state
+# Configure ecs-init to reload the bundled ECS Agent image.
+echo 2 > $RPM_BUILD_ROOT/%{cache_dir}/state
 
 %files
 %defattr(-,root,root,-)
@@ -195,7 +196,6 @@ fi
 %post
 # Symlink the bundled ECS Agent at loadable path.
 ln -sf ecs-agent-v%{bundled_agent_version}.tar %{cache_dir}/ecs-agent.tar
-echo 1 > %{cache_dir}/state
 
 %postun
 # record whether or not our service was running when ecs-init is upgraded

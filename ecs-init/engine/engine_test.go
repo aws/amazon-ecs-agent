@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/amazon-ecs-init/ecs-init/cache"
 	"github.com/golang/mock/gomock"
 )
 
@@ -30,8 +31,45 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
-	mockDownloader.EXPECT().IsAgentCached().Return(true)
+
+	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
+	// Agent tarball and state is present
+	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusCached)
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Create().Return(nil)
+
+	engine := &Engine{
+		docker:                mockDocker,
+		downloader:            mockDownloader,
+		loopbackRouting:       mockLoopbackRouting,
+		credentialsProxyRoute: mockRoute,
+	}
+	err := engine.PreStart()
+	if err != nil {
+		t.Errorf("engine pre-start error: %v", err)
+	}
+}
+
+func TestPreStartReloadNeeded(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	mockDownloader := NewMockdownloader(mockCtrl)
+
+	// Docker reports image is loaded.
+	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
+	// Agent tarball and state is present, but requires a reload off of disk
+	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusReloadNeeded)
+	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
+	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
+	mockDownloader.EXPECT().RecordCachedAgent()
 
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
@@ -60,11 +98,11 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
-	mockRoute.EXPECT().Create().Return(nil)
 
+	mockRoute.EXPECT().Create().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
-	mockDownloader.EXPECT().IsAgentCached().Return(true)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
+	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusCached)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
 	mockDownloader.EXPECT().RecordCachedAgent()
@@ -90,7 +128,8 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDownloader.EXPECT().IsAgentCached().Return(false)
+	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
+	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusUncached)
 	mockDownloader.EXPECT().DownloadAgent()
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
 	mockDocker.EXPECT().LoadImage(cachedAgentBuffer)
