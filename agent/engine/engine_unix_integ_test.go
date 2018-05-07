@@ -1,4 +1,4 @@
-// +build !windows,integration
+// +build !sudo,!windows,integration
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -42,10 +42,8 @@ import (
 )
 
 const (
-	dockerEndpoint        = "unix:///var/run/docker.sock"
 	testRegistryHost      = "127.0.0.1:51670"
 	testBusyboxImage      = testRegistryHost + "/busybox:latest"
-	testRegistryImage     = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
 	testAuthRegistryHost  = "127.0.0.1:51671"
 	testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
 	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
@@ -56,29 +54,6 @@ const (
 var (
 	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 )
-
-func isDockerRunning() bool {
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		return false
-	}
-	return true
-}
-
-func createTestContainer() *apicontainer.Container {
-	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
-}
-
-func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
-	return &apicontainer.Container{
-		Name:                name,
-		Image:               image,
-		Command:             []string{},
-		Essential:           true,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
-		CPU:                 100,
-		Memory:              80,
-	}
-}
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
 	testTask := &apitask.Task{
