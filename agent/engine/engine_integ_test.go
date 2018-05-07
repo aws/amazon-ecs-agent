@@ -27,15 +27,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,22 +51,6 @@ func init() {
 	_stoppedSentWaitInterval = 1 * time.Second
 }
 
-func createTestTask(arn string) *apitask.Task {
-	return &apitask.Task{
-		Arn:                 arn,
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		Containers:          []*apicontainer.Container{createTestContainer()},
-	}
-}
-
-func defaultTestConfigIntegTest() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
-	return cfg
-}
-
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfigIntegTest(), nil, t)
 }
@@ -81,53 +59,11 @@ func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine
 	return setup(defaultTestConfigIntegTest(), state, t)
 }
 
-func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
-	clientFactory := clientfactory.NewFactory(dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
-	if err != nil {
-		t.Fatalf("Error creating Docker client: %v", err)
-	}
-	credentialsManager := credentials.NewManager()
-	if state == nil {
-		state = dockerstate.NewTaskEngineState()
-	}
-	imageManager := NewImageManager(cfg, dockerClient, state)
-	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	metadataManager := containermetadata.NewManager(dockerClient, cfg)
-
-	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, nil)
-	taskEngine.MustInit(context.TODO())
-	return taskEngine, func() {
-		taskEngine.Shutdown()
-	}, credentialsManager
-}
-
-func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning,
-		"Expected container to be RUNNING")
-}
-
 func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning,
 		"Expected task to be RUNNING")
-}
-
-func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped,
-		"Expected container to be STOPPED")
 }
 
 func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
