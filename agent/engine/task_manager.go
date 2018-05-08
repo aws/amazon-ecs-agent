@@ -190,6 +190,11 @@ func (mtask *managedTask) overseeTask() {
 			mtask.waitSteady()
 		}
 
+		if mtask.GetKnownStatus() == api.TaskPulled && mtask.Task.RequiresASMDockerAuthData() {
+			// Clean up the collection of docker auth data after pulling images
+			mtask.Task.ClearASMDockerAuthConfig()
+		}
+
 		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
@@ -207,6 +212,7 @@ func (mtask *managedTask) overseeTask() {
 				}
 				seelog.Infof("Managed task [%s]: Cgroup resource set up for task complete", mtask.Arn)
 			}
+
 			mtask.progressContainers()
 		}
 

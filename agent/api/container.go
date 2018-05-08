@@ -22,6 +22,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -308,6 +309,33 @@ func (c *Container) SetRegistryAuthCredentials(credential credentials.IAMRoleCre
 	defer c.lock.Unlock()
 
 	c.RegistryAuthentication.ECRAuthData.SetPullCredentials(credential)
+}
+
+// GetASMCredentialsParameter returns the ASM secret value metadata that
+// referencs the private registry auth data for the container
+func (c *Container) GetASMCredentialsParameter() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.RegistryAuthentication.ASMAuthData.CredentialsParameter
+
+}
+
+// ShouldPullWithASMAuth returns true if this container needs to retrieve
+// private registry authentication data from ASM
+func (c *Container) ShouldPullWithASMAuth() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.RegistryAuthentication != nil &&
+		c.RegistryAuthentication.Type == "asm" &&
+		c.RegistryAuthentication.ASMAuthData != nil
+}
+
+// SetASMDockerAuthConfig add the docker auth config data to the
+// RegistryAuthentication struct held by the container, this is then passed down
+// to the docker client to pull the image
+func (c *Container) SetASMDockerAuthConfig(dac docker.AuthConfiguration) {
+	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
 }
 
 // ShouldPullWithExecutionRole returns whether this container has its own ECR credentials

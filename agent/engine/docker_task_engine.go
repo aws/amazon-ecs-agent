@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -43,6 +44,8 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -769,6 +772,25 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		container.SetRegistryAuthCredentials(iamCredentials)
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
+	}
+
+	if container.ShouldPullWithASMAuth() {
+		secretID := container.GetASMCredentialsParameter()
+		dac, ok := task.GetASMDockerAuthConfig(secretID)
+		if !ok {
+			seelog.Warnf("Reading registry auth data from cache failed, attempting to retrieve from AWS Secrets Manager for image: %s", container.Image)
+			var err error
+			dac, err = task.RetrieveASMDockerAuthData(container.RegistryAuthentication.ASMAuthData, engine.credentialsManager)
+			if err != nil {
+				return dockerapi.DockerContainerMetadata{
+					Error: asm.ASMAuthDataError{FromError: err},
+				}
+			}
+		}
+
+		container.SetASMDockerAuthConfig(dac)
+		// Clean up the container scoped docker auth data after pulling
+		defer container.SetASMDockerAuthConfig(docker.AuthConfiguration{})
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
