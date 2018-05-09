@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -40,9 +41,12 @@ const (
 	bytesPerMegabyte  = 1024 * 1024
 )
 
+// platformFields consists of fields specific to Linux for a task
+type platformFields struct {}
+
 func (task *Task) adjustForPlatform(cfg *config.Config) {
-	task.memoryCPULimitsEnabledLock.Lock()
-	defer task.memoryCPULimitsEnabledLock.Unlock()
+	task.lock.Lock()
+	defer task.lock.Unlock()
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
@@ -167,8 +171,8 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
 func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
-	task.memoryCPULimitsEnabledLock.RLock()
-	defer task.memoryCPULimitsEnabledLock.RUnlock()
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 	if task.MemoryCPULimitsEnabled {
 		cgroupRoot, err := task.BuildCgroupRoot()
 		if err != nil {
@@ -177,4 +181,18 @@ func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
 		hostConfig.CgroupParent = cgroupRoot
 	}
 	return nil
+}
+
+// dockerCPUShares converts containerCPU shares if needed as per the logic stated below:
+// Docker silently converts 0 to 1024 CPU shares, which is probably not what we
+// want.  Instead, we convert 0 to 2 to be closer to expected behavior. The
+// reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
+func (task *Task) dockerCPUShares(containerCPU uint) int64 {
+	if containerCPU <= 1 {
+		seelog.Debugf(
+			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
+			task.Arn, containerCPU)
+		return 2
+	}
+	return int64(containerCPU)
 }

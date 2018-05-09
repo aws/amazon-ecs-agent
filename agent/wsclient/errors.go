@@ -37,7 +37,7 @@ type NotMarshallableWSRequest struct {
 	Err error
 }
 
-// Retry implementes Retriable
+// Retry implements Retriable
 func (u *NotMarshallableWSRequest) Retry() bool {
 	return false
 }

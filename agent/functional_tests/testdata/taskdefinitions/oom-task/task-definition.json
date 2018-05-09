@@ -1,0 +1,12 @@
+{
+  "family": "ecsftest-oom-task",
+  "memory": "64",
+  "containerDefinitions": [{
+    "essential": true,
+    "name": "error",
+    "cpu": 1,
+    "image": "127.0.0.1:51670/python:2",
+    "command": ["python", "-c", "foo=' '*1024*1024*1024; import time; time.sleep(10)"]
+  }]
+}
+

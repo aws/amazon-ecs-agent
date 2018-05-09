@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,11 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-const dockerTimeoutErrorName = "DockerTimeoutError"
+const (
+	dockerTimeoutErrorName          = "DockerTimeoutError"
+	cannotInspectContainerErrorName = "CannotInspectContainerError"
+	cannotDescribeContainerError    = "CannotDescribeContainerError"
+)
 
 // engineError wraps the error interface with an identifier method that
 // is used to classify the error type
@@ -262,7 +266,7 @@ func (err CannotInspectContainerError) Error() string {
 }
 
 func (err CannotInspectContainerError) ErrorName() string {
-	return "CannotInspectContainerError"
+	return cannotInspectContainerErrorName
 }
 
 // CannotRemoveContainerError indicates any error when trying to remove a container
@@ -288,7 +292,7 @@ func (err CannotDescribeContainerError) Error() string {
 }
 
 func (err CannotDescribeContainerError) ErrorName() string {
-	return "CannotDescribeContainerError"
+	return cannotDescribeContainerError
 }
 
 // CannotListContainersError indicates any error when trying to list containers

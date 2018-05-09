@@ -39,11 +39,11 @@ func TestStateManager(t *testing.T) {
 	assert.Nil(t, err, "Error loading manager")
 
 	err = manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 
 	// Now let's make some state to save
 	containerInstanceArn := ""
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine), statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	require.Nil(t, err)
@@ -59,7 +59,7 @@ func TestStateManager(t *testing.T) {
 	assertFileMode(t, filepath.Join(tmpDir, "ecs_agent_data.json"))
 
 	// Now make sure we can load that state sanely
-	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
+	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine), statemanager.AddSaveable("ContainerInstanceArn", &loadedContainerInstanceArn))

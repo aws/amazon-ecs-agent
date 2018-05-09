@@ -67,7 +67,7 @@ func TestStateManagerLoadNoRegistryKey(t *testing.T) {
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(nil, registry.ErrNotExist)
 
 	err := manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 }
 
 func TestStateManagerLoadNoFile(t *testing.T) {
@@ -82,7 +82,7 @@ func TestStateManagerLoadNoFile(t *testing.T) {
 	mockFS.EXPECT().IsNotExist(gomock.Any()).Return(true)
 
 	err := manager.Load()
-	assert.Nil(t, err, "Expected loading a non-existant file to not be an error")
+	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 }
 
 func TestStateManagerLoadError(t *testing.T) {
@@ -205,6 +205,29 @@ func TestStateManagerSave(t *testing.T) {
 		mockKey.EXPECT().SetStringValue(ecsDataFileValueName, `C:\new.json`),
 		mockKey.EXPECT().Close(),
 		mockFS.EXPECT().Remove(`C:\old.json`),
+		mockFile.EXPECT().Close(),
+	)
+	err := manager.Save()
+	assert.Nil(t, err)
+}
+
+func TestStateManagerNoOldStateRemoval(t *testing.T) {
+	mockRegistry, mockKey, mockFS, mockFile, manager, cleanup := setup(t)
+	defer cleanup()
+
+	basicManager := manager.(*basicStateManager)
+	gomock.InOrder(
+		mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil),
+		mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(``, uint32(0), nil),
+		mockKey.EXPECT().Close(),
+		mockFS.EXPECT().TempFile(basicManager.statePath, ecsDataFile).Return(mockFile, nil),
+		mockFile.EXPECT().Write(gomock.Any()),
+		mockFile.EXPECT().Sync(),
+		mockFile.EXPECT().Close(),
+		mockFile.EXPECT().Name().Return(`C:\new.json`),
+		mockRegistry.EXPECT().CreateKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, false, nil),
+		mockKey.EXPECT().SetStringValue(ecsDataFileValueName, `C:\new.json`),
+		mockKey.EXPECT().Close(),
 		mockFile.EXPECT().Close(),
 	)
 	err := manager.Save()

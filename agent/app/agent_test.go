@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -170,6 +170,8 @@ func TestDoStartTaskLimitsFail(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).AnyTimes(),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return(statemanager.NewNoopStateManager(), nil),
+
+		resource.EXPECT().ApplyConfigDependencies(gomock.Any()).MinTimes(1),
 		resource.EXPECT().Init().Return(errors.New("test error")),
 	)
 

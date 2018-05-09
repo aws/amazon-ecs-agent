@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,15 +14,24 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
 	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -35,6 +44,12 @@ const (
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
 	taskUnableToCreatePlatformResources   = "TaskStateError: Agent could not create task's platform resources"
+)
+
+var (
+	_stoppedSentWaitInterval       = stoppedSentWaitInterval
+	_maxStoppedWaitTimes           = int(maxStoppedWaitTimes)
+	taskNotWaitForSteadyStateError = errors.New("managed task: steady state check context is nil")
 )
 
 type acsTaskUpdate struct {
@@ -81,10 +96,22 @@ type containerTransition struct {
 // task's statuses yourself)
 type managedTask struct {
 	*api.Task
-	engine *DockerTaskEngine
+	ctx    context.Context
+	cancel context.CancelFunc
+	// waitSteadyCancel is the function to timeout the context for waiting for
+	// task steady state of which timeout duration is `steadyStateTaskVerifyInterval`
+	waitSteadyCancel   context.CancelFunc
+	engine             *DockerTaskEngine
+	cfg                *config.Config
+	saver              statemanager.Saver
+	credentialsManager credentials.Manager
+	cniClient          ecscni.CNIClient
+	taskStopWG         *utilsync.SequentialWaitGroup
 
-	acsMessages    chan acsTransition
-	dockerMessages chan dockerContainerChange
+	acsMessages                chan acsTransition
+	dockerMessages             chan dockerContainerChange
+	stateChangeEvents          chan statechange.Event
+	containerChangeEventStream *eventstream.EventStream
 
 	// unexpectedStart is a once that controls stopping a container that
 	// unexpectedly started one time.
@@ -99,18 +126,29 @@ type managedTask struct {
 	_timeOnce sync.Once
 
 	resource resources.Resource
+	lock     sync.RWMutex
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
 // This method must only be called when the engine.processTasks write lock is
 // already held.
 func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
+	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		Task:           task,
-		acsMessages:    make(chan acsTransition),
-		dockerMessages: make(chan dockerContainerChange),
-		engine:         engine,
-		resource:       resources.New(),
+		ctx:                        ctx,
+		cancel:                     cancel,
+		Task:                       task,
+		acsMessages:                make(chan acsTransition),
+		dockerMessages:             make(chan dockerContainerChange),
+		engine:                     engine,
+		resource:                   engine.resource,
+		cfg:                        engine.cfg,
+		stateChangeEvents:          engine.stateChangeEvents,
+		containerChangeEventStream: engine.containerChangeEventStream,
+		saver:              engine.saver,
+		credentialsManager: engine.credentialsManager,
+		cniClient:          engine.cniClient,
+		taskStopWG:         engine.taskStopGroup,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -120,8 +158,6 @@ func (engine *DockerTaskEngine) newManagedTask(task *api.Task) *managedTask {
 // loop of receiving messages and attempting to take action based on those
 // messages.
 func (mtask *managedTask) overseeTask() {
-	llog := log.New("task", mtask)
-
 	// Do a single updatestatus at the beginning to create the container
 	// `desiredstatus`es which are a construct of the engine used only here,
 	// not present on the backend
@@ -134,6 +170,13 @@ func (mtask *managedTask) overseeTask() {
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
+		select {
+		case <-mtask.ctx.Done():
+			seelog.Infof("Managed task [%s]: parent context cancelled, exit", mtask.Arn)
+			return
+		default:
+		}
+
 		// If it's steadyState, just spin until we need to do work
 		for mtask.steadyState() {
 			mtask.waitSteady()
@@ -142,17 +185,19 @@ func (mtask *managedTask) overseeTask() {
 		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
-			llog.Debug("Task not steady state or terminal; progressing it")
+			seelog.Debugf("Managed task [%s]: task not steady state or terminal; progressing it",
+				mtask.Arn)
 
 			// TODO: Add new resource provisioned state ?
-			if mtask.engine.cfg.TaskCPUMemLimit.Enabled() {
+			if mtask.cfg.TaskCPUMemLimit.Enabled() {
 				err := mtask.resource.Setup(mtask.Task)
 				if err != nil {
-					seelog.Criticalf("Unable to setup platform resources for task %s: %v", mtask.Task.Arn, err)
+					seelog.Criticalf("Managed task [%s]: unable to setup platform resources: %v",
+						mtask.Arn, err)
 					mtask.SetDesiredStatus(api.TaskStopped)
-					mtask.engine.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
+					mtask.emitTaskEvent(mtask.Task, taskUnableToCreatePlatformResources)
 				}
-				// TODO: Add log to indicate successful setup of platform resources
+				seelog.Infof("Managed task [%s]: Cgroup resource set up for task complete", mtask.Arn)
 			}
 			mtask.progressContainers()
 		}
@@ -161,9 +206,10 @@ func (mtask *managedTask) overseeTask() {
 		// Conversely, for it to spin in steady state it will have to have been
 		// loaded in steady state or progressed through here, so saving here should
 		// be sufficient to capture state changes.
-		err := mtask.engine.saver.Save()
+		err := mtask.saver.Save()
 		if err != nil {
-			llog.Warn("Error checkpointing task's states to disk", "err", err)
+			seelog.Warnf("Managed task [%s]: unable to checkpoint task's states to disk: %v",
+				mtask.Arn, err)
 		}
 
 		if mtask.GetKnownStatus().Terminal() {
@@ -172,95 +218,136 @@ func (mtask *managedTask) overseeTask() {
 	}
 	// We only break out of the above if this task is known to be stopped. Do
 	// onetime cleanup here, including removing the task after a timeout
-	llog.Debug("Task has reached stopped. We're just waiting and removing containers now")
+	seelog.Debugf("Managed task [%s]: Task has reached stopped. Waiting for container cleanup", mtask.Arn)
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
-		llog.Debug("Marking done for this sequence", "seqnum", mtask.StopSequenceNumber)
-		mtask.engine.taskStopGroup.Done(mtask.StopSequenceNumber)
+		seelog.Debugf("Managed task [%s]: Marking done for this sequence: %d",
+			mtask.Arn, mtask.StopSequenceNumber)
+		mtask.taskStopWG.Done(mtask.StopSequenceNumber)
 	}
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
-	mtask.cleanupTask(mtask.engine.cfg.TaskCleanupWaitDuration)
+	mtask.cleanupTask(mtask.cfg.TaskCleanupWaitDuration)
 }
 
 // emitCurrentStatus emits a container event for every container and a task
 // event for the task
 func (mtask *managedTask) emitCurrentStatus() {
 	for _, container := range mtask.Containers {
-		mtask.engine.emitContainerEvent(mtask.Task, container, "")
+		mtask.emitContainerEvent(mtask.Task, container, "")
 	}
-	mtask.engine.emitTaskEvent(mtask.Task, "")
+	mtask.emitTaskEvent(mtask.Task, "")
 }
 
 // waitForHostResources waits for host resources to become available to start
 // the task. This involves waiting for previous stops to complete so the
 // resources become free.
 func (mtask *managedTask) waitForHostResources() {
-	llog := log.New("task", mtask.Task)
-	if mtask.StartSequenceNumber != 0 && !mtask.GetDesiredStatus().Terminal() {
-		llog.Info("Waiting for any previous stops to complete", "seqnum", mtask.StartSequenceNumber)
-		othersStopped := make(chan bool, 1)
-		go func() {
-			mtask.engine.taskStopGroup.Wait(mtask.StartSequenceNumber)
-			othersStopped <- true
-		}()
-		for !mtask.waitEvent(othersStopped) {
-			if mtask.GetDesiredStatus().Terminal() {
-				// If we end up here, that means we received a start then stop for this
-				// task before a task that was expected to stop before it could
-				// actually stop
-				break
-			}
-		}
-		llog.Info("Wait over; ready to move towards status: " + mtask.GetDesiredStatus().String())
+	if mtask.StartSequenceNumber == 0 {
+		// This is the first transition on this host. No need to wait
+		return
 	}
+	if mtask.GetDesiredStatus().Terminal() {
+		// Task's desired status is STOPPED. No need to wait in this case either
+		return
+	}
+
+	seelog.Infof("Managed task [%s]: waiting for any previous stops to complete. Sequence number: %d",
+		mtask.Arn, mtask.StartSequenceNumber)
+
+	othersStoppedCtx, cancel := context.WithCancel(mtask.ctx)
+	defer cancel()
+
+	go func() {
+		mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
+		cancel()
+	}()
+
+	for !mtask.waitEvent(othersStoppedCtx.Done()) {
+		if mtask.GetDesiredStatus().Terminal() {
+			// If we end up here, that means we received a start then stop for this
+			// task before a task that was expected to stop before it could
+			// actually stop
+			break
+		}
+	}
+	seelog.Infof("Managed task [%s]: wait over; ready to move towards status: %s",
+		mtask.Arn, mtask.GetDesiredStatus().String())
 }
 
 // waitSteady waits for a task to leave steady-state by waiting for a new
 // event, or a timeout.
 func (mtask *managedTask) waitSteady() {
-	llog := log.New("task", mtask.Task)
-	llog.Debug("Task at steady state", "state", mtask.GetKnownStatus().String())
+	seelog.Debugf("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	maxWait := make(chan bool, 1)
-	timer := mtask.time().After(steadyStateTaskVerifyInterval)
-	go func() {
-		<-timer
-		maxWait <- true
-	}()
-	timedOut := mtask.waitEvent(maxWait)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, steadyStateTaskVerifyInterval)
+	defer cancel()
+	mtask.setWaitSteadyCheckCancelFunc(cancel)
+	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
 	if timedOut {
-		llog.Debug("Checking task to make sure it's still at steadystate")
+		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
 		go mtask.engine.CheckTaskState(mtask.Task)
 	}
+}
+
+// cancelSteadyStateWait checks if the task is waiting for steady state and stop
+// the waiting if it it. This is currently only used in test
+func (mtask *managedTask) cancelSteadyStateWait() error {
+	mtask.lock.Lock()
+	defer mtask.lock.Unlock()
+
+	if mtask.waitSteadyCancel == nil {
+		return taskNotWaitForSteadyStateError
+	}
+
+	mtask.waitSteadyCancel()
+	// reset the cancel func to nil to indicate the task isn't waiting for steady state
+	mtask.waitSteadyCancel = nil
+	return nil
+}
+
+// setWaitSteadyCheckCancelFunc record the steadyStateCheck cancel function in mtask
+func (mtask *managedTask) setWaitSteadyCheckCancelFunc(cancel context.CancelFunc) {
+	mtask.lock.Lock()
+	defer mtask.lock.Unlock()
+	mtask.waitSteadyCancel = cancel
+}
+
+// steadyState returns if the task is in a steady state. Steady state is when task's desired
+// and known status are both RUNNING
+func (mtask *managedTask) steadyState() bool {
+	taskKnownStatus := mtask.GetKnownStatus()
+	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.GetDesiredStatus()
 }
 
 // cleanupCredentials removes credentials for a stopped task
 func (mtask *managedTask) cleanupCredentials() {
 	taskCredentialsID := mtask.GetCredentialsID()
 	if taskCredentialsID != "" {
-		mtask.engine.credentialsManager.RemoveCredentials(taskCredentialsID)
+		mtask.credentialsManager.RemoveCredentials(taskCredentialsID)
 	}
 }
 
 // waitEvent waits for any event to occur. If an event occurs, the appropriate
-// handler is called. If the event is the passed in channel, it will return the
-// value written to the channel, otherwise it will return false.
-func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
-	log.Debug("Waiting for event for task", "task", mtask.Task)
+// handler is called. Generally the stopWaiting arg is the context's Done
+// channel. When the Done channel is signalled by the context, waitEvent will
+// return true.
+func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
+	seelog.Debugf("Managed task [%s]: waiting for event for task", mtask.Arn)
 	select {
 	case acsTransition := <-mtask.acsMessages:
-		log.Debug("Got acs event for task", "task", mtask.Task)
+		seelog.Debugf("Managed task [%s]: got acs event", mtask.Arn)
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
 		return false
 	case dockerChange := <-mtask.dockerMessages:
-		log.Debug("Got container event for task", "task", mtask.Task)
+		seelog.Debugf("Managed task [%s]: got container [%s] event: [%s]",
+			mtask.Arn, dockerChange.container.Name, dockerChange.event.Status.String())
 		mtask.handleContainerChange(dockerChange)
 		return false
-	case b := <-stopWaiting:
-		log.Debug("No longer waiting", "task", mtask.Task)
-		return b
+	case <-stopWaiting:
+		seelog.Debugf("Managed task [%s]: no longer waiting", mtask.Arn)
+		return true
 	}
 }
 
@@ -269,18 +356,20 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan bool) bool {
 // current desired state); "redundant" (less-than or equal desired states) are
 // ignored and dropped.
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus, seqnum int64) {
-	llog := log.New("task", mtask.Task)
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
-	llog.Debug("New acs transition", "status", desiredStatus.String(), "seqnum", seqnum, "taskSeqnum", mtask.StopSequenceNumber)
+	seelog.Debugf("Managed task [%s]: new acs transition to: %s; sequence number: %d; task stop sequence number: %d",
+		mtask.Arn, desiredStatus.String(), seqnum, mtask.StopSequenceNumber)
 	if desiredStatus <= mtask.GetDesiredStatus() {
-		llog.Debug("Redundant task transition; ignoring", "old", mtask.GetDesiredStatus().String(), "new", desiredStatus.String())
+		seelog.Debugf("Managed task [%s]: redundant task transition from [%s] to [%s], ignoring",
+			mtask.Arn, mtask.GetDesiredStatus().String(), desiredStatus.String())
 		return
 	}
 	if desiredStatus == api.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
-		llog.Debug("Task moving to stopped, adding to stopgroup", "seqnum", seqnum)
+		seelog.Debugf("Managed task [%s]: task moving to stopped, adding to stopgroup with sequence number: %d",
+			mtask.Arn, seqnum)
 		mtask.SetStopSequenceNumber(seqnum)
-		mtask.engine.taskStopGroup.Add(seqnum, 1)
+		mtask.taskStopWG.Add(seqnum, 1)
 	}
 	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
@@ -290,36 +379,33 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus api.TaskStatus
 // contains any interesting information (like exit codes or ports), they are
 // propagated.
 func (mtask *managedTask) handleContainerChange(containerChange dockerContainerChange) {
-	llog := log.New("task", mtask.Task)
-
 	// locate the container
 	container := containerChange.container
-	found := false
-	for _, c := range mtask.Containers {
-		if container == c {
-			found = true
-		}
-	}
+	found := mtask.isContainerFound(container)
 	if !found {
-		llog.Crit("State error; task manager called with another task's container!", "container", container)
+		seelog.Criticalf("Managed task [%s]: state error; invoked with another task's container [%s]!",
+			mtask.Arn, container.Name)
 		return
 	}
 
 	event := containerChange.event
-	llog.Debug("Handling container change", "change", containerChange)
+	seelog.Debugf("Managed task [%s]: handling container change [%v] for container [%s]",
+		mtask.Arn, event, container.Name)
 
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
 	containerKnownStatus := container.GetKnownStatus()
 	mtask.handleStoppedToRunningContainerTransition(event.Status, container)
 	if event.Status <= containerKnownStatus {
-		seelog.Infof("Redundant container state change for task %s: %s to %s, but already %s", mtask.Task, container, event.Status, containerKnownStatus)
+		seelog.Infof("Managed task [%s]: redundant container state change. %s to %s, but already %s",
+			mtask.Arn, container.Name, event.Status.String(), containerKnownStatus.String())
 		return
 	}
 
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus
 	container.SetKnownStatus(event.Status)
+	updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
 
 	if event.Error != nil {
 		proceedAnyway := mtask.handleEventError(containerChange, currentKnownStatus)
@@ -328,37 +414,70 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
-	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
-	if container.GetKnownStatus() == api.ContainerStopped && container.IsEssential() {
-		now := mtask.time().Now()
-		ok := mtask.Task.SetExecutionStoppedAt(now)
-		if ok {
-			seelog.Infof("Recording execution stopped time for a task, essential container in task stopped, task %s, time: %s", mtask.Task.String(), now.String())
+	// Update the container health status
+	if container.HealthStatusShouldBeReported() {
+		container.SetHealthStatus(event.Health)
+	}
+
+	mtask.RecordExecutionStoppedAt(container)
+	seelog.Debugf("Managed task [%s]: sending container change event to tcs, container: [%s(%s)], status: %s",
+		mtask.Arn, container.Name, event.DockerID, event.Status.String())
+	err := mtask.containerChangeEventStream.WriteToEventStream(event)
+	if err != nil {
+		seelog.Warnf("Managed task [%s]: failed to write container [%s] change event to tcs event stream: %v",
+			mtask.Arn, container.Name, err)
+	}
+
+	mtask.emitContainerEvent(mtask.Task, container, "")
+	if mtask.UpdateStatus() {
+		seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
+			mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
+		// If knownStatus changed, let it be known
+		mtask.emitTaskEvent(mtask.Task, "")
+	}
+	seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
+		mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
+}
+
+func (mtask *managedTask) emitTaskEvent(task *api.Task, reason string) {
+	event, err := api.NewTaskStateChangeEvent(task, reason)
+	if err != nil {
+		seelog.Infof("Managed task [%s]: unable to create task state change event [%s]: %v",
+			task.Arn, reason, err)
+		return
+	}
+
+	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
+	mtask.stateChangeEvents <- event
+	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
+}
+
+// emitContainerEvent passes a given event up through the containerEvents channel if necessary.
+// It will omit events the backend would not process and will perform best-effort deduplication of events.
+func (mtask *managedTask) emitContainerEvent(task *api.Task, cont *api.Container, reason string) {
+	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
+	if err != nil {
+		seelog.Debugf("Managed task [%s]: unable to create state change event for container [%s]: %v",
+			task.Arn, cont.Name, err)
+		return
+	}
+
+	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
+		mtask.Arn, cont.Name, event.String())
+	mtask.stateChangeEvents <- event
+	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
+		mtask.Arn, cont.Name, event.String())
+}
+
+func (mtask *managedTask) isContainerFound(container *api.Container) bool {
+	found := false
+	for _, c := range mtask.Containers {
+		if container == c {
+			found = true
+			break
 		}
 	}
-
-	seelog.Debugf("Sending container change event to tcs, container: %s, status: %s", event.DockerID, event.Status)
-	err := mtask.engine.containerChangeEventStream.WriteToEventStream(event)
-	if err != nil {
-		seelog.Warnf("Failed to write container change event to event stream, err %v", err)
-	}
-
-	if event.ExitCode != nil && event.ExitCode != container.GetKnownExitCode() {
-		container.SetKnownExitCode(event.ExitCode)
-	}
-	if event.PortBindings != nil {
-		container.KnownPortBindings = event.PortBindings
-	}
-	if event.Volumes != nil {
-		mtask.UpdateMountPoints(container, event.Volumes)
-	}
-
-	mtask.engine.emitContainerEvent(mtask.Task, container, "")
-	if mtask.UpdateStatus() {
-		llog.Debug("Container change also resulted in task change")
-		// If knownStatus changed, let it be known
-		mtask.engine.emitTaskEvent(mtask.Task, "")
-	}
+	return found
 }
 
 // releaseIPInIPAM releases the ip used by the task for awsvpc
@@ -366,11 +485,19 @@ func (mtask *managedTask) releaseIPInIPAM() {
 	if mtask.ENI == nil {
 		return
 	}
-	seelog.Infof("Releasing ip in IPAM for task used eni, task: %s", mtask.Task.Arn)
+	seelog.Infof("Managed task [%s]: IPAM releasing ip for task eni", mtask.Arn)
 
-	err := mtask.engine.releaseIPInIPAM(mtask.Task)
+	cfg, err := mtask.BuildCNIConfig()
 	if err != nil {
-		seelog.Warnf("Releasing the ip in IPAM failed, task: [%s], err: %v", mtask.Task.Arn, err)
+		seelog.Warnf("Managed task [%s]: failed to release ip; unable to build cni configuration: %v",
+			mtask.Arn, err)
+		return
+	}
+	err = mtask.cniClient.ReleaseIPResource(cfg)
+	if err != nil {
+		seelog.Warnf("Managed task [%s]: failed to release ip; IPAM error: %v",
+			mtask.Arn, err)
+		return
 	}
 }
 
@@ -378,20 +505,30 @@ func (mtask *managedTask) releaseIPInIPAM() {
 // transition where a known-stopped container is found to be running again and
 // handles it.
 func (mtask *managedTask) handleStoppedToRunningContainerTransition(status api.ContainerStatus, container *api.Container) {
-	llog := log.New("task", mtask.Task)
 	containerKnownStatus := container.GetKnownStatus()
-	if status <= containerKnownStatus && containerKnownStatus == api.ContainerStopped {
-		if status.IsRunning() {
-			// If the container becomes running after we've stopped it (possibly
-			// because we got an error running it and it ran anyways), the first time
-			// update it to 'known running' so that it will be driven back to stopped
-			mtask.unexpectedStart.Do(func() {
-				llog.Warn("Container that we thought was stopped came back; re-stopping it once")
-				go mtask.engine.transitionContainer(mtask.Task, container, api.ContainerStopped)
-				// This will not proceed afterwards because status <= knownstatus below
-			})
-		}
+	if status > containerKnownStatus {
+		// Event status is greater than container's known status.
+		// This is not a backward transition, return
+		return
 	}
+	if containerKnownStatus != api.ContainerStopped {
+		// Container's known status is not STOPPED. Nothing to do here.
+		return
+	}
+	if !status.IsRunning() {
+		// Container's 'to' transition was not either of RUNNING or RESOURCES_PROVISIONED
+		// states. Nothing to do in this case as well
+		return
+	}
+	// If the container becomes running after we've stopped it (possibly
+	// because we got an error running it and it ran anyways), the first time
+	// update it to 'known running' so that it will be driven back to stopped
+	mtask.unexpectedStart.Do(func() {
+		seelog.Warnf("Managed task [%s]: stopped container [%s] came back; re-stopping it once",
+			mtask.Arn, container.Name)
+		go mtask.engine.transitionContainer(mtask.Task, container, api.ContainerStopped)
+		// This will not proceed afterwards because status <= knownstatus below
+	})
 }
 
 // handleEventError handles a container change event error and decides whether
@@ -402,58 +539,89 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	if container.ApplyingError == nil {
 		container.ApplyingError = api.NewNamedError(event.Error)
 	}
-	if event.Status == api.ContainerStopped {
-		// If we were trying to transition to stopped and had a timeout error
-		// from docker, reset the known status to the current status and return
-		// This ensures that we don't emit a containerstopped event; a
-		// terminal container event from docker event stream will instead be
-		// responsible for the transition. Alternatively, the steadyState check
-		// could also trigger the progress and have another go at stopping the
-		// container
-		if event.Error.ErrorName() == dockerTimeoutErrorName {
-			seelog.Infof("%s for 'docker stop' of container; ignoring state change;  task: %v, container: %v, error: %v",
-				dockerTimeoutErrorName, mtask.Task, container, event.Error.Error())
-			container.SetKnownStatus(currentKnownStatus)
-			return false
-		}
-		// If docker returned a transient error while trying to stop a container,
-		// reset the known status to the current status and return
-		cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
-		if ok && cannotStopContainerError.IsRetriableError() {
-			seelog.Infof("Error stopping the container, ignoring state change; error: %s, task: %v",
-				cannotStopContainerError.Error(), mtask.Task)
-			container.SetKnownStatus(currentKnownStatus)
-			return false
-		}
-
-		// If we were trying to transition to stopped and had an error, we
-		// clearly can't just continue trying to transition it to stopped
-		// again and again... In this case, assume it's stopped (or close
-		// enough) and get on with it
-		// This can happen in cases where the container we tried to stop
-		// was already stopped or did not exist at all.
-		seelog.Warnf("'docker stop' returned %s: %s", event.Error.ErrorName(), event.Error.Error())
-		container.SetKnownStatus(api.ContainerStopped)
-		container.SetDesiredStatus(api.ContainerStopped)
-	} else if event.Status == api.ContainerPulled {
-		// Another special case; a failure to pull might not be fatal if e.g. the image already exists.
-		seelog.Errorf("Error while pulling container %v for task %v, will try to run anyway: %v", container, mtask, event.Error)
-	} else {
-		seelog.Warnf("Error with docker; stopping container %v for task %v: %v", container, mtask, event.Error)
-		// Leave the container known status as it is when encountered transition error,
-		// as we are not sure if the container status changed or not, we will get the actual
-		// status change from the docker event stream
+	switch event.Status {
+	// event.Status is the desired container transition from container's known status
+	// (* -> event.Status)
+	case api.ContainerPulled:
+		// Container's desired transition was to 'PULLED'. A failure to pull might
+		// not be fatal if e.g. the image already exists.
+		seelog.Errorf("Managed task [%s]: Error while pulling container %s, will try to run anyway: %v",
+			mtask.Arn, container.Name, event.Error)
+		// proceed anyway
+		return true
+	case api.ContainerStopped:
+		// Container's desired transition was to 'STOPPED'
+		return mtask.handleContainerStoppedTransitionError(event, container, currentKnownStatus)
+	case api.ContainerStatusNone:
+		fallthrough
+	case api.ContainerCreated:
+		// No need to explicitly stop containers if this is a * -> NONE/CREATED transition
+		seelog.Warnf("Managed task [%s]: Error creating container [%s]; marking its desired status as STOPPED: %v",
+			mtask.Arn, container.Name, event.Error)
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(api.ContainerStopped)
+		return false
+	default:
+		// If this is a * -> RUNNING / RESOURCES_PROVISIONED transition, we need to stop
+		// the container.
+		seelog.Warnf("Managed task [%s]: Error starting/provisioning container[%s]; marking its desired status as STOPPED: %v",
+			mtask.Arn, container.Name, event.Error)
+		container.SetKnownStatus(currentKnownStatus)
+		container.SetDesiredStatus(api.ContainerStopped)
+		errorName := event.Error.ErrorName()
+		if errorName == dockerTimeoutErrorName || errorName == cannotInspectContainerErrorName {
+			// If there's an error with inspecting the container or in case of timeout error,
+			// we'll also assume that the container has transitioned to RUNNING and issue
+			// a stop. See #1043 for details
+			seelog.Warnf("Managed task [%s]: Forcing container [%s] to stop",
+				mtask.Arn, container.Name)
+			go mtask.engine.transitionContainer(mtask.Task, container, api.ContainerStopped)
+		}
 		// Container known status not changed, no need for further processing
 		return false
 	}
-	return true
 }
 
-func (mtask *managedTask) steadyState() bool {
-	taskKnownStatus := mtask.GetKnownStatus()
-	return taskKnownStatus == api.TaskRunning && taskKnownStatus >= mtask.GetDesiredStatus()
+// handleContainerStoppedTransitionError handles an error when transitioning a container to
+// STOPPED. It returns a boolean indicating whether the tak can continue with updating its
+// state
+func (mtask *managedTask) handleContainerStoppedTransitionError(event DockerContainerChangeEvent,
+	container *api.Container,
+	currentKnownStatus api.ContainerStatus) bool {
+	// If we were trying to transition to stopped and had a timeout error
+	// from docker, reset the known status to the current status and return
+	// This ensures that we don't emit a containerstopped event; a
+	// terminal container event from docker event stream will instead be
+	// responsible for the transition. Alternatively, the steadyState check
+	// could also trigger the progress and have another go at stopping the
+	// container
+	if event.Error.ErrorName() == dockerTimeoutErrorName {
+		seelog.Infof("Managed task [%s]: '%s' error stopping container [%s]. Ignoring state change: %v",
+			mtask.Arn, dockerTimeoutErrorName, container.Name, event.Error.Error())
+		container.SetKnownStatus(currentKnownStatus)
+		return false
+	}
+	// If docker returned a transient error while trying to stop a container,
+	// reset the known status to the current status and return
+	cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
+	if ok && cannotStopContainerError.IsRetriableError() {
+		seelog.Infof("Managed task [%s]: Error stopping the container [%s]. Ignoring state change: %v",
+			mtask.Arn, container.Name, cannotStopContainerError.Error())
+		container.SetKnownStatus(currentKnownStatus)
+		return false
+	}
+
+	// If we were trying to transition to stopped and had an error, we
+	// clearly can't just continue trying to transition it to stopped
+	// again and again. In this case, assume it's stopped (or close
+	// enough) and get on with it
+	// This can happen in cases where the container we tried to stop
+	// was already stopped or did not exist at all.
+	seelog.Warnf("Managed task [%s]: 'docker stop' for container [%s] returned %s: %s",
+		mtask.Arn, container.Name, event.Error.ErrorName(), event.Error.Error())
+	container.SetKnownStatus(api.ContainerStopped)
+	container.SetDesiredStatus(api.ContainerStopped)
+	return true
 }
 
 // progressContainers tries to step forwards all containers that are able to be
@@ -463,17 +631,17 @@ func (mtask *managedTask) steadyState() bool {
 // docker completes.
 // Container changes may also prompt the task status to change as well.
 func (mtask *managedTask) progressContainers() {
-	seelog.Debugf("Progressing task: %s", mtask.Task.String())
+	seelog.Debugf("Managed task [%s]: progressing containers in task", mtask.Arn)
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
-	transitionChange := make(chan bool, len(mtask.Containers))
+	transitionChange := make(chan struct{}, len(mtask.Containers))
 	transitionChangeContainer := make(chan string, len(mtask.Containers))
 
 	anyCanTransition, transitions, reasons := mtask.startContainerTransitions(
 		func(container *api.Container, nextStatus api.ContainerStatus) {
 			mtask.engine.transitionContainer(mtask.Task, container, nextStatus)
-			transitionChange <- true
+			transitionChange <- struct{}{}
 			transitionChangeContainer <- container.Name
 		})
 
@@ -485,17 +653,16 @@ func (mtask *managedTask) progressContainers() {
 	}
 
 	// We've kicked off one or more transitions, wait for them to
-	// complete, but keep reading events as we do.. in fact, we have to for
+	// complete, but keep reading events as we do. in fact, we have to for
 	// transitions to complete
-	mtask.waitForContainerTransitions(transitions, transitionChange, transitionChangeContainer)
-	seelog.Debugf("Done transitioning all containers for task %v", mtask.Task)
+	mtask.waitForContainerTransition(transitions, transitionChange, transitionChangeContainer)
 
 	// update the task status
 	changed := mtask.UpdateStatus()
 	if changed {
-		seelog.Debug("Container change also resulted in task change for task %v", mtask.Task)
+		seelog.Debugf("Managed task [%s]: container change also resulted in task change", mtask.Arn)
 		// If knownStatus changed, let it be known
-		mtask.engine.emitTaskEvent(mtask.Task, "")
+		mtask.emitTaskEvent(mtask.Task, "")
 	}
 }
 
@@ -503,17 +670,15 @@ func (mtask *managedTask) progressContainers() {
 // was caused by waiting for credentials and start waiting
 func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bool {
 	for _, reason := range reasons {
-		if reason == dependencygraph.UnableTransitionExecutionCredentialsNotResolved {
-			seelog.Debugf("Waiting for credentials to pull from ECR, task: %s", mtask.Task.String())
+		if reason == dependencygraph.CredentialsNotResolvedErr {
+			seelog.Debugf("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
 
-			maxWait := make(chan bool, 1)
-			timer := mtask.time().AfterFunc(waitForPullCredentialsTimeout, func() {
-				maxWait <- true
-			})
-			// Have a timeout in case we missed the acs message but the credentials
-			// were already in the credentials manager
-			if !mtask.waitEvent(maxWait) {
-				timer.Stop()
+			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForPullCredentialsTimeout)
+			defer timeoutCancel()
+
+			timedOut := mtask.waitEvent(timeoutCtx.Done())
+			if timedOut {
+				seelog.Debugf("Managed task [%s]: timed out waiting for acs credentials message", mtask.Arn)
 			}
 			return true
 		}
@@ -534,11 +699,30 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 			reasons = append(reasons, transition.reason)
 			continue
 		}
+
+		// If the container is already in a transition, skip
+		if transition.actionRequired && !cont.SetAppliedStatus(transition.nextState) {
+			// At least one container is able to be moved forwards, so we're not deadlocked
+			anyCanTransition = true
+			continue
+		}
+
 		// At least one container is able to be moved forwards, so we're not deadlocked
 		anyCanTransition = true
 
 		if !transition.actionRequired {
-			mtask.handleContainerChange(dockerContainerChange{cont, DockerContainerChangeEvent{Status: transition.nextState}})
+			// Updating the container status without calling any docker API, send in
+			// a goroutine so that it won't block here before the waitForContainerTransition
+			// was called after this function. And all the events sent to mtask.dockerMessages
+			// will be handled by handleContainerChange.
+			go func(cont *api.Container, status api.ContainerStatus) {
+				mtask.dockerMessages <- dockerContainerChange{
+					container: cont,
+					event: DockerContainerChangeEvent{
+						Status: status,
+					},
+				}
+			}(cont, transition.nextState)
 			continue
 		}
 		transitions[cont.Name] = transition.nextState
@@ -554,7 +738,7 @@ type containerTransitionFunc func(container *api.Container, nextStatus api.Conta
 // It returns a transition struct including the information:
 // * container state it should transition to,
 // * a bool indicating whether any action is required
-// * an error indicate why this transition can't happend
+// * an error indicating why this transition can't happen
 //
 // 'Stopped, false, ""' -> "You can move it to known stopped, but you don't have to call a transition function"
 // 'Running, true, ""' -> "You can move it to running and you need to call the transition function"
@@ -568,24 +752,28 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 	containerDesiredStatus := container.GetDesiredStatus()
 
 	if containerKnownStatus == containerDesiredStatus {
-		seelog.Debugf("Container at desired status, desired status: %s, container: %s", containerDesiredStatus, container.String())
+		seelog.Debugf("Managed task [%s]: container [%s] at desired status: %s",
+			mtask.Arn, container.Name, containerDesiredStatus.String())
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
-			reason:         dependencygraph.UnableTransitionContainerPassedDesiredStatus,
+			reason:         dependencygraph.ContainerPastDesiredStatusErr,
 		}
 	}
 
 	if containerKnownStatus > containerDesiredStatus {
-		seelog.Debugf("Container transitioned, desired status: %s, container: %s", containerDesiredStatus, container.String())
+		seelog.Debugf("Managed task [%s]: container [%s] has already transitioned beyond desired status(%s): %s",
+			mtask.Arn, container.Name, containerKnownStatus.String(), containerDesiredStatus.String())
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
-			reason:         dependencygraph.UnableTransitionContainerPassedDesiredStatus,
+			reason:         dependencygraph.ContainerPastDesiredStatusErr,
 		}
 	}
-	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers, mtask.Task.GetExecutionCredentialsID(), mtask.engine.credentialsManager); err != nil {
-		seelog.Debug("Can not apply state to container yet; dependencies unresolved, container: %s, task: %s, err: %v", container.String(), mtask.Task.Arn, err)
+	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
+		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager); err != nil {
+		seelog.Debugf("Managed task [%s]: can't apply state to container [%s] yet due to unresolved dependencies: %v",
+			mtask.Arn, container.Name, err)
 		return &containerTransition{
 			nextState:      api.ContainerStatusNone,
 			actionRequired: false,
@@ -615,45 +803,36 @@ func (mtask *managedTask) containerNextState(container *api.Container) *containe
 }
 
 func (mtask *managedTask) onContainersUnableToTransitionState() {
-	log.Crit("Task in a bad state; it's not steadystate but no containers want to transition", "task", mtask.Task)
+	seelog.Criticalf("Managed task [%s]: task in a bad state; it's not steadystate but no containers want to transition",
+		mtask.Arn)
 	if mtask.GetDesiredStatus().Terminal() {
 		// Ack, really bad. We want it to stop but the containers don't think
-		// that's possible... let's just break out and hope for the best!
-		log.Crit("The state is so bad that we're just giving up on it")
+		// that's possible. let's just break out and hope for the best!
+		seelog.Criticalf("Managed task [%s]: The state is so bad that we're just giving up on it", mtask.Arn)
 		mtask.SetKnownStatus(api.TaskStopped)
-		mtask.engine.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
+		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
 	} else {
-		log.Crit("Moving task to stopped due to bad state", "task", mtask.Task)
+		seelog.Criticalf("Managed task [%s]: moving task to stopped due to bad state", mtask.Arn)
 		mtask.handleDesiredStatusChange(api.TaskStopped, 0)
 	}
 }
 
-func (mtask *managedTask) waitForContainerTransitions(transitions map[string]api.ContainerStatus, transitionChange <-chan bool, transitionChangeContainer <-chan string) {
-	for len(transitions) > 0 {
-		if mtask.waitEvent(transitionChange) {
-			changedContainer := <-transitionChangeContainer
-			log.Debug("Transition for container finished", "task", mtask.Task, "container", changedContainer)
-			delete(transitions, changedContainer)
-			log.Debug("Still waiting for", "map", transitions)
-		}
-		if mtask.GetDesiredStatus().Terminal() || mtask.GetKnownStatus().Terminal() {
-			allWaitingOnPulled := true
-			for _, desired := range transitions {
-				if desired != api.ContainerPulled {
-					allWaitingOnPulled = false
-				}
-			}
-			if allWaitingOnPulled {
-				// We don't actually care to wait for 'pull' transitions to finish if
-				// we're just heading to stopped since those resources aren't
-				// inherently linked to this task anyways for e.g. gc and so on.
-				log.Debug("All waiting is for pulled transition; exiting early",
-					"map", transitions, "task", mtask.Task)
-				break
-			}
-		}
+func (mtask *managedTask) waitForContainerTransition(transitions map[string]api.ContainerStatus,
+	transition <-chan struct{},
+	transitionChangeContainer <-chan string) {
+	// There could be multiple transitions, but we just need to wait for one of them
+	// to ensure that there is at least one container can be processed in the next
+	// progressContainers. This is done by waiting for one transition/acs/docker message.
+	if !mtask.waitEvent(transition) {
+		seelog.Debugf("Managed task [%s]: received non-transition events", mtask.Arn)
+		return
 	}
+	transitionedContainer := <-transitionChangeContainer
+	seelog.Debugf("Managed task [%s]: transition for container[%s] finished",
+		mtask.Arn, transitionedContainer)
+	delete(transitions, transitionedContainer)
+	seelog.Debugf("Managed task [%s]: still waiting for: %v", mtask.Arn, transitions)
 }
 
 func (mtask *managedTask) time() ttime.Time {
@@ -670,14 +849,15 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
 	// value in this case in favor of the default config value.
 	if cleanupTimeDuration < 0 {
-		log.Debug("Task Cleanup Duration is too short. Resetting to " + config.DefaultTaskCleanupWaitDuration.String())
+		seelog.Debugf("Managed task [%s]: Cleanup Duration is too short. Resetting to: %s",
+			mtask.Arn, config.DefaultTaskCleanupWaitDuration.String())
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
 	cleanupTime := mtask.time().After(cleanupTimeDuration)
-	cleanupTimeBool := make(chan bool)
+	cleanupTimeBool := make(chan struct{})
 	go func() {
 		<-cleanupTime
-		cleanupTimeBool <- true
+		cleanupTimeBool <- struct{}{}
 		close(cleanupTimeBool)
 	}()
 	// wait for the cleanup time to elapse, signalled by cleanupTimeBool
@@ -687,11 +867,12 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// wait for api.TaskStopped to be sent
 	ok := mtask.waitForStopReported()
 	if !ok {
-		seelog.Errorf("Aborting cleanup for task %v as it is not reported stopped.  SentStatus: %v", mtask, mtask.GetSentStatus())
+		seelog.Errorf("Managed task [%s]: Aborting cleanup for task as it is not reported as stopped. SentStatus: %s",
+			mtask.Arn, mtask.GetSentStatus().String())
 		return
 	}
 
-	log.Info("Cleaning up task's containers and data", "task", mtask.Task)
+	seelog.Infof("Managed task [%s]: cleaning up task's containers and data", mtask.Arn)
 
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks
@@ -699,29 +880,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// discard events while the task is being removed from engine state
 	go mtask.discardEventsUntil(handleCleanupDone)
 	mtask.engine.sweepTask(mtask.Task)
-
-	if mtask.engine.cfg.TaskCPUMemLimit.Enabled() {
-		err := mtask.resource.Cleanup(mtask.Task)
-		if err != nil {
-			seelog.Warnf("Unable to cleanup platform resources for task %s: %v", mtask.Task.Arn, err)
-		}
-	}
-
-	// Now remove ourselves from the global state and cleanup channels
-	mtask.engine.processTasks.Lock()
-	mtask.engine.state.RemoveTask(mtask.Task)
-	eni := mtask.Task.GetTaskENI()
-	if eni == nil {
-		seelog.Debugf("No eni associated with task: [%s]", mtask.Task.String())
-	} else {
-		seelog.Debugf("Removing the eni from agent state, task: [%s]", mtask.Task.String())
-		mtask.engine.state.RemoveENIAttachment(eni.MacAddress)
-	}
-	seelog.Debugf("Finished removing task data, removing task from managed tasks: %v", mtask.Task)
-	delete(mtask.engine.managedTasks, mtask.Arn)
-	handleCleanupDone <- struct{}{}
-	mtask.engine.processTasks.Unlock()
-	mtask.engine.saver.Save()
+	mtask.engine.deleteTask(mtask.Task, handleCleanupDone)
 
 	// Cleanup any leftover messages before closing their channels. No new
 	// messages possible because we deleted ourselves from managedTasks, so this
@@ -754,13 +913,10 @@ func (mtask *managedTask) discardPendingMessages() {
 	}
 }
 
-var _stoppedSentWaitInterval = stoppedSentWaitInterval
-var _maxStoppedWaitTimes = int(maxStoppedWaitTimes)
-
 // waitForStopReported will wait for the task to be reported stopped and return true, or will time-out and return false.
 // Messages on the mtask.dockerMessages and mtask.acsMessages channels will be handled while this function is waiting.
 func (mtask *managedTask) waitForStopReported() bool {
-	stoppedSentBool := make(chan bool)
+	stoppedSentBool := make(chan struct{})
 	taskStopped := false
 	go func() {
 		for i := 0; i < _maxStoppedWaitTimes; i++ {
@@ -770,10 +926,11 @@ func (mtask *managedTask) waitForStopReported() bool {
 				taskStopped = true
 				break
 			}
-			seelog.Warnf("Blocking cleanup for task %v until the task has been reported stopped. SentStatus: %v (%d/%d)", mtask, sentStatus, i+1, _maxStoppedWaitTimes)
+			seelog.Warnf("Managed task [%s]: Blocking cleanup until the task has been reported stopped. SentStatus: %s (%d/%d)",
+				mtask.Arn, sentStatus.String(), i+1, _maxStoppedWaitTimes)
 			mtask._time.Sleep(_stoppedSentWaitInterval)
 		}
-		stoppedSentBool <- true
+		stoppedSentBool <- struct{}{}
 		close(stoppedSentBool)
 	}()
 	// wait for api.TaskStopped to be sent

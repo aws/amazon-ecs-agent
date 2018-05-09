@@ -16,27 +16,45 @@
 package resources
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
 	"github.com/pkg/errors"
 )
 
+const (
+	memorySubsystem         = "/memory"
+	memoryUseHierarchy      = "memory.use_hierarchy"
+	rootReadOnlyPermissions = os.FileMode(400)
+)
+
+var (
+	enableMemoryHierarchy = []byte(strconv.Itoa(1))
+)
+
 // cgroupWrapper implements the Resource interface
 type cgroupWrapper struct {
-	control cgroup.Control
+	control    cgroup.Control
+	ioutil     ioutilwrapper.IOUtil
+	cgroupPath string
 }
 
 // New is used to return an object that implements the Resource interface
 func New() Resource {
-	return newResources(cgroup.New())
+	return newResources(cgroup.New(), ioutilwrapper.NewIOUtil())
 }
 
-func newResources(control cgroup.Control) Resource {
+func newResources(control cgroup.Control, ioutil ioutilwrapper.IOUtil) Resource {
 	return &cgroupWrapper{
 		control: control,
+		ioutil:  ioutil,
 	}
 }
 
@@ -55,16 +73,22 @@ func (c *cgroupWrapper) Cleanup(task *api.Task) error {
 	return c.cleanupCgroup(task)
 }
 
+func (c *cgroupWrapper) ApplyConfigDependencies(cfg *config.Config) {
+	c.cgroupPath = cfg.CgroupPath
+}
+
 // cgroupInit is used to create the root '/ecs/ cgroup
 func (c *cgroupWrapper) cgroupInit() error {
 	if c.control.Exists(config.DefaultTaskCgroupPrefix) {
 		seelog.Debugf("Cgroup at %s already exists, skipping creation", config.DefaultTaskCgroupPrefix)
 		return nil
 	}
+
 	return c.control.Init()
 }
 
 // setupCgroup is used to create the task cgroup
+// and enable memory.use_hierarchy at the '/ecs/<task-id>' level
 func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
@@ -91,6 +115,13 @@ func (c *cgroupWrapper) setupCgroup(task *api.Task) error {
 	_, err = c.control.Create(&cgroupSpec)
 	if err != nil {
 		return errors.Wrapf(err, "resource: setup cgroup: unable to create cgroup at %s for task: %s", cgroupRoot, task.Arn)
+	}
+
+	// echo 1 > memory.use_hierarchy
+	memoryHierarchyPath := filepath.Join(c.cgroupPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
+	err = c.ioutil.WriteFile(memoryHierarchyPath, enableMemoryHierarchy, rootReadOnlyPermissions)
+	if err != nil {
+		return errors.Wrapf(err, "resource: setup cgroup: unable to set use hierarchy flag")
 	}
 
 	return nil

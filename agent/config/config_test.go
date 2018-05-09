@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -69,6 +69,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_RESERVED_PORTS_UDP", "[42,99]")()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "60s")()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "5m")()
 	defer setTestEnv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")()
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
 	defer setTestEnv("ECS_APPARMOR_CAPABLE", "true")()
@@ -82,6 +83,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")()
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
+	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -94,8 +96,10 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(99))
 	assert.Equal(t, uint16(20), conf.ReservedMemory)
-	expectedDuration, _ := time.ParseDuration("60s")
-	assert.Equal(t, expectedDuration, conf.DockerStopTimeout)
+	expectedDurationDockerStopTimeout, _ := time.ParseDuration("60s")
+	assert.Equal(t, expectedDurationDockerStopTimeout, conf.DockerStopTimeout)
+	expectedDurationContainerStartTimeout, _ := time.ParseDuration("5m")
+	assert.Equal(t, expectedDurationContainerStartTimeout, conf.ContainerStartTimeout)
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
 	assert.True(t, conf.PrivilegedDisabled)
 	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
@@ -115,6 +119,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))
 	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost, "Wrong value for DataDirOnHost")
 	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
+	assert.Equal(t, 1000, conf.TaskMetadataSteadyStateRate)
+	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -169,26 +175,84 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
 }
 
+func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.False(t, conf.Checkpoint)
+}
+
+func TestDefaultCheckpointWithECSDataDir(t *testing.T) {
+	defer setTestEnv("ECS_DATADIR", "/some/dir")()
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.True(t, conf.Checkpoint)
+}
+
+func TestCheckpointWithoutECSDataDir(t *testing.T) {
+	defer setTestEnv("ECS_CHECKPOINT", "true")()
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.True(t, conf.Checkpoint)
+}
+
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
-	conf, err := environmentConfig()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
-	assert.Zero(t, conf.DockerStopTimeout, "Wrong value for DockerStopTimeout")
+	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
 
-func TestInvalideValueDockerStopTimeout(t *testing.T) {
+func TestZeroValueDockerStopTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "0s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
+}
+
+func TestInvalidValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")()
-	conf, err := environmentConfig()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
-	assert.Zero(t, conf.DockerStopTimeout)
+	assert.Equal(t, conf.DockerStopTimeout, minimumDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
 
-func TestInvalidDockerStopTimeout(t *testing.T) {
-	conf := DefaultConfig()
-	conf.DockerStopTimeout = -1 * time.Second
-	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with negative DockerStopTimeout")
+func TestInvalidFormatContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "invalid")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestZeroValueContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "0s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestInvalidValueContainerStartTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ContainerStartTimeout, minimumContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
@@ -227,7 +291,7 @@ func TestInvalidTaskCleanupTimeoutOverridesToThreeHours(t *testing.T) {
 
 	// If an invalid value is set, the config should pick up the default value for
 	// cleaning up the task.
-	assert.Equal(t, cfg.TaskCleanupWaitDuration, 3*time.Hour, "Defualt task cleanup wait duration set incorrectly")
+	assert.Equal(t, cfg.TaskCleanupWaitDuration, 3*time.Hour, "Default task cleanup wait duration set incorrectly")
 }
 
 func TestTaskCleanupTimeout(t *testing.T) {
@@ -334,6 +398,74 @@ func TestAWSLogsExecutionRole(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
 	assert.True(t, conf.OverrideAWSLogsExecutionRole)
+}
+
+func TestTaskMetadataRPSLimits(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		envVarVal               string
+		expectedSteadyStateRate int
+		expectedBurstRate       int
+	}{
+		{
+			name:                    "negative limit values",
+			envVarVal:               "-10,-10",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "negative limit,valid burst",
+			envVarVal:               "-10,10",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "missing limit,valid burst",
+			envVarVal:               " ,10",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "valid limit,missing burst",
+			envVarVal:               "10,",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "empty variable",
+			envVarVal:               "",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "missing burst",
+			envVarVal:               "10",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "more than expected values",
+			envVarVal:               "10,10,10",
+			expectedSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+			expectedBurstRate:       DefaultTaskMetadataBurstRate,
+		},
+		{
+			name:                    "values with spaces",
+			envVarVal:               "  10 ,5  ",
+			expectedSteadyStateRate: 10,
+			expectedBurstRate:       5,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", tc.envVarVal)()
+			defer setTestRegion()()
+			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedSteadyStateRate, cfg.TaskMetadataSteadyStateRate)
+			assert.Equal(t, tc.expectedBurstRate, cfg.TaskMetadataBurstRate)
+		})
+	}
 }
 
 func setTestRegion() func() {

@@ -32,15 +32,16 @@ import (
 )
 
 const (
-	defaultExecDriverPath = "/var/run/docker/execdriver"
-	logdir                = "/log"
-	datadir               = "/data"
-	ExecDriverDir         = "/var/lib/docker/execdriver"
-	defaultCgroupPath     = "/cgroup"
-	cacheDirectory        = "/var/cache/ecs"
-	configDirectory       = "/etc/ecs"
-	readOnly              = ":ro"
-	dockerEndpoint        = "/var/run/docker.sock"
+	defaultExecDriverPath       = "/var/run/docker/execdriver"
+	logdir                      = "/log"
+	datadir                     = "/data"
+	ExecDriverDir               = "/var/lib/docker/execdriver"
+	defaultCgroupPath           = "/cgroup"
+	defaultCgroupPathAgentMount = "/sys/fs/cgroup"
+	cacheDirectory              = "/var/cache/ecs"
+	configDirectory             = "/etc/ecs"
+	readOnly                    = ":ro"
+	dockerEndpoint              = "/var/run"
 )
 
 var ECS *ecs.ECS
@@ -190,6 +191,20 @@ func (agent *TestAgent) StartAgent() error {
 			hostConfig.PortBindings[key] = []docker.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
 			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
+
+		if agent.Options.EnableTaskENI {
+			dockerConfig.Env = append(dockerConfig.Env, "ECS_ENABLE_TASK_ENI=true")
+			hostConfig.Binds = append(hostConfig.Binds,
+				"/lib64:/lib64:ro",
+				"/proc:/host/proc:ro",
+				"/var/lib/ecs/dhclient:/var/lib/ecs/dhclient",
+				"/sbin:/sbin:ro",
+			)
+			hostConfig.CapAdd = []string{"NET_ADMIN", "SYS_ADMIN"}
+			hostConfig.Init = true
+			hostConfig.NetworkMode = "host"
+		}
+
 	}
 
 	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{
@@ -227,7 +242,7 @@ func (agent *TestAgent) StartAgent() error {
 func (agent *TestAgent) getBindMounts() []string {
 	var binds []string
 	cgroupPath := utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
-	cgroupBind := cgroupPath + ":" + cgroupPath + readOnly
+	cgroupBind := cgroupPath + ":" + defaultCgroupPathAgentMount
 	binds = append(binds, cgroupBind)
 
 	execdriverPath := utils.DefaultIfBlank(os.Getenv("EXECDRIVER_PATH"), defaultExecDriverPath)

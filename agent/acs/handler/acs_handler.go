@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -74,7 +74,7 @@ type Session interface {
 }
 
 // session encapsulates all arguments needed by the handler to connect to ACS
-// and to handle messages recieved by ACS. The Session.Start() method can be used
+// and to handle messages received by ACS. The Session.Start() method can be used
 // to start processing messages from ACS.
 type session struct {
 	containerInstanceARN            string
@@ -429,6 +429,7 @@ func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, 
 		if err := client.Close(); err != nil {
 			seelog.Warnf("Error disconnecting: %v", err)
 		}
+		seelog.Info("Disconnected from ACS")
 	})
 
 	return timer

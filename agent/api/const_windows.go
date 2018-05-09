@@ -15,4 +15,5 @@
 
 package api
 
+// OSType is the type of operating system where agent is running
 const OSType = "windows"

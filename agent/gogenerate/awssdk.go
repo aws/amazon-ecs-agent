@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -143,38 +144,44 @@ func genFull(file string) error {
 	}
 	api.Setup()
 
-	processedApiCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.APIGoCode())), nil)
+	if err := genFile(api, api.APIGoCode(), "api.go"); err != nil {
+		return err
+	}
+
+	if err := genFile(api, api.ServiceGoCode(), "service.go"); err != nil {
+		return err
+	}
+
+	if err := genFile(api, api.APIErrorsGoCode(), "errors.go"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func genFile(api *api.API, code string, fileName string) error {
+	processedCode, err := imports.Process("",
+		[]byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), code)),
+		nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error processing file imports: ", err)
 		return err
 	}
 	// Ignore dir error, filepath will catch it for an invalid path.
 	os.Mkdir(api.PackageName(), 0755)
-	outFile := filepath.Join(api.PackageName(), "api.go")
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedApiCode)), 0644)
+	outFile, err := os.Create(filepath.Join(api.PackageName(), fileName))
 	if err != nil {
+		fmt.Println("Error creating file: ", err)
 		return err
 	}
-
-	processedServiceCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.ServiceGoCode())), nil)
+	defer outFile.Close()
+	withHeader := fmt.Sprintf("%s\n%s", copyrightHeader, processedCode)
+	goimports := exec.Command("goimports")
+	goimports.Stdin = bytes.NewBufferString(withHeader)
+	goimports.Stdout = outFile
+	err = goimports.Run()
 	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	outFile = filepath.Join(api.PackageName(), "service.go")
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedServiceCode)), 0644)
-	if err != nil {
-		return err
-	}
-
-	processedErrorCode, err := imports.Process("", []byte(fmt.Sprintf("package %s\n\n%s", api.PackageName(), api.APIErrorsGoCode())), nil)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	outFile = filepath.Join(api.PackageName(), "errors.go")
-	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, processedErrorCode)), 0644)
-	if err != nil {
+		fmt.Println("Error running goimports: ", err)
 		return err
 	}
 

@@ -14,12 +14,15 @@
 # Prepare dependencies
 Invoke-Expression "${PSScriptRoot}\..\misc\volumes-test\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
+Invoke-Expression "${PSScriptRoot}\..\misc\stats-windows\build.ps1"
+Invoke-Expression "${PSScriptRoot}\..\misc\container-health-windows\build.ps1"
+Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
 
 # Run the tests
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -race -tags integration -timeout=15m -v ../agent/engine ../agent/stats ../agent/app
+  go test -race -tags integration -timeout=20m -v ../agent/engine ../agent/stats ../agent/app
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"

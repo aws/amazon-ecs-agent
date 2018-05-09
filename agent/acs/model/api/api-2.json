@@ -19,7 +19,8 @@
         "requestUri":"/"
       },
       "input":{"shape":"AttachTaskNetworkInterfacesMessage"},
-      "output":{"shape":"AckRequest"}
+      "output":{"shape":"AckRequest"},
+      "documentation":"AttachNetworkInterface requests that the Agent look for and confirm the attachment of a network interface by the control plane."
     },
     "Error":{
       "name":"Error",
@@ -35,7 +36,8 @@
         "method":"POST",
         "requestUri":"/"
       },
-      "input":{"shape":"HeartbeatMessage"}
+      "input":{"shape":"HeartbeatMessage"},
+      "documentation":"Heartbeat is a periodic message that informs the agent all is well."
     },
     "Payload":{
       "name":"Payload",
@@ -44,7 +46,8 @@
         "requestUri":"/"
       },
       "input":{"shape":"PayloadMessage"},
-      "output":{"shape":"AckRequest"}
+      "output":{"shape":"AckRequest"},
+      "documentation":"Payload requests the Agent parse and launch a given Payload. In response, the Agent will 'ack' the request it recieved after procesing it."
     },
     "PerformUpdate":{
       "name":"PerformUpdate",
@@ -70,7 +73,8 @@
         {"shape":"AccessDeniedException"},
         {"shape":"InvalidInstanceException"},
         {"shape":"InactiveInstanceException"}
-      ]
+      ],
+      "documentation":"Poll is the (increasingly poorly named) method by which the agent creates an initial long-lasting connection over which more specific operations are performed. More accurately, this would be named \"StartSession\""
     },
     "RefreshTaskIAMRoleCredentials":{
       "name":"RefreshTaskIAMRoleCredentials",
@@ -166,6 +170,7 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
+        "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"}
       }
@@ -201,7 +206,8 @@
         "ipv4Addresses":{"shape":"IPv4AddressList"},
         "ipv6Addresses":{"shape":"IPv6AddressList"},
         "domainName":{"shape":"StringList"},
-        "domainNameServers":{"shape":"StringList"}
+        "domainNameServers":{"shape":"StringList"},
+        "privateDnsName":{"shape":"String"}
       }
     },
     "ElasticNetworkInterfaceList":{
@@ -218,6 +224,10 @@
       "members":{
         "message":{"shape":"String"}
       }
+    },
+    "HealthCheckType":{
+      "type":"string",
+      "enum":["docker"]
     },
     "HeartbeatMessage":{
       "type":"structure",

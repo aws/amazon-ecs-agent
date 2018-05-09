@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,7 +14,9 @@
 package wsclient
 
 import (
+	"errors"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"sync"
@@ -24,6 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
+	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -35,6 +39,13 @@ import (
 )
 
 const dockerEndpoint = "/var/run/docker.sock"
+
+// Close closes the underlying connection. Implement Close() in this file
+// as ClientServerImpl doesn't implement it. This is needed by the
+// TestSetReadDeadline* tests
+func (cs *ClientServerImpl) Close() error {
+	return cs.Disconnect()
+}
 
 // TestConcurrentWritesDontPanic will force a panic in the websocket library if
 // the implemented methods don't handle concurrency correctly
@@ -74,6 +85,22 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 
 	t.Log("Waiting for all 20 requests to succeed")
 	waitForRequests.Wait()
+}
+
+func getClientServer(url string) *ClientServerImpl {
+	types := []interface{}{ecsacs.AckRequest{}}
+
+	return &ClientServerImpl{
+		URL: url,
+		AgentConfig: &config.Config{
+			AcceptInsecureCert: true,
+			AWSRegion:          "us-east-1",
+			DockerEndpoint:     "unix://" + dockerEndpoint,
+		},
+		CredentialProvider: credentials.AnonymousCredentials,
+		TypeDecoder:        BuildTypeDecoder(types),
+		RWTimeout:          time.Second,
+	}
 }
 
 // TestProxyVariableCustomValue ensures that a user is able to override the
@@ -211,18 +238,29 @@ func TestWebsocketScheme(t *testing.T) {
 	assert.Error(t, err, "Expected error for invalid http scheme")
 }
 
-func getClientServer(url string) *ClientServerImpl {
-	types := []interface{}{ecsacs.AckRequest{}}
+func TestSetReadDeadlineClosedConnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	return &ClientServerImpl{
-		URL: url,
-		AgentConfig: &config.Config{
-			AcceptInsecureCert: true,
-			AWSRegion:          "us-east-1",
-			DockerEndpoint:     "unix://" + dockerEndpoint,
-		},
-		CredentialProvider: credentials.AnonymousCredentials,
-		TypeDecoder:        BuildTypeDecoder(types),
-		RWTimeout:          time.Second,
-	}
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	cs := &ClientServerImpl{conn: conn}
+
+	opErr := &net.OpError{Err: errors.New(errClosed)}
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(opErr)
+	assert.EqualError(t, cs.ConsumeMessages(), opErr.Error())
+}
+
+func TestSetReadDeadlineError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	cs := &ClientServerImpl{conn: conn}
+
+	gomock.InOrder(
+		conn.EXPECT().SetReadDeadline(gomock.Any()).Return(errors.New("error")),
+		conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil),
+		conn.EXPECT().Close().Return(nil),
+	)
+	assert.Error(t, cs.ConsumeMessages())
 }

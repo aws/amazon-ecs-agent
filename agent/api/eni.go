@@ -34,10 +34,38 @@ type ENI struct {
 	MacAddress string
 	// DomainNameServers specifies the nameserver IP addresses for
 	// the eni
-	DomainNameServers []string `json:"omitempty"`
+	DomainNameServers []string `json:",omitempty"`
 	// DomainNameSearchList specifies the search list for the domain
 	// name lookup, for the eni
-	DomainNameSearchList []string `json:"omitempty"`
+	DomainNameSearchList []string `json:",omitempty"`
+
+	// PrivateDNSName is the dns name assigned by the vpc to this eni
+	PrivateDNSName string `json:",omitempty"`
+}
+
+// GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
+func (eni *ENI) GetIPV4Addresses() []string {
+	var addresses []string
+	for _, addr := range eni.IPV4Addresses {
+		addresses = append(addresses, addr.Address)
+	}
+
+	return addresses
+}
+
+// GetIPV6Addresses returns a list of ipv6 addresses allocated to the ENI
+func (eni *ENI) GetIPV6Addresses() []string {
+	var addresses []string
+	for _, addr := range eni.IPV6Addresses {
+		addresses = append(addresses, addr.Address)
+	}
+
+	return addresses
+}
+
+// GetHostname returns the hostname assigned to the ENI
+func (eni *ENI) GetHostname() string {
+	return eni.PrivateDNSName
 }
 
 // String returns a human readable version of the ENI object
@@ -51,8 +79,8 @@ func (eni *ENI) String() string {
 		ipv6Addresses = append(ipv6Addresses, addr.Address)
 	}
 	return fmt.Sprintf(
-		"eni id:%s, mac: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s]",
-		eni.ID, eni.MacAddress, strings.Join(ipv4Addresses, ","), strings.Join(ipv6Addresses, ","),
+		"eni id:%s, mac: %s, hostname: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s]",
+		eni.ID, eni.MacAddress, eni.GetHostname(), strings.Join(ipv4Addresses, ","), strings.Join(ipv6Addresses, ","),
 		strings.Join(eni.DomainNameServers, ","), strings.Join(eni.DomainNameSearchList, ","))
 }
 
@@ -96,10 +124,11 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	}
 
 	eni := &ENI{
-		ID:            aws.StringValue(acsenis[0].Ec2Id),
-		IPV4Addresses: ipv4,
-		IPV6Addresses: ipv6,
-		MacAddress:    aws.StringValue(acsenis[0].MacAddress),
+		ID:             aws.StringValue(acsenis[0].Ec2Id),
+		IPV4Addresses:  ipv4,
+		IPV6Addresses:  ipv6,
+		MacAddress:     aws.StringValue(acsenis[0].MacAddress),
+		PrivateDNSName: aws.StringValue(acsenis[0].PrivateDnsName),
 	}
 	for _, nameserverIP := range acsenis[0].DomainNameServers {
 		eni.DomainNameServers = append(eni.DomainNameServers, aws.StringValue(nameserverIP))

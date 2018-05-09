@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM gcc:4.9
+FROM gcc:6.4
 MAINTAINER Amazon Web Services, Inc.
 
 RUN mkdir /out

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,6 +15,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -26,9 +27,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
+	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const dockerIDPrefix = "dockerid-"
@@ -223,57 +227,6 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
 
-func TestDockerHostConfigRawConfigMerging(t *testing.T) {
-	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
-	rawHostConfigInput := struct {
-		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
-		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
-	}{
-		Privileged:  true,
-		SecurityOpt: []string{"foo", "bar"},
-	}
-
-	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testTask := &Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		Family:  "myFamily",
-		Version: "1",
-		Containers: []*Container{
-			{
-				Name:        "c1",
-				Image:       "image",
-				CPU:         50,
-				Memory:      100,
-				VolumesFrom: []VolumeFrom{{SourceContainer: "c2"}},
-				DockerConfig: DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
-				},
-			},
-			{
-				Name: "c2",
-			},
-		},
-	}
-
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	assert.Nil(t, configErr)
-
-	expected := docker.HostConfig{
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
-	}
-
-	assertSetStructFieldsEqual(t, expected, *hostConfig)
-}
-
 func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask := &Task{
 		ENI: &ENI{
@@ -328,6 +281,21 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"169.254.169.253"}, config.DNS)
 	assert.Equal(t, []string{"us-west-2.compute.internal"}, config.DNSSearch)
+
+	// Verify eni ExtraHosts  added to HostConfig for "pause" container
+	ipaddr := &ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
+	testTask.ENI.IPV4Addresses = []*ENIIPV4Address{ipaddr}
+	testTask.ENI.PrivateDNSName = "eni.ip.region.compute.internal"
+
+	config, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"eni.ip.region.compute.internal:10.0.1.1"}, config.ExtraHosts)
+
+	// Verify eni Hostname is added to DockerConfig for "pause" container
+	dockerconfig, dockerConfigErr := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	assert.Nil(t, dockerConfigErr)
+	assert.Equal(t, "eni.ip.region.compute.internal", dockerconfig.Hostname)
+
 }
 
 func TestBadDockerHostConfigRawConfig(t *testing.T) {
@@ -858,7 +826,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 
 // TestGetEarliestTaskStatusForContainersEmptyTask verifies that
 // `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
-// a task with no contianers
+// a task with no containers
 func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 	testTask := &Task{}
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
@@ -866,7 +834,7 @@ func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 
 // TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
 // `getEarliestKnownTaskStatusForContainers` returns TaskStatusNone when invoked on
-// a task with contianers that do not have the `KnownStatusUnsafe` field set
+// a task with containers that do not have the `KnownStatusUnsafe` field set
 func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: TaskStatusNone,
@@ -1009,7 +977,7 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 	for i := 0; i < reflect.TypeOf(expected).NumField(); i++ {
 		expectedValue := reflect.ValueOf(expected).Field(i)
-		// All the values we actaully expect to see are valid and non-nil
+		// All the values we actually expect to see are valid and non-nil
 		if !expectedValue.IsValid() || ((expectedValue.Kind() == reflect.Map || expectedValue.Kind() == reflect.Slice) && expectedValue.IsNil()) {
 			continue
 		}
@@ -1278,52 +1246,6 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly set// based on the docker client version
-func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
-	memoryMiB := 500
-	testTask := &Task{
-		Containers: []*Container{
-			{
-				Name:   "c1",
-				CPU:    uint(10),
-				Memory: uint(memoryMiB),
-			},
-		},
-	}
-
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	assert.Nil(t, err)
-
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-
-	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
-	if runtime.GOOS == "windows" {
-		assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
-	} else {
-		assert.Equal(t, int64(10), config.CPUShares)
-	}
-	assert.Empty(t, hostconfig.CPUShares)
-	assert.Empty(t, hostconfig.Memory)
-
-	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
-	assert.Nil(t, err)
-
-	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
-	if runtime.GOOS == "windows" {
-		// cpushares is set to zero on windows
-		assert.Empty(t, hostconfig.CPUShares)
-		assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
-	} else {
-		assert.Equal(t, int64(10), hostconfig.CPUShares)
-	}
-
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
-}
-
 // TestSetMinimumMemoryLimit ensures that we set the correct minimum memory limit when the limit is too low
 func TestSetMinimumMemoryLimit(t *testing.T) {
 	testTask := &Task{
@@ -1351,4 +1273,74 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 	assert.Empty(t, config.Memory)
+}
+
+// TestContainerHealthConfig tests that we set the correct container health check config
+func TestContainerHealthConfig(t *testing.T) {
+	testTask := &Task{
+		Containers: []*Container{
+			{
+				Name:            "c1",
+				HealthCheckType: dockerHealthCheckType,
+				DockerConfig: DockerConfig{
+					Config: aws.String(`{
+						"HealthCheck":{
+							"Test":["command"],
+							"Interval":5000000000,
+							"Timeout":4000000000,
+							"StartPeriod":60000000000,
+							"Retries":5}
+					}`),
+				},
+			},
+		},
+	}
+
+	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	require.NotNil(t, config.Healthcheck, "health config was not set in docker config")
+	assert.Equal(t, config.Healthcheck.Test, []string{"command"})
+	assert.Equal(t, config.Healthcheck.Retries, 5)
+	assert.Equal(t, config.Healthcheck.Interval, 5*time.Second)
+	assert.Equal(t, config.Healthcheck.Timeout, 4*time.Second)
+	assert.Equal(t, config.Healthcheck.StartPeriod, 1*time.Minute)
+}
+
+func TestRecordExecutionStoppedAt(t *testing.T) {
+	testCases := []struct {
+		essential             bool
+		status                ContainerStatus
+		executionStoppedAtSet bool
+		msg                   string
+	}{
+		{
+			essential:             true,
+			status:                ContainerStopped,
+			executionStoppedAtSet: true,
+			msg: "essential container stopped should have executionStoppedAt set",
+		},
+		{
+			essential:             false,
+			status:                ContainerStopped,
+			executionStoppedAtSet: false,
+			msg: "non essential container stopped should not cause executionStoppedAt set",
+		},
+		{
+			essential:             true,
+			status:                ContainerRunning,
+			executionStoppedAtSet: false,
+			msg: "essential non-stop status change should not cause executionStoppedAt set",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Container status: %s, essential: %v, executionStoppedAt should be set: %v", tc.status, tc.essential, tc.executionStoppedAtSet), func(t *testing.T) {
+			task := &Task{}
+			task.RecordExecutionStoppedAt(&Container{
+				Essential:         tc.essential,
+				KnownStatusUnsafe: tc.status,
+			})
+			assert.Equal(t, !tc.executionStoppedAtSet, task.GetExecutionStoppedAt().IsZero(), tc.msg)
+		})
+	}
 }

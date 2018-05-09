@@ -23,6 +23,6 @@ func NewLoggingHandler(handler http.Handler) LoggingHandler {
 }
 
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr, "uri", r.RequestURI)
+	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr)
 	lh.h.ServeHTTP(w, r)
 }

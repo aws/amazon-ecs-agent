@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,8 +14,9 @@
 package engine
 
 import (
-	docker "github.com/fsouza/go-dockerclient"
 	"sync"
+
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -23,7 +24,16 @@ const (
 	containerTypeEvent = "container"
 )
 
-var containerEvents = []string{"create", "start", "stop", "die", "restart", "oom"}
+var containerEvents = []string{
+	"create",
+	"start",
+	"stop",
+	"die",
+	"restart",
+	"oom",
+	"health_status: unhealthy",
+	"health_status: healthy",
+}
 
 // InfiniteBuffer defines an unlimited buffer, where it reads from
 // input channel and write to output channel.
@@ -41,6 +51,7 @@ func NewInfiniteBuffer() *InfiniteBuffer {
 }
 
 // StartListening starts reading from the input channel and writes to the buffer
+// TODO: wire in ctx to stop listening
 func (buffer *InfiniteBuffer) StartListening(events chan *docker.APIEvents) {
 	for event := range events {
 		go buffer.CopyEvents(event)

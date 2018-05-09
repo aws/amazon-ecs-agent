@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -33,11 +34,22 @@ const (
 	minimumCPUPercent = 1
 )
 
+// platformFields consists of fields specific to Windows for a task
+type platformFields struct {
+	// cpuUnbounded determines whether a mix of unbounded and bounded CPU tasks
+	// are allowed to run in the instance
+	cpuUnbounded bool
+}
+
 var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.downcaseAllVolumePaths()
+	platformFields := platformFields{
+		cpuUnbounded: cfg.PlatformVariables.CPUUnbounded,
+	}
+	task.platformFields = platformFields
 }
 
 // downcaseAllVolumePaths forces all volume paths (host path and container path)
@@ -68,8 +80,11 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
 	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
-	if hostConfig.CPUPercent == 0 {
-		// if the cpu percent is too low, we set it to the minimum
+	if hostConfig.CPUPercent == 0 && hostConfig.CPUShares != 0 {
+		// if CPU percent is too low, we set it to the minimum(linux and some windows tasks).
+		// if the CPU is explicitly set to zero or not set at all, and CPU unbounded
+		// tasks are allowed for windows, let CPU percent be zero.
+		// this is a workaround to allow CPU unbounded tasks(https://github.com/aws/amazon-ecs-agent/issues/1127)
 		hostConfig.CPUPercent = minimumCPUPercent
 	}
 	hostConfig.CPUShares = 0
@@ -84,4 +99,18 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // https://github.com/fsouza/go-dockerclient/commit/72342f96fabfa614a94b6ca57d987eccb8a836bf
 func (task *Task) overrideDefaultMemorySwappiness(hostConfig *docker.HostConfig) {
 	hostConfig.MemorySwappiness = memorySwappinessDefault
+}
+
+// dockerCPUShares converts containerCPU shares if needed as per the logic stated below:
+// Docker silently converts 0 to 1024 CPU shares, which is probably not what we
+// want.  Instead, we convert 0 to 2 to be closer to expected behavior. The
+// reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
+func (task *Task) dockerCPUShares(containerCPU uint) int64 {
+	if containerCPU <= 1 && !task.platformFields.cpuUnbounded {
+		seelog.Debugf(
+			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
+			task.Arn, containerCPU)
+		return 2
+	}
+	return int64(containerCPU)
 }

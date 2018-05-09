@@ -50,6 +50,8 @@ type ECSSDK interface {
 	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
 }
 
+// ECSSubmitStateSDK is an interface with customized ecs client that
+// implements the SubmitTaskStateChange and SubmitContainerStateChange
 type ECSSubmitStateSDK interface {
 	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)

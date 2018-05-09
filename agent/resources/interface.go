@@ -15,6 +15,7 @@ package resources
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
 // Resource interface to interact with platform level resource constructs
@@ -26,4 +27,6 @@ type Resource interface {
 	Setup(task *api.Task) error
 	// Cleanup removes the resource
 	Cleanup(task *api.Task) error
+	// ApplyConfigDependencies applies config parameters for the resources
+	ApplyConfigDependencies(cfg *config.Config)
 }

@@ -16,7 +16,7 @@
 export VERSION=$(cat $(dirname "${0}")/../VERSION)
 
 export IMAGE_TAG_LATEST="latest"
-export IMAGE_TAG_SHA=$(git rev-parse --short HEAD)
+export IMAGE_TAG_SHA=$(git rev-parse --short=8 HEAD)
 export IMAGE_TAG_VERSION="v${VERSION}"
 
 SUPPORTED_OSES=("linux" "windows")

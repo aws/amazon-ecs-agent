@@ -15,6 +15,7 @@ package handler
 import (
 	"fmt"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -24,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 // payloadRequestHandler represents the payload operation for the ACS client
@@ -179,7 +179,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 	validTasks := make([]*api.Task, 0, len(payload.Tasks))
 	for _, task := range payload.Tasks {
 		if task == nil {
-			seelog.Criticalf("Recieved nil task for messageId: %s", *payload.MessageId)
+			seelog.Criticalf("Received nil task for messageId: %s", aws.StringValue(payload.MessageId))
 			allTasksOK = false
 			continue
 		}
@@ -193,17 +193,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// The payload from ACS for the task has credentials for the
 			// task. Add those to the credentials manager and set the
 			// credentials id for the task as well
-			taskCredentials := credentials.TaskIAMRoleCredentials{
-				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType),
-			}
-			err = payloadHandler.credentialsManager.SetTaskCredentials(taskCredentials)
+			taskIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType)
+			err = payloadHandler.credentialsManager.SetTaskCredentials(
+				credentials.TaskIAMRoleCredentials{
+					ARN:                aws.StringValue(task.Arn),
+					IAMRoleCredentials: taskIAMRoleCredentials,
+				})
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetCredentialsID(taskCredentials.IAMRoleCredentials.CredentialsID)
+			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
 
 		// Adding the eni information to the task struct
@@ -221,17 +222,18 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// The payload message contains execution credentials for the task.
 			// Add the credentials to the credentials manager and set the
 			// task executionCredentials id.
-			taskExecutionCredentials := credentials.TaskIAMRoleCredentials{
-				ARN:                aws.StringValue(task.Arn),
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType),
-			}
-			err = payloadHandler.credentialsManager.SetTaskCredentials(taskExecutionCredentials)
+			taskExecutionIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType)
+			err = payloadHandler.credentialsManager.SetTaskCredentials(
+				credentials.TaskIAMRoleCredentials{
+					ARN:                aws.StringValue(task.Arn),
+					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
+				})
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
 				continue
 			}
-			apiTask.SetExecutionRoleCredentialsID(taskExecutionCredentials.IAMRoleCredentials.CredentialsID)
+			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
 		}
 
 		validTasks = append(validTasks, apiTask)
@@ -279,7 +281,7 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 		}
 
 		// Generate an ack request for the credentials in the task, if the
-		// task is associated with an IAM role or the exectuion role
+		// task is associated with an IAM role or the execution role
 		taskCredentialsID := task.GetCredentialsID()
 		if taskCredentialsID != "" {
 			ackCredentials(taskCredentialsID, "task iam role")
@@ -323,8 +325,11 @@ func isTaskStatusNotStopped(status api.TaskStatus) bool {
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
 // a suitable reason to the backend
 func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs.Task, err error, payload *ecsacs.PayloadMessage) {
-	if task.Arn == nil {
-		seelog.Criticalf("Recieved task with no arn, messageId: %s, task: %v", *payload.MessageId, task)
+	seelog.Warnf("Received unexpected acs message, messageID: %s, task: %v, err: %v",
+		aws.StringValue(payload.MessageId), aws.StringValue(task.Arn), err)
+
+	if aws.StringValue(task.Arn) == "" {
+		seelog.Criticalf("Received task with no arn, messageId: %s", aws.StringValue(payload.MessageId))
 		return
 	}
 

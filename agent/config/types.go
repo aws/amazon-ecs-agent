@@ -43,7 +43,7 @@ type Config struct {
 	// will be fatal.
 	AWSRegion string `missing:"fatal" trim:"true"`
 
-	// ReservedPorts is an array of ports which should be registerd as
+	// ReservedPorts is an array of ports which should be registered as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
 	// ReservedPortsUDP is an array of UDP ports which should be registered as
@@ -85,9 +85,12 @@ type Config struct {
 	// other than containers managed by ECS
 	ReservedMemory uint16
 
-	// DockerStopTimeout specifies the amount time before a SIGKILL is issued to
+	// DockerStopTimeout specifies the amount of time before a SIGKILL is issued to
 	// containers managed by ECS
 	DockerStopTimeout time.Duration
+
+	// ContainerStartTimeout specifies the amount of time to wait to start a container
+	ContainerStartTimeout time.Duration
 
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file","none"].
@@ -194,4 +197,17 @@ type Config struct {
 	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
 	// driver authentication over the task's execution role
 	OverrideAWSLogsExecutionRole bool
+
+	// CgroupPath is the path expected by the agent, defaults to
+	// '/sys/fs/cgroup'
+	CgroupPath string
+
+	// PlatformVariables consists of configuration variables specific to linux/windows
+	PlatformVariables PlatformVariables
+
+	// TaskMetadataSteadyStateRate specifies the steady state throttle for the task metadata endpoint
+	TaskMetadataSteadyStateRate int
+
+	// TaskMetadataBurstRate specifies the burst rate throttle for the task metadata endpoint
+	TaskMetadataBurstRate int
 }

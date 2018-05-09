@@ -19,13 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 const (

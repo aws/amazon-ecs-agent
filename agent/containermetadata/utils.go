@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -58,7 +58,7 @@ func getMetadataFilePath(taskARN string, containerName string, dataDir string) (
 func getTaskMetadataDir(taskARN string, dataDir string) (string, error) {
 	taskID, err := getTaskIDfromARN(taskARN)
 	if err != nil {
-		fmt.Errorf("get task metadata directory: %v", err)
+		return "", fmt.Errorf("get task metadata directory: %v", err)
 	}
 	return filepath.Join(dataDir, metadataJoinSuffix, taskID), err
 }

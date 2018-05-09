@@ -23,8 +23,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v2"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -36,6 +39,7 @@ const (
 	dockerIdQueryField = "dockerid"
 	taskArnQueryField  = "taskarn"
 	dockerShortIdLen   = 12
+	networkModeAwsvpc  = "awsvpc"
 )
 
 type rootResponse struct {
@@ -51,7 +55,7 @@ func ValueFromRequest(r *http.Request, field string) (string, bool) {
 }
 
 func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
-	resp := &MetadataResponse{
+	resp := &v1.MetadataResponse{
 		Cluster:              cfg.Cluster,
 		ContainerInstanceArn: containerInstanceArn,
 		Version:              version.String(),
@@ -63,13 +67,14 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	}
 }
 
-func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *TaskResponse {
-	containers := []ContainerResponse{}
-	for containerName, container := range containerMap {
+func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *v1.TaskResponse {
+	containers := []v1.ContainerResponse{}
+	for _, container := range containerMap {
 		if container.Container.IsInternal() {
 			continue
 		}
-		containers = append(containers, ContainerResponse{container.DockerID, container.DockerName, containerName})
+		containerResponse := newContainerResponse(container, task.GetTaskENI())
+		containers = append(containers, containerResponse)
 	}
 
 	knownStatus := task.GetKnownStatus()
@@ -81,7 +86,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 		desiredStatus = ""
 	}
 
-	return &TaskResponse{
+	return &v1.TaskResponse{
 		Arn:           task.Arn,
 		DesiredStatus: desiredStatus,
 		KnownStatus:   knownBackendStatus,
@@ -91,15 +96,66 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 	}
 }
 
-func newTasksResponse(state dockerstate.TaskEngineState) *TasksResponse {
+func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1.ContainerResponse {
+	container := dockerContainer.Container
+	resp := v1.ContainerResponse{
+		Name:       container.Name,
+		DockerId:   dockerContainer.DockerID,
+		DockerName: dockerContainer.DockerName,
+	}
+
+	resp.Ports = newPortBindingsResponse(dockerContainer, eni)
+
+	if eni != nil {
+		resp.Networks = []containermetadata.Network{
+			{
+				NetworkMode:   networkModeAwsvpc,
+				IPv4Addresses: eni.GetIPV4Addresses(),
+				IPv6Addresses: eni.GetIPV6Addresses(),
+			},
+		}
+	}
+	return resp
+}
+
+func newPortBindingsResponse(dockerContainer *api.DockerContainer, eni *api.ENI) []v2.PortResponse {
+	container := dockerContainer.Container
+	resp := []v2.PortResponse{}
+
+	bindings := container.GetKnownPortBindings()
+
+	// if KnownPortBindings list is empty, then we use the port mapping
+	// information that was passed down from ACS.
+	if len(bindings) == 0 {
+		bindings = container.Ports
+	}
+
+	for _, binding := range bindings {
+		port := v2.PortResponse{
+			ContainerPort: binding.ContainerPort,
+			Protocol:      binding.Protocol.String(),
+		}
+
+		if eni == nil {
+			port.HostPort = binding.HostPort
+		} else {
+			port.HostPort = port.ContainerPort
+		}
+
+		resp = append(resp, port)
+	}
+	return resp
+}
+
+func newTasksResponse(state dockerstate.TaskEngineState) *v1.TasksResponse {
 	allTasks := state.AllTasks()
-	taskResponses := make([]*TaskResponse, len(allTasks))
+	taskResponses := make([]*v1.TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
 		taskResponses[ndx] = newTaskResponse(task, containerMap)
 	}
 
-	return &TasksResponse{Tasks: taskResponses}
+	return &v1.TasksResponse{Tasks: taskResponses}
 }
 
 // Creates JSON response and sets the http status code for the task queried.
@@ -111,7 +167,7 @@ func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state
 		responseJSON, _ = json.Marshal(newTaskResponse(task, containerMap))
 	} else {
 		log.Warn("Could not find requested resource: " + resourceId)
-		responseJSON, _ = json.Marshal(&TaskResponse{})
+		responseJSON, _ = json.Marshal(&v1.TaskResponse{})
 		status = http.StatusNotFound
 	}
 	return responseJSON, status

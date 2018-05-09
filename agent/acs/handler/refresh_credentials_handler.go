@@ -15,13 +15,13 @@ package handler
 import (
 	"fmt"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
-	"golang.org/x/net/context"
 )
 
 // refreshCredentialsHandler represents the refresh credentials operation for the ACS client
@@ -132,12 +132,11 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 	if !validRoleType(roleType) {
 		seelog.Errorf("Unknown RoleType for task in credentials message, roleType: %s arn: %s, messageId: %s", roleType, taskArn, messageId)
 	} else {
-
-		taskCredentials := credentials.TaskIAMRoleCredentials{
-			ARN:                taskArn,
-			IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
-		}
-		err = refreshHandler.credentialsManager.SetTaskCredentials(taskCredentials)
+		err = refreshHandler.credentialsManager.SetTaskCredentials(
+			credentials.TaskIAMRoleCredentials{
+				ARN:                taskArn,
+				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
+			})
 		if err != nil {
 			seelog.Errorf("Unable to update credentials for task, err: %v messageId: %s", err, messageId)
 			return fmt.Errorf("unable to update credentials %v", err)

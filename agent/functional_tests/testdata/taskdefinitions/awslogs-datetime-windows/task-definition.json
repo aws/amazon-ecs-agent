@@ -1,0 +1,21 @@
+{
+  "family": "ecs-awslogs-datetime-windows-test",
+  "containerDefinitions": [{
+    "essential": true,
+    "memory": 512,
+    "name": "awslogs-datetime-windows",
+    "cpu": 1024,
+    "image": "microsoft/windowsservercore:latest",
+    "entryPoint": ["powershell"],
+    "command": ["echo", "\"May 01, 2017 19:00:01 ECS\nMay 01, 2017 19:00:04 Agent\nRunning\nin the instance\""],
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group":"ecs-functional-tests",
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests",
+            "awslogs-datetime-format":"%b %d, %Y %H:%M:%S"
+        }
+    }
+  }]
+}

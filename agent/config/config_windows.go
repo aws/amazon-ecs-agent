@@ -16,6 +16,7 @@ package config
 
 import (
 	"os"
+	"time"
 	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
@@ -41,6 +42,10 @@ const (
 	dnsPort = 53
 	// NetBIOS over TCP/IP
 	netBIOSPort = 139
+	// defaultContainerStartTimeout specifies the value for container start timeout duration
+	defaultContainerStartTimeout = 8 * time.Minute
+	// minimumContainerStartTimeout specifies the minimum value for starting a container
+	minimumContainerStartTimeout = 2 * time.Minute
 )
 
 // DefaultConfig returns the default configuration for Windows
@@ -48,6 +53,9 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
+	platformVariables := PlatformVariables{
+		CPUUnbounded: false,
+	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
 		ReservedPorts: []uint16{
@@ -68,9 +76,10 @@ func DefaultConfig() Config {
 		// run as a container
 		DataDirOnHost:               dataDir,
 		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
+		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
-		DockerStopTimeout:           DefaultDockerStopTimeout,
+		DockerStopTimeout:           defaultDockerStopTimeout,
+		ContainerStartTimeout:       defaultContainerStartTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled: false,
 		ImageCleanupDisabled:        false,
@@ -79,6 +88,9 @@ func DefaultConfig() Config {
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 		ContainerMetadataEnabled:    false,
 		TaskCPUMemLimit:             ExplicitlyDisabled,
+		PlatformVariables:           platformVariables,
+		TaskMetadataSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
+		TaskMetadataBurstRate:       DefaultTaskMetadataBurstRate,
 	}
 }
 
@@ -94,6 +106,12 @@ func (cfg *Config) platformOverrides() {
 
 	// ensure TaskResourceLimit is disabled
 	cfg.TaskCPUMemLimit = ExplicitlyDisabled
+
+	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	platformVariables := PlatformVariables{
+		CPUUnbounded: cpuUnbounded,
+	}
+	cfg.PlatformVariables = platformVariables
 }
 
 // platformString returns platform-specific config data that can be serialized

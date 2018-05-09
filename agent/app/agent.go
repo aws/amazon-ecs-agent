@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"golang.org/x/net/context"
+	"context"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -37,11 +37,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	credentialshandler "github.com/aws/amazon-ecs-agent/agent/handlers/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/taskmetadata"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -71,8 +72,6 @@ var (
 // object. Its purpose is to mostly demonstrate how to interact with the
 // ecsAgent type.
 type agent interface {
-	// printVersion prints the Agent version string
-	printVersion() int
 	// printECSAttributes prints the Agent's capabilities based on
 	// its environment
 	printECSAttributes() int
@@ -130,6 +129,7 @@ func newAgent(
 	if cfg.AcceptInsecureCert {
 		seelog.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
+	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
 	dockerClient, err := engine.NewDockerGoClient(dockerclient.NewFactory(cfg.DockerEndpoint), cfg)
@@ -170,18 +170,12 @@ func newAgent(
 	}, nil
 }
 
-// printVersion prints the ECS Agent version string
-func (agent *ecsAgent) printVersion() int {
-	version.PrintVersion(agent.dockerClient)
-	return exitcodes.ExitSuccess
-}
-
 // printECSAttributes prints the Agent's ECS Attributes based on its
 // environment
 func (agent *ecsAgent) printECSAttributes() int {
 	capabilities, err := agent.capabilities()
 	if err != nil {
-		seelog.Warnf("Unable to obtain capabilit: %v", err)
+		seelog.Warnf("Unable to obtain capabilities: %v", err)
 		return exitcodes.ExitError
 	}
 	for _, attr := range capabilities {
@@ -233,6 +227,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
+		agent.resource.ApplyConfigDependencies(agent.cfg)
 		err = agent.resource.Init()
 		// When task CPU and memory limits are enabled, all tasks are placed
 		// under the '/ecs' cgroup root.
@@ -297,7 +292,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream.StartListening()
 	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, state, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
-		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler)
+		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler, state)
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine, stateManager,
@@ -315,14 +310,15 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	if !agent.cfg.Checkpoint {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
-		return engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-			credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager), "", nil
+		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
+			containerChangeEventStream, imageManager, state,
+			agent.metadataManager, agent.resource), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
 	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager)
+		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource)
 
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
@@ -354,7 +350,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state, agent.metadataManager), currentEC2InstanceID, nil
+			containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource), currentEC2InstanceID, nil
 	}
 
 	if previousCluster != "" {
@@ -517,7 +513,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 	stateManager statemanager.StateManager,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
-	taskHandler *eventhandler.TaskHandler) {
+	taskHandler *eventhandler.TaskHandler,
+	state dockerstate.TaskEngineState) {
 
 	// Start of the periodic image cleanup process
 	if !agent.cfg.ImageCleanupDisabled {
@@ -529,8 +526,10 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Agent introspection api
 	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
-	// Start serving the endpoint to fetch IAM Role credentials
-	go credentialshandler.ServeHTTP(credentialsManager, agent.containerInstanceARN, agent.cfg)
+	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
+
+	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
+	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
@@ -540,10 +539,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 		Cfg:                           agent.cfg,
 		ContainerInstanceArn:          agent.containerInstanceARN,
 		DeregisterInstanceEventStream: deregisterInstanceEventStream,
-		ContainerChangeEventStream:    containerChangeEventStream,
-		DockerClient:                  agent.dockerClient,
 		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
+		StatsEngine:                   statsEngine,
 	}
 
 	// Start metrics session in a go routine

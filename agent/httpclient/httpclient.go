@@ -84,7 +84,7 @@ type OverridableTransport interface {
 }
 
 // SetTransport allows you to set the transport. It is exposed so tests may
-// override it. It fulfills an interface to allow calling thsi function via
+// override it. It fulfills an interface to allow calling this function via
 // assertion to the exported interface
 func (client *ecsRoundTripper) SetTransport(transport http.RoundTripper) {
 	client.transport = transport

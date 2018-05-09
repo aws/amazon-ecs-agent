@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
@@ -107,15 +108,15 @@ type Task struct {
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
 
-	// PullStartedAt is the timestamp when the task start pulling the first container,
+	// PullStartedAtUnsafe is the timestamp when the task start pulling the first container,
 	// it won't be set if the pull never happens
-	PullStartedAt time.Time `json:"PullStartedAt"`
-	// PullStoppedAt is the timestamp when the task finished pulling the last container,
+	PullStartedAtUnsafe time.Time `json:"PullStartedAt"`
+	// PullStoppedAtUnsafe is the timestamp when the task finished pulling the last container,
 	// it won't be set if the pull never happens
-	PullStoppedAt time.Time `json:"PullStoppedAt"`
-	// ExecutionStoppedAt is the timestamp when the task desired status moved to stopped,
+	PullStoppedAtUnsafe time.Time `json:"PullStoppedAt"`
+	// ExecutionStoppedAtUnsafe is the timestamp when the task desired status moved to stopped,
 	// which is when the any of the essential containers stopped
-	ExecutionStoppedAt time.Time `json:"ExecutionStoppedAt"`
+	ExecutionStoppedAtUnsafe time.Time `json:"ExecutionStoppedAt"`
 
 	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS SubmitTaskStateChange API.
 	// TODO(samuelkarp) SentStatusUnsafe needs a lock and setters/getters.
@@ -139,12 +140,14 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI *ENI
 
+	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
+	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
+
+	// platformFields consists of fields specific to linux/windows for a task
+	platformFields platformFields
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
-
-	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
-	MemoryCPULimitsEnabled     bool `json:"MemoryCPULimitsEnabled,omitempty"`
-	memoryCPULimitsEnabledLock sync.RWMutex
 }
 
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
@@ -311,7 +314,7 @@ func (task *Task) ContainerByName(name string) (*Container, bool) {
 }
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
-// task. The second return value indicates the presense of that volume
+// task. The second return value indicates the presence of that volume
 func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
@@ -456,13 +459,23 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(*container.DockerConfig.Config), &config)
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
 		if err != nil {
 			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
+	if container.HealthCheckType == dockerHealthCheckType && config.Healthcheck == nil {
+		return nil, &DockerClientConfigError{
+			"docker health check is nil while container health check type is DOCKER"}
+	}
+
 	if config.Labels == nil {
 		config.Labels = make(map[string]string)
+	}
+
+	if container.Type == ContainerCNIPause {
+		// apply hostname to pause container's docker config
+		return task.applyENIHostname(config), nil
 	}
 
 	return config, nil
@@ -473,7 +486,8 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < DockerContainerMinimumMemoryInBytes {
-		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes", task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
+		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
+			task.Arn, container.Name, DockerContainerMinimumMemoryInBytes)
 		dockerMem = DockerContainerMinimumMemoryInBytes
 	}
 	cpuShare := task.dockerCPUShares(container.CPU)
@@ -503,20 +517,6 @@ func (task *Task) SetConfigHostconfigBasedOnVersion(container *Container, config
 	}
 
 	return nil
-}
-
-// dockerCPUShares converts containerCPU shares if needed as per the logic stated below:
-// Docker silently converts 0 to 1024 CPU shares, which is probably not what we
-// want.  Instead, we convert 0 to 2 to be closer to expected behavior. The
-// reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
-func (task *Task) dockerCPUShares(containerCPU uint) int64 {
-	if containerCPU <= 1 {
-		seelog.Debugf(
-			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
-			task.Arn, containerCPU)
-		return 2
-	}
-	return int64(containerCPU)
 }
 
 func (task *Task) dockerExposedPorts(container *Container) map[docker.Port]struct{} {
@@ -557,7 +557,7 @@ func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
-// ApplyExecutionRoleLogsAuth will check whether the task has excecution role
+// ApplyExecutionRoleLogsAuth will check whether the task has execution role
 // credentials, and add the genereated credentials endpoint to the associated HostConfig
 func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *HostConfigError {
 	id := task.GetExecutionCredentialsID()
@@ -630,6 +630,12 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 	hostConfig.NetworkMode = networkMode
 	// Override 'awsvpc' parameters if needed
 	if container.Type == ContainerCNIPause {
+
+		// apply ExtraHosts to HostConfig for pause container
+		if hosts := task.generateENIExtraHosts(); hosts != nil {
+			hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
+		}
+
 		// Override the DNS settings for the pause container if ENI has custom
 		// DNS settings
 		return task.overrideDNS(hostConfig), nil
@@ -698,6 +704,46 @@ func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig 
 	hostConfig.DNSSearch = eni.DomainNameSearchList
 
 	return hostConfig
+}
+
+// applyENIHostname adds the hostname provided by the ENI message to the
+// container's docker config. At the time of implmentation, we are only using it
+// to configure the pause container for awsvpc tasks
+func (task *Task) applyENIHostname(dockerConfig *docker.Config) *docker.Config {
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return dockerConfig
+	}
+
+	hostname := eni.GetHostname()
+	if hostname == "" {
+		return dockerConfig
+	}
+
+	dockerConfig.Hostname = hostname
+	return dockerConfig
+}
+
+// generateENIExtraHosts returns a slice of strings of the form "hostname:ip"
+// that is generated using the hostname and ip addresses allocated to the ENI
+func (task *Task) generateENIExtraHosts() []string {
+	eni := task.GetTaskENI()
+	if eni == nil {
+		return nil
+	}
+
+	hostname := eni.GetHostname()
+	if hostname == "" {
+		return nil
+	}
+
+	extraHosts := []string{}
+
+	for _, ip := range eni.GetIPV4Addresses() {
+		host := fmt.Sprintf("%s:%s", hostname, ip)
+		extraHosts = append(extraHosts, host)
+	}
+	return extraHosts
 }
 
 func (task *Task) dockerLinks(container *Container, dockerContainerMap map[string]*DockerContainer) ([]string, error) {
@@ -789,7 +835,7 @@ func (task *Task) dockerHostBinds(container *Container) ([]string, error) {
 	return binds, nil
 }
 
-// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the recieved
+// TaskFromACS translates ecsacs.Task to api.Task by first marshaling the received
 // ecsacs.Task to json and unmrashaling it as api.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)
@@ -1002,8 +1048,8 @@ func (task *Task) SetPullStartedAt(timestamp time.Time) bool {
 	defer task.lock.Unlock()
 
 	// Only set this field if it is not set
-	if task.PullStartedAt.IsZero() {
-		task.PullStartedAt = timestamp
+	if task.PullStartedAtUnsafe.IsZero() {
+		task.PullStartedAtUnsafe = timestamp
 		return true
 	}
 	return false
@@ -1014,7 +1060,7 @@ func (task *Task) GetPullStartedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.PullStartedAt
+	return task.PullStartedAtUnsafe
 }
 
 // SetPullStoppedAt sets the task pullstoppedat timestamp
@@ -1022,7 +1068,7 @@ func (task *Task) SetPullStoppedAt(timestamp time.Time) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	task.PullStoppedAt = timestamp
+	task.PullStoppedAtUnsafe = timestamp
 }
 
 // GetPullStoppedAt returns the PullStoppedAt timestamp
@@ -1030,7 +1076,7 @@ func (task *Task) GetPullStoppedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.PullStoppedAt
+	return task.PullStoppedAtUnsafe
 }
 
 // SetExecutionStoppedAt sets the ExecutionStoppedAt timestamp of the task
@@ -1038,8 +1084,8 @@ func (task *Task) SetExecutionStoppedAt(timestamp time.Time) bool {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	if task.ExecutionStoppedAt.IsZero() {
-		task.ExecutionStoppedAt = timestamp
+	if task.ExecutionStoppedAtUnsafe.IsZero() {
+		task.ExecutionStoppedAtUnsafe = timestamp
 		return true
 	}
 	return false
@@ -1050,7 +1096,7 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.ExecutionStoppedAt
+	return task.ExecutionStoppedAtUnsafe
 }
 
 // String returns a human readable string representation of this object
@@ -1085,13 +1131,35 @@ func (task *Task) GetID() (string, error) {
 	resource := parsedARN.Resource
 
 	if !strings.Contains(resource, arnResourceDelimiter) {
-		return "", errors.New(fmt.Sprintf("task get-id: malformed task resource: %s", resource))
+		return "", errors.Errorf("task get-id: malformed task resource: %s", resource)
 	}
 
 	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
 	if len(resourceSplit) != arnResourceSections {
-		return "", errors.New(fmt.Sprintf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit)))
+		return "", errors.Errorf(
+			"task get-id: invalid task resource split: %s, expected=%d, actual=%d",
+			resource, arnResourceSections, len(resourceSplit))
 	}
 
 	return resourceSplit[1], nil
+}
+
+// RecordExecutionStoppedAt checks if this is an essential container stopped
+// and set the task executionStoppedAt timestamps
+func (task *Task) RecordExecutionStoppedAt(container *Container) {
+	if !container.Essential {
+		return
+	}
+	if container.GetKnownStatus() != ContainerStopped {
+		return
+	}
+	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
+	now := time.Now()
+	ok := task.SetExecutionStoppedAt(now)
+	if !ok {
+		// ExecutionStoppedAt was already recorded. Nothing to left to do here
+		return
+	}
+	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
+		task.Arn, container.Name, now.String())
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,29 +15,29 @@ package stats
 
 import (
 	"fmt"
-	"os"
+	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	docker "github.com/fsouza/go-dockerclient"
 
-	"golang.org/x/net/context"
+	"context"
+	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	// checkPointSleep is the sleep duration in milliseconds between
 	// starting/stopping containers in the test code.
-	checkPointSleep = 5 * SleepBetweenUsageDataCollection
-	testImageName   = "amazon/amazon-ecs-gremlin:make"
+	checkPointSleep              = 5 * SleepBetweenUsageDataCollection
+	testContainerHealthImageName = "amazon/amazon-ecs-containerhealthcheck:make"
 
 	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
 	defaultDockerTimeoutSeconds uint = 10
@@ -52,14 +52,11 @@ const (
 	containerName         = "gremlin-container"
 )
 
-var endpoint = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
-
-var client, _ = docker.NewClient(endpoint)
-var clientFactory = dockerclient.NewFactory(endpoint)
-var cfg = config.DefaultConfig()
-
-var defaultCluster = "default"
-var defaultContainerInstance = "ci"
+var (
+	cfg                      = config.DefaultConfig()
+	defaultCluster           = "default"
+	defaultContainerInstance = "ci"
+)
 
 func init() {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
@@ -78,6 +75,16 @@ func createGremlin(client *docker.Client) (*docker.Container, error) {
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
 		Config: &docker.Config{
 			Image: testImageName,
+		},
+	})
+
+	return container, err
+}
+
+func createHealthContainer(client *docker.Client) (*docker.Container, error) {
+	container, err := client.CreateContainer(docker.CreateContainerOptions{
+		Config: &docker.Config{
+			Image: testContainerHealthImageName,
 		},
 	})
 
@@ -116,6 +123,18 @@ func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID str
 	return container, nil
 }
 
+func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine) {
+	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	assert.NoError(t, err, "gettting instance metrics failed")
+	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
+	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
+
+	taskMetric := taskMetrics[0]
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
+	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
+}
+
 func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expected int) error {
 	if len(containerMetrics) != expected {
 		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
@@ -131,26 +150,14 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 	return nil
 }
 
-func validateIdleContainerMetrics(engine *DockerStatsEngine) error {
+func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
 	metadata, taskMetrics, err := engine.GetInstanceMetrics()
-	if err != nil {
-		return err
-	}
-	err = validateMetricsMetadata(metadata)
-	if err != nil {
-		return err
-	}
-	if !*metadata.Idle {
-		return fmt.Errorf("Expected idle metadata to be true")
-	}
-	if !*metadata.Fin {
-		return fmt.Errorf("Fin not set to true when idle")
-	}
-	if len(taskMetrics) != 0 {
-		return fmt.Errorf("Expected empty task metrics, got a list of length: %d", len(taskMetrics))
-	}
+	assert.NoError(t, err, "getting instance metrics failed")
+	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 
-	return nil
+	assert.True(t, aws.BoolValue(metadata.Idle), "expected idle metadata to be true")
+	assert.True(t, aws.BoolValue(metadata.Fin), "fin not set to true when idle")
+	assert.Len(t, taskMetrics, 0, "expected empty task metrics")
 }
 
 func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
@@ -158,16 +165,77 @@ func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
 		return fmt.Errorf("Metadata is nil")
 	}
 	if *metadata.Cluster != defaultCluster {
-		return fmt.Errorf("Expected cluster in metadata to be: %s, got %s", defaultCluster, *metadata.Cluster)
+		return fmt.Errorf("Expected cluster in metadata to be: %s, got %s",
+			defaultCluster, *metadata.Cluster)
 	}
 	if *metadata.ContainerInstance != defaultContainerInstance {
-		return fmt.Errorf("Expected container instance in metadata to be %s, got %s", defaultContainerInstance, *metadata.ContainerInstance)
+		return fmt.Errorf("Expected container instance in metadata to be %s, got %s",
+			defaultContainerInstance, *metadata.ContainerInstance)
 	}
 	if len(*metadata.MessageId) == 0 {
 		return fmt.Errorf("Empty MessageId")
 	}
 
 	return nil
+}
+
+func validateHealthMetricsMetadata(metadata *ecstcs.HealthMetadata) error {
+	if metadata == nil {
+		return fmt.Errorf("metadata is nil")
+	}
+
+	if aws.StringValue(metadata.Cluster) != defaultCluster {
+		return fmt.Errorf("expected cluster in metadata to be: %s, got %s",
+			defaultCluster, aws.StringValue(metadata.Cluster))
+	}
+
+	if aws.StringValue(metadata.ContainerInstance) != defaultContainerInstance {
+		return fmt.Errorf("expected container instance in metadata to be %s, got %s",
+			defaultContainerInstance, aws.StringValue(metadata.ContainerInstance))
+	}
+	if len(aws.StringValue(metadata.MessageId)) == 0 {
+		return fmt.Errorf("empty MessageId")
+	}
+
+	return nil
+}
+
+func validateContainerHealthMetrics(metrics []*ecstcs.ContainerHealth, expected int) error {
+	if len(metrics) != expected {
+		return fmt.Errorf("mismatch in number of ContainerHealth elements. Expected: %d, Got: %d",
+			expected, len(metrics))
+	}
+	for _, health := range metrics {
+		if aws.StringValue(health.ContainerName) == "" {
+			return fmt.Errorf("container name is empty")
+		}
+		if aws.StringValue(health.HealthStatus) == "" {
+			return fmt.Errorf("container health status is empty")
+		}
+		if aws.TimeValue(health.StatusSince).IsZero() {
+			return fmt.Errorf("container health status change timestamp is empty")
+		}
+	}
+	return nil
+}
+
+func validateTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
+	healthMetadata, healthMetrics, err := engine.GetTaskHealthMetrics()
+	assert.NoError(t, err, "getting task health metrics failed")
+	require.Len(t, healthMetrics, 1)
+	assert.NoError(t, validateHealthMetricsMetadata(healthMetadata), "validating health metedata failed")
+	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskArn), taskArn, "task arn not expected")
+	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionFamily), taskDefinitionFamily, "task definition family not expected")
+	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
+	assert.NoError(t, validateContainerHealthMetrics(healthMetrics[0].Containers, 1))
+}
+
+func validateEmptyTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
+	// If the metrics is empty, no health metrics will be send, the metadata won't be used
+	// no need to check the metadata here
+	_, healthMetrics, err := engine.GetTaskHealthMetrics()
+	assert.NoError(t, err, "getting task health failed")
+	assert.Len(t, healthMetrics, 0, "no health metrics was expected")
 }
 
 func createFakeContainerStats() []*ContainerStats {

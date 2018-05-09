@@ -466,6 +466,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
 	gomock.InOrder(
+		mockResource.EXPECT().ApplyConfigDependencies(gomock.Any()),
 		mockResource.EXPECT().Init().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
@@ -527,6 +528,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
+	mockResource.EXPECT().ApplyConfigDependencies(gomock.Any())
 	mockResource.EXPECT().Init().Return(errors.New("cgroup init error"))
 
 	cfg := getTestConfig()

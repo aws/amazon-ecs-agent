@@ -141,7 +141,7 @@ func parseAuthData(authType string, authData json.RawMessage) dockerAuths {
 	return output
 }
 
-// stripRegistrySchema normalizes the registy url by removing http/https from it.
+// stripRegistrySchema normalizes the registry url by removing http/https from it.
 // because registries only support those two schemas, this function can be quite naive.
 func stripRegistrySchema(registry string) string {
 	if strings.HasPrefix(registry, "http://") {

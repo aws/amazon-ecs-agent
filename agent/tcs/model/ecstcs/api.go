@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,6 +18,22 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 )
+
+type AckPublishHealth struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s AckPublishHealth) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AckPublishHealth) GoString() string {
+	return s.String()
+}
 
 type AckPublishMetric struct {
 	_ struct{} `type:"structure"`
@@ -73,6 +89,26 @@ func (s CWStatsSet) GoString() string {
 	return s.String()
 }
 
+type ContainerHealth struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
+
+	StatusSince *time.Time `locationName:"statusSince" type:"timestamp" timestampFormat:"unix"`
+}
+
+// String returns the string representation
+func (s ContainerHealth) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ContainerHealth) GoString() string {
+	return s.String()
+}
+
 type ContainerMetric struct {
 	_ struct{} `type:"structure"`
 
@@ -88,6 +124,28 @@ func (s ContainerMetric) String() string {
 
 // GoString returns the string representation
 func (s ContainerMetric) GoString() string {
+	return s.String()
+}
+
+type HealthMetadata struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	Fin *bool `locationName:"fin" type:"boolean"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s HealthMetadata) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HealthMetadata) GoString() string {
 	return s.String()
 }
 
@@ -158,6 +216,26 @@ func (s MetricsMetadata) String() string {
 
 // GoString returns the string representation
 func (s MetricsMetadata) GoString() string {
+	return s.String()
+}
+
+type PublishHealthRequest struct {
+	_ struct{} `type:"structure"`
+
+	Metadata *HealthMetadata `locationName:"metadata" type:"structure"`
+
+	Tasks []*TaskHealth `locationName:"tasks" type:"list"`
+
+	Timestamp *time.Time `locationName:"timestamp" type:"timestamp" timestampFormat:"unix"`
+}
+
+// String returns the string representation
+func (s PublishHealthRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublishHealthRequest) GoString() string {
 	return s.String()
 }
 
@@ -244,6 +322,28 @@ func (s StopTelemetrySessionMessage) String() string {
 
 // GoString returns the string representation
 func (s StopTelemetrySessionMessage) GoString() string {
+	return s.String()
+}
+
+type TaskHealth struct {
+	_ struct{} `type:"structure"`
+
+	Containers []*ContainerHealth `locationName:"containers" type:"list"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskDefinitionFamily *string `locationName:"taskDefinitionFamily" type:"string"`
+
+	TaskDefinitionVersion *string `locationName:"taskDefinitionVersion" type:"string"`
+}
+
+// String returns the string representation
+func (s TaskHealth) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskHealth) GoString() string {
 	return s.String()
 }
 

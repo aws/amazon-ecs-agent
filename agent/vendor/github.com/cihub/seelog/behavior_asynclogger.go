@@ -72,7 +72,7 @@ func (asnLogger *asyncLogger) Close() {
 	asnLogger.m.Lock()
 	defer asnLogger.m.Unlock()
 
-	if !asnLogger.closed {
+	if !asnLogger.Closed() {
 		asnLogger.flushQueue(true)
 		asnLogger.config.RootDispatcher.Flush()
 
@@ -80,6 +80,9 @@ func (asnLogger *asyncLogger) Close() {
 			reportInternalError(err)
 		}
 
+		asnLogger.closedM.Lock()
+		asnLogger.closed = true
+		asnLogger.closedM.Unlock()
 		asnLogger.queueHasElements.Broadcast()
 	}
 }
@@ -88,7 +91,7 @@ func (asnLogger *asyncLogger) Flush() {
 	asnLogger.m.Lock()
 	defer asnLogger.m.Unlock()
 
-	if !asnLogger.closed {
+	if !asnLogger.Closed() {
 		asnLogger.flushQueue(true)
 		asnLogger.config.RootDispatcher.Flush()
 	}
@@ -119,7 +122,7 @@ func (asnLogger *asyncLogger) addMsgToQueue(
 	context LogContextInterface,
 	message fmt.Stringer) {
 
-	if !asnLogger.closed {
+	if !asnLogger.Closed() {
 		asnLogger.queueHasElements.L.Lock()
 		defer asnLogger.queueHasElements.L.Unlock()
 

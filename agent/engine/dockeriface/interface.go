@@ -16,8 +16,8 @@
 package dockeriface
 
 import (
+	"context"
 	"github.com/fsouza/go-dockerclient"
-	"golang.org/x/net/context"
 )
 
 // Client is an interface specifying the subset of

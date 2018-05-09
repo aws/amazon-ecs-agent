@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -55,8 +55,8 @@ const (
 	// clean up task's containers.
 	DefaultTaskCleanupWaitDuration = 3 * time.Hour
 
-	// DefaultDockerStopTimeout specifies the value for container stop timeout duration
-	DefaultDockerStopTimeout = 30 * time.Second
+	// defaultDockerStopTimeout specifies the value for container stop timeout duration
+	defaultDockerStopTimeout = 30 * time.Second
 
 	// DefaultImageCleanupTimeInterval specifies the default value for image cleanup duration. It is used to
 	// remove the images pulled by agent.
@@ -93,6 +93,14 @@ const (
 
 	// pauseContainerTarball is the path to the pause container tarball
 	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+
+	// DefaultTaskMetadataSteadyStateRate is set as 40. This is arrived from our benchmarking
+	// results where task endpoint can handle 4000 rps effectively. Here, 100 containers
+	// will be able to send out 40 rps.
+	DefaultTaskMetadataSteadyStateRate = 40
+
+	// DefaultTaskMetadataBurstRate is set to handle 60 burst requests at once
+	DefaultTaskMetadataBurstRate = 60
 )
 
 var (
@@ -243,16 +251,8 @@ func environmentConfig() (Config, error) {
 	engineAuthType := os.Getenv("ECS_ENGINE_AUTH_TYPE")
 	engineAuthData := os.Getenv("ECS_ENGINE_AUTH_DATA")
 
-	var checkpoint bool
 	dataDir := os.Getenv("ECS_DATADIR")
-	if dataDir != "" {
-		// if we have a directory to checkpoint to, default it to be on
-		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
-	} else {
-		// if the directory is not set, default to checkpointing off for
-		// backwards compatibility
-		checkpoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
-	}
+	checkpoint := getCheckpoint(dataDir)
 
 	// Format: json array, e.g. [1,2,3]
 	reservedPortEnv := os.Getenv("ECS_RESERVED_PORTS")
@@ -286,13 +286,11 @@ func environmentConfig() (Config, error) {
 
 	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
 
-	var dockerStopTimeout time.Duration
-	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
-	if parsedStopTimeout >= minimumDockerStopTimeout {
-		dockerStopTimeout = parsedStopTimeout
-	} else if parsedStopTimeout != 0 {
-		seelog.Warnf("Discarded invalid value for docker stop timeout, parsed as: %v", parsedStopTimeout)
-	}
+	dockerStopTimeout := getDockerStopTimeout()
+
+	containerStartTimeout := getContainerStartTimeout()
+
+	cgroupPath := os.Getenv("ECS_CGROUP_PATH")
 
 	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
 
@@ -316,18 +314,7 @@ func environmentConfig() (Config, error) {
 	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
 	overrideAWSLogsExecutionRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false)
 
-	var taskCPUMemLimitEnabled Conditional
-	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
-
-	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
-	// We can do this by checking against the ParseBool default
-	if taskCPUMemLimitConfigString != "" {
-		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
-			taskCPUMemLimitEnabled = ExplicitlyEnabled
-		} else {
-			taskCPUMemLimitEnabled = ExplicitlyDisabled
-		}
-	}
+	taskCPUMemLimitEnabled := getTaskCPUMemLimitEnabled()
 
 	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
 	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
@@ -369,6 +356,7 @@ func environmentConfig() (Config, error) {
 	}
 	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
 	dataDirOnHost := os.Getenv("ECS_HOST_DATA_DIR")
+	steadyStateRate, burstRate := getTaskMetadataThrottles()
 
 	if len(errs) > 0 {
 		err = utils.NewMultiError(errs...)
@@ -399,6 +387,7 @@ func environmentConfig() (Config, error) {
 		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
 		TaskCPUMemLimit:                  taskCPUMemLimitEnabled,
 		DockerStopTimeout:                dockerStopTimeout,
+		ContainerStartTimeout:            containerStartTimeout,
 		CredentialsAuditLogFile:          credentialsAuditLogFile,
 		CredentialsAuditLogDisabled:      credentialsAuditLogDisabled,
 		TaskIAMRoleEnabledForNetworkHost: taskIAMRoleEnabledForNetworkHost,
@@ -413,7 +402,97 @@ func environmentConfig() (Config, error) {
 		ContainerMetadataEnabled:         containerMetadataEnabled,
 		DataDirOnHost:                    dataDirOnHost,
 		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
+		CgroupPath:                       cgroupPath,
+		TaskMetadataSteadyStateRate:      steadyStateRate,
+		TaskMetadataBurstRate:            burstRate,
 	}, err
+}
+
+func getCheckpoint(dataDir string) bool {
+	var checkPoint bool
+	if dataDir != "" {
+		// if we have a directory to checkpoint to, default it to be on
+		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
+	} else {
+		// if the directory is not set, default to checkpointing off for
+		// backwards compatibility
+		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
+	}
+	return checkPoint
+}
+
+func getDockerStopTimeout() time.Duration {
+	var dockerStopTimeout time.Duration
+	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
+	if parsedStopTimeout >= minimumDockerStopTimeout {
+		dockerStopTimeout = parsedStopTimeout
+		// if the ECS_CONTAINER_STOP_TIMEOUT is invalid or empty, then the parsedStopTimeout
+		// will be 0, in this case we should return a 0,
+		// because the DockerStopTimeout will merge with the DefaultDockerStopTimeout,
+		// only when the DockerStopTimeout is empty
+	} else if parsedStopTimeout != 0 {
+		// if the configured ECS_CONTAINER_STOP_TIMEOUT is smaller than minimumDockerStopTimeout,
+		// DockerStopTimeout will be set to minimumDockerStopTimeout
+		// if the ECS_CONTAINER_STOP_TIMEOUT is 0, empty or an invalid value, then DockerStopTimeout
+		// will be set to defaultDockerStopTimeout during the config merge operation
+		dockerStopTimeout = minimumDockerStopTimeout
+		seelog.Warnf("Discarded invalid value for docker stop timeout, parsed as: %v", parsedStopTimeout)
+	}
+	return dockerStopTimeout
+}
+
+func getContainerStartTimeout() time.Duration {
+	var containerStartTimeout time.Duration
+	parsedStartTimeout := parseEnvVariableDuration("ECS_CONTAINER_START_TIMEOUT")
+	if parsedStartTimeout >= minimumContainerStartTimeout {
+		containerStartTimeout = parsedStartTimeout
+		// do the parsedStartTimeout != 0 check for the same reason as in getDockerStopTimeout()
+	} else if parsedStartTimeout != 0 {
+		containerStartTimeout = minimumContainerStartTimeout
+		seelog.Warnf("Discarded invalid value for container start timeout, parsed as: %v", parsedStartTimeout)
+	}
+	return containerStartTimeout
+}
+
+func getTaskCPUMemLimitEnabled() Conditional {
+	var taskCPUMemLimitEnabled Conditional
+	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
+
+	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
+	// We can do this by checking against the ParseBool default
+	if taskCPUMemLimitConfigString != "" {
+		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
+			taskCPUMemLimitEnabled = ExplicitlyEnabled
+		} else {
+			taskCPUMemLimitEnabled = ExplicitlyDisabled
+		}
+	}
+	return taskCPUMemLimitEnabled
+}
+
+func getTaskMetadataThrottles() (int, int) {
+	var steadyStateRate, burstRate int
+	rpsLimitEnvVal := os.Getenv("ECS_TASK_METADATA_RPS_LIMIT")
+	if rpsLimitEnvVal == "" {
+		seelog.Debug("Environment variable empty: ECS_TASK_METADATA_RPS_LIMIT")
+		return 0, 0
+	}
+	rpsLimitSplits := strings.Split(rpsLimitEnvVal, ",")
+	if len(rpsLimitSplits) != 2 {
+		seelog.Warn(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected: "rateLimit,burst"`)
+		return 0, 0
+	}
+	steadyStateRate, err := strconv.Atoi(strings.TrimSpace(rpsLimitSplits[0]))
+	if err != nil {
+		seelog.Warnf(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected integer for steady state rate: %v`, err)
+		return 0, 0
+	}
+	burstRate, err = strconv.Atoi(strings.TrimSpace(rpsLimitSplits[1]))
+	if err != nil {
+		seelog.Warnf(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected integer for burst rate: %v`, err)
+		return 0, 0
+	}
+	return steadyStateRate, burstRate
 }
 
 func parseEnvVariableUint16(envVar string) uint16 {
@@ -509,7 +588,11 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 
 	if cfg.DockerStopTimeout < minimumDockerStopTimeout {
-		return fmt.Errorf("Invalid negative DockerStopTimeout: %v", cfg.DockerStopTimeout.String())
+		return fmt.Errorf("config: invalid value for docker container stop timeout: %v", cfg.DockerStopTimeout.String())
+	}
+
+	if cfg.ContainerStartTimeout < minimumContainerStartTimeout {
+		return fmt.Errorf("config: invalid value for docker container start timeout: %v", cfg.ContainerStartTimeout.String())
 	}
 	var badDrivers []string
 	for _, driver := range cfg.AvailableLoggingDrivers {
@@ -535,8 +618,14 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 
 	if cfg.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
-		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overriden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
+		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overridden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
 		cfg.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
+	}
+
+	if cfg.TaskMetadataSteadyStateRate <= 0 || cfg.TaskMetadataBurstRate <= 0 {
+		seelog.Warnf("Invalid values for rate limits, will be overridden with default values: %d,%d.", DefaultTaskMetadataSteadyStateRate, DefaultTaskMetadataBurstRate)
+		cfg.TaskMetadataSteadyStateRate = DefaultTaskMetadataSteadyStateRate
+		cfg.TaskMetadataBurstRate = DefaultTaskMetadataBurstRate
 	}
 
 	cfg.platformOverrides()
@@ -558,6 +647,7 @@ func (cfg *Config) String() string {
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
 			"DockerStopTimeout: %v, "+
+			"ContainerStartTimeout: %v, "+
 			"TaskCPUMemLimit: %v, "+
 			"%s",
 		cfg.Cluster,
@@ -570,6 +660,7 @@ func (cfg *Config) String() string {
 		cfg.ReservedMemory,
 		cfg.TaskCleanupWaitDuration,
 		cfg.DockerStopTimeout,
+		cfg.ContainerStartTimeout,
 		cfg.TaskCPUMemLimit,
 		cfg.platformString(),
 	)

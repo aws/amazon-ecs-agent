@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,6 +19,7 @@
 package wsclient
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -29,11 +30,13 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
@@ -60,6 +63,8 @@ const (
 
 	// Default NO_PROXY env var IP addresses
 	defaultNoProxyIP = "169.254.169.254,169.254.170.2"
+
+	errClosed = "use of closed network connection"
 )
 
 // ReceivedMessage is the intermediate message used to unmarshal a
@@ -73,16 +78,6 @@ type ReceivedMessage struct {
 type RequestMessage struct {
 	Type    string          `json:"type"`
 	Message json.RawMessage `json:"message"`
-}
-
-// WebsocketConn specifies the subset of gorilla/websocket's
-// connection's methods that this client uses.
-type WebsocketConn interface {
-	WriteMessage(messageType int, data []byte) error
-	ReadMessage() (messageType int, data []byte, err error)
-	Close() error
-	SetWriteDeadline(t time.Time) error
-	SetReadDeadline(t time.Time) error
 }
 
 // RequestHandler would be func(*ecsacs.T for T in ecsacs.*) to be more proper, but it needs
@@ -101,21 +96,19 @@ type ClientServer interface {
 	WriteMessage(input []byte) error
 	Connect() error
 	IsConnected() bool
-	SetConnection(conn WebsocketConn)
+	SetConnection(conn wsconn.WebsocketConn)
 	Disconnect(...interface{}) error
 	Serve() error
 	SetReadDeadline(t time.Time) error
 	io.Closer
 }
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer,WebsocketConn mock/$GOFILE
-
 // ClientServerImpl wraps commonly used methods defined in ClientServer interface.
 type ClientServerImpl struct {
 	// AgentConfig is the user-specified runtime configuration
 	AgentConfig *config.Config
 	// conn holds the underlying low-level websocket connection
-	conn WebsocketConn
+	conn wsconn.WebsocketConn
 	// CredentialProvider is used to retrieve AWS credentials
 	CredentialProvider *credentials.Credentials
 	// RequestHandlers is a map from message types to handler functions of the
@@ -230,7 +223,7 @@ func (cs *ClientServerImpl) IsReady() bool {
 
 // SetConnection passes a websocket connection object into the client. This is used only in
 // testing and should be avoided in non-test code.
-func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
+func (cs *ClientServerImpl) SetConnection(conn wsconn.WebsocketConn) {
 	cs.conn = conn
 }
 
@@ -238,7 +231,44 @@ func (cs *ClientServerImpl) SetConnection(conn WebsocketConn) {
 // A read timeout results in an io error if there are any outstanding reads
 // that exceed the deadline
 func (cs *ClientServerImpl) SetReadDeadline(t time.Time) error {
-	return cs.conn.SetReadDeadline(t)
+	err := cs.conn.SetReadDeadline(t)
+	if err == nil {
+		return nil
+	}
+	seelog.Warnf("Unable to set read deadline for websocket connection: %v for %s", err, cs.URL)
+	// If we get connection closed error from SetReadDeadline, break out of the for loop and
+	// return an error
+	if opErr, ok := err.(*net.OpError); ok && strings.Contains(opErr.Err.Error(), errClosed) {
+		seelog.Errorf("Stopping redundant reads on closed network connection: %s", cs.URL)
+		return opErr
+	}
+	// An unhandled error has occurred while trying to extend read deadline.
+	// Try asynchronously closing the connection. We don't want to be blocked on stale connections
+	// taking too long to close. The flip side is that we might start accumulating stale connections.
+	// But, that still seems more desirable than waiting for ever for the connection to close
+	cs.forceCloseConnection()
+	return err
+}
+
+func (cs *ClientServerImpl) forceCloseConnection() {
+	closeChan := make(chan error)
+	go func() {
+		closeChan <- cs.Close()
+	}()
+	ctx, cancel := context.WithTimeout(context.TODO(), wsConnectTimeout)
+	defer cancel()
+	select {
+	case closeErr := <-closeChan:
+		if closeErr != nil {
+			seelog.Warnf("Unable to close websocket connection: %v for %s",
+				closeErr, cs.URL)
+		}
+	case <-ctx.Done():
+		if ctx.Err() != nil {
+			seelog.Warnf("Context canceled waiting for termination of websocket connection: %v for %s",
+				ctx.Err(), cs.URL)
+		}
+	}
 }
 
 // Disconnect disconnects the connection
@@ -317,10 +347,8 @@ func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 // messages from an active connection.
 func (cs *ClientServerImpl) ConsumeMessages() error {
 	for {
-		// Ignore errors when setting the read deadline as any connection
-		// related errors would be caught by ReadMessage as well
 		if err := cs.SetReadDeadline(time.Now().Add(cs.RWTimeout)); err != nil {
-			seelog.Warnf("Unable to set read deadline for websocket connection: %v for %s", err, cs.URL)
+			return err
 		}
 		messageType, message, err := cs.conn.ReadMessage()
 
@@ -338,7 +366,8 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 
 		default:
 			// Unexpected error occurred
-			seelog.Errorf("Error getting message from ws backend: error: [%v], messageType: [%v] ", err, messageType)
+			seelog.Errorf("Error getting message from ws backend: error: [%v], messageType: [%v] ",
+				err, messageType)
 			return err
 		}
 

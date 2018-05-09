@@ -1,24 +1,29 @@
 # Amazon ECS Container Agent
 
+![Amazon ECS logo](doc/ecs.png "Amazon ECS")
+
 [![Build Status](https://travis-ci.org/aws/amazon-ecs-agent.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-agent)
 [![Build status](https://ci.appveyor.com/api/projects/status/upkhbwf2oc0srglt?svg=true)](https://ci.appveyor.com/project/AmazonECS/amazon-ecs-agent)
 
 
-The Amazon ECS Container Agent is software developed for Amazon Elastic Container Service ([Amazon ECS](http://aws.amazon.com/ecs/)).
-
-It runs on container instances and starts containers on behalf of Amazon ECS.
+The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
+([Amazon ECS](http://aws.amazon.com/ecs/)) and is responsible for managing containers on behalf of Amazon ECS.
 
 ## Usage
 
-The best source of information on running this software is the [Amazon ECS documentation](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html).
+The best source of information on running this software is the
+[Amazon ECS documentation](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html).
 
 ### On the Amazon Linux AMI
 
-On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an init package which can be used via `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
+On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
+`sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
 
 ### On Other Linux AMIs
 
-The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version installed. A Docker image is available in our [Docker Hub Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
+The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version
+installed. A Docker image is available in our
+[Docker Hub Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
 
 ```bash
 $ # Set up directories the agent uses
@@ -48,10 +53,9 @@ See also the Advanced Usage section below.
 
 ### On Windows Server 2016
 
-On Windows Server 2016, the Amazon ECS Container Agent runs as a process or
-service on the host. Unlike Linux, the agent may not run inside a container as
-it uses the host's registry and the named pipe at `\\.\pipe\docker_engine` to
-communicate with the Docker daemon.
+On Windows Server 2016, the Amazon ECS Container Agent runs as a process or service on the host. Unlike Linux,
+the agent may not run inside a container as it uses the host's registry and the named pipe at `\\.\pipe\docker_engine`
+to communicate with the Docker daemon.
 
 #### As a Service
 To install the service, you can do the following:
@@ -121,72 +125,16 @@ PS C:\> # Run the agent
 PS C:\> cd '$ecsExeDir'; .\amazon-ecs-agent.ps1
 ```
 
-## Building and Running from Source
-
-**Running the Amazon ECS Container Agent outside of Amazon EC2 is not supported.**
-
-### Docker Image (on Linux)
-
-The Amazon ECS Container Agent may be built by typing `make` with the [Docker
-daemon](https://docs.docker.com/installation/) (v1.5.0) running.
-
-This produces an image tagged `amazon/ecs-container-agent:make` that
-you may run as described above.
-
-### Standalone (on Linux)
-
-The Amazon ECS Container Agent may also be run outside of a Docker container as a
-go binary. This is not recommended for production on Linux, but it can be useful for
-development or easier integration with your local Go tools.
-
-The following commands run the agent outside of Docker:
-
-```
-make gobuild
-./out/amazon-ecs-agent
-```
-
-### Make Targets (on Linux)
-
-The following targets are available. Each may be run with `make <target>`.
-
-| Make Target            | Description |
-|:-----------------------|:------------|
-| `release`              | *(Default)* Builds the agent within a Docker container and and packages it into a scratch-based image |
-| `gobuild`              | Runs a normal `go build` of the agent and stores the binary in `./out/amazon-ecs-agent` |
-| `static`               | Runs `go build` to produce a static binary in `./out/amazon-ecs-agent` |
-| `test`                 | Runs all unit tests using `go test` |
-| `test-in-docker`       | Runs all tests inside a Docker container |
-| `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
-| `run-functional-tests` | Runs all functional tests |
-| `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
-
-### Standalone (on Windows)
-
-The Amazon ECS Container Agent may be built by typing
-`go build -o amazon-ecs-agent.exe ./agent`.
-
-### Scripts (on Windows)
-
-The following scripts are available to help develop the Amazon ECS Container
-Agent on Windows:
-
-* `scripts\run-integ-tests.ps1` - Runs all integration tests in the `engine` and `stats` packages
-* `scripts\run-functional-tests.ps1` - Runs all functional tests
-* `misc\windows-deploy\amazon-ecs-agent.ps1` - Helper script to set up the host and run the agent
-* `misc\windows-deploy\user-data.ps1` - Sample user-data that can be used with the Windows Server 2016 with Containers AMI
-
-
 ## Advanced Usage
 
-The Amazon ECS Container Agent supports a number of configuration options, most of
-which should be set through environment variables.
+The Amazon ECS Container Agent supports a number of configuration options, most of which should be set through
+environment variables.
 
 ### Environment Variables
 
-The following environment variables are available. All of them are optional.
-They are listed in a general order of likelihood that a user may want to
-configure them as something other than the defaults.
+The table below provides an overview of optional environment variables that can be used to configure the ECS agent. See
+[the Amazon ECS developer guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) for
+additional details on each available environment variable.
 
 | Environment Key | Example Value(s)            | Description | Default value on Linux | Default value on Windows |
 |:----------------|:----------------------------|:------------|:-----------------------|:-------------------------|
@@ -214,6 +162,7 @@ configure them as something other than the defaults.
 | `ECS_APPARMOR_CAPABLE` | `true` | Whether AppArmor is available on the container instance. | `false` | `false` |
 | `ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION` | 10m | Time to wait to delete containers for a stopped task. If set to less than 1 minute, the value is ignored.  | 3h | 3h |
 | `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container to exit normally before being forcibly killed. | 30s | 30s |
+| `ECS_CONTAINER_START_TIMEOUT` | 10m | Timeout before giving up on starting a container. | 3m | 8m |
 | `ECS_ENABLE_TASK_IAM_ROLE` | `true` | Whether to enable IAM Roles for Tasks on the Container Instance | `false` | `false` |
 | `ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST` | `true` | Whether to enable IAM Roles for Tasks when launched with `host` network mode on the Container Instance | `false` | `false` |
 | `ECS_DISABLE_IMAGE_CLEANUP` | `true` | Whether to disable automated image cleanup for the ECS Agent. | `false` | `false` |
@@ -228,32 +177,86 @@ configure them as something other than the defaults.
 | `ECS_ENABLE_CONTAINER_METADATA` | `true` | When `true`, the agent will create a file describing the container's metadata and the file can be located and consumed by using the container enviornment variable `$ECS_CONTAINER_METADATA_FILE` | `false` | `false` |
 | `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. | `/var/lib/ecs` | `Not used` |
 | `ECS_ENABLE_TASK_CPU_MEM_LIMIT` | `true` | Whether to enable task-level cpu and memory limits | `true` | `false` |
+| `ECS_CGROUP_PATH` | `/sys/fs/cgroup` | The root cgroup path that is expected by the ECS agent. This is the path that accessible from the agent mount. | `/sys/fs/cgroup` | Not applicable |
+| `ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will allow CPU unbounded(CPU=`0`) tasks to run along with CPU bounded tasks in Windows. | Not applicable | `false` |
+| `ECS_TASK_METADATA_RPS_LIMIT` | `100,150` | Comma separated integer values for steady state and burst throttle limits for task metadata endpoint | `40,60` | `40,60` |
 
 ### Persistence
 
-When you run the Amazon ECS Container Agent in production, its `datadir` should be persisted
-between runs of the Docker container. If this data is not persisted, the agent registers
-a new container instance ARN on each launch and is not able to update the state of tasks it previously ran.
+When you run the Amazon ECS Container Agent in production, its `datadir` should be persisted between runs of the Docker
+container. If this data is not persisted, the agent registers a new container instance ARN on each launch and is not
+able to update the state of tasks it previously ran.
 
 ### Flags
 
 The agent also supports the following flags:
 
-* `-k` &mdash; The agent will not require valid SSL certificates for the services that it communicates with.
-* ` -loglevel` &mdash; Options: `[<crit>|<error>|<warn>|<info>|<debug>]`. The
-agent will output on stdout at the given level. This is overridden by the
-`ECS_LOGLEVEL` environment variable, if present.
+* `-k` &mdash; The agent will not require valid SSL certificates for the services that it communicates with. We
+  recommend against using this flag.
+* ` -loglevel` &mdash; Options: `[<crit>|<error>|<warn>|<info>|<debug>]`. The agent will output on stdout at the given
+  level. This is overridden by the `ECS_LOGLEVEL` environment variable, if present.
+
+## Building and Running from Source
+
+**Running the Amazon ECS Container Agent outside of Amazon EC2 is not supported.**
+
+### Docker Image (on Linux)
+
+The Amazon ECS Container Agent may be built by typing `make` with the [Docker
+daemon](https://docs.docker.com/installation/) (v1.5.0) running.
+
+This produces an image tagged `amazon/ecs-container-agent:make` that
+you may run as described above.
+
+### Standalone (on Linux)
+
+The Amazon ECS Container Agent may also be run outside of a Docker container as a Go binary. This is not recommended
+for production on Linux, but it can be useful for development or easier integration with your local Go tools.
+
+The following commands run the agent outside of Docker:
+
+```
+make gobuild
+./out/amazon-ecs-agent
+```
+
+### Make Targets (on Linux)
+
+The following targets are available. Each may be run with `make <target>`.
+
+| Make Target            | Description |
+|:-----------------------|:------------|
+| `release`              | *(Default)* Builds the agent within a Docker container and and packages it into a scratch-based image |
+| `gobuild`              | Runs a normal `go build` of the agent and stores the binary in `./out/amazon-ecs-agent` |
+| `static`               | Runs `go build` to produce a static binary in `./out/amazon-ecs-agent` |
+| `test`                 | Runs all unit tests using `go test` |
+| `test-in-docker`       | Runs all tests inside a Docker container |
+| `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
+| `run-functional-tests` | Runs all functional tests |
+| `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
+
+### Standalone (on Windows)
+
+The Amazon ECS Container Agent may be built by typing `go build -o amazon-ecs-agent.exe ./agent`.
+
+### Scripts (on Windows)
+
+The following scripts are available to help develop the Amazon ECS Container Agent on Windows:
+
+* `scripts\run-integ-tests.ps1` - Runs all integration tests in the `engine` and `stats` packages
+* `scripts\run-functional-tests.ps1` - Runs all functional tests
+* `misc\windows-deploy\Install-ECSAgent.ps1` - Install the ECS agent as a Windows service
+* `misc\windows-deploy\amazon-ecs-agent.ps1` - Helper script to set up the host and run the agent as a process
+* `misc\windows-deploy\user-data.ps1` - Sample user-data that can be used with the Windows Server 2016 with Containers
+  AMI to run the agent as a process
 
 
 ## Contributing
 
-Contributions and feedback are welcome! Proposals and pull requests will be
-considered and responded to. For more information, see the
-[CONTRIBUTING.md](https://github.com/aws/amazon-ecs-agent/blob/master/CONTRIBUTING.md)
-file.
+Contributions and feedback are welcome! Proposals and pull requests will be considered and responded to. For more
+information, see the [CONTRIBUTING.md](https://github.com/aws/amazon-ecs-agent/blob/master/CONTRIBUTING.md) file.
 
-Amazon Web Services does not currently provide support for modified copies of
-this software.
+Amazon Web Services does not currently provide support for modified copies of this software.
 
 
 ## License

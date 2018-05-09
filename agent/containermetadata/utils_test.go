@@ -1,5 +1,5 @@
 // +build !integration
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,8 +16,10 @@ package containermetadata
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -32,4 +34,51 @@ func TestGetTaskIDFailDueToInvalidID(t *testing.T) {
 	expectErrorMessage := fmt.Sprintf("get task ARN: cannot find TaskID for TaskARN %s", mockTaskARN)
 
 	assert.Equal(t, expectErrorMessage, err.Error())
+}
+
+func TestGetMetadataFilePathFailDueToInvalidID(t *testing.T) {
+	mockTaskARN := invalidSplitTaskARN
+	mockContainerName := containerName
+	mockDataDir := dataDir
+
+	_, err := getMetadataFilePath(mockTaskARN, mockContainerName, mockDataDir)
+	expectErrorMessage := fmt.Sprintf(
+		"get metdata file path of task %s container %s: get task ARN: cannot find TaskID for TaskARN %s",
+		mockTaskARN, mockContainerName, mockTaskARN)
+
+	assert.Equal(t, expectErrorMessage, err.Error())
+}
+
+func TestGetMetadataFilePathSuccess(t *testing.T) {
+	mockTaskARN := validTaskARN
+	mockContainerName := containerName
+	mockDataDir := dataDir
+
+	path, err := getMetadataFilePath(mockTaskARN, mockContainerName, mockDataDir)
+	expectedPath := filepath.Join(mockDataDir, metadataJoinSuffix, "task-id", mockContainerName)
+
+	assert.Equal(t, expectedPath, path)
+	assert.NoError(t, err)
+}
+
+func TestGetTaskMetadataDirFailDueToInvalidID(t *testing.T) {
+	mockTaskARN := invalidSplitTaskARN
+	mockDataDir := dataDir
+
+	_, err := getTaskMetadataDir(mockTaskARN, mockDataDir)
+	expectErrorMessage := fmt.Sprintf(
+		"get task metadata directory: get task ARN: cannot find TaskID for TaskARN %s", mockTaskARN)
+
+	assert.Equal(t, expectErrorMessage, err.Error())
+}
+
+func TestGetTaskMetadataDirSuccess(t *testing.T) {
+	mockTaskARN := validTaskARN
+	mockDataDir := dataDir
+
+	path, err := getTaskMetadataDir(mockTaskARN, mockDataDir)
+	expectedPath := filepath.Join(mockDataDir, metadataJoinSuffix, "task-id")
+
+	assert.Equal(t, expectedPath, path)
+	assert.NoError(t, err)
 }

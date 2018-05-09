@@ -37,9 +37,9 @@ var (
 	funcFormatValidator = regexp.MustCompile(`[a-zA-Z0-9_\*\.]*`)
 )
 
-// logLevelException represents an exceptional case used when you need some specific files or funcs to
+// LogLevelException represents an exceptional case used when you need some specific files or funcs to
 // override general constraints and to use their own.
-type logLevelException struct {
+type LogLevelException struct {
 	funcPatternParts []string
 	filePatternParts []string
 
@@ -49,13 +49,13 @@ type logLevelException struct {
 	constraints logLevelConstraints
 }
 
-// newLogLevelException creates a new exception.
-func newLogLevelException(funcPattern string, filePattern string, constraints logLevelConstraints) (*logLevelException, error) {
+// NewLogLevelException creates a new exception.
+func NewLogLevelException(funcPattern string, filePattern string, constraints logLevelConstraints) (*LogLevelException, error) {
 	if constraints == nil {
 		return nil, errors.New("constraints can not be nil")
 	}
 
-	exception := new(logLevelException)
+	exception := new(LogLevelException)
 
 	err := exception.initFuncPatternParts(funcPattern)
 	if err != nil {
@@ -74,28 +74,28 @@ func newLogLevelException(funcPattern string, filePattern string, constraints lo
 	return exception, nil
 }
 
-// MatchesContext returns true if context matches the patterns of this logLevelException
-func (logLevelEx *logLevelException) MatchesContext(context LogContextInterface) bool {
+// MatchesContext returns true if context matches the patterns of this LogLevelException
+func (logLevelEx *LogLevelException) MatchesContext(context LogContextInterface) bool {
 	return logLevelEx.match(context.Func(), context.FullPath())
 }
 
-// IsAllowed returns true if log level is allowed according to the constraints of this logLevelException
-func (logLevelEx *logLevelException) IsAllowed(level LogLevel) bool {
+// IsAllowed returns true if log level is allowed according to the constraints of this LogLevelException
+func (logLevelEx *LogLevelException) IsAllowed(level LogLevel) bool {
 	return logLevelEx.constraints.IsAllowed(level)
 }
 
 // FuncPattern returns the function pattern of a exception
-func (logLevelEx *logLevelException) FuncPattern() string {
+func (logLevelEx *LogLevelException) FuncPattern() string {
 	return logLevelEx.funcPattern
 }
 
 // FuncPattern returns the file pattern of a exception
-func (logLevelEx *logLevelException) FilePattern() string {
+func (logLevelEx *LogLevelException) FilePattern() string {
 	return logLevelEx.filePattern
 }
 
 // initFuncPatternParts checks whether the func filter has a correct format and splits funcPattern on parts
-func (logLevelEx *logLevelException) initFuncPatternParts(funcPattern string) (err error) {
+func (logLevelEx *LogLevelException) initFuncPatternParts(funcPattern string) (err error) {
 
 	if funcFormatValidator.FindString(funcPattern) != funcPattern {
 		return errors.New("func path \"" + funcPattern + "\" contains incorrect symbols. Only a-z A-Z 0-9 _ * . allowed)")
@@ -106,7 +106,7 @@ func (logLevelEx *logLevelException) initFuncPatternParts(funcPattern string) (e
 }
 
 // Checks whether the file filter has a correct format and splits file patterns using splitPattern.
-func (logLevelEx *logLevelException) initFilePatternParts(filePattern string) (err error) {
+func (logLevelEx *LogLevelException) initFilePatternParts(filePattern string) (err error) {
 
 	if fileFormatValidator.FindString(filePattern) != filePattern {
 		return errors.New("file path \"" + filePattern + "\" contains incorrect symbols. Only a-z A-Z 0-9 \\ / _ * . allowed)")
@@ -116,15 +116,15 @@ func (logLevelEx *logLevelException) initFilePatternParts(filePattern string) (e
 	return err
 }
 
-func (logLevelEx *logLevelException) match(funcPath string, filePath string) bool {
+func (logLevelEx *LogLevelException) match(funcPath string, filePath string) bool {
 	if !stringMatchesPattern(logLevelEx.funcPatternParts, funcPath) {
 		return false
 	}
 	return stringMatchesPattern(logLevelEx.filePatternParts, filePath)
 }
 
-func (logLevelEx *logLevelException) String() string {
-	str := fmt.Sprintf("Func: %s File: %s ", logLevelEx.funcPattern, logLevelEx.filePattern)
+func (logLevelEx *LogLevelException) String() string {
+	str := fmt.Sprintf("Func: %s File: %s", logLevelEx.funcPattern, logLevelEx.filePattern)
 
 	if logLevelEx.constraints != nil {
 		str += fmt.Sprintf("Constr: %s", logLevelEx.constraints)

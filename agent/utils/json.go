@@ -42,7 +42,7 @@ func JsonKeys(b []byte) ([]string, error) {
 // CompleteJsonUnmarshal determines if a given struct has members corresponding
 // to every key of a json object (passed as the json string).
 // By default, Go ignores fields in an object which have no corresponding struct
-// member and this can be used to determine if this ignoring has occured
+// member and this can be used to determine if this ignoring has occurred
 // Errors will result in "false" as a return value
 func CompleteJsonUnmarshal(b []byte, iface interface{}) error {
 	keys, err := JsonKeys(b)

@@ -26,9 +26,9 @@ import (
 
 const (
 	capabilityPrefix                            = "com.amazonaws.ecs.capability."
+	attributePrefix                             = "ecs.capability."
 	capabilityTaskIAMRole                       = "task-iam-role"
 	capabilityTaskIAMRoleNetHost                = "task-iam-role-network-host"
-	attributePrefix                             = "ecs.capability."
 	taskENIAttributeSuffix                      = "task-eni"
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
@@ -58,6 +58,7 @@ const (
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
+//    ecs.capability.container-health-check
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -73,6 +74,49 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		supportedVersions[version] = true
 	}
 
+	capabilities = agent.appendLoggingDriverCapabilities(capabilities)
+
+	if agent.cfg.SELinuxCapable {
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
+	}
+	if agent.cfg.AppArmorCapable {
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
+	}
+
+	capabilities = agent.appendTaskIamRoleCapabilities(capabilities, supportedVersions)
+
+	capabilities, err := agent.appendTaskCPUMemLimitCapabilities(capabilities, supportedVersions)
+	if err != nil {
+		return nil, err
+	}
+
+	capabilities = agent.appendTaskENICapabilities(capabilities)
+	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
+
+	// TODO: gate this on docker api version when ecs supported docker includes
+	// credentials endpoint feature from upstream docker
+	if agent.cfg.OverrideAWSLogsExecutionRole {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
+	}
+
+	return capabilities, nil
+}
+
+func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Attribute,
+	supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
+	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
+		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
+	}
+
+	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok {
+		// Docker health check was added in API 1.24
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"container-health-check")
+	}
+	return capabilities
+}
+
+func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	knownVersions := make(map[dockerclient.DockerVersion]struct{})
 	// Determine known API versions. Known versions are used exclusively for logging-driver enablement, since none of
 	// the structural API elements change.
@@ -86,19 +130,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
 		}
 	}
+	return capabilities
+}
 
-	if agent.cfg.SELinuxCapable {
-		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
-	}
-	if agent.cfg.AppArmorCapable {
-		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
-	}
-
-	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
-		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
-	}
-
+func (agent *ecsAgent) appendTaskIamRoleCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
 	if agent.cfg.TaskIAMRoleEnabled {
 		// The "task-iam-role" capability is supported for docker v1.7.x onwards
 		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
@@ -118,7 +153,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 			seelog.Warn("Task IAM Role for Host Network not enabled due to unsuppported Docker version")
 		}
 	}
+	return capabilities
+}
 
+func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) ([]*ecs.Attribute, error) {
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		if _, ok := supportedVersions[dockerclient.Version_1_22]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTaskCPUMemLimit)
@@ -131,7 +169,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 			agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 		}
 	}
+	return capabilities, nil
+}
 
+func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.TaskENIEnabled {
 		// The assumption here is that all of the dependecies for supporting the
 		// Task ENI in the Agent have already been validated prior to the invocation of
@@ -141,7 +182,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		})
 		taskENIVersionAttribute, err := agent.getTaskENIPluginVersionAttribute()
 		if err != nil {
-			return capabilities, nil
+			return capabilities
 		}
 		capabilities = append(capabilities, taskENIVersionAttribute)
 		// We only care about AWSVPCBlockInstanceMetdata if Task ENI is enabled
@@ -153,13 +194,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 			})
 		}
 	}
-	// TODO: gate this on docker api version when ecs supported docker includes
-	// credentials endpoint feature from upstream docker
-	if agent.cfg.OverrideAWSLogsExecutionRole {
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
-	}
-
-	return capabilities, nil
+	return capabilities
 }
 
 // getTaskENIPluginVersionAttribute returns the version information of the ECS

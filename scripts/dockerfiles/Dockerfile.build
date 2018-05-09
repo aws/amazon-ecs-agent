@@ -11,11 +11,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.7
+FROM golang:1.9
 MAINTAINER Amazon Web Services, Inc.
 
-RUN mkdir /out
-VOLUME ['/out']
+RUN apt-get update && \
+    apt-get install -y gcc-mingw-w64
 
 RUN mkdir -p /go/src/github.com/aws/
 

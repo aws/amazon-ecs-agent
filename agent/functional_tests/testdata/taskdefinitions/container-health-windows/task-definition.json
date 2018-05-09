@@ -1,0 +1,20 @@
+{
+    "family": "health",
+    "containerDefinitions": [
+    {
+        "name": "healthcontainer",
+        "image": "amazon/amazon-ecs-containerhealthcheck:make",
+        "cpu": 500,
+        "command":  [ "powershell", "-command", "Start-Sleep -s 300" ],
+        "memory": 500,
+        "healthCheck": {
+            "command": ["CMD-SHELL", "echo hello"],
+            "interval": 1,
+            "timeout": 2,
+            $$$$START_PERIOD$$$$
+            "retries": 3
+        },
+        "essential": true
+    }
+    ]
+}

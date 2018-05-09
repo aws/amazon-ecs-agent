@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -105,7 +105,8 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 		Reason:            ptr("Updates are disabled").(*string),
 	}})
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
@@ -113,7 +114,9 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
-	})
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 }
 
 func TestFullUpdateFlow(t *testing.T) {
@@ -159,7 +162,8 @@ func TestFullUpdateFlow(t *testing.T) {
 
 			require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-			u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+			taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+			msg := &ecsacs.PerformUpdateMessage{
 				ClusterArn:           ptr("cluster").(*string),
 				ContainerInstanceArn: ptr("containerInstance").(*string),
 				MessageId:            ptr("mid2").(*string),
@@ -167,7 +171,9 @@ func TestFullUpdateFlow(t *testing.T) {
 					Location:  ptr("https://" + host + "/amazon-ecs-agent/update.tar").(*string),
 					Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 				},
-			})
+			}
+
+			u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 		})
 	}
 }
@@ -224,11 +230,14 @@ func TestUndownloadedUpdate(t *testing.T) {
 		MessageId:         ptr("mid").(*string),
 	}})
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
-	})
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 }
 
 func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
@@ -282,7 +291,8 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 
 	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid3").(*string),
@@ -290,7 +300,9 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
-	})
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 }
 
 func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
@@ -347,7 +359,8 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 
 	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid3").(*string),
@@ -355,7 +368,9 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
-	})
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 }
 
 func TestNewerUpdateMessages(t *testing.T) {
@@ -420,7 +435,8 @@ func TestNewerUpdateMessages(t *testing.T) {
 
 	require.Equal(t, "newer-update-tar-data", writtenFile.String(), "incorrect data written")
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil))(&ecsacs.PerformUpdateMessage{
+	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil)
+	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
@@ -428,7 +444,9 @@ func TestNewerUpdateMessages(t *testing.T) {
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
-	})
+	}
+
+	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
 }
 
 func TestValidationError(t *testing.T) {

@@ -63,6 +63,10 @@ type TaskEngineState interface {
 	Reset()
 	// RemoveImageState removes an image.ImageState
 	RemoveImageState(imageState *image.ImageState)
+	// AddTaskIPAddress adds ip adddress for a task arn into the state
+	AddTaskIPAddress(addr string, taskARN string)
+	// GetTaskByIPAddress gets the task arn for an IP address
+	GetTaskByIPAddress(addr string) (string, bool)
 	json.Marshaler
 	json.Unmarshaler
 }
@@ -73,7 +77,7 @@ type TaskEngineState interface {
 // accessed before an update comes and to ensure multiple goroutines can safely
 // work with it.
 //
-// The methods on it will aquire the read lock, but not all aquire the write
+// The methods on it will acquire the read lock, but not all acquire the write
 // lock (sometimes it is up to the caller). This is because the write lock for
 // containers should encapsulate the creation of the resource as well as adding,
 // and creating the resource (docker container) is outside the scope of this
@@ -89,6 +93,7 @@ type DockerTaskEngineState struct {
 	idToContainer  map[string]*api.DockerContainer            // DockerId -> api.DockerContainer
 	eniAttachments map[string]*api.ENIAttachment              // ENIMac -> api.ENIAttachment
 	imageStates    map[string]*image.ImageState
+	ipToTask       map[string]string // ip address -> task arn
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -112,6 +117,7 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.idToContainer = make(map[string]*api.DockerContainer)
 	state.imageStates = make(map[string]*image.ImageState)
 	state.eniAttachments = make(map[string]*api.ENIAttachment)
+	state.ipToTask = make(map[string]string)
 }
 
 // Reset resets all the states
@@ -124,10 +130,10 @@ func (state *DockerTaskEngineState) AllTasks() []*api.Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allTasks()
+	return state.allTasksUnsafe()
 }
 
-func (state *DockerTaskEngineState) allTasks() []*api.Task {
+func (state *DockerTaskEngineState) allTasksUnsafe() []*api.Task {
 	ret := make([]*api.Task, len(state.tasks))
 	ndx := 0
 	for _, task := range state.tasks {
@@ -142,10 +148,10 @@ func (state *DockerTaskEngineState) AllImageStates() []*image.ImageState {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allImageStates()
+	return state.allImageStatesUnsafe()
 }
 
-func (state *DockerTaskEngineState) allImageStates() []*image.ImageState {
+func (state *DockerTaskEngineState) allImageStatesUnsafe() []*image.ImageState {
 	var allImageStates []*image.ImageState
 	for _, imageState := range state.imageStates {
 		allImageStates = append(allImageStates, imageState)
@@ -356,6 +362,9 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 		return
 	}
 	delete(state.tasks, task.Arn)
+	if ip, ok := state.taskToIPUnsafe(task.Arn); ok {
+		delete(state.ipToTask, ip)
+	}
 
 	containerMap, ok := state.taskToID[task.Arn]
 	if !ok {
@@ -367,6 +376,17 @@ func (state *DockerTaskEngineState) RemoveTask(task *api.Task) {
 	for _, dockerContainer := range containerMap {
 		state.removeIDToContainerTaskUnsafe(dockerContainer)
 	}
+}
+
+// taskToIPUnsafe gets the ip address for a given task arn
+func (state *DockerTaskEngineState) taskToIPUnsafe(arn string) (string, bool) {
+	for ip, taskARN := range state.ipToTask {
+		if arn == taskARN {
+			return ip, true
+		}
+	}
+
+	return "", false
 }
 
 // storeIDToContainerTaskUnsafe stores the container in the idToContainer and idToTask maps.  The key to the maps is
@@ -417,4 +437,21 @@ func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageStat
 		return
 	}
 	delete(state.imageStates, imageState.Image.ImageID)
+}
+
+// AddTaskIPAddress adds ip adddress for a task arn into the state
+func (state *DockerTaskEngineState) AddTaskIPAddress(addr string, taskARN string) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.ipToTask[addr] = taskARN
+}
+
+// GetTaskByIPAddress gets the task arn for an IP address
+func (state *DockerTaskEngineState) GetTaskByIPAddress(addr string) (string, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	taskARN, ok := state.ipToTask[addr]
+	return taskARN, ok
 }

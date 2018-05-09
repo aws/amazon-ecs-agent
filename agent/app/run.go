@@ -14,11 +14,12 @@
 package app
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
 )
@@ -35,6 +36,8 @@ func Run(arguments []string) int {
 
 	if *parsedArgs.License {
 		return printLicense()
+	} else if *parsedArgs.Version {
+		return version.PrintVersion()
 	}
 
 	logger.SetLevel(*parsedArgs.LogLevel)
@@ -50,9 +53,6 @@ func Run(arguments []string) int {
 	}
 
 	switch {
-	case *parsedArgs.Version:
-		// Print Agent's version and exit
-		return agent.printVersion()
 	case *parsedArgs.ECSAttributes:
 		// Print agent's ecs attributes based on its environment and exit
 		return agent.printECSAttributes()

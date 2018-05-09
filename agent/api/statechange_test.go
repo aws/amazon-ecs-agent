@@ -49,7 +49,7 @@ func TestShouldBeReported(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(fmt.Sprintf("task change status: %s, container change: %s", tc.status, len(tc.containerChange) > 0),
+		t.Run(fmt.Sprintf("task change status: %s, container change: %t", tc.status, len(tc.containerChange) > 0),
 			func(t *testing.T) {
 				taskChange := TaskStateChange{
 					Status:     tc.status,
@@ -68,9 +68,9 @@ func TestSetTaskTimestamps(t *testing.T) {
 
 	change := &TaskStateChange{
 		Task: &Task{
-			PullStartedAt:      t1,
-			PullStoppedAt:      t2,
-			ExecutionStoppedAt: t3,
+			PullStartedAtUnsafe:      t1,
+			PullStoppedAtUnsafe:      t2,
+			ExecutionStoppedAtUnsafe: t3,
 		},
 	}
 

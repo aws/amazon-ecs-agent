@@ -53,6 +53,18 @@ func TestFindClientAPIVersion(t *testing.T) {
 	for _, version := range getAgentVersions() {
 		client, err := factory.GetClient(version)
 		assert.NoError(t, err)
-		assert.Equal(t, Version_1_24, factory.FindClientAPIVersion(client))
+		if isWindowsReplaceableVersion(version) {
+			version = minDockerAPIVersion
+		}
+		assert.Equal(t, version, factory.FindClientAPIVersion(client))
 	}
+}
+
+func isWindowsReplaceableVersion(version DockerVersion) bool {
+	for _, v := range getWindowsReplaceableVersions() {
+		if v == version {
+			return true
+		}
+	}
+	return false
 }

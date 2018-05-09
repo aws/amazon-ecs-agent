@@ -18,7 +18,6 @@ package util
 import (
 	"crypto/md5"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,16 +29,23 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
 	docker "github.com/fsouza/go-dockerclient"
-	"golang.org/x/net/context"
+	"github.com/pkg/errors"
+)
+
+const (
+	arnResourceSections  = 2
+	arnResourceDelimiter = "/"
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -112,13 +118,14 @@ type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
 	PortBindings     map[docker.Port]map[string]string
+	EnableTaskENI    bool
 }
 
 // verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
 // This is a platform-independent piece of Agent Startup.
 func (agent *TestAgent) verifyIntrospectionAPI() error {
 	// Wait up to 10s for it to register
-	var localMetadata handlers.MetadataResponse
+	var localMetadata v1.MetadataResponse
 	for i := 0; i < 10; i++ {
 		func() {
 			agentMetadataResp, err := http.Get(agent.IntrospectionURL + "/v1/metadata")
@@ -220,6 +227,48 @@ func (agent *TestAgent) StartTaskWithTaskDefinitionOverrides(t *testing.T, task 
 	return tasks[0], nil
 }
 
+// StartAWSVPCTask starts a task with "awsvpc" networking mode
+func (agent *TestAgent) StartAWSVPCTask(task string, overrides map[string]string) (*TestTask, error) {
+	td, err := GetTaskDefinitionWithOverrides(task, overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	return agent.startAWSVPCTask(td)
+}
+
+func (agent *TestAgent) startAWSVPCTask(taskDefinition string) (*TestTask, error) {
+	agent.t.Logf("Task definition: %s", taskDefinition)
+	// Get the subnet ID, which is a required parameter for starting
+	// tasks in 'awsvpc' network mode
+	subnet, err := getSubnetID()
+	if err != nil {
+		return nil, err
+	}
+
+	agent.t.Logf("Starting 'awsvpc' task in subnet: %s", subnet)
+	resp, err := ECS.StartTask(&ecs.StartTaskInput{
+		Cluster:            &agent.Cluster,
+		ContainerInstances: []*string{&agent.ContainerInstanceArn},
+		TaskDefinition:     &taskDefinition,
+		NetworkConfiguration: &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				Subnets: []*string{&subnet},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Failures) != 0 || len(resp.Tasks) == 0 {
+		return nil, errors.New("Failure starting task: " + *resp.Failures[0].Reason)
+	}
+
+	task := resp.Tasks[0]
+	agent.t.Logf("Started task: %s\n", *task.TaskArn)
+	return &TestTask{task}, nil
+}
+
 func (agent *TestAgent) StartTaskWithOverrides(t *testing.T, task string, overrides []*ecs.ContainerOverride) (*TestTask, error) {
 	td, err := GetTaskDefinition(task)
 	if err != nil {
@@ -318,7 +367,7 @@ func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string
 	if err != nil {
 		return "", err
 	}
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*bodyData, &taskResp)
 	if err != nil {
 		return "", err
@@ -354,7 +403,7 @@ func (agent *TestAgent) waitStoppedViaIntrospection(task *TestTask) (bool, error
 		return false, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
 	if taskResp.KnownStatus == "STOPPED" {
@@ -384,7 +433,7 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 		return false, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 
 	if taskResp.KnownStatus == "RUNNING" {
@@ -394,13 +443,13 @@ func (agent *TestAgent) waitRunningViaIntrospection(task *TestTask) (bool, error
 	}
 }
 
-func (agent *TestAgent) CallTaskIntrospectionAPI(task *TestTask) (*handlers.TaskResponse, error) {
+func (agent *TestAgent) CallTaskIntrospectionAPI(task *TestTask) (*v1.TaskResponse, error) {
 	rawResponse, err := agent.callTaskIntrospectionApi(*task.TaskArn)
 	if err != nil {
 		return nil, err
 	}
 
-	var taskResp handlers.TaskResponse
+	var taskResp v1.TaskResponse
 	err = json.Unmarshal(*rawResponse, &taskResp)
 	return &taskResp, err
 }
@@ -480,7 +529,8 @@ func (task *TestTask) waitStatus(timeout time.Duration, status string) error {
 		return err
 	case <-timer.C:
 		cancelled = true
-		return errors.New("Timed out waiting for task to reach " + status + ": " + *task.TaskDefinitionArn + ", " + *task.TaskArn)
+		return errors.Errorf("Timed out waiting for task '%s' to reach '%s': '%s' ",
+			status, *task.TaskArn, task.GoString())
 	}
 }
 
@@ -533,6 +583,15 @@ func (task *TestTask) Stop() error {
 	return err
 }
 
+// GetAttachmentInfo returns the task's attachment properties, as a list of key value pairs
+func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
+	if len(task.Attachments) == 0 {
+		return nil, errors.New("attachments empty for task")
+	}
+
+	return task.Attachments[0].Details, nil
+}
+
 func RequireDockerVersion(t *testing.T, selector string) {
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -552,6 +611,33 @@ func RequireDockerVersion(t *testing.T, selector string) {
 
 	if !match {
 		t.Skipf("Skipping test; requires %v, but version is %v", selector, version)
+	}
+}
+
+func RequireDockerAPIVersion(t *testing.T, selector string) {
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		t.Fatalf("Could not get docker client to check version: %v", err)
+	}
+	dockerVersion, err := dockerClient.Version()
+	if err != nil {
+		t.Fatalf("Could not get docker version: %v", err)
+	}
+
+	version := dockerVersion.Get("ApiVersion")
+
+	// adding zero patch to use semver comparator
+	// TODO: Implement non-semver comparator
+	version += ".0"
+	selector += ".0"
+
+	match, err := utils.Version(version).Matches(selector)
+	if err != nil {
+		t.Fatalf("Could not check docker api version to match required: %v", err)
+	}
+
+	if !match {
+		t.Skipf("Skipping test; requires %v, but api version is %v", selector, version)
 	}
 }
 
@@ -583,7 +669,7 @@ func GetInstanceIAMRole() (*iam.Role, error) {
 	return instanceRole.Role, nil
 }
 
-// SearchStrInDir searches the files in direcotry for specific content
+// SearchStrInDir searches the files in directory for specific content
 func SearchStrInDir(dir, filePrefix, content string) error {
 	logfiles, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -645,7 +731,7 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 		return err
 	}
 
-	var taskResponse handlers.TaskResponse
+	var taskResponse v1.TaskResponse
 	err = json.Unmarshal(*bodyData, &taskResponse)
 	if err != nil {
 		return err
@@ -671,4 +757,54 @@ func AttributesToMap(attributes []*ecs.Attribute) map[string]string {
 		attributeMap[aws.StringValue(attribute.Name)] = aws.StringValue(attribute.Value)
 	}
 	return attributeMap
+}
+
+// getSubnetID gets the subnet id for the instance from ec2 instance metadata
+func getSubnetID() (string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+	mac, err := ec2Metadata.GetMetadata("mac")
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to get mac from ec2 metadata")
+	}
+	subnet, err := ec2Metadata.GetMetadata("network/interfaces/macs/" + mac + "/subnet-id")
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to get subnet from ec2 metadata")
+	}
+
+	return subnet, nil
+}
+
+// GetAccountID returns the aws account id from the instance metadata
+func GetAccountID() (string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+
+	instanceIdentity, err := ec2Metadata.GetInstanceIdentityDocument()
+	if err != nil {
+		return "", err
+	}
+
+	return instanceIdentity.AccountID, nil
+}
+
+// GetTaskID returns the task id from the task arn
+func GetTaskID(taskARN string) (string, error) {
+	// Parse taskARN
+	parsedARN, err := arn.Parse(taskARN)
+	if err != nil {
+		return "", errors.Wrapf(err, "task get-id: malformed taskARN: %s", taskARN)
+	}
+
+	// Get task resource section
+	resource := parsedARN.Resource
+
+	if !strings.Contains(resource, arnResourceDelimiter) {
+		return "", errors.Errorf("task get-id: malformed task resource: %s", resource)
+	}
+
+	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
+	if len(resourceSplit) != arnResourceSections {
+		return "", errors.Errorf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit))
+	}
+
+	return resourceSplit[1], nil
 }

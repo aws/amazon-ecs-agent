@@ -1,4 +1,4 @@
-// +build !linux
+// +build !linux,!windows
 
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -20,8 +20,15 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/cihub/seelog"
 )
 
 func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) (error, bool) {
 	return errors.New("unsupported platform"), true
+}
+
+// startWindowsService is not supported on non windows platforms
+func (agent *ecsAgent) startWindowsService() int {
+	seelog.Error("Windows Services are not supported on unspecified platforms")
+	return 1
 }

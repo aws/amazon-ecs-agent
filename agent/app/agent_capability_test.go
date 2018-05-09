@@ -14,11 +14,12 @@
 package app
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 
-	"golang.org/x/net/context"
+	"context"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -359,15 +360,17 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	defer ctrl.Finish()
 
 	client := engine.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	conf := &config.Config{
 		OverrideAWSLogsExecutionRole: true,
+		TaskENIEnabled:               true,
 	}
 
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 	})
-
 	client.EXPECT().KnownVersions().Return(nil)
+	cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", errors.New("some error happened"))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -376,6 +379,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 		ctx:          ctx,
 		cfg:          conf,
 		dockerClient: client,
+		cniClient:    cniClient,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -483,4 +487,36 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	capabilities, err := agent.capabilities()
 	assert.Nil(t, capabilities)
 	assert.Error(t, err, "An error should be thrown when TaskCPUMemLimit is explicitly enabled")
+}
+
+func TestCapabilitiesContainerHealth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := engine.NewMockDockerClient(ctrl)
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_24,
+	})
+	client.EXPECT().KnownVersions().Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          &config.Config{},
+		dockerClient: client,
+	}
+
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.StringValue(capability.Name)] = true
+	}
+
+	_, ok := capMap["ecs.capability.container-health-check"]
+	assert.True(t, ok, "Could not find container health check capability when expected; got capabilities %v", capabilities)
 }

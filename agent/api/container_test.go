@@ -16,6 +16,7 @@ package api
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
@@ -167,4 +168,40 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 			assert.Equal(t, testCase.result, testCase.container.ShouldPullWithExecutionRole(), testCase.msg)
 		})
 	}
+}
+
+func TestSetHealtStatus(t *testing.T) {
+	container := Container{}
+
+	// set the container status to be healthy
+	container.SetHealthStatus(HealthStatus{Status: ContainerHealthy, Output: "test"})
+	health := container.GetHealthStatus()
+	assert.Equal(t, health.Status, ContainerHealthy)
+	assert.Equal(t, health.Output, "test")
+	assert.NotEmpty(t, health.Since)
+
+	// set the health status again shouldn't update the timestamp
+	container.SetHealthStatus(HealthStatus{Status: ContainerHealthy})
+	health2 := container.GetHealthStatus()
+	assert.Equal(t, health2.Status, ContainerHealthy)
+	assert.Equal(t, health2.Since, health.Since)
+
+	// the sleep is to ensure the different of the two timestamp returned by time.Now()
+	// is big enough to pass asser.NotEqual
+	time.Sleep(10 * time.Millisecond)
+	// change the container health status
+	container.SetHealthStatus(HealthStatus{Status: ContainerUnhealthy, ExitCode: 1})
+	health3 := container.GetHealthStatus()
+	assert.Equal(t, health3.Status, ContainerUnhealthy)
+	assert.Equal(t, health3.ExitCode, 1)
+	assert.NotEqual(t, health3.Since, health2.Since)
+}
+
+func TestHealthStatusShouldBeReported(t *testing.T) {
+	container := Container{}
+	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that does not have HealthCheckType set should not be reported")
+	container.HealthCheckType = dockerHealthCheckType
+	assert.True(t, container.HealthStatusShouldBeReported(), "Health status of container that has docker HealthCheckType set should be reported")
+	container.HealthCheckType = "unknown"
+	assert.False(t, container.HealthStatusShouldBeReported(), "Health status of container that has non-docker HealthCheckType set should not be reported")
 }

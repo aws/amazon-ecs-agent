@@ -11,15 +11,13 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.7
+FROM golang:1.9
 MAINTAINER Amazon Web Services, Inc.
-
-RUN mkdir /out
-VOLUME ['/out']
-
-RUN mkdir -p /go/src/github.com/aws/
 
 COPY ./scripts/cleanbuild /scripts/cleanbuild
 WORKDIR /go/src/github.com/aws/amazon-ecs-agent
 
+# Set subfolder permissions to 777
+# https://github.com/docker-library/golang/blob/2f2f3b620d61f533484f24a568c2ca46e4fda91c/1.9/stretch/Dockerfile#L49
+RUN chmod -R 777 /go/src
 ENTRYPOINT /scripts/cleanbuild

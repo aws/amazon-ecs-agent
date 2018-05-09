@@ -1,6 +1,6 @@
 // +build windows,!integration
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,18 +15,33 @@
 package engine
 
 import (
+	"context"
+	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	// dockerVersionCheckDuringInit specifies if Docker client's Version()
+	// API needs to be mocked in engine tests
+	//
+	// isParallelPullCompatible is not invoked during engin intialization
+	// on windows. No need for mock Docker client's Version() call
+	dockerVersionCheckDuringInit = false
+)
+
 func TestPullEmptyVolumeImage(t *testing.T) {
-	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, &config.Config{})
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	saver := mock_statemanager.NewMockStateManager(ctrl)
@@ -47,4 +62,37 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+}
+
+func TestDeleteTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	task := &api.Task{}
+
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	taskEngine := &DockerTaskEngine{
+		state: mockState,
+		saver: mockSaver,
+		cfg:   &defaultConfig,
+		ctx:   ctx,
+	}
+
+	gomock.InOrder(
+		mockState.EXPECT().RemoveTask(task),
+		mockSaver.EXPECT().Save(),
+	)
+
+	var cleanupDone sync.WaitGroup
+	handleCleanupDone := make(chan struct{})
+	cleanupDone.Add(1)
+	go func() {
+		<-handleCleanupDone
+		cleanupDone.Done()
+	}()
+	taskEngine.deleteTask(task, handleCleanupDone)
+	cleanupDone.Wait()
 }

@@ -1,6 +1,6 @@
 // +build !windows,integration
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -35,6 +35,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -49,6 +50,10 @@ const (
 	testAuthPass          = "swordfish"
 )
 
+var (
+	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+)
+
 func isDockerRunning() bool {
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		return false
@@ -57,9 +62,13 @@ func isDockerRunning() bool {
 }
 
 func createTestContainer() *api.Container {
+	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
+}
+
+func createTestContainerWithImageAndName(image string, name string) *api.Container {
 	return &api.Container{
-		Name:                "netcat",
-		Image:               testRegistryImage,
+		Name:                name,
+		Image:               image,
 		Command:             []string{},
 		Essential:           true,
 		DesiredStatusUnsafe: api.ContainerRunning,
@@ -68,26 +77,29 @@ func createTestContainer() *api.Container {
 	}
 }
 
-var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-
-func removeImage(img string) {
-	removeEndpoint := utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-	client, _ := docker.NewClient(removeEndpoint)
-
-	client.RemoveImage(img)
-}
-
-func dialWithRetries(proto string, address string, tries int, timeout time.Duration) (net.Conn, error) {
-	var err error
-	var conn net.Conn
-	for i := 0; i < tries; i++ {
-		conn, err = net.DialTimeout(proto, address, timeout)
-		if err == nil {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+func createTestHealthCheckTask(arn string) *api.Task {
+	testTask := &api.Task{
+		Arn:                 arn,
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: api.TaskRunning,
+		Containers:          []*api.Container{createTestContainer()},
 	}
-	return conn, err
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Name = "test-health-check"
+	testTask.Containers[0].HealthCheckType = "docker"
+	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
+	testTask.Containers[0].DockerConfig = api.DockerConfig{
+		Config: aws.String(`{
+			"HealthCheck":{
+				"Test":["CMD-SHELL", "echo hello"],
+				"Interval":100000000,
+				"Timeout":100000000,
+				"StartPeriod":100000000,
+				"Retries":3}
+		}`),
+	}
+	return testTask
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -95,27 +107,17 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
+
 	// Ensure this image isn't pulled by deleting it
-	removeImage(testRegistryImage)
+	removeImage(t, testRegistryImage)
 
 	testTask := createTestTask("testStartUnpulled")
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
-
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
-
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
@@ -125,26 +127,17 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(imageDigest)
+	removeImage(t, imageDigest)
 
 	testTask := createTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = imageDigest
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port
@@ -158,21 +151,17 @@ func TestPortForward(t *testing.T) {
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
 
 	err := verifyTaskIsRunning(stateChangeEvents, testTask)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	_, err = net.DialTimeout("tcp", "127.0.0.1:24751", 200*time.Millisecond)
-	if err == nil {
-		t.Error("Did not expect to be able to dial 127.0.0.1:24751 but didn't get error")
-	}
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), dialTimeout)
+	assert.Error(t, err, "Did not expect to be able to dial %s:%d but didn't get error", localhost, containerPortOne)
 
 	// Kill the existing container now to make the test run more quickly.
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -188,8 +177,8 @@ func TestPortForward(t *testing.T) {
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	taskEngine.AddTask(testTask)
 
@@ -198,8 +187,8 @@ func TestPortForward(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
@@ -219,8 +208,8 @@ func TestPortForward(t *testing.T) {
 		t.Log("Retrying getting response from container; got nothing")
 		time.Sleep(100 * time.Millisecond)
 	}
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Stop the existing container now
@@ -241,13 +230,13 @@ func TestMultiplePortForwards(t *testing.T) {
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container1"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "1"}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
-	testTask.Containers[1].Command = []string{"-l=24751", "-serve", "ecs test container2"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24752}}
+	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "2"}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -256,25 +245,25 @@ func TestMultiplePortForwards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container 1 " + err.Error())
 	}
 	t.Log("Dialed first container")
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container1" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container1'")
+	if string(response) != serverContent+"1" {
+		t.Error("Got response: " + string(response) + " instead of" + serverContent + "1")
 	}
 	t.Log("Read first container")
-	conn, err = dialWithRetries("tcp", "127.0.0.1:24752", 10, 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortTwo), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container 2 " + err.Error())
 	}
 	t.Log("Dialed second container")
 	response, _ = ioutil.ReadAll(conn)
-	if string(response) != "ecs test container2" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container2'")
+	if string(response) != serverContent+"2" {
+		t.Error("Got response: " + string(response) + " instead of" + serverContent + "2")
 	}
 	t.Log("Read second container")
 
@@ -294,9 +283,9 @@ func TestDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container"}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -305,31 +294,30 @@ func TestDynamicPortForward(t *testing.T) {
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	if len(portBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
 	}
-	var bindingFor24751 uint16
+	var bindingForcontainerPortOne uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
-			bindingFor24751 = binding.HostPort
+		if binding.ContainerPort == containerPortOne {
+			bindingForcontainerPortOne = binding.HostPort
 		}
 	}
-	if bindingFor24751 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751)), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Kill the existing container now
@@ -337,11 +325,8 @@ func TestDynamicPortForward(t *testing.T) {
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -352,9 +337,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	testArn := "testDynamicPortForward2"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].Command = []string{"-l=24751", "-serve", "ecs test container", `-loop`}
+	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: 24751}, {ContainerPort: 24751, HostPort: 0}}
+	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -363,49 +348,48 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	if len(portBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
 	}
-	var bindingFor24751_1 uint16
-	var bindingFor24751_2 uint16
+	var bindingForcontainerPortOne_1 uint16
+	var bindingForcontainerPortOne_2 uint16
 	for _, binding := range portBindings {
-		if binding.ContainerPort == 24751 {
-			if bindingFor24751_1 == 0 {
-				bindingFor24751_1 = binding.HostPort
+		if binding.ContainerPort == containerPortOne {
+			if bindingForcontainerPortOne_1 == 0 {
+				bindingForcontainerPortOne_1 = binding.HostPort
 			} else {
-				bindingFor24751_2 = binding.HostPort
+				bindingForcontainerPortOne_2 = binding.HostPort
 			}
 		}
 	}
-	if bindingFor24751_1 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne_1 == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
-	if bindingFor24751_2 == 0 {
-		t.Error("Could not find the port mapping for 24751!")
+	if bindingForcontainerPortOne_2 == 0 {
+		t.Errorf("Could not find the port mapping for %d!", containerPortOne)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_1)), 10, 20*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne_1)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ := ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
-	conn, err = dialWithRetries("tcp", "127.0.0.1:"+strconv.Itoa(int(bindingFor24751_2)), 10, 20*time.Millisecond)
+	conn, err = dialWithRetries("tcp", localhost+":"+strconv.Itoa(int(bindingForcontainerPortOne_2)), 10, dialTimeout)
 	if err != nil {
 		t.Fatal("Error dialing simple container " + err.Error())
 	}
 
 	response, _ = ioutil.ReadAll(conn)
-	if string(response) != "ecs test container" {
-		t.Error("Got response: " + string(response) + " instead of 'ecs test container'")
+	if string(response) != serverContent {
+		t.Error("Got response: " + string(response) + " instead of " + serverContent)
 	}
 
 	// Kill the existing container now
@@ -413,11 +397,8 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestLinking ensures that container linking does allow networking to go
@@ -432,9 +413,9 @@ func TestLinking(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
 	testTask.Containers[0].Name = "linkee"
-	testTask.Containers[1].Command = []string{"-l=24751", "linkee_alias:80"}
+	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 24751, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -449,7 +430,7 @@ func TestLinking(t *testing.T) {
 
 	var response []byte
 	for i := 0; i < 10; i++ {
-		conn, err := net.DialTimeout("tcp", "127.0.0.1:24751", 10*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), dialTimeout)
 		if err != nil {
 			t.Log("Error dialing simple container" + err.Error())
 		}
@@ -483,8 +464,8 @@ func TestDockerCfgAuth(t *testing.T) {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
 
-	removeImage(testAuthRegistryImage)
-	taskEngine, done, _ := setup(cfg, t)
+	removeImage(t, testAuthRegistryImage)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 	defer func() {
 		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
@@ -494,26 +475,18 @@ func TestDockerCfgAuth(t *testing.T) {
 	testTask := createTestTask("testDockerCfgAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	taskUpdate := createTestTask("testDockerCfgAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestDockerAuth(t *testing.T) {
@@ -525,32 +498,25 @@ func TestDockerAuth(t *testing.T) {
 		cfg.EngineAuthType = ""
 	}()
 
-	taskEngine, done, _ := setup(cfg, t)
+	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
-	removeImage(testAuthRegistryImage)
+	removeImage(t, testAuthRegistryImage)
 
 	testTask := createTestTask("testDockerAuth")
 	testTask.Containers[0].Image = testAuthRegistryImage
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	taskUpdate := createTestTask("testDockerAuth")
+	taskUpdate.Containers[0].Image = testAuthRegistryImage
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestVolumesFrom(t *testing.T) {
@@ -566,7 +532,7 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers[1].Image = testVolumeImage
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: 24751}}
+	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -575,8 +541,8 @@ func TestVolumesFrom(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(50 * time.Millisecond) // wait for Docker
-	conn, err := dialWithRetries("tcp", "127.0.0.1:24751", 10, 10*time.Millisecond)
+	time.Sleep(waitForDockerDuration) // wait for Docker
+	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
 	if err != nil {
 		t.Error("Could not dial listening container" + err.Error())
 	}
@@ -613,17 +579,25 @@ func TestVolumesFromRO(t *testing.T) {
 	}
 	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
+	// make all the three containers non-essential to make sure all of the
+	// container can be transitioned to running even one of them finished first
+	testTask.Containers[1].Essential = false
 	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
+	testTask.Containers[2].Essential = false
 	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
+	testTask.Containers[3].Essential = false
 
 	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, testTask.Containers[0])
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 
 	if testTask.Containers[1].GetKnownExitCode() == nil || *testTask.Containers[1].GetKnownExitCode() != 42 {
-		t.Error("Didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
+		t.Error("Didn't exit due to failure to touch ro fs as expected: ", testTask.Containers[1].GetKnownExitCode())
 	}
 	if testTask.Containers[2].GetKnownExitCode() == nil || *testTask.Containers[2].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with default of rw")
@@ -682,20 +656,16 @@ func TestInitOOMEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	if contEvent.ExitCode == nil {
 		t.Error("Expected exitcode to be set")
@@ -739,11 +709,8 @@ func TestSignalEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -777,11 +744,8 @@ check_events:
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 
 	if testTask.Containers[0].GetKnownExitCode() == nil || *testTask.Containers[0].GetKnownExitCode() != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
@@ -793,7 +757,7 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := defaultTestConfigIntegTest()
 
-	taskEngine, _, _ := setup(cfg, t)
+	taskEngine, _, _ := setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -806,18 +770,14 @@ func TestDockerStopTimeout(t *testing.T) {
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-docker-timeout"
 
-	stateChangeEvents := dockerTaskEngine.StateChangeEvents()
-
 	go dockerTaskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be running")
+	verifyContainerRunningStateChange(t, taskEngine)
 
 	startTime := ttime.Now()
 	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be stopped")
+	verifyContainerRunningStateChange(t, taskEngine)
 
 	if ttime.Since(startTime) < testDockerStopTimeout {
 		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
@@ -831,28 +791,48 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
 	testArn := "testSecurityOptionNoNewPrivileges"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].DockerConfig = api.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
 
 	go taskEngine.AddTask(testTask)
 
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning, "Expected task to be RUNNING")
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(api.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+}
 
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+// TestSerialImagePull tests the serial pull image behavior of the agent
+func TestSerialImagePull(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	// Force enable serial pull
+	dockerTaskEngine, ok := taskEngine.(*DockerTaskEngine)
+	require.True(t, ok)
+	dockerTaskEngine.enableConcurrentPull = false
+
+	// Ensure this image isn't pulled by deleting it
+	removeImage(t, testRegistryImage)
+	removeImage(t, testBusyboxImage)
+
+	testTask := createTestTask("testSerialImagePull")
+	testTask.Containers = append(testTask.Containers,
+		createTestContainerWithImageAndName(testBusyboxImage, "busybox"))
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }

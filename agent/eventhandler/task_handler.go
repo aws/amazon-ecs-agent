@@ -323,11 +323,11 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 // to ECS. The error is used by the backoff handler to backoff before retrying the
 // state change submission for the first event
 func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, backoff utils.Backoff) (bool, error) {
-	seelog.Debug("TaskHandler: Aquiring lock for sending event...")
+	seelog.Debug("TaskHandler: Acquiring lock for sending event...")
 	taskEvents.lock.Lock()
 	defer taskEvents.lock.Unlock()
 
-	seelog.Debugf("TaskHandler: Aquired lock, processing event list: : %s", taskEvents.toStringUnsafe())
+	seelog.Debugf("TaskHandler: Acquired lock, processing event list: : %s", taskEvents.toStringUnsafe())
 
 	if taskEvents.events.Len() == 0 {
 		seelog.Debug("TaskHandler: No events left; not retrying more")

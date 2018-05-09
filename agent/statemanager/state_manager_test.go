@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStateManagerNonexistantDirectory(t *testing.T) {
@@ -34,11 +35,11 @@ func TestStateManagerNonexistantDirectory(t *testing.T) {
 
 func TestLoadsV1DataCorrectly(t *testing.T) {
 	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v1", "1", "ecs_agent_data.json"))
-	assert.Nil(t, err, "Failed to set up test")
+	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -62,11 +63,17 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 			deadTask = task
 		}
 	}
-	assert.NotNil(t, deadTask)
+
+	require.NotNil(t, deadTask)
 	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
 	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, api.ContainerStopped)
 	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, api.ContainerStopped)
 	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, api.ContainerStopped)
+
+	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
+	require.NotNil(t, exitCode)
+	assert.Equal(t, *exitCode, 128)
+
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
 	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
 }

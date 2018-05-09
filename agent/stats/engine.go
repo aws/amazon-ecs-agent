@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,13 +16,14 @@ package stats
 //go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/cihub/seelog"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -39,6 +40,15 @@ const (
 	queueResetThreshold    = 2 * ecsengine.StatsInactivityTimeout
 )
 
+var (
+	// EmptyMetricsError indicates an error for a task when there are no container
+	// metrics to report
+	EmptyMetricsError = errors.New("stats engine: no task metrics to report")
+	// EmptyHealthMetricsError indicates an error for a task when there are no container
+	// health metrics to report
+	EmptyHealthMetricsError = errors.New("stats engine: no task health metrics to report")
+)
+
 // DockerContainerMetadataResolver implements ContainerMetadataResolver for
 // DockerTaskEngine.
 type DockerContainerMetadataResolver struct {
@@ -49,6 +59,8 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
+	ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error)
+	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -57,16 +69,17 @@ type DockerStatsEngine struct {
 	client                     ecsengine.DockerClient
 	cluster                    string
 	containerInstanceArn       string
-	containersLock             sync.RWMutex
+	lock                       sync.RWMutex
+	disableMetrics             bool
 	containerChangeEventStream *eventstream.EventStream
 	resolver                   resolver.ContainerMetadataResolver
 	// tasksToContainers maps task arns to a map of container ids to StatsContainer objects.
 	tasksToContainers map[string]map[string]*StatsContainer
-	// tasksToDefinitions maps task arns to task definiton name and family metadata objects.
+	// tasksToHealthCheckContainers map task arns to the containers that has health check enabled
+	tasksToHealthCheckContainers map[string]map[string]*StatsContainer
+	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
 	tasksToDefinitions map[string]*taskDefinition
 }
-
-var EmptyMetricsError = errors.New("No task metrics to report")
 
 // ResolveTask resolves the api task object, given container id.
 func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*api.Task, error) {
@@ -98,16 +111,49 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config, client ecsengine.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
 	return &DockerStatsEngine{
-		client:                     client,
-		resolver:                   nil,
-		tasksToContainers:          make(map[string]map[string]*StatsContainer),
-		tasksToDefinitions:         make(map[string]*taskDefinition),
-		containerChangeEventStream: containerChangeEventStream,
+		client:                       client,
+		resolver:                     nil,
+		disableMetrics:               cfg.DisableMetrics,
+		tasksToContainers:            make(map[string]map[string]*StatsContainer),
+		tasksToHealthCheckContainers: make(map[string]map[string]*StatsContainer),
+		tasksToDefinitions:           make(map[string]*taskDefinition),
+		containerChangeEventStream:   containerChangeEventStream,
 	}
+}
+
+// synchronizeState goes through all the containers on the instance to synchronize the state on agent start
+func (engine *DockerStatsEngine) synchronizeState() error {
+	listContainersResponse := engine.client.ListContainers(false, ecsengine.ListContainersTimeout)
+	if listContainersResponse.Error != nil {
+		return listContainersResponse.Error
+	}
+
+	for _, containerID := range listContainersResponse.DockerIDs {
+		engine.addAndStartStatsContainer(containerID)
+	}
+	return nil
+}
+
+// addAndStartStatsContainer add the container into stats engine and start collecting the container stats
+func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
+	statsContainer, err := engine.addContainerUnsafe(containerID)
+	if err != nil {
+		seelog.Debugf("Adding container to stats watch list failed, container: %s, err: %v", containerID, err)
+		return
+	}
+
+	if engine.disableMetrics || statsContainer == nil {
+		return
+	}
+
+	statsContainer.StartStatsCollection()
 }
 
 // MustInit initializes fields of the DockerStatsEngine object.
 func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, cluster string, containerInstanceArn string) error {
+	// TODO ensure that this is done only once per engine object
 	seelog.Info("Initializing stats engine")
 	engine.cluster = cluster
 	engine.containerInstanceArn = containerInstanceArn
@@ -118,20 +164,18 @@ func (engine *DockerStatsEngine) MustInit(taskEngine ecsengine.TaskEngine, clust
 		return err
 	}
 
-	return engine.Init()
-}
-
-// Init subscribes to the container change event stream.
-func (engine *DockerStatsEngine) Init() error {
 	// Subscribe to the container change event stream
-	err := engine.containerChangeEventStream.Subscribe(containerChangeHandler, engine.handleDockerEvents)
+	err = engine.containerChangeEventStream.Subscribe(containerChangeHandler, engine.handleDockerEvents)
 	if err != nil {
 		return fmt.Errorf("Failed to subscribe to container change event stream, err %v", err)
 	}
 
-	go engine.listContainersAndStartEventHandler()
-	go engine.waitToStop()
+	err = engine.synchronizeState()
+	if err != nil {
+		seelog.Warnf("Synchronize the container state failed, err: %v", err)
+	}
 
+	go engine.waitToStop()
 	return nil
 }
 
@@ -149,37 +193,96 @@ func (engine *DockerStatsEngine) waitToStop() {
 
 // removeAll stops the periodic usage data collection for all containers
 func (engine *DockerStatsEngine) removeAll() {
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
+
 	for task, containers := range engine.tasksToContainers {
 		for _, statsContainer := range containers {
 			statsContainer.StopStatsCollection()
 		}
 		delete(engine.tasksToContainers, task)
 	}
+
+	for task := range engine.tasksToHealthCheckContainers {
+		delete(engine.tasksToContainers, task)
+	}
 }
 
-// listContainersAndStartEventHandler adds existing containers to the watch-list
-// and starts the docker event handler.
-func (engine *DockerStatsEngine) listContainersAndStartEventHandler() {
-	// List and add existing containers to the list of containers to watch.
-	err := engine.addExistingContainers()
+// addContainerUnsafe adds a container to the map of containers being watched.
+func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsContainer, error) {
+	// Make sure that this container belongs to a task and that the task
+	// is not terminal.
+	task, err := engine.resolver.ResolveTask(dockerID)
 	if err != nil {
-		seelog.Warnf("Error listing existing containers, err: %v", err)
-		return
+		return nil, errors.Wrapf(err, "could not map container to task, ignoring container: %s", dockerID)
 	}
+
+	if len(task.Arn) == 0 || len(task.Family) == 0 {
+		return nil, errors.Errorf("stats add container: invalid task fields, arn: %s, familiy: %s", task.Arn, task.Family)
+	}
+
+	if task.GetKnownStatus().Terminal() {
+		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
+	}
+
+	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
+	statsContainer := newStatsContainer(dockerID, engine.client, engine.resolver)
+	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
+
+	watchStatsContainer := false
+	if !engine.disableMetrics {
+		// Adding container to the map for collecting stats
+		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
+	}
+
+	if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
+		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
+	} else if dockerContainer.Container.HealthStatusShouldBeReported() {
+		// Track the container health status
+		engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.healthCheckContainerMapUnsafe)
+		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
+	}
+
+	if !watchStatsContainer {
+		return nil, nil
+	}
+	return statsContainer, nil
 }
 
-// addExistingContainers lists existing containers and adds them to the engine.
-func (engine *DockerStatsEngine) addExistingContainers() error {
-	listContainersResponse := engine.client.ListContainers(false, ecsengine.ListContainersTimeout)
-	if listContainersResponse.Error != nil {
-		return listContainersResponse.Error
-	}
+func (engine *DockerStatsEngine) containerMetricsMapUnsafe() map[string]map[string]*StatsContainer {
+	return engine.tasksToContainers
+}
 
-	for _, containerID := range listContainersResponse.DockerIDs {
-		engine.addContainer(containerID)
-	}
+func (engine *DockerStatsEngine) healthCheckContainerMapUnsafe() map[string]map[string]*StatsContainer {
+	return engine.tasksToHealthCheckContainers
+}
 
-	return nil
+// addToStatsContainerMapUnsafe adds the statscontainer into stats for tracking and returns a boolean indicates
+// whether this container should be tracked for collecting metrics
+func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
+	taskARN, containerID string,
+	statsContainer *StatsContainer,
+	statsMapToUpdate func() map[string]map[string]*StatsContainer) bool {
+
+	taskToContainerMap := statsMapToUpdate()
+
+	// Check if this container is already being watched.
+	_, taskExists := taskToContainerMap[taskARN]
+	if taskExists {
+		// task arn exists in map.
+		_, containerExists := taskToContainerMap[taskARN][containerID]
+		if containerExists {
+			// container arn exists in map.
+			seelog.Debugf("Container already being watched, ignoring, id: %s", containerID)
+			return false
+		}
+	} else {
+		// Create a map for the task arn if it doesn't exist yet.
+		taskToContainerMap[taskARN] = make(map[string]*StatsContainer)
+	}
+	taskToContainerMap[taskARN][containerID] = statsContainer
+
+	return true
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
@@ -200,8 +303,11 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 		return metricsMetadata, taskMetrics, nil
 	}
 
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
+
 	for taskArn := range engine.tasksToContainers {
-		containerMetrics, err := engine.getContainerMetricsForTask(taskArn)
+		containerMetrics, err := engine.taskContainerMetricsUnsafe(taskArn)
 		if err != nil {
 			seelog.Debugf("Error getting container metrics for task: %s, err: %v", taskArn, err)
 			continue
@@ -235,15 +341,138 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 
 	// Reset current stats. Retaining older stats results in incorrect utilization stats
 	// until they are removed from the queue.
-	engine.resetStats()
+	engine.resetStatsUnsafe()
 	return metricsMetadata, taskMetrics, nil
 }
 
+// GetTaskHealthMetrics returns the container health metrics
+func (engine *DockerStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	var taskHealths []*ecstcs.TaskHealth
+	metadata := &ecstcs.HealthMetadata{
+		Cluster:           aws.String(engine.cluster),
+		ContainerInstance: aws.String(engine.containerInstanceArn),
+		MessageId:         aws.String(uuid.NewRandom().String()),
+	}
+
+	if !engine.containerHealthsToMonitor() {
+		return metadata, taskHealths, nil
+	}
+
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	for taskARN := range engine.tasksToHealthCheckContainers {
+		taskHealth := engine.getTaskHealthUnsafe(taskARN)
+		if taskHealth == nil {
+			continue
+		}
+		taskHealths = append(taskHealths, taskHealth)
+	}
+
+	if len(taskHealths) == 0 {
+		return nil, nil, EmptyHealthMetricsError
+	}
+
+	return metadata, taskHealths, nil
+}
+
 func (engine *DockerStatsEngine) isIdle() bool {
-	engine.containersLock.RLock()
-	defer engine.containersLock.RUnlock()
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
 
 	return len(engine.tasksToContainers) == 0
+}
+
+func (engine *DockerStatsEngine) containerHealthsToMonitor() bool {
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	return len(engine.tasksToHealthCheckContainers) != 0
+}
+
+// stopTrackingContainerUnsafe removes the StatsContainer from stats engine and
+// returns true if the container is stopped or no longer tracked in agent. Otherwise
+// it does nothing and return false
+func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsContainer, taskARN string) bool {
+	terminal, err := container.terminal()
+	if err != nil {
+		// Error determining if the container is terminal. This means that the container
+		// id could not be resolved to a container that is being tracked by the
+		// docker task engine. If the docker task engine has already removed
+		// the container from its state, there's no point in stats engine tracking the
+		// container. So, clean-up anyway.
+		seelog.Warnf("Error determining if the container %s is terminal, removing from stats, err: %v", container.containerMetadata.DockerID, err)
+		engine.doRemoveContainerUnsafe(container, taskARN)
+		return true
+	}
+	if terminal {
+		// Container is in known terminal state. Stop collection metrics.
+		seelog.Infof("Container %s is terminal, removing from stats", container.containerMetadata.DockerID)
+		engine.doRemoveContainerUnsafe(container, taskARN)
+		return true
+	}
+
+	return false
+}
+
+func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.TaskHealth {
+	// Acquire the task definition information
+	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
+	if !ok {
+		seelog.Debugf("Could not map task to definitions, task: %s", taskARN)
+		return nil
+	}
+	// Check all the stats container for the task
+	containers, ok := engine.tasksToHealthCheckContainers[taskARN]
+	if !ok {
+		seelog.Debugf("Could not map task to health containers, task: %s", taskARN)
+		return nil
+	}
+
+	// Aggregate container health information for all the containers in the task
+	var containerHealths []*ecstcs.ContainerHealth
+	for _, container := range containers {
+		// check if the container is stopped/untracked, and remove it from stats
+		//engine if needed
+		if engine.stopTrackingContainerUnsafe(container, taskARN) {
+			continue
+		}
+		dockerContainer, err := engine.resolver.ResolveContainer(container.containerMetadata.DockerID)
+		if err != nil {
+			seelog.Debugf("Could not resolve the Docker ID in agent state: %s", container.containerMetadata.DockerID)
+			continue
+		}
+
+		// Check if the container has health check enabled
+		if !dockerContainer.Container.HealthStatusShouldBeReported() {
+			continue
+		}
+
+		healthInfo := dockerContainer.Container.GetHealthStatus()
+		if healthInfo.Since == nil {
+			// container was started but the health status isn't ready
+			healthInfo.Since = aws.Time(time.Now())
+		}
+		containerHealth := &ecstcs.ContainerHealth{
+			ContainerName: aws.String(dockerContainer.Container.Name),
+			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
+			StatusSince:   aws.Time(healthInfo.Since.UTC()),
+		}
+		containerHealths = append(containerHealths, containerHealth)
+	}
+
+	if len(containerHealths) == 0 {
+		return nil
+	}
+
+	taskHealth := &ecstcs.TaskHealth{
+		Containers:            containerHealths,
+		TaskArn:               aws.String(taskARN),
+		TaskDefinitionFamily:  aws.String(taskDefinition.family),
+		TaskDefinitionVersion: aws.String(taskDefinition.version),
+	}
+
+	return taskHealth
 }
 
 // handleDockerEvents must be called after openEventstream; it processes each
@@ -257,7 +486,7 @@ func (engine *DockerStatsEngine) handleDockerEvents(events ...interface{}) error
 
 		switch dockerContainerChangeEvent.Status {
 		case api.ContainerRunning:
-			engine.addContainer(dockerContainerChangeEvent.DockerID)
+			engine.addAndStartStatsContainer(dockerContainerChangeEvent.DockerID)
 		case api.ContainerStopped:
 			engine.removeContainer(dockerContainerChangeEvent.DockerID)
 		default:
@@ -268,57 +497,11 @@ func (engine *DockerStatsEngine) handleDockerEvents(events ...interface{}) error
 	return nil
 }
 
-// addContainer adds a container to the map of containers being watched.
-// It also starts the periodic usage data collection for the container.
-func (engine *DockerStatsEngine) addContainer(dockerID string) {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
-
-	// Make sure that this container belongs to a task and that the task
-	// is not terminal.
-	task, err := engine.resolver.ResolveTask(dockerID)
-	if err != nil {
-		seelog.Debugf("Could not map container to task, ignoring, err: %v, id: %s", err, dockerID)
-		return
-	}
-
-	if len(task.Arn) == 0 || len(task.Family) == 0 {
-		seelog.Debugf("Task has invalid fields, id: %s", dockerID)
-		return
-	}
-
-	if task.GetKnownStatus().Terminal() {
-		seelog.Debugf("Task is terminal, ignoring, id: %s", dockerID)
-		return
-	}
-
-	// Check if this container is already being watched.
-	_, taskExists := engine.tasksToContainers[task.Arn]
-	if taskExists {
-		// task arn exists in map.
-		_, containerExists := engine.tasksToContainers[task.Arn][dockerID]
-		if containerExists {
-			// container arn exists in map.
-			seelog.Debugf("Container already being watched, ignoring, id: %s", dockerID)
-			return
-		}
-	} else {
-		// Create a map for the task arn if it doesn't exist yet.
-		engine.tasksToContainers[task.Arn] = make(map[string]*StatsContainer)
-	}
-
-	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
-	container := newStatsContainer(dockerID, engine.client, engine.resolver)
-	engine.tasksToContainers[task.Arn][dockerID] = container
-	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
-	container.StartStatsCollection()
-}
-
 // removeContainer deletes the container from the map of containers being watched.
 // It also stops the periodic usage data collection for the container.
 func (engine *DockerStatsEngine) removeContainer(dockerID string) {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
 
 	// Make sure that this container belongs to a task.
 	task, err := engine.resolver.ResolveTask(dockerID)
@@ -341,7 +524,7 @@ func (engine *DockerStatsEngine) removeContainer(dockerID string) {
 		return
 	}
 
-	engine.doRemoveContainer(container, task.Arn)
+	engine.doRemoveContainerUnsafe(container, task.Arn)
 }
 
 // newDockerContainerMetadataResolver returns a new instance of DockerContainerMetadataResolver.
@@ -359,11 +542,8 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 	return resolver, nil
 }
 
-// getContainerMetricsForTask gets all container metrics for a task arn.
-func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*ecstcs.ContainerMetric, error) {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
-
+// taskContainerMetricsUnsafe gets all container metrics for a task arn.
+func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*ecstcs.ContainerMetric, error) {
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
 		return nil, fmt.Errorf("Task not found")
@@ -376,20 +556,7 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 		// cleaned up properly. We might sometimes miss events from docker task
 		// engine and this helps in reconciling the state. The tcs client's
 		// GetInstanceMetrics probe is used as the trigger for this.
-		terminal, err := container.terminal()
-		if err != nil {
-			// Error determining if the container is terminal. This means that the container
-			// id could not be resolved to a container that is being tracked by the
-			// docker task engine. If the docker task engine has already removed
-			// the container from its state, there's no point in stats engine tracking the
-			// container. So, clean-up anyway.
-			seelog.Warnf("Error determining if the container %s is terminal, cleaning up and skipping", dockerID, err)
-			engine.doRemoveContainer(container, taskArn)
-			continue
-		} else if terminal {
-			// Container is in knonwn terminal state. Stop collection metrics.
-			seelog.Infof("Container %s is terminal, cleaning up and skipping", dockerID)
-			engine.doRemoveContainer(container, taskArn)
+		if engine.stopTrackingContainerUnsafe(container, taskArn) {
 			continue
 		}
 
@@ -423,7 +590,7 @@ func (engine *DockerStatsEngine) getContainerMetricsForTask(taskArn string) ([]*
 	return containerMetrics, nil
 }
 
-func (engine *DockerStatsEngine) doRemoveContainer(container *StatsContainer, taskArn string) {
+func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContainer, taskArn string) {
 	container.StopStatsCollection()
 	dockerID := container.containerMetadata.DockerID
 	delete(engine.tasksToContainers[taskArn], dockerID)
@@ -437,17 +604,45 @@ func (engine *DockerStatsEngine) doRemoveContainer(container *StatsContainer, ta
 		delete(engine.tasksToDefinitions, taskArn)
 		seelog.Debugf("Deleted task from tasks, arn: %s", taskArn)
 	}
+
+	// Remove the container from health container watch list
+	if _, ok := engine.tasksToHealthCheckContainers[taskArn][dockerID]; !ok {
+		return
+	}
+
+	delete(engine.tasksToHealthCheckContainers[taskArn], dockerID)
+	if len(engine.tasksToHealthCheckContainers[taskArn]) == 0 {
+		delete(engine.tasksToHealthCheckContainers, taskArn)
+		seelog.Debugf("Deleted task from container health watch list, arn: %s", taskArn)
+	}
 }
 
-// resetStats resets stats for all watched containers.
-func (engine *DockerStatsEngine) resetStats() {
-	engine.containersLock.Lock()
-	defer engine.containersLock.Unlock()
+// resetStatsUnsafe resets stats for all watched containers.
+func (engine *DockerStatsEngine) resetStatsUnsafe() {
 	for _, containerMap := range engine.tasksToContainers {
 		for _, container := range containerMap {
 			container.statsQueue.Reset()
 		}
 	}
+}
+
+// ContainerDockerStats returns the last stored raw docker stats object for a container
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error) {
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	containerIDToStatsContainer, ok := engine.tasksToContainers[taskARN]
+	if !ok {
+		return nil, errors.Errorf("stats engine: task '%s' for container '%s' not found",
+			taskARN, containerID)
+	}
+
+	container, ok := containerIDToStatsContainer[containerID]
+	if !ok {
+		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
+	}
+	return container.statsQueue.GetLastStat(), nil
+
 }
 
 // newMetricsMetadata creates the singleton metadata object.

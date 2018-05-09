@@ -1,5 +1,5 @@
 // !build windows
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,8 +38,9 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, 10, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
+	assert.Equal(t, 8*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
 	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
-	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
+	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
@@ -51,6 +52,11 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded, "CPUUnbounded should be false by default")
+	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
+		"Default TaskMetadataSteadyStateRate is set incorrectly")
+	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
+		"Default TaskMetadataBurstRate is set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -86,4 +92,21 @@ func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
+}
+
+func TestCPUUnboundedSet(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.True(t, cfg.PlatformVariables.CPUUnbounded)
+}
+
+func TestCPUUnboundedWindowsDisabled(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
 }

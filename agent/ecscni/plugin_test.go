@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_cnitypes"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,27 +21,29 @@ func TestSetupNS(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	mockResult := mock_types.NewMockResult(ctrl)
-
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
 
 	gomock.InOrder(
-		libcniClient.EXPECT().AddNetworkList(gomock.Any(), gomock.Any()).Return(mockResult, nil).Do(func(net *libcni.NetworkConfigList, rt *libcni.RuntimeConf) {
-			assert.Len(t, net.Plugins, 2, "expected 2 plugins for SetupNS")
-			bridgePlugin := net.Plugins[0]
-			assert.Equal(t, ECSBridgePluginName, bridgePlugin.Network.Type, "first plugin should be bridge")
-			var bridgeConfig BridgeConfig
-			err := json.Unmarshal(bridgePlugin.Bytes, &bridgeConfig)
-			assert.NoError(t, err, "unmarshal BridgeConfig")
-			assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
-		}),
-		mockResult.EXPECT().String().Return(""),
+		// ENI plugin was called first
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSENIPluginName, net.Network.Type, "second plugin should be eni")
+			}),
+		// Bridge plugin was called last
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "first plugin should be bridge")
+				var bridgeConfig BridgeConfig
+				err := json.Unmarshal(net.Bytes, &bridgeConfig)
+				assert.NoError(t, err, "unmarshal BridgeConfig")
+				assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+			}),
 	)
 
-	err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
+	_, err = ecscniClient.SetupNS(&Config{AdditionalLocalRoutes: additionalRoutes})
 	assert.NoError(t, err)
 }
 
@@ -53,7 +55,8 @@ func TestCleanupNS(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	libcniClient.EXPECT().DelNetworkList(gomock.Any(), gomock.Any()).Return(nil)
+	// This will be called for both bridge and eni plugin
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
@@ -71,15 +74,15 @@ func TestReleaseIPInIPAM(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	libcniClient.EXPECT().DelNetworkList(gomock.Any(), gomock.Any()).Return(nil)
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil)
 
 	err := ecscniClient.ReleaseIPResource(&Config{})
 	assert.NoError(t, err)
 }
 
-// TestConstructNetworkConfig tests constructNetworkConfig creates the correct
-// configuration for bridge/eni plugin
-func TestConstructNetworkConfigWithoutIPAM(t *testing.T) {
+// TestConstructENINetworkConfig tests createENINetworkConfig creates the correct
+// configuration for eni plugin
+func TestConstructENINetworkConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
 
 	config := &Config{
@@ -89,27 +92,15 @@ func TestConstructNetworkConfigWithoutIPAM(t *testing.T) {
 		ENIIPV4Address:       "172.31.21.40",
 		ENIIPV6Address:       "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
 		ENIMACAddress:        "02:7b:64:49:b1:40",
-		BridgeName:           "bridge-test1",
 		BlockInstanceMetdata: true,
 	}
 
-	networkConfigList, err := ecscniClient.(*cniClient).createNetworkConfig(config, ecscniClient.(*cniClient).createBridgeNetworkConfigWithoutIPAM)
-	assert.NoError(t, err, "construct cni plugins configuration failed")
-
-	bridgeConfig := &BridgeConfig{}
+	_, eniNetworkConfig, err := ecscniClient.(*cniClient).createENINetworkConfig(config)
+	assert.NoError(t, err, "construct eni network config failed")
 	eniConfig := &ENIConfig{}
-	for _, plugin := range networkConfigList.Plugins {
-		var err error
-		if plugin.Network.Type == ECSBridgePluginName {
-			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		} else if plugin.Network.Type == ECSENIPluginName {
-			err = json.Unmarshal(plugin.Bytes, eniConfig)
-		}
-		assert.NoError(t, err, "unmarshal config from bytes failed")
-	}
+	err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
+	assert.NoError(t, err, "unmarshal config from bytes failed")
 
-	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
-	assert.Equal(t, IPAMConfig{}, bridgeConfig.IPAM)
 	assert.Equal(t, config.ENIID, eniConfig.ENIID)
 	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
 	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
@@ -117,8 +108,28 @@ func TestConstructNetworkConfigWithoutIPAM(t *testing.T) {
 	assert.True(t, eniConfig.BlockInstanceMetdata)
 }
 
-// TestConstructNetworkConfig tests constructNetworkConfig creates the correct
-// configuration for bridge/eni/ipam plugin
+// TestConstructBridgeNetworkConfigWithoutIPAM tests createBridgeNetworkConfigWithoutIPAM creates the right configuration for bridge plugin
+func TestConstructBridgeNetworkConfigWithoutIPAM(t *testing.T) {
+	ecscniClient := NewClient(&Config{})
+
+	config := &Config{
+		ContainerID:  "containerid12",
+		ContainerPID: "pid",
+		BridgeName:   "bridge-test1",
+	}
+
+	_, bridgeNetworkConfig, err := ecscniClient.(*cniClient).createBridgeNetworkConfigWithoutIPAM(config)
+	assert.NoError(t, err, "construct bridge network config failed")
+	bridgeConfig := &BridgeConfig{}
+	err = json.Unmarshal(bridgeNetworkConfig.Bytes, bridgeConfig)
+
+	assert.NoError(t, err, "unmarshal bridge config from bytes failed")
+	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
+	assert.Equal(t, IPAMConfig{}, bridgeConfig.IPAM)
+}
+
+// TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM
+// creates the correct configuration for bridge and ipam plugin
 func TestConstructNetworkConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
 
@@ -128,41 +139,22 @@ func TestConstructNetworkConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	config := &Config{
-		ENIID:                 "eni-12345678",
 		ContainerID:           "containerid12",
 		ContainerPID:          "pid",
-		ENIIPV4Address:        "172.31.21.40",
-		ENIIPV6Address:        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:         "02:7b:64:49:b1:40",
 		BridgeName:            "bridge-test1",
-		BlockInstanceMetdata:  true,
 		AdditionalLocalRoutes: additionalRoutes,
 	}
 
-	networkConfigList, err := ecscniClient.(*cniClient).createNetworkConfig(config, ecscniClient.(*cniClient).createBridgeNetworkConfigWithIPAM)
-	assert.NoError(t, err, "construct cni plugins configuration failed")
+	_, bridgeNetworkConfig, err := ecscniClient.(*cniClient).createBridgeNetworkConfigWithIPAM(config)
+	assert.NoError(t, err, "construct bridge plugins configuration failed")
 
 	bridgeConfig := &BridgeConfig{}
-	eniConfig := &ENIConfig{}
-	for _, plugin := range networkConfigList.Plugins {
-		var err error
-		switch plugin.Network.Type {
-		case ECSBridgePluginName:
-			err = json.Unmarshal(plugin.Bytes, bridgeConfig)
-		case ECSENIPluginName:
-			err = json.Unmarshal(plugin.Bytes, eniConfig)
-		}
-		assert.NoError(t, err, "unmarshal config from bytes failed for plugin %s\n%s", plugin.Network.Type, string(plugin.Bytes))
-	}
+	err = json.Unmarshal(bridgeNetworkConfig.Bytes, bridgeConfig)
+	assert.NoError(t, err, "unmarshal bridge config from bytes failed: %s", string(bridgeNetworkConfig.Bytes))
 
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
 	assert.Equal(t, ecsSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())
-	assert.Equal(t, config.ENIID, eniConfig.ENIID)
-	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
-	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
-	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
-	assert.True(t, eniConfig.BlockInstanceMetdata)
 }
 
 func TestCNIPluginVersion(t *testing.T) {
