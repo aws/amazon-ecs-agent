@@ -2,10 +2,16 @@ language: go
 sudo: false
 go:
   - 1.9
-go_import_path: github.com/coveo/amazon-ecs-agent
+go_import_path: github.com/aws/amazon-ecs-agent
 
 install: 
 - if [ ${TRAVIS_TAG::1} = v ];
   then
-    go build -o amazon-ecs-agent.exe ./agent;
+    go build -o amazon-ecs-agent ./agent;
+  fi
+
+after_success:
+- if [ ${TRAVIS_TAG::1} = v ];
+  then
+    curl -sL https://git.io/goreleaser | bash;
   fi
