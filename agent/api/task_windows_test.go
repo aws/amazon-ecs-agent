@@ -43,7 +43,10 @@ const (
 	expectedEmptyVolumeContainerCmd   = "not-applicable"
 
 	expectedMemorySwappinessDefault = memorySwappinessDefault
-	minDockerClientAPIVersion = dockerclient.Version_1_24
+	minDockerClientAPIVersion       = dockerclient.Version_1_24
+
+	nonZeroMemoryReservationValue  = 1
+	expectedMemoryReservationValue = 0
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -202,7 +205,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expected := docker.HostConfig{
-		Memory:		  DockerContainerMinimumMemoryInBytes,
+		Memory:           DockerContainerMinimumMemoryInBytes,
 		Privileged:       true,
 		SecurityOpt:      []string{"foo", "bar"},
 		VolumesFrom:      []string{"dockername-c2"},
@@ -243,9 +246,9 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 	cpuShareScaleFactor := runtime.NumCPU() * cpuSharesPerCore
 	testcases := []struct {
-		cpu           int64
-		cpuUnbounded  bool
-		cpuPercent    int64
+		cpu          int64
+		cpuUnbounded bool
+		cpuPercent   int64
 	}{
 		{
 			cpu:          0,
@@ -284,8 +287,8 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 			testTask := &Task{
 				Containers: []*Container{
 					{
-						Name:   "c1",
-						CPU:    uint(tc.cpu),
+						Name: "c1",
+						CPU:  uint(tc.cpu),
 					},
 				},
 				platformFields: platformFields{
@@ -299,4 +302,37 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 			assert.Equal(t, tc.cpuPercent, hostconfig.CPUPercent)
 		})
 	}
+}
+
+func TestWindowsMemoryReservationOption(t *testing.T) {
+	// Testing sending a task to windows overriding MemoryReservation value
+	rawHostConfigInput := docker.HostConfig{
+		MemoryReservation: nonZeroMemoryReservationValue,
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*Container{
+			{
+				Name: "c1",
+				DockerConfig: DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.EqualValues(t, expectedMemoryReservationValue, config.MemoryReservation)
 }
