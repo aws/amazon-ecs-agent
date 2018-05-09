@@ -1,0 +1,17 @@
+# Build customization
+builds:
+  - binary: amazon-ecs-agent
+    goos:
+      - windows
+    goarch:
+      - amd64
+
+# Archive customization
+archive:
+  format: zip
+
+  replacements:
+    amd64: 64-bits
+
+  files:
+    - nothing.*

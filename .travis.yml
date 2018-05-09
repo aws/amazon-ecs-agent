@@ -4,8 +4,16 @@ go:
   - 1.9
 go_import_path: github.com/aws/amazon-ecs-agent
 
-install: make get-deps
-script:
-  - make test
-  - make static-check
-  
+before_install:
+- if [ ${TRAVIS_TAG::1} = v ];
+  then
+    cd ../.. &&
+    mv coveo aws &&
+    cd aws/amazon-ecs-agent;
+  fi
+
+install: 
+- if [ ${TRAVIS_TAG::1} = v ];
+  then
+    go build -o amazon-ecs-agent.exe ./agent;
+  fi
