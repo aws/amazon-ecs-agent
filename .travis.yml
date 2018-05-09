@@ -7,11 +7,5 @@ go_import_path: github.com/aws/amazon-ecs-agent
 script: 
 - if [ ${TRAVIS_TAG::1} = v ];
   then
-    go build -o amazon-ecs-agent ./agent;
-  fi
-
-after_success:
-- if [ ${TRAVIS_TAG::1} = v ];
-  then
     curl -sL https://git.io/goreleaser | bash;
   fi

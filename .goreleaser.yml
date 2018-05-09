@@ -1,6 +1,7 @@
 # Build customization
 builds:
   - binary: amazon-ecs-agent
+    main: agent/agent.go
     goos:
       - windows
     goarch:
