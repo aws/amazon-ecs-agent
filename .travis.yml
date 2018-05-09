@@ -4,7 +4,7 @@ go:
   - 1.9
 go_import_path: github.com/aws/amazon-ecs-agent
 
-install: 
+script: 
 - if [ ${TRAVIS_TAG::1} = v ];
   then
     go build -o amazon-ecs-agent ./agent;
