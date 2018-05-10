@@ -13,10 +13,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package cgroup
+package control
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory"
 
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"

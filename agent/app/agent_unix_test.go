@@ -39,10 +39,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -468,7 +468,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -537,7 +537,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 

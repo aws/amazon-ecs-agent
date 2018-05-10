@@ -16,7 +16,7 @@
 package taskresource
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
+	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 

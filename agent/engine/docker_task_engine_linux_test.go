@@ -31,10 +31,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -66,7 +66,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	taskID, err := sleepTask.GetID()
 	assert.NoError(t, err)
@@ -134,7 +134,7 @@ func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
 	task := &apitask.Task{
 		ENI: &apieni.ENI{
@@ -176,7 +176,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	taskID, err := sleepTask.GetID()
 	assert.NoError(t, err)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
@@ -258,7 +258,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				name := <-containerName
 				setCreatedContainerName(name)
 			}()
-			mockControl := mock_cgroup.NewMockControl(ctrl)
+			mockControl := mock_control.NewMockControl(ctrl)
 			mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 			taskID, err := sleepTask.GetID()
 			assert.NoError(t, err)

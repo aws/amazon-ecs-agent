@@ -13,25 +13,24 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package cgroup
+package control
 
 import (
-	"github.com/containerd/cgroups"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+
+	"github.com/cihub/seelog"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-// Spec captures the abstraction for a creating a new
-// cgroup based on root and the runtime specifications
-type Spec struct {
-	// Root is the cgroup path
-	Root string
-	// Specs are for all the linux resources including cpu, memory, etc...
-	Specs *specs.LinuxResources
-}
+// Init is used to setup the cgroup root for ecs
+func (c *control) Init() error {
+	seelog.Infof("Creating root ecs cgroup: %s", config.DefaultTaskCgroupPrefix)
 
-type Control interface {
-	Create(cgroupSpec *Spec) (cgroups.Cgroup, error)
-	Remove(cgroupPath string) error
-	Exists(cgroupPath string) bool
-	Init() error
+	// Build cgroup spec
+	cgroupSpec := &Spec{
+		Root:  config.DefaultTaskCgroupPrefix,
+		Specs: &specs.LinuxResources{},
+	}
+	_, err := c.Create(cgroupSpec)
+	return err
 }
