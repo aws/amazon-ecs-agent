@@ -224,3 +224,54 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		})
 	}
 }
+
+func TestSetTaskSentStatus(t *testing.T) {
+	testContainer := &api.Container{}
+	testTask := &api.Task{}
+
+	taskRunningStateChange := newSendableTaskEvent(api.TaskStateChange{
+		Status: api.TaskRunning,
+		Task:   testTask,
+		Containers: []api.ContainerStateChange{
+			{
+				Status:    api.ContainerRunning,
+				Container: testContainer,
+			},
+		},
+	})
+	taskStoppedStateChange := newSendableTaskEvent(api.TaskStateChange{
+		Status: api.TaskStopped,
+		Task:   testTask,
+		Containers: []api.ContainerStateChange{
+			{
+				Status:    api.ContainerStopped,
+				Container: testContainer,
+			},
+		},
+	})
+
+	setTaskChangeSent(taskStoppedStateChange)
+	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	setTaskChangeSent(taskRunningStateChange)
+	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+}
+
+func TestSetContainerSentStatus(t *testing.T) {
+	testContainer := &api.Container{}
+
+	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{
+		Status:    api.ContainerRunning,
+		Container: testContainer,
+	})
+	containerStoppedStateChange := newSendableContainerEvent(api.ContainerStateChange{
+		Status:    api.ContainerStopped,
+		Container: testContainer,
+	})
+
+	setContainerChangeSent(containerStoppedStateChange)
+	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	setContainerChangeSent(containerRunningStateChange)
+	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+}
