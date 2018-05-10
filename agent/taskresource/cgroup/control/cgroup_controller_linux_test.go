@@ -1,4 +1,4 @@
-// +build linux
+// +build linux,unit
 
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -13,14 +13,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package cgroup
+package control
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock_factory"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock_factory"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 

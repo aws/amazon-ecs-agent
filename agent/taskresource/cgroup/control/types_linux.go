@@ -13,7 +13,25 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package factory
+package control
 
-//go:generate go run ../../../../scripts/generate/mockgen.go github.com/containerd/cgroups Cgroup mock/mock_cgroups_linux.go
-//go:generate go run ../../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory CgroupFactory mock_factory/mock_cgroup_factory_linux.go
+import (
+	"github.com/containerd/cgroups"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+)
+
+// Spec captures the abstraction for a creating a new
+// cgroup based on root and the runtime specifications
+type Spec struct {
+	// Root is the cgroup path
+	Root string
+	// Specs are for all the linux resources including cpu, memory, etc...
+	Specs *specs.LinuxResources
+}
+
+type Control interface {
+	Create(cgroupSpec *Spec) (cgroups.Cgroup, error)
+	Remove(cgroupPath string) error
+	Exists(cgroupPath string) bool
+	Init() error
+}

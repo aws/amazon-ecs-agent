@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/factory/mock"
-	"github.com/aws/amazon-ecs-agent/agent/resources/cgroup/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -45,7 +45,7 @@ func TestCreateHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
@@ -64,7 +64,7 @@ func TestCreateCgroupPathExists(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
@@ -81,7 +81,7 @@ func TestCreateCgroupError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockCgroup := mock_cgroups.NewMockCgroup(ctrl)
 
@@ -100,7 +100,7 @@ func TestCleanupHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 
 	mockControl.EXPECT().Remove(cgroupRoot).Return(nil)
@@ -113,7 +113,7 @@ func TestCleanupRemoveError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(errors.New("cgroup remove error"))
@@ -126,7 +126,7 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockControl := mock_cgroup.NewMockControl(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(cgroups.ErrCgroupDeleted)

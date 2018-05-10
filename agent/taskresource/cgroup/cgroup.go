@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	cgroupres "github.com/aws/amazon-ecs-agent/agent/resources/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
@@ -45,7 +45,7 @@ var (
 // CgroupResource represents Cgroup resource
 type CgroupResource struct {
 	taskARN             string
-	control             cgroupres.Control
+	control             control.Control
 	cgroupRoot          string
 	cgroupMountPath     string
 	resourceSpec        specs.LinuxResources
@@ -65,7 +65,7 @@ type CgroupResource struct {
 
 // NewCgroupResource is used to return an object that implements the Resource interface
 func NewCgroupResource(taskARN string,
-	control cgroupres.Control,
+	control control.Control,
 	ioutil ioutilwrapper.IOUtil,
 	cgroupRoot string,
 	cgroupMountPath string,
@@ -248,7 +248,7 @@ func (cgroup *CgroupResource) setupTaskCgroup() error {
 		return nil
 	}
 
-	cgroupSpec := cgroupres.Spec{
+	cgroupSpec := control.Spec{
 		Root:  cgroupRoot,
 		Specs: &cgroup.resourceSpec,
 	}
