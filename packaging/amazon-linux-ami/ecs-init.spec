@@ -251,12 +251,12 @@ fi
 - Cache Agent version 1.15.2
 * Mon Nov  6 2017 Jacob Vallejo <jakeev@amazon.com> - 1.15.1-1
 - Cache Agent version 1.15.1
-* Tue Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
+* Mon Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
 - Cache Agent version 1.15.0
 - Add 'none' logging driver to ECS agent's config
 * Fri Sep 29 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
 - Cache Agent version 1.14.5
-* Wed Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
+* Tue Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
 - Cache Agent version 1.14.4
 - Add support for Docker 17.03.2ce
 * Fri Jun 9 2017 Adnan Khan <adnkha@amazon.com> - 1.14.3-1
