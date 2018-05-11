@@ -106,7 +106,7 @@ type DockerClient interface {
 	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
-	PullImage(image string, authData *ecr.RegistryAuthenticationData) DockerContainerMetadata
+	PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata
 
 	// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
 	ImportLocalEmptyVolumeImage() DockerContainerMetadata
@@ -247,7 +247,7 @@ func (dg *dockerGoClient) time() ttime.Time {
 	return dg._time
 }
 
-func (dg *dockerGoClient) PullImage(image string, authData *ecr.RegistryAuthenticationData) DockerContainerMetadata {
+func (dg *dockerGoClient) PullImage(image string, authData *api.RegistryAuthenticationData) DockerContainerMetadata {
 	// TODO Switch to just using context.WithDeadline and get rid of this funky code
 	timeout := dg.time().After(pullImageTimeout)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -288,7 +288,7 @@ func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
 	return retErr
 }
 
-func (dg *dockerGoClient) pullImage(image string, authData *ecr.RegistryAuthenticationData) apierrors.NamedError {
+func (dg *dockerGoClient) pullImage(image string, authData *api.RegistryAuthenticationData) apierrors.NamedError {
 	seelog.Debugf("DockerGoClient: pulling image: %s", image)
 	client, err := dg.dockerClient()
 	if err != nil {
@@ -453,7 +453,7 @@ func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
 	return client.InspectImage(image)
 }
 
-func (dg *dockerGoClient) getAuthdata(image string, authData *ecr.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
 	if authData == nil || authData.Type != "ecr" {
 		return dg.auth.GetAuthconfig(image, nil)
 	}

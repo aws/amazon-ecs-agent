@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -545,9 +544,9 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			container := &api.Container{
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
-				RegistryAuthentication: &ecr.RegistryAuthenticationData{
+				RegistryAuthentication: &api.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &ecr.ECRAuthData{
+					ECRAuthData: &api.ECRAuthData{
 						UseExecutionRole: tc.useExecutionRole,
 					},
 				},

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ecr
+package api
 
 import (
 	"sync"
@@ -24,6 +24,7 @@ import (
 type RegistryAuthenticationData struct {
 	Type        string       `json:"type"`
 	ECRAuthData *ECRAuthData `json:"ecrAuthData"`
+	ASMAuthData *ASMAuthData `json:"asmAuthData"`
 }
 
 // ECRAuthData is the authentication details for ECR specifying the region, registryID, and possible endpoint override
@@ -34,6 +35,11 @@ type ECRAuthData struct {
 	UseExecutionRole bool   `json:"useExecutionRole"`
 	pullCredentials  credentials.IAMRoleCredentials
 	lock             sync.RWMutex
+}
+
+type ASMAuthData struct {
+	CredentialsParameter string
+	Region               string
 }
 
 // GetPullCredentials returns the pull credentials in the auth
