@@ -48,7 +48,7 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
-func TestGetAgentBucketRegion(t *testing.T) {
+func TestGetAgentPartitionBucketRegion(t *testing.T) {
 	testCases := []struct {
 		region      string
 		destination string
@@ -72,7 +72,7 @@ func TestGetAgentBucketRegion(t *testing.T) {
 	for _, testcase := range testCases {
 		t.Run(fmt.Sprintf("%s -> %s", testcase.region, testcase.destination),
 			func(t *testing.T) {
-				region, err := GetAgentBucketRegion(testcase.region)
+				region, err := GetAgentPartitionBucketRegion(testcase.region)
 				if region != "" && region != testcase.destination && err != nil {
 					t.Errorf("GetAgentBucketRegion returned unexpected region: %s, err: %v", region, err)
 				}

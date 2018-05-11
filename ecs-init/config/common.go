@@ -39,8 +39,8 @@ const (
 	// AgentFilename is the filename, including version number, of the agent to be downloaded.
 	AgentFilename = "ecs-agent-v1.17.3.tar"
 
-	// AgentRemoteBucketName is the name of the s3 bucket that stores the agent
-	AgentRemoteBucketName = "amazon-ecs-agent"
+	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
+	AgentPartitionBucketName = "amazon-ecs-agent"
 
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
@@ -53,8 +53,8 @@ var partitionBucketMap = map[string]string{
 	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
 }
 
-// GetAgentBucketRegion returns the s3 bucket region where ECS Agent artifact is located
-func GetAgentBucketRegion(region string) (string, error) {
+// GetAgentPartitionBucketRegion returns the s3 bucket region where ECS Agent artifact is located
+func GetAgentPartitionBucketRegion(region string) (string, error) {
 	regionPartition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
 	if !ok {
 		return "", errors.Errorf("GetAgentBucketRegion: partition not found for region: %s", region)

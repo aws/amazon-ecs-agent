@@ -27,31 +27,31 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// Mocks3Downloader is a mock of s3Downloader interface
-type Mocks3Downloader struct {
+// Mocks3API is a mock of s3API interface
+type Mocks3API struct {
 	ctrl     *gomock.Controller
-	recorder *Mocks3DownloaderMockRecorder
+	recorder *Mocks3APIMockRecorder
 }
 
-// Mocks3DownloaderMockRecorder is the mock recorder for Mocks3Downloader
-type Mocks3DownloaderMockRecorder struct {
-	mock *Mocks3Downloader
+// Mocks3APIMockRecorder is the mock recorder for Mocks3API
+type Mocks3APIMockRecorder struct {
+	mock *Mocks3API
 }
 
-// NewMocks3Downloader creates a new mock instance
-func NewMocks3Downloader(ctrl *gomock.Controller) *Mocks3Downloader {
-	mock := &Mocks3Downloader{ctrl: ctrl}
-	mock.recorder = &Mocks3DownloaderMockRecorder{mock}
+// NewMocks3API creates a new mock instance
+func NewMocks3API(ctrl *gomock.Controller) *Mocks3API {
+	mock := &Mocks3API{ctrl: ctrl}
+	mock.recorder = &Mocks3APIMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *Mocks3Downloader) EXPECT() *Mocks3DownloaderMockRecorder {
+func (m *Mocks3API) EXPECT() *Mocks3APIMockRecorder {
 	return m.recorder
 }
 
 // Download mocks base method
-func (m *Mocks3Downloader) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
+func (m *Mocks3API) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
 	varargs := []interface{}{w, input}
 	for _, a := range options {
 		varargs = append(varargs, a)
@@ -63,9 +63,55 @@ func (m *Mocks3Downloader) Download(w io.WriterAt, input *s3.GetObjectInput, opt
 }
 
 // Download indicates an expected call of Download
-func (mr *Mocks3DownloaderMockRecorder) Download(w, input interface{}, options ...interface{}) *gomock.Call {
+func (mr *Mocks3APIMockRecorder) Download(w, input interface{}, options ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{w, input}, options...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*Mocks3Downloader)(nil).Download), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*Mocks3API)(nil).Download), varargs...)
+}
+
+// Mocks3DownloaderAPI is a mock of s3DownloaderAPI interface
+type Mocks3DownloaderAPI struct {
+	ctrl     *gomock.Controller
+	recorder *Mocks3DownloaderAPIMockRecorder
+}
+
+// Mocks3DownloaderAPIMockRecorder is the mock recorder for Mocks3DownloaderAPI
+type Mocks3DownloaderAPIMockRecorder struct {
+	mock *Mocks3DownloaderAPI
+}
+
+// NewMocks3DownloaderAPI creates a new mock instance
+func NewMocks3DownloaderAPI(ctrl *gomock.Controller) *Mocks3DownloaderAPI {
+	mock := &Mocks3DownloaderAPI{ctrl: ctrl}
+	mock.recorder = &Mocks3DownloaderAPIMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *Mocks3DownloaderAPI) EXPECT() *Mocks3DownloaderAPIMockRecorder {
+	return m.recorder
+}
+
+// addBucketDownloader mocks base method
+func (m *Mocks3DownloaderAPI) addBucketDownloader(bucketDownloader *s3BucketDownloader) {
+	m.ctrl.Call(m, "addBucketDownloader", bucketDownloader)
+}
+
+// addBucketDownloader indicates an expected call of addBucketDownloader
+func (mr *Mocks3DownloaderAPIMockRecorder) addBucketDownloader(bucketDownloader interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "addBucketDownloader", reflect.TypeOf((*Mocks3DownloaderAPI)(nil).addBucketDownloader), bucketDownloader)
+}
+
+// downloadFile mocks base method
+func (m *Mocks3DownloaderAPI) downloadFile(fileName string) (string, error) {
+	ret := m.ctrl.Call(m, "downloadFile", fileName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// downloadFile indicates an expected call of downloadFile
+func (mr *Mocks3DownloaderAPIMockRecorder) downloadFile(fileName interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "downloadFile", reflect.TypeOf((*Mocks3DownloaderAPI)(nil).downloadFile), fileName)
 }
 
 // MockfileSystem is a mock of fileSystem interface

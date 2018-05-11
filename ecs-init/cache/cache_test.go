@@ -142,7 +142,7 @@ func TestAgentCacheStatus(t *testing.T) {
 	}
 }
 
-func TestGetBucketRegion(t *testing.T) {
+func TestGetPartitionBucketRegion(t *testing.T) {
 	d := &Downloader{}
 
 	var cases = []struct {
@@ -157,9 +157,9 @@ func TestGetBucketRegion(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.region, func(t *testing.T) {
 			d.region = c.region
-			result := d.getBucketRegion()
+			result := d.getPartitionBucketRegion()
 			if result != c.expectedResult {
-				t.Errorf("getBucketRegion did not get correct result. Result returned: %t", result)
+				t.Errorf("getPartitionBucketRegion did not get correct result. Result returned: %s", result)
 			}
 		})
 	}
@@ -170,14 +170,16 @@ func TestDownloadAgentMkdirFailure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockFS := NewMockfileSystem(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700).Return(errors.New("test error"))
 
 	d := &Downloader{
-		fs:       mockFS,
-		metadata: mockMetadata,
-		region:   config.DefaultRegionName,
+		s3Downloader: mockS3Downloader,
+		fs:           mockFS,
+		metadata:     mockMetadata,
+		region:       config.DefaultRegionName,
 	}
 
 	d.DownloadAgent()
@@ -188,7 +190,7 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
@@ -199,13 +201,11 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), errors.New("test error")),
-		mockFS.EXPECT().Remove(tempMD5File.Name()),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return("", errors.New("test error")),
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,
@@ -219,7 +219,7 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
@@ -230,14 +230,14 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
-		mockFS.EXPECT().ReadAll(gomock.Any()).Return(nil, errors.New("test error")),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return(tempMD5File.Name(), nil),
+		mockFS.EXPECT().Open(tempMD5File.Name()).Return(tempMD5File, nil),
+		mockFS.EXPECT().ReadAll(tempMD5File).Return(nil, errors.New("test error")),
 		mockFS.EXPECT().Remove(tempMD5File.Name()),
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,
@@ -253,7 +253,7 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 	md5sum := "md5sum"
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
@@ -270,75 +270,15 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
-		mockFS.EXPECT().ReadAll(gomock.Any()).Return([]byte(md5sum), nil),
-		mockFS.EXPECT().Remove(tempMD5File.Name()),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar").Return(tempAgentFile, nil),
-		mocks3Downloader.EXPECT().Download(tempAgentFile, gomock.Any()).Return(int64(0), errors.New("test error")),
-		mockFS.EXPECT().Remove(tempAgentFile.Name()),
-	)
-
-	d := &Downloader{
-		s3downloader: mocks3Downloader,
-		fs:           mockFS,
-		metadata:     mockMetadata,
-		region:       config.DefaultRegionName,
-	}
-
-	d.DownloadAgent()
-}
-
-func TestDownloadAgentMD5TempFile(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
-	mockMetadata := NewMockinstanceMetadata(mockCtrl)
-
-	gomock.InOrder(
-		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(nil, errors.New("test error")),
-	)
-
-	d := &Downloader{
-		s3downloader: mocks3Downloader,
-		fs:           mockFS,
-		metadata:     mockMetadata,
-		region:       config.DefaultRegionName,
-	}
-
-	d.DownloadAgent()
-}
-
-func TestDownloadAgentTempFile(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	md5sum := "md5sum"
-
-	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
-	mockMetadata := NewMockinstanceMetadata(mockCtrl)
-
-	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
-	defer tempMD5File.Close()
-
-	gomock.InOrder(
-		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return(tempMD5File.Name(), nil),
+		mockFS.EXPECT().Open(tempMD5File.Name()).Return(tempMD5File, nil),
 		mockFS.EXPECT().ReadAll(tempMD5File).Return([]byte(md5sum), nil),
 		mockFS.EXPECT().Remove(tempMD5File.Name()),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar").Return(nil, errors.New("test error")),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballKey()).Return("", errors.New("test error")),
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,
@@ -354,7 +294,7 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 	md5sum := "md5sum"
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
@@ -373,12 +313,11 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return(tempMD5File.Name(), nil),
+		mockFS.EXPECT().Open(tempMD5File.Name()).Return(tempMD5File, nil),
 		mockFS.EXPECT().ReadAll(tempMD5File).Return([]byte(md5sum), nil),
 		mockFS.EXPECT().Remove(tempMD5File.Name()),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar").Return(tempAgentFile, nil),
-		mocks3Downloader.EXPECT().Download(tempAgentFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballKey()).Return(tempAgentFile.Name(), nil),
 		mockFS.EXPECT().Open(tempAgentFile.Name()).Return(tempReader, nil),
 		mockFS.EXPECT().Copy(gomock.Any(), tempReader).Return(int64(0), errors.New("test error")),
 		mockFS.EXPECT().Stat(tempAgentFile.Name()).Return(nil, nil),
@@ -386,7 +325,7 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,
@@ -402,7 +341,7 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 	md5sum := "md5sum"
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
@@ -421,12 +360,11 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return(tempMD5File.Name(), nil),
+		mockFS.EXPECT().Open(tempMD5File.Name()).Return(tempMD5File, nil),
 		mockFS.EXPECT().ReadAll(tempMD5File).Return([]byte(md5sum), nil),
 		mockFS.EXPECT().Remove(tempMD5File.Name()),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar").Return(tempAgentFile, nil),
-		mocks3Downloader.EXPECT().Download(tempAgentFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballKey()).Return(tempAgentFile.Name(), nil),
 		mockFS.EXPECT().Open(tempAgentFile.Name()).Return(tempReader, nil),
 		mockFS.EXPECT().Copy(gomock.Any(), tempReader).Return(int64(0), nil),
 		mockFS.EXPECT().Stat(tempAgentFile.Name()).Return(nil, nil),
@@ -434,7 +372,7 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,
@@ -464,17 +402,16 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	defer tempAgentFile.Close()
 
 	mockFS := NewMockfileSystem(mockCtrl)
-	mocks3Downloader := NewMocks3Downloader(mockCtrl)
+	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar.md5").Return(tempMD5File, nil),
-		mocks3Downloader.EXPECT().Download(tempMD5File, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballMD5Key()).Return(tempMD5File.Name(), nil),
+		mockFS.EXPECT().Open(tempMD5File.Name()).Return(tempMD5File, nil),
 		mockFS.EXPECT().ReadAll(tempMD5File).Return([]byte(expectedMd5Sum), nil),
 		mockFS.EXPECT().Remove(tempMD5File.Name()),
-		mockFS.EXPECT().TempFile(gomock.Any(), "ecs-agent.tar").Return(tempAgentFile, nil),
-		mocks3Downloader.EXPECT().Download(tempAgentFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Downloader.EXPECT().downloadFile(config.AgentRemoteTarballKey()).Return(tempAgentFile.Name(), nil),
 		mockFS.EXPECT().Open(tempAgentFile.Name()).Return(tarballReader, nil),
 		mockFS.EXPECT().Copy(gomock.Any(), tarballReader).Do(func(writer io.Writer, reader io.Reader) {
 			_, err = io.Copy(writer, reader)
@@ -487,7 +424,7 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	)
 
 	d := &Downloader{
-		s3downloader: mocks3Downloader,
+		s3Downloader: mockS3Downloader,
 		fs:           mockFS,
 		metadata:     mockMetadata,
 		region:       config.DefaultRegionName,

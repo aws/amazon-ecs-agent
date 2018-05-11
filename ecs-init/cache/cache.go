@@ -24,17 +24,16 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
-	orwPerm = 0700
+	orwPerm              = 0700
+	regionalBucketFormat = "%s-%s"
 )
 
 // CacheStatus represents the status of the on-disk cache for agent
@@ -62,7 +61,7 @@ const (
 
 // Downloader is responsible for cache operations relating to downloading the agent
 type Downloader struct {
-	s3downloader s3Downloader
+	s3Downloader s3DownloaderAPI
 	fs           fileSystem
 	metadata     instanceMetadata
 	region       string
@@ -78,7 +77,7 @@ func NewDownloader() (*Downloader, error) {
 	// calls to retrieve the region from metadata
 	sessionInstance, err := session.NewSession()
 	if err != nil {
-		log.Debugf("Get error when initializing session instance: %v. Use default region: %s",
+		log.Debugf("Got error when initializing session for metadata client: %v. Use default region: %s",
 			err, config.DefaultRegionName)
 		downloader.region = config.DefaultRegionName
 	} else {
@@ -86,16 +85,36 @@ func NewDownloader() (*Downloader, error) {
 		downloader.metadata = ec2metadata.New(sessionInstance)
 	}
 
-	log.Debugf("Setting region for s3 client to: %s", downloader.getBucketRegion())
-	s3Session, err := session.NewSession(&aws.Config{
-		Credentials: credentials.AnonymousCredentials,
-		Region:      aws.String(downloader.getBucketRegion()),
-	})
-	if err != nil {
-		return nil, err
+	s3Downloader := &s3Downloader{
+		bucketDownloaders: make([]*s3BucketDownloader, 0),
+		cacheDir:          config.CacheDirectory(),
+		fs:                downloader.fs,
 	}
-	downloader.s3downloader = s3manager.NewDownloader(s3Session)
 
+	partitionBucketRegion := downloader.getPartitionBucketRegion()
+	partitionBucket := config.AgentPartitionBucketName
+	partitionBucketDownloader, err := newS3BucketDownloader(partitionBucketRegion, partitionBucket)
+	if err != nil {
+		log.Warnf("Failed to initialize partition bucket downloader: %v", err)
+	} else {
+		s3Downloader.addBucketDownloader(partitionBucketDownloader)
+	}
+
+	region := downloader.getRegion()
+	regionalBucket := fmt.Sprintf(regionalBucketFormat, partitionBucket, region)
+	regionalBucketDownloader, err := newS3BucketDownloader(region, regionalBucket)
+	if err != nil {
+		log.Warnf("Failed to initialize regional bucket downloader: %v", err)
+	} else {
+		s3Downloader.addBucketDownloader(regionalBucketDownloader)
+	}
+
+	if len(s3Downloader.bucketDownloaders) == 0 {
+		log.Error("Failed to initialize s3 downloader for either partition bucket or regional bucket. Downloader initialization fails.")
+		return nil, errors.New("failed to initialize downloader")
+	}
+
+	downloader.s3Downloader = s3Downloader
 	return downloader, nil
 }
 
@@ -158,10 +177,10 @@ func (d *Downloader) getRegion() string {
 }
 
 // getBucketRegion returns a region that contains the agent's bucket
-func (d *Downloader) getBucketRegion() string {
+func (d *Downloader) getPartitionBucketRegion() string {
 	region := d.getRegion()
 
-	destination, err := config.GetAgentBucketRegion(region)
+	destination, err := config.GetAgentPartitionBucketRegion(region)
 	if err != nil {
 		log.Warnf("Current region not supported, using the default region (%s) for downloader, err: %v", config.DefaultRegionName, err)
 		return config.DefaultRegionName
@@ -222,53 +241,35 @@ func (d *Downloader) DownloadAgent() error {
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar.md5")
+	tempMd5FileName, err := d.s3Downloader.downloadFile(config.AgentRemoteTarballMD5Key())
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to download md5 file for published tarball")
 	}
-	log.Debugf("Created temporary file for md5sum: %s", tempFile.Name())
-	defer func() {
-		log.Debugf("Removing temp file %s", tempFile.Name())
-		d.fs.Remove(tempFile.Name())
+
+	tempMd5File, err := d.fs.Open(tempMd5FileName)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to open temporary md5 file")
+	}
+	defer func() { // clean up temp file
+		log.Debugf("Removing temp file %s", tempMd5FileName)
+		d.fs.Remove(tempMd5FileName)
 	}()
-	defer tempFile.Close()
 
-	_, err = d.s3downloader.Download(tempFile, &s3.GetObjectInput{
-		Bucket: aws.String(config.AgentRemoteBucketName),
-		Key:    aws.String(config.AgentRemoteTarballMD5Key()),
-	})
+	body, err := d.fs.ReadAll(tempMd5File)
 	if err != nil {
-		return "", err
-	}
-
-	body, err := d.fs.ReadAll(tempFile)
-	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to read from temporary md5 file")
 	}
 
 	return strings.TrimSpace(string(body)), nil
 }
 
 func (d *Downloader) getPublishedTarball() (string, error) {
-	tempFile, err := d.fs.TempFile(config.CacheDirectory(), "ecs-agent.tar")
+	tempAgentFileName, err := d.s3Downloader.downloadFile(config.AgentRemoteTarballKey())
 	if err != nil {
-		return "", err
-	}
-	log.Debugf("Created temporary file for agent tarball: %s", tempFile.Name())
-
-	_, err = d.s3downloader.Download(tempFile, &s3.GetObjectInput{
-		Bucket: aws.String(config.AgentRemoteBucketName),
-		Key:    aws.String(config.AgentRemoteTarballKey()),
-	})
-	if err != nil {
-		tempFile.Close()
-		log.Debugf("Removing temp file %s", tempFile.Name())
-		d.fs.Remove(tempFile.Name())
-		return "", err
+		return "", errors.Wrap(err, "failed to download published tarball")
 	}
 
-	tempFile.Close()
-	return tempFile.Name(), nil
+	return tempAgentFileName, nil
 }
 
 // LoadCachedAgent returns an io.ReadCloser of the Agent from the cache

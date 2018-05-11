@@ -26,13 +26,96 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
-// s3Downloader captures the only method used from the s3 client
-type s3Downloader interface {
+// s3API captures the only method used from the s3 package
+type s3API interface {
 	Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
+}
+
+// s3BucketDownloader wraps a bucket together with a downloader that can download from it
+type s3BucketDownloader struct {
+	bucket string
+	region string
+	client s3API
+}
+
+func newS3BucketDownloader(region, bucketName string) (*s3BucketDownloader, error) {
+	session, err := session.NewSession(&aws.Config{
+		Credentials: credentials.AnonymousCredentials,
+		Region:      aws.String(region),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to initialize downloader in region %s", region)
+	}
+
+	s3BucketDownloader := &s3BucketDownloader{
+		client: s3manager.NewDownloader(session),
+		bucket: bucketName,
+		region: region,
+	}
+
+	return s3BucketDownloader, nil
+}
+
+func (bd *s3BucketDownloader) download(fileName, cacheDir string, fs fileSystem) (string, error) {
+	file, err := fs.TempFile(cacheDir, fileName)
+	if err != nil {
+		return "", errors.Wrap(err, "could not create local file during download")
+	}
+
+	defer func() { // make sure we also handle possible error from f.Close()
+		cerr := file.Close()
+		if err == nil { // if no error return from download, captures error from f.Close()
+			err = cerr
+		}
+	}()
+
+	_, err = bd.client.Download(file, &s3.GetObjectInput{
+		Bucket: aws.String(bd.bucket),
+		Key:    aws.String(fileName),
+	})
+
+	return file.Name(), err
+}
+
+type s3DownloaderAPI interface {
+	addBucketDownloader(bucketDownloader *s3BucketDownloader)
+	downloadFile(fileName string) (string, error)
+}
+
+type s3Downloader struct {
+	bucketDownloaders []*s3BucketDownloader
+	fs                fileSystem
+	cacheDir          string
+}
+
+func (d *s3Downloader) addBucketDownloader(bucketDownloader *s3BucketDownloader) {
+	d.bucketDownloaders = append(d.bucketDownloaders, bucketDownloader)
+}
+
+func (d *s3Downloader) downloadFile(fileName string) (string, error) {
+	for _, bucketDownloader := range d.bucketDownloaders {
+		fileName, err := bucketDownloader.download(fileName, d.cacheDir, d.fs)
+		if err == nil {
+			log.Debugf("Download file %s from bucket %s in region %s succeeded.",
+				fileName, bucketDownloader.bucket, bucketDownloader.region)
+			return fileName, nil
+		} else {
+			log.Debugf("Download file %s from bucket %s in region %s failed with error: %v",
+				fileName, bucketDownloader.bucket, bucketDownloader.region, err)
+		}
+	}
+
+	log.Debugf("Failed to download file %s from s3", fileName)
+	return "", errors.New("failed to download file from s3")
 }
 
 // fileSystem captures related functions from os, io, and io/ioutil packages
