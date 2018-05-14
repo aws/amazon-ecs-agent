@@ -37,6 +37,11 @@ const (
 	orwPerm = 0700
 )
 
+// CacheStatus represents the status of the on-disk cache for agent
+// tarballs in the cache directory. This status may be used to
+// determine what the appropriate actions are based on the
+// availability of agent images and communicates advice from the
+// cache's state file.
 type CacheStatus uint8
 
 const (
@@ -48,7 +53,10 @@ const (
 	// for load if agent isn't already loaded.
 	StatusCached CacheStatus = 1
 	// StatusReloadNeeded indicates that the cached image should take
-	// precedence over the already loaded agent image.
+	// precedence over the already loaded agent image. This may be
+	// specified by the packaging to cause ecs-init to load a package
+	// distributed cached image on package installation, upgrades, or
+	// downgrades.
 	StatusReloadNeeded CacheStatus = 2
 )
 
@@ -91,10 +99,14 @@ func NewDownloader() (*Downloader, error) {
 	return downloader, nil
 }
 
+// AgentCacheStatus inspects the on-disk cache and returns its
+// status. See `CacheStatus` for possible cache statuses and
+// scenarios.
 func (d *Downloader) AgentCacheStatus() CacheStatus {
 	stateFile := config.CacheState()
-	cacheControlled := d.fileNotEmpty(stateFile) && d.fileNotEmpty(config.AgentTarball())
-	if !cacheControlled {
+	// State file and tarball must be non-zero to report status on
+	uncached := !(d.fileNotEmpty(stateFile) && d.fileNotEmpty(config.AgentTarball()))
+	if uncached {
 		return StatusUncached
 	}
 

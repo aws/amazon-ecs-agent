@@ -34,7 +34,14 @@ Requires:       iptables
 Requires:       procps
 Requires:       dhclient
 
-# find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/;s/$/))/;' | sed 's/^/Provides:\t/' | expand -
+# The following 'Provides' lists the vendored dependencies bundled in
+# and used to produce the ecs-init package. As dependencies are added
+# or removed, this list should also be updated accordingly.
+#
+# You can use this to generate a list of the appropriate Provides
+# statements by reading out the vendor directory:
+#
+# find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
 Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
