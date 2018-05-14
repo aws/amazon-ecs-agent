@@ -66,9 +66,16 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
-	authData *api.ECRAuthData) (docker.AuthConfiguration, error) {
+	registryAuthData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+
+	if registryAuthData == nil {
+		return docker.AuthConfiguration{}, fmt.Errorf("dockerauth: missing container's registry auth data")
+	}
+
+	authData := registryAuthData.ECRAuthData
+
 	if authData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: missing container auth data")
+		return docker.AuthConfiguration{}, fmt.Errorf("dockerauth: missing container's ecr auth data")
 	}
 
 	// First try to get the token from cache, if the token does not exist,

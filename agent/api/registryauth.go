@@ -38,8 +38,8 @@ type ECRAuthData struct {
 }
 
 type ASMAuthData struct {
-	CredentialsParameter string
-	Region               string
+	CredentialsParameter string `json:"credentialsParameter"`
+	Region               string `json:"region"`
 }
 
 // GetPullCredentials returns the pull credentials in the auth

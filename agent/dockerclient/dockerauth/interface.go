@@ -22,5 +22,5 @@ import (
 
 // DockerAuthProvider is something that can give the auth information for a given docker image
 type DockerAuthProvider interface {
-	GetAuthconfig(image string, authData *api.ECRAuthData) (docker.AuthConfiguration, error)
+	GetAuthconfig(image string, registryAuthData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error)
 }

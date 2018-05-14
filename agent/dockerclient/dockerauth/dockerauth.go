@@ -46,7 +46,7 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string, authData *api.ECRAuthData) (docker.AuthConfiguration, error) {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
 	// Ignore 'tag', not used in auth determination
 	repository, _ := docker.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap

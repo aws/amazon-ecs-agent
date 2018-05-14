@@ -458,7 +458,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *api.RegistryAuthen
 		return dg.auth.GetAuthconfig(image, nil)
 	}
 	provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
-	authConfig, err := provider.GetAuthconfig(image, authData.ECRAuthData)
+	authConfig, err := provider.GetAuthconfig(image, authData)
 	if err != nil {
 		return authConfig, CannotPullECRContainerError{err}
 	}
