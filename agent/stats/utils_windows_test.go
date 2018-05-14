@@ -1,4 +1,4 @@
-// +build windows,!integration
+// +build windows,unit
 
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
