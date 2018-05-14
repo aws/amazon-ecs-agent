@@ -15,6 +15,8 @@ package engine
 
 import (
 	"io"
+
+	"github.com/aws/amazon-ecs-init/ecs-init/cache"
 )
 
 //go:generate mockgen.sh $GOPACKAGE $GOFILE
@@ -25,6 +27,7 @@ type downloader interface {
 	LoadCachedAgent() (io.ReadCloser, error)
 	LoadDesiredAgent() (io.ReadCloser, error)
 	RecordCachedAgent() error
+	AgentCacheStatus() cache.CacheStatus
 }
 
 type dockerClient interface {

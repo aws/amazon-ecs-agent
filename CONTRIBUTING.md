@@ -27,8 +27,13 @@ which requires only Docker to be installed.
 
 ### Packaging
 
-Amazon ECS Init is officially supported when packaged as an RPM for the Amazon
-Linux AMI.  We welcome other packaging contributions in the `packaging` folder.
+Amazon ECS Init is officially supported when packaged as an RPM for
+the Amazon Linux AMI.  We welcome other packaging contributions in the
+`packaging` folder.
+
+The RPM packaging includes `Provides` declarations for bundled sources
+(vendored golang libraries) that should be maintained and kept up to
+date as dependencies are added and removed.
 
 ## Licensing
 

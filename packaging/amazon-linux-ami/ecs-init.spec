@@ -1,4 +1,4 @@
-# Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -24,6 +24,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Source0:        sources.tgz
 Source1:        ecs.conf
+Source2:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
 
 BuildRequires:  golang >= 1.7
 
@@ -33,24 +34,100 @@ Requires:       iptables
 Requires:       procps
 Requires:       dhclient
 
-Provides:       bundled(docker)
+# The following 'Provides' lists the vendored dependencies bundled in
+# and used to produce the ecs-init package. As dependencies are added
+# or removed, this list should also be updated accordingly.
+#
+# You can use this to generate a list of the appropriate Provides
+# statements by reading out the vendor directory:
+#
+# find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client/metadata))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/corehandlers))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/endpointcreds))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/stscreds))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/defaults))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/ec2metadata))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/endpoints))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/request))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/session))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/signer/v4))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkio))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkrand))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/shareddefaults))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query/queryutil))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/rest))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/restxml))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3iface))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3manager))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/sts))
+Provides:       bundled(golang(github.com/Azure/go-ansiterm))
+Provides:       bundled(golang(github.com/Azure/go-ansiterm/winterm))
+Provides:       bundled(golang(github.com/cihub/seelog))
+Provides:       bundled(golang(github.com/cihub/seelog/archive))
+Provides:       bundled(golang(github.com/cihub/seelog/archive/gzip))
+Provides:       bundled(golang(github.com/cihub/seelog/archive/tar))
+Provides:       bundled(golang(github.com/cihub/seelog/archive/zip))
+Provides:       bundled(golang(github.com/docker/docker/api/types))
+Provides:       bundled(golang(github.com/docker/docker/api/types/blkiodev))
+Provides:       bundled(golang(github.com/docker/docker/api/types/container))
+Provides:       bundled(golang(github.com/docker/docker/api/types/filters))
+Provides:       bundled(golang(github.com/docker/docker/api/types/mount))
+Provides:       bundled(golang(github.com/docker/docker/api/types/network))
+Provides:       bundled(golang(github.com/docker/docker/api/types/registry))
+Provides:       bundled(golang(github.com/docker/docker/api/types/strslice))
+Provides:       bundled(golang(github.com/docker/docker/api/types/swarm))
+Provides:       bundled(golang(github.com/docker/docker/api/types/versions))
+Provides:       bundled(golang(github.com/docker/docker/opts))
 Provides:       bundled(golang(github.com/docker/docker/pkg/archive))
 Provides:       bundled(golang(github.com/docker/docker/pkg/fileutils))
+Provides:       bundled(golang(github.com/docker/docker/pkg/homedir))
+Provides:       bundled(golang(github.com/docker/docker/pkg/idtools))
 Provides:       bundled(golang(github.com/docker/docker/pkg/ioutils))
+Provides:       bundled(golang(github.com/docker/docker/pkg/jsonlog))
+Provides:       bundled(golang(github.com/docker/docker/pkg/jsonmessage))
+Provides:       bundled(golang(github.com/docker/docker/pkg/longpath))
+Provides:       bundled(golang(github.com/docker/docker/pkg/mount))
 Provides:       bundled(golang(github.com/docker/docker/pkg/pools))
 Provides:       bundled(golang(github.com/docker/docker/pkg/promise))
+Provides:       bundled(golang(github.com/docker/docker/pkg/stdcopy))
 Provides:       bundled(golang(github.com/docker/docker/pkg/system))
-Provides:       bundled(golang(github.com/docker/docker/pkg/units))
-Provides:       bundled(golang(github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar))
+Provides:       bundled(golang(github.com/docker/docker/pkg/term))
+Provides:       bundled(golang(github.com/docker/docker/pkg/term/windows))
+Provides:       bundled(golang(github.com/docker/go-connections/nat))
+Provides:       bundled(golang(github.com/docker/go-units))
 Provides:       bundled(golang(github.com/fsouza/go-dockerclient))
+Provides:       bundled(golang(github.com/go-ini/ini))
 Provides:       bundled(golang(github.com/golang/mock/gomock))
-Provides:       bundled(golang-logrus)
+Provides:       bundled(golang(github.com/jmespath/go-jmespath))
+Provides:       bundled(golang(github.com/Microsoft/go-winio))
+Provides:       bundled(golang(github.com/Nvveen/Gotty))
+Provides:       bundled(golang(github.com/opencontainers/go-digest))
+Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go))
+Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
+Provides:       bundled(golang(github.com/opencontainers/runc/libcontainer/system))
+Provides:       bundled(golang(github.com/opencontainers/runc/libcontainer/user))
+Provides:       bundled(golang(github.com/pkg/errors))
 Provides:       bundled(golang(github.com/Sirupsen/logrus))
-Provides:       bundled(golang(github.com/cihub/seelog))
+Provides:       bundled(golang(golang.org/x/net/context))
+Provides:       bundled(golang(golang.org/x/net/context/ctxhttp))
+Provides:       bundled(golang(golang.org/x/sys/unix))
+Provides:       bundled(golang(golang.org/x/sys/windows))
 
+%global bundled_agent_version %{version}
 %global init_dir %{_sysconfdir}/init
 %global bin_dir %{_libexecdir}
-%global	conf_dir %{_sysconfdir}/ecs
+%global conf_dir %{_sysconfdir}/ecs
 %global cache_dir %{_localstatedir}/cache/ecs
 %global data_dir %{_sharedstatedir}/ecs/data
 %global dhclient_dir %{_sharedstatedir}/ecs/dhclient
@@ -80,12 +157,13 @@ mkdir -p $RPM_BUILD_ROOT/%{dhclient_dir}
 mkdir -p $RPM_BUILD_ROOT/%{man_dir}
 
 install %{SOURCE1} $RPM_BUILD_ROOT/%{init_dir}/ecs.conf
+install %{SOURCE2} $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent-v%{bundled_agent_version}.tar
 install amazon-ecs-init $RPM_BUILD_ROOT/%{bin_dir}/amazon-ecs-init
 install scripts/amazon-ecs-init.1.gz $RPM_BUILD_ROOT/%{man_dir}/amazon-ecs-init.1.gz
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config
 touch $RPM_BUILD_ROOT/%{conf_dir}/ecs.config.json
-touch $RPM_BUILD_ROOT/%{cache_dir}/ecs-agent.tar
-touch $RPM_BUILD_ROOT/%{cache_dir}/state
+# Configure ecs-init to reload the bundled ECS Agent image.
+echo 2 > $RPM_BUILD_ROOT/%{cache_dir}/state
 
 %files
 %defattr(-,root,root,-)
@@ -95,6 +173,7 @@ touch $RPM_BUILD_ROOT/%{cache_dir}/state
 %config(noreplace) %ghost %{conf_dir}/ecs.config
 %config(noreplace) %ghost %{conf_dir}/ecs.config.json
 %ghost %{cache_dir}/ecs-agent.tar
+%{cache_dir}/ecs-agent-v%{bundled_agent_version}.tar
 %{cache_dir}/state
 %dir %{data_dir}
 %ghost %{dhclient_dir}
@@ -107,48 +186,52 @@ rm -rf $RPM_BUILD_ROOT
 # record whether or not our service was running when docker is upgraded
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	if [ "$1" -ge 1 ]; then
-		# write semaphore if this package is still installed
-		touch %{running_semaphore} >/dev/null 2>&1 || :
-	fi
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    if [ "$1" -ge 1 ]; then
+        # write semaphore if this package is still installed
+        touch %{running_semaphore} >/dev/null 2>&1 || :
+    fi
 fi
 
 %triggerpostun -- docker
 # ensures that ecs-init is restarted after docker or ecs-init is upgraded
 if [ "$1" -ge 1 ] && [ -e %{running_semaphore} ]; then
-	/sbin/start ecs >/dev/null 2>&1 || :
-	rm %{running_semaphore} >/dev/null 2>&1 ||:
+    /sbin/start ecs >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 ||:
 fi
+
+%post
+# Symlink the bundled ECS Agent at loadable path.
+ln -sf ecs-agent-v%{bundled_agent_version}.tar %{cache_dir}/ecs-agent.tar
 
 %postun
 # record whether or not our service was running when ecs-init is upgraded
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	if [ "$1" -ge 1 ]; then
-		# write semaphore if this package is upgraded
-		touch %{running_semaphore} >/dev/null 2>&1 || :
-	fi
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    if [ "$1" -ge 1 ]; then
+        # write semaphore if this package is upgraded
+        touch %{running_semaphore} >/dev/null 2>&1 || :
+    fi
 fi
 # remove semaphore if this package is erased
 if [ "$1" -eq 0 ]; then
-	rm %{running_semaphore} >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %triggerun -- ecs-init <= 1.0-3
 # handle old ecs-init package that does not properly stop
 ecs_status=$(/sbin/status ecs 2>/dev/null || :)
 if grep -qF "start/" <<< "${ecs_status}"; then
-	/sbin/stop ecs >/dev/null 2>&1 || :
-	touch %{running_semaphore} >/dev/null 2>&1 || :
+    /sbin/stop ecs >/dev/null 2>&1 || :
+    touch %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %posttrans
 # ensure that we restart after the transaction
 if [ -e %{running_semaphore} ]; then
-	/sbin/start ecs >/dev/null 2>&1 || :
-	rm %{running_semaphore} >/dev/null 2>&1 || :
+    /sbin/start ecs >/dev/null 2>&1 || :
+    rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 
 %changelog
@@ -175,12 +258,12 @@ fi
 - Cache Agent version 1.15.2
 * Mon Nov  6 2017 Jacob Vallejo <jakeev@amazon.com> - 1.15.1-1
 - Cache Agent version 1.15.1
-* Tue Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
+* Mon Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
 - Cache Agent version 1.15.0
 - Add 'none' logging driver to ECS agent's config
 * Fri Sep 29 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
 - Cache Agent version 1.14.5
-* Wed Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
+* Tue Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
 - Cache Agent version 1.14.4
 - Add support for Docker 17.03.2ce
 * Fri Jun 9 2017 Adnan Khan <adnkha@amazon.com> - 1.14.3-1

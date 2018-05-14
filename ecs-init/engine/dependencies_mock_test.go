@@ -21,6 +21,7 @@ import (
 	io "io"
 	reflect "reflect"
 
+	cache "github.com/aws/amazon-ecs-init/ecs-init/cache"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -107,6 +108,18 @@ func (m *Mockdownloader) RecordCachedAgent() error {
 // RecordCachedAgent indicates an expected call of RecordCachedAgent
 func (mr *MockdownloaderMockRecorder) RecordCachedAgent() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCachedAgent", reflect.TypeOf((*Mockdownloader)(nil).RecordCachedAgent))
+}
+
+// AgentCacheStatus mocks base method
+func (m *Mockdownloader) AgentCacheStatus() cache.CacheStatus {
+	ret := m.ctrl.Call(m, "AgentCacheStatus")
+	ret0, _ := ret[0].(cache.CacheStatus)
+	return ret0
+}
+
+// AgentCacheStatus indicates an expected call of AgentCacheStatus
+func (mr *MockdownloaderMockRecorder) AgentCacheStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentCacheStatus", reflect.TypeOf((*Mockdownloader)(nil).AgentCacheStatus))
 }
 
 // MockdockerClient is a mock of dockerClient interface

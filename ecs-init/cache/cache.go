@@ -37,6 +37,29 @@ const (
 	orwPerm = 0700
 )
 
+// CacheStatus represents the status of the on-disk cache for agent
+// tarballs in the cache directory. This status may be used to
+// determine what the appropriate actions are based on the
+// availability of agent images and communicates advice from the
+// cache's state file.
+type CacheStatus uint8
+
+const (
+	// StatusUncached indicates that there is not an already downloaded
+	// and cached agent that is suitable for loading.
+	StatusUncached CacheStatus = 0
+	// StatusCached indicates that there is an agent downloaded and
+	// cached. This should be taken to mean that the image is suitable
+	// for load if agent isn't already loaded.
+	StatusCached CacheStatus = 1
+	// StatusReloadNeeded indicates that the cached image should take
+	// precedence over the already loaded agent image. This may be
+	// specified by the packaging to cause ecs-init to load a package
+	// distributed cached image on package installation, upgrades, or
+	// downgrades.
+	StatusReloadNeeded CacheStatus = 2
+)
+
 // Downloader is responsible for cache operations relating to downloading the agent
 type Downloader struct {
 	s3downloader s3Downloader
@@ -76,11 +99,38 @@ func NewDownloader() (*Downloader, error) {
 	return downloader, nil
 }
 
+// AgentCacheStatus inspects the on-disk cache and returns its
+// status. See `CacheStatus` for possible cache statuses and
+// scenarios.
+func (d *Downloader) AgentCacheStatus() CacheStatus {
+	stateFile := config.CacheState()
+	// State file and tarball must be non-zero to report status on
+	uncached := !(d.fileNotEmpty(stateFile) && d.fileNotEmpty(config.AgentTarball()))
+	if uncached {
+		return StatusUncached
+	}
+
+	file, err := d.fs.Open(stateFile)
+	if err != nil {
+		return StatusUncached
+	}
+	var status CacheStatus
+	_, err = fmt.Fscanf(file, "%d", &status)
+	if err != nil {
+		return StatusUncached
+	}
+	return status
+}
+
 // IsAgentCached returns true if there is a cached copy of the Agent present
 // and a cache state file is not empty (no validation is performed on the
 // tarball or cache state file contents)
 func (d *Downloader) IsAgentCached() bool {
-	return d.fileNotEmpty(config.CacheState()) && d.fileNotEmpty(config.AgentTarball())
+	switch d.AgentCacheStatus() {
+	case StatusUncached:
+		return false
+	}
+	return true
 }
 
 func (d *Downloader) fileNotEmpty(filename string) bool {
@@ -226,8 +276,11 @@ func (d *Downloader) LoadCachedAgent() (io.ReadCloser, error) {
 	return d.fs.Open(config.AgentTarball())
 }
 
+// RecordCachedAgent writes the StatusCached state to disk to record a newly
+// cached or loaded agent image; this prevents StatusReloadNeeded from
+// being interpreted after the reload.
 func (d *Downloader) RecordCachedAgent() error {
-	data := []byte("1")
+	data := []byte(fmt.Sprintf("%d", StatusCached))
 	return d.fs.WriteFile(config.CacheState(), data, orwPerm)
 }
 

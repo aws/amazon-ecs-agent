@@ -83,20 +83,32 @@ func (e *Engine) PreStart() error {
 		return engineError("could not create route to the credentials proxy", err)
 	}
 
-	cached := e.downloader.IsAgentCached()
-	if !cached {
-		return e.downloadAndLoadCache()
-	}
-
-	loaded, err := e.docker.IsAgentImageLoaded()
+	imageLoaded, err := e.docker.IsAgentImageLoaded()
 	if err != nil {
-		return engineError("could not check if Agent is loaded", err)
-	}
-	if !loaded {
-		return e.load(e.downloader.LoadCachedAgent())
+		return engineError("could not check Docker for Agent image presence", err)
 	}
 
-	return nil
+	switch e.downloader.AgentCacheStatus() {
+	// Uncached, go get the Agent.
+	case cache.StatusUncached:
+		return e.downloadAndLoadCache()
+
+	// The Agent is cached, and mandates a reload regardless of the
+	// already loaded image.
+	case cache.StatusReloadNeeded:
+		return e.load(e.downloader.LoadCachedAgent())
+
+	// Agent is cached, respect the already loaded Agent.
+	case cache.StatusCached:
+		if imageLoaded {
+			return nil
+		}
+		return e.load(e.downloader.LoadCachedAgent())
+
+	// There shouldn't be unhandled cache states.
+	default:
+		return errors.New("could not handle cache state")
+	}
 }
 
 // ReloadCache reloads the cached image of the ECS Agent into Docker

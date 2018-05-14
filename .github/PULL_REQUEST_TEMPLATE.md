@@ -8,8 +8,15 @@ Please provide the following information:
 ### Summary
 <!-- What does this pull request do? -->
 
+
 ### Implementation details
-<!-- How are the changes implemented? -->
+<!-- How are the changes implemented?
+
+If you have included new dependencies, please ensure you have followed
+Packaging guidance from
+https://github.com/aws/amazon-ecs-init/blob/master/CONTRIBUTING.md
+-->
+
 
 ### Testing
 <!-- How was this tested? -->
@@ -23,6 +30,7 @@ pull request for inclusion in the changelog. Prefix the summary with an
 indication of the change type, Feature, Enhancement, or Bug. Here is an example:
 Feature - Upgrade the something library to the latest stable version 1.2.3
 -->
+
 
 ### Licensing
 <!--
