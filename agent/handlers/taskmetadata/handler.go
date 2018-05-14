@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
@@ -98,9 +99,11 @@ func setupServer(credentialsManager credentials.Manager,
 	serverMux.HandleFunc(statsPath, statsV2Handler(state, statsEngine))
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
+	limiter.SetOnLimitReached(limitReachedHandler(auditLogger))
 	limiter.SetBurst(burstRate)
 	// Log all requests and then pass through to serverMux
 	loggingServeMux := http.NewServeMux()
+
 	loggingServeMux.Handle("/", tollbooth.LimitHandler(
 		limiter, handlers.NewLoggingHandler(serverMux)))
 
@@ -112,4 +115,14 @@ func setupServer(credentialsManager credentials.Manager,
 	}
 
 	return &server
+}
+
+// limitReachedHandler logs the throttled request in the credentials audit log
+func limitReachedHandler(auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logRequest := request.LogRequest{
+			Request: r,
+		}
+		auditLogger.Log(logRequest, http.StatusTooManyRequests, "")
+	}
 }
