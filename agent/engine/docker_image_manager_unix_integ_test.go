@@ -1,4 +1,4 @@
-// +build !sudo,!windows,integration
+// +build !windows,integration
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may

@@ -1,4 +1,4 @@
-// +build !sudo,!windows,integration
+// +build !windows,integration
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
