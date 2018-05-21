@@ -22,14 +22,12 @@ import (
 	"time"
 )
 
-// VolumeResource represents docker volume resource
+// VolumeResource represents volume resource
 type VolumeResource struct {
+	// Name is the name of docker volume
 	Name string
-	// mountpoint is a read-only field returned from docker
-	mountpoint          string
-	Driver              string
-	DriverOpts          map[string]string
-	Labels              map[string]string
+	// VolumeConfig contains docker specific volume fields
+	VolumeConfig        DockerVolumeConfig
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe VolumeStatus
 	knownStatusUnsafe   VolumeStatus
@@ -38,19 +36,40 @@ type VolumeResource struct {
 	lock sync.RWMutex
 }
 
+// DockerVolumeConfig represents docker volume configuration
+// See https://tinyurl.com/zmexdw2
+type DockerVolumeConfig struct {
+	// Scope represents lifetime of the volume: "task" or "shared"
+	Scope string `json:"scope"`
+	// Autoprovision is true if agent needs to create the volume,
+	// false if it is pre-provisioned outside of ECS
+	Autoprovision bool `json:"autoprovision"`
+	// Mountpoint is a read-only field returned from docker
+	Mountpoint string            `json:"mountPoint"`
+	Driver     string            `json:"driver"`
+	DriverOpts map[string]string `json:"driverOpts"`
+	Labels     map[string]string `json:"labels"`
+}
+
 // NewVolumeResource returns a docker volume wrapper object
 func NewVolumeResource(name string,
+	scope string,
+	autoprovision bool,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
 	client dockerapi.DockerClient) *VolumeResource {
 
 	return &VolumeResource{
-		Name:       name,
-		Driver:     driver,
-		DriverOpts: driverOptions,
-		Labels:     labels,
-		client:     client,
+		Name: name,
+		VolumeConfig: DockerVolumeConfig{
+			Scope:         scope,
+			Autoprovision: autoprovision,
+			Driver:        driver,
+			DriverOpts:    driverOptions,
+			Labels:        labels,
+		},
+		client: client,
 	}
 }
 
@@ -111,7 +130,7 @@ func (vol *VolumeResource) setMountPoint(mountPoint string) {
 	vol.lock.Lock()
 	defer vol.lock.Unlock()
 
-	vol.mountpoint = mountPoint
+	vol.VolumeConfig.Mountpoint = mountPoint
 }
 
 // GetMountPoint gets the mountpoint of the created volume.
@@ -119,17 +138,17 @@ func (vol *VolumeResource) GetMountPoint() string {
 	vol.lock.RLock()
 	defer vol.lock.RUnlock()
 
-	return vol.mountpoint
+	return vol.VolumeConfig.Mountpoint
 }
 
 // Create performs resource creation
 func (vol *VolumeResource) Create() error {
-	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.Driver)
+	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.VolumeConfig.Driver)
 	volumeResponse := vol.client.CreateVolume(
 		vol.Name,
-		vol.Driver,
-		vol.DriverOpts,
-		vol.Labels,
+		vol.VolumeConfig.Driver,
+		vol.VolumeConfig.DriverOpts,
+		vol.VolumeConfig.Labels,
 		dockerapi.CreateVolumeTimeout)
 
 	if volumeResponse.Error != nil {
@@ -154,14 +173,11 @@ func (vol *VolumeResource) Cleanup() error {
 
 // volumeResourceJSON duplicates VolumeResource fields, only for marshalling and unmarshalling purposes
 type volumeResourceJSON struct {
-	Name          string            `json:"Name"`
-	Mountpoint    string            `json:"MountPoint"`
-	Driver        string            `json:"Driver"`
-	DriverOpts    map[string]string `json:"DriverOpts"`
-	Labels        map[string]string `json:"Labels"`
-	CreatedAt     time.Time
-	DesiredStatus *VolumeStatus `json:"DesiredStatus"`
-	KnownStatus   *VolumeStatus `json:"KnownStatus"`
+	Name          string             `json:"name"`
+	VolumeConfig  DockerVolumeConfig `json:"dockerVolumeConfiguration"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	DesiredStatus *VolumeStatus      `json:"desiredStatus"`
+	KnownStatus   *VolumeStatus      `json:"knownStatus"`
 }
 
 // MarshalJSON marshals VolumeResource object using duplicate struct VolumeResourceJSON
@@ -171,10 +187,7 @@ func (vol *VolumeResource) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(volumeResourceJSON{
 		vol.Name,
-		vol.mountpoint,
-		vol.Driver,
-		vol.DriverOpts,
-		vol.Labels,
+		vol.VolumeConfig,
 		vol.GetCreatedAt(),
 		func() *VolumeStatus { desiredState := vol.GetDesiredStatus(); return &desiredState }(),
 		func() *VolumeStatus { knownState := vol.GetKnownStatus(); return &knownState }(),
@@ -190,9 +203,7 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	}
 
 	vol.Name = temp.Name
-	vol.mountpoint = temp.Mountpoint
-	vol.Driver = temp.Driver
-	vol.Labels = temp.Labels
+	vol.VolumeConfig = temp.VolumeConfig
 	if temp.DesiredStatus != nil {
 		vol.SetDesiredStatus(*temp.DesiredStatus)
 	}
