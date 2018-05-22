@@ -31,6 +31,7 @@ const (
 	PRESTART = "pre-start"
 	START    = "start"
 	PRESTOP  = "pre-stop"
+	STOP     = "stop"
 	POSTSTOP = "post-stop"
 	RECACHE  = "reload-cache"
 )
@@ -91,7 +92,13 @@ func actions(engine *engine.Engine) map[string]action {
 			function:    engine.StartSupervised,
 			description: "Start the ECS Agent and wait for it to stop",
 		},
+		// This is a deprecated command for stopping the agent
+		// when using upstart jobs
 		PRESTOP: action{
+			function:    engine.PreStop,
+			description: "Stop the ECS Agent",
+		},
+		STOP: action{
 			function:    engine.PreStop,
 			description: "Stop the ECS Agent",
 		},

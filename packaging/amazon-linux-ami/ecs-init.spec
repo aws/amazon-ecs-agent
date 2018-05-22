@@ -29,7 +29,7 @@ Source2:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_a
 BuildRequires:  golang >= 1.7
 
 Requires:       docker >= 17.06.2ce
-Requires:       upstart
+Requires:       systemd
 Requires:       iptables
 Requires:       procps
 Requires:       dhclient
