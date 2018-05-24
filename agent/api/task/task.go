@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,10 +30,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -191,7 +194,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
-	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields) error {
+	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
+	dockerClient dockerapi.DockerClient) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -202,53 +206,51 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
-	task.initializeEmptyVolumes()
+	task.initializeLocalVolumes(dockerClient)
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
 
-func (task *Task) initializeEmptyVolumes() {
-	requiredEmptyVolumes := []string{}
+func (task *Task) initializeLocalVolumes(dockerClient dockerapi.DockerClient) {
+	requiredLocalVolumes := []string{}
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
 			vol, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 			if !ok {
 				continue
 			}
-			if _, ok := vol.(*EmptyHostVolume); ok {
-				container.BuildContainerDependency(emptyHostVolumeName, apicontainer.ContainerRunning, apicontainer.ContainerCreated)
-				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
+			if _, ok := vol.(*taskresourcevolume.LocalVolume); ok {
+				container.BuildResourceDependency(mountPoint.SourceVolume,
+					taskresource.ResourceStatus(taskresourcevolume.VolumeCreated),
+					apicontainer.ContainerPulled)
+				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
 			}
 		}
 	}
 
-	if len(requiredEmptyVolumes) == 0 {
-		// No need to create the auxiliary 'empty-volumes' container
+	if len(requiredLocalVolumes) == 0 {
+		// No need to create the auxiliary local driver volumes
 		return
 	}
 
-	// If we have required empty volumes, add an 'internal' container that handles all
-	// of them
-	_, ok := task.ContainerByName(emptyHostVolumeName)
-	if !ok {
-		mountPoints := make([]apicontainer.MountPoint, len(requiredEmptyVolumes))
-		for i, volume := range requiredEmptyVolumes {
-			// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
-			containerPath := getCanonicalPath(emptyvolume.ContainerPathPrefix + volume)
-			mountPoints[i] = apicontainer.MountPoint{SourceVolume: volume, ContainerPath: containerPath}
-		}
-		sourceContainer := &apicontainer.Container{
-			Name:                emptyHostVolumeName,
-			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
-			MountPoints:         mountPoints,
-			Essential:           false,
-			Type:                apicontainer.ContainerEmptyHostVolume,
-			DesiredStatusUnsafe: apicontainer.ContainerRunning,
-		}
-		task.Containers = append(task.Containers, sourceContainer)
+	// if we have required local volumes, create one with default local drive
+	reInvalidChars := regexp.MustCompile("[^A-Za-z0-9-]+")
+	for _, volumeName := range requiredLocalVolumes {
+		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
+		name := reInvalidChars.ReplaceAllString(volumeName, "")
+		scope := taskresourcevolume.TaskScope
+		autoprovision := false // must be false if scope = task
+
+		dockerVolumeName := task.taskScopedVolumeName(name)
+		localDriver := "local"
+		localVolume := taskresourcevolume.NewVolumeResource(volumeName, dockerVolumeName, scope, autoprovision, localDriver, make(map[string]string), make(map[string]string), dockerClient)
+		task.AddResource(volumeName, localVolume)
 	}
+}
+
+func (task *Task) taskScopedVolumeName(name string) string {
+	return "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 }
 
 // initializeCredentialsEndpoint sets the credentials endpoint for all containers in a task if needed.
@@ -347,7 +349,7 @@ func (task *Task) ContainerByName(name string) (*apicontainer.Container, bool) {
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
 // task. The second return value indicates the presence of that volume
-func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
+func (task *Task) HostVolumeByName(name string) (taskresourcevolume.HostVolume, bool) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
 			return v.Volume, true
@@ -357,7 +359,7 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 }
 
 // UpdateMountPoints updates the mount points of volumes that were created
-// without specifying a host path.  This is used as part of the empty host
+// without specifying a host path.  This is used as part of the local driver
 // volume feature.
 func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
 	for _, mountPoint := range cont.MountPoints {
@@ -369,8 +371,8 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[strin
 		}
 		if ok {
 			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
-				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
-					empty.HostPath = hostPath
+				if localVol, ok := hostVolume.(*taskresourcevolume.LocalVolume); ok {
+					localVol.HostPath = hostPath
 				}
 			}
 		}
@@ -572,7 +574,7 @@ func (task *Task) dockerConfigVolumes(container *apicontainer.Container) (map[st
 		// them here.
 		if container.Type == apicontainer.ContainerEmptyHostVolume {
 			// if container.Name == emptyHostVolumeName && container.Type {
-			_, ok := vol.(*EmptyHostVolume)
+			_, ok := vol.(*taskresourcevolume.LocalVolume)
 			if !ok {
 				return nil, &apierrors.BadVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
 			}

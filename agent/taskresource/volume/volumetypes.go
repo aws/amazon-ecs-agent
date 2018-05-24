@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package volume
 
 // HostVolume is an interface for something that may be used as the host half of a
 // docker volume mount
@@ -30,12 +30,14 @@ func (fs *FSHostVolume) SourcePath() string {
 	return fs.FSSourcePath
 }
 
-// EmptyHostVolume represents a volume without a specified host path
-type EmptyHostVolume struct {
+// LocalVolume represents a volume without a specified host path
+// This is essentially DockerVolume with only the name specified; however,
+// for backward compatibility we can't directly map to DockerVolume.
+type LocalVolume struct {
 	HostPath string `json:"hostPath"`
 }
 
 // SourcePath returns the generated host path for the volume
-func (e *EmptyHostVolume) SourcePath() string {
+func (e *LocalVolume) SourcePath() string {
 	return e.HostPath
 }

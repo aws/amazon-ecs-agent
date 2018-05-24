@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
 func TestVolumesFromUnmarshal(t *testing.T) {
@@ -45,7 +46,7 @@ func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 	if task.Volumes[0].Name != "test" {
 		t.Error("Wrong name")
 	}
-	if fs, ok := task.Volumes[0].Volume.(*EmptyHostVolume); !ok {
+	if fs, ok := task.Volumes[0].Volume.(*taskresourcevolume.LocalVolume); !ok {
 		t.Error("Wrong type")
 		if fs.SourcePath() != "" {
 			t.Error("Should default to empty string")
@@ -62,7 +63,7 @@ func TestHostHostVolumeUnmarshal(t *testing.T) {
 	if task.Volumes[0].Name != "test" {
 		t.Error("Wrong name")
 	}
-	fsv, ok := task.Volumes[0].Volume.(*FSHostVolume)
+	fsv, ok := task.Volumes[0].Volume.(*taskresourcevolume.FSHostVolume)
 	if !ok {
 		t.Error("Wrong type")
 	} else if fsv.SourcePath() != "/path" {

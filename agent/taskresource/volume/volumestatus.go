@@ -28,14 +28,14 @@ const (
 	VolumeStatusNone VolumeStatus = iota
 	// VolumeCreated represents a task resource which has been created
 	VolumeCreated
-	// VolumeCleaned represents a task resource which has been cleaned up
-	VolumeCleaned
+	// VolumeRemoved represents a task resource which has been Removed
+	VolumeRemoved
 )
 
 var resourceStatusMap = map[string]VolumeStatus{
 	"NONE":    VolumeStatusNone,
 	"CREATED": VolumeCreated,
-	"CLEANED": VolumeCleaned,
+	"REMOVED": VolumeRemoved,
 }
 
 // StatusString returns a human readable string representation of this object

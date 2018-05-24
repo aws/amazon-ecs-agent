@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"runtime"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -566,23 +568,25 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
-	task.PostUnmarshalTask(&cfg, nil, nil)
+	task.PostUnmarshalTask(&cfg, nil, nil, nil)
 
-	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
-	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
-	assert.True(t, ok, "Should find empty volume container")
-	assert.Equal(t, 2, len(emptyContainer.MountPoints), "Should have two mount points")
-	assert.Equal(t, []apicontainer.MountPoint{
-		{
-			SourceVolume:  emptyVolumeName1,
-			ContainerPath: expectedEmptyVolumeGeneratedPath1,
-		}, {
-			SourceVolume:  emptyVolumeName2,
-			ContainerPath: expectedEmptyVolumeGeneratedPath2,
-		},
-	}, emptyContainer.MountPoints)
-	assert.Equal(t, expectedEmptyVolumeContainerImage+":"+expectedEmptyVolumeContainerTag, emptyContainer.Image, "Should have expected image")
-	assert.Equal(t, []string{expectedEmptyVolumeContainerCmd}, emptyContainer.Command, "Should have expected command")
+	assert.Equal(t, 2, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	taskResources := task.getResourcesUnsafe()
+	assert.Equal(t, 2, len(taskResources), "Should have created 2 volume resources")
+
+	volumeNamePattern := "ecs-" + task.Family + "-" + task.Version + "-(" + emptyVolumeName1 + "|" + emptyVolumeName2 + ")-" + "[0-9a-fA-F]+"
+	for _, r := range taskResources {
+		vol := r.(*taskresourcevolume.VolumeResource)
+		matched, mErr := regexp.MatchString(volumeNamePattern, vol.DockerVolumeName)
+		assert.True(t, matched)
+		assert.NoError(t, mErr)
+		assert.Equal(t, "task", vol.VolumeConfig.Scope)
+		assert.Equal(t, false, vol.VolumeConfig.Autoprovision)
+		assert.Equal(t, "local", vol.VolumeConfig.Driver)
+		assert.Equal(t, 0, len(vol.VolumeConfig.DriverOpts))
+		assert.Equal(t, 0, len(vol.VolumeConfig.Labels))
+	}
+
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -712,7 +716,7 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []TaskVolume{
 			{
 				Name: "volName",
-				Volume: &FSHostVolume{
+				Volume: &taskresourcevolume.FSHostVolume{
 					FSSourcePath: "/host/path",
 				},
 			},
