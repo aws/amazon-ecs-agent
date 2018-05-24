@@ -33,6 +33,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
@@ -587,25 +589,21 @@ func TestVolumesFromRO(t *testing.T) {
 
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	testTask := createTestTask("testHostVolumeMount")
-	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &apitask.FSHostVolume{FSSourcePath: tmpPath}}}
+	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
 	return testTask
 }
 
-func createTestEmptyHostVolumeMountTask() *apitask.Task {
-	testTask := createTestTask("testEmptyHostVolumeMount")
-	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &apitask.EmptyHostVolume{}}}
+func createTestLocalVolumeMountTask(tmpPath string) *apitask.Task {
+	testTask := createTestTask("testLocalHostVolumeMount")
+	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalVolume{HostPath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
-	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}
-	testTask.Containers = append(testTask.Containers, createTestContainer())
-	testTask.Containers[1].Name = "test2"
-	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
-	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
-	testTask.Containers[1].Essential = false
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
 	return testTask
 }
 

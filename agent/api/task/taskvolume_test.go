@@ -18,14 +18,16 @@ package task
 import (
 	"encoding/json"
 	"testing"
+
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
 		Volumes: []TaskVolume{
-			TaskVolume{Name: "1", Volume: &EmptyHostVolume{}},
-			TaskVolume{Name: "2", Volume: &FSHostVolume{FSSourcePath: "/path"}},
+			TaskVolume{Name: "1", Volume: &taskresourcevolume.LocalVolume{}},
+			TaskVolume{Name: "2", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
 		},
 	}
 
@@ -54,14 +56,14 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 		}
 	}
 
-	if _, ok := v1.Volume.(*EmptyHostVolume); !ok {
+	if _, ok := v1.Volume.(*taskresourcevolume.LocalVolume); !ok {
 		t.Error("Expected v1 to be an empty volume")
 	}
 
 	if v2.Volume.SourcePath() != "/path" {
 		t.Error("Expected v2 to have 'sourcepath' work correctly")
 	}
-	fs, ok := v2.Volume.(*FSHostVolume)
+	fs, ok := v2.Volume.(*taskresourcevolume.FSHostVolume)
 	if !ok || fs.FSSourcePath != "/path" {
 		t.Error("Unmarshaled v2 didn't match marshalled v2")
 	}

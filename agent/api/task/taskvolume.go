@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 )
 
@@ -24,7 +25,7 @@ import (
 // reference within a task. It must be named.
 type TaskVolume struct {
 	Name   string `json:"name"`
-	Volume HostVolume
+	Volume taskresourcevolume.HostVolume
 }
 
 // UnmarshalJSON for TaskVolume determines the name and volume type, and
@@ -45,22 +46,24 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 
 	if rawhostdata, ok := intermediate["host"]; ok {
 		// Default to trying to unmarshal it as a FSHostVolume
-		var hostvolume FSHostVolume
+		var hostvolume taskresourcevolume.FSHostVolume
 		err := json.Unmarshal(rawhostdata, &hostvolume)
 		if err != nil {
 			return err
 		}
 		if hostvolume.FSSourcePath == "" {
 			// If the FSSourcePath is empty, that must mean it was not an
-			// FSHostVolume (empty path is invalid for that type). The only other
-			// type is an empty volume, so unmarshal it as such.
-			emptyVolume := &EmptyHostVolume{}
-			json.Unmarshal(rawhostdata, emptyVolume)
-			tv.Volume = emptyVolume
+			// FSHostVolume (empty path is invalid for that type).
+			// Unmarshal it as local docker volume.
+			localVolume := &taskresourcevolume.LocalVolume{}
+			json.Unmarshal(rawhostdata, localVolume)
+			tv.Volume = localVolume
 		} else {
 			tv.Volume = &hostvolume
 		}
 		return nil
+	} else if _, ok := intermediate["driver"]; ok {
+		// driver is specified,
 	}
 
 	return errors.New("unrecognized volume type; try updating me")
@@ -73,9 +76,9 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	result["name"] = tv.Name
 
 	switch v := tv.Volume.(type) {
-	case *FSHostVolume:
+	case *taskresourcevolume.FSHostVolume:
 		result["host"] = v
-	case *EmptyHostVolume:
+	case *taskresourcevolume.LocalVolume:
 		result["host"] = v
 	default:
 		seelog.Critical("Unknown task volume type in marshal")

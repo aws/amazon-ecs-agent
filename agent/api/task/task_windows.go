@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -59,7 +60,7 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 // case-sensitive string comparison that takes place elsewhere in the code.
 func (task *Task) downcaseAllVolumePaths() {
 	for _, volume := range task.Volumes {
-		if hostVol, ok := volume.Volume.(*FSHostVolume); ok {
+		if hostVol, ok := volume.Volume.(*taskresourcevolume.FSHostVolume); ok {
 			hostVol.FSSourcePath = getCanonicalPath(hostVol.FSSourcePath)
 		}
 	}
