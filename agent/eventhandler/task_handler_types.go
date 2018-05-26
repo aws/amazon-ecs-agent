@@ -186,19 +186,26 @@ type setStatusSent func(event *sendableEvent)
 
 // setContainerChangeSent sets the event's container change object as sent
 func setContainerChangeSent(event *sendableEvent) {
-	if event.containerChange.Container != nil {
-		event.containerChange.Container.SetSentStatus(event.containerChange.Status)
+	containerChangeStatus := event.containerChange.Status
+	container := event.containerChange.Container
+	if container != nil && container.GetSentStatus() < containerChangeStatus {
+		container.SetSentStatus(containerChangeStatus)
 	}
 }
 
 // setTaskChangeSent sets the event's task change object as sent
 func setTaskChangeSent(event *sendableEvent) {
-	if event.taskChange.Task != nil {
-		event.taskChange.Task.SetSentStatus(event.taskChange.Status)
+	taskChangeStatus := event.taskChange.Status
+	task := event.taskChange.Task
+	if task != nil && task.GetSentStatus() < taskChangeStatus {
+		task.SetSentStatus(taskChangeStatus)
 	}
 	for _, containerStateChange := range event.taskChange.Containers {
 		container := containerStateChange.Container
-		container.SetSentStatus(containerStateChange.Status)
+		containerChangeStatus := containerStateChange.Status
+		if container.GetSentStatus() < containerChangeStatus {
+			container.SetSentStatus(containerStateChange.Status)
+		}
 	}
 }
 

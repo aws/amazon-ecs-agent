@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/golang/mock/gomock"
@@ -47,7 +47,7 @@ func TestHandler_RunAgent_StartExitImmediately(t *testing.T) {
 	// register some mocks, but nothing should get called on any of them
 	ctrl := gomock.NewController(t)
 	_ = statemanager_mocks.NewMockStateManager(ctrl)
-	_ = engine.NewMockTaskEngine(ctrl)
+	_ = mock_engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
 	wg := sync.WaitGroup{}
@@ -68,7 +68,7 @@ func TestHandler_RunAgent_NoSaveWithNoTerminationHandler(t *testing.T) {
 	// register some mocks, but nothing should get called on any of them
 	ctrl := gomock.NewController(t)
 	_ = statemanager_mocks.NewMockStateManager(ctrl)
-	_ = engine.NewMockTaskEngine(ctrl)
+	_ = mock_engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -93,7 +93,7 @@ func TestHandler_RunAgent_NoSaveWithNoTerminationHandler(t *testing.T) {
 func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine.EXPECT().Disable()
@@ -188,7 +188,7 @@ func TestHandler_HandleWindowsRequests_Cancel(t *testing.T) {
 func TestHandler_Execute_WindowsStops(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
-	taskEngine := engine.NewMockTaskEngine(ctrl)
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine.EXPECT().Disable()

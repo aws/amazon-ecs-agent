@@ -14,24 +14,25 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
-
-	"context"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/app/oswrapper"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -47,7 +48,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
@@ -90,7 +90,7 @@ type ecsAgent struct {
 	ctx                   context.Context
 	ec2MetadataClient     ec2.EC2MetadataClient
 	cfg                   *config.Config
-	dockerClient          engine.DockerClient
+	dockerClient          dockerapi.DockerClient
 	containerInstanceARN  string
 	credentialProvider    *aws_credentials.Credentials
 	stateManagerFactory   factory.StateManager
@@ -132,7 +132,8 @@ func newAgent(
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
-	dockerClient, err := engine.NewDockerGoClient(dockerclient.NewFactory(cfg.DockerEndpoint), cfg)
+	dockerClient, err := dockerapi.NewDockerGoClient(
+		clientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg)
 	if err != nil {
 		// This is also non terminal in the current config
 		seelog.Criticalf("Error creating Docker client: %v", err)
@@ -464,14 +465,14 @@ func (agent *ecsAgent) registerContainerInstance(
 	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
-		if retriable, ok := err.(utils.Retriable); ok && !retriable.Retry() {
+		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return err
 		}
-		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecs.ErrCodeInvalidParameterException {
+		if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
 			seelog.Critical("Instance registration attempt with an invalid parameter")
 			return err
 		}
-		if _, ok := err.(utils.AttributeError); ok {
+		if _, ok := err.(apierrors.AttributeError); ok {
 			seelog.Critical("Instance registration attempt with an invalid attribute")
 			return err
 		}
@@ -493,11 +494,11 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 		return nil
 	}
 	seelog.Errorf("Error re-registering: %v", err)
-	if api.IsInstanceTypeChangedError(err) {
+	if apierrors.IsInstanceTypeChangedError(err) {
 		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
 		return err
 	}
-	if _, ok := err.(utils.AttributeError); ok {
+	if _, ok := err.(apierrors.AttributeError); ok {
 		seelog.Critical("Instance re-registration attempt with an invalid attribute")
 		return err
 	}
@@ -535,6 +536,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
+		Ctx:                           agent.ctx,
 		CredentialProvider:            agent.credentialProvider,
 		Cfg:                           agent.cfg,
 		ContainerInstanceArn:          agent.containerInstanceARN,

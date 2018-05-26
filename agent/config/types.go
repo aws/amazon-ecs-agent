@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,9 +16,13 @@ package config
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
+
+// ImagePullBehaviorType is an enum variable type corresponding to different agent pull
+// behaviors including default, always, never and once.
+type ImagePullBehaviorType int8
 
 type Config struct {
 	// DEPRECATED
@@ -63,7 +67,7 @@ type Config struct {
 	Checkpoint bool
 
 	// EngineAuthType configures what type of data is in EngineAuthData.
-	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/engine/dockerauth
+	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth
 	EngineAuthType string `trim:"true"`
 	// EngineAuthData contains authentication data. Please see the documentation
 	// for EngineAuthType for more information.
@@ -148,6 +152,10 @@ type Config struct {
 	// NumImagesToDeletePerCycle specifies the num of image to delete every time
 	// when Agent performs cleanup
 	NumImagesToDeletePerCycle int
+
+	// ImagePullBehavior specifies the agent's behavior for pulling image and loading
+	// local Docker image cache
+	ImagePullBehavior ImagePullBehaviorType
 
 	// InstanceAttributes contains key/value pairs representing
 	// attributes to be associated with this instance within the

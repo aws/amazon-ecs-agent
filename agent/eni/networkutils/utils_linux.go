@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/pkg/errors"
@@ -30,7 +31,7 @@ import (
 )
 
 const (
-	// macAddressBackoffMin specifies the mimimum duration for the backoff
+	// macAddressBackoffMin specifies the minimum duration for the backoff
 	// when looking for an ENI's mac address on the host
 	macAddressBackoffMin = 2 * time.Millisecond
 
@@ -120,7 +121,7 @@ func (retriever *macAddressRetriever) retrieveOnce() error {
 	dev := filepath.Base(retriever.dev)
 	link, err := retriever.netlinkClient.LinkByName(dev)
 	if err != nil {
-		return utils.NewRetriableError(utils.NewRetriable(false), err)
+		return apierrors.NewRetriableError(apierrors.NewRetriable(false), err)
 	}
 	retriever.macAddress = link.Attrs().HardwareAddr.String()
 	return nil

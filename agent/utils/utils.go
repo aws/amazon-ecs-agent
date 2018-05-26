@@ -24,8 +24,10 @@ import (
 	"strconv"
 	"strings"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 var log = logger.ForModule("util")
@@ -129,7 +131,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 
 		err = fn()
 
-		retriableErr, isRetriableErr := err.(Retriable)
+		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
 		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
 			return err
@@ -197,4 +199,12 @@ func ParseBool(str string, default_ bool) bool {
 		return default_
 	}
 	return res
+}
+
+// IsAWSErrorCodeEqual returns true if the err implements Error
+// interface of awserr and it has the same error code as
+// the passed in error code.
+func IsAWSErrorCodeEqual(err error, code string) bool {
+	awsErr, ok := err.(awserr.Error)
+	return ok && awsErr.Code() == code
 }

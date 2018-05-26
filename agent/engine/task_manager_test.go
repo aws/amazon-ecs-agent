@@ -15,19 +15,25 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
@@ -38,125 +44,137 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 
-	"context"
 	"github.com/golang/mock/gomock"
 )
 
 func TestHandleEventError(t *testing.T) {
 	testCases := []struct {
-		Name                         string
-		EventStatus                  api.ContainerStatus
-		CurrentKnownStatus           api.ContainerStatus
-		Error                        engineError
-		ExpectedKnownStatusSet       bool
-		ExpectedKnownStatus          api.ContainerStatus
-		ExpectedDesiredStatusStopped bool
-		ExpectedOK                   bool
+		Name                                  string
+		EventStatus                           api.ContainerStatus
+		CurrentContainerKnownStatus           api.ContainerStatus
+		ImagePullBehavior                     config.ImagePullBehaviorType
+		Error                                 apierrors.NamedError
+		ExpectedContainerKnownStatusSet       bool
+		ExpectedContainerKnownStatus          api.ContainerStatus
+		ExpectedContainerDesiredStatusStopped bool
+		ExpectedTaskDesiredStatusStopped      bool
+		ExpectedOK                            bool
 	}{
 		{
-			Name:               "Stop timed out",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
-			Error:              &DockerTimeoutError{},
-			ExpectedKnownStatusSet: true,
-			ExpectedKnownStatus:    api.ContainerRunning,
-			ExpectedOK:             false,
+			Name:                        "Stop timed out",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet: true,
+			ExpectedContainerKnownStatus:    api.ContainerRunning,
+			ExpectedOK:                      false,
 		},
 		{
-			Name:               "Retriable error with stop",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
-			Error: &CannotStopContainerError{
-				fromError: errors.New(""),
+			Name:                        "Retriable error with stop",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
+			Error: &dockerapi.CannotStopContainerError{
+				FromError: errors.New(""),
 			},
-			ExpectedKnownStatusSet: true,
-			ExpectedKnownStatus:    api.ContainerRunning,
-			ExpectedOK:             false,
+			ExpectedContainerKnownStatusSet: true,
+			ExpectedContainerKnownStatus:    api.ContainerRunning,
+			ExpectedOK:                      false,
 		},
 		{
-			Name:               "Unretriable error with Stop",
-			EventStatus:        api.ContainerStopped,
-			CurrentKnownStatus: api.ContainerRunning,
-			Error: &CannotStopContainerError{
-				fromError: &docker.ContainerNotRunning{},
+			Name:                        "Unretriable error with Stop",
+			EventStatus:                 api.ContainerStopped,
+			CurrentContainerKnownStatus: api.ContainerRunning,
+			Error: &dockerapi.CannotStopContainerError{
+				FromError: &docker.ContainerNotRunning{},
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerStopped,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   true,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerStopped,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            true,
 		},
 		{
 			Name:        "Pull failed",
-			Error:       &DockerTimeoutError{},
+			Error:       &dockerapi.DockerTimeoutError{},
 			EventStatus: api.ContainerPulled,
 			ExpectedOK:  true,
 		},
 		{
-			Name:               "Container vanished betweeen pull and running",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerPulled,
-			Error:              &ContainerVanishedError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Container vanished betweeen pull and running",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerPulled,
+			Error: &ContainerVanishedError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Inspect failed during start",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerCreated,
-			Error: &CannotInspectContainerError{
-				fromError: errors.New("error"),
+			Name:                        "Inspect failed during start",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerCreated,
+			Error: &dockerapi.CannotInspectContainerError{
+				FromError: errors.New("error"),
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerCreated,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerCreated,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Start timed out",
-			EventStatus:        api.ContainerRunning,
-			CurrentKnownStatus: api.ContainerCreated,
-			Error:              &DockerTimeoutError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerCreated,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Start timed out",
+			EventStatus:                 api.ContainerRunning,
+			CurrentContainerKnownStatus: api.ContainerCreated,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerCreated,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Inspect failed during create",
-			EventStatus:        api.ContainerCreated,
-			CurrentKnownStatus: api.ContainerPulled,
-			Error: &CannotInspectContainerError{
-				fromError: errors.New("error"),
+			Name:                        "Inspect failed during create",
+			EventStatus:                 api.ContainerCreated,
+			CurrentContainerKnownStatus: api.ContainerPulled,
+			Error: &dockerapi.CannotInspectContainerError{
+				FromError: errors.New("error"),
 			},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
 		},
 		{
-			Name:               "Create timed out",
-			EventStatus:        api.ContainerCreated,
-			CurrentKnownStatus: api.ContainerPulled,
-			Error:              &DockerTimeoutError{},
-			ExpectedKnownStatusSet:       true,
-			ExpectedKnownStatus:          api.ContainerPulled,
-			ExpectedDesiredStatusStopped: true,
-			ExpectedOK:                   false,
+			Name:                        "Create timed out",
+			EventStatus:                 api.ContainerCreated,
+			CurrentContainerKnownStatus: api.ContainerPulled,
+			Error: &dockerapi.DockerTimeoutError{},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          api.ContainerPulled,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
+		},
+		{
+			Name:        "Pull image fails and task fails",
+			EventStatus: api.ContainerPulled,
+			Error: &dockerapi.CannotPullContainerError{
+				FromError: errors.New("error"),
+			},
+			ImagePullBehavior:                config.ImagePullAlwaysBehavior,
+			ExpectedContainerKnownStatusSet:  false,
+			ExpectedTaskDesiredStatusStopped: true,
+			ExpectedOK:                       false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			container := &api.Container{
-				KnownStatusUnsafe: tc.CurrentKnownStatus,
+				KnownStatusUnsafe: tc.CurrentContainerKnownStatus,
 			}
 			containerChange := dockerContainerChange{
 				container: container,
-				event: DockerContainerChangeEvent{
+				event: dockerapi.DockerContainerChangeEvent{
 					Status: tc.EventStatus,
-					DockerContainerMetadata: DockerContainerMetadata{
+					DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 						Error: tc.Error,
 					},
 				},
@@ -166,18 +184,24 @@ func TestHandleEventError(t *testing.T) {
 					Arn: "task1",
 				},
 				engine: &DockerTaskEngine{},
+				cfg:    &config.Config{ImagePullBehavior: tc.ImagePullBehavior},
 			}
-			ok := mtask.handleEventError(containerChange, tc.CurrentKnownStatus)
+			ok := mtask.handleEventError(containerChange, tc.CurrentContainerKnownStatus)
 			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")
-			if tc.ExpectedKnownStatusSet {
+			if tc.ExpectedContainerKnownStatusSet {
 				containerKnownStatus := containerChange.container.GetKnownStatus()
-				assert.Equal(t, tc.ExpectedKnownStatus, containerKnownStatus,
-					"expected known status %s != %s", tc.ExpectedKnownStatus.String(), containerKnownStatus.String())
+				assert.Equal(t, tc.ExpectedContainerKnownStatus, containerKnownStatus,
+					"expected container known status %s != %s", tc.ExpectedContainerKnownStatus.String(), containerKnownStatus.String())
 			}
-			if tc.ExpectedDesiredStatusStopped {
+			if tc.ExpectedContainerDesiredStatusStopped {
 				containerDesiredStatus := containerChange.container.GetDesiredStatus()
 				assert.Equal(t, api.ContainerStopped, containerDesiredStatus,
-					"desired status %s != %s", api.ContainerStopped.String(), containerDesiredStatus.String())
+					"desired container status %s != %s", api.ContainerStopped.String(), containerDesiredStatus.String())
+			}
+			if tc.ExpectedTaskDesiredStatusStopped {
+				taskDesiredStatus := mtask.GetDesiredStatus()
+				assert.Equal(t, api.TaskStopped, taskDesiredStatus,
+					"desired task status %s != %s", api.TaskStopped.String(), taskDesiredStatus.String())
 			}
 			assert.Equal(t, tc.Error.ErrorName(), containerChange.container.ApplyingError.ErrorName())
 		})
@@ -521,9 +545,9 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			container := &api.Container{
 				DesiredStatusUnsafe: tc.containerDesiredStatus,
 				KnownStatusUnsafe:   tc.containerCurrentStatus,
-				RegistryAuthentication: &api.RegistryAuthenticationData{
+				RegistryAuthentication: &ecr.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &api.ECRAuthData{
+					ECRAuthData: &ecr.ECRAuthData{
 						UseExecutionRole: tc.useExecutionRole,
 					},
 				},
@@ -702,7 +726,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		assert.NotNil(t, events)
 		assert.Len(t, events, 1)
 		event := events[0]
-		containerChangeEvent, ok := event.(DockerContainerChangeEvent)
+		containerChangeEvent, ok := event.(dockerapi.DockerContainerChangeEvent)
 		assert.True(t, ok)
 		assert.Equal(t, containerChangeEvent.Status, api.ContainerStopped)
 		eventsGenerated.Done()
@@ -876,6 +900,10 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		DesiredStatusUnsafe: api.ContainerRunning,
 		Name:                secondContainerName,
 	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	mTask := &managedTask{
 		Task: &api.Task{
 			Containers: []*api.Container{
@@ -888,17 +916,18 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		acsMessages:    make(chan acsTransition),
 		dockerMessages: make(chan dockerContainerChange),
 		saver:          taskEngine.saver,
+		ctx:            ctx,
 	}
 	taskEngine.managedTasks = make(map[string]*managedTask)
 	taskEngine.managedTasks["task1"] = mTask
 
 	var waitForTransitionFunctionInvocation sync.WaitGroup
 	waitForTransitionFunctionInvocation.Add(1)
-	transitionFunction := func(task *api.Task, container *api.Container) DockerContainerMetadata {
+	transitionFunction := func(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 		assert.Equal(t, firstContainerName, container.Name,
 			"Mismatch in container reference in transition function")
 		waitForTransitionFunctionInvocation.Done()
-		return DockerContainerMetadata{}
+		return dockerapi.DockerContainerMetadata{}
 	}
 
 	taskEngine.containerStatusToTransitionFunction = map[api.ContainerStatus]transitionApplyFunc{
@@ -955,12 +984,13 @@ func TestCleanupTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
 	taskEngine := &DockerTaskEngine{
 		ctx:          ctx,
 		cfg:          &cfg,
@@ -971,6 +1001,7 @@ func TestCleanupTask(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -998,7 +1029,7 @@ func TestCleanupTask(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1009,12 +1040,13 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
 	taskEngine := &DockerTaskEngine{
 		ctx:          ctx,
 		cfg:          &cfg,
@@ -1025,6 +1057,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1064,7 +1097,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(
 		map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1075,8 +1108,8 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -1092,6 +1125,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1130,8 +1164,8 @@ func TestCleanupTaskENIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1146,6 +1180,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1189,7 +1224,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockState.EXPECT().RemoveENIAttachment(mac)
@@ -1257,8 +1292,8 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -1274,6 +1309,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1302,7 +1338,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1312,8 +1348,8 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 
@@ -1332,6 +1368,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1360,7 +1397,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().Cleanup(gomock.Any()).Return(nil)
@@ -1371,8 +1408,8 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockClient := NewMockDockerClient(ctrl)
-	mockImageManager := NewMockImageManager(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
 	mockResource := mock_resources.NewMockResource(ctrl)
 	defer ctrl.Finish()
 
@@ -1391,6 +1428,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	}
 	mTask := &managedTask{
 		ctx:            ctx,
+		cancel:         cancel,
 		Task:           testdata.LoadTask("sleep5TaskCgroup"),
 		_time:          mockTime,
 		engine:         taskEngine,
@@ -1419,7 +1457,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*api.DockerContainer{container.Name: dockerContainer}, true)
-	mockClient.EXPECT().RemoveContainer(dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().Cleanup(gomock.Any()).Return(errors.New("resource cleanup error"))
@@ -1448,9 +1486,9 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 
 	containerChange := dockerContainerChange{
 		container: container,
-		event: DockerContainerChangeEvent{
+		event: dockerapi.DockerContainerChangeEvent{
 			Status: api.ContainerRunning,
-			DockerContainerMetadata: DockerContainerMetadata{
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 				DockerID: "dockerID",
 				Health: api.HealthStatus{
 					Status: api.ContainerHealthy,

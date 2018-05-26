@@ -21,14 +21,16 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -59,6 +61,8 @@ const (
 	labelTaskDefinitionFamily    = labelPrefix + "task-definition-family"
 	labelTaskDefinitionVersion   = labelPrefix + "task-definition-version"
 	labelCluster                 = labelPrefix + "cluster"
+	cniSetupTimeout              = 1 * time.Minute
+	cniCleanupTimeout            = 30 * time.Second
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -85,23 +89,22 @@ type DockerTaskEngine struct {
 
 	taskStopGroup *utilsync.SequentialWaitGroup
 
-	events            <-chan DockerContainerChangeEvent
+	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 	saver             statemanager.Saver
 
-	client     DockerClient
-	clientLock sync.Mutex
-	cniClient  ecscni.CNIClient
+	client    dockerapi.DockerClient
+	cniClient ecscni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
 	stopEngine context.CancelFunc
 
-	// processTasks is a mutex that the task engine must acquire before changing
+	// tasksLock is a mutex that the task engine must acquire before changing
 	// any task's state which it manages. Since this is a lock that encompasses
 	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
-	processTasks sync.RWMutex
+	tasksLock sync.RWMutex
 
 	enableConcurrentPull                bool
 	credentialsManager                  credentials.Manager
@@ -111,15 +114,26 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[api.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	resource                            resources.Resource
+
+	// taskSteadyStatePollInterval is the duration that a managed task waits
+	// once the task gets into steady state before polling the state of all of
+	// the task's containers to re-evaluate if the task is still in steady state
+	// This is set to defaultTaskSteadyStatePollInterval in production code.
+	// This can be used by tests that are looking to ensure that the steady state
+	// verification logic gets executed to set it to a low interval
+	taskSteadyStatePollInterval time.Duration
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
 // The distinction between created and initialized is that when created it may
 // be serialized/deserialized, but it will not communicate with docker until it
 // is also initialized.
-func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
-	credentialsManager credentials.Manager, containerChangeEventStream *eventstream.EventStream,
-	imageManager ImageManager, state dockerstate.TaskEngineState,
+func NewDockerTaskEngine(cfg *config.Config,
+	client dockerapi.DockerClient,
+	credentialsManager credentials.Manager,
+	containerChangeEventStream *eventstream.EventStream,
+	imageManager ImageManager,
+	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resource resources.Resource) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
@@ -143,8 +157,9 @@ func NewDockerTaskEngine(cfg *config.Config, client DockerClient,
 			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 		}),
 
-		metadataManager: metadataManager,
-		resource:        resource,
+		metadataManager:             metadataManager,
+		resource:                    resource,
+		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -204,13 +219,6 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
 
-// SetDockerClient provides a way to override the client used for communication with docker as a testing hook.
-func (engine *DockerTaskEngine) SetDockerClient(client DockerClient) {
-	engine.clientLock.Lock()
-	engine.clientLock.Unlock()
-	engine.client = client
-}
-
 // MustInit blocks and retries until an engine can be initialized.
 func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	if engine.initialized {
@@ -249,15 +257,15 @@ func (engine *DockerTaskEngine) Shutdown() {
 
 // Disable prevents this engine from managing any additional tasks.
 func (engine *DockerTaskEngine) Disable() {
-	engine.processTasks.Lock()
+	engine.tasksLock.Lock()
 }
 
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
 // events to push upstream.
 func (engine *DockerTaskEngine) synchronizeState() {
-	engine.processTasks.Lock()
-	defer engine.processTasks.Unlock()
+	engine.tasksLock.Lock()
+	defer engine.tasksLock.Unlock()
 	imageStates := engine.state.AllImageStates()
 	if len(imageStates) != 0 {
 		engine.imageManager.AddAllImageStates(imageStates)
@@ -293,7 +301,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 }
 
 // updateContainerMetadata sets the container metadata from the docker inspect
-func updateContainerMetadata(metadata *DockerContainerMetadata, container *api.Container, task *api.Task) {
+func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, container *api.Container, task *api.Task) {
 	container.SetCreatedAt(metadata.CreatedAt)
 	container.SetStartedAt(metadata.StartedAt)
 	container.SetFinishedAt(metadata.FinishedAt)
@@ -329,17 +337,18 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		seelog.Debugf("Task engine [%s]: found container potentially created while we were down: %s",
 			task.Arn, container.DockerName)
 		// Figure out the dockerid
-		describedContainer, err := engine.client.InspectContainer(container.DockerName, inspectContainerTimeout)
+		describedContainer, err := engine.client.InspectContainer(engine.ctx,
+			container.DockerName, dockerclient.InspectContainerTimeout)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: could not find matching container for expected name [%s]: %v",
 				task.Arn, container.DockerName, err)
 		} else {
 			// update the container metadata in case the container was created during agent restart
-			metadata := metadataFromContainer(describedContainer)
+			metadata := dockerapi.MetadataFromContainer(describedContainer)
 			updateContainerMetadata(&metadata, container.Container, task)
 			container.DockerID = describedContainer.ID
 
-			container.Container.SetKnownStatus(dockerStateToState(describedContainer.State))
+			container.Container.SetKnownStatus(dockerapi.DockerStateToState(describedContainer.State))
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
 			engine.imageManager.RecordContainerReference(container.Container)
@@ -347,21 +356,21 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 		return
 	}
 
-	currentState, metadata := engine.client.DescribeContainer(container.DockerID)
+	currentState, metadata := engine.client.DescribeContainer(engine.ctx, container.DockerID)
 	if metadata.Error != nil {
 		currentState = api.ContainerStopped
 		// If this is a Docker API error
-		if metadata.Error.ErrorName() == cannotDescribeContainerError {
+		if metadata.Error.ErrorName() == dockerapi.CannotDescribeContainerErrorName {
 			seelog.Warnf("Task engine [%s]: could not describe previously known container [id=%s; name=%s]; assuming dead: %v",
 				task.Arn, container.DockerID, container.DockerName, metadata.Error)
 			if !container.Container.KnownTerminal() {
-				container.Container.ApplyingError = api.NewNamedError(&ContainerVanishedError{})
+				container.Container.ApplyingError = apierrors.NewNamedError(&ContainerVanishedError{})
 				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
 			}
 		} else {
 			// If this is a container state error
 			updateContainerMetadata(&metadata, container.Container, task)
-			container.Container.ApplyingError = api.NewNamedError(metadata.Error)
+			container.Container.ApplyingError = apierrors.NewNamedError(metadata.Error)
 		}
 	} else {
 		// update the container metadata in case the container status/metadata changed during agent restart
@@ -379,9 +388,9 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *api.Docker
 	task.RecordExecutionStoppedAt(container.Container)
 }
 
-// CheckTaskState inspects the state of all containers within a task and writes
+// checkTaskState inspects the state of all containers within a task and writes
 // their state to the managed task's container channel.
-func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
+func (engine *DockerTaskEngine) checkTaskState(task *api.Task) {
 	taskContainers, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
 		seelog.Warnf("Task engine [%s]: could not check task state; no task in state", task.Arn)
@@ -392,19 +401,19 @@ func (engine *DockerTaskEngine) CheckTaskState(task *api.Task) {
 		if !ok {
 			continue
 		}
-		status, metadata := engine.client.DescribeContainer(dockerContainer.DockerID)
-		engine.processTasks.RLock()
+		status, metadata := engine.client.DescribeContainer(engine.ctx, dockerContainer.DockerID)
+		engine.tasksLock.RLock()
 		managedTask, ok := engine.managedTasks[task.Arn]
-		engine.processTasks.RUnlock()
+		engine.tasksLock.RUnlock()
 
 		if ok {
-			managedTask.dockerMessages <- dockerContainerChange{
+			managedTask.emitDockerContainerChange(dockerContainerChange{
 				container: container,
-				event: DockerContainerChangeEvent{
+				event: dockerapi.DockerContainerChangeEvent{
 					Status:                  status,
 					DockerContainerMetadata: metadata,
 				},
-			}
+			})
 		}
 	}
 }
@@ -438,7 +447,7 @@ func (engine *DockerTaskEngine) sweepTask(task *api.Task) {
 	engine.saver.Save()
 }
 
-func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone chan<- struct{}) {
+func (engine *DockerTaskEngine) deleteTask(task *api.Task) {
 	if engine.cfg.TaskCPUMemLimit.Enabled() {
 		err := engine.resource.Cleanup(task)
 		if err != nil {
@@ -448,7 +457,7 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone cha
 	}
 
 	// Now remove ourselves from the global state and cleanup channels
-	engine.processTasks.Lock()
+	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
 	eni := task.GetTaskENI()
 	if eni == nil {
@@ -459,8 +468,7 @@ func (engine *DockerTaskEngine) deleteTask(task *api.Task, handleCleanupDone cha
 	}
 	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
-	handleCleanupDone <- struct{}{}
-	engine.processTasks.Unlock()
+	engine.tasksLock.Unlock()
 	engine.saver.Save()
 }
 
@@ -527,7 +535,7 @@ func (engine *DockerTaskEngine) handleDockerEvents(ctx context.Context) {
 // handleDockerEvent is responsible for taking an event that correlates to a
 // container and placing it in the context of the task to which that container
 // belongs.
-func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEvent) {
+func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContainerChangeEvent) {
 	seelog.Debugf("Task engine: handling a docker event: %s", event.String())
 
 	task, ok := engine.state.TaskByID(event.DockerID)
@@ -554,10 +562,10 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 		return
 	}
 
-	engine.processTasks.RLock()
+	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
 	// hold the lock until the message is sent so we don't send on a closed channel
-	defer engine.processTasks.RUnlock()
+	defer engine.tasksLock.RUnlock()
 	if !ok {
 		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %s",
 			task.Arn, event.String())
@@ -565,7 +573,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event DockerContainerChangeEve
 	}
 	seelog.Debugf("Task engine [%s]: writing docker event to the task: %s",
 		task.Arn, event.String())
-	managedTask.dockerMessages <- dockerContainerChange{container: cont.Container, event: event}
+	managedTask.emitDockerContainerChange(dockerContainerChange{container: cont.Container, event: event})
 	seelog.Debugf("Task engine [%s]: wrote docker event to the task: %s",
 		task.Arn, event.String())
 }
@@ -581,8 +589,8 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *DockerTaskEngine) AddTask(task *api.Task) error {
 	task.PostUnmarshalTask(engine.cfg, engine.credentialsManager)
 
-	engine.processTasks.Lock()
-	defer engine.processTasks.Unlock()
+	engine.tasksLock.Lock()
+	defer engine.tasksLock.Unlock()
 
 	existingTask, exists := engine.state.TaskByArn(task.Arn)
 	if !exists {
@@ -618,11 +626,11 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*api.Task, bool) {
 	return engine.state.TaskByArn(arn)
 }
 
-func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
 	case api.ContainerCNIPause:
 		// ContainerCNIPause image are managed at startup
-		return DockerContainerMetadata{}
+		return dockerapi.DockerContainerMetadata{}
 	case api.ContainerEmptyHostVolume:
 		// ContainerEmptyHostVolume image is either local (must be imported) or remote (must be pulled)
 		if emptyvolume.LocalImage {
@@ -630,21 +638,62 @@ func (engine *DockerTaskEngine) pullContainer(task *api.Task, container *api.Con
 		}
 	}
 
-	// Record the pullStoppedAt timestamp
-	defer func() {
-		timestamp := engine.time().Now()
-		task.SetPullStoppedAt(timestamp)
-	}()
+	if engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.Arn) {
+		// Record the pullStoppedAt timestamp
+		defer func() {
+			timestamp := engine.time().Now()
+			task.SetPullStoppedAt(timestamp)
+		}()
 
-	if engine.enableConcurrentPull {
-		seelog.Infof("Task engine [%s]: pulling container %s concurrently", task.Arn, container.Name)
-		return engine.concurrentPull(task, container)
+		if engine.enableConcurrentPull {
+			seelog.Infof("Task engine [%s]: pulling container %s concurrently", task.Arn, container.Name)
+			return engine.concurrentPull(task, container)
+		}
+		seelog.Infof("Task engine [%s]: pulling container %s serially", task.Arn, container.Name)
+		return engine.serialPull(task, container)
 	}
-	seelog.Infof("Task engine [%s]: pulling container %s serially", task.Arn, container.Name)
-	return engine.serialPull(task, container)
+
+	// No pull image is required, just update container reference and use cached image.
+	engine.updateContainerReference(false, container, task.Arn)
+	// Return the metadata without any error
+	return dockerapi.DockerContainerMetadata{Error: nil}
 }
 
-func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) DockerContainerMetadata {
+// imagePullRequired returns true if pulling image is required, or return false if local image cache
+// should be used, by inspecting the agent pull behavior variable defined in config. The caller has
+// to make sure the container passed in is not an internal container.
+func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.ImagePullBehaviorType,
+	container *api.Container,
+	taskArn string) bool {
+	switch imagePullBehavior {
+	case config.ImagePullOnceBehavior:
+		// If this image has been pulled successfully before, don't pull the image,
+		// otherwise pull the image as usual, regardless whether the image exists or not
+		// (the image can be prepopulated with the AMI and never be pulled).
+		imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
+		if ok && imageState.GetPullSucceeded() {
+			seelog.Infof("Task engine [%s]: image %s has been pulled once, not pulling it again",
+				taskArn, container.Image)
+			return false
+		}
+		return true
+	case config.ImagePullPreferCachedBehavior:
+		// If the behavior is prefer cached, don't pull if we found cached image
+		// by inspecting the image.
+		_, err := engine.client.InspectImage(container.Image)
+		if err != nil {
+			return true
+		}
+		seelog.Infof("Task engine [%s]: found cached image %s, use it directly for container %s",
+			taskArn, container.Image, container.Name)
+		return false
+	default:
+		// Need to pull the image for always and default agent pull behavior
+		return true
+	}
+}
+
+func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Debugf("Task engine [%s]: attempting to obtain ImagePullDeleteLock to pull image - %s",
 		task.Arn, container.Image)
 	ImagePullDeleteLock.RLock()
@@ -669,7 +718,7 @@ func (engine *DockerTaskEngine) concurrentPull(task *api.Task, container *api.Co
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
-func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Debugf("Task engine [%s]: attempting to obtain ImagePullDeleteLock to pull image - %s",
 		task.Arn, container.Image)
 	ImagePullDeleteLock.Lock()
@@ -693,14 +742,14 @@ func (engine *DockerTaskEngine) serialPull(task *api.Task, container *api.Contai
 	return engine.pullAndUpdateContainerReference(task, container)
 }
 
-func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	// If a task is blocked here for some time, and before it starts pulling image,
 	// the task's desired status is set to stopped, then don't pull the image
 	if task.GetDesiredStatus() == api.TaskStopped {
 		seelog.Infof("Task engine [%s]: task's desired status is stopped, skipping container [%s] pull",
 			task.Arn, container.Name)
 		container.SetDesiredStatus(api.ContainerStopped)
-		return DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
+		return dockerapi.DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
 	}
 
 	// Set the credentials for pull from ECR if necessary
@@ -709,9 +758,9 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 		if !ok {
 			seelog.Infof("Task engine [%s]: unable to acquire ECR credentials for container [%s]",
 				task.Arn, container.Name)
-			return DockerContainerMetadata{
-				Error: CannotPullECRContainerError{
-					fromError: errors.New("engine ecr credentials: not found"),
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullECRContainerError{
+					FromError: errors.New("engine ecr credentials: not found"),
 				},
 			}
 		}
@@ -728,19 +777,26 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *api.Task, 
 	if container.IsInternal() {
 		return metadata
 	}
-
-	err := engine.imageManager.RecordContainerReference(container)
-	if err != nil {
-		seelog.Errorf("Task engine [%s]: Unable to add container reference to image state: %v",
-			task.Arn, err)
-	}
-	imageState := engine.imageManager.GetImageStateFromImageName(container.Image)
-	engine.state.AddImageState(imageState)
-	engine.saver.Save()
+	pullSucceeded := metadata.Error == nil
+	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
 }
 
-func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *api.Container, taskArn string) {
+	err := engine.imageManager.RecordContainerReference(container)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: Unable to add container reference to image state: %v",
+			taskArn, err)
+	}
+	imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
+	if ok && pullSucceeded {
+		imageState.SetPullSucceeded(true)
+	}
+	engine.state.AddImageState(imageState)
+	engine.saver.Save()
+}
+
+func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Infof("Task engine [%s]: creating container: %s", task.Arn, container.Name)
 	client := engine.client
 	if container.DockerConfig.Version != nil {
@@ -767,24 +823,24 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 	// get lost
 	dockerClientVersion, versionErr := client.APIVersion()
 	if versionErr != nil {
-		return DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
+		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
 	}
 
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
 	if hcerr != nil {
-		return DockerContainerMetadata{Error: api.NamedError(hcerr)}
+		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
 	if container.AWSLogAuthExecutionRole() {
 		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
 		if err != nil {
-			return DockerContainerMetadata{Error: api.NamedError(err)}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
 	}
 
 	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
-		return DockerContainerMetadata{Error: api.NamedError(err)}
+		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 	}
 
 	// Augment labels with some metadata from the agent. Explicitly do this last
@@ -826,19 +882,23 @@ func (engine *DockerTaskEngine) createContainer(task *api.Task, container *api.C
 		}
 	}
 
-	metadata := client.CreateContainer(config, hostConfig, dockerContainerName, createContainerTimeout)
+	createContainerBegin := time.Now()
+	metadata := client.CreateContainer(engine.ctx, config, hostConfig,
+		dockerContainerName, dockerclient.CreateContainerTimeout)
 	if metadata.DockerID != "" {
+		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
+			task.Arn, container.Name, metadata.DockerID)
 		engine.state.AddContainer(&api.DockerContainer{DockerID: metadata.DockerID,
 			DockerName: dockerContainerName,
 			Container:  container}, task)
 	}
 	container.SetLabels(config.Labels)
-	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
-		task.Arn, container.Name, metadata.DockerID)
+	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
+		task.Arn, container.Name, metadata.DockerID, time.Since(createContainerBegin))
 	return metadata
 }
 
-func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Infof("Task engine [%s]: starting container: %s", task.Arn, container.Name)
 	client := engine.client
 	if container.DockerConfig.Version != nil {
@@ -847,23 +907,23 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{
-			Error: CannotStartContainerError{
-				fromError: errors.Errorf("Container belongs to unrecognized task %s", task.Arn),
+		return dockerapi.DockerContainerMetadata{
+			Error: dockerapi.CannotStartContainerError{
+				FromError: errors.Errorf("Container belongs to unrecognized task %s", task.Arn),
 			},
 		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{
-			Error: CannotStartContainerError{
-				fromError: errors.Errorf("Container not recorded as created"),
+		return dockerapi.DockerContainerMetadata{
+			Error: dockerapi.CannotStartContainerError{
+				FromError: errors.Errorf("Container not recorded as created"),
 			},
 		}
 	}
-	dockerContainerMD := client.StartContainer(dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
-
+	startContainerBegin := time.Now()
+	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
@@ -873,7 +933,7 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 		engine.cfg.ContainerMetadataEnabled &&
 		!container.IsInternal() {
 		go func() {
-			err := engine.metadataManager.Update(dockerContainer.DockerID, task, container.Name)
+			err := engine.metadataManager.Update(engine.ctx, dockerContainer.DockerID, task, container.Name)
 			if err != nil {
 				seelog.Warnf("Task engine [%s]: failed to update metadata file for container %s: %v",
 					task.Arn, container.Name, err)
@@ -884,15 +944,17 @@ func (engine *DockerTaskEngine) startContainer(task *api.Task, container *api.Co
 				task.Arn, container.Name)
 		}()
 	}
+	seelog.Infof("Task engine [%s]: started docker container for task: %s -> %s, took %s",
+		task.Arn, container.Name, dockerContainerMD.DockerID, time.Since(startContainerBegin))
 	return dockerContainerMD
 }
 
-func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Infof("Task engine [%s]: setting up container resources for container [%s]",
 		task.Arn, container.Name)
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
-		return DockerContainerMetadata{
+		return dockerapi.DockerContainerMetadata{
 			Error: ContainerNetworkingError{
 				fromError: errors.Wrap(err,
 					"container resource provisioning: unable to build cni configuration"),
@@ -900,11 +962,11 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 		}
 	}
 	// Invoke the libcni to config the network namespace for the container
-	result, err := engine.cniClient.SetupNS(cniConfig)
+	result, err := engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
-		return DockerContainerMetadata{
+		return dockerapi.DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
 			Error: ContainerNetworkingError{errors.Wrap(err,
 				"container resource provisioning: failed to setup network namespace")},
@@ -914,7 +976,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *api.Task, cont
 	taskIP := result.IPs[0].Address.IP.String()
 	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
 	engine.state.AddTaskIPAddress(taskIP, task.Arn)
-	return DockerContainerMetadata{
+	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
 }
@@ -929,7 +991,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *api.Task, con
 			"engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(cniConfig)
+	return engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
 }
 
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, container *api.Container) (*ecscni.Config, error) {
@@ -958,7 +1020,11 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	if !ok {
 		return nil, errors.New("engine: failed to find the pause container")
 	}
-	containerInspectOutput, err := engine.client.InspectContainer(pauseContainer.DockerName, inspectContainerTimeout)
+	containerInspectOutput, err := engine.client.InspectContainer(
+		engine.ctx,
+		pauseContainer.DockerName,
+		dockerclient.InspectContainerTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -970,21 +1036,21 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *api.Task, 
 	return cfg, nil
 }
 
-func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) DockerContainerMetadata {
+func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Container) dockerapi.DockerContainerMetadata {
 	seelog.Infof("Task engine [%s]: stopping container [%s]", task.Arn, container.Name)
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
 	if !ok {
-		return DockerContainerMetadata{
-			Error: CannotStopContainerError{
-				fromError: errors.Errorf("Container belongs to unrecognized task %s", task.Arn),
+		return dockerapi.DockerContainerMetadata{
+			Error: dockerapi.CannotStopContainerError{
+				FromError: errors.Errorf("Container belongs to unrecognized task %s", task.Arn),
 			},
 		}
 	}
 
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
-		return DockerContainerMetadata{
-			Error: CannotStopContainerError{errors.Errorf("Container not recorded as created")},
+		return dockerapi.DockerContainerMetadata{
+			Error: dockerapi.CannotStopContainerError{errors.Errorf("Container not recorded as created")},
 		}
 	}
 
@@ -997,8 +1063,9 @@ func (engine *DockerTaskEngine) stopContainer(task *api.Task, container *api.Con
 		}
 		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
-
-	return engine.client.StopContainer(dockerContainer.DockerID, stopContainerTimeout)
+	// timeout is defined by the const 'stopContainerTimeout' and the 'DockerStopTimeout' in the config
+	timeout := engine.cfg.DockerStopTimeout + dockerclient.StopContainerTimeout
+	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, timeout)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.Container) error {
@@ -1014,7 +1081,7 @@ func (engine *DockerTaskEngine) removeContainer(task *api.Task, container *api.C
 		return errors.New("No container named '" + container.Name + "' created in " + task.Arn)
 	}
 
-	return engine.client.RemoveContainer(dockerContainer.DockerName, removeContainerTimeout)
+	return engine.client.RemoveContainer(engine.ctx, dockerContainer.DockerName, dockerclient.RemoveContainerTimeout)
 }
 
 // updateTaskUnsafe determines if a new transition needs to be applied to the
@@ -1034,9 +1101,10 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *api.Task, update *api.Tas
 	updateDesiredStatus := update.GetDesiredStatus()
 	seelog.Debugf("Task engine [%s]: putting update on the acs channel: [%s] with seqnum [%d]",
 		task.Arn, updateDesiredStatus.String(), update.StopSequenceNumber)
-	transition := acsTransition{desiredStatus: updateDesiredStatus}
-	transition.seqnum = update.StopSequenceNumber
-	managedTask.acsMessages <- transition
+	managedTask.emitACSTransition(acsTransition{
+		desiredStatus: updateDesiredStatus,
+		seqnum:        update.StopSequenceNumber,
+	})
 	seelog.Debugf("Task engine [%s]: update taken off the acs channel: [%s] with seqnum [%d]",
 		task.Arn, updateDesiredStatus.String(), update.StopSequenceNumber)
 }
@@ -1049,28 +1117,28 @@ func (engine *DockerTaskEngine) transitionContainer(task *api.Task, container *a
 	// This is safe because 'applyContainerState' will not mutate the task
 	metadata := engine.applyContainerState(task, container, to)
 
-	engine.processTasks.RLock()
+	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
+	engine.tasksLock.RUnlock()
 	if ok {
-		managedTask.dockerMessages <- dockerContainerChange{
+		managedTask.emitDockerContainerChange(dockerContainerChange{
 			container: container,
-			event: DockerContainerChangeEvent{
+			event: dockerapi.DockerContainerChangeEvent{
 				Status:                  to,
 				DockerContainerMetadata: metadata,
 			},
-		}
+		})
 	}
-	engine.processTasks.RUnlock()
 }
 
 // applyContainerState moves the container to the given state by calling the
 // function defined in the transitionFunctionMap for the state
-func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) DockerContainerMetadata {
+func (engine *DockerTaskEngine) applyContainerState(task *api.Task, container *api.Container, nextState api.ContainerStatus) dockerapi.DockerContainerMetadata {
 	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
 	if !ok {
 		seelog.Criticalf("Task engine [%s]: unsupported desired state transition for container [%s]: %s",
 			task.Arn, container.Name, nextState.String())
-		return DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
+		return dockerapi.DockerContainerMetadata{Error: &impossibleTransitionError{nextState}}
 	}
 	metadata := transitionFunction(task, container)
 	if metadata.Error != nil {
@@ -1091,7 +1159,7 @@ func (engine *DockerTaskEngine) transitionFunctionMap() map[api.ContainerStatus]
 	return engine.containerStatusToTransitionFunction
 }
 
-type transitionApplyFunc (func(*api.Task, *api.Container) DockerContainerMetadata)
+type transitionApplyFunc (func(*api.Task, *api.Container) dockerapi.DockerContainerMetadata)
 
 // State is a function primarily meant for testing usage; it is explicitly not
 // part of the TaskEngine interface and should not be relied upon.
@@ -1102,11 +1170,11 @@ func (engine *DockerTaskEngine) State() dockerstate.TaskEngineState {
 
 // Version returns the underlying docker version.
 func (engine *DockerTaskEngine) Version() (string, error) {
-	return engine.client.Version()
+	return engine.client.Version(engine.ctx, dockerclient.VersionTimeout)
 }
 
 func (engine *DockerTaskEngine) updateMetadataFile(task *api.Task, cont *api.DockerContainer) {
-	err := engine.metadataManager.Update(cont.DockerID, task, cont.Container.Name)
+	err := engine.metadataManager.Update(engine.ctx, cont.DockerID, task, cont.Container.Name)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: failed to update metadata file for container %s: %v",
 			task.Arn, cont.Container.Name, err)

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,15 +14,17 @@
 package pause
 
 import (
+	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 // Loader defines an interface for loading the pause container image. This is mostly
 // to facilitate mocking and testing of the LoadImage method
 type Loader interface {
-	LoadImage(cfg *config.Config, dockerClient engine.DockerClient) (*docker.Image, error)
+	LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error)
 }
 
 type loader struct{}

@@ -17,13 +17,13 @@ package engine
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/golang/mock/gomock"
@@ -62,7 +62,7 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	client.EXPECT().ImportLocalEmptyVolumeImage()
 
 	metadata := taskEngine.pullContainer(task, container)
-	assert.Equal(t, DockerContainerMetadata{}, metadata, "expected empty metadata")
+	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 }
 
 func TestDeleteTask(t *testing.T) {
@@ -94,15 +94,7 @@ func TestDeleteTask(t *testing.T) {
 		mockSaver.EXPECT().Save(),
 	)
 
-	var cleanupDone sync.WaitGroup
-	handleCleanupDone := make(chan struct{})
-	cleanupDone.Add(1)
-	go func() {
-		<-handleCleanupDone
-		cleanupDone.Done()
-	}()
-	taskEngine.deleteTask(task, handleCleanupDone)
-	cleanupDone.Wait()
+	taskEngine.deleteTask(task)
 }
 
 func TestEngineDisableConcurrentPull(t *testing.T) {
@@ -112,7 +104,7 @@ func TestEngineDisableConcurrentPull(t *testing.T) {
 	defer ctrl.Finish()
 
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version().Return("1.11.0", nil)
+		client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.11.0", nil)
 	}
 	client.EXPECT().ContainerEvents(gomock.Any())
 

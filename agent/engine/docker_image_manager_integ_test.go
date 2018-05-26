@@ -19,12 +19,14 @@ package engine
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -79,24 +81,17 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	imageState1 := imageManager.GetImageStateFromImageName(test1Image1Name)
-	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", test1Image1Name)
-	} else {
-		t.Logf("Found image state for %s", test1Image1Name)
-	}
-	imageState2 := imageManager.GetImageStateFromImageName(test1Image2Name)
-	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", test1Image2Name)
-	} else {
-		t.Logf("Found image state for %s", test1Image2Name)
-	}
-	imageState3 := imageManager.GetImageStateFromImageName(test1Image3Name)
-	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", test1Image3Name)
-	} else {
-		t.Logf("Found image state for %s", test1Image3Name)
-	}
+	imageState1, ok := imageManager.GetImageStateFromImageName(test1Image1Name)
+	require.True(t, ok, "Could not find image state for %s", test1Image1Name)
+	t.Logf("Found image state for %s", test1Image1Name)
+
+	imageState2, ok := imageManager.GetImageStateFromImageName(test1Image2Name)
+	require.True(t, ok, "Could not find image state for %s", test1Image2Name)
+	t.Logf("Found image state for %s", test1Image2Name)
+
+	imageState3, ok := imageManager.GetImageStateFromImageName(test1Image3Name)
+	require.True(t, ok, "Could not find image state for %s", test1Image3Name)
+	t.Logf("Found image state for %s", test1Image3Name)
 
 	imageState1ImageID := imageState1.Image.ImageID
 	imageState2ImageID := imageState2.Image.ImageID
@@ -122,7 +117,9 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	}
 
 	// Call Image removal
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify top 2 LRU images are deleted from image manager
 	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState2ImageID)
@@ -192,24 +189,17 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	imageState1 := imageManager.GetImageStateFromImageName(test2Image1Name)
-	if imageState1 == nil {
-		t.Fatalf("Could not find image state for %s", test2Image1Name)
-	} else {
-		t.Logf("Found image state for %s", test2Image1Name)
-	}
-	imageState2 := imageManager.GetImageStateFromImageName(test2Image2Name)
-	if imageState2 == nil {
-		t.Fatalf("Could not find image state for %s", test2Image2Name)
-	} else {
-		t.Logf("Found image state for %s", test2Image2Name)
-	}
-	imageState3 := imageManager.GetImageStateFromImageName(test2Image3Name)
-	if imageState3 == nil {
-		t.Fatalf("Could not find image state for %s", test2Image3Name)
-	} else {
-		t.Logf("Found image state for %s", test2Image3Name)
-	}
+	imageState1, ok := imageManager.GetImageStateFromImageName(test2Image1Name)
+	require.True(t, ok, "Could not find image state for %s", test2Image1Name)
+	t.Logf("Found image state for %s", test2Image1Name)
+
+	imageState2, ok := imageManager.GetImageStateFromImageName(test2Image2Name)
+	require.True(t, ok, "Could not find image state for %s", test2Image2Name)
+	t.Logf("Found image state for %s", test2Image2Name)
+
+	imageState3, ok := imageManager.GetImageStateFromImageName(test2Image3Name)
+	require.True(t, ok, "Could not find image state for %s", test2Image3Name)
+	t.Logf("Found image state for %s", test2Image3Name)
 
 	imageState1ImageID := imageState1.Image.ImageID
 	imageState2ImageID := imageState2.Image.ImageID
@@ -240,7 +230,9 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	}
 
 	// Call Image removal
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify Image1 & Image3 are removed from ImageManager as they are beyond the minimumAge threshold
 	err = verifyImagesAreRemoved(imageManager, imageState1ImageID, imageState3ImageID)
@@ -327,8 +319,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NoError(t, err, "task1")
 
 	// Verify image state is updated correctly
-	imageState1 := imageManager.GetImageStateFromImageName(identicalImageName)
-	require.NotNil(t, imageState1, "Could not find image state for %s", identicalImageName)
+	imageState1, ok := imageManager.GetImageStateFromImageName(identicalImageName)
+	require.True(t, ok, "Could not find image state for %s", identicalImageName)
 	t.Logf("Found image state for %s", identicalImageName)
 	imageID1 := imageState1.Image.ImageID
 
@@ -342,8 +334,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NoError(t, err, "task2")
 
 	// Verify image state is updated correctly
-	imageState2 := imageManager.GetImageStateFromImageName(identicalImageName)
-	require.NotNil(t, imageState2, "Could not find image state for %s", identicalImageName)
+	imageState2, ok := imageManager.GetImageStateFromImageName(identicalImageName)
+	require.True(t, ok, "Could not find image state for %s", identicalImageName)
 	t.Logf("Found image state for %s", identicalImageName)
 	imageID2 := imageState2.Image.ImageID
 	require.NotEqual(t, imageID2, imageID1, "The image id in task 2 should be different from image in task 1")
@@ -358,8 +350,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NoError(t, err, "task3")
 
 	// Verify image state is updated correctly
-	imageState3 := imageManager.GetImageStateFromImageName(identicalImageName)
-	require.NotNil(t, imageState3, "Could not find image state for %s", identicalImageName)
+	imageState3, ok := imageManager.GetImageStateFromImageName(identicalImageName)
+	require.True(t, ok, "Could not find image state for %s", identicalImageName)
 	t.Logf("Found image state for %s", identicalImageName)
 	imageID3 := imageState3.Image.ImageID
 	require.NotEqual(t, imageID3, imageID1, "The image id in task3 should be different from image in task1")
@@ -394,7 +386,9 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
 	assert.NoError(t, err, "task3")
 
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify all the three images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1, imageID2, imageID3)
@@ -455,8 +449,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	err = verifyTaskIsRunning(stateChangeEvents, task1)
 	require.NoError(t, err)
 
-	imageState1 := imageManager.GetImageStateFromImageName(task1.Containers[0].Image)
-	require.NotNil(t, imageState1, "Could not find image state for %s", task1.Containers[0].Image)
+	imageState1, ok := imageManager.GetImageStateFromImageName(task1.Containers[0].Image)
+	require.True(t, ok, "Could not find image state for %s", task1.Containers[0].Image)
 	t.Logf("Found image state for %s", task1.Containers[0].Image)
 	imageID1 := imageState1.Image.ImageID
 
@@ -473,8 +467,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	err = verifyTaskIsRunning(stateChangeEvents, task2)
 	require.NoError(t, err)
 
-	imageState2 := imageManager.GetImageStateFromImageName(task2.Containers[0].Image)
-	require.NotNil(t, imageState2, "Could not find image state for %s", task2.Containers[0].Image)
+	imageState2, ok := imageManager.GetImageStateFromImageName(task2.Containers[0].Image)
+	require.True(t, ok, "Could not find image state for %s", task2.Containers[0].Image)
 	t.Logf("Found image state for %s", task2.Containers[0].Image)
 	imageID2 := imageState2.Image.ImageID
 	require.Equal(t, imageID2, imageID1, "The image id in task2 should be same as in task1")
@@ -492,8 +486,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	err = verifyTaskIsRunning(stateChangeEvents, task3)
 	assert.NoError(t, err)
 
-	imageState3 := imageManager.GetImageStateFromImageName(task3.Containers[0].Image)
-	require.NotNil(t, imageState3, "Could not find image state for %s", task3.Containers[0].Image)
+	imageState3, ok := imageManager.GetImageStateFromImageName(task3.Containers[0].Image)
+	require.True(t, ok, "Could not find image state for %s", task3.Containers[0].Image)
 	t.Logf("Found image state for %s", task3.Containers[0].Image)
 	imageID3 := imageState3.Image.ImageID
 	require.Equal(t, imageID3, imageID1, "The image id in task3 should be the same as in task1")
@@ -523,7 +517,9 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	err = verifyTaskIsCleanedUp("task3", taskEngine)
 	assert.NoError(t, err, "task3")
 
-	imageManager.removeUnusedImages()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.removeUnusedImages(ctx)
 
 	// Verify all the images are removed from image manager
 	err = verifyImagesAreRemoved(imageManager, imageID1)
@@ -667,19 +663,23 @@ func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...str
 }
 
 func cleanupImagesHappy(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
-	imageManager.client.RemoveImage(test1Image1Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test1Image2Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test1Image3Name, imageRemovalTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.client.RemoveContainer(ctx, "test1", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test1Image3Name, imageRemovalTimeout)
 }
 
 func cleanupImagesThreshold(imageManager *dockerImageManager) {
-	imageManager.client.RemoveContainer("test1", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test2", removeContainerTimeout)
-	imageManager.client.RemoveContainer("test3", removeContainerTimeout)
-	imageManager.client.RemoveImage(test2Image1Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test2Image2Name, imageRemovalTimeout)
-	imageManager.client.RemoveImage(test2Image3Name, imageRemovalTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.client.RemoveContainer(ctx, "test1", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test2", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveContainer(ctx, "test3", dockerclient.RemoveContainerTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image1Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image2Name, imageRemovalTimeout)
+	imageManager.client.RemoveImage(ctx, test2Image3Name, imageRemovalTimeout)
 }

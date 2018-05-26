@@ -22,12 +22,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -80,7 +83,7 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	retriable := utils.NewRetriableError(utils.NewRetriable(true), errors.New("test"))
+	retriable := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("test"))
 	taskEvent := taskEvent(taskARN)
 
 	gomock.InOrder(
@@ -91,6 +94,35 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	handler.AddStateChangeEvent(taskEvent, client)
 
 	wg.Wait()
+}
+
+func TestSendsEventsInvalidParametersEventsRemoved(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+	stateManager := statemanager.NewNoopStateManager()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewTaskHandler(ctx, stateManager, nil, client)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	taskEvent := taskEvent(taskARN)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(interface{}) {
+		assert.Equal(t, 1, handler.tasksToEvents[taskARN].events.Len())
+		wg.Done()
+	}).Return(awserr.New(ecs.ErrCodeInvalidParameterException, "", nil))
+
+	handler.AddStateChangeEvent(taskEvent, client)
+
+	wg.Wait()
+	// Require the lock to wait for submitFirstEvent to be finished
+	handler.tasksToEvents[taskARN].lock.Lock()
+	assert.Equal(t, 0, handler.tasksToEvents[taskARN].events.Len())
+	handler.tasksToEvents[taskARN].lock.Unlock()
 }
 
 func TestSendsEventsConcurrentLimit(t *testing.T) {

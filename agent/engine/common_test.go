@@ -23,9 +23,12 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"
@@ -122,18 +125,18 @@ func waitForTaskStoppedByCheckStatus(task *api.Task) {
 func validateContainerRunWorkflow(t *testing.T,
 	container *api.Container,
 	task *api.Task,
-	imageManager *MockImageManager,
-	client *MockDockerClient,
+	imageManager *mock_engine.MockImageManager,
+	client *mock_dockerapi.MockDockerClient,
 	roleCredentials *credentials.TaskIAMRoleCredentials,
 	containerEventsWG sync.WaitGroup,
-	eventStream chan DockerContainerChangeEvent,
+	eventStream chan dockerapi.DockerContainerChangeEvent,
 	createdContainerName chan<- string,
 	assertions func(),
 ) {
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(container.Image, nil).Return(DockerContainerMetadata{})
+	client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	dockerConfig, err := task.DockerConfig(container, defaultDockerClientAPIVersion)
 	if err != nil {
@@ -150,8 +153,8 @@ func validateContainerRunWorkflow(t *testing.T,
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-family"] = task.Family
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = task.Version
 	dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
-	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(config *docker.Config, y interface{}, containerName string, z time.Duration) {
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx interface{}, config *docker.Config, y interface{}, containerName string, z time.Duration) {
 			assert.True(t, reflect.DeepEqual(dockerConfig, config),
 				"Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
 			// sleep5 task contains only one container. Just assign
@@ -162,16 +165,16 @@ func validateContainerRunWorkflow(t *testing.T,
 				eventStream <- createDockerEvent(api.ContainerCreated)
 				containerEventsWG.Done()
 			}()
-		}).Return(DockerContainerMetadata{DockerID: containerID})
+		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 	defaultConfig := config.DefaultConfig()
-	client.EXPECT().StartContainer(containerID, defaultConfig.ContainerStartTimeout).Do(
-		func(id string, timeout time.Duration) {
+	client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Do(
+		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
 				eventStream <- createDockerEvent(api.ContainerRunning)
 				containerEventsWG.Done()
 			}()
-		}).Return(DockerContainerMetadata{DockerID: containerID})
+		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 	assertions()
 }
 
@@ -202,11 +205,11 @@ func addTaskToEngine(t *testing.T,
 	createStartEventsReported.Wait()
 }
 
-func createDockerEvent(status api.ContainerStatus) DockerContainerChangeEvent {
-	meta := DockerContainerMetadata{
+func createDockerEvent(status api.ContainerStatus) dockerapi.DockerContainerChangeEvent {
+	meta := dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}
-	return DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
+	return dockerapi.DockerContainerChangeEvent{Status: status, DockerContainerMetadata: meta}
 }
 
 // waitForRunningEvents waits for a task to emit 'RUNNING' events for a container
@@ -244,18 +247,6 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
-	}
-}
-
-func triggerSteadyStateCheck(times int, task *managedTask) {
-	for i := 0; i < times; {
-		err := task.cancelSteadyStateWait()
-		if err != nil {
-			// Wait for the waitSteady to be invoked
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
-		i++
 	}
 }
 

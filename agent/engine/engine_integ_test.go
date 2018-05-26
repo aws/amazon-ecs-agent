@@ -28,8 +28,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/resources"
@@ -86,8 +87,8 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	clientFactory := dockerclient.NewFactory(dockerEndpoint)
-	dockerClient, err := NewDockerGoClient(clientFactory, cfg)
+	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
+	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}
@@ -174,17 +175,17 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ := client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerCreated, dockerStateToState(state.State))
+	assert.Equal(t, api.ContainerCreated, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerRunning, dockerStateToState(state.State))
+	assert.Equal(t, api.ContainerRunning, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerStopped, dockerStateToState(state.State))
+	assert.Equal(t, api.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -199,7 +200,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerStopped, dockerStateToState(state.State))
+	assert.Equal(t, api.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -314,6 +315,23 @@ func TestStartStopWithCredentials(t *testing.T) {
 	// credentials id set in the task
 	_, ok := credentialsManager.GetTaskCredentials(credentialsIDIntegTest)
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
+}
+
+func TestTaskStopWhenPullImageFail(t *testing.T) {
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	testTask := createTestTask("testTaskStopWhenPullImageFail")
+	// Assign an invalid image to the task, and verify the task fails
+	// when the pull image behavior is "always".
+	testTask.Containers = []*api.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestContainerHealthCheck(t *testing.T) {

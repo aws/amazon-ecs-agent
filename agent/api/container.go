@@ -19,7 +19,9 @@ import (
 	"sync"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -95,7 +97,7 @@ type Container struct {
 	// DockerConfig is the configuration used to create the container
 	DockerConfig DockerConfig `json:"dockerConfig"`
 	// RegistryAuthentication is the auth data used to pull image
-	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
+	RegistryAuthentication *ecr.RegistryAuthenticationData `json:"registryAuthentication"`
 	// HealthCheckType is the mechnism to use for the container health check
 	// currently it only supports 'DOCKER'
 	HealthCheckType string `json:"healthCheckType,omitempty"`
@@ -159,7 +161,7 @@ type Container struct {
 	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
-	ApplyingError *DefaultNamedError
+	ApplyingError *apierrors.DefaultNamedError
 
 	// SentStatusUnsafe represents the last KnownStatusUnsafe that was sent to the ECS
 	// SubmitContainerStateChange API.

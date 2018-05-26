@@ -17,16 +17,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
@@ -66,7 +65,7 @@ const (
 	// image cleanup.
 	DefaultNumImagesToDeletePerCycle = 5
 
-	//DefaultImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
+	// DefaultImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
 	// has been pulled before it can be deleted.
 	DefaultImageDeletionAge = 1 * time.Hour
 
@@ -103,6 +102,25 @@ const (
 	DefaultTaskMetadataBurstRate = 60
 )
 
+const (
+	// ImagePullDefaultBehavior specifies the behavior that if an image pull API call fails,
+	// agent tries to start from the Docker image cache anyway, assuming that the image has not changed.
+	ImagePullDefaultBehavior ImagePullBehaviorType = iota
+
+	// ImagePullAlwaysBehavior specifies the behavior that if an image pull API call fails,
+	// the task fails instead of using cached image.
+	ImagePullAlwaysBehavior
+
+	// ImagePullOnceBehavior specifies the behavior that agent will only attempt to pull
+	// the same image once, once an image is pulled, local image cache will be used
+	// for all the containers.
+	ImagePullOnceBehavior
+
+	// ImagePullPreferCachedBehavior specifies the behavior that agent will only attempt to pull
+	// the image if there is no cached image.
+	ImagePullPreferCachedBehavior
+)
+
 var (
 	// DefaultPauseContainerImageName is the name of the pause container image. The linker's
 	// load flags are used to populate this value from the Makefile
@@ -130,54 +148,47 @@ func (cfg *Config) Merge(rhs Config) *Config {
 	return cfg //make it chainable
 }
 
-// complete returns true if all fields of the config are populated / nonzero
-func (cfg *Config) complete() bool {
-	cfgElem := reflect.ValueOf(cfg).Elem()
-
-	for i := 0; i < cfgElem.NumField(); i++ {
-		if utils.ZeroOrNil(cfgElem.Field(i).Interface()) {
-			return false
-		}
+// NewConfig returns a config struct created by merging environment variables,
+// a config file, and EC2 Metadata info.
+// The 'config' struct it returns can be used, even if an error is returned. An
+// error is returned, however, if the config is incomplete in some way that is
+// considered fatal.
+func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
+	var errs []error
+	envConfig, err := environmentConfig() //Environment overrides all else
+	if err != nil {
+		errs = append(errs, err)
 	}
-	return true
+	config := &envConfig
+
+	if config.complete() {
+		// No need to do file / network IO
+		return config, nil
+	}
+
+	fcfg, err := fileConfig()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	config.Merge(fcfg)
+
+	if config.AWSRegion == "" {
+		// Get it from metadata only if we need to (network io)
+		config.Merge(ec2MetadataConfig(ec2client))
+	}
+
+	return config, config.mergeDefaultConfig(errs)
 }
 
-// checkMissingAndDeprecated checks all zero-valued fields for tags of the form
-// missing:STRING and acts based on that string. Current options are: fatal,
-// warn. Fatal will result in an error being returned, warn will result in a
-// warning that the field is missing being logged.
-func (cfg *Config) checkMissingAndDepreciated() error {
-	cfgElem := reflect.ValueOf(cfg).Elem()
-	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
-
-	fatalFields := []string{}
-	for i := 0; i < cfgElem.NumField(); i++ {
-		cfgField := cfgElem.Field(i)
-		if utils.ZeroOrNil(cfgField.Interface()) {
-			missingTag := cfgStructField.Field(i).Tag.Get("missing")
-			if len(missingTag) == 0 {
-				continue
-			}
-			switch missingTag {
-			case "warn":
-				seelog.Warnf("Configuration key not set, key: %v", cfgStructField.Field(i).Name)
-			case "fatal":
-				seelog.Criticalf("Configuration key not set, key: %v", cfgStructField.Field(i).Name)
-				fatalFields = append(fatalFields, cfgStructField.Field(i).Name)
-			default:
-				seelog.Warnf("Unexpected `missing` tag value, tag %v", missingTag)
-			}
-		} else {
-			// present
-			deprecatedTag := cfgStructField.Field(i).Tag.Get("deprecated")
-			if len(deprecatedTag) == 0 {
-				continue
-			}
-			seelog.Warnf("Use of deprecated configuration key, key: %v message: %v", cfgStructField.Field(i).Name, deprecatedTag)
-		}
+func (config *Config) mergeDefaultConfig(errs []error) error {
+	config.trimWhitespace()
+	config.Merge(DefaultConfig())
+	err := config.validateAndOverrideBounds()
+	if err != nil {
+		errs = append(errs, err)
 	}
-	if len(fatalFields) > 0 {
-		return errors.New("Missing required fields: " + strings.Join(fatalFields, ", "))
+	if len(errs) != 0 {
+		return apierrors.NewMultiError(errs...)
 	}
 	return nil
 }
@@ -205,378 +216,6 @@ func (cfg *Config) trimWhitespace() {
 		str := cfgField.Interface().(string)
 		cfgField.SetString(strings.TrimSpace(str))
 	}
-}
-
-func fileConfig() (Config, error) {
-	fileName := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName)
-	cfg := Config{}
-
-	file, err := os.Open(fileName)
-	if err != nil {
-		return cfg, nil
-	}
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		seelog.Errorf("Unable to read cfg file, err %v", err)
-		return cfg, err
-	}
-	if strings.TrimSpace(string(data)) == "" {
-		// empty file, not an error
-		return cfg, nil
-	}
-
-	err = json.Unmarshal(data, &cfg)
-	if err != nil {
-		seelog.Criticalf("Error reading cfg json data, err %v", err)
-		return cfg, err
-	}
-
-	// Handle any deprecated keys correctly here
-	if utils.ZeroOrNil(cfg.Cluster) && !utils.ZeroOrNil(cfg.ClusterArn) {
-		cfg.Cluster = cfg.ClusterArn
-	}
-	return cfg, nil
-}
-
-// environmentConfig reads the given configs from the environment and attempts
-// to convert them to the given type
-func environmentConfig() (Config, error) {
-	var errs []error
-	endpoint := os.Getenv("ECS_BACKEND_HOST")
-
-	clusterRef := os.Getenv("ECS_CLUSTER")
-	awsRegion := os.Getenv("AWS_DEFAULT_REGION")
-
-	dockerEndpoint := os.Getenv("DOCKER_HOST")
-	engineAuthType := os.Getenv("ECS_ENGINE_AUTH_TYPE")
-	engineAuthData := os.Getenv("ECS_ENGINE_AUTH_DATA")
-
-	dataDir := os.Getenv("ECS_DATADIR")
-	checkpoint := getCheckpoint(dataDir)
-
-	// Format: json array, e.g. [1,2,3]
-	reservedPortEnv := os.Getenv("ECS_RESERVED_PORTS")
-	portDecoder := json.NewDecoder(strings.NewReader(reservedPortEnv))
-	var reservedPorts []uint16
-	err := portDecoder.Decode(&reservedPorts)
-	// EOF means the string was blank as opposed to UnexepctedEof which means an
-	// invalid parse
-	// Blank is not a warning; we have sane defaults
-	if err != io.EOF && err != nil {
-		err := fmt.Errorf("Invalid format for \"ECS_RESERVED_PORTS\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
-		seelog.Warn(err)
-	}
-
-	reservedPortUDPEnv := os.Getenv("ECS_RESERVED_PORTS_UDP")
-	portDecoderUDP := json.NewDecoder(strings.NewReader(reservedPortUDPEnv))
-	var reservedPortsUDP []uint16
-	err = portDecoderUDP.Decode(&reservedPortsUDP)
-	// EOF means the string was blank as opposed to UnexepctedEof which means an
-	// invalid parse
-	// Blank is not a warning; we have sane defaults
-	if err != io.EOF && err != nil {
-		err := fmt.Errorf("Invalid format for \"ECS_RESERVED_PORTS_UDP\" environment variable; expected a JSON array like [1,2,3]. err %v", err)
-		seelog.Warn(err)
-	}
-
-	updateDownloadDir := os.Getenv("ECS_UPDATE_DOWNLOAD_DIR")
-	updatesEnabled := utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false)
-
-	disableMetrics := utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false)
-
-	reservedMemory := parseEnvVariableUint16("ECS_RESERVED_MEMORY")
-
-	dockerStopTimeout := getDockerStopTimeout()
-
-	containerStartTimeout := getContainerStartTimeout()
-
-	cgroupPath := os.Getenv("ECS_CGROUP_PATH")
-
-	taskCleanupWaitDuration := parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-
-	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
-	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
-	var availableLoggingDrivers []dockerclient.LoggingDriver
-	err = loggingDriverDecoder.Decode(&availableLoggingDrivers)
-	// EOF means the string was blank as opposed to UnexpectedEof which means an
-	// invalid parse
-	// Blank is not a warning; we have sane defaults
-	if err != io.EOF && err != nil {
-		err := fmt.Errorf("Invalid format for \"ECS_AVAILABLE_LOGGING_DRIVERS\" environment variable; expected a JSON array like [\"json-file\",\"syslog\"]. err %v", err)
-		seelog.Warn(err)
-	}
-
-	privilegedDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false)
-	seLinuxCapable := utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false)
-	appArmorCapable := utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false)
-	taskENIEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false)
-	taskIAMRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false)
-	taskIAMRoleEnabledForNetworkHost := utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false)
-	overrideAWSLogsExecutionRoleEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false)
-
-	taskCPUMemLimitEnabled := getTaskCPUMemLimitEnabled()
-
-	credentialsAuditLogFile := os.Getenv("ECS_AUDIT_LOGFILE")
-	credentialsAuditLogDisabled := utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false)
-
-	imageCleanupDisabled := utils.ParseBool(os.Getenv("ECS_DISABLE_IMAGE_CLEANUP"), false)
-	minimumImageDeletionAge := parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE")
-	imageCleanupInterval := parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL")
-	numImagesToDeletePerCycleEnvVal := os.Getenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
-	numImagesToDeletePerCycle, err := strconv.Atoi(numImagesToDeletePerCycleEnvVal)
-	if numImagesToDeletePerCycleEnvVal != "" && err != nil {
-		seelog.Warnf("Invalid format for \"ECS_NUM_IMAGES_DELETE_PER_CYCLE\", expected an integer. err %v", err)
-	}
-
-	cniPluginsPath := os.Getenv("ECS_CNI_PLUGINS_PATH")
-	awsVPCBlockInstanceMetadata := utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false)
-
-	var instanceAttributes map[string]string
-	instanceAttributesEnv := os.Getenv("ECS_INSTANCE_ATTRIBUTES")
-	err = json.Unmarshal([]byte(instanceAttributesEnv), &instanceAttributes)
-	if instanceAttributesEnv != "" {
-		if err != nil {
-			wrappedErr := fmt.Errorf("Invalid format for ECS_INSTANCE_ATTRIBUTES. Expected a json hash: %v", err)
-			seelog.Error(wrappedErr)
-			errs = append(errs, wrappedErr)
-		}
-	}
-	for attributeKey, attributeValue := range instanceAttributes {
-		seelog.Debugf("Setting instance attribute %v: %v", attributeKey, attributeValue)
-	}
-
-	var additionalLocalRoutes []cnitypes.IPNet
-	additionalLocalRoutesEnv := os.Getenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES")
-	if additionalLocalRoutesEnv != "" {
-		err := json.Unmarshal([]byte(additionalLocalRoutesEnv), &additionalLocalRoutes)
-		if err != nil {
-			seelog.Errorf("Invalid format for ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES, expected a json array of CIDRs: %v", err)
-			errs = append(errs, err)
-		}
-	}
-	containerMetadataEnabled := utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false)
-	dataDirOnHost := os.Getenv("ECS_HOST_DATA_DIR")
-	steadyStateRate, burstRate := getTaskMetadataThrottles()
-
-	if len(errs) > 0 {
-		err = utils.NewMultiError(errs...)
-	} else {
-		err = nil
-	}
-	return Config{
-		Cluster:                          clusterRef,
-		APIEndpoint:                      endpoint,
-		AWSRegion:                        awsRegion,
-		DockerEndpoint:                   dockerEndpoint,
-		ReservedPorts:                    reservedPorts,
-		ReservedPortsUDP:                 reservedPortsUDP,
-		DataDir:                          dataDir,
-		Checkpoint:                       checkpoint,
-		EngineAuthType:                   engineAuthType,
-		EngineAuthData:                   NewSensitiveRawMessage([]byte(engineAuthData)),
-		UpdatesEnabled:                   updatesEnabled,
-		UpdateDownloadDir:                updateDownloadDir,
-		DisableMetrics:                   disableMetrics,
-		ReservedMemory:                   reservedMemory,
-		AvailableLoggingDrivers:          availableLoggingDrivers,
-		PrivilegedDisabled:               privilegedDisabled,
-		SELinuxCapable:                   seLinuxCapable,
-		AppArmorCapable:                  appArmorCapable,
-		TaskCleanupWaitDuration:          taskCleanupWaitDuration,
-		TaskENIEnabled:                   taskENIEnabled,
-		TaskIAMRoleEnabled:               taskIAMRoleEnabled,
-		TaskCPUMemLimit:                  taskCPUMemLimitEnabled,
-		DockerStopTimeout:                dockerStopTimeout,
-		ContainerStartTimeout:            containerStartTimeout,
-		CredentialsAuditLogFile:          credentialsAuditLogFile,
-		CredentialsAuditLogDisabled:      credentialsAuditLogDisabled,
-		TaskIAMRoleEnabledForNetworkHost: taskIAMRoleEnabledForNetworkHost,
-		ImageCleanupDisabled:             imageCleanupDisabled,
-		MinimumImageDeletionAge:          minimumImageDeletionAge,
-		ImageCleanupInterval:             imageCleanupInterval,
-		NumImagesToDeletePerCycle:        numImagesToDeletePerCycle,
-		InstanceAttributes:               instanceAttributes,
-		CNIPluginsPath:                   cniPluginsPath,
-		AWSVPCBlockInstanceMetdata:       awsVPCBlockInstanceMetadata,
-		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
-		ContainerMetadataEnabled:         containerMetadataEnabled,
-		DataDirOnHost:                    dataDirOnHost,
-		OverrideAWSLogsExecutionRole:     overrideAWSLogsExecutionRoleEnabled,
-		CgroupPath:                       cgroupPath,
-		TaskMetadataSteadyStateRate:      steadyStateRate,
-		TaskMetadataBurstRate:            burstRate,
-	}, err
-}
-
-func getCheckpoint(dataDir string) bool {
-	var checkPoint bool
-	if dataDir != "" {
-		// if we have a directory to checkpoint to, default it to be on
-		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
-	} else {
-		// if the directory is not set, default to checkpointing off for
-		// backwards compatibility
-		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
-	}
-	return checkPoint
-}
-
-func getDockerStopTimeout() time.Duration {
-	var dockerStopTimeout time.Duration
-	parsedStopTimeout := parseEnvVariableDuration("ECS_CONTAINER_STOP_TIMEOUT")
-	if parsedStopTimeout >= minimumDockerStopTimeout {
-		dockerStopTimeout = parsedStopTimeout
-		// if the ECS_CONTAINER_STOP_TIMEOUT is invalid or empty, then the parsedStopTimeout
-		// will be 0, in this case we should return a 0,
-		// because the DockerStopTimeout will merge with the DefaultDockerStopTimeout,
-		// only when the DockerStopTimeout is empty
-	} else if parsedStopTimeout != 0 {
-		// if the configured ECS_CONTAINER_STOP_TIMEOUT is smaller than minimumDockerStopTimeout,
-		// DockerStopTimeout will be set to minimumDockerStopTimeout
-		// if the ECS_CONTAINER_STOP_TIMEOUT is 0, empty or an invalid value, then DockerStopTimeout
-		// will be set to defaultDockerStopTimeout during the config merge operation
-		dockerStopTimeout = minimumDockerStopTimeout
-		seelog.Warnf("Discarded invalid value for docker stop timeout, parsed as: %v", parsedStopTimeout)
-	}
-	return dockerStopTimeout
-}
-
-func getContainerStartTimeout() time.Duration {
-	var containerStartTimeout time.Duration
-	parsedStartTimeout := parseEnvVariableDuration("ECS_CONTAINER_START_TIMEOUT")
-	if parsedStartTimeout >= minimumContainerStartTimeout {
-		containerStartTimeout = parsedStartTimeout
-		// do the parsedStartTimeout != 0 check for the same reason as in getDockerStopTimeout()
-	} else if parsedStartTimeout != 0 {
-		containerStartTimeout = minimumContainerStartTimeout
-		seelog.Warnf("Discarded invalid value for container start timeout, parsed as: %v", parsedStartTimeout)
-	}
-	return containerStartTimeout
-}
-
-func getTaskCPUMemLimitEnabled() Conditional {
-	var taskCPUMemLimitEnabled Conditional
-	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
-
-	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
-	// We can do this by checking against the ParseBool default
-	if taskCPUMemLimitConfigString != "" {
-		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
-			taskCPUMemLimitEnabled = ExplicitlyEnabled
-		} else {
-			taskCPUMemLimitEnabled = ExplicitlyDisabled
-		}
-	}
-	return taskCPUMemLimitEnabled
-}
-
-func getTaskMetadataThrottles() (int, int) {
-	var steadyStateRate, burstRate int
-	rpsLimitEnvVal := os.Getenv("ECS_TASK_METADATA_RPS_LIMIT")
-	if rpsLimitEnvVal == "" {
-		seelog.Debug("Environment variable empty: ECS_TASK_METADATA_RPS_LIMIT")
-		return 0, 0
-	}
-	rpsLimitSplits := strings.Split(rpsLimitEnvVal, ",")
-	if len(rpsLimitSplits) != 2 {
-		seelog.Warn(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected: "rateLimit,burst"`)
-		return 0, 0
-	}
-	steadyStateRate, err := strconv.Atoi(strings.TrimSpace(rpsLimitSplits[0]))
-	if err != nil {
-		seelog.Warnf(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected integer for steady state rate: %v`, err)
-		return 0, 0
-	}
-	burstRate, err = strconv.Atoi(strings.TrimSpace(rpsLimitSplits[1]))
-	if err != nil {
-		seelog.Warnf(`Invalid format for "ECS_TASK_METADATA_RPS_LIMIT", expected integer for burst rate: %v`, err)
-		return 0, 0
-	}
-	return steadyStateRate, burstRate
-}
-
-func parseEnvVariableUint16(envVar string) uint16 {
-	envVal := os.Getenv(envVar)
-	var var16 uint16
-	if envVal != "" {
-		var64, err := strconv.ParseUint(envVal, 10, 16)
-		if err != nil {
-			seelog.Warnf("Invalid format for \""+envVar+"\" environment variable; expected unsigned integer. err %v", err)
-		} else {
-			var16 = uint16(var64)
-		}
-	}
-	return var16
-}
-
-func parseEnvVariableDuration(envVar string) time.Duration {
-	var duration time.Duration
-	envVal := os.Getenv(envVar)
-	if envVal == "" {
-		seelog.Debugf("Environment variable empty: %v", envVar)
-	} else {
-		var err error
-		duration, err = time.ParseDuration(envVal)
-		if err != nil {
-			seelog.Warnf("Could not parse duration value: %v for Environment Variable %v : %v", envVal, envVar, err)
-		}
-	}
-	return duration
-}
-
-func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
-	iid, err := ec2client.InstanceIdentityDocument()
-	if err != nil {
-		seelog.Criticalf("Unable to communicate with EC2 Metadata service to infer region: %v", err.Error())
-		return Config{}
-	}
-	return Config{AWSRegion: iid.Region}
-}
-
-// NewConfig returns a config struct created by merging environment variables,
-// a config file, and EC2 Metadata info.
-// The 'config' struct it returns can be used, even if an error is returned. An
-// error is returned, however, if the config is incomplete in some way that is
-// considered fatal.
-func NewConfig(ec2client ec2.EC2MetadataClient) (config *Config, err error) {
-	var errs []error
-	var errTmp error
-	envConfig, errTmp := environmentConfig() //Environment overrides all else
-	if errTmp != nil {
-		errs = append(errs, errTmp)
-	}
-	config = &envConfig
-	defer func() {
-		config.trimWhitespace()
-		config.Merge(DefaultConfig())
-		errTmp = config.validateAndOverrideBounds()
-		if errTmp != nil {
-			errs = append(errs, errTmp)
-		}
-		if len(errs) != 0 {
-			err = utils.NewMultiError(errs...)
-		} else {
-			err = nil
-		}
-	}()
-
-	if config.complete() {
-		// No need to do file / network IO
-		return config, nil
-	}
-
-	fcfg, errTmp := fileConfig()
-	if errTmp != nil {
-		errs = append(errs, errTmp)
-	}
-	config.Merge(fcfg)
-
-	if config.AWSRegion == "" {
-		// Get it from metadata only if we need to (network io)
-		config.Merge(ec2MetadataConfig(ec2client))
-	}
-
-	return config, err
 }
 
 // validateAndOverrideBounds performs validation over members of the Config struct
@@ -631,6 +270,162 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	cfg.platformOverrides()
 
 	return nil
+}
+
+// checkMissingAndDeprecated checks all zero-valued fields for tags of the form
+// missing:STRING and acts based on that string. Current options are: fatal,
+// warn. Fatal will result in an error being returned, warn will result in a
+// warning that the field is missing being logged.
+func (cfg *Config) checkMissingAndDepreciated() error {
+	cfgElem := reflect.ValueOf(cfg).Elem()
+	cfgStructField := reflect.Indirect(reflect.ValueOf(cfg)).Type()
+
+	fatalFields := []string{}
+	for i := 0; i < cfgElem.NumField(); i++ {
+		cfgField := cfgElem.Field(i)
+		if utils.ZeroOrNil(cfgField.Interface()) {
+			missingTag := cfgStructField.Field(i).Tag.Get("missing")
+			if len(missingTag) == 0 {
+				continue
+			}
+			switch missingTag {
+			case "warn":
+				seelog.Warnf("Configuration key not set, key: %v", cfgStructField.Field(i).Name)
+			case "fatal":
+				seelog.Criticalf("Configuration key not set, key: %v", cfgStructField.Field(i).Name)
+				fatalFields = append(fatalFields, cfgStructField.Field(i).Name)
+			default:
+				seelog.Warnf("Unexpected `missing` tag value, tag %v", missingTag)
+			}
+		} else {
+			// present
+			deprecatedTag := cfgStructField.Field(i).Tag.Get("deprecated")
+			if len(deprecatedTag) == 0 {
+				continue
+			}
+			seelog.Warnf("Use of deprecated configuration key, key: %v message: %v", cfgStructField.Field(i).Name, deprecatedTag)
+		}
+	}
+	if len(fatalFields) > 0 {
+		return errors.New("Missing required fields: " + strings.Join(fatalFields, ", "))
+	}
+	return nil
+}
+
+// complete returns true if all fields of the config are populated / nonzero
+func (cfg *Config) complete() bool {
+	cfgElem := reflect.ValueOf(cfg).Elem()
+
+	for i := 0; i < cfgElem.NumField(); i++ {
+		if utils.ZeroOrNil(cfgElem.Field(i).Interface()) {
+			return false
+		}
+	}
+	return true
+}
+
+func fileConfig() (Config, error) {
+	fileName := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName)
+	cfg := Config{}
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		return cfg, nil
+	}
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		seelog.Errorf("Unable to read cfg file, err %v", err)
+		return cfg, err
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		// empty file, not an error
+		return cfg, nil
+	}
+
+	err = json.Unmarshal(data, &cfg)
+	if err != nil {
+		seelog.Criticalf("Error reading cfg json data, err %v", err)
+		return cfg, err
+	}
+
+	// Handle any deprecated keys correctly here
+	if utils.ZeroOrNil(cfg.Cluster) && !utils.ZeroOrNil(cfg.ClusterArn) {
+		cfg.Cluster = cfg.ClusterArn
+	}
+	return cfg, nil
+}
+
+// environmentConfig reads the given configs from the environment and attempts
+// to convert them to the given type
+func environmentConfig() (Config, error) {
+	dataDir := os.Getenv("ECS_DATADIR")
+
+	steadyStateRate, burstRate := parseTaskMetadataThrottles()
+
+	var instanceAttributes map[string]string
+	var errs []error
+	instanceAttributes, errs = parseInstanceAttributes(errs)
+
+	var additionalLocalRoutes []cnitypes.IPNet
+	additionalLocalRoutes, errs = parseAdditionalLocalRoutes(errs)
+
+	var err error
+	if len(errs) > 0 {
+		err = apierrors.NewMultiError(errs...)
+	}
+	return Config{
+		Cluster:                          os.Getenv("ECS_CLUSTER"),
+		APIEndpoint:                      os.Getenv("ECS_BACKEND_HOST"),
+		AWSRegion:                        os.Getenv("AWS_DEFAULT_REGION"),
+		DockerEndpoint:                   os.Getenv("DOCKER_HOST"),
+		ReservedPorts:                    parseReservedPorts("ECS_RESERVED_PORTS"),
+		ReservedPortsUDP:                 parseReservedPorts("ECS_RESERVED_PORTS_UDP"),
+		DataDir:                          dataDir,
+		Checkpoint:                       parseCheckpoint(dataDir),
+		EngineAuthType:                   os.Getenv("ECS_ENGINE_AUTH_TYPE"),
+		EngineAuthData:                   NewSensitiveRawMessage([]byte(os.Getenv("ECS_ENGINE_AUTH_DATA"))),
+		UpdatesEnabled:                   utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
+		UpdateDownloadDir:                os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
+		DisableMetrics:                   utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
+		ReservedMemory:                   parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
+		AvailableLoggingDrivers:          parseAvailableLoggingDrivers(),
+		PrivilegedDisabled:               utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
+		SELinuxCapable:                   utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false),
+		AppArmorCapable:                  utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false),
+		TaskCleanupWaitDuration:          parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
+		TaskENIEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false),
+		TaskIAMRoleEnabled:               utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false),
+		TaskCPUMemLimit:                  parseTaskCPUMemLimitEnabled(),
+		DockerStopTimeout:                parseDockerStopTimeout(),
+		ContainerStartTimeout:            parseContainerStartTimeout(),
+		CredentialsAuditLogFile:          os.Getenv("ECS_AUDIT_LOGFILE"),
+		CredentialsAuditLogDisabled:      utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
+		TaskIAMRoleEnabledForNetworkHost: utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
+		ImageCleanupDisabled:             utils.ParseBool(os.Getenv("ECS_DISABLE_IMAGE_CLEANUP"), false),
+		MinimumImageDeletionAge:          parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
+		ImageCleanupInterval:             parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
+		NumImagesToDeletePerCycle:        parseNumImagesToDeletePerCycle(),
+		ImagePullBehavior:                parseImagePullBehavior(),
+		InstanceAttributes:               instanceAttributes,
+		CNIPluginsPath:                   os.Getenv("ECS_CNI_PLUGINS_PATH"),
+		AWSVPCBlockInstanceMetdata:       utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),
+		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
+		ContainerMetadataEnabled:         utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false),
+		DataDirOnHost:                    os.Getenv("ECS_HOST_DATA_DIR"),
+		OverrideAWSLogsExecutionRole:     utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false),
+		CgroupPath:                       os.Getenv("ECS_CGROUP_PATH"),
+		TaskMetadataSteadyStateRate:      steadyStateRate,
+		TaskMetadataBurstRate:            burstRate,
+	}, err
+}
+
+func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
+	iid, err := ec2client.InstanceIdentityDocument()
+	if err != nil {
+		seelog.Criticalf("Unable to communicate with EC2 Metadata service to infer region: %v", err.Error())
+		return Config{}
+	}
+	return Config{AWSRegion: iid.Region}
 }
 
 // String returns a lossy string representation of the config suitable for human readable display.

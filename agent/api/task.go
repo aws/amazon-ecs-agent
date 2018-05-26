@@ -23,11 +23,12 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/engine/emptyvolume"
+	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -418,14 +419,14 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *DockerClientConfigError) {
+func (task *Task) DockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
 	return task.dockerConfig(container, apiVersion)
 }
 
-func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *DockerClientConfigError) {
+func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
 	dockerVolumes, err := task.dockerConfigVolumes(container)
 	if err != nil {
-		return nil, &DockerClientConfigError{err.Error()}
+		return nil, &apierrors.DockerClientConfigError{err.Error()}
 	}
 
 	dockerEnv := make([]string, 0, len(container.Environment))
@@ -455,17 +456,17 @@ func (task *Task) dockerConfig(container *Container, apiVersion dockerclient.Doc
 
 	err = task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
 	if err != nil {
-		return nil, &DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
+		return nil, &apierrors.DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
 
 	if container.DockerConfig.Config != nil {
 		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
 		if err != nil {
-			return nil, &DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
+			return nil, &apierrors.DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
 	if container.HealthCheckType == dockerHealthCheckType && config.Healthcheck == nil {
-		return nil, &DockerClientConfigError{
+		return nil, &apierrors.DockerClientConfigError{
 			"docker health check is nil while container health check type is DOCKER"}
 	}
 
@@ -534,7 +535,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 	for _, m := range container.MountPoints {
 		vol, exists := task.HostVolumeByName(m.SourceVolume)
 		if !exists {
-			return nil, &badVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
+			return nil, &apierrors.BadVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
 		}
 		// you can handle most volume mount types in the HostConfig at run-time;
 		// empty mounts are created by docker at create-time (Config) so set
@@ -543,7 +544,7 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 			// if container.Name == emptyHostVolumeName && container.Type {
 			_, ok := vol.(*EmptyHostVolume)
 			if !ok {
-				return nil, &badVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
+				return nil, &apierrors.BadVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
 			}
 
 			volumeMap[m.ContainerPath] = struct{}{}
@@ -553,17 +554,17 @@ func (task *Task) dockerConfigVolumes(container *Container) (map[string]struct{}
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) DockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has execution role
 // credentials, and add the genereated credentials endpoint to the associated HostConfig
-func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *HostConfigError {
+func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *apierrors.HostConfigError {
 	id := task.GetExecutionCredentialsID()
 	if id == "" {
 		// No execution credentials set for the task. Do not inject the endpoint environment variable.
-		return &HostConfigError{"No execution credentials set for the task"}
+		return &apierrors.HostConfigError{"No execution credentials set for the task"}
 	}
 
 	executionRoleCredentials, ok := credentialsManager.GetTaskCredentials(id)
@@ -572,29 +573,29 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, cred
 		// the id. This should never happen as the payload handler sets
 		// credentialsId for the task after adding credentials to the
 		// credentials manager
-		return &HostConfigError{"Unable to get execution role credentials for task"}
+		return &apierrors.HostConfigError{"Unable to get execution role credentials for task"}
 	}
 	credentialsEndpointRelativeURI := executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 	hostConfig.LogConfig.Config[awslogsCredsEndpointOpt] = credentialsEndpointRelativeURI
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *HostConfigError) {
+func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[string]*DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
 	dockerPortMap := task.dockerPortMap(container)
 
 	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
 	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
 	binds, err := task.dockerHostBinds(container)
 	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
 	// Populate hostConfig
@@ -607,19 +608,19 @@ func (task *Task) dockerHostConfig(container *Container, dockerContainerMap map[
 
 	err = task.SetConfigHostconfigBasedOnVersion(container, nil, hostConfig, apiVersion)
 	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
 	if container.DockerConfig.HostConfig != nil {
 		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
 		if err != nil {
-			return nil, &HostConfigError{"Unable to decode given host config: " + err.Error()}
+			return nil, &apierrors.HostConfigError{"Unable to decode given host config: " + err.Error()}
 		}
 	}
 
 	err = task.platformHostConfigOverride(hostConfig)
 	if err != nil {
-		return nil, &HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
 	// Determine if network mode should be overridden and override it if needed

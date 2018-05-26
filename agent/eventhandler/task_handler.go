@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -36,7 +37,8 @@ const (
 
 	// drainEventsFrequency is the frequency at the which unsent events batched
 	// by the task handler are sent to the backend
-	drainEventsFrequency = 20 * time.Second
+	minDrainEventsFrequency = 10 * time.Second
+	maxDrainEventsFrequency = 30 * time.Second
 
 	submitStateBackoffMin            = time.Second
 	submitStateBackoffMax            = 30 * time.Second
@@ -64,10 +66,16 @@ type TaskHandler struct {
 	// changes to a task or container's SentStatus
 	stateSaver statemanager.Saver
 
-	drainEventsFrequency time.Duration
-	state                dockerstate.TaskEngineState
-	client               api.ECSClient
-	ctx                  context.Context
+	// min and max drain events frequency refer to the range of
+	// time over which a call to SubmitTaskStateChange is made.
+	// The actual duration is randomly distributed between these
+	// two
+	minDrainEventsFrequency time.Duration
+	maxDrainEventsFrequency time.Duration
+
+	state  dockerstate.TaskEngineState
+	client api.ECSClient
+	ctx    context.Context
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -94,14 +102,15 @@ func NewTaskHandler(ctx context.Context,
 	client api.ECSClient) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 	taskHandler := &TaskHandler{
-		ctx:                    ctx,
-		tasksToEvents:          make(map[string]*taskSendableEvents),
-		submitSemaphore:        utils.NewSemaphore(concurrentEventCalls),
-		tasksToContainerStates: make(map[string][]api.ContainerStateChange),
-		stateSaver:             stateManager,
-		state:                  state,
-		client:                 client,
-		drainEventsFrequency:   drainEventsFrequency,
+		ctx:                     ctx,
+		tasksToEvents:           make(map[string]*taskSendableEvents),
+		submitSemaphore:         utils.NewSemaphore(concurrentEventCalls),
+		tasksToContainerStates:  make(map[string][]api.ContainerStateChange),
+		stateSaver:              stateManager,
+		state:                   state,
+		client:                  client,
+		minDrainEventsFrequency: minDrainEventsFrequency,
+		maxDrainEventsFrequency: maxDrainEventsFrequency,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -146,14 +155,14 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 // startDrainEventsTicker starts a ticker that periodically drains the events queue
 // by submitting state change events to the ECS backend
 func (handler *TaskHandler) startDrainEventsTicker() {
-	ticker := time.NewTicker(handler.drainEventsFrequency)
+	derivedCtx, _ := context.WithCancel(handler.ctx)
+	ticker := utils.NewJitteredTicker(derivedCtx, handler.minDrainEventsFrequency, handler.maxDrainEventsFrequency)
 	for {
 		select {
 		case <-handler.ctx.Done():
 			seelog.Infof("TaskHandler: Stopping periodic container state change submission ticker")
-			ticker.Stop()
 			return
-		case <-ticker.C:
+		case <-ticker:
 			// Gather a list of task state changes to send. This list is
 			// constructed from the tasksToEvents map based on the task
 			// arns of containers that haven't been sent to ECS yet.
@@ -347,11 +356,13 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
 			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}
 	} else {
@@ -381,4 +392,14 @@ func (handler *TaskHandler) getTasksToEventsLen() int {
 	defer handler.lock.RUnlock()
 
 	return len(handler.tasksToEvents)
+}
+
+// handleInvalidParamException removes the event from event queue when its parameters are
+// invalid to reduce redundant API call
+func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element) {
+	if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
+		event := eventToSubmit.Value.(*sendableEvent)
+		seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
+		events.Remove(eventToSubmit)
+	}
 }

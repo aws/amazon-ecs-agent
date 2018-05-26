@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerclient"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
@@ -81,6 +81,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")()
 	defer setTestEnv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")()
 	defer setTestEnv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")()
+	defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", "always")()
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
 	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
@@ -112,6 +113,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
 	assert.Equal(t, 2, conf.NumImagesToDeletePerCycle)
+	assert.Equal(t, ImagePullAlwaysBehavior, conf.ImagePullBehavior)
 	assert.Equal(t, "testing", conf.InstanceAttributes["my_attribute"])
 	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
 	serializedAdditionalLocalRoutesJSON, err := json.Marshal(conf.AWSVPCAdditionalLocalRoutes)
@@ -367,6 +369,56 @@ func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, cfg.NumImagesToDeletePerCycle, DefaultNumImagesToDeletePerCycle, "Wrong value for NumImagesToDeletePerCycle")
+}
+
+func TestInvalidImagePullBehavior(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", "invalid")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.ImagePullBehavior, ImagePullDefaultBehavior, "Wrong value for ImagePullBehavior")
+}
+
+func TestParseImagePullBehavior(t *testing.T) {
+	testcases := []struct {
+		name                      string
+		envVarVal                 string
+		expectedImagePullBehavior ImagePullBehaviorType
+	}{
+		{
+			name:                      "default agent behavior",
+			envVarVal:                 "default",
+			expectedImagePullBehavior: ImagePullDefaultBehavior,
+		},
+		{
+			name:                      "always agent behavior",
+			envVarVal:                 "always",
+			expectedImagePullBehavior: ImagePullAlwaysBehavior,
+		},
+		{
+			name:                      "once agent behavior",
+			envVarVal:                 "once",
+			expectedImagePullBehavior: ImagePullOnceBehavior,
+		},
+		{
+			name:                      "prefer-cached agent behavior",
+			envVarVal:                 "prefer-cached",
+			expectedImagePullBehavior: ImagePullPreferCachedBehavior,
+		},
+		{
+			name:                      "invalid agent behavior",
+			envVarVal:                 "invalid",
+			expectedImagePullBehavior: ImagePullDefaultBehavior,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer setTestRegion()()
+			defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", tc.envVarVal)()
+			assert.Equal(t, parseImagePullBehavior(), tc.expectedImagePullBehavior, "Wrong value for ImagePullBehavior")
+		})
+	}
 }
 
 func TestTaskResourceLimitsOverride(t *testing.T) {

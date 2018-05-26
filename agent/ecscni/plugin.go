@@ -14,12 +14,14 @@
 package ecscni
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
@@ -38,9 +40,9 @@ type CNIClient interface {
 	// Capabilities returns the capabilities supported by a plugin
 	Capabilities(string) ([]string, error)
 	// SetupNS sets up the namespace of container
-	SetupNS(*Config) (*current.Result, error)
+	SetupNS(context.Context, *Config, time.Duration) (*current.Result, error)
 	// CleanupNS cleans up the container namespace
-	CleanupNS(*Config) error
+	CleanupNS(context.Context, *Config, time.Duration) error
 	// ReleaseIPResource marks the ip available in the ipam db
 	ReleaseIPResource(*Config) error
 }
@@ -69,7 +71,34 @@ func NewClient(cfg *Config) CNIClient {
 
 // SetupNS will set up the namespace of container, including create the bridge
 // and the veth pair, move the eni to container namespace, setup the routes
-func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
+func (client *cniClient) SetupNS(ctx context.Context,
+	cfg *Config,
+	timeout time.Duration) (*current.Result, error) {
+	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type output struct {
+		result *current.Result
+		err    error
+	}
+	response := make(chan output)
+	go func(response chan output) {
+		result, err := client.setupNS(cfg)
+		response <- output{
+			result: result,
+			err:    err,
+		}
+	}(response)
+
+	select {
+	case <-derivedCtx.Done():
+		return nil, errors.Wrap(derivedCtx.Err(), "cni setup: container namespace setup failed")
+	case result := <-response:
+		return result.result, result.err
+	}
+}
+
+func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
@@ -110,7 +139,28 @@ func (client *cniClient) SetupNS(cfg *Config) (*current.Result, error) {
 
 // CleanupNS will clean up the container namespace, including remove the veth
 // pair and stop the dhclient
-func (client *cniClient) CleanupNS(cfg *Config) error {
+func (client *cniClient) CleanupNS(
+	ctx context.Context,
+	cfg *Config,
+	timeout time.Duration) error {
+
+	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	err := make(chan error)
+	go func(err chan error) {
+		err <- client.cleanupNS(cfg)
+	}(err)
+
+	select {
+	case <-derivedCtx.Done():
+		return errors.Wrap(derivedCtx.Err(), "cni cleanup: container namespace cleanup failed")
+	case err := <-err:
+		return err
+	}
+}
+
+func (client *cniClient) cleanupNS(cfg *Config) error {
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),

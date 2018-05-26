@@ -29,6 +29,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -682,7 +683,7 @@ func TestInitOOMEvent(t *testing.T) {
 		t.Logf("Docker version is 1.9.x (%s); not checking OOM reason", dockerVersion)
 		return
 	}
-	if !strings.HasPrefix(contEvent.Reason, OutOfMemoryError{}.ErrorName()) {
+	if !strings.HasPrefix(contEvent.Reason, dockerapi.OutOfMemoryError{}.ErrorName()) {
 		t.Errorf("Expected reason to have OOM error, was: %v", contEvent.Reason)
 	}
 }

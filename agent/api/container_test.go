@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -138,22 +139,22 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 		{&Container{}, false, "the container does not use ECR, so it should not require credentials"},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{Type: "non-ecr"},
+				RegistryAuthentication: &ecr.RegistryAuthenticationData{Type: "non-ecr"},
 			},
 			false,
 			"the container does not use ECR, so it should not require credentials",
 		},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{Type: "ecr"},
+				RegistryAuthentication: &ecr.RegistryAuthenticationData{Type: "ecr"},
 			},
 			false, "the container uses ECR, but it does not require execution role credentials",
 		},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{
+				RegistryAuthentication: &ecr.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &ECRAuthData{
+					ECRAuthData: &ecr.ECRAuthData{
 						UseExecutionRole: true,
 					},
 				},
