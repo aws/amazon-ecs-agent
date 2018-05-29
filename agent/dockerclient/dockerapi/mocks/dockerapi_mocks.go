@@ -26,7 +26,6 @@ import (
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -180,7 +179,7 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) 
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 string, arg1 *ecr.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) PullImage(arg0 string, arg1 *api.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "PullImage", arg0, arg1)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0

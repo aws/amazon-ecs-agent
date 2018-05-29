@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
@@ -57,7 +57,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -65,6 +65,10 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	proxyEndpoint := "proxy"
 	username := "username"
 	password := "password"
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
 
 	provider := ecrAuthProvider{
 		factory:    factory,
@@ -77,7 +81,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.NoError(t, err, "Unexpected error in getting auth config from ecr")
 
 	assert.Equal(t, username, authconfig.Username, "Expected username to be %s, but was %s", username, authconfig.Username)
@@ -90,7 +94,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 	client := mock_ecr.NewMockECRClient(ctrl)
 
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -104,13 +108,17 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 	}
 
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+
 	factory.EXPECT().GetClient(authData).Return(client, nil)
 	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error if the proxy does not match")
 	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
@@ -121,7 +129,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 	client := mock_ecr.NewMockECRClient(ctrl)
 
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -135,13 +143,17 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 	}
 
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+
 	factory.EXPECT().GetClient(authData).Return(client, nil)
 	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String((username + ":" + password)),
 	}, nil)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error to be present, but was nil", err)
 	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
@@ -152,7 +164,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -164,10 +176,14 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 	}
 
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+
 	factory.EXPECT().GetClient(authData).Return(client, nil)
 	client.EXPECT().GetAuthorizationToken(authData.RegistryID)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	if err == nil {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
@@ -181,7 +197,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 	client := mock_ecr.NewMockECRClient(ctrl)
 	factory := mock_ecr.NewMockECRFactory(ctrl)
 
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -193,10 +209,14 @@ func TestGetAuthConfigECRError(t *testing.T) {
 		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 	}
 
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+
 	factory.EXPECT().GetClient(authData).Return(client, nil)
 	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(nil, errors.New("test error"))
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error to be present, but was nil", err)
 	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
@@ -258,7 +278,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -266,6 +286,10 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
 		RoleArn: "arn:aws:iam::123456789012:role/test",
 	})
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
 
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
@@ -284,7 +308,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 	ecrClient.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(dockerAuthData, nil)
 	mockCache.EXPECT().Set(key.String(), dockerAuthData)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", registryAuthData)
 	assert.NoError(t, err)
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
@@ -309,10 +333,14 @@ func TestAuthorizationTokenCacheHit(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
+	}
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
 	}
 
 	key := cacheKey{
@@ -322,7 +350,7 @@ func TestAuthorizationTokenCacheHit(t *testing.T) {
 	}
 
 	mockCache.EXPECT().Get(key.String()).Return(testAuthData, true)
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", registryAuthData)
 	assert.NoError(t, err)
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
@@ -347,7 +375,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
 	}
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -355,6 +383,10 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
 		RoleArn: "arn:aws:iam::123456789012:role/test",
 	})
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
 
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
@@ -364,7 +396,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 	}
 
 	mockCache.EXPECT().Get(key.String()).Return(testAuthData, true)
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", registryAuthData)
 	assert.NoError(t, err)
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
@@ -390,7 +422,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now()),
 	}
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -398,6 +430,10 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
 		RoleArn: "arn:aws:iam::123456789012:role/test",
 	})
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
 
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
@@ -417,7 +453,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 	ecrClient.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(dockerAuthData, nil)
 	mockCache.EXPECT().Set(key.String(), dockerAuthData)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", registryAuthData)
 	assert.NoError(t, err)
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
@@ -444,7 +480,7 @@ func TestExtractECRTokenError(t *testing.T) {
 		AuthorizationToken: aws.String("-"),
 		ExpiresAt:          aws.Time(time.Now().Add(1 * time.Hour)),
 	}
-	authData := &ecr.ECRAuthData{
+	authData := &api.ECRAuthData{
 		Region:           "us-west-2",
 		RegistryID:       "0123456789012",
 		EndpointOverride: "my.endpoint",
@@ -452,6 +488,10 @@ func TestExtractECRTokenError(t *testing.T) {
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
 		RoleArn: "arn:aws:iam::123456789012:role/test",
 	})
+
+	registryAuthData := &api.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
 
 	key := cacheKey{
 		roleARN:          authData.GetPullCredentials().RoleArn,
@@ -471,7 +511,7 @@ func TestExtractECRTokenError(t *testing.T) {
 	ecrClient.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(dockerAuthData, nil)
 	mockCache.EXPECT().Set(key.String(), dockerAuthData)
 
-	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", authData)
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"myimage", registryAuthData)
 	assert.NoError(t, err)
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)

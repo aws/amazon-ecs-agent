@@ -15,6 +15,24 @@ package ecsacs
 
 import "github.com/aws/aws-sdk-go/aws/awsutil"
 
+type ASMAuthData struct {
+	_ struct{} `type:"structure"`
+
+	CredentialsParameter *string `locationName:"credentialsParameter" type:"string"`
+
+	Region *string `locationName:"region" type:"string"`
+}
+
+// String returns the string representation
+func (s ASMAuthData) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ASMAuthData) GoString() string {
+	return s.String()
+}
+
 type AccessDeniedException struct {
 	_ struct{} `type:"structure"`
 
@@ -595,6 +613,8 @@ func (s PortMapping) GoString() string {
 
 type RegistryAuthenticationData struct {
 	_ struct{} `type:"structure"`
+
+	AsmAuthData *ASMAuthData `locationName:"asmAuthData" type:"structure"`
 
 	EcrAuthData *ECRAuthData `locationName:"ecrAuthData" type:"structure"`
 

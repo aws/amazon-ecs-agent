@@ -691,3 +691,93 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv4Addresses[0].PrivateAddress), taskeni.IPV4Addresses[0].Address)
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
 }
+
+func TestPayloadHandlerAddedECRAuthData(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *api.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *api.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				Containers: []*ecsacs.Container{
+					{
+						RegistryAuthentication: &ecsacs.RegistryAuthenticationData{
+							Type: aws.String("ecr"),
+							EcrAuthData: &ecsacs.ECRAuthData{
+								Region:     aws.String("us-west-2"),
+								RegistryId: aws.String("registry-id"),
+							},
+						},
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	// Validate the added task has the ECRAuthData information as expected
+	expected := payloadMessage.Tasks[0].Containers[0].RegistryAuthentication
+	actual := addedTask.Containers[0].RegistryAuthentication
+
+	assert.NotNil(t, actual.ECRAuthData)
+	assert.Nil(t, actual.ASMAuthData)
+
+	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
+	assert.Equal(t, aws.StringValue(expected.EcrAuthData.Region), actual.ECRAuthData.Region)
+	assert.Equal(t, aws.StringValue(expected.EcrAuthData.RegistryId), actual.ECRAuthData.RegistryID)
+}
+
+func TestPayloadHandlerAddedASMAuthData(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *api.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *api.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				Containers: []*ecsacs.Container{
+					{
+						RegistryAuthentication: &ecsacs.RegistryAuthenticationData{
+							Type: aws.String("asm"),
+							AsmAuthData: &ecsacs.ASMAuthData{
+								Region:               aws.String("us-west-2"),
+								CredentialsParameter: aws.String("asm-arn"),
+							},
+						},
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	// Validate the added task has the ASMAuthData information as expected
+	expected := payloadMessage.Tasks[0].Containers[0].RegistryAuthentication
+	actual := addedTask.Containers[0].RegistryAuthentication
+
+	assert.NotNil(t, actual.ASMAuthData)
+	assert.Nil(t, actual.ECRAuthData)
+
+	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
+	assert.Equal(t, aws.StringValue(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
+	assert.Equal(t, aws.StringValue(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
+}

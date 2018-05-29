@@ -104,6 +104,13 @@
     }
   },
   "shapes":{
+    "ASMAuthData":{
+      "type":"structure",
+      "members":{
+        "credentialsParameter":{"shape":"String"},
+        "region":{"shape":"String"}
+      }
+    },
     "AccessDeniedException":{
       "type":"structure",
       "members":{
@@ -137,7 +144,10 @@
     },
     "AuthenticationType":{
       "type":"string",
-      "enum":["ecr"]
+      "enum":[
+        "ecr",
+        "asm"
+      ]
     },
     "BadRequestException":{
       "type":"structure",
@@ -385,7 +395,8 @@
       "type":"structure",
       "members":{
         "type":{"shape":"AuthenticationType"},
-        "ecrAuthData":{"shape":"ECRAuthData"}
+        "ecrAuthData":{"shape":"ECRAuthData"},
+        "asmAuthData":{"shape":"ASMAuthData"}
       }
     },
     "RoleType":{

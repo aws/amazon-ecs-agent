@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/api"
 
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
@@ -46,7 +46,7 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string, authData *ecr.ECRAuthData) (docker.AuthConfiguration, error) {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *api.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
 	// Ignore 'tag', not used in auth determination
 	repository, _ := docker.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap

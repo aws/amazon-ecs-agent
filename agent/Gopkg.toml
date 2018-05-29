@@ -26,7 +26,7 @@
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
-  version = "1.10.30"
+  version = "1.13.42"
 
 [[constraint]]
   name = "github.com/cihub/seelog"
@@ -79,15 +79,6 @@
 [[constraint]]
   name = "github.com/vishvananda/netlink"
   revision ="fe3b5664d23a11b52ba59bece4ff29c52772a56b"
-
-[[constraint]]
-  name = "golang.org/x/net"
-
-[[constraint]]
-  name = "golang.org/x/sys"
-
-[[constraint]]
-  name = "golang.org/x/tools"
 
 [[constraint]]
   name = "github.com/didip/tollbooth"

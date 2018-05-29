@@ -42,6 +42,8 @@
     "aws/request",
     "aws/session",
     "aws/signer/v4",
+    "internal/sdkio",
+    "internal/sdkrand",
     "internal/shareddefaults",
     "private/model/api",
     "private/protocol",
@@ -55,10 +57,11 @@
     "service/cloudwatch",
     "service/cloudwatchlogs",
     "service/iam",
+    "service/secretsmanager",
     "service/sts"
   ]
-  revision = "decd990ddc5dcdf2f73309cbcab90d06b996ca28"
-  version = "v1.12.67"
+  revision = "4f5d298bd2dcb34b06d944594f458d1f77ac4d66"
+  version = "v1.13.42"
 
 [[projects]]
   name = "github.com/cihub/seelog"
@@ -326,6 +329,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a5f72ace73e7045edeb6973b3f13bbe178df1d00c646bcc37f9dff0a616ba370"
+  inputs-digest = "9d2cc8b52dc77195516205e880e2e1099eabd15190bcc2c8f0f42df0d5abaf2e"
   solver-name = "gps-cdcl"
   solver-version = 1
