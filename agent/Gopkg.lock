@@ -58,6 +58,7 @@
     "service/cloudwatchlogs",
     "service/iam",
     "service/secretsmanager",
+    "service/secretsmanager/secretsmanageriface",
     "service/sts"
   ]
   revision = "4f5d298bd2dcb34b06d944594f458d1f77ac4d66"
@@ -329,6 +330,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9d2cc8b52dc77195516205e880e2e1099eabd15190bcc2c8f0f42df0d5abaf2e"
+  inputs-digest = "b2f2027080210343f4dea3b5051b8eeb118773500922cae92073613d4feae343"
   solver-name = "gps-cdcl"
   solver-version = 1

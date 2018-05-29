@@ -59,6 +59,7 @@ const (
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
 //    ecs.capability.container-health-check
+//    ecs.capability.private-registry-authentication.secretsmanager
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -92,6 +93,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
+
+	// ecs agent version 1.19.0 supports private registry authentication using
+	// aws secrets manager
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"private-registry-authentication.secretsmanager")
 
 	// TODO: gate this on docker api version when ecs supported docker includes
 	// credentials endpoint feature from upstream docker

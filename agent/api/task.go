@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -146,6 +147,10 @@ type Task struct {
 
 	// platformFields consists of fields specific to linux/windows for a task
 	platformFields platformFields
+
+	// dockerAuthData is a map of ASM SecretID:docker.AuthConfiguration required
+	// for private regisry authentication via AWS Secrets Manager
+	dockerAuthData map[string]docker.AuthConfiguration
 
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
@@ -1163,4 +1168,67 @@ func (task *Task) RecordExecutionStoppedAt(container *Container) {
 	}
 	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
 		task.Arn, container.Name, now.String())
+}
+
+// RequiresASMDockerAuthData returns true if atleast one container in the task
+// needs to retrieve private registry authentication data from ASM
+func (task *Task) RequiresASMDockerAuthData() bool {
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			return true
+		}
+	}
+	return false
+}
+
+// RetrieveASMDockerAuthData uses the execution role to retrieve private
+// registry authentication data from ASM
+func (task *Task) RetrieveASMDockerAuthData(asmAuthData *ASMAuthData, credentialsManager credentials.Manager) (docker.AuthConfiguration, error) {
+	executionCredentials, ok := credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
+	if !ok {
+		return docker.AuthConfiguration{}, errors.New("asm auth: could not get execution credentials to pull docker auth data from asm")
+	}
+
+	iamCredentials := executionCredentials.GetIAMRoleCredentials()
+	region := asmAuthData.Region
+	asmClient := asm.NewASMClient(region, iamCredentials)
+
+	secretID := asmAuthData.CredentialsParameter
+	dac, err := asm.GetDockerAuthFromASM(secretID, asmClient)
+	if err != nil {
+		return docker.AuthConfiguration{}, err
+	}
+
+	task.setASMDockerAuthConfig(secretID, dac)
+
+	return dac, nil
+}
+
+func (task *Task) setASMDockerAuthConfig(secretID string, dac docker.AuthConfiguration) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	if task.dockerAuthData == nil {
+		task.dockerAuthData = make(map[string]docker.AuthConfiguration)
+	}
+
+	task.dockerAuthData[secretID] = dac
+}
+
+// GetASMDockerAuthConfig retrieves the docker private registry auth data from
+// the task
+func (task *Task) GetASMDockerAuthConfig(secretID string) (docker.AuthConfiguration, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	d, ok := task.dockerAuthData[secretID]
+	return d, ok
+}
+
+// ClearASMDockerAuthConfig cycles through the collection of docker private
+// registry auth data and removes them from the task
+func (task *Task) ClearASMDockerAuthConfig() {
+	for k := range task.dockerAuthData {
+		delete(task.dockerAuthData, k)
+	}
 }
