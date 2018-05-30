@@ -87,9 +87,9 @@ func (eni *ENI) String() string {
 		ipv6Addresses = append(ipv6Addresses, addr.Address)
 	}
 	return fmt.Sprintf(
-		"eni id:%s, mac: %s, hostname: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s]",
+		"eni id:%s, mac: %s, hostname: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s], gateway ipv4: [%s]",
 		eni.ID, eni.MacAddress, eni.GetHostname(), strings.Join(ipv4Addresses, ","), strings.Join(ipv6Addresses, ","),
-		strings.Join(eni.DomainNameServers, ","), strings.Join(eni.DomainNameSearchList, ","))
+		strings.Join(eni.DomainNameServers, ","), strings.Join(eni.DomainNameSearchList, ","), eni.SubnetGatewayIPV4Address)
 }
 
 // ENIIPV4Address is the ipv4 information of the eni
