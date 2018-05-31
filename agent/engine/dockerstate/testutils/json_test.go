@@ -1,5 +1,6 @@
-// +build !integration
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,27 +21,28 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/stretchr/testify/assert"
 )
 
-func createTestContainer(num int) *api.Container {
-	return &api.Container{
+func createTestContainer(num int) *apicontainer.Container {
+	return &apicontainer.Container{
 		Name:                "busybox-" + strconv.Itoa(num),
 		Image:               "busybox:latest",
 		Essential:           true,
-		DesiredStatusUnsafe: api.ContainerRunning,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
 	}
 }
 
-func createTestTask(arn string, numContainers int) *api.Task {
-	task := &api.Task{
+func createTestTask(arn string, numContainers int) *apitask.Task {
+	task := &apitask.Task{
 		Arn:                 arn,
 		Family:              arn,
 		Version:             "1",
-		DesiredStatusUnsafe: api.TaskRunning,
-		Containers:          []*api.Container{},
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		Containers:          []*apicontainer.Container{},
 	}
 
 	for i := 0; i < numContainers; i++ {
@@ -72,7 +74,7 @@ func TestJsonEncoding(t *testing.T) {
 	testTask := createTestTask("test1", 1)
 	testState.AddTask(testTask)
 	for i, cont := range testTask.Containers {
-		testState.AddContainer(&api.DockerContainer{DockerID: "docker" + strconv.Itoa(i), DockerName: "someName", Container: cont}, testTask)
+		testState.AddContainer(&apicontainer.DockerContainer{DockerID: "docker" + strconv.Itoa(i), DockerName: "someName", Container: cont}, testTask)
 	}
 	other := decodeEqual(t, testState)
 	_, ok := other.ContainerMapByArn("test1")

@@ -1,4 +1,6 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,32 +19,33 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTaskEqual(t *testing.T) {
 
 	testCases := []struct {
-		rhs           Task
-		lhs           Task
+		rhs           apitask.Task
+		lhs           apitask.Task
 		shouldBeEqual bool
 	}{
 		// Equal Pairs
-		{Task{Arn: "a"}, Task{Arn: "a"}, true},
-		{Task{Family: "a"}, Task{Family: "a"}, true},
-		{Task{Version: "a"}, Task{Version: "a"}, true},
-		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "a"}}}, true},
-		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskRunning}, true},
-		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskRunning}, true},
+		{apitask.Task{Arn: "a"}, apitask.Task{Arn: "a"}, true},
+		{apitask.Task{Family: "a"}, apitask.Task{Family: "a"}, true},
+		{apitask.Task{Version: "a"}, apitask.Task{Version: "a"}, true},
+		{apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, true},
+		{apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, true},
+		{apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, true},
 
 		// Unequal Pairs
-		{Task{Arn: "a"}, Task{Arn: "あ"}, false},
-		{Task{Family: "a"}, Task{Family: "あ"}, false},
-		{Task{Version: "a"}, Task{Version: "あ"}, false},
-		{Task{Containers: []*Container{{Name: "a"}}}, Task{Containers: []*Container{{Name: "あ"}}}, false},
-		{Task{DesiredStatusUnsafe: TaskRunning}, Task{DesiredStatusUnsafe: TaskStopped}, false},
-		{Task{KnownStatusUnsafe: TaskRunning}, Task{KnownStatusUnsafe: TaskStopped}, false},
+		{apitask.Task{Arn: "a"}, apitask.Task{Arn: "あ"}, false},
+		{apitask.Task{Family: "a"}, apitask.Task{Family: "あ"}, false},
+		{apitask.Task{Version: "a"}, apitask.Task{Version: "あ"}, false},
+		{apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, apitask.Task{Containers: []*apicontainer.Container{{Name: "あ"}}}, false},
+		{apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitask.TaskStopped}, false},
+		{apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitask.TaskStopped}, false},
 	}
 
 	for index, tc := range testCases {

@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +23,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
@@ -79,7 +83,7 @@ func TestGetTaskByDockerID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	taskDiffHelper(t, []*api.Task{testTasks[1]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*apitask.Task{testTasks[1]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetTaskByShortDockerIDMultiple(t *testing.T) {
@@ -103,7 +107,7 @@ func TestGetTaskByShortDockerID(t *testing.T) {
 	err := json.Unmarshal(recorder.Body.Bytes(), &taskResponse)
 	require.NoError(t, err, "unmarshal failed for get task by short docker id")
 
-	taskDiffHelper(t, []*api.Task{testTasks[2]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*apitask.Task{testTasks[2]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetTaskByDockerID404(t *testing.T) {
@@ -123,7 +127,7 @@ func TestGetTaskByTaskArn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	taskDiffHelper(t, []*api.Task{testTasks[0]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
+	taskDiffHelper(t, []*apitask.Task{testTasks[0]}, v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}})
 }
 
 func TestGetAWSVPCTaskByTaskArn(t *testing.T) {
@@ -138,7 +142,7 @@ func TestGetAWSVPCTaskByTaskArn(t *testing.T) {
 	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
 
 	assert.Equal(t, eniIPV4Address, resp.Tasks[0].Containers[0].Networks[0].IPv4Addresses[0])
-	taskDiffHelper(t, []*api.Task{testTasks[3]}, resp)
+	taskDiffHelper(t, []*apitask.Task{testTasks[3]}, resp)
 }
 
 func TestGetHostNeworkingTaskByTaskArn(t *testing.T) {
@@ -155,7 +159,7 @@ func TestGetHostNeworkingTaskByTaskArn(t *testing.T) {
 	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
 	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
 
-	taskDiffHelper(t, []*api.Task{testTasks[4]}, resp)
+	taskDiffHelper(t, []*apitask.Task{testTasks[4]}, resp)
 }
 
 func TestGetBridgeNeworkingTaskByTaskArn(t *testing.T) {
@@ -172,7 +176,7 @@ func TestGetBridgeNeworkingTaskByTaskArn(t *testing.T) {
 	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
 	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
 
-	taskDiffHelper(t, []*api.Task{testTasks[5]}, resp)
+	taskDiffHelper(t, []*apitask.Task{testTasks[5]}, resp)
 }
 
 func TestGetTaskByTaskArnNotFound(t *testing.T) {
@@ -198,22 +202,22 @@ func TestBackendMismatchMapping(t *testing.T) {
 
 	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
 
-	containers := []*api.Container{
+	containers := []*apicontainer.Container{
 		{
 			Name: "c1",
 		},
 	}
-	testTask := &api.Task{
+	testTask := &apitask.Task{
 		Arn:                 "task1",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskStopped,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskStopped,
 		Family:              "test",
 		Version:             "1",
 		Containers:          containers,
 	}
 
 	state := dockerstate.NewTaskEngineState()
-	stateSetupHelper(state, []*api.Task{testTask})
+	stateSetupHelper(state, []*apitask.Task{testTask})
 
 	mockStateResolver.EXPECT().State().Return(state)
 	requestHandler := tasksV1RequestHandlerMaker(mockStateResolver)
@@ -266,7 +270,7 @@ func TestLicenseHandlerError(t *testing.T) {
 	licenseHandler(mockResponseWriter, nil)
 }
 
-func taskDiffHelper(t *testing.T, expected []*api.Task, actual v1.TasksResponse) {
+func taskDiffHelper(t *testing.T, expected []*apitask.Task, actual v1.TasksResponse) {
 	if len(expected) != len(actual.Tasks) {
 		t.Errorf("Expected %v tasks, had %v tasks", len(expected), len(actual.Tasks))
 	}
@@ -313,14 +317,14 @@ func taskDiffHelper(t *testing.T, expected []*api.Task, actual v1.TasksResponse)
 	}
 }
 
-var testTasks = []*api.Task{
+var testTasks = []*apitask.Task{
 	{
 		Arn:                 "task1",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "one",
 			},
@@ -331,11 +335,11 @@ var testTasks = []*api.Task{
 	},
 	{
 		Arn:                 "task2",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "2",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "foo",
 			},
@@ -343,11 +347,11 @@ var testTasks = []*api.Task{
 	},
 	{
 		Arn:                 "byShortId",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "2",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "shortId",
 			},
@@ -355,17 +359,17 @@ var testTasks = []*api.Task{
 	},
 	{
 		Arn:                 "awsvpcTask",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
 			},
 		},
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
 					Address: eniIPV4Address,
 				},
@@ -374,18 +378,18 @@ var testTasks = []*api.Task{
 	},
 	{
 		Arn:                 "hostModeNetworkingTask",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				Ports: []api.PortBinding{
+				Ports: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			},
@@ -393,18 +397,18 @@ var testTasks = []*api.Task{
 	},
 	{
 		Arn:                 "bridgeModeNetworkingTask",
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
 		Family:              "test",
 		Version:             "1",
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				KnownPortBindingsUnsafe: []api.PortBinding{
+				KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			},
@@ -412,11 +416,11 @@ var testTasks = []*api.Task{
 	},
 }
 
-func stateSetupHelper(state dockerstate.TaskEngineState, tasks []*api.Task) {
+func stateSetupHelper(state dockerstate.TaskEngineState, tasks []*apitask.Task) {
 	for _, task := range tasks {
 		state.AddTask(task)
 		for _, container := range task.Containers {
-			state.AddContainer(&api.DockerContainer{
+			state.AddContainer(&apicontainer.DockerContainer{
 				Container:  container,
 				DockerID:   "dockerid-" + task.Arn + "-" + container.Name,
 				DockerName: "dockername-" + task.Arn + "-" + container.Name,

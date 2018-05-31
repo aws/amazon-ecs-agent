@@ -1,6 +1,6 @@
-// +build linux
+// +build linux,unit
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,6 +30,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 
@@ -60,7 +61,7 @@ func TestWatcherInit(t *testing.T) {
 	assert.NoError(t, err)
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	taskEngineState.AddENIAttachment(&api.ENIAttachment{
+	taskEngineState.AddENIAttachment(&apieni.ENIAttachment{
 		MACAddress:       randomMAC,
 		AttachStatusSent: false,
 		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
@@ -162,7 +163,7 @@ func TestReconcileENIs(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
 
-	taskEngineState.AddENIAttachment(&api.ENIAttachment{
+	taskEngineState.AddENIAttachment(&apieni.ENIAttachment{
 		MACAddress:       randomMAC,
 		AttachStatusSent: false,
 		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
@@ -295,7 +296,7 @@ func TestUdevAddEvent(t *testing.T) {
 				},
 			}, nil),
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&api.ENIAttachment{ExpiresAt: time.Unix(time.Now().Unix()+10, 0)}, true),
+			&apieni.ENIAttachment{ExpiresAt: time.Unix(time.Now().Unix()+10, 0)}, true),
 	)
 
 	// Spin off event handler
@@ -307,7 +308,7 @@ func TestUdevAddEvent(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 
 	var waitForClose sync.WaitGroup
 	waitForClose.Add(2)
@@ -454,7 +455,7 @@ func TestSendENIStateChange(t *testing.T) {
 
 	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
 
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
 		ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
 	}, true)
 
@@ -463,7 +464,7 @@ func TestSendENIStateChange(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 }
 
 func TestSendENIStateChangeUnmanaged(t *testing.T) {
@@ -484,7 +485,7 @@ func TestSendENIStateChangeAlreadySent(t *testing.T) {
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
 
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
 		AttachStatusSent: true,
 		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 		MACAddress:       randomMAC,
@@ -502,7 +503,7 @@ func TestSendENIStateChangeExpired(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&api.ENIAttachment{
+			&apieni.ENIAttachment{
 				AttachStatusSent: false,
 				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
 				MACAddress:       randomMAC,
@@ -524,7 +525,7 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false),
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&api.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
 			ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
 		}, true),
 	)
@@ -535,7 +536,7 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, api.ENIAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 }
 
 func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
@@ -550,7 +551,7 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 		// ENIByMAC returns an error for exipred ENI attachment, which should
 		// mean that it doesn't get retried.
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&api.ENIAttachment{
+			&apieni.ENIAttachment{
 				AttachStatusSent: false,
 				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
 				MACAddress:       randomMAC,

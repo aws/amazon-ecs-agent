@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -107,7 +107,7 @@ type DockerContainerMetadata struct {
 	imageID             string
 	imageName           string
 	networkMode         string
-	ports               []api.PortBinding
+	ports               []apicontainer.PortBinding
 	networkInfo         NetworkMetadata
 }
 
@@ -135,19 +135,19 @@ type Metadata struct {
 // metadataSerializer is an intermediate struct that converts the information
 // in Metadata into information to encode into JSON
 type metadataSerializer struct {
-	Cluster                string            `json:"Cluster,omitempty"`
-	ContainerInstanceARN   string            `json:"ContainerInstanceARN,omitempty"`
-	TaskARN                string            `json:"TaskARN,omitempty"`
-	TaskDefinitionFamily   string            `json:"TaskDefinitionFamily,omitempty"`
-	TaskDefinitionRevision string            `json:"TaskDefinitionRevision,omitempty"`
-	ContainerID            string            `json:"ContainerID,omitempty"`
-	ContainerName          string            `json:"ContainerName,omitempty"`
-	DockerContainerName    string            `json:"DockerContainerName,omitempty"`
-	ImageID                string            `json:"ImageID,omitempty"`
-	ImageName              string            `json:"ImageName,omitempty"`
-	Ports                  []api.PortBinding `json:"PortMappings,omitempty"`
-	Networks               []Network         `json:"Networks,omitempty"`
-	MetadataFileStatus     MetadataStatus    `json:"MetadataFileStatus,omitempty"`
+	Cluster                string                     `json:"Cluster,omitempty"`
+	ContainerInstanceARN   string                     `json:"ContainerInstanceARN,omitempty"`
+	TaskARN                string                     `json:"TaskARN,omitempty"`
+	TaskDefinitionFamily   string                     `json:"TaskDefinitionFamily,omitempty"`
+	TaskDefinitionRevision string                     `json:"TaskDefinitionRevision,omitempty"`
+	ContainerID            string                     `json:"ContainerID,omitempty"`
+	ContainerName          string                     `json:"ContainerName,omitempty"`
+	DockerContainerName    string                     `json:"DockerContainerName,omitempty"`
+	ImageID                string                     `json:"ImageID,omitempty"`
+	ImageName              string                     `json:"ImageName,omitempty"`
+	Ports                  []apicontainer.PortBinding `json:"PortMappings,omitempty"`
+	Networks               []Network                  `json:"Networks,omitempty"`
+	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {

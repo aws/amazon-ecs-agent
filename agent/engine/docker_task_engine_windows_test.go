@@ -1,4 +1,4 @@
-// +build windows,!integration
+// +build windows,unit
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -18,7 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
@@ -49,12 +50,12 @@ func TestPullEmptyVolumeImage(t *testing.T) {
 	taskEngine._time = nil
 
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerEmptyHostVolume,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerEmptyHostVolume,
 		Image: imageName,
 	}
-	task := &api.Task{
-		Containers: []*api.Container{container},
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{container},
 	}
 
 	assert.False(t, emptyvolume.LocalImage, "Windows empty volume image is not local")
@@ -68,7 +69,7 @@ func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	task := &api.Task{}
+	task := &apitask.Task{}
 
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)

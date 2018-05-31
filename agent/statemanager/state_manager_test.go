@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,7 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -39,7 +42,8 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(),
+		nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -57,7 +61,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	assert.True(t, sequenceNumber == 0)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
-	var deadTask *api.Task
+	var deadTask *apitask.Task
 	for _, task := range tasks {
 		if task.Arn == "arn:aws:ecs:us-west-2:1234567890:task/f44b4fc9-adb0-4f4f-9dff-871512310588" {
 			deadTask = task
@@ -65,10 +69,10 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	}
 
 	require.NotNil(t, deadTask)
-	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, api.ContainerStopped)
+	assert.Equal(t, deadTask.GetSentStatus(), apitask.TaskStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainer.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainer.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainer.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)

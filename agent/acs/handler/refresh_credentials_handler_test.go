@@ -1,4 +1,6 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,7 +21,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -245,7 +247,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
-	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
+	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
 
 	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
 	go handler.sendAcks()
@@ -291,7 +293,7 @@ func TestRefreshCredentialsHandler(t *testing.T) {
 
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	// Return a task from the engine for GetTaskByArn
-	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&api.Task{}, true)
+	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
 
 	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
 	go handler.start()

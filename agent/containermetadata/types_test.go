@@ -1,4 +1,5 @@
-// +build !integration
+// +build unit
+
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,8 +16,9 @@
 package containermetadata
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUnMarshalText(t *testing.T) {

@@ -1,4 +1,6 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -57,14 +61,14 @@ const (
 
 var (
 	now  = time.Now()
-	task = &api.Task{
+	task = &apitask.Task{
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
 					Address: eniIPv4Address,
 				},
@@ -76,28 +80,28 @@ var (
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
 	}
-	container = &api.Container{
+	container = &apicontainer.Container{
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: api.ContainerRunning,
-		KnownStatusUnsafe:   api.ContainerRunning,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainer.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
-		Type:                api.ContainerNormal,
-		Ports: []api.PortBinding{
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
 			{
 				ContainerPort: containerPort,
-				Protocol:      api.TransportProtocolTCP,
+				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
 	}
-	dockerContainer = &api.DockerContainer{
+	dockerContainer = &apicontainer.DockerContainer{
 		DockerID:   containerID,
 		DockerName: containerName,
 		Container:  container,
 	}
-	containerNameToDockerContainer = map[string]*api.DockerContainer{
+	containerNameToDockerContainer = map[string]*apicontainer.DockerContainer{
 		taskARN: dockerContainer,
 	}
 	labels = map[string]string{
@@ -246,8 +250,8 @@ func TestTaskStats(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	dockerStats := &docker.Stats{NumProcs: 2}
-	containerMap := map[string]*api.DockerContainer{
-		containerName: &api.DockerContainer{
+	containerMap := map[string]*apicontainer.DockerContainer{
+		containerName: &apicontainer.DockerContainer{
 			DockerID: containerID,
 		},
 	}

@@ -39,13 +39,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/taskmetadata"
-	"github.com/aws/amazon-ecs-agent/agent/resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -102,8 +103,9 @@ type ecsAgent struct {
 	subnet                string
 	mac                   string
 	metadataManager       containermetadata.Manager
-	resource              resources.Resource
 	terminationHandler    sighandlers.TerminationHandler
+	mobyPlugins           mobypkgwrapper.Plugins
+	resourceFields        *taskresource.ResourceFields
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -166,8 +168,8 @@ func newAgent(
 		}),
 		os:                 oswrapper.New(),
 		metadataManager:    metadataManager,
-		resource:           resources.New(),
 		terminationHandler: sighandlers.StartDefaultTerminationHandler,
+		mobyPlugins:        mobypkgwrapper.NewPlugins(),
 	}, nil
 }
 
@@ -199,6 +201,9 @@ func (agent *ecsAgent) start() int {
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
+	if agent.cfg.TaskCPUMemLimit.Enabled() {
+		agent.initializeResourceFields()
+	}
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
 }
 
@@ -210,6 +215,14 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
 	client api.ECSClient) int {
+
+	// Conditionally create '/ecs' cgroup root
+	if agent.cfg.TaskCPUMemLimit.Enabled() {
+		if err := agent.cgroupInit(); err != nil {
+			seelog.Criticalf("Unable to initialize cgroup root for ECS: %v", err)
+			return exitcodes.ExitTerminal
+		}
+	}
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
@@ -224,22 +237,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
-	}
-
-	// Conditionally create '/ecs' cgroup root
-	if agent.cfg.TaskCPUMemLimit.Enabled() {
-		agent.resource.ApplyConfigDependencies(agent.cfg)
-		err = agent.resource.Init()
-		// When task CPU and memory limits are enabled, all tasks are placed
-		// under the '/ecs' cgroup root.
-		if err != nil {
-			if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
-				seelog.Criticalf("Unable to setup '/ecs' cgroup: %v", err)
-				return exitcodes.ExitTerminal
-			}
-			seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
-			agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
-		}
 	}
 
 	var vpcSubnetAttributes []*ecs.Attribute
@@ -313,13 +310,14 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resource), "", nil
+			agent.metadataManager, agent.resourceFields), "", nil
 	}
 
 	// We try to set these values by loading the existing state file first
 	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-		credentialsManager, containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource)
+		credentialsManager, containerChangeEventStream, imageManager, state,
+		agent.metadataManager, agent.resourceFields)
 
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
@@ -351,7 +349,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state, agent.metadataManager, agent.resource), currentEC2InstanceID, nil
+			containerChangeEventStream, imageManager, state, agent.metadataManager,
+			agent.resourceFields), currentEC2InstanceID, nil
 	}
 
 	if previousCluster != "" {

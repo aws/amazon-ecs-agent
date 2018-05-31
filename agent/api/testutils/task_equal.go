@@ -13,11 +13,13 @@
 
 package testutils
 
-import "github.com/aws/amazon-ecs-agent/agent/api"
+import (
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+)
 
 // TasksEqual determines if the lhs and rhs tasks are equal for the definition
 // of having the same family, version, statuses, and equal containers.
-func TasksEqual(lhs, rhs *api.Task) bool {
+func TasksEqual(lhs, rhs *apitask.Task) bool {
 	if lhs == rhs {
 		return true
 	}

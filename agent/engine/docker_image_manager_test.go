@@ -1,4 +1,5 @@
-// +build !integration
+// +build unit
+
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -22,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -53,7 +54,7 @@ func TestImagePullRemoveDeadlock(t *testing.T) {
 	imageManager := NewImageManager(cfg, client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	sleepContainer := &api.Container{
+	sleepContainer := &apicontainer.Container{
 		Name:  "sleep",
 		Image: "busybox",
 	}
@@ -95,7 +96,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -147,7 +148,7 @@ func TestRecordContainerReferenceInspectError(t *testing.T) {
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -181,7 +182,7 @@ func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -220,7 +221,7 @@ func TestAddInvalidContainerReferenceToImageState(t *testing.T) {
 	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Image: "",
 	}
 	err := imageManager.RecordContainerReference(container)
@@ -235,7 +236,7 @@ func TestAddContainerReferenceToExistingImageState(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageID := "sha256:qwerty"
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:    "testContainer",
 		Image:   "testContainerImage",
 		ImageID: imageID,
@@ -271,7 +272,7 @@ func TestAddContainerReferenceToExistingImageStateNoState(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:    "testContainer",
 		Image:   "testContainerImage",
 		ImageID: "sha256:qwerty",
@@ -289,7 +290,7 @@ func TestAddContainerReferenceToNewImageState(t *testing.T) {
 	imageID := "sha256:qwerty"
 	var imageSize int64
 	imageSize = 18767
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:    "testContainer",
 		Image:   "testContainerImage",
 		ImageID: imageID,
@@ -309,7 +310,7 @@ func TestAddContainerReferenceToNewImageStateAddedState(t *testing.T) {
 	imageID := "sha256:qwerty"
 	var imageSize int64
 	imageSize = 18767
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:    "testContainer",
 		Image:   "testContainerImage",
 		ImageID: imageID,
@@ -346,7 +347,7 @@ func TestRemoveContainerReferenceFromInvalidImageState(t *testing.T) {
 	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Image: "myContainerImage",
 	}
 	imageInspected := &docker.Image{
@@ -367,7 +368,7 @@ func TestRemoveInvalidContainerReferenceFromImageState(t *testing.T) {
 	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Image: "",
 	}
 	err := imageManager.RemoveContainerReferenceFromImageState(container)
@@ -384,7 +385,7 @@ func TestRemoveContainerReferenceFromImageStateInspectError(t *testing.T) {
 	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Image: "myContainerImage",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(nil, errors.New("error inspecting")).AnyTimes()
@@ -408,7 +409,7 @@ func TestRemoveContainerReferenceFromImageStateWithNoReference(t *testing.T) {
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -489,7 +490,7 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -530,11 +531,11 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	container2 := &api.Container{
+	container2 := &apicontainer.Container{
 		Name:  "testContainer2",
 		Image: "testContainerImage",
 	}
@@ -657,7 +658,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -673,7 +674,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 	if err != nil {
 		t.Error("Error in adding container to an existing image state")
 	}
-	container1 := &api.Container{
+	container1 := &apicontainer.Container{
 		Name:  "testContainer1",
 		Image: "testContainerImage",
 	}
@@ -708,7 +709,7 @@ func TestImageCleanupHappyPath(t *testing.T) {
 	}
 
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -760,7 +761,7 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 	}
 
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -813,7 +814,7 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 	}
 
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -855,7 +856,7 @@ func TestDeleteImage(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -886,7 +887,7 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -918,7 +919,7 @@ func TestDeleteImageOtherRemoveImageErrors(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -986,7 +987,7 @@ func TestGetImageStateFromImageName(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -1010,7 +1011,7 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
@@ -1044,7 +1045,7 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 	}
 
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}

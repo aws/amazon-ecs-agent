@@ -21,7 +21,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -52,10 +53,8 @@ func (m *MockTaskEngine) EXPECT() *MockTaskEngineMockRecorder {
 }
 
 // AddTask mocks base method
-func (m *MockTaskEngine) AddTask(arg0 *api.Task) error {
-	ret := m.ctrl.Call(m, "AddTask", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (m *MockTaskEngine) AddTask(arg0 *task.Task) {
+	m.ctrl.Call(m, "AddTask", arg0)
 }
 
 // AddTask indicates an expected call of AddTask
@@ -74,9 +73,9 @@ func (mr *MockTaskEngineMockRecorder) Disable() *gomock.Call {
 }
 
 // GetTaskByArn mocks base method
-func (m *MockTaskEngine) GetTaskByArn(arg0 string) (*api.Task, bool) {
+func (m *MockTaskEngine) GetTaskByArn(arg0 string) (*task.Task, bool) {
 	ret := m.ctrl.Call(m, "GetTaskByArn", arg0)
-	ret0, _ := ret[0].(*api.Task)
+	ret0, _ := ret[0].(*task.Task)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -99,9 +98,9 @@ func (mr *MockTaskEngineMockRecorder) Init(arg0 interface{}) *gomock.Call {
 }
 
 // ListTasks mocks base method
-func (m *MockTaskEngine) ListTasks() ([]*api.Task, error) {
+func (m *MockTaskEngine) ListTasks() ([]*task.Task, error) {
 	ret := m.ctrl.Call(m, "ListTasks")
-	ret0, _ := ret[0].([]*api.Task)
+	ret0, _ := ret[0].([]*task.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -228,7 +227,7 @@ func (mr *MockImageManagerMockRecorder) GetImageStateFromImageName(arg0 interfac
 }
 
 // RecordContainerReference mocks base method
-func (m *MockImageManager) RecordContainerReference(arg0 *api.Container) error {
+func (m *MockImageManager) RecordContainerReference(arg0 *container.Container) error {
 	ret := m.ctrl.Call(m, "RecordContainerReference", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -240,7 +239,7 @@ func (mr *MockImageManagerMockRecorder) RecordContainerReference(arg0 interface{
 }
 
 // RemoveContainerReferenceFromImageState mocks base method
-func (m *MockImageManager) RemoveContainerReferenceFromImageState(arg0 *api.Container) error {
+func (m *MockImageManager) RemoveContainerReferenceFromImageState(arg0 *container.Container) error {
 	ret := m.ctrl.Call(m, "RemoveContainerReferenceFromImageState", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

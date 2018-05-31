@@ -16,7 +16,8 @@ package v2
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/aws-sdk-go/aws"
@@ -58,7 +59,7 @@ type ContainerResponse struct {
 	FinishedAt    *time.Time `json:",omitempty"`
 	Type          string
 	Networks      []containermetadata.Network `json:",omitempty"`
-	Health        *api.HealthStatus           `json:",omitempty"`
+	Health        *apicontainer.HealthStatus  `json:",omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -150,8 +151,8 @@ func NewContainerResponse(containerID string,
 	return &resp, nil
 }
 
-func newContainerResponse(dockerContainer *api.DockerContainer,
-	eni *api.ENI,
+func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
+	eni *apieni.ENI,
 	state dockerstate.TaskEngineState) ContainerResponse {
 	container := dockerContainer.Container
 	resp := ContainerResponse{

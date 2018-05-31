@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -72,7 +74,7 @@ func discardEvents(from interface{}) func() {
 
 // TODO: Move integ tests away from relying on the statechange channel for
 // determining if a task is running/stopped or not
-func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *api.Task) error {
+func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apitask.Task) error {
 	for {
 		event := <-stateChangeEvents
 		if event.GetEventType() != statechange.TaskEvent {
@@ -83,32 +85,32 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *api.T
 		if taskEvent.TaskARN != task.Arn {
 			continue
 		}
-		if taskEvent.Status == api.TaskRunning {
+		if taskEvent.Status == apitask.TaskRunning {
 			return nil
 		}
-		if taskEvent.Status > api.TaskRunning {
+		if taskEvent.Status > apitask.TaskRunning {
 			return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
 		}
 	}
 }
 
-func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *api.Task) {
+func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apitask.Task) {
 	for {
 		event := <-stateChangeEvents
 		if event.GetEventType() != statechange.TaskEvent {
 			continue
 		}
 		taskEvent := event.(api.TaskStateChange)
-		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= api.TaskStopped {
+		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= apitask.TaskStopped {
 			return
 		}
 	}
 }
 
 // waitForTaskStoppedByCheckStatus verify the task is in stopped status by checking the KnownStatusUnsafe field of the task
-func waitForTaskStoppedByCheckStatus(task *api.Task) {
+func waitForTaskStoppedByCheckStatus(task *apitask.Task) {
 	for {
-		if task.GetKnownStatus() == api.TaskStopped {
+		if task.GetKnownStatus() == apitask.TaskStopped {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -123,8 +125,8 @@ func waitForTaskStoppedByCheckStatus(task *api.Task) {
 // removed matches with the generated container name during cleanup operation in the
 // test.
 func validateContainerRunWorkflow(t *testing.T,
-	container *api.Container,
-	task *api.Task,
+	container *apicontainer.Container,
+	task *apitask.Task,
 	imageManager *mock_engine.MockImageManager,
 	client *mock_dockerapi.MockDockerClient,
 	roleCredentials *credentials.TaskIAMRoleCredentials,
@@ -162,7 +164,7 @@ func validateContainerRunWorkflow(t *testing.T,
 			createdContainerName <- containerName
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(api.ContainerCreated)
+				eventStream <- createDockerEvent(apicontainer.ContainerCreated)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -171,7 +173,7 @@ func validateContainerRunWorkflow(t *testing.T,
 		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(api.ContainerRunning)
+				eventStream <- createDockerEvent(apicontainer.ContainerRunning)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -184,7 +186,7 @@ func validateContainerRunWorkflow(t *testing.T,
 func addTaskToEngine(t *testing.T,
 	ctx context.Context,
 	taskEngine TaskEngine,
-	sleepTask *api.Task,
+	sleepTask *apitask.Task,
 	mockTime *mock_ttime.MockTime,
 	createStartEventsReported sync.WaitGroup) {
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
@@ -205,7 +207,7 @@ func addTaskToEngine(t *testing.T,
 	createStartEventsReported.Wait()
 }
 
-func createDockerEvent(status api.ContainerStatus) dockerapi.DockerContainerChangeEvent {
+func createDockerEvent(status apicontainer.ContainerStatus) dockerapi.DockerContainerChangeEvent {
 	meta := dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}
@@ -216,11 +218,11 @@ func createDockerEvent(status api.ContainerStatus) dockerapi.DockerContainerChan
 // and the task
 func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Event) {
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning,
 		"Expected container to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning,
 		"Expected task to be RUNNING")
 
 	select {
@@ -234,14 +236,14 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 // and the task
 func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool) {
 	event := <-stateChangeEvents
-	if cont := event.(api.ContainerStateChange); cont.Status != api.ContainerStopped {
+	if cont := event.(api.ContainerStateChange); cont.Status != apicontainer.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		if verifyExitCode {
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
 		}
 	}
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
 
 	select {
 	case <-stateChangeEvents:
@@ -250,7 +252,7 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	}
 }
 
-func waitForContainerHealthStatus(t *testing.T, testTask *api.Task) {
+func waitForContainerHealthStatus(t *testing.T, testTask *apitask.Task) {
 	ctx, cancel := context.WithTimeout(context.TODO(), waitTaskStateChangeDuration)
 	defer cancel()
 

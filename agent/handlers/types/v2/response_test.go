@@ -1,3 +1,5 @@
+// +build unit
+
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -19,7 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -46,14 +50,14 @@ func TestTaskResponse(t *testing.T) {
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	now := time.Now()
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: api.TaskRunning,
-		KnownStatusUnsafe:   api.TaskRunning,
-		ENI: &api.ENI{
-			IPV4Addresses: []*api.ENIIPV4Address{
+		DesiredStatusUnsafe: apitask.TaskRunning,
+		KnownStatusUnsafe:   apitask.TaskRunning,
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
 					Address: eniIPv4Address,
 				},
@@ -65,19 +69,19 @@ func TestTaskResponse(t *testing.T) {
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
 	}
-	container := &api.Container{
+	container := &apicontainer.Container{
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: api.ContainerRunning,
-		KnownStatusUnsafe:   api.ContainerRunning,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainer.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
-		Type:                api.ContainerNormal,
-		Ports: []api.PortBinding{
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      api.TransportProtocolTCP,
+				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
 	}
@@ -87,8 +91,8 @@ func TestTaskResponse(t *testing.T) {
 		"foo": "bar",
 	}
 	container.SetLabels(labels)
-	containerNameToDockerContainer := map[string]*api.DockerContainer{
-		taskARN: &api.DockerContainer{
+	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
+		taskARN: &apicontainer.DockerContainer{
 			DockerID:   containerID,
 			DockerName: containerName,
 			Container:  container,
@@ -128,24 +132,24 @@ func TestContainerResponse(t *testing.T) {
 			defer ctrl.Finish()
 
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-			container := &api.Container{
+			container := &apicontainer.Container{
 				Name:                containerName,
 				Image:               imageName,
 				ImageID:             imageID,
-				DesiredStatusUnsafe: api.ContainerRunning,
-				KnownStatusUnsafe:   api.ContainerRunning,
+				DesiredStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe:   apicontainer.ContainerRunning,
 				CPU:                 cpu,
 				Memory:              memory,
-				Type:                api.ContainerNormal,
+				Type:                apicontainer.ContainerNormal,
 				HealthCheckType:     tc.healthCheckType,
-				Health: api.HealthStatus{
-					Status: api.ContainerHealthy,
+				Health: apicontainer.HealthStatus{
+					Status: apicontainer.ContainerHealthy,
 					Since:  aws.Time(time.Now()),
 				},
-				Ports: []api.PortBinding{
+				Ports: []apicontainer.PortBinding{
 					{
 						ContainerPort: 80,
-						Protocol:      api.TransportProtocolTCP,
+						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
 			}
@@ -155,14 +159,14 @@ func TestContainerResponse(t *testing.T) {
 				"foo": "bar",
 			}
 			container.SetLabels(labels)
-			dockerContainer := &api.DockerContainer{
+			dockerContainer := &apicontainer.DockerContainer{
 				DockerID:   containerID,
 				DockerName: containerName,
 				Container:  container,
 			}
-			task := &api.Task{
-				ENI: &api.ENI{
-					IPV4Addresses: []*api.ENIIPV4Address{
+			task := &apitask.Task{
+				ENI: &apieni.ENI{
+					IPV4Addresses: []*apieni.ENIIPV4Address{
 						{
 							Address: eniIPv4Address,
 						},
