@@ -244,7 +244,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
 		scope := taskresourcevolume.TaskScope
 		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName,
-			vol.SourcePath(), scope, false,
+			vol.Source(), scope, false,
 			taskresourcevolume.DockerLocalVolumeDriver,
 			make(map[string]string), make(map[string]string), dockerClient)
 
@@ -357,7 +357,7 @@ func (task *Task) ContainerByName(name string) (*apicontainer.Container, bool) {
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
 // task. The second return value indicates the presence of that volume
-func (task *Task) HostVolumeByName(name string) (taskresourcevolume.HostVolume, bool) {
+func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
 			return v.Volume, true
@@ -809,14 +809,15 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 			return []string{}, errors.New("Invalid volume referenced: " + mountPoint.SourceVolume)
 		}
 
-		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
+		if hv.Source() == "" || mountPoint.ContainerPath == "" {
 			seelog.Errorf(
 				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s] in task: [%s]",
-				container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath, task.String())
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath, task.String())
+			return []string{}, errors.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s",
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 		}
 
-		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
+		bind := hv.Source() + ":" + mountPoint.ContainerPath
 		if mountPoint.ReadOnly {
 			bind += ":ro"
 		}

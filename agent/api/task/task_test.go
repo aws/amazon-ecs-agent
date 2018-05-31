@@ -523,8 +523,6 @@ func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
 	}
 }
 
-// TODO: UT for PostUnmarshalTask, etc
-
 func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{
@@ -555,10 +553,12 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr(emptyVolumeName1),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 			{
 				Name: strptr(emptyVolumeName2),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 		},
@@ -650,6 +650,7 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("volName"),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr("/host/path"),
 				},
@@ -716,6 +717,7 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []TaskVolume{
 			{
 				Name: "volName",
+				Type: "host",
 				Volume: &taskresourcevolume.FSHostVolume{
 					FSSourcePath: "/host/path",
 				},

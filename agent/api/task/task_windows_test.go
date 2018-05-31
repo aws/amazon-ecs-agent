@@ -70,6 +70,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("sourceVolume"),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr(`C:/Host/path`),
 				},
@@ -96,6 +97,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Volumes: []TaskVolume{
 			{
 				Name: "sourceVolume",
+				Type: "host",
 				Volume: &taskresourcevolume.FSHostVolume{
 					FSSourcePath: `c:\host\path`,
 				},

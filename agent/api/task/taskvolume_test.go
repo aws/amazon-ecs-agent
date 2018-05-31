@@ -20,51 +20,50 @@ import (
 	"testing"
 
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
 		Volumes: []TaskVolume{
-			TaskVolume{Name: "1", Volume: &taskresourcevolume.LocalDockerVolume{}},
-			TaskVolume{Name: "2", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
+			TaskVolume{Name: "1", Type: HostVolumeType, Volume: &taskresourcevolume.LocalDockerVolume{}},
+			TaskVolume{Name: "2", Type: HostVolumeType, Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
+			TaskVolume{Name: "3", Type: DockerVolumeType, Volume: &taskresourcevolume.DockerVolumeConfig{Scope: "task", Driver: "local"}},
 		},
 	}
 
 	marshal, err := json.Marshal(task)
-	if err != nil {
-		t.Fatal("Could not marshal: ", err)
-	}
+	require.NoError(t, err, "Could not marshal task")
 
 	var out Task
 	err = json.Unmarshal(marshal, &out)
-	if err != nil {
-		t.Fatal("Could not unmarshal: ", err)
-	}
+	require.NoError(t, err, "Could not unmarshal task")
+	require.Len(t, out.Volumes, 3, "Incorrect number of volumes")
 
-	if len(out.Volumes) != 2 {
-		t.Fatal("Incorrect number of volumes")
-	}
-
-	var v1, v2 TaskVolume
+	var v1, v2, v3 TaskVolume
 
 	for _, v := range out.Volumes {
-		if v.Name == "1" {
+		switch v.Name {
+		case "1":
 			v1 = v
-		} else {
+		case "2":
 			v2 = v
+		case "3":
+			v3 = v
 		}
 	}
 
-	if _, ok := v1.Volume.(*taskresourcevolume.LocalDockerVolume); !ok {
-		t.Error("Expected v1 to be an empty volume")
-	}
+	_, ok := v1.Volume.(*taskresourcevolume.LocalDockerVolume)
+	assert.True(t, ok, "Expected v1 to be local empty volume")
+	assert.Equal(t, "/path", v2.Volume.Source(), "Expected v2 to have 'sourcepath' work correctly")
+	_, ok = v2.Volume.(*taskresourcevolume.FSHostVolume)
+	assert.True(t, ok, "Expected v2 to be host volume")
+	assert.Equal(t, "/path", v2.Volume.(*taskresourcevolume.FSHostVolume).FSSourcePath, "Unmarshaled v2 didn't match marshalled v2")
 
-	if v2.Volume.SourcePath() != "/path" {
-		t.Error("Expected v2 to have 'sourcepath' work correctly")
-	}
-	fs, ok := v2.Volume.(*taskresourcevolume.FSHostVolume)
-	if !ok || fs.FSSourcePath != "/path" {
-		t.Error("Unmarshaled v2 didn't match marshalled v2")
-	}
+	dockerVolume, ok := v3.Volume.(*taskresourcevolume.DockerVolumeConfig)
+	assert.True(t, ok, "incorrect DockerVolumeConfig type")
+	assert.Equal(t, "task", dockerVolume.Scope)
+	assert.Equal(t, "local", dockerVolume.Driver)
 }
