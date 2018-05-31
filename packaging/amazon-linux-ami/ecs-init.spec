@@ -183,10 +183,10 @@ install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 %{_sysconfdir}/init/ecs.conf
 %endif
 
-%if %{with systemd}
 %post
 # Symlink the bundled ECS Agent at loadable path.
 ln -sf ecs-agent-v%{bundled_agent_version}.tar %{_cachedir}/ecs/ecs-agent.tar
+%if %{with systemd}
 %systemd_post ecs
 
 %postun
