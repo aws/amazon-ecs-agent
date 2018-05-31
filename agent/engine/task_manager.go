@@ -609,7 +609,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	switch event.Status {
 	// event.Status is the desired container transition from container's known status
 	// (* -> event.Status)
-	case api.ContainerPulled:
+	case apicontainer.ContainerPulled:
 		// If the agent pull behavior is always or once, we receive the error because
 		// the image pull fails, the task should fail. If we don't fail task here,
 		// then the cached image will probably be used for creating container, and we
@@ -620,7 +620,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 				mtask.Arn, container.Image, container.Name, event.Error)
 			// The task should be stopped regardless of whether this container is
 			// essential or non-essential.
-			mtask.SetDesiredStatus(api.TaskStopped)
+			mtask.SetDesiredStatus(apitask.TaskStopped)
 			return false
 		}
 		// If the agent pull behavior is prefer-cached, we receive the error because

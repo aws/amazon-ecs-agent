@@ -72,7 +72,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	clientFactory := clientfactory.NewFactory(dockerEndpoint)
+	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
@@ -91,4 +91,16 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
+}
+
+func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
+	return &apicontainer.Container{
+		Name:                name,
+		Image:               image,
+		Command:             []string{},
+		Essential:           true,
+		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		CPU:                 100,
+		Memory:              80,
+	}
 }

@@ -1383,12 +1383,12 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 			taskEngine.SetSaver(saver)
 			taskEngine._time = nil
 			imageName := "image"
-			container := &api.Container{
-				Type:  api.ContainerNormal,
+			container := &apicontainer.Container{
+				Type:  apicontainer.ContainerNormal,
 				Image: imageName,
 			}
-			task := &api.Task{
-				Containers: []*api.Container{container},
+			task := &apitask.Task{
+				Containers: []*apicontainer.Container{container},
 			}
 			imageState := &image.ImageState{
 				Image:         &image.Image{ImageID: "id"},
@@ -1416,12 +1416,12 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithCachedImage(t *testing.T)
 	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerNormal,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerNormal,
 		Image: imageName,
 	}
-	task := &api.Task{
-		Containers: []*api.Container{container},
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{container},
 	}
 	imageState := &image.ImageState{
 		Image: &image.Image{ImageID: "id"},
@@ -1444,12 +1444,12 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing
 	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerNormal,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerNormal,
 		Image: imageName,
 	}
-	task := &api.Task{
-		Containers: []*api.Container{container},
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{container},
 	}
 	imageState := &image.ImageState{
 		Image: &image.Image{ImageID: "id"},
@@ -1473,12 +1473,12 @@ func TestUpdateContainerReference(t *testing.T) {
 	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
-	container := &api.Container{
-		Type:  api.ContainerNormal,
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerNormal,
 		Image: imageName,
 	}
-	task := &api.Task{
-		Containers: []*api.Container{container},
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{container},
 	}
 	imageState := &image.ImageState{
 		Image: &image.Image{ImageID: "id"},
@@ -1571,9 +1571,9 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	// Configure the task and container to use execution role
 	testTask.SetExecutionRoleCredentialsID(credentialsID)
-	testTask.Containers[0].RegistryAuthentication = &api.RegistryAuthenticationData{
+	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			UseExecutionRole: true,
 		},
 	}
@@ -1585,7 +1585,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 		IAMRoleCredentials: executionRoleCredentials,
 	}, true)
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
-		func(image string, auth *api.RegistryAuthenticationData) {
+		func(image string, auth *apicontainer.RegistryAuthenticationData) {
 			assert.Equal(t, container.Image, image)
 			assert.Equal(t, auth.ECRAuthData.GetPullCredentials(), executionRoleCredentials)
 		}).Return(dockerapi.DockerContainerMetadata{})

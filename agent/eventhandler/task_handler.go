@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"

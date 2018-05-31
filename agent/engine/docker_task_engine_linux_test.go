@@ -81,7 +81,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	// events are processed
 	containerEventsWG := sync.WaitGroup{}
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	gomock.InOrder(
@@ -92,7 +92,7 @@ func TestResourceContainerProgression(t *testing.T) {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
 		client.EXPECT().PullImage(sleepContainer.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
 		imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
-		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil),
+		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
@@ -186,7 +186,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepTask.AddResource("cgroup", cgroupResource)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version()
+		client.EXPECT().Version(gomock.Any(), gomock.Any())
 	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	gomock.InOrder(
@@ -250,7 +250,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			containerEventsWG := sync.WaitGroup{}
 
 			if dockerVersionCheckDuringInit {
-				client.EXPECT().Version().Return("1.12.6", nil)
+				client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.12.6", nil)
 			}
 			client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 			containerName := make(chan string)

@@ -228,7 +228,7 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) 
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 string, arg1 *api.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) PullImage(arg0 string, arg1 *container.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "PullImage", arg0, arg1)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0

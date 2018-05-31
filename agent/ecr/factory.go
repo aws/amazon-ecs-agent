@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
@@ -30,7 +30,7 @@ import (
 
 // ECRFactory defines the interface to produce an ECR SDK client
 type ECRFactory interface {
-	GetClient(*api.ECRAuthData) (ECRClient, error)
+	GetClient(*apicontainer.ECRAuthData) (ECRClient, error)
 }
 
 type ecrFactory struct {
@@ -49,7 +49,7 @@ func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 }
 
 // GetClient creates the ECR SDK client based on the authdata
-func (factory *ecrFactory) GetClient(authData *api.ECRAuthData) (ECRClient, error) {
+func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRClient, error) {
 	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(factory.httpClient)
 	if authData.EndpointOverride != "" {
 		cfg.Region = aws.String(authData.EndpointOverride)

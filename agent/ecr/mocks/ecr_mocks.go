@@ -20,7 +20,7 @@ package mock_ecr
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecr0 "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	gomock "github.com/golang/mock/gomock"
@@ -86,7 +86,7 @@ func (m *MockECRFactory) EXPECT() *MockECRFactoryMockRecorder {
 }
 
 // GetClient mocks base method
-func (m *MockECRFactory) GetClient(arg0 *api.ECRAuthData) (ecr.ECRClient, error) {
+func (m *MockECRFactory) GetClient(arg0 *container.ECRAuthData) (ecr.ECRClient, error) {
 	ret := m.ctrl.Call(m, "GetClient", arg0)
 	ret0, _ := ret[0].(ecr.ECRClient)
 	ret1, _ := ret[1].(error)

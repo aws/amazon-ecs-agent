@@ -21,7 +21,6 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/aws-sdk-go/aws"
 )

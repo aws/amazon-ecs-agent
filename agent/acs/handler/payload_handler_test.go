@@ -668,9 +668,9 @@ func TestPayloadHandlerAddedECRAuthData(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()
 
-	var addedTask *api.Task
+	var addedTask *apitask.Task
 	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
-		func(task *api.Task) {
+		func(task *apitask.Task) {
 			addedTask = task
 		})
 
@@ -713,9 +713,9 @@ func TestPayloadHandlerAddedASMAuthData(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()
 
-	var addedTask *api.Task
+	var addedTask *apitask.Task
 	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
-		func(task *api.Task) {
+		func(task *apitask.Task) {
 			addedTask = task
 		})
 

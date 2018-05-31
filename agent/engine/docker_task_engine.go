@@ -265,8 +265,8 @@ func (engine *DockerTaskEngine) Disable() {
 
 // isTaskManaged checks if task for the corresponding arn is present
 func (engine *DockerTaskEngine) isTaskManaged(arn string) bool {
-	engine.processTasks.RLock()
-	defer engine.processTasks.RUnlock()
+	engine.tasksLock.RLock()
+	defer engine.tasksLock.RUnlock()
 	_, ok := engine.managedTasks[arn]
 	return ok
 }
@@ -499,7 +499,7 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string)
 
 // startTask creates a managedTask construct to track the task and then begins
 // pushing it towards its desired state when allowed startTask is protected by
-// the processTasks lock of 'AddTask'. It should not be called from anywhere
+// the tasksLock lock of 'AddTask'. It should not be called from anywhere
 // else and should exit quickly to allow AddTask to do more work.
 func (engine *DockerTaskEngine) startTask(task *apitask.Task) {
 	// Create a channel that may be used to communicate with this task, survey
@@ -682,7 +682,7 @@ func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *api
 // should be used, by inspecting the agent pull behavior variable defined in config. The caller has
 // to make sure the container passed in is not an internal container.
 func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.ImagePullBehaviorType,
-	container *api.Container,
+	container *apicontainer.Container,
 	taskArn string) bool {
 	switch imagePullBehavior {
 	case config.ImagePullOnceBehavior:
@@ -801,7 +801,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	return metadata
 }
 
-func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *api.Container, taskArn string) {
+func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *apicontainer.Container, taskArn string) {
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Unable to add container reference to image state: %v",
@@ -1105,7 +1105,7 @@ func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *a
 
 // updateTaskUnsafe determines if a new transition needs to be applied to the
 // referenced task, and if needed applies it. It should not be called anywhere
-// but from 'AddTask' and is protected by the processTasks lock there.
+// but from 'AddTask' and is protected by the tasksLock lock there.
 func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *apitask.Task) {
 	managedTask, ok := engine.managedTasks[task.Arn]
 	if !ok {

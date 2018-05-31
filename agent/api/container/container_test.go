@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"

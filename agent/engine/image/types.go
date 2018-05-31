@@ -53,8 +53,8 @@ type ImageState struct {
 
 // UpdateContainerReference updates container reference in image state
 func (imageState *ImageState) UpdateContainerReference(container *apicontainer.Container) {
-	imageState.updateLock.Lock()
-	defer imageState.updateLock.Unlock()
+	imageState.lock.Lock()
+	defer imageState.lock.Unlock()
 	seelog.Infof("Updating container reference %v in Image State - %v", container.Name, imageState.Image.ImageID)
 	imageState.Containers = append(imageState.Containers, container)
 }

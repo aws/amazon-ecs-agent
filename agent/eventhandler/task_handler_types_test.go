@@ -231,52 +231,52 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 }
 
 func TestSetTaskSentStatus(t *testing.T) {
-	testContainer := &api.Container{}
-	testTask := &api.Task{}
+	testContainer := &apicontainer.Container{}
+	testTask := &apitask.Task{}
 
 	taskRunningStateChange := newSendableTaskEvent(api.TaskStateChange{
-		Status: api.TaskRunning,
+		Status: apitask.TaskRunning,
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    api.ContainerRunning,
+				Status:    apicontainer.ContainerRunning,
 				Container: testContainer,
 			},
 		},
 	})
 	taskStoppedStateChange := newSendableTaskEvent(api.TaskStateChange{
-		Status: api.TaskStopped,
+		Status: apitask.TaskStopped,
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    api.ContainerStopped,
+				Status:    apicontainer.ContainerStopped,
 				Container: testContainer,
 			},
 		},
 	})
 
 	setTaskChangeSent(taskStoppedStateChange)
-	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testTask.GetSentStatus(), apitask.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainer.ContainerStopped)
 	setTaskChangeSent(taskRunningStateChange)
-	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testTask.GetSentStatus(), apitask.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainer.ContainerStopped)
 }
 
 func TestSetContainerSentStatus(t *testing.T) {
-	testContainer := &api.Container{}
+	testContainer := &apicontainer.Container{}
 
 	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    api.ContainerRunning,
+		Status:    apicontainer.ContainerRunning,
 		Container: testContainer,
 	})
 	containerStoppedStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    api.ContainerStopped,
+		Status:    apicontainer.ContainerStopped,
 		Container: testContainer,
 	})
 
 	setContainerChangeSent(containerStoppedStateChange)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainer.ContainerStopped)
 	setContainerChangeSent(containerRunningStateChange)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainer.ContainerStopped)
 }

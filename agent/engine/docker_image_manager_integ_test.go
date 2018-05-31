@@ -27,7 +27,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"

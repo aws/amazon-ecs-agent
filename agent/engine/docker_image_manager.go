@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"context"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"

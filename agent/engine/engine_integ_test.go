@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -57,43 +58,6 @@ func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manag
 
 func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfigIntegTest(), state, t)
-}
-
-func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
-	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
-	if err != nil {
-		t.Fatalf("Error creating Docker client: %v", err)
-	}
-	credentialsManager := credentials.NewManager()
-	if state == nil {
-		state = dockerstate.NewTaskEngineState()
-	}
-	imageManager := NewImageManager(cfg, dockerClient, state)
-	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	metadataManager := containermetadata.NewManager(dockerClient, cfg)
-	resource := resources.New()
-	resource.ApplyConfigDependencies(cfg)
-
-	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, resource)
-	taskEngine.MustInit(context.TODO())
-	return taskEngine, func() {
-		taskEngine.Shutdown()
-	}, credentialsManager
-}
-
-func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning,
-		"Expected container to be RUNNING")
 }
 
 func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
@@ -301,7 +265,7 @@ func TestTaskStopWhenPullImageFail(t *testing.T) {
 	testTask := createTestTask("testTaskStopWhenPullImageFail")
 	// Assign an invalid image to the task, and verify the task fails
 	// when the pull image behavior is "always".
-	testTask.Containers = []*api.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
+	testTask.Containers = []*apicontainer.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
 
 	go taskEngine.AddTask(testTask)
 

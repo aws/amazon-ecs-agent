@@ -31,18 +31,6 @@ func createTestContainer() *apicontainer.Container {
 	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
 }
 
-func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
-	return &apicontainer.Container{
-		Name:                name,
-		Image:               image,
-		Command:             []string{},
-		Essential:           true,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
-		CPU:                 100,
-		Memory:              80,
-	}
-}
-
 func isDockerRunning() bool {
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		return false
