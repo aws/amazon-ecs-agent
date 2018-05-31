@@ -39,7 +39,7 @@ func TestVolumesFromUnmarshal(t *testing.T) {
 
 func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 	var task Task
-	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","host":{}}]}`), &task)
+	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","type": "host","host":{}}]}`), &task)
 	if err != nil {
 		t.Fatal("Could not unmarshal: ", err)
 	}
@@ -48,7 +48,7 @@ func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 	}
 	if fs, ok := task.Volumes[0].Volume.(*taskresourcevolume.LocalDockerVolume); !ok {
 		t.Error("Wrong type")
-		if fs.SourcePath() != "" {
+		if fs.Source() != "" {
 			t.Error("Should default to empty string")
 		}
 	}
@@ -56,7 +56,7 @@ func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 
 func TestHostHostVolumeUnmarshal(t *testing.T) {
 	var task Task
-	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","host":{"sourcePath":"/path"}}]}`), &task)
+	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","type": "host","host":{"sourcePath":"/path"}}]}`), &task)
 	if err != nil {
 		t.Fatal("Could not unmarshal: ", err)
 	}
@@ -66,7 +66,7 @@ func TestHostHostVolumeUnmarshal(t *testing.T) {
 	fsv, ok := task.Volumes[0].Volume.(*taskresourcevolume.FSHostVolume)
 	if !ok {
 		t.Error("Wrong type")
-	} else if fsv.SourcePath() != "/path" {
-		t.Error("Wrong host path: ", fsv.SourcePath())
+	} else if fsv.Source() != "/path" {
+		t.Error("Wrong host path: ", fsv.Source())
 	}
 }

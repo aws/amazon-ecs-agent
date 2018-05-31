@@ -13,10 +13,10 @@
 
 package volume
 
-// HostVolume is an interface for something that may be used as the host half of a
+// Volume is an interface for something that may be used as the host half of a
 // docker volume mount
-type HostVolume interface {
-	SourcePath() string
+type Volume interface {
+	Source() string
 }
 
 // FSHostVolume is a simple type of HostVolume which references an arbitrary
@@ -26,7 +26,7 @@ type FSHostVolume struct {
 }
 
 // SourcePath returns the path on the host filesystem that should be mounted
-func (fs *FSHostVolume) SourcePath() string {
+func (fs *FSHostVolume) Source() string {
 	return fs.FSSourcePath
 }
 
@@ -38,6 +38,6 @@ type LocalDockerVolume struct {
 }
 
 // SourcePath returns the generated host path for the volume
-func (e *LocalDockerVolume) SourcePath() string {
+func (e *LocalDockerVolume) Source() string {
 	return e.HostPath
 }
