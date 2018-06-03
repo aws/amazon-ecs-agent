@@ -152,7 +152,10 @@ func (cs *ClientServerImpl) Connect() error {
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+	err = utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+	if err != nil {
+		return err
+	}
 
 	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
 	tlsConfig := &tls.Config{ServerName: parsedURL.Host, InsecureSkipVerify: cs.AgentConfig.AcceptInsecureCert}
