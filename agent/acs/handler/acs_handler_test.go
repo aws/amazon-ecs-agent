@@ -134,6 +134,8 @@ var testConfig = &config.Config{
 	AcceptInsecureCert: true,
 }
 
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+
 type mockSessionResources struct {
 	client wsclient.ClientServer
 }
@@ -222,7 +224,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
@@ -366,7 +368,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN:            "myArn",
-		credentialsProvider:             credentials.AnonymousCredentials,
+		credentialsProvider:             testCreds,
 		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
@@ -429,7 +431,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN:          "myArn",
-		credentialsProvider:           credentials.AnonymousCredentials,
+		credentialsProvider:           testCreds,
 		agentConfig:                   testConfig,
 		taskEngine:                    taskEngine,
 		ecsClient:                     ecsClient,
@@ -488,7 +490,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	inactiveInstanceReconnectDelay := 200 * time.Millisecond
 	acsSession := session{
 		containerInstanceARN:            "myArn",
-		credentialsProvider:             credentials.AnonymousCredentials,
+		credentialsProvider:             testCreds,
 		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
@@ -557,7 +559,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN:            "myArn",
-		credentialsProvider:             credentials.AnonymousCredentials,
+		credentialsProvider:             testCreds,
 		agentConfig:                     testConfig,
 		taskEngine:                      taskEngine,
 		ecsClient:                       ecsClient,
@@ -615,7 +617,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
@@ -666,7 +668,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
@@ -720,7 +722,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
@@ -793,7 +795,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	}).Return(nil)
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,
@@ -844,9 +846,10 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 
 	ended := make(chan bool, 1)
 	go func() {
+
 		acsSession := session{
 			containerInstanceARN: "myArn",
-			credentialsProvider:  credentials.AnonymousCredentials,
+			credentialsProvider:  testCreds,
 			agentConfig:          testConfig,
 			taskEngine:           taskEngine,
 			ecsClient:            ecsClient,
@@ -855,7 +858,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			ctx:                  ctx,
 			_heartbeatTimeout:    1 * time.Second,
 			backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-			resources:            newSessionResources(credentials.AnonymousCredentials),
+			resources:            newSessionResources(testCreds),
 			credentialsManager:   rolecredentials.NewManager(),
 		}
 		acsSession.Start()
@@ -932,7 +935,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			testConfig,
 			nil,
 			"myArn",
-			credentials.AnonymousCredentials,
+			testCreds,
 			ecsClient,
 			dockerstate.NewTaskEngineState(),
 			stateManager,
@@ -1031,7 +1034,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Serve().Return(io.EOF).AnyTimes()
-	resources := newSessionResources(credentials.AnonymousCredentials)
+	resources := newSessionResources(testCreds)
 	gomock.InOrder(
 		// When the websocket client connects to ACS for the first
 		// time, 'sendCredentials' should be set to true
@@ -1047,7 +1050,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 
 	acsSession := session{
 		containerInstanceARN: "myArn",
-		credentialsProvider:  credentials.AnonymousCredentials,
+		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
 		ecsClient:            ecsClient,

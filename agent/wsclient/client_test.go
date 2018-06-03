@@ -89,6 +89,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 
 func getClientServer(url string) *ClientServerImpl {
 	types := []interface{}{ecsacs.AckRequest{}}
+	testCreds := credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 	return &ClientServerImpl{
 		URL: url,
@@ -97,7 +98,7 @@ func getClientServer(url string) *ClientServerImpl {
 			AWSRegion:          "us-east-1",
 			DockerEndpoint:     "unix://" + dockerEndpoint,
 		},
-		CredentialProvider: credentials.AnonymousCredentials,
+		CredentialProvider: testCreds,
 		TypeDecoder:        BuildTypeDecoder(types),
 		RWTimeout:          time.Second,
 	}

@@ -114,19 +114,25 @@ func (cs *clientServer) MakeRequest(input interface{}) error {
 	}
 
 	seelog.Debugf("TCS client sending payload: %s", string(payload))
-	data := cs.signRequest(payload)
+	data, err := cs.signRequest(payload)
+	if err != nil {
+		return err
+	}
 
 	// Over the wire we send something like
 	// {"type":"AckRequest","message":{"messageId":"xyz"}}
 	return cs.WriteMessage(data)
 }
 
-func (cs *clientServer) signRequest(payload []byte) []byte {
-	reqBody := bytes.NewBuffer(payload)
+func (cs *clientServer) signRequest(payload []byte) ([]byte, error) {
+	reqBody := bytes.NewReader(payload)
 	// NewRequest never returns an error if the url parses and we just verified
 	// it did above
 	request, _ := http.NewRequest("GET", cs.URL, reqBody)
-	utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
+	err := utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
+	if err != nil {
+		return nil, err
+	}
 
 	request.Header.Add("Host", request.Host)
 	var dataBuffer bytes.Buffer
@@ -136,7 +142,7 @@ func (cs *clientServer) signRequest(payload []byte) []byte {
 	data := dataBuffer.Bytes()
 	data = append(data, payload...)
 
-	return data
+	return data, nil
 }
 
 // Close closes the underlying connection.
