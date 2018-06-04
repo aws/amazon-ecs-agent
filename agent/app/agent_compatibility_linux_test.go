@@ -1,6 +1,6 @@
-// +build linux
+// +build linux,unit
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,7 +19,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -49,7 +49,7 @@ func TestCompatibilityEnabledSuccess(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).AnyTimes(),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
 		stateManager.EXPECT().Load().AnyTimes(),
-		state.EXPECT().AllTasks().Return([]*api.Task{}),
+		state.EXPECT().AllTasks().Return([]*apitask.Task{}),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -123,10 +123,10 @@ func TestCompatibilityExplicitlyEnabledFail(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func getTaskListWithOneBadTask() []*api.Task {
-	oldtask := &api.Task{}
-	newtask := &api.Task{
+func getTaskListWithOneBadTask() []*apitask.Task {
+	oldtask := &apitask.Task{}
+	newtask := &apitask.Task{
 		MemoryCPULimitsEnabled: true,
 	}
-	return []*api.Task{oldtask, newtask}
+	return []*apitask.Task{oldtask, newtask}
 }

@@ -1,5 +1,6 @@
-//+build !integration
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//+build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,7 +24,7 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	docker "github.com/fsouza/go-dockerclient"
@@ -137,10 +138,10 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	closedChan := make(chan *docker.Stats)
 	close(closedChan)
 
-	mockContainer := &api.DockerContainer{
+	mockContainer := &apicontainer.DockerContainer{
 		DockerID: dockerID,
-		Container: &api.Container{
-			KnownStatusUnsafe: api.ContainerRunning,
+		Container: &apicontainer.Container{
+			KnownStatusUnsafe: apicontainer.ContainerRunning,
 		},
 	}
 	gomock.InOrder(
@@ -178,10 +179,10 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	close(closedChan)
 
 	statsErr := fmt.Errorf("test error")
-	mockContainer := &api.DockerContainer{
+	mockContainer := &apicontainer.DockerContainer{
 		DockerID: dockerID,
-		Container: &api.Container{
-			KnownStatusUnsafe: api.ContainerStopped,
+		Container: &apicontainer.Container{
+			KnownStatusUnsafe: apicontainer.ContainerStopped,
 		},
 	}
 	gomock.InOrder(

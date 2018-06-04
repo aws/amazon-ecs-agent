@@ -20,7 +20,9 @@ package mock_dockerstate
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	eni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -49,7 +51,7 @@ func (m *MockTaskEngineState) EXPECT() *MockTaskEngineStateMockRecorder {
 }
 
 // AddContainer mocks base method
-func (m *MockTaskEngineState) AddContainer(arg0 *api.DockerContainer, arg1 *api.Task) {
+func (m *MockTaskEngineState) AddContainer(arg0 *container.DockerContainer, arg1 *task.Task) {
 	m.ctrl.Call(m, "AddContainer", arg0, arg1)
 }
 
@@ -59,7 +61,7 @@ func (mr *MockTaskEngineStateMockRecorder) AddContainer(arg0, arg1 interface{}) 
 }
 
 // AddENIAttachment mocks base method
-func (m *MockTaskEngineState) AddENIAttachment(arg0 *api.ENIAttachment) {
+func (m *MockTaskEngineState) AddENIAttachment(arg0 *eni.ENIAttachment) {
 	m.ctrl.Call(m, "AddENIAttachment", arg0)
 }
 
@@ -79,7 +81,7 @@ func (mr *MockTaskEngineStateMockRecorder) AddImageState(arg0 interface{}) *gomo
 }
 
 // AddTask mocks base method
-func (m *MockTaskEngineState) AddTask(arg0 *api.Task) {
+func (m *MockTaskEngineState) AddTask(arg0 *task.Task) {
 	m.ctrl.Call(m, "AddTask", arg0)
 }
 
@@ -111,9 +113,9 @@ func (mr *MockTaskEngineStateMockRecorder) AllImageStates() *gomock.Call {
 }
 
 // AllTasks mocks base method
-func (m *MockTaskEngineState) AllTasks() []*api.Task {
+func (m *MockTaskEngineState) AllTasks() []*task.Task {
 	ret := m.ctrl.Call(m, "AllTasks")
-	ret0, _ := ret[0].([]*api.Task)
+	ret0, _ := ret[0].([]*task.Task)
 	return ret0
 }
 
@@ -123,9 +125,9 @@ func (mr *MockTaskEngineStateMockRecorder) AllTasks() *gomock.Call {
 }
 
 // ContainerByID mocks base method
-func (m *MockTaskEngineState) ContainerByID(arg0 string) (*api.DockerContainer, bool) {
+func (m *MockTaskEngineState) ContainerByID(arg0 string) (*container.DockerContainer, bool) {
 	ret := m.ctrl.Call(m, "ContainerByID", arg0)
-	ret0, _ := ret[0].(*api.DockerContainer)
+	ret0, _ := ret[0].(*container.DockerContainer)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -136,9 +138,9 @@ func (mr *MockTaskEngineStateMockRecorder) ContainerByID(arg0 interface{}) *gomo
 }
 
 // ContainerMapByArn mocks base method
-func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*api.DockerContainer, bool) {
+func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*container.DockerContainer, bool) {
 	ret := m.ctrl.Call(m, "ContainerMapByArn", arg0)
-	ret0, _ := ret[0].(map[string]*api.DockerContainer)
+	ret0, _ := ret[0].(map[string]*container.DockerContainer)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -149,9 +151,9 @@ func (mr *MockTaskEngineStateMockRecorder) ContainerMapByArn(arg0 interface{}) *
 }
 
 // ENIByMac mocks base method
-func (m *MockTaskEngineState) ENIByMac(arg0 string) (*api.ENIAttachment, bool) {
+func (m *MockTaskEngineState) ENIByMac(arg0 string) (*eni.ENIAttachment, bool) {
 	ret := m.ctrl.Call(m, "ENIByMac", arg0)
-	ret0, _ := ret[0].(*api.ENIAttachment)
+	ret0, _ := ret[0].(*eni.ENIAttachment)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -220,7 +222,7 @@ func (mr *MockTaskEngineStateMockRecorder) RemoveImageState(arg0 interface{}) *g
 }
 
 // RemoveTask mocks base method
-func (m *MockTaskEngineState) RemoveTask(arg0 *api.Task) {
+func (m *MockTaskEngineState) RemoveTask(arg0 *task.Task) {
 	m.ctrl.Call(m, "RemoveTask", arg0)
 }
 
@@ -240,9 +242,9 @@ func (mr *MockTaskEngineStateMockRecorder) Reset() *gomock.Call {
 }
 
 // TaskByArn mocks base method
-func (m *MockTaskEngineState) TaskByArn(arg0 string) (*api.Task, bool) {
+func (m *MockTaskEngineState) TaskByArn(arg0 string) (*task.Task, bool) {
 	ret := m.ctrl.Call(m, "TaskByArn", arg0)
-	ret0, _ := ret[0].(*api.Task)
+	ret0, _ := ret[0].(*task.Task)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -253,9 +255,9 @@ func (mr *MockTaskEngineStateMockRecorder) TaskByArn(arg0 interface{}) *gomock.C
 }
 
 // TaskByID mocks base method
-func (m *MockTaskEngineState) TaskByID(arg0 string) (*api.Task, bool) {
+func (m *MockTaskEngineState) TaskByID(arg0 string) (*task.Task, bool) {
 	ret := m.ctrl.Call(m, "TaskByID", arg0)
-	ret0, _ := ret[0].(*api.Task)
+	ret0, _ := ret[0].(*task.Task)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -266,9 +268,9 @@ func (mr *MockTaskEngineStateMockRecorder) TaskByID(arg0 interface{}) *gomock.Ca
 }
 
 // TaskByShortID mocks base method
-func (m *MockTaskEngineState) TaskByShortID(arg0 string) ([]*api.Task, bool) {
+func (m *MockTaskEngineState) TaskByShortID(arg0 string) ([]*task.Task, bool) {
 	ret := m.ctrl.Call(m, "TaskByShortID", arg0)
-	ret0, _ := ret[0].([]*api.Task)
+	ret0, _ := ret[0].([]*task.Task)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

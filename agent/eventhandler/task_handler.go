@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -199,7 +200,7 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 			// transitions to STOPPED, since ECS does not allow updates to
 			// container states once the task has moved to STOPPED.
 			knownStatus := task.GetKnownStatus()
-			if knownStatus >= api.TaskStopped {
+			if knownStatus >= apitask.TaskStopped {
 				continue
 			}
 			event := api.TaskStateChange{

@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
@@ -106,7 +107,7 @@ func (event *sendableEvent) taskAttachmentShouldBeSent() bool {
 		return false
 	}
 	tevent := event.taskChange
-	return tevent.Status == api.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
+	return tevent.Status == apitask.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
 		tevent.Attachment != nil && // Task has attachment records
 		!tevent.Attachment.HasExpired() && // ENI attachment ack timestamp hasn't expired
 		!tevent.Attachment.IsSent() // Task status hasn't already been sent

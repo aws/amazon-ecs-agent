@@ -21,7 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -67,7 +69,7 @@ func metadataV1RequestHandlerMaker(containerInstanceArn *string, cfg *config.Con
 	}
 }
 
-func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContainer) *v1.TaskResponse {
+func newTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.DockerContainer) *v1.TaskResponse {
 	containers := []v1.ContainerResponse{}
 	for _, container := range containerMap {
 		if container.Container.IsInternal() {
@@ -96,7 +98,7 @@ func newTaskResponse(task *api.Task, containerMap map[string]*api.DockerContaine
 	}
 }
 
-func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1.ContainerResponse {
+func newContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) v1.ContainerResponse {
 	container := dockerContainer.Container
 	resp := v1.ContainerResponse{
 		Name:       container.Name,
@@ -118,7 +120,7 @@ func newContainerResponse(dockerContainer *api.DockerContainer, eni *api.ENI) v1
 	return resp
 }
 
-func newPortBindingsResponse(dockerContainer *api.DockerContainer, eni *api.ENI) []v2.PortResponse {
+func newPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) []v2.PortResponse {
 	container := dockerContainer.Container
 	resp := []v2.PortResponse{}
 
@@ -159,7 +161,7 @@ func newTasksResponse(state dockerstate.TaskEngineState) *v1.TasksResponse {
 }
 
 // Creates JSON response and sets the http status code for the task queried.
-func createTaskJSONResponse(task *api.Task, found bool, resourceId string, state dockerstate.TaskEngineState) ([]byte, int) {
+func createTaskJSONResponse(task *apitask.Task, found bool, resourceId string, state dockerstate.TaskEngineState) ([]byte, int) {
 	var responseJSON []byte
 	status := http.StatusOK
 	if found {
@@ -191,7 +193,7 @@ func tasksV1RequestHandlerMaker(taskEngine DockerStateResolver) func(http.Respon
 		}
 		if dockerIdExists {
 			// Create TaskResponse for the docker id in the query.
-			var task *api.Task
+			var task *apitask.Task
 			var found bool
 			if len(dockerId) > dockerShortIdLen {
 				task, found = dockerTaskEngineState.TaskByID(dockerId)

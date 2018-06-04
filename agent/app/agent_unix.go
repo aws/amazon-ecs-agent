@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -27,6 +28,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -182,4 +186,28 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
+}
+
+// initializeResourceFields exists mainly for testing doStart() to use mock Control
+// object
+func (agent *ecsAgent) initializeResourceFields() {
+	agent.resourceFields = &taskresource.ResourceFields{
+		Control: cgroup.New(),
+		IOUtil:  ioutilwrapper.NewIOUtil(),
+	}
+}
+
+func (agent *ecsAgent) cgroupInit() error {
+	err := agent.resourceFields.Control.Init()
+	// When task CPU and memory limits are enabled, all tasks are placed
+	// under the '/ecs' cgroup root.
+	if err == nil {
+		return nil
+	}
+	if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
+		return errors.Wrapf(err, "unable to setup '/ecs' cgroup")
+	}
+	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
+	agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	return nil
 }

@@ -1,4 +1,5 @@
-// +build !integration
+// +build unit
+
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -25,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -237,9 +238,9 @@ func TestPullImageECRSuccess(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -291,9 +292,9 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -588,7 +589,7 @@ func TestContainerEvents(t *testing.T) {
 
 	event := <-dockerEvents
 	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-	assert.Equal(t, event.Status, api.ContainerCreated, "Wrong status")
+	assert.Equal(t, event.Status, apicontainer.ContainerCreated, "Wrong status")
 
 	container := &docker.Container{
 		ID: "cid2",
@@ -605,7 +606,7 @@ func TestContainerEvents(t *testing.T) {
 	}()
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
-	assert.Equal(t, event.Status, api.ContainerRunning, "Wrong status")
+	assert.Equal(t, event.Status, apicontainer.ContainerRunning, "Wrong status")
 	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
 	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
 	assert.Equal(t, event.Volumes["/host/path"], "/container/path", "Incorrect volume mapping")
@@ -628,7 +629,7 @@ func TestContainerEvents(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
 		assert.True(t, anEvent.DockerID == "cid30" || anEvent.DockerID == "cid31", "Wrong container id: "+anEvent.DockerID)
-		assert.Equal(t, anEvent.Status, api.ContainerStopped, "Should be stopped")
+		assert.Equal(t, anEvent.Status, apicontainer.ContainerStopped, "Should be stopped")
 		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
@@ -660,8 +661,8 @@ func TestContainerEvents(t *testing.T) {
 	}()
 
 	anEvent := <-dockerEvents
-	assert.Equal(t, anEvent.Type, api.ContainerHealthEvent, "unexpected docker events type received")
-	assert.Equal(t, anEvent.Health.Status, api.ContainerHealthy)
+	assert.Equal(t, anEvent.Type, apicontainer.ContainerHealthEvent, "unexpected docker events type received")
+	assert.Equal(t, anEvent.Health.Status, apicontainer.ContainerHealthy)
 	assert.Equal(t, anEvent.Health.Output, "health output")
 
 	// Verify the following events do not translate into our event stream
@@ -1086,9 +1087,9 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 	endpointOverride := "my.endpoint"
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "myimage:tag"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1137,9 +1138,9 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	endpointOverride := "my.endpoint"
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1188,9 +1189,9 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1238,9 +1239,9 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
-	authData := &api.RegistryAuthenticationData{
+	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &api.ECRAuthData{
+		ECRAuthData: &apicontainer.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1335,5 +1336,256 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 		}}
 
 	metadata := MetadataFromContainer(dockerContainer)
-	assert.Equal(t, api.ContainerUnhealthy, metadata.Health.Status)
+	assert.Equal(t, apicontainer.ContainerUnhealthy, metadata.Health.Status)
+}
+
+func TestCreateVolumeTimeout(t *testing.T) {
+	timeout := 10 * time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	volumeResponse := client.CreateVolume("name", "driver", nil, nil, timeout)
+	assert.Error(t, volumeResponse.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestCreateVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().CreateVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	volumeResponse := client.CreateVolume("name", "driver", nil, nil, 1*time.Second)
+	assert.Equal(t, "CannotCreateVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
+}
+
+func TestCreateVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+	mountPoint := "some/mount/point"
+	driver := "driver"
+	driverOptions := map[string]string{
+		"opt1": "val1",
+		"opt2": "val2",
+	}
+	gomock.InOrder(
+		mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(opts docker.CreateVolumeOptions) {
+			assert.Equal(t, opts.Name, volumeName)
+			assert.Equal(t, opts.Driver, driver)
+			assert.EqualValues(t, opts.DriverOpts, driverOptions)
+		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
+	)
+	volumeResponse := client.CreateVolume(volumeName, driver, driverOptions, nil, 1*time.Second)
+	assert.NoError(t, volumeResponse.Error)
+	assert.Equal(t, volumeResponse.DockerVolume.Name, volumeName)
+	assert.Equal(t, volumeResponse.DockerVolume.Driver, driver)
+	assert.Equal(t, volumeResponse.DockerVolume.Mountpoint, mountPoint)
+	assert.Nil(t, volumeResponse.DockerVolume.Labels)
+}
+
+func TestInspectVolumeTimeout(t *testing.T) {
+	timeout := 10 * time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().InspectVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	volumeResponse := client.InspectVolume("name", timeout)
+	assert.Error(t, volumeResponse.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestInspectVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().InspectVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	volumeResponse := client.InspectVolume("name", 1*time.Second)
+	assert.Equal(t, "CannotInspectVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
+}
+
+func TestInspectVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+
+	volumeOutput := docker.Volume{
+		Name:       volumeName,
+		Driver:     "driver",
+		Mountpoint: "local/mount/point",
+		Labels: map[string]string{
+			"label1": "val1",
+			"label2": "val2",
+		},
+	}
+
+	mockDocker.EXPECT().InspectVolume(volumeName).Return(&volumeOutput, nil)
+
+	volumeResponse := client.InspectVolume(volumeName, InspectVolumeTimeout)
+	assert.NoError(t, volumeResponse.Error)
+	assert.Equal(t, volumeOutput.Driver, volumeResponse.DockerVolume.Driver)
+	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.DockerVolume.Mountpoint)
+	assert.Equal(t, volumeOutput.Labels, volumeResponse.DockerVolume.Labels)
+}
+
+func TestRemoveVolumeTimeout(t *testing.T) {
+	timeout := 10 * time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	err := client.RemoveVolume("name", timeout)
+	assert.Error(t, err, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestRemoveVolumeError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Return(errors.New("some docker error"))
+	err := client.RemoveVolume("name", 1*time.Second)
+	assert.Equal(t, "CannotRemoveVolumeError", err.(apierrors.NamedError).ErrorName())
+}
+
+func TestRemoveVolume(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	volumeName := "volumeName"
+
+	mockDocker.EXPECT().RemoveVolume(volumeName).Return(nil)
+
+	err := client.RemoveVolume(volumeName, RemoveVolumeTimeout)
+	assert.NoError(t, err)
+}
+
+func TestListPluginsTimeout(t *testing.T) {
+	timeout := 10 * time.Millisecond
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	warp := make(chan time.Time)
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Do(func(x interface{}) {
+		warp <- time.Now()
+		wait.Wait()
+		// Don't return, verify timeout happens
+		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
+		// when issue #1212 is resolved
+	}).MaxTimes(1)
+	response := client.ListPlugins(timeout)
+	assert.Error(t, response.Error, "expected error for timeout")
+	assert.Equal(t, "DockerTimeoutError", response.Error.(apierrors.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestListPluginsError(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(nil, errors.New("some docker error"))
+	response := client.ListPlugins(1 * time.Second)
+	assert.Equal(t, "CannotListPluginsError", response.Error.(apierrors.NamedError).ErrorName())
+}
+
+func TestListPlugins(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	pluginID := "id"
+	pluginName := "name"
+	pluginTag := "tag"
+	pluginDetail := docker.PluginDetail{
+		ID:     pluginID,
+		Name:   pluginName,
+		Tag:    pluginTag,
+		Active: true,
+	}
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return([]docker.PluginDetail{pluginDetail}, nil)
+
+	response := client.ListPlugins(ListPluginsTimeout)
+	assert.NoError(t, response.Error)
+	assert.Equal(t, pluginDetail, response.Plugins[0])
+}
+
+func TestListPluginsWithFilter(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	plugins := []docker.PluginDetail{
+		docker.PluginDetail{
+			ID:     "id1",
+			Name:   "name1",
+			Tag:    "tag1",
+			Active: false,
+		},
+		docker.PluginDetail{
+			ID:     "id2",
+			Name:   "name2",
+			Tag:    "tag2",
+			Active: true,
+			Config: docker.PluginConfig{
+				Description: "A sample volume plugin for Docker",
+				Interface: docker.PluginInterface{
+					Types:  []string{"docker.volumedriver/1.0"},
+					Socket: "plugins.sock",
+				},
+			},
+		},
+		docker.PluginDetail{
+			ID:     "id3",
+			Name:   "name3",
+			Tag:    "tag3",
+			Active: true,
+			Config: docker.PluginConfig{
+				Description: "A sample network plugin for Docker",
+				Interface: docker.PluginInterface{
+					Types:  []string{"docker.networkdriver/1.0"},
+					Socket: "plugins.sock",
+				},
+			},
+		},
+	}
+
+	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(plugins, nil)
+
+	pluginNames, error := client.ListPluginsWithFilters(true, []string{VolumeDriverType}, ListPluginsTimeout)
+	assert.NoError(t, error)
+	assert.Equal(t, 1, len(pluginNames))
+	assert.Equal(t, "name2", pluginNames[0])
 }

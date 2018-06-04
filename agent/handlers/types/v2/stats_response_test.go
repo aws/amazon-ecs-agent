@@ -1,4 +1,6 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,7 +18,7 @@ package v2
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	docker "github.com/fsouza/go-dockerclient"
@@ -32,8 +34,8 @@ func TestTaskStatsResponseSuccess(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	dockerStats := &docker.Stats{NumProcs: 2}
-	containerMap := map[string]*api.DockerContainer{
-		containerName: &api.DockerContainer{
+	containerMap := map[string]*apicontainer.DockerContainer{
+		containerName: &apicontainer.DockerContainer{
 			DockerID: containerID,
 		},
 	}

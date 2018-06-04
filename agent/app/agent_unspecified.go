@@ -32,3 +32,10 @@ func (agent *ecsAgent) startWindowsService() int {
 	seelog.Error("Windows Services are not supported on unspecified platforms")
 	return 1
 }
+
+func (agent *ecsAgent) initializeResourceFields() {
+}
+
+func (agent *ecsAgent) cgroupInit() error {
+	return nil
+}

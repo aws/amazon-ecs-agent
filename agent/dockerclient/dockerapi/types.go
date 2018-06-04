@@ -17,9 +17,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -39,11 +40,11 @@ func (cnferror ContainerNotFound) Error() string {
 // DockerContainerChangeEvent is a type for container change events
 type DockerContainerChangeEvent struct {
 	// Status represents the container's status in the event
-	Status api.ContainerStatus
+	Status apicontainer.ContainerStatus
 	// DockerContainerMetadata is the metadata of the container in the event
 	DockerContainerMetadata
 	// Type is the event type received from docker events
-	Type api.DockerEventType
+	Type apicontainer.DockerEventType
 }
 
 // DockerContainerMetadata is a type for metadata about Docker containers
@@ -53,7 +54,7 @@ type DockerContainerMetadata struct {
 	// ExitCode contains container's exit code if it has stopped
 	ExitCode *int
 	// PortBindings is the list of port binding information of the container
-	PortBindings []api.PortBinding
+	PortBindings []apicontainer.PortBinding
 	// Error wraps various container transition errors and is set if engine
 	// is unable to perform any of the required container transitions
 	Error apierrors.NamedError
@@ -68,7 +69,7 @@ type DockerContainerMetadata struct {
 	// FinishedAt is the timestamp of container stop
 	FinishedAt time.Time
 	// Health contains the result of a container health check
-	Health api.HealthStatus
+	Health apicontainer.HealthStatus
 }
 
 // ListContainersResponse encapsulates the response from the docker client for the
@@ -78,6 +79,18 @@ type ListContainersResponse struct {
 	DockerIDs []string
 	// Error contains any error returned when listing containers
 	Error error
+}
+
+// VolumeResponse wrapper for CreateVolume and InspectVolume
+type VolumeResponse struct {
+	DockerVolume *docker.Volume
+	Error        error
+}
+
+// ListPluginsResponse is a wrapper for ListPlugins api
+type ListPluginsResponse struct {
+	Plugins []docker.PluginDetail
+	Error   error
 }
 
 // String returns a human readable string of the container change event
