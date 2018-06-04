@@ -19,11 +19,14 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
 const (
 	// CgroupKey is the string used in resources map to represent cgroup resource
 	CgroupKey = "cgroup"
+	// DockerVolumeKey is the string used in resources map to represent docker volume
+	DockerVolumeKey = "dockerVolume"
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -54,8 +57,21 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 				}
 				result[key] = append(result[key], cgroup)
 			}
-		// TODO: add a case for volume resource. Currently it is not added since it does
-		// not fully implement TaskResource
+		case DockerVolumeKey:
+			var volumes []json.RawMessage
+			err = json.Unmarshal(value, &volumes)
+			if err != nil {
+				return err
+			}
+			for _, vol := range volumes {
+				dockerVolume := &volume.VolumeResource{}
+				err := dockerVolume.UnmarshalJSON(vol)
+				if err != nil {
+					return err
+				}
+				result[key] = append(result[key], dockerVolume)
+			}
+
 		default:
 			return errors.New("Unsupported resource type")
 		}

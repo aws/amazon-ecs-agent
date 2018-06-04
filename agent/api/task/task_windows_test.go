@@ -108,7 +108,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	cfg := config.Config{TaskCPUMemLimit: config.ExplicitlyDisabled}
-	task.PostUnmarshalTask(&cfg, nil, nil)
+	task.PostUnmarshalTask(&cfg, nil, nil, nil)
 
 	assert.Equal(t, expectedTask.Containers, task.Containers, "Containers should be equal")
 	assert.Equal(t, expectedTask.Volumes, task.Volumes, "Volumes should be equal")

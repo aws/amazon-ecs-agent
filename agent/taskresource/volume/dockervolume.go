@@ -27,10 +27,12 @@ import (
 )
 
 const (
-	//TaskScope indicates that the volume is created and deleted with task
+	// TaskScope indicates that the volume is created and deleted with task
 	TaskScope = "task"
-	//SharedScope indicates that the volume's lifecycle is outside the scope of task
+	// SharedScope indicates that the volume's lifecycle is outside the scope of task
 	SharedScope = "shared"
+	// DockerLocalVolumeDriver is the name of the docker default volume driver
+	DockerLocalVolumeDriver = "local"
 )
 
 // VolumeResources represents volume resource
@@ -96,26 +98,23 @@ func NewVolumeResource(name string,
 		client: client,
 		ctx:    ctx,
 	}
-	v.initializeResourceStatusToTransitionFunction(scope)
+	v.initStatusToTransitions()
 	return v
 }
 
 func (vol *VolumeResource) Initialize(resourceFields taskresource.ResourceFields) {
 	vol.ctx = resourceFields.Context
 	vol.client = resourceFields.DockerClient
+	vol.initStatusToTransitions()
 }
 
-func (vol *VolumeResource) initializeResourceStatusToTransitionFunction(scope string) {
-	resourceStatusToTransitionFunction := map[taskresource.ResourceStatus]func() error{
+func (vol *VolumeResource) initStatusToTransitions() {
+	statusToTransitions := map[taskresource.ResourceStatus]func() error{
 		taskresource.ResourceStatus(VolumeCreated): vol.Create,
 	}
 
-	// Enable volume clean up if it's task scoped
-	if scope == TaskScope {
-		resourceStatusToTransitionFunction[taskresource.ResourceStatus(VolumeRemoved)] = vol.Cleanup
-	}
-
-	vol.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
+	statusToTransitions[taskresource.ResourceStatus(VolumeRemoved)] = vol.Cleanup
+	vol.statusToTransitions = statusToTransitions
 }
 
 // GetName returns the name of the volume resource
@@ -189,10 +188,8 @@ func (vol *VolumeResource) SteadyState() taskresource.ResourceStatus {
 
 // ApplyTransition calls the function required to move to the specified status
 func (vol *VolumeResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
-	transitionFunc, ok := vol.resourceStatusToTransitionFunction[nextState]
+	transitionFunc, ok := vol.statusToTransitions[nextState]
 	if !ok {
-		seelog.Errorf("Volume Resource [%s]: unsupported desired state transition: %s",
-			vol.Name, vol.StatusString(nextState))
 		return errors.Errorf("resource [%s]: transition to %s impossible", vol.Name,
 			vol.StatusString(nextState))
 	}
@@ -265,7 +262,7 @@ func (vol *VolumeResource) Create() error {
 	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.VolumeConfig.Driver)
 	volumeResponse := vol.client.CreateVolume(
 		vol.ctx,
-		vol.Name,
+		vol.DockerVolumeName,
 		vol.VolumeConfig.Driver,
 		vol.VolumeConfig.DriverOpts,
 		vol.VolumeConfig.Labels,
@@ -282,8 +279,14 @@ func (vol *VolumeResource) Create() error {
 
 // Cleanup performs resource cleanup
 func (vol *VolumeResource) Cleanup() error {
+	// Enable volume clean up if it's task scoped
+	if vol.VolumeConfig.Scope != TaskScope {
+		seelog.Debugf("Volume is shared, not removing", vol.Name)
+		return nil
+	}
+
 	seelog.Debugf("Removing volume with name %s", vol.Name)
-	err := vol.client.RemoveVolume(vol.ctx, vol.Name, dockerapi.RemoveVolumeTimeout)
+	err := vol.client.RemoveVolume(vol.ctx, vol.DockerVolumeName, dockerapi.RemoveVolumeTimeout)
 
 	if err != nil {
 		return err
