@@ -62,6 +62,7 @@ appropriate \fIExec\fP directives:
 .nf
 # in ecs.service
 [Service]
+Type=simple
 ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
 ExecStart=/usr/libexec/amazon-ecs-init start
 ExecStop=/usr/libexec/amazon-ecs-init stop
