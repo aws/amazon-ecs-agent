@@ -53,6 +53,8 @@ const (
 
 type mockStatsEngine struct{}
 
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+
 var testCfg = &config.Config{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-east-1",
@@ -119,7 +121,7 @@ func TestStartSession(t *testing.T) {
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
-	go startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+	go startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 
@@ -183,7 +185,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	defer cancel()
 
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 
@@ -220,7 +222,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, credentials.AnonymousCredentials, &mockStatsEngine{},
+	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
 		50*time.Millisecond, 100*time.Millisecond,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession

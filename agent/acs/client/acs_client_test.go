@@ -84,6 +84,8 @@ const (
 	rwTimeout       = time.Second
 )
 
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+
 var testCfg = &config.Config{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-east-1",
@@ -237,7 +239,7 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := New(server.URL, testCfg, credentials.AnonymousCredentials, rwTimeout)
+	cs := New(server.URL, testCfg, testCreds, rwTimeout)
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
 		err = cs.Connect()
@@ -308,7 +310,7 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := New(testServer.URL, testCfg, credentials.AnonymousCredentials, rwTimeout)
+	cs := New(testServer.URL, testCfg, testCreds, rwTimeout)
 	err := cs.Connect()
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok)
@@ -316,7 +318,6 @@ func TestConnectClientError(t *testing.T) {
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	testCreds := credentials.AnonymousCredentials
 	foo := New("localhost:443", testCfg, testCreds, rwTimeout)
 	cs := foo.(*clientServer)
 	cs.SetConnection(conn)
