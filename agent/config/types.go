@@ -218,4 +218,10 @@ type Config struct {
 
 	// TaskMetadataBurstRate specifies the burst rate throttle for the task metadata endpoint
 	TaskMetadataBurstRate int
+
+	// NoIID when set to true, specifies that the agent should not register the instance
+	// with instance identity document. This is required in order to accomodate scenarios in
+	// which ECS agent tries to register the instance where the instance id document is
+	// not available or needed
+	NoIID bool
 }
