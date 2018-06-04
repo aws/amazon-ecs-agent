@@ -1871,7 +1871,6 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 	}
 }
 
-//////
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled

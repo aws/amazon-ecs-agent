@@ -168,32 +168,6 @@ func TestHostVolumeMount(t *testing.T) {
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
 
-func TestLocalHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
-	defer os.RemoveAll(tmpPath)
-	ioutil.WriteFile(filepath.Join(tmpPath, "test-file"), []byte("test-data"), 0644)
-
-	// creates a task with local volume
-	testTask := createTestLocalVolumeMountTask(tmpPath)
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-
-	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
-	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
-
-	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
-	assert.Nil(t, err, "Unexpected error")
-	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
-}
-
 func TestSweepContainer(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
