@@ -136,8 +136,9 @@ Provides:       bundled(golang(golang.org/x/sys/unix))
 Provides:       bundled(golang(golang.org/x/sys/windows))
 
 %description
-ecs-init is a service which may be run to register an EC2 instance as an Amazon
-ECS Container Instance.
+ecs-init supports the initialization and supervision of the Amazon ECS
+container agent, including configuration of cgroups, iptables, and
+required routes among its preparation steps.
 
 %prep
 %setup -c
