@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -206,13 +205,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
-	task.initializeLocalVolumes(dockerClient)
+	task.initializeDockerLocalVolumes(dockerClient)
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
 
-func (task *Task) initializeLocalVolumes(dockerClient dockerapi.DockerClient) {
+func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient) {
 	requiredLocalVolumes := []string{}
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
@@ -220,7 +219,8 @@ func (task *Task) initializeLocalVolumes(dockerClient dockerapi.DockerClient) {
 			if !ok {
 				continue
 			}
-			if _, ok := vol.(*taskresourcevolume.LocalVolume); ok {
+			if localVolume, ok := vol.(*taskresourcevolume.LocalVolume); ok {
+				localVolume.HostPath = task.taskScopedVolumeName(mountPoint.SourceVolume)
 				container.BuildResourceDependency(mountPoint.SourceVolume,
 					taskresource.ResourceStatus(taskresourcevolume.VolumeCreated),
 					apicontainer.ContainerPulled)
@@ -235,17 +235,17 @@ func (task *Task) initializeLocalVolumes(dockerClient dockerapi.DockerClient) {
 	}
 
 	// if we have required local volumes, create one with default local drive
-	reInvalidChars := regexp.MustCompile("[^A-Za-z0-9-]+")
 	for _, volumeName := range requiredLocalVolumes {
+		vol, _ := task.HostVolumeByName(volumeName)
 		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
-		name := reInvalidChars.ReplaceAllString(volumeName, "")
 		scope := taskresourcevolume.TaskScope
-		autoprovision := false // must be false if scope = task
+		autoProvision := false // must be false if scope = task
+		localVolume := taskresourcevolume.NewVolumeResource(volumeName,
+			vol.SourcePath(), scope, autoProvision,
+			taskresourcevolume.DockerLocalVolumeDriver,
+			make(map[string]string), make(map[string]string), dockerClient)
 
-		dockerVolumeName := task.taskScopedVolumeName(name)
-		localDriver := "local"
-		localVolume := taskresourcevolume.NewVolumeResource(volumeName, dockerVolumeName, scope, autoprovision, localDriver, make(map[string]string), make(map[string]string), dockerClient)
-		task.AddResource(volumeName, localVolume)
+		task.AddResource(resourcetypes.DockerVolumeKey, localVolume)
 	}
 }
 
@@ -456,11 +456,6 @@ func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion doc
 }
 
 func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
-	dockerVolumes, err := task.dockerConfigVolumes(container)
-	if err != nil {
-		return nil, &apierrors.DockerClientConfigError{err.Error()}
-	}
-
 	dockerEnv := make([]string, 0, len(container.Environment))
 	for envKey, envVal := range container.Environment {
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
@@ -482,11 +477,10 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
 		ExposedPorts: task.dockerExposedPorts(container),
-		Volumes:      dockerVolumes,
 		Env:          dockerEnv,
 	}
 
-	err = task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
+	err := task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
 	if err != nil {
 		return nil, &apierrors.DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
@@ -560,29 +554,6 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) map[dock
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 	return dockerExposedPorts
-}
-
-func (task *Task) dockerConfigVolumes(container *apicontainer.Container) (map[string]struct{}, error) {
-	volumeMap := make(map[string]struct{})
-	for _, m := range container.MountPoints {
-		vol, exists := task.HostVolumeByName(m.SourceVolume)
-		if !exists {
-			return nil, &apierrors.BadVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
-		}
-		// you can handle most volume mount types in the HostConfig at run-time;
-		// empty mounts are created by docker at create-time (Config) so set
-		// them here.
-		if container.Type == apicontainer.ContainerEmptyHostVolume {
-			// if container.Name == emptyHostVolumeName && container.Type {
-			_, ok := vol.(*taskresourcevolume.LocalVolume)
-			if !ok {
-				return nil, &apierrors.BadVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
-			}
-
-			volumeMap[m.ContainerPath] = struct{}{}
-		}
-	}
-	return volumeMap, nil
 }
 
 // DockerHostConfig construct the configuration recognized by docker

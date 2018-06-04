@@ -120,7 +120,7 @@ func TestCleanupError(t *testing.T) {
 	defer cancel()
 	volume := NewVolumeResource(name, name, scope, autoprovision, driver, nil, nil, mockClient, ctx)
 	err := volume.Cleanup()
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 }
 
 func TestApplyTransitionForTaskScopeVolume(t *testing.T) {

@@ -57,8 +57,8 @@ type CgroupResource struct {
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
-	appliedStatus                      taskresource.ResourceStatus
-	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
+	appliedStatus       taskresource.ResourceStatus
+	statusToTransitions map[taskresource.ResourceStatus]func() error
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -78,15 +78,15 @@ func NewCgroupResource(taskARN string,
 		cgroupMountPath: cgroupMountPath,
 		resourceSpec:    resourceSpec,
 	}
-	c.initializeResourceStatusToTransitionFunction()
+	c.initStatusToTransitions()
 	return c
 }
 
-func (cgroup *CgroupResource) initializeResourceStatusToTransitionFunction() {
-	resourceStatusToTransitionFunction := map[taskresource.ResourceStatus]func() error{
+func (cgroup *CgroupResource) initStatusToTransitions() {
+	statusToTransitions := map[taskresource.ResourceStatus]func() error{
 		taskresource.ResourceStatus(CgroupCreated): cgroup.Create,
 	}
-	cgroup.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
+	cgroup.statusToTransitions = statusToTransitions
 }
 
 func (cgroup *CgroupResource) SetIOUtil(ioutil ioutilwrapper.IOUtil) {
@@ -146,7 +146,7 @@ func (cgroup *CgroupResource) NextKnownState() taskresource.ResourceStatus {
 
 // ApplyTransition calls the function required to move to the specified status
 func (cgroup *CgroupResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
-	transitionFunc, ok := cgroup.resourceStatusToTransitionFunction[nextState]
+	transitionFunc, ok := cgroup.statusToTransitions[nextState]
 	if !ok {
 		seelog.Errorf("Cgroup Resource [%s]: unsupported desired state transition [%s]: %s",
 			cgroup.taskARN, cgroup.GetName(), cgroup.StatusString(nextState))
