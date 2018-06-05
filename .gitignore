@@ -14,5 +14,3 @@
 /ecs-init.spec
 /sources.tgz
 ecs-agent-*.tar
-ecs.service
-*.log
