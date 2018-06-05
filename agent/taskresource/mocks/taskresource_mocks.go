@@ -144,6 +144,18 @@ func (mr *MockTaskResourceMockRecorder) GetName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockTaskResource)(nil).GetName))
 }
 
+// GetTerminalReason mocks base method
+func (m *MockTaskResource) GetTerminalReason() string {
+	ret := m.ctrl.Call(m, "GetTerminalReason")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetTerminalReason indicates an expected call of GetTerminalReason
+func (mr *MockTaskResourceMockRecorder) GetTerminalReason() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTerminalReason", reflect.TypeOf((*MockTaskResource)(nil).GetTerminalReason))
+}
+
 // KnownCreated mocks base method
 func (m *MockTaskResource) KnownCreated() bool {
 	ret := m.ctrl.Call(m, "KnownCreated")

@@ -153,6 +153,12 @@ type Task struct {
 	// platformFields consists of fields specific to linux/windows for a task
 	platformFields platformFields
 
+	// terminalReasonUnsafe should be used when we explicitly move a task to stopped.
+	// This ensures the task object carries some context for why it was explicitly
+	// stoppped.
+	terminalReasonUnsafe string
+	terminalReasonOnce   sync.Once
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -1212,4 +1218,22 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 	task.lock.Lock()
 	defer task.lock.Unlock()
 	task.ResourcesMapUnsafe[resourceType] = append(task.ResourcesMapUnsafe[resourceType], resource)
+}
+
+// SetTerminalReason sets the terminalReasonUnsafe string and this can only be set
+// once per the task's lifecycle. This field does not accept updates.
+func (task *Task) SetTerminalReason(reason string) {
+	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
+	task.terminalReasonOnce.Do(func() {
+		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
+		task.terminalReasonUnsafe = reason
+	})
+}
+
+// GetTerminalReason retrieves the terminalReasonUnsafe string
+func (task *Task) GetTerminalReason() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.terminalReasonUnsafe
 }
