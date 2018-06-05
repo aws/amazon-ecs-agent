@@ -47,7 +47,6 @@ const (
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
-	taskUnableToCreatePlatformResources   = "TaskStateError: Agent could not create task's platform resources"
 )
 
 var (
@@ -469,6 +468,7 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 		seelog.Errorf("Managed task [%s]: error while creating resource %s, setting the task's desired status to STOPPED",
 			mtask.Arn, res.GetName())
 		mtask.SetDesiredStatus(apitask.TaskStopped)
+		mtask.Task.SetTerminalReason(res.GetTerminalReason())
 		mtask.engine.saver.Save()
 	}
 }
@@ -765,8 +765,13 @@ func (mtask *managedTask) progressTask() {
 	changed := mtask.UpdateStatus()
 	if changed {
 		seelog.Debugf("Managed task [%s]: container or resource change also resulted in task change", mtask.Arn)
+
 		// If knownStatus changed, let it be known
-		mtask.emitTaskEvent(mtask.Task, "")
+		var taskStateChangeReason string
+		if mtask.GetKnownStatus().Terminal() {
+			taskStateChangeReason = mtask.Task.GetTerminalReason()
+		}
+		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
 	}
 }
 
