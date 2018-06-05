@@ -31,7 +31,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
+
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	resourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
@@ -208,6 +210,20 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
+
+	// WIP initialize asm auth resource here?
+	if task.RequiresASMDockerAuthData() {
+		err := task.initializeASMAuthResource(credentialsManager)
+		if err != nil {
+			seelog.Errorf("Task [%s]: could not intialize asm auth resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
+	/**
+		does that mean load the resource with execution creds id
+		also pass the credentials manager to the resource
+	**/
+
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
@@ -1235,4 +1251,61 @@ func (task *Task) GetTerminalReason() string {
 	defer task.lock.RUnlock()
 
 	return task.terminalReason
+}
+
+// RequiresASMDockerAuthData returns true if atleast one container in the task
+// needs to retrieve private registry authentication data from ASM
+func (task *Task) RequiresASMDockerAuthData() bool {
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			return true
+		}
+	}
+	return false
+}
+
+func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe["asm-auth"]
+	return res, ok
+}
+
+func (task *Task) ResetASMAuthResource() {
+	res, _ := task.ResourcesMapUnsafe["asm-auth"]
+	res[0].SetKnownStatus(taskresource.ResourceStatusNone)
+}
+
+func (task *Task) getListOfASMDockerAuthData() []apicontainer.ASMAuthData {
+	list := make([]*apicontainer.ASMAuthData, 0)
+
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			list = append(list, container.RegistryAuthentication.ASMAuthData)
+
+		}
+	}
+	return list
+}
+
+func (task *Task) BindASMAuthData(container *apicontainer.Container) {
+	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
+	resource, _ := task.getASMAuthResource()
+	asmResource, _ := resource[0].(asmauth.ASMAuthResource)
+	dac := asmResource.GetASMDockerAuthConfig(secretID)
+	container.SetASMDockerAuthConfig(dac)
+
+}
+
+func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager) error {
+	asmRequirements := task.getListOfASMDockerAuthData()
+	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, asmRequirements, task.ExecutionCredentialsID, credentialsManager)
+	task.AddResource("asm-auth", asmAuthResource)
+	for _, container := range task.Containers {
+		container.BuildResourceDependency(asmAuthResource.GetName(),
+			taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
+			apicontainer.ContainerPulled)
+	}
+	return nil
 }

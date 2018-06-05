@@ -304,7 +304,13 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		}
 	}
 
+	// WIP reset asm resource state if task state not pulled
 	for _, task := range tasksToStart {
+
+		if task.GetKnownStatus() < apitask.TaskPulled && task.RequiresASMDockerAuthData() {
+			task.ResetASMAuthResource()
+		}
+
 		engine.startTask(task)
 	}
 
@@ -788,6 +794,13 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		container.SetRegistryAuthCredentials(iamCredentials)
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
+	}
+
+	// WIP if container requires asm auth, grab from resource and attach to
+	// container registry auth
+	if container.ShouldPullWithASMAuth() {
+		task.BindASMAuthData(container)
+		defer container.SetASMDockerAuthConfig(docker.AuthConfiguration{})
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
