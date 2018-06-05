@@ -46,6 +46,7 @@ sources.tgz:
 	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
+	cp packaging/amazon-linux-ami/ecs.service ecs.service
 	tar -czf ./sources.tgz ecs-init scripts
 
 sources: sources.tgz
@@ -84,13 +85,15 @@ get-deps:
 	go get golang.org/x/tools/cmd/goimports
 
 clean:
-	-rm ecs-init.spec
-	-rm ecs.conf
-	-rm ./sources.tgz
-	-rm ./amazon-ecs-init
-	-rm ./ecs-init-*.src.rpm
-	-rm ./ecs-init-* -r
-	-rm -r ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
-	-rm ./x86_64 -r
-	-rm ./amazon-ecs-init_${VERSION}*
-	-rm .srpm-done .rpm-done
+	-rm -f ecs-init.spec
+	-rm -f ecs.conf
+	-rm -f ecs.service
+	-rm -f ./sources.tgz
+	-rm -f ./amazon-ecs-init
+	-rm -f ./ecs-agent-*.tar
+	-rm -f ./ecs-init-*.src.rpm
+	-rm -rf ./ecs-init-*
+	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
+	-rm -rf ./x86_64
+	-rm -f ./amazon-ecs-init_${VERSION}*
+	-rm -f .srpm-done .rpm-done
