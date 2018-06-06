@@ -218,7 +218,7 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	// for standardized plugins, call docker's plugin ls API
 	pluginEnabled := true
 	volumeDriverType := []string{dockerapi.VolumeDriverType}
-	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(pluginEnabled, volumeDriverType, dockerapi.ListPluginsTimeout)
+	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(agent.ctx, pluginEnabled, volumeDriverType, dockerapi.ListPluginsTimeout)
 	if err != nil {
 		seelog.Warnf("Listing plugins with filters enabled=%t, capabilities=%v failed: %v", pluginEnabled, volumeDriverType, err)
 		return capabilities

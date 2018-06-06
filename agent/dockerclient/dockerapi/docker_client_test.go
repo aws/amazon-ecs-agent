@@ -1340,21 +1340,17 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 }
 
 func TestCreateVolumeTimeout(t *testing.T) {
-	timeout := 10 * time.Millisecond
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(x interface{}) {
-		warp <- time.Now()
 		wait.Wait()
-		// Don't return, verify timeout happens
-		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
-		// when issue #1212 is resolved
 	}).MaxTimes(1)
-	volumeResponse := client.CreateVolume("name", "driver", nil, nil, timeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, xContainerShortTimeout)
 	assert.Error(t, volumeResponse.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
@@ -1365,7 +1361,9 @@ func TestCreateVolumeError(t *testing.T) {
 	defer done()
 
 	mockDocker.EXPECT().CreateVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
-	volumeResponse := client.CreateVolume("name", "driver", nil, nil, 1*time.Second)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, CreateVolumeTimeout)
 	assert.Equal(t, "CannotCreateVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1387,7 +1385,9 @@ func TestCreateVolume(t *testing.T) {
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
 		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
 	)
-	volumeResponse := client.CreateVolume(volumeName, driver, driverOptions, nil, 1*time.Second)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.CreateVolume(ctx, volumeName, driver, driverOptions, nil, CreateVolumeTimeout)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeResponse.DockerVolume.Name, volumeName)
 	assert.Equal(t, volumeResponse.DockerVolume.Driver, driver)
@@ -1396,21 +1396,17 @@ func TestCreateVolume(t *testing.T) {
 }
 
 func TestInspectVolumeTimeout(t *testing.T) {
-	timeout := 10 * time.Millisecond
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().InspectVolume(gomock.Any()).Do(func(x interface{}) {
-		warp <- time.Now()
 		wait.Wait()
-		// Don't return, verify timeout happens
-		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
-		// when issue #1212 is resolved
 	}).MaxTimes(1)
-	volumeResponse := client.InspectVolume("name", timeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.InspectVolume(ctx, "name", xContainerShortTimeout)
 	assert.Error(t, volumeResponse.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
@@ -1421,7 +1417,9 @@ func TestInspectVolumeError(t *testing.T) {
 	defer done()
 
 	mockDocker.EXPECT().InspectVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
-	volumeResponse := client.InspectVolume("name", 1*time.Second)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.InspectVolume(ctx, "name", InspectVolumeTimeout)
 	assert.Equal(t, "CannotInspectVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1443,7 +1441,9 @@ func TestInspectVolume(t *testing.T) {
 
 	mockDocker.EXPECT().InspectVolume(volumeName).Return(&volumeOutput, nil)
 
-	volumeResponse := client.InspectVolume(volumeName, InspectVolumeTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volumeResponse := client.InspectVolume(ctx, volumeName, InspectVolumeTimeout)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeOutput.Driver, volumeResponse.DockerVolume.Driver)
 	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.DockerVolume.Mountpoint)
@@ -1451,21 +1451,17 @@ func TestInspectVolume(t *testing.T) {
 }
 
 func TestRemoveVolumeTimeout(t *testing.T) {
-	timeout := 10 * time.Millisecond
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Do(func(x interface{}) {
-		warp <- time.Now()
 		wait.Wait()
-		// Don't return, verify timeout happens
-		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
-		// when issue #1212 is resolved
 	}).MaxTimes(1)
-	err := client.RemoveVolume("name", timeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.RemoveVolume(ctx, "name", xContainerShortTimeout)
 	assert.Error(t, err, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName())
 	wait.Done()
@@ -1476,7 +1472,9 @@ func TestRemoveVolumeError(t *testing.T) {
 	defer done()
 
 	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Return(errors.New("some docker error"))
-	err := client.RemoveVolume("name", 1*time.Second)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.RemoveVolume(ctx, "name", RemoveVolumeTimeout)
 	assert.Equal(t, "CannotRemoveVolumeError", err.(apierrors.NamedError).ErrorName())
 }
 
@@ -1487,27 +1485,24 @@ func TestRemoveVolume(t *testing.T) {
 	volumeName := "volumeName"
 
 	mockDocker.EXPECT().RemoveVolume(volumeName).Return(nil)
-
-	err := client.RemoveVolume(volumeName, RemoveVolumeTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.RemoveVolume(ctx, volumeName, RemoveVolumeTimeout)
 	assert.NoError(t, err)
 }
 
 func TestListPluginsTimeout(t *testing.T) {
-	timeout := 10 * time.Millisecond
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	warp := make(chan time.Time)
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDocker.EXPECT().ListPlugins(gomock.Any()).Do(func(x interface{}) {
-		warp <- time.Now()
 		wait.Wait()
-		// Don't return, verify timeout happens
-		// TODO remove the MaxTimes by cancel the context passed to CreateVolume
-		// when issue #1212 is resolved
 	}).MaxTimes(1)
-	response := client.ListPlugins(timeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	response := client.ListPlugins(ctx, xContainerShortTimeout)
 	assert.Error(t, response.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", response.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
@@ -1518,7 +1513,9 @@ func TestListPluginsError(t *testing.T) {
 	defer done()
 
 	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(nil, errors.New("some docker error"))
-	response := client.ListPlugins(1 * time.Second)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	response := client.ListPlugins(ctx, ListPluginsTimeout)
 	assert.Equal(t, "CannotListPluginsError", response.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1537,8 +1534,9 @@ func TestListPlugins(t *testing.T) {
 	}
 
 	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return([]docker.PluginDetail{pluginDetail}, nil)
-
-	response := client.ListPlugins(ListPluginsTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	response := client.ListPlugins(ctx, ListPluginsTimeout)
 	assert.NoError(t, response.Error)
 	assert.Equal(t, pluginDetail, response.Plugins[0])
 }
@@ -1583,8 +1581,9 @@ func TestListPluginsWithFilter(t *testing.T) {
 	}
 
 	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(plugins, nil)
-
-	pluginNames, error := client.ListPluginsWithFilters(true, []string{VolumeDriverType}, ListPluginsTimeout)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	pluginNames, error := client.ListPluginsWithFilters(ctx, true, []string{VolumeDriverType}, ListPluginsTimeout)
 	assert.NoError(t, error)
 	assert.Equal(t, 1, len(pluginNames))
 	assert.Equal(t, "name2", pluginNames[0])
