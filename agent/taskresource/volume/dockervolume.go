@@ -14,6 +14,8 @@
 package volume
 
 import (
+	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/cihub/seelog"
 
@@ -32,6 +34,7 @@ type VolumeResource struct {
 	desiredStatusUnsafe VolumeStatus
 	knownStatusUnsafe   VolumeStatus
 	client              dockerapi.DockerClient
+	ctx                 context.Context
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -58,7 +61,8 @@ func NewVolumeResource(name string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
-	client dockerapi.DockerClient) *VolumeResource {
+	client dockerapi.DockerClient,
+	ctx context.Context) *VolumeResource {
 
 	return &VolumeResource{
 		Name: name,
@@ -70,6 +74,7 @@ func NewVolumeResource(name string,
 			Labels:        labels,
 		},
 		client: client,
+		ctx:    ctx,
 	}
 }
 
@@ -145,6 +150,7 @@ func (vol *VolumeResource) GetMountPoint() string {
 func (vol *VolumeResource) Create() error {
 	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.VolumeConfig.Driver)
 	volumeResponse := vol.client.CreateVolume(
+		vol.ctx,
 		vol.Name,
 		vol.VolumeConfig.Driver,
 		vol.VolumeConfig.DriverOpts,
@@ -163,7 +169,7 @@ func (vol *VolumeResource) Create() error {
 // Cleanup performs resource cleanup
 func (vol *VolumeResource) Cleanup() error {
 	seelog.Debugf("Removing volume with name %s", vol.Name)
-	err := vol.client.RemoveVolume(vol.Name, dockerapi.RemoveVolumeTimeout)
+	err := vol.client.RemoveVolume(vol.ctx, vol.Name, dockerapi.RemoveVolumeTimeout)
 
 	if err != nil {
 		return err

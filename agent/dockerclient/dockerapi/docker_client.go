@@ -162,21 +162,21 @@ type DockerClient interface {
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
 
 	// CreateVolume creates a docker volume. A timeout value should be provided for the request
-	CreateVolume(string, string, map[string]string, map[string]string, time.Duration) VolumeResponse
+	CreateVolume(context.Context, string, string, map[string]string, map[string]string, time.Duration) VolumeResponse
 
 	// InspectVolume returns a volume by its name. A timeout value should be provided for the request
-	InspectVolume(string, time.Duration) VolumeResponse
+	InspectVolume(context.Context, string, time.Duration) VolumeResponse
 
 	// RemoveVolume removes a volume by its name. A timeout value should be provided for the request
-	RemoveVolume(string, time.Duration) error
+	RemoveVolume(context.Context, string, time.Duration) error
 
 	// ListPluginsWithFilters returns the set of docker plugins installed on the host, filtered by options provided.
 	// A timeout value should be provided for the request.
-	ListPluginsWithFilters(bool, []string, time.Duration) ([]string, error)
+	ListPluginsWithFilters(context.Context, bool, []string, time.Duration) ([]string, error)
 
 	// ListPlugins returns the set of docker plugins installed on the host. A timeout value should be provided for
 	// the request.
-	ListPlugins(time.Duration) ListPluginsResponse
+	ListPlugins(context.Context, time.Duration) ListPluginsResponse
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
@@ -1009,16 +1009,12 @@ func (dg *dockerGoClient) setDaemonVersion(version string) {
 	dg.daemonVersionUnsafe = version
 }
 
-func (dg *dockerGoClient) CreateVolume(name string,
+func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
 	timeout time.Duration) VolumeResponse {
-	// Create a context that times out after the 'timeout' duration
-	// Injecting the 'timeout' makes it easier to write tests.
-	// Eventually, the context should be initialized from a parent root context
-	// instead of TODO.
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
@@ -1068,12 +1064,8 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
 }
 
-func (dg *dockerGoClient) InspectVolume(name string, timeout time.Duration) VolumeResponse {
-	// Create a context that times out after the 'timeout' duration
-	// Injecting the 'timeout' makes it easier to write tests.
-	// Eventually, the context should be initialized from a parent root context
-	// instead of TODO.
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) VolumeResponse {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
@@ -1114,12 +1106,8 @@ func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) Volume
 	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
 }
 
-func (dg *dockerGoClient) RemoveVolume(name string, timeout time.Duration) error {
-	// Create a context that times out after the 'timeout' duration
-	// Injecting the 'timeout' makes it easier to write tests.
-	// Eventually, the context should be initialized from a parent root context
-	// instead of TODO.
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
@@ -1160,10 +1148,10 @@ func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
 
 // ListPluginsWithFilters currently is a convenience method as go-dockerclient doesn't implement fitered list. When we or someone else submits
 // PR for the fix we will refactor this to pass in the fiters. See https://docs.docker.com/engine/reference/commandline/plugin_ls/#filtering.
-func (dg *dockerGoClient) ListPluginsWithFilters(enabled bool, capabilities []string, timeout time.Duration) ([]string, error) {
+func (dg *dockerGoClient) ListPluginsWithFilters(ctx context.Context, enabled bool, capabilities []string, timeout time.Duration) ([]string, error) {
 
 	var filteredPluginNames []string
-	response := dg.ListPlugins(timeout)
+	response := dg.ListPlugins(ctx, timeout)
 
 	if response.Error != nil {
 		return nil, response.Error
@@ -1188,12 +1176,8 @@ func (dg *dockerGoClient) ListPluginsWithFilters(enabled bool, capabilities []st
 	return filteredPluginNames, nil
 }
 
-func (dg *dockerGoClient) ListPlugins(timeout time.Duration) ListPluginsResponse {
-	// Create a context that times out after the 'timeout' duration
-	// Injecting the 'timeout' makes it easier to write tests.
-	// Eventually, the context should be initialized from a parent root context
-	// instead of TODO.
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration) ListPluginsResponse {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
