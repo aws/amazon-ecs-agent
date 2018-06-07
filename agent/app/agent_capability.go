@@ -19,6 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -210,6 +211,7 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 		seelog.Warnf("Scanning plugins failed: %v", err)
 		// do not return yet, we need the list of plugins below. range handles nil slice.
 	}
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+volume.DockerLocalVolumeDriver)
 
 	for _, pluginName := range nonStandardizedPlugins {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
