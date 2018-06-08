@@ -19,7 +19,14 @@ import (
 	"encoding/json"
 	"testing"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +75,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	assert.Equal(t, "local", dockerVolume.Driver)
 }
 
-func TestInitializeDockerLocalVolume(t *testing.T) {
+func TestInitializeDockerLocalDockerVolume(t *testing.T) {
 	testTask := &Task{
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers: []*apicontainer.Container{
@@ -86,12 +93,12 @@ func TestInitializeDockerLocalVolume(t *testing.T) {
 			{
 				Name:   "empty-volume-test",
 				Type:   "docker",
-				Volume: &taskresourcevolume.LocalVolume{},
+				Volume: &taskresourcevolume.LocalDockerVolume{},
 			},
 		},
 	}
 
-	testTask.initializeDockerLocalVolumes(nil)
+	testTask.initializeDockerLocalVolumes(nil, nil)
 
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")
@@ -127,8 +134,8 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{})
-	err := testTask.initializeDockerVolumes(dockerClient)
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{})
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
 
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
@@ -165,8 +172,8 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("volume not exist")})
-	err := testTask.initializeDockerVolumes(dockerClient)
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("volume not exist")})
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
 	assert.Error(t, err, "volume not found for auto-provisioned resource should cause task to fail")
 }
 
@@ -200,10 +207,10 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
 		DockerVolume: &docker.Volume{},
 	})
-	err := testTask.initializeDockerVolumes(dockerClient)
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
 
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
@@ -239,8 +246,8 @@ func TestInitializeSharedNonProvisionedVolumeNotFoundError(t *testing.T) {
 		},
 	}
 
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("not found")})
-	err := testTask.initializeDockerVolumes(dockerClient)
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("not found")})
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "volume resource should be provisioned by agent")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "volume resource should be in the container dependency map")
@@ -265,6 +272,7 @@ func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
 		},
 		Volumes: []TaskVolume{
 			{
+				Name: "shared-volume-test",
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
@@ -274,12 +282,12 @@ func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
 		},
 	}
 
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
 		DockerVolume: &docker.Volume{
 			Labels: map[string]string{"test": "test"},
 		},
 	})
-	err := testTask.initializeDockerVolumes(dockerClient)
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
 	assert.Error(t, err, "volume resource details not match should cause task fail")
 }
 
@@ -308,7 +316,7 @@ func TestInitializeTaskVolume(t *testing.T) {
 		},
 	}
 
-	err := testTask.initializeDockerVolumes(nil)
+	err := testTask.initializeDockerVolumes(nil, nil)
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")
