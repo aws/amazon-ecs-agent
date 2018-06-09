@@ -32,10 +32,11 @@ import (
 )
 
 const (
-	memorySubsystem         = "/memory"
-	memoryUseHierarchy      = "memory.use_hierarchy"
-	rootReadOnlyPermissions = os.FileMode(400)
-	resourceName            = "cgroup"
+	memorySubsystem           = "/memory"
+	memoryUseHierarchy        = "memory.use_hierarchy"
+	rootReadOnlyPermissions   = os.FileMode(400)
+	resourceName              = "cgroup"
+	resourceProvisioningError = "CgroupError: Agent could not create task's platform resources"
 )
 
 var (
@@ -80,6 +81,14 @@ func NewCgroupResource(taskARN string,
 	}
 	c.initializeResourceStatusToTransitionFunction()
 	return c
+}
+
+// GetTerminalReason returns an error string to propagate up through to task
+// state change messages
+func (cgroup *CgroupResource) GetTerminalReason() string {
+	// for cgroups we can send up a static string because this is an
+	// implementation detail and unrelated to customer resources
+	return resourceProvisioningError
 }
 
 func (cgroup *CgroupResource) initializeResourceStatusToTransitionFunction() {

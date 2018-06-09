@@ -1564,6 +1564,54 @@ func TestWaitForResourceTransition(t *testing.T) {
 	task.waitForTransition(transitions, transition, transitionChangeResource)
 }
 
+func TestEmitEventIfStatusChangedTerminal(t *testing.T) {
+
+	task := &apitask.Task{
+		Arn: "arn",
+	}
+
+	testReasonString := "task transitioned to stop"
+	task.SetTerminalReason(testReasonString)
+	task.SetKnownStatus(apitask.TaskStopped)
+
+	stateChangeEvents := make(chan statechange.Event)
+
+	mtask := &managedTask{
+		Task:              task,
+		stateChangeEvents: stateChangeEvents,
+	}
+
+	go mtask.emitEventIfStatusChanged(true)
+
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Reason, testReasonString)
+
+}
+
+func TestEmitEventIfStatusChangedNonTerminal(t *testing.T) {
+
+	task := &apitask.Task{
+		Arn: "arn",
+	}
+
+	testReasonString := "task transitioned to running"
+	task.SetTerminalReason(testReasonString)
+	task.SetKnownStatus(apitask.TaskRunning)
+
+	stateChangeEvents := make(chan statechange.Event)
+
+	mtask := &managedTask{
+		Task:              task,
+		stateChangeEvents: stateChangeEvents,
+	}
+
+	go mtask.emitEventIfStatusChanged(true)
+
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Reason, "")
+
+}
+
 func TestApplyResourceStateHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

@@ -105,6 +105,10 @@ func (c *CgroupResource) StatusString(status taskresource.ResourceStatus) string
 	return "undefined"
 }
 
+func (c *CgroupResource) GetTerminalReason() string {
+	return "undefined"
+}
+
 // MarshalJSON marshals CgroupResource object
 func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("unsupported platform")

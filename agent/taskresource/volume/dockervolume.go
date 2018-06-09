@@ -24,6 +24,8 @@ import (
 	"time"
 )
 
+const resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
+
 // VolumeResource represents volume resource
 type VolumeResource struct {
 	// Name is the name of docker volume
@@ -76,6 +78,12 @@ func NewVolumeResource(name string,
 		client: client,
 		ctx:    ctx,
 	}
+}
+
+// GetTerminalReason returns an error string to propagate up through to task
+// state change messages
+func (vol *VolumeResource) GetTerminalReason() string {
+	return resourceProvisioningError
 }
 
 // SetDesiredStatus safely sets the desired status of the resource

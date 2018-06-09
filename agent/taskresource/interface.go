@@ -67,6 +67,9 @@ type TaskResource interface {
 	SetAppliedStatus(status ResourceStatus) bool
 	// StatusString returns the string of the resource status
 	StatusString(status ResourceStatus) string
+	// GetTerminalReason returns string describing why the resource failed to
+	// provision
+	GetTerminalReason() string
 
 	json.Marshaler
 	json.Unmarshaler
