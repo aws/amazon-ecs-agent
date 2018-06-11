@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"regexp"
 	"runtime"
 	"testing"
 	"time"
@@ -574,12 +573,8 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	taskResources := task.getResourcesUnsafe()
 	assert.Equal(t, 2, len(taskResources), "Should have created 2 volume resources")
 
-	volumeNamePattern := "ecs-" + task.Family + "-" + task.Version + "-(" + emptyVolumeName1 + "|" + emptyVolumeName2 + ")-" + "[0-9a-fA-F]+"
 	for _, r := range taskResources {
 		vol := r.(*taskresourcevolume.VolumeResource)
-		matched, mErr := regexp.MatchString(volumeNamePattern, vol.DockerVolumeName)
-		assert.True(t, matched)
-		assert.NoError(t, mErr)
 		assert.Equal(t, "task", vol.VolumeConfig.Scope)
 		assert.Equal(t, false, vol.VolumeConfig.Autoprovision)
 		assert.Equal(t, "local", vol.VolumeConfig.Driver)

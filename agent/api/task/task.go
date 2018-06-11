@@ -304,8 +304,8 @@ func (task *Task) addTaskScopedVolumes(ctx context.Context, dockerClient dockera
 	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
-		volumeConfig.Name,
-		task.volumeName(volumeConfig.Name),
+		vol.Name,
+		task.volumeName(vol.Name),
 		volumeConfig.Scope, volumeConfig.Autoprovision,
 		volumeConfig.Driver, volumeConfig.DriverOpts,
 		volumeConfig.Labels, dockerClient)
@@ -326,7 +326,7 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
 	volumeConfig.DockerVolumeName = vol.Name
 	if volumeConfig.Autoprovision {
-		volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.Name, dockerapi.InspectContainerTimeout)
+		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectContainerTimeout)
 		if volumeMetadata.Error != nil {
 			return errors.Wrap(volumeMetadata.Error, "initialize volume: auto provisioned volume detection failed")
 		}
@@ -334,19 +334,22 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	}
 
 	// check if the volume configuration matches the one exists on the instance
-	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.Name, dockerapi.InspectVolumeTimeout)
+	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerapi.InspectVolumeTimeout)
 	if volumeMetadata.Error != nil {
-		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, volumeConfig.Name)
+		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, vol.Name)
 		// this resource should be created by agent
-		volumeResource := taskresourcevolume.NewVolumeResource(
+		volumeResource, err := taskresourcevolume.NewVolumeResource(
 			ctx,
-			volumeConfig.Name,
-			volumeConfig.Name,
+			vol.Name,
+			vol.Name,
 			volumeConfig.Scope, volumeConfig.Autoprovision,
 			volumeConfig.Driver, volumeConfig.DriverOpts,
 			volumeConfig.Labels, dockerClient)
+		if err != nil {
+			return err
+		}
 
-		task.AddResource(resourcetypes.DockerVolumeKey, volumeResource)
+		task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
 		task.updateContainerVolumeDependency(vol.Name)
 		return nil
 	}
@@ -369,7 +372,7 @@ func (task *Task) updateContainerVolumeDependency(name string) {
 		for _, mountpoint := range container.MountPoints {
 			if mountpoint.SourceVolume == name {
 				container.BuildResourceDependency(name,
-					taskresource.ResourceCreated,
+					resourcestatus.ResourceCreated,
 					apicontainer.ContainerPulled)
 			}
 		}

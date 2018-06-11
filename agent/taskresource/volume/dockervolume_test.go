@@ -173,8 +173,9 @@ func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
 }
 
 func TestMarshall(t *testing.T) {
-	volumeStr := "{\"name\":\"volumeName\",\"dockerVolumeName\":\"volumeName\"," +
-		"\"dockerVolumeConfiguration\":{\"scope\":\"shared\",\"autoprovision\":true,\"mountPoint\":\"\",\"driver\":\"driver\",\"driverOpts\":{},\"labels\":{}}," +
+	volumeStr := "{\"name\":\"volumeName\"," +
+		"\"dockerVolumeConfiguration\":{\"scope\":\"shared\",\"autoprovision\":true,\"mountPoint\":\"\",\"driver\":\"driver\",\"driverOpts\":{},\"labels\":{}," +
+		"\"dockerVolumeName\":\"volumeName\"}," +
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\"}"
 	name := "volumeName"
 	scope := "shared"
