@@ -16,6 +16,7 @@
 Description=ECS Agent
 Requires=docker.service
 After=docker.service
+After=cloud-final.service
 
 [Service]
 Type=simple
