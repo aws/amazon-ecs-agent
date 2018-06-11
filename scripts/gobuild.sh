@@ -44,8 +44,8 @@ else
 	if [[ "$1" != "" ]]; then
 		tags="-tags '$1'"
 	fi
-	CGO_ENABLED=0 go build -a ${tags} -x -ldflags '-s' \
-		   -ldflags "${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+	CGO_ENABLED=0 go build -a ${tags} -x \
+		   -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
 		   -o "${TOPWD}/amazon-ecs-init"
 fi
 rm -r "${BUILDDIR}"

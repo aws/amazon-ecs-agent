@@ -1,28 +1,113 @@
-.TH AMAZON-ECS-INIT 1 2015-04-20 AMAZON AMAZON-EC2-CONTAINER-SERVICE
+.\" Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+.\"
+.\" Licensed under the Apache License, Version 2.0 (the
+.\" "License"). You may not use this file except in compliance
+.\" with the License. A copy of the License is located at
+.\"
+.\"      http://aws.amazon.com/apache2.0/
+.\"
+.\" or in the "license" file accompanying this file. This file is
+.\" distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+.\" CONDITIONS OF ANY KIND, either express or implied. See the
+.\" License for the specific language governing permissions and
+.\" limitations under the License.
+.TH AMAZON-ECS-INIT 1 2018-06-01 AMAZON AMAZON-ELASTIC-CONTAINER-SERVICE
 .SH NAME
-amazon\-ecs\-init \- ecs\-init is a service which may be run to register an EC2 instance as an Amazon ECS Container Instance.
+amazon\-ecs\-init \- Elastic Container Service container agent supervisor
 .SH SYNOPSIS
 .B amazon\-ecs\-init
 .IR ACTION
 .SH DESCRIPTION
 .B amazon\-ecs\-init
-is software developed to support the Amazon ECS Container Agent (http://github.com/aws/amazon-ecs-agent).
-.B amazon\-ecs\-init
-is packaged for RPM-based systems that utilize Upstart (http://upstart.ubuntu.com) as the init system.
+supports the initialization and supervision of the Amazon ECS
+container agent (http://github.com/aws/amazon-ecs-agent), including
+configuration of cgroups, iptables, and required routes among its
+preparation steps.
 .SH ACTIONS
-.TP
+.TP 16
 .BR pre-start
-Prepare the ECS Agent for starting
-.TP
+Configure the system and load the ECS agent container image
+.TP 16
 .BR start
-Start the ECS Agent and wait for it to stop
-.TP
+Start the ECS agent container and wait for it to stop
+.TP 16
 .BR pre-stop
-Stop the ECS Agent
-.TP
+Stop the ECS agent container
+.TP 16
+.BR stop
+Stop the ECS agent container
+.TP 16
+.BR post-stop
+Cleanup system from ECS agent configuration
+.TP 16
 .BR reload-cache
-Reload the cached image of the ECS Agent into Docker
+Reload the cached ECS agent container image
+.SH INIT SYSTEM USAGE
+.B amazon\-ecs\-init
+is officially supported to run under systemd on Amazon Linux 2 and
+upstart on Amazon Linux 1.
+.SS SYSTEMD
+systemd units are expected to use the
+.BR ACTIONS
+.IR pre-start ,
+.IR start ,
+.IR stop ,
+and
+.IR post-stop
+to manage the lifecycle of the ECS agent.
+
+These \fBACTIONS\fR must be used in the [Service] section with the
+appropriate \fIExec\fP directives:
+.IP
+.nf
+# in ecs.service
+[Service]
+Type=simple
+ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
+ExecStart=/usr/libexec/amazon-ecs-init start
+ExecStop=/usr/libexec/amazon-ecs-init stop
+ExecStopPost=/usr/libexec/amazon-ecs-init post-stop
+.fi
+.SS UPSTART
+Upstart jobs are expected to use the
+.BR ACTIONS
+.IR pre-start ,
+.IR start ,
+.IR pre-stop ,
+and
+.IR post-stop
+to manage the lifecycle of the ECS agent.
+
+The directives in the upstart job must align with the above
+\fBACTIONS\fR:
+.IP
+.nf
+# in ecs.conf
+pre-start exec /usr/libexec/amazon-ecs-init pre-start
+exec /usr/libexec/amazon-ecs-init start
+pre-stop exec /usr/libexec/amazon-ecs-init pre-stop
+post-stop exec /usr/libexec/amazon-ecs-init post-stop
+.fi
+.SH TROUBLESHOOTING
+Troubleshooting guidance is provided in the online Amazon ECS
+documentation, please visit
+https://docs.aws.amazon.com/AmazonECS/latest/developerguide/troubleshooting.html
 .SH COPYRIGHT
-Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights
+Reserved.
 .SH LICENSE
 Licensed under the Apache License, Version 2.0.
+.SH NOTES
+.TP
+Amazon ECS Agent \- Documentation
+.nh
+https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html
+.TP
+Amazon ECS Agent \- Source Repository
+.nh
+https://github.com/aws/amazon-ecs-agent
+.TP
+Amazon ECS Init \- Source Repository
+.nh
+https://github.com/aws/amazon-ecs-init
+.TP
