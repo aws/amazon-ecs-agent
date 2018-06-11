@@ -1789,7 +1789,7 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 	volumeName := "vol"
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			res := &volume.VolumeResource{Name: volumeName, DockerVolumeName: volumeName}
+			res := &volume.VolumeResource{Name: volumeName}
 			res.SetKnownStatus(tc.ResKnownStatus)
 			res.SetDesiredStatus(tc.ResDesiredStatus)
 

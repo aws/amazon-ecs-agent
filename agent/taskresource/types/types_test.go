@@ -32,12 +32,12 @@ func TestMarshalUnmarshalVolumeResource(t *testing.T) {
 
 	volumes := []taskresource.TaskResource{
 		&volume.VolumeResource{
-			Name:             "test-volume",
-			DockerVolumeName: "test-volume-docker",
+			Name: "test-volume",
 			VolumeConfig: volume.DockerVolumeConfig{
-				Scope:         "task",
-				Autoprovision: true,
-				Driver:        "local",
+				DockerVolumeName: "test-volume-docker",
+				Scope:            "task",
+				Autoprovision:    true,
+				Driver:           "local",
 			},
 		},
 	}

@@ -98,7 +98,6 @@ func (tv *TaskVolume) unmarshalDockerVolume(data json.RawMessage) error {
 		return err
 	}
 
-	dockerVolumeConfig.Name = tv.Name
 	tv.Volume = &dockerVolumeConfig
 	return nil
 }

@@ -67,3 +67,249 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	assert.Equal(t, "task", dockerVolume.Scope)
 	assert.Equal(t, "local", dockerVolume.Driver)
 }
+
+func TestInitializeDockerLocalVolume(t *testing.T) {
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "empty-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name:   "empty-volume-test",
+				Type:   "docker",
+				Volume: &taskresourcevolume.LocalVolume{},
+			},
+		},
+	}
+
+	testTask.initializeDockerLocalVolumes(nil)
+
+	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")
+}
+
+func TestInitializeSharedProvisionedVolume(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: true,
+				},
+			},
+		},
+	}
+
+	// Expect the volume already exists on the instance
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{})
+	err := testTask.initializeDockerVolumes(dockerClient)
+
+	assert.NoError(t, err)
+	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
+}
+
+func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: true,
+				},
+			},
+		},
+	}
+
+	// Expect the volume already exists on the instance
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("volume not exist")})
+	err := testTask.initializeDockerVolumes(dockerClient)
+	assert.Error(t, err, "volume not found for auto-provisioned resource should cause task to fail")
+}
+
+func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: false,
+				},
+			},
+		},
+	}
+
+	// Expect the volume already exists on the instance
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+		DockerVolume: &docker.Volume{},
+	})
+	err := testTask.initializeDockerVolumes(dockerClient)
+
+	assert.NoError(t, err)
+	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
+}
+
+func TestInitializeSharedNonProvisionedVolumeNotFoundError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: false,
+				},
+			},
+		},
+	}
+
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("not found")})
+	err := testTask.initializeDockerVolumes(dockerClient)
+	assert.NoError(t, err)
+	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "volume resource should be provisioned by agent")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "volume resource should be in the container dependency map")
+}
+
+func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: false,
+				},
+			},
+		},
+	}
+
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+		DockerVolume: &docker.Volume{
+			Labels: map[string]string{"test": "test"},
+		},
+	})
+	err := testTask.initializeDockerVolumes(dockerClient)
+	assert.Error(t, err, "volume resource details not match should cause task fail")
+}
+
+func TestInitializeTaskVolume(t *testing.T) {
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "task-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "task-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope: "task",
+				},
+			},
+		},
+	}
+
+	err := testTask.initializeDockerVolumes(nil)
+	assert.NoError(t, err)
+	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")
+}
