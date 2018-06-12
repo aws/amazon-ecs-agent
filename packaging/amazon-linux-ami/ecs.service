@@ -20,6 +20,8 @@ After=cloud-final.service
 
 [Service]
 Type=simple
+Restart=on-failure
+RestartSec=10s
 ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
 ExecStart=/usr/libexec/amazon-ecs-init start
 ExecStop=/usr/libexec/amazon-ecs-init stop
