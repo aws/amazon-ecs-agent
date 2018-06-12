@@ -72,7 +72,7 @@ func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	return testTask
 }
 
-func createTestLocalVolumeMountTask(tmpPath string) *apitask.Task {
+func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask := createTestTask("testLocalHostVolumeMount")
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].Command = []string{`Write-Output "empty-data-volume" | Out-File -FilePath C:\host\tmp\hello-from-container -Encoding ascii`}
@@ -133,7 +133,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	defer done()
 
 	// creates a task with local volume
-	testTask := createTestLocalVolumeMountTask("TestLocalHostVolumeMount")
+	testTask := createTestLocalVolumeMountTask()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 
@@ -145,8 +145,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 0, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
 
-	assert.Contains(t, testTask.Volumes[0].Volume.SourcePath(), "C:\\ProgramData\\docker\\volumes")
-	data, err := ioutil.ReadFile(filepath.Join(testTask.Volumes[0].Volume.SourcePath(), "hello-from-container"))
+	data, err := ioutil.ReadFile(filepath.Join("c:\\ProgramData\\docker\\volumes", testTask.Volumes[0].Volume.SourcePath(), "_data", "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "empty-data-volume", strings.TrimSpace(string(data)), "Incorrect file contents")
 }

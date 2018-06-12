@@ -16,7 +16,6 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -356,27 +355,6 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.HostVolume, 
 		}
 	}
 	return nil, false
-}
-
-// UpdateMountPoints updates the mount points of volumes that were created
-// without specifying a host path.  This is used as part of the local driver
-// volume feature.
-func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
-	for _, mountPoint := range cont.MountPoints {
-		containerPath := getCanonicalPath(mountPoint.ContainerPath)
-		hostPath, ok := vols[containerPath]
-		if !ok {
-			// /path/ -> /path or \path\ -> \path
-			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
-		}
-		if ok {
-			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
-				if localVol, ok := hostVolume.(*taskresourcevolume.LocalVolume); ok {
-					localVol.HostPath = hostPath
-				}
-			}
-		}
-	}
 }
 
 // updateTaskKnownStatus updates the given task's status based on its container's status.
