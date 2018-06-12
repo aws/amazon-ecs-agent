@@ -93,7 +93,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	defer done()
 
 	// creates a task with local volume
-	testTask := createTestLocalVolumeMountTask("TestLocalHostVolumeMount")
+	testTask := createTestLocalVolumeMountTask()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 
@@ -105,13 +105,12 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 0, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
 
-	assert.Contains(t, testTask.Volumes[0].Volume.SourcePath(), "/var/lib/docker")
-	data, err := ioutil.ReadFile(filepath.Join(testTask.Volumes[0].Volume.SourcePath(), "hello-from-container"))
+	data, err := ioutil.ReadFile(filepath.Join("/var/lib/docker/volumes/", testTask.Volumes[0].Volume.SourcePath(), "/_data", "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "empty-data-volume", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
 
-func createTestLocalVolumeMountTask(tmpPath string) *apitask.Task {
+func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask := createTestTask("testLocalHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage

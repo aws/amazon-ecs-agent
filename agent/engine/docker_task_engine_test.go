@@ -1924,12 +1924,6 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			task := &apitask.Task{}
 
 			if tc.stage == "created" {
-				dockerContainer.Container.MountPoints = []apicontainer.MountPoint{
-					{
-						SourceVolume:  "empty",
-						ContainerPath: "container",
-					},
-				}
 				dockerContainer.DockerID = ""
 				task.Volumes = []apitask.TaskVolume{
 					{
@@ -1943,9 +1937,6 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 						Labels: labels,
 					},
 					Created: tc.created,
-					Volumes: map[string]string{
-						"container": "tmp",
-					},
 				}, nil)
 				imageManager.EXPECT().RecordContainerReference(dockerContainer.Container).AnyTimes()
 			} else {
@@ -1967,9 +1958,6 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			assert.Equal(t, tc.created, dockerContainer.Container.GetCreatedAt())
 			assert.Equal(t, tc.started, dockerContainer.Container.GetStartedAt())
 			assert.Equal(t, tc.finished, dockerContainer.Container.GetFinishedAt())
-			if tc.stage == "created" {
-				assert.Equal(t, "tmp", task.Volumes[0].Volume.SourcePath())
-			}
 			if tc.stage == "started" {
 				assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindingsUnsafe[0].ContainerPort)
 			}
