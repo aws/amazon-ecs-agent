@@ -39,10 +39,11 @@ import (
 )
 
 const (
-	dockerEndpoint      = "npipe:////./pipe/docker_engine"
-	testVolumeImage     = "amazon/amazon-ecs-volumes-test:make"
-	testRegistryImage   = "amazon/amazon-ecs-netkitten:make"
-	testHelloworldImage = "cggruszka/microsoft-windows-helloworld:latest"
+	dockerEndpoint              = "npipe:////./pipe/docker_engine"
+	testVolumeImage             = "amazon/amazon-ecs-volumes-test:make"
+	testRegistryImage           = "amazon/amazon-ecs-netkitten:make"
+	testHelloworldImage         = "cggruszka/microsoft-windows-helloworld:latest"
+	dockerVolumeDirectoryFormat = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
 )
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
@@ -108,6 +109,44 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	return testTask
 }
 
+func createVolumeTask(scope, arn, volume string, provisioned bool) (*apitask.Task, string, error) {
+	testTask := createTestTask(arn)
+	testTask.Volumes = []apitask.TaskVolume{
+		{
+			Type: "docker",
+			Name: volume,
+			Volume: &taskresourcevolume.DockerVolumeConfig{
+				Scope:         scope,
+				Autoprovision: provisioned,
+				Driver:        "local",
+			},
+		},
+	}
+
+	// Construct the volume path, windows doesn't support create a volume from local directory
+	err := os.MkdirAll(fmt.Sprintf(dockerVolumeDirectoryFormat, volume), 0666)
+	if err != nil {
+		return nil, "", err
+	}
+	volumePath := filepath.Join(fmt.Sprintf(dockerVolumeDirectoryFormat, volume), "volumecontent")
+	err = ioutil.WriteFile(volumePath, []byte("volume"), 0666)
+	if err != nil {
+		return nil, "", err
+	}
+
+	testTask.Containers[0].Image = testVolumeImage
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{
+		{
+			SourceVolume:  volume,
+			ContainerPath: "c:\\ecs",
+		},
+	}
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = []string{"$output = (cat c:\\ecs\\volumecontent); if ( $output -eq \"volume\" ) { Exit 0 } else { Exit 1 }"}
+	return testTask, volumePath, nil
+}
+
 // TODO Modify the container ip to localhost after the AMI has the required feature
 // https://github.com/docker/for-win/issues/204#issuecomment-352899657
 
@@ -145,7 +184,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 0, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
 
-	data, err := ioutil.ReadFile(filepath.Join("c:\\ProgramData\\docker\\volumes", testTask.Volumes[0].Volume.SourcePath(), "_data", "hello-from-container"))
+	data, err := ioutil.ReadFile(filepath.Join("c:\\ProgramData\\docker\\volumes", testTask.Volumes[0].Volume.Source(), "_data", "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "empty-data-volume", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
@@ -526,4 +565,37 @@ func TestVolumesFromRO(t *testing.T) {
 	assert.NotEqual(t, *testTask.Containers[1].GetKnownExitCode(), 0, "didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
 	assert.Equal(t, *testTask.Containers[2].GetKnownExitCode(), 0, "couldn't touch with default of rw")
 	assert.Equal(t, *testTask.Containers[3].GetKnownExitCode(), 0, "couldn't touch with explicit rw")
+}
+
+func TestTaskLevelVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", false)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	// modify the command of the container so that the container will write to the volume
+	testTask.Containers[0].Command = []string{"Write-Output \"volume\" | Out-File -FilePath C:\\ecs\\volumecontent -Encoding ascii"}
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
+
+	// Find the volume mount path
+	var sourceVolume string
+	for _, vol := range testTask.Containers[0].MountPoints {
+		if vol.ContainerPath == "c:\\ecs" {
+			sourceVolume = vol.SourceVolume
+		}
+	}
+	assert.NotEmpty(t, sourceVolume)
+
+	volumeFile := filepath.Join(fmt.Sprintf(dockerVolumeDirectoryFormat, sourceVolume), "volumecontent")
+	data, err := ioutil.ReadFile(volumeFile)
+	assert.NoError(t, err)
+	assert.Equal(t, string(data), "volume")
 }

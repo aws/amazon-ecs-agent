@@ -213,7 +213,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 	err = task.initializeDockerVolumes(dockerClient, ctx)
 	if err != nil {
-		return err
+		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
@@ -355,17 +355,17 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	}
 	// validate all the volume metadata fields match to the configuration
 	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
-		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existed volume labels: %s",
+		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: %s",
 			volumeMetadata.DockerVolume.Labels)
 	}
 	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
-		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existed volume options: %s",
+		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: %s",
 			volumeMetadata.DockerVolume.Options)
 	}
 	return nil
 }
 
-// updateContainerDesiredStatusUnsafe adds the volume resource to container dependency
+// updateContainerVolumeDependency adds the volume resource to container dependency
 func (task *Task) updateContainerVolumeDependency(name string) {
 	// Find all the container that depends on the volume
 	for _, container := range task.Containers {
