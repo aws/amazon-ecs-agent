@@ -171,7 +171,7 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 		},
 	}
 
-	// Expect the volume already exists on the instance
+	// Expect the volume does not exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("volume not exist")})
 	err := testTask.initializeDockerVolumes(dockerClient, nil)
 	assert.Error(t, err, "volume not found for auto-provisioned resource should cause task to fail")
@@ -201,6 +201,7 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
 					Autoprovision: false,
+					Labels:        map[string]string{"test": "test"},
 				},
 			},
 		},
@@ -208,7 +209,9 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 
 	// Expect the volume already exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
-		DockerVolume: &docker.Volume{},
+		DockerVolume: &docker.Volume{
+			Labels: map[string]string{"test": "test"},
+		},
 	})
 	err := testTask.initializeDockerVolumes(dockerClient, nil)
 
