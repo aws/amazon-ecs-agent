@@ -44,6 +44,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -275,7 +277,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildContainerDependency("pause", apicontainer.ContainerRunning, apicontainer.ContainerPulled)
+	sleepContainer.BuildContainerDependency("pause", apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled)
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
@@ -285,7 +287,6 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	pauseContainer.Memory = 10
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
-	pauseContainer.DesiredStatusUnsafe = apicontainer.ContainerRunning
 	sleepTask.Containers = append(sleepTask.Containers, pauseContainer)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	// containerEventsWG is used to force the test to wait until the container created and started
@@ -2124,4 +2125,39 @@ func TestContainerProgressParallize(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+}
+
+func TestSynchronizeResource(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+	state := dockerTaskEngine.State()
+	cgroupResource := mock_taskresource.NewMockTaskResource(ctrl)
+	testTask := testdata.LoadTask("sleep5")
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+		"cgroup": []taskresource.TaskResource{
+			cgroupResource,
+		},
+	}
+	// add the task to the state to simulate the agent restored the state on restart
+	state.AddTask(testTask)
+	cgroupResource.EXPECT().Initialize(gomock.Any())
+	cgroupResource.EXPECT().SetDesiredStatus(gomock.Any()).MaxTimes(1)
+	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(1)
+	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
+	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
+	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)
+	// Set the task to be stopped so that the process can done quickly
+	testTask.SetDesiredStatus(apitask.TaskStopped)
+	dockerTaskEngine.synchronizeState()
 }

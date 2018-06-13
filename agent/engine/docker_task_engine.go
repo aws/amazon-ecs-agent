@@ -285,6 +285,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	tasks := engine.state.AllTasks()
 	var tasksToStart []*apitask.Task
 	for _, task := range tasks {
+		task.InitializeResources(engine.resourceFields)
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
 			// task hasn't started processing, no need to check container status

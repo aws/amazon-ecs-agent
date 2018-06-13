@@ -114,3 +114,7 @@ func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 	return errors.New("unsupported platform")
 }
+
+// Initialize fills the resource fileds
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+}
