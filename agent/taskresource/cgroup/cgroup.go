@@ -284,11 +284,12 @@ func (cgroup *CgroupResource) Cleanup() error {
 
 // cgroupResourceJSON duplicates CgroupResource fields, only for marshalling and unmarshalling purposes
 type cgroupResourceJSON struct {
-	CgroupRoot      string        `json:"CgroupRoot"`
-	CgroupMountPath string        `json:"CgroupMountPath"`
-	CreatedAt       time.Time     `json:",omitempty"`
-	DesiredStatus   *CgroupStatus `json:"DesiredStatus"`
-	KnownStatus     *CgroupStatus `json:"KnownStatus"`
+	CgroupRoot      string               `json:"cgroupRoot"`
+	CgroupMountPath string               `json:"cgroupMountPath"`
+	CreatedAt       time.Time            `json:"createdAt,omitempty"`
+	DesiredStatus   *CgroupStatus        `json:"desiredStatus"`
+	KnownStatus     *CgroupStatus        `json:"knownStatus"`
+	LinuxSpec       specs.LinuxResources `json:"resourceSpec"`
 }
 
 // MarshalJSON marshals CgroupResource object using duplicate struct CgroupResourceJSON
@@ -310,6 +311,7 @@ func (cgroup *CgroupResource) MarshalJSON() ([]byte, error) {
 			status := CgroupStatus(knownState)
 			return &status
 		}(),
+		cgroup.resourceSpec,
 	})
 }
 
@@ -323,6 +325,7 @@ func (cgroup *CgroupResource) UnmarshalJSON(b []byte) error {
 
 	cgroup.cgroupRoot = temp.CgroupRoot
 	cgroup.cgroupMountPath = temp.CgroupMountPath
+	cgroup.resourceSpec = temp.LinuxSpec
 	if temp.DesiredStatus != nil {
 		cgroup.SetDesiredStatus(taskresource.ResourceStatus(*temp.DesiredStatus))
 	}
@@ -344,4 +347,14 @@ func (cgroup *CgroupResource) GetCgroupMountPath() string {
 	cgroup.lock.RLock()
 	defer cgroup.lock.RUnlock()
 	return cgroup.cgroupMountPath
+}
+
+// Initialize initializes the resource fileds in cgroup
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+	cgroup.lock.Lock()
+	defer cgroup.lock.Unlock()
+
+	cgroup.initializeResourceStatusToTransitionFunction()
+	cgroup.ioutil = resourceFields.IOUtil
+	cgroup.control = resourceFields.Control
 }

@@ -67,6 +67,8 @@ type TaskResource interface {
 	SetAppliedStatus(status ResourceStatus) bool
 	// StatusString returns the string of the resource status
 	StatusString(status ResourceStatus) string
+	// Initialize will initialze the resource fields of the resource
+	Initialize(*ResourceFields)
 
 	json.Marshaler
 	json.Unmarshaler

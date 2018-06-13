@@ -1213,3 +1213,17 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 	defer task.lock.Unlock()
 	task.ResourcesMapUnsafe[resourceType] = append(task.ResourcesMapUnsafe[resourceType], resource)
 }
+
+// InitializeResources initializes the required field in the task on agent restart
+// Some of the fields in task isn't saved in the agent state file, agent needs
+// to initialize these fields before processing the task, eg: docker client in resource
+func (task *Task) InitializeResources(resourceFields *taskresource.ResourceFields) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	for _, resources := range task.ResourcesMapUnsafe {
+		for _, resource := range resources {
+			resource.Initialize(resourceFields)
+		}
+	}
+}
