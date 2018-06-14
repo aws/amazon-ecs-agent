@@ -82,3 +82,36 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 			})
 	}
 }
+
+func TestCgroupMountpoint(t *testing.T) {
+	originalEnv := os.Getenv(cgroupMountpointEnv)
+	defer os.Setenv(cgroupMountpointEnv, originalEnv)
+
+	testcases := []struct {
+		name     string
+		env      string
+		expected string
+	}{
+		{
+			name:     "system default",
+			env:      "",
+			expected: cgroupMountpoint,
+		},
+		{
+			name:     "from environment",
+			env:      "/other/mountpoint/cgroup",
+			expected: "/other/mountpoint/cgroup",
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			os.Setenv(cgroupMountpointEnv, testcase.env)
+
+			actual := CgroupMountpoint()
+			if actual != testcase.expected {
+				t.Errorf("Expected CgroupMountpoint to be %q, was %q", testcase.expected, actual)
+			}
+		})
+	}
+}
